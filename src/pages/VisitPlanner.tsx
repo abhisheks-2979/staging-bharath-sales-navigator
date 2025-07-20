@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Check, MapPin, Phone, Store, Plus } from "lucide-react";
+import { Check, MapPin, Phone, Store, Plus, BarChart3, Calendar } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
+import { RetailerAnalytics } from "@/components/RetailerAnalytics";
 
 interface Retailer {
   id: string;
@@ -13,9 +14,14 @@ interface Retailer {
   type: string;
   phone: string;
   address: string;
-  lastVisit?: string;
+  lastVisitDate?: string;
   isSelected: boolean;
   priority?: "high" | "medium" | "low";
+  metrics: {
+    avgOrders3Months: number;
+    avgOrderPerVisit: number;
+    visitsIn3Months: number;
+  };
 }
 
 const mockRetailers: Retailer[] = [
@@ -25,9 +31,14 @@ const mockRetailers: Retailer[] = [
     type: "Retailers",
     phone: "9955551112",
     address: "MG Road, Bangalore",
-    lastVisit: "2 days ago",
+    lastVisitDate: "2024-07-18",
     isSelected: false,
-    priority: "high"
+    priority: "high",
+    metrics: {
+      avgOrders3Months: 28500,
+      avgOrderPerVisit: 4250,
+      visitsIn3Months: 8
+    }
   },
   {
     id: "2", 
@@ -35,9 +46,14 @@ const mockRetailers: Retailer[] = [
     type: "Retailers",
     phone: "9516584711",
     address: "Commercial Street, Bangalore",
-    lastVisit: "1 week ago",
+    lastVisitDate: "2024-07-13",
     isSelected: true,
-    priority: "medium"
+    priority: "medium",
+    metrics: {
+      avgOrders3Months: 18200,
+      avgOrderPerVisit: 3640,
+      visitsIn3Months: 5
+    }
   },
   {
     id: "3",
@@ -45,9 +61,14 @@ const mockRetailers: Retailer[] = [
     type: "Small and Medium Businesses",
     phone: "9926963147",
     address: "34 A, Kharghar, Navi Mumbai, Maharashtra",
-    lastVisit: "3 days ago",
+    lastVisitDate: "2024-07-17",
     isSelected: true,
-    priority: "high"
+    priority: "high",
+    metrics: {
+      avgOrders3Months: 45600,
+      avgOrderPerVisit: 5700,
+      visitsIn3Months: 10
+    }
   },
   {
     id: "4",
@@ -55,9 +76,14 @@ const mockRetailers: Retailer[] = [
     type: "Retailers", 
     phone: "9901050678",
     address: "HSR Layout, Bangalore",
-    lastVisit: "5 days ago",
+    lastVisitDate: "2024-07-15",
     isSelected: false,
-    priority: "low"
+    priority: "low",
+    metrics: {
+      avgOrders3Months: 12300,
+      avgOrderPerVisit: 2460,
+      visitsIn3Months: 4
+    }
   },
   {
     id: "5",
@@ -66,7 +92,12 @@ const mockRetailers: Retailer[] = [
     phone: "9926612072", 
     address: "Indiranagar, Bangalore",
     isSelected: false,
-    priority: "medium"
+    priority: "medium",
+    metrics: {
+      avgOrders3Months: 21800,
+      avgOrderPerVisit: 3630,
+      visitsIn3Months: 6
+    }
   },
   {
     id: "6",
@@ -74,15 +105,21 @@ const mockRetailers: Retailer[] = [
     type: "Retailers",
     phone: "8986122228",
     address: "Koramangala, Bangalore", 
-    lastVisit: "1 day ago",
+    lastVisitDate: "2024-07-19",
     isSelected: true,
-    priority: "high"
+    priority: "high",
+    metrics: {
+      avgOrders3Months: 52400,
+      avgOrderPerVisit: 6550,
+      visitsIn3Months: 9
+    }
   }
 ];
 
 export const VisitPlanner = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [retailers, setRetailers] = useState<Retailer[]>(mockRetailers);
+  const [selectedAnalyticsRetailer, setSelectedAnalyticsRetailer] = useState<Retailer | null>(null);
 
   const filteredRetailers = retailers.filter(retailer =>
     retailer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -199,11 +236,44 @@ export const VisitPlanner = () => {
                         <span>{retailer.address}</span>
                       </div>
                       
-                      {retailer.lastVisit && (
-                        <div className="text-xs text-muted-foreground">
-                          Last visit: {retailer.lastVisit}
+                      {retailer.lastVisitDate && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Calendar size={12} />
+                          <span>Last visit: {new Date(retailer.lastVisitDate).toLocaleDateString()}</span>
                         </div>
                       )}
+                    </div>
+
+                    {/* Performance Metrics */}
+                    <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t">
+                      <div className="text-center">
+                        <p className="text-xs font-semibold text-primary">₹{(retailer.metrics.avgOrders3Months/1000).toFixed(0)}K</p>
+                        <p className="text-xs text-muted-foreground">3M Avg</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-semibold text-primary">₹{(retailer.metrics.avgOrderPerVisit/1000).toFixed(1)}K</p>
+                        <p className="text-xs text-muted-foreground">Per Visit</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-semibold text-primary">{retailer.metrics.visitsIn3Months}</p>
+                        <p className="text-xs text-muted-foreground">Visits</p>
+                      </div>
+                    </div>
+
+                    {/* Analytics Button */}
+                    <div className="flex justify-end mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAnalyticsRetailer(retailer);
+                        }}
+                        className="text-xs h-7"
+                      >
+                        <BarChart3 size={12} className="mr-1" />
+                        Analytics
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -228,6 +298,14 @@ export const VisitPlanner = () => {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Analytics Modal */}
+        {selectedAnalyticsRetailer && (
+          <RetailerAnalytics
+            retailer={selectedAnalyticsRetailer}
+            onClose={() => setSelectedAnalyticsRetailer(null)}
+          />
         )}
       </div>
     </Layout>
