@@ -1,13 +1,154 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Calendar, MapPin, Target, TrendingUp, Users } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Layout } from "@/components/Layout";
 
 const Index = () => {
+  const todayStats = {
+    plannedVisits: 4,
+    completedVisits: 1,
+    totalRevenue: "₹18,650",
+    newOrders: 3
+  };
+
+  const upcomingVisits = [
+    {
+      retailer: "Sham Kirana and General Stores",
+      time: "2:00 PM",
+      status: "Negotiation",
+      priority: "high"
+    },
+    {
+      retailer: "Balaji Kiranad", 
+      time: "4:00 PM",
+      status: "Follow-up",
+      priority: "medium"
+    }
+  ];
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <Layout>
+      <div className="p-4 space-y-6">
+        {/* Welcome Section */}
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl font-bold">
+              Good Afternoon, Sales Executive! 👋
+            </CardTitle>
+            <p className="text-primary-foreground/80">
+              You have {todayStats.plannedVisits} visits planned for today
+            </p>
+          </CardHeader>
+        </Card>
+
+        {/* Today's Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="shadow-card">
+            <CardContent className="p-4 text-center">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Target className="text-primary" size={24} />
+              </div>
+              <div className="text-2xl font-bold text-primary">{todayStats.completedVisits}/{todayStats.plannedVisits}</div>
+              <div className="text-sm text-muted-foreground">Visits Today</div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardContent className="p-4 text-center">
+              <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                <TrendingUp className="text-success" size={24} />
+              </div>
+              <div className="text-2xl font-bold text-success">{todayStats.totalRevenue}</div>
+              <div className="text-sm text-muted-foreground">Revenue Today</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Actions */}
+        <Card className="shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3">
+            <NavLink to="/visit-planner">
+              <Button variant="outline" className="w-full h-12 justify-start">
+                <MapPin size={18} className="mr-2" />
+                Plan Visits
+              </Button>
+            </NavLink>
+            
+            <NavLink to="/visits">
+              <Button variant="outline" className="w-full h-12 justify-start">
+                <Calendar size={18} className="mr-2" />
+                My Visits
+              </Button>
+            </NavLink>
+            
+            <Button variant="outline" className="w-full h-12 justify-start">
+              <Users size={18} className="mr-2" />
+              Retailers
+            </Button>
+            
+            <Button variant="outline" className="w-full h-12 justify-start">
+              <TrendingUp size={18} className="mr-2" />
+              Analytics
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Visits */}
+        <Card className="shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Upcoming Visits Today</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {upcomingVisits.map((visit, index) => (
+              <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-sm">{visit.retailer}</h4>
+                  <p className="text-xs text-muted-foreground">{visit.time}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    className={visit.priority === "high" 
+                      ? "bg-destructive text-destructive-foreground" 
+                      : "bg-warning text-warning-foreground"
+                    }
+                  >
+                    {visit.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+            
+            <NavLink to="/visits">
+              <Button variant="outline" className="w-full mt-3">
+                View All Visits
+              </Button>
+            </NavLink>
+          </CardContent>
+        </Card>
+
+        {/* Performance Insight */}
+        <Card className="shadow-card border-l-4 border-l-success">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-success/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="text-success" size={20} />
+              </div>
+              <div>
+                <h4 className="font-semibold text-sm">Great Progress!</h4>
+                <p className="text-sm text-muted-foreground">
+                  You're ahead of your monthly target by 12%. Keep up the excellent work!
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </Layout>
   );
 };
 
