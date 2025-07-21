@@ -13,7 +13,7 @@ export default class RetailerAnalytics extends LightningElement {
 
     enrolledSchemes = [
         { name: 'Volume Discount Program', isActive: true, enrolledDate: '2023-08-15' },
-        { name: 'Seasonal Promotion', isActive: true, enrolledDate: '2023-11-01' },
+          { name: 'Seasonal Promotion', isActive: true, enrolledDate: '2023-11-01' },
         { name: 'New Product Launch', isActive: false, enrolledDate: '2023-06-10' }
     ];
 
