@@ -107,10 +107,12 @@ const Index = () => {
               </Button>
             </NavLink>
             
-            <Button variant="outline" className="w-full h-12 justify-start">
-              <Users size={18} className="mr-2" />
-              Retailers
-            </Button>
+            <NavLink to="/retailers">
+              <Button variant="outline" className="w-full h-12 justify-start">
+                <Users size={18} className="mr-2" />
+                Retailers
+              </Button>
+            </NavLink>
             
             <Button variant="outline" className="w-full h-12 justify-start">
               <TrendingUp size={18} className="mr-2" />
