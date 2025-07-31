@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Layout } from "@/components/Layout";
 
 const Index = () => {
@@ -32,15 +33,35 @@ const Index = () => {
     <Layout>
       <div className="p-4 space-y-6">
         {/* Welcome Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-muted-foreground text-sm">Hello,</div>
+            <Avatar className="h-16 w-16">
+              <AvatarImage src="/placeholder.svg" alt="James" />
+              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-lg font-semibold">J</AvatarFallback>
+            </Avatar>
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-4">Hi James</h1>
+        </div>
+
+        {/* Beat Information Card */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-xl font-bold">
-              Good Afternoon, Sales Executive! 👋
-            </CardTitle>
-            <p className="text-primary-foreground/80">
-              You have {todayStats.plannedVisits} visits planned for today
-            </p>
-          </CardHeader>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold mb-2">M.G. Road Beat</h3>
+                <div className="space-y-1 text-primary-foreground/90 text-sm">
+                  <p>You have planned to visit M.G. Road Beat and there are 40 retailers.</p>
+                  <p>Last visited date was July 15, 2025 and the average productive visit is 22 retailers and revenue per visit from this beat is Rs. 5,585.</p>
+                </div>
+              </div>
+              <div className="ml-4">
+                <div className="text-right">
+                  <MapPin className="text-primary-foreground/70" size={24} />
+                </div>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Today's Stats */}
