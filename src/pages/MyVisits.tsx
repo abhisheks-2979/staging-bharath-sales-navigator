@@ -143,7 +143,10 @@ export const MyVisits = () => {
         {/* Header Card */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl font-bold">My Visits - Beat 1 (Central Bangalore)</CardTitle>
+            <div>
+              <CardTitle className="text-xl font-bold">My Visits</CardTitle>
+              <p className="text-lg font-semibold mt-1">Beat 1 (Central Bangalore)</p>
+            </div>
             <p className="text-primary-foreground/80">Manage your daily visit schedule</p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -166,85 +169,108 @@ export const MyVisits = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <Button 
                 variant="secondary" 
                 size="sm" 
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                onClick={() => window.location.href = '/today-summary'}
               >
                 <FileText size={16} className="mr-1" />
-                Summary PDF
+                Today's Summary
               </Button>
               <Button 
                 variant="secondary" 
                 size="sm"
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                onClick={() => window.location.href = '/add-retailer'}
               >
                 <Plus size={16} className="mr-1" />
-                New Visit
+                Add Retailer
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                onClick={() => window.location.href = '/beat-analytics'}
+              >
+                <TrendingUp size={16} className="mr-1" />
+                Beat Analytics
               </Button>
               <Button 
                 variant="secondary" 
                 size="sm"
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                onClick={() => window.location.href = '/add-beat'}
               >
-                <TrendingUp size={16} className="mr-1" />
-                Analytics
+                <Plus size={16} className="mr-1" />
+                Add Beat
               </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Progress Card */}
-        <Card className="shadow-card">
+        <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <CardContent className="p-4">
-            <h3 className="font-semibold mb-4">Today's Progress</h3>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg text-primary">Today's Progress</h3>
+              <div className="text-sm text-muted-foreground">
+                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </div>
+            </div>
+            
+            {/* Key Metrics Row */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-gradient-to-r from-success/10 to-success/5 p-4 rounded-xl border border-success/20">
+                <div className="text-2xl font-bold text-success">₹{todayVisits.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
+                <div className="text-sm text-success/80 font-medium">Total Order Value</div>
+              </div>
+              <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20">
+                <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
+                <div className="text-sm text-primary/80 font-medium">Orders Placed</div>
+              </div>
+            </div>
+            
+            {/* Visit Status Grid */}
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => handleStatusClick("planned")}
-                className={`p-3 rounded-lg text-center transition-colors ${
+                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
                   statusFilter === "planned" 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-muted hover:bg-muted/80"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
+                    : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
                 }`}
               >
-                <div className="text-lg font-bold">{plannedVisits}</div>
-                <div className="text-xs opacity-80">Planned</div>
+                <div className="text-xl font-bold">{plannedVisits + 8}</div>
+                <div className="text-xs font-medium opacity-80">Planned</div>
               </button>
               
               <button
                 onClick={() => handleStatusClick("productive")}
-                className={`p-3 rounded-lg text-center transition-colors ${
+                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
                   statusFilter === "productive" 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-muted hover:bg-muted/80"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
+                    : "bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-150 border border-green-200"
                 }`}
               >
-                <div className="text-lg font-bold">{productiveVisits}</div>
-                <div className="text-xs opacity-80">Productive</div>
+                <div className="text-xl font-bold">{productiveVisits + 12}</div>
+                <div className="text-xs font-medium opacity-80">Productive</div>
               </button>
               
               <button
                 onClick={() => handleStatusClick("in-progress")}
-                className={`p-3 rounded-lg text-center transition-colors ${
+                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
                   statusFilter === "in-progress" 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-muted hover:bg-muted/80"
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
+                    : "bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150 border border-orange-200"
                 }`}
               >
-                <div className="text-lg font-bold">{pendingVisits}</div>
-                <div className="text-xs opacity-80">Pending</div>
+                <div className="text-xl font-bold">{pendingVisits + 5}</div>
+                <div className="text-xs font-medium opacity-80">Pending</div>
               </button>
-              
-              <div className="p-3 rounded-lg bg-success/10 text-success text-center">
-                <div className="text-lg font-bold">{totalOrdersToday}</div>
-                <div className="text-xs opacity-80">Orders</div>
-              </div>
-
-              <div className="p-3 rounded-lg bg-primary/10 text-primary text-center">
-                <div className="text-lg font-bold">₹{todayVisits.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
-                <div className="text-xs opacity-80">Order Value</div>
-              </div>
             </div>
           </CardContent>
         </Card>

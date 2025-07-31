@@ -223,10 +223,10 @@ export const OrderEntry = () => {
             {/* No Order Section */}
             <div className="space-y-2">
               <Select value={noOrderReason} onValueChange={setNoOrderReason}>
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8 bg-background">
                   <SelectValue placeholder="Select reason for no order" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border z-50">
                   <SelectItem value="overstocked">Over stocked</SelectItem>
                   <SelectItem value="owner-not-available">The owner not available</SelectItem>
                   <SelectItem value="store-closed">Store closed</SelectItem>

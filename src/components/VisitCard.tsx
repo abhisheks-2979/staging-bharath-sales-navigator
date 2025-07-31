@@ -89,7 +89,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   };
 
   return (
-    <Card className="shadow-card hover:shadow-lg transition-shadow">
+    <Card className="shadow-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 bg-gradient-to-r from-card to-card/50">
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
