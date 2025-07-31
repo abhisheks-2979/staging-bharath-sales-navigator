@@ -93,17 +93,17 @@ const Index = () => {
             <CardTitle className="text-lg">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <NavLink to="/visit-planner">
+            <NavLink to="/visits">
               <Button variant="outline" className="w-full h-12 justify-start">
                 <MapPin size={18} className="mr-2" />
-                Plan Visits
+                Beat Plan
               </Button>
             </NavLink>
             
-            <NavLink to="/visits">
+            <NavLink to="/visits/retailers">
               <Button variant="outline" className="w-full h-12 justify-start">
                 <Calendar size={18} className="mr-2" />
-                My Visits
+                Today's Visit
               </Button>
             </NavLink>
             
