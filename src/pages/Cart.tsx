@@ -1,0 +1,263 @@
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Trash2, Gift, ShoppingCart } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
+
+interface CartItem {
+  id: string;
+  name: string;
+  category: string;
+  rate: number;
+  unit: string;
+  quantity: number;
+  total: number;
+}
+
+interface CartScheme {
+  type: "value" | "quantity";
+  condition: number;
+  discount: number;
+  description: string;
+}
+
+const cartSchemes: CartScheme[] = [
+  {
+    type: "value",
+    condition: 5000,
+    discount: 5,
+    description: "5% off on orders above ₹5,000"
+  },
+  {
+    type: "value",
+    condition: 10000,
+    discount: 10,
+    description: "10% off on orders above ₹10,000"
+  }
+];
+
+// Mock cart data - in real app this would come from state management
+const mockCartItems: CartItem[] = [
+  {
+    id: "1",
+    name: "Premium Rice 25kg",
+    category: "Rice & Grains",
+    rate: 1200,
+    unit: "bag",
+    quantity: 3,
+    total: 3600
+  },
+  {
+    id: "3",
+    name: "Sunflower Oil 1L",
+    category: "Oil & Ghee",
+    rate: 120,
+    unit: "bottle",
+    quantity: 12,
+    total: 1440
+  }
+];
+
+export const Cart = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const visitId = searchParams.get("visitId");
+  const retailerName = searchParams.get("retailer") || "Retailer Name";
+
+  const [cartItems, setCartItems] = React.useState<CartItem[]>(mockCartItems);
+
+  const removeFromCart = (productId: string) => {
+    setCartItems(prev => prev.filter(item => item.id !== productId));
+    toast({
+      title: "Item Removed",
+      description: "Item removed from cart"
+    });
+  };
+
+  const updateQuantity = (productId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+
+    setCartItems(prev => prev.map(item => 
+      item.id === productId 
+        ? { ...item, quantity: newQuantity, total: item.rate * newQuantity }
+        : item
+    ));
+  };
+
+  const getTotalValue = () => {
+    return cartItems.reduce((sum, item) => sum + item.total, 0);
+  };
+
+  const getApplicableScheme = () => {
+    const totalValue = getTotalValue();
+    return cartSchemes
+      .filter(scheme => totalValue >= scheme.condition)
+      .sort((a, b) => b.discount - a.discount)[0];
+  };
+
+  const getFinalTotal = () => {
+    const total = getTotalValue();
+    const scheme = getApplicableScheme();
+    if (scheme) {
+      return total - (total * scheme.discount / 100);
+    }
+    return total;
+  };
+
+  const handleSubmitOrder = () => {
+    if (cartItems.length === 0) {
+      toast({
+        title: "Empty Cart",
+        description: "Please add items to cart before submitting",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Order Submitted",
+      description: `Order for ${retailerName} submitted successfully!`
+    });
+    
+    navigate(`/visits/retailers`);
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4 space-y-4">
+        {/* Header */}
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}`)}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft size={20} />
+              </Button>
+              <div>
+                <CardTitle className="text-lg">Cart</CardTitle>
+                <p className="text-primary-foreground/80">{retailerName}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={20} />
+              <Badge variant="secondary">{cartItems.length} items</Badge>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Cart Items */}
+        {cartItems.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <ShoppingCart size={48} className="mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Your cart is empty</p>
+              <Button 
+                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}`)}
+                className="mt-4"
+              >
+                Continue Shopping
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {cartItems.map(item => (
+                <Card key={item.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        <p className="text-sm text-muted-foreground">{item.category}</p>
+                        <p className="text-sm font-medium">₹{item.rate}/{item.unit}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeFromCart(item.id)}
+                        className="text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        >
+                          -
+                        </Button>
+                        <span className="w-12 text-center">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        >
+                          +
+                        </Button>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">₹{item.total.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Order Summary */}
+            <Card className="sticky bottom-4">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span className="font-bold">₹{getTotalValue().toLocaleString()}</span>
+                </div>
+
+                {getApplicableScheme() && (
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Gift size={16} className="text-green-600" />
+                      <p className="text-sm font-medium text-green-700">Scheme Applied!</p>
+                    </div>
+                    <p className="text-xs text-green-600">{getApplicableScheme()?.description}</p>
+                    <div className="flex justify-between text-sm mt-2">
+                      <span>Discount:</span>
+                      <span className="text-green-600 font-medium">
+                        -₹{(getTotalValue() - getFinalTotal()).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between text-lg font-bold border-t pt-3">
+                  <span>Total:</span>
+                  <span>₹{getFinalTotal().toLocaleString()}</span>
+                </div>
+
+                <Button 
+                  onClick={handleSubmitOrder}
+                  className="w-full"
+                  size="lg"
+                >
+                  Submit Order
+                </Button>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};

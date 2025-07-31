@@ -122,41 +122,42 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-4 gap-2">
           <Button 
             size="sm" 
-            className={`${getCheckInButtonColor(visit.checkInStatus)} text-xs`}
+            className={`${getCheckInButtonColor(visit.checkInStatus)} p-2 h-10`}
+            title={getCheckInButtonText(visit.checkInStatus, visit.time)}
           >
-            {getCheckInButtonText(visit.checkInStatus, visit.time)}
+            <MapPin size={16} />
           </Button>
           
           <Button 
             variant={visit.hasOrder ? "default" : "outline"}
             size="sm"
-            className={`text-xs ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
+            className={`p-2 h-10 ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
             onClick={() => navigate(`/order-entry?visitId=${visit.id}&retailer=${visit.retailerName}`)}
+            title={`Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}
           >
-            <ShoppingCart size={12} className="mr-1" />
-            Order{visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}
+            <ShoppingCart size={16} />
           </Button>
           
           <Button 
             variant={visit.noOrderReason ? "destructive" : "outline"}
             size="sm"
-            className="text-xs"
+            className="p-2 h-10"
+            title={`No-order${visit.noOrderReason ? ` (${visit.noOrderReason.replace(/-/g, ' ')})` : ""}`}
           >
-            <XCircle size={12} className="mr-1" />
-            No-order{visit.noOrderReason ? ` (${visit.noOrderReason.replace(/-/g, ' ')})` : ""}
+            <XCircle size={16} />
           </Button>
           
           <Button 
             variant="outline" 
             size="sm"
-            className="text-xs"
+            className="p-2 h-10"
             onClick={() => onViewDetails(visit.id)}
+            title="Analytics"
           >
-            <BarChart3 size={12} className="mr-1" />
-            Analytics
+            <BarChart3 size={16} />
           </Button>
         </div>
       </CardContent>
