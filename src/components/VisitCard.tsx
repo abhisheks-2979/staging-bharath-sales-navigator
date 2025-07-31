@@ -1,4 +1,4 @@
-import { Clock, MapPin, Phone, Store } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,10 +8,12 @@ interface Visit {
   retailerName: string;
   address: string;
   phone: string;
-  accountType: string;
-  status: "planned" | "in-progress" | "completed" | "not-started";
+  retailerCategory: string;
+  status: "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
   visitType: string;
   time?: string;
+  checkInStatus?: "not-checked-in" | "checked-in-correct" | "checked-in-wrong-location";
+  hasOrder?: boolean;
 }
 
 interface VisitCardProps {
@@ -22,12 +24,18 @@ interface VisitCardProps {
 export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed":
+      case "productive":
         return "bg-success text-success-foreground";
       case "in-progress":
         return "bg-warning text-warning-foreground";
       case "planned":
         return "bg-primary text-primary-foreground";
+      case "unproductive":
+        return "bg-destructive text-destructive-foreground";
+      case "store-closed":
+        return "bg-muted text-muted-foreground";
+      case "cancelled":
+        return "bg-muted text-muted-foreground";
       default:
         return "bg-muted text-muted-foreground";
     }
@@ -35,14 +43,43 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "completed":
-        return "Completed";
+      case "productive":
+        return "Productive";
       case "in-progress":
         return "In Progress";
       case "planned":
         return "Planned";
+      case "unproductive":
+        return "Unproductive";
+      case "store-closed":
+        return "Store Closed";
+      case "cancelled":
+        return "Cancelled";
       default:
         return "Not Started";
+    }
+  };
+
+  const getCheckInButtonColor = (checkInStatus?: string) => {
+    switch (checkInStatus) {
+      case "checked-in-correct":
+        return "bg-success text-success-foreground hover:bg-success/90";
+      case "checked-in-wrong-location":
+        return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+      default:
+        return "bg-muted text-muted-foreground hover:bg-muted/80";
+    }
+  };
+
+  const getCheckInButtonText = (checkInStatus?: string, time?: string) => {
+    const timeText = time ? ` (${time})` : "";
+    switch (checkInStatus) {
+      case "checked-in-correct":
+        return `Checked In${timeText}`;
+      case "checked-in-wrong-location":
+        return `Wrong Location${timeText}`;
+      default:
+        return `Check-In${timeText}`;
     }
   };
 
@@ -54,7 +91,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             <h3 className="font-semibold text-card-foreground">{visit.retailerName}</h3>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
               <Store size={14} />
-              <span>{visit.accountType}</span>
+              <span>{visit.retailerCategory}</span>
             </div>
           </div>
           <Badge className={getStatusColor(visit.status)}>
@@ -68,33 +105,49 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             <span className="line-clamp-2">{visit.address}</span>
           </div>
           
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Phone size={14} />
-            <span>{visit.phone}</span>
-          </div>
-
-          {visit.time && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock size={14} />
-              <span>{visit.time}</span>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Phone size={14} />
+              <span>{visit.phone}</span>
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Button 
+            size="sm" 
+            className={`${getCheckInButtonColor(visit.checkInStatus)} text-xs`}
+          >
+            {getCheckInButtonText(visit.checkInStatus, visit.time)}
+          </Button>
+          
           <Button 
             variant="outline" 
-            size="sm" 
-            className="flex-1"
+            size="sm"
+            className="text-xs"
+          >
+            <ShoppingCart size={14} className="mr-1" />
+            Order
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-xs"
+          >
+            <XCircle size={14} className="mr-1" />
+            No-order
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-xs"
             onClick={() => onViewDetails(visit.id)}
           >
-            View Details
+            <BarChart3 size={14} className="mr-1" />
+            Analytics
           </Button>
-          {visit.status === "planned" && (
-            <Button size="sm" className="flex-1">
-              Check-In
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>
