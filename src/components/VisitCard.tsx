@@ -2,6 +2,7 @@ import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3 } from "lucide-r
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 
 interface Visit {
   id: string;
@@ -25,6 +26,7 @@ interface VisitCardProps {
 }
 
 export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
+  const navigate = useNavigate();
   const getStatusColor = (status: string) => {
     switch (status) {
       case "productive":
@@ -132,6 +134,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             variant={visit.hasOrder ? "default" : "outline"}
             size="sm"
             className={`text-xs ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
+            onClick={() => navigate(`/order-entry?visitId=${visit.id}&retailer=${visit.retailerName}`)}
           >
             <ShoppingCart size={12} className="mr-1" />
             Order{visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}

@@ -8,6 +8,7 @@ import { VisitPlanner } from "./pages/VisitPlanner";
 import { BeatPlanning } from "./pages/BeatPlanning";
 import { MyVisits } from "./pages/MyVisits";
 import { VisitDetail } from "./pages/VisitDetail";
+import { OrderEntry } from "./pages/OrderEntry";
 import { Retailers } from "./pages/Retailers";
 import NotFound from "./pages/NotFound";
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/visit-planner" element={<VisitPlanner />} />
           <Route path="/visits" element={<BeatPlanning />} />
           <Route path="/visits/retailers" element={<MyVisits />} />
+          <Route path="/order-entry" element={<OrderEntry />} />
           <Route path="/retailers" element={<Retailers />} />
           <Route path="/visit/:id" element={<VisitDetail />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
