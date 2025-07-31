@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Grid3X3, Table } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { TableOrderForm } from "@/components/TableOrderForm";
 
 interface Product {
   id: string;
@@ -93,6 +94,7 @@ export const OrderEntry = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
+  const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
 
   const filteredProducts = selectedCategory === "All" 
     ? mockProducts 
@@ -144,8 +146,20 @@ export const OrderEntry = () => {
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+  const handleBulkCartUpdate = (items: CartItem[]) => {
+    setCart(prev => {
+      const newCart = [...prev];
+      items.forEach(item => {
+        const existingIndex = newCart.findIndex(cartItem => cartItem.id === item.id);
+        if (existingIndex >= 0) {
+          newCart[existingIndex].quantity += item.quantity;
+          newCart[existingIndex].total += item.total;
+        } else {
+          newCart.push(item);
+        }
+      });
+      return newCart;
+    });
   };
 
   const getTotalItems = () => {
@@ -180,7 +194,35 @@ export const OrderEntry = () => {
           </CardHeader>
         </Card>
 
-        {/* Category Tabs */}
+        {/* Order Mode Toggle */}
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex gap-2">
+              <Button
+                variant={orderMode === "grid" ? "default" : "outline"}
+                onClick={() => setOrderMode("grid")}
+                className="flex-1 h-8"
+                size="sm"
+              >
+                <Grid3X3 size={14} className="mr-1" />
+                Grid
+              </Button>
+              <Button
+                variant={orderMode === "table" ? "default" : "outline"}
+                onClick={() => setOrderMode("table")}
+                className="flex-1 h-8"
+                size="sm"
+              >
+                <Table size={14} className="mr-1" />
+                Table
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {orderMode === "grid" ? (
+          <>
+            {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
           <TabsList className="grid grid-cols-3 w-full">
             {categories.slice(0, 3).map(category => (
@@ -264,6 +306,11 @@ export const OrderEntry = () => {
             </Card>
           ))}
         </div>
+        </>
+        ) : (
+          /* Table Order Form */
+          <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
+        )}
 
         {/* Fixed Bottom Cart Summary */}
         {cart.length > 0 && (
