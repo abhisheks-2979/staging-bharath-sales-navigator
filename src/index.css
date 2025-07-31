@@ -6,51 +6,52 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Clean light theme colors matching the uploaded image */
+    --background: 246 248 250; /* Very light gray background */
+    --foreground: 15 23 42; /* Dark text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 255 255 255; /* Pure white cards */
+    --card-foreground: 15 23 42;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
 
-    /* Brand colors - Purple gradient theme */
-    --primary: 267 84% 58%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 273 84% 65%;
-    --primary-dark: 260 84% 48%;
+    /* Clean blue theme */
+    --primary: 59 130 246; /* Clean blue like in the image */
+    --primary-foreground: 255 255 255;
+    --primary-light: 147 197 253;
+    --primary-dark: 29 78 216;
 
-    --secondary: 267 20% 95%;
-    --secondary-foreground: 267 84% 25%;
+    --secondary: 241 245 249; /* Light gray */
+    --secondary-foreground: 51 65 85;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 248 250 252;
+    --muted-foreground: 100 116 139;
 
-    --accent: 210 100% 96%;
-    --accent-foreground: 267 84% 35%;
+    --accent: 241 245 249;
+    --accent-foreground: 51 65 85;
 
     /* Status colors */
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 48 96% 53%;
-    --warning-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 34 197 94;
+    --success-foreground: 255 255 255;
+    --warning: 245 158 11;
+    --warning-foreground: 255 255 255;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 267 84% 58%;
+    --border: 226 232 240; /* Light border */
+    --input: 226 232 240;
+    --ring: 59 130 246;
 
-    /* Custom gradients */
+    /* Clean gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
-    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--secondary)));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
     
-    /* Shadows */
-    --shadow-card: 0 4px 12px -2px hsl(var(--primary) / 0.1);
-    --shadow-button: 0 2px 8px -2px hsl(var(--primary) / 0.2);
+    /* Clean shadows */
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-button: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 
-    --radius: 0.5rem;
+    --radius: 12px;
 
     --sidebar-background: 0 0% 98%;
 
