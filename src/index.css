@@ -2,117 +2,117 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Field Sales App Design System - Modern Grey & White Theme */
+/* Field Sales App Design System - Salesforce Inspired Blue & White Theme */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 224 71.4% 4.1%;
+    --foreground: 221 39% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 221 39% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
+    --popover-foreground: 221 39% 11%;
 
-    /* Modern grey primary scheme */
-    --primary: 220 14.3% 25.9%;
-    --primary-foreground: 0 0% 98%;
-    --primary-light: 220 13% 35%;
-    --primary-dark: 220 15% 20%;
+    /* Salesforce-inspired blue scheme */
+    --primary: 206 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 206 100% 60%;
+    --primary-dark: 206 100% 40%;
 
-    --secondary: 220 14.3% 95.9%;
-    --secondary-foreground: 220 9.1% 46.1%;
+    --secondary: 210 100% 98%;
+    --secondary-foreground: 206 50% 45%;
 
-    --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
+    --muted: 210 40% 98%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 220 14.3% 95.9%;
-    --accent-foreground: 220 14.3% 25.9%;
+    --accent: 206 100% 97%;
+    --accent-foreground: 206 100% 40%;
 
-    /* Status colors - softer tones */
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 98%;
-    --warning: 43 96% 56%;
-    --warning-foreground: 0 0% 9%;
-    --destructive: 0 72.2% 50.6%;
-    --destructive-foreground: 0 0% 98%;
+    /* Status colors - Salesforce palette */
+    --success: 145 63% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 354 70% 54%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 220 14.3% 25.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 206 100% 50%;
 
-    /* Subtle gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(220 14.3% 25.9%), hsl(220 13% 35%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 14.3% 95.9%));
+    /* Salesforce-style gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(206 100% 50%), hsl(206 100% 60%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 100% 98%));
     
-    /* Soft shadows */
-    --shadow-card: 0 4px 12px -2px hsl(220 14.3% 25.9% / 0.08);
-    --shadow-button: 0 2px 8px -2px hsl(220 14.3% 25.9% / 0.12);
+    /* Clean shadows */
+    --shadow-card: 0 4px 12px -2px hsl(206 100% 50% / 0.08);
+    --shadow-button: 0 2px 8px -2px hsl(206 100% 50% / 0.12);
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --sidebar-background: 220 14.3% 95.9%;
-    --sidebar-foreground: 220 8.9% 46.1%;
-    --sidebar-primary: 220 14.3% 25.9%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 13% 91%;
-    --sidebar-accent-foreground: 220 14.3% 25.9%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 220 14.3% 25.9%;
+    --sidebar-background: 210 100% 98%;
+    --sidebar-foreground: 215.4 16.3% 46.9%;
+    --sidebar-primary: 206 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214.3 31.8% 91.4%;
+    --sidebar-accent-foreground: 206 100% 40%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 206 100% 50%;
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
+    --background: 213 27% 8%;
+    --foreground: 210 40% 98%;
 
-    --card: 224 71.4% 4.1%;
-    --card-foreground: 210 20% 98%;
+    --card: 213 27% 8%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 213 27% 8%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Dark mode grey scheme */
-    --primary: 210 20% 98%;
-    --primary-foreground: 220.9 39.3% 11%;
+    /* Dark mode Salesforce blues */
+    --primary: 206 100% 60%;
+    --primary-foreground: 213 27% 8%;
 
-    --secondary: 215 27.9% 16.9%;
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 213 27% 12%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.9 10.6% 64.9%;
+    --muted: 213 27% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 215 27.9% 16.9%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 213 27% 12%;
+    --accent-foreground: 206 100% 60%;
 
     /* Dark mode status colors */
-    --success: 142 70% 45%;
-    --success-foreground: 0 0% 98%;
-    --warning: 43 96% 56%;
-    --warning-foreground: 0 0% 9%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
+    --success: 145 63% 52%;
+    --success-foreground: 213 27% 8%;
+    --warning: 45 93% 57%;
+    --warning-foreground: 213 27% 8%;
+    --destructive: 354 70% 64%;
+    --destructive-foreground: 213 27% 8%;
 
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
-    --ring: 216 12.2% 83.9%;
+    --border: 213 27% 12%;
+    --input: 213 27% 12%;
+    --ring: 206 100% 60%;
 
     /* Dark gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(215 27.9% 16.9%), hsl(220.9 39.3% 11%));
-    --gradient-subtle: linear-gradient(180deg, hsl(224 71.4% 4.1%), hsl(215 27.9% 16.9%));
+    --gradient-primary: linear-gradient(135deg, hsl(206 100% 60%), hsl(206 100% 70%));
+    --gradient-subtle: linear-gradient(180deg, hsl(213 27% 8%), hsl(213 27% 12%));
     
     /* Dark shadows */
-    --shadow-card: 0 4px 12px -2px hsl(0 0% 0% / 0.3);
-    --shadow-button: 0 2px 8px -2px hsl(0 0% 0% / 0.4);
+    --shadow-card: 0 4px 12px -2px hsl(0 0% 0% / 0.4);
+    --shadow-button: 0 2px 8px -2px hsl(0 0% 0% / 0.5);
 
-    --sidebar-background: 215 27.9% 16.9%;
-    --sidebar-foreground: 217.9 10.6% 64.9%;
-    --sidebar-primary: 210 20% 98%;
-    --sidebar-primary-foreground: 220.9 39.3% 11%;
-    --sidebar-accent: 215 27.9% 16.9%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 215 27.9% 16.9%;
-    --sidebar-ring: 216 12.2% 83.9%;
+    --sidebar-background: 213 27% 12%;
+    --sidebar-foreground: 215 20.2% 65.1%;
+    --sidebar-primary: 206 100% 60%;
+    --sidebar-primary-foreground: 213 27% 8%;
+    --sidebar-accent: 213 27% 16%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 213 27% 16%;
+    --sidebar-ring: 206 100% 60%;
   }
 }
 
