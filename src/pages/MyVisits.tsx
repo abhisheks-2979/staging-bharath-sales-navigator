@@ -21,6 +21,7 @@ interface Visit {
   hasOrder?: boolean;
   orderValue?: number;
   noOrderReason?: "over-stocked" | "owner-not-available" | "store-closed" | "permanently-closed";
+  distributor?: string;
 }
 
 const mockVisits: Visit[] = [
@@ -36,7 +37,8 @@ const mockVisits: Visit[] = [
     day: "Today",
     checkInStatus: "checked-in-correct",
     hasOrder: true,
-    orderValue: 15000
+    orderValue: 15000,
+    distributor: "ABC Distributors"
   },
   {
     id: "2",
@@ -49,7 +51,8 @@ const mockVisits: Visit[] = [
     time: "2:00 PM",
     day: "Today",
     checkInStatus: "not-checked-in",
-    hasOrder: false
+    hasOrder: false,
+    distributor: "XYZ Distributors"
   },
   {
     id: "3",
@@ -63,7 +66,8 @@ const mockVisits: Visit[] = [
     day: "Today",
     checkInStatus: "checked-in-correct",
     hasOrder: true,
-    orderValue: 22000
+    orderValue: 22000,
+    distributor: "ABC Distributors"
   },
   {
     id: "4",
@@ -77,7 +81,8 @@ const mockVisits: Visit[] = [
     day: "Today",
     checkInStatus: "checked-in-wrong-location",
     hasOrder: false,
-    noOrderReason: "over-stocked"
+    noOrderReason: "over-stocked",
+    distributor: "PQR Distributors"
   },
   {
     id: "5",
@@ -91,7 +96,8 @@ const mockVisits: Visit[] = [
     day: "Today",
     checkInStatus: "checked-in-correct",
     hasOrder: false,
-    noOrderReason: "store-closed"
+    noOrderReason: "store-closed",
+    distributor: "ABC Distributors"
   }
 ];
 
@@ -137,7 +143,7 @@ export const MyVisits = () => {
         {/* Header Card */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl font-bold">My Visits</CardTitle>
+            <CardTitle className="text-xl font-bold">My Visits - Beat 1 (Central Bangalore)</CardTitle>
             <p className="text-primary-foreground/80">Manage your daily visit schedule</p>
           </CardHeader>
           <CardContent className="space-y-4">

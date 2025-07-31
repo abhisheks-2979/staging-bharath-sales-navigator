@@ -16,6 +16,7 @@ interface Visit {
   hasOrder?: boolean;
   orderValue?: number;
   noOrderReason?: "over-stocked" | "owner-not-available" | "store-closed" | "permanently-closed";
+  distributor?: string;
 }
 
 interface VisitCardProps {
@@ -91,14 +92,19 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <h3 className="font-semibold text-card-foreground">{visit.retailerName}</h3>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <Store size={14} />
-              <span>{visit.retailerCategory}</span>
-            </div>
+            {visit.distributor && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                <Store size={14} />
+                <span>{visit.distributor}</span>
+              </div>
+            )}
           </div>
-          <Badge className={getStatusColor(visit.status)}>
-            {getStatusText(visit.status)}
-          </Badge>
+          <div className="text-right">
+            <Badge className={getStatusColor(visit.status)}>
+              {getStatusText(visit.status)}
+            </Badge>
+            <div className="text-xs text-muted-foreground mt-1">{visit.retailerCategory}</div>
+          </div>
         </div>
 
         <div className="mb-4">
