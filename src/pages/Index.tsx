@@ -45,19 +45,48 @@ const Index = () => {
         </div>
 
         {/* Beat Information Card */}
-        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground animate-fade-in">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2">M.G. Road Beat</h3>
-                <div className="space-y-1 text-primary-foreground/90 text-sm">
-                  <p>You have planned to visit M.G. Road Beat and there are 40 retailers.</p>
-                  <p>Last visited date was July 15, 2025 and the average productive visit is 22 retailers and revenue per visit from this beat is Rs. 5,585.</p>
+            <div className="space-y-4">
+              {/* Beat Header */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-primary-foreground/10 rounded-full flex items-center justify-center">
+                  <MapPin className="text-primary-foreground" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">M.G. Road Beat</h3>
+                  <p className="text-primary-foreground/80 text-sm">Today's Visit Plan</p>
                 </div>
               </div>
-              <div className="ml-4">
-                <div className="text-right">
-                  <MapPin className="text-primary-foreground/70" size={24} />
+
+              {/* Key Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-primary-foreground/10 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold">40</div>
+                  <div className="text-xs text-primary-foreground/80">Total Retailers</div>
+                </div>
+                <div className="bg-primary-foreground/10 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold">22</div>
+                  <div className="text-xs text-primary-foreground/80">Avg. Productive Visit</div>
+                </div>
+              </div>
+
+              {/* Visit Details */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 bg-primary-foreground/10 rounded-lg p-3">
+                  <Calendar className="text-primary-foreground/80" size={20} />
+                  <div>
+                    <p className="text-sm font-medium">Last Visit</p>
+                    <p className="text-xs text-primary-foreground/80">July 15, 2025</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-primary-foreground/10 rounded-lg p-3">
+                  <TrendingUp className="text-primary-foreground/80" size={20} />
+                  <div>
+                    <p className="text-sm font-medium">Revenue per Visit</p>
+                    <p className="text-lg font-bold">₹5,585</p>
+                  </div>
                 </div>
               </div>
             </div>
