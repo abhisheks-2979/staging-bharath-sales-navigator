@@ -14,6 +14,8 @@ interface Visit {
   time?: string;
   checkInStatus?: "not-checked-in" | "checked-in-correct" | "checked-in-wrong-location";
   hasOrder?: boolean;
+  orderValue?: number;
+  noOrderReason?: "over-stocked" | "owner-not-available" | "store-closed" | "permanently-closed";
 }
 
 interface VisitCardProps {
@@ -99,21 +101,20 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           </Badge>
         </div>
 
-        <div className="space-y-2 mb-4">
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <MapPin size={14} className="mt-0.5 flex-shrink-0" />
-            <span className="line-clamp-2">{visit.address}</span>
-          </div>
-          
+        <div className="mb-4">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-1">
+              <MapPin size={14} className="flex-shrink-0" />
+              <span className="truncate">{visit.address}</span>
+            </div>
+            <div className="flex items-center gap-1">
               <Phone size={14} />
               <span>{visit.phone}</span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1">
           <Button 
             size="sm" 
             className={`${getCheckInButtonColor(visit.checkInStatus)} text-xs`}
@@ -122,21 +123,21 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           </Button>
           
           <Button 
-            variant="outline" 
+            variant={visit.hasOrder ? "default" : "outline"}
             size="sm"
-            className="text-xs"
+            className={`text-xs ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
           >
-            <ShoppingCart size={14} className="mr-1" />
-            Order
+            <ShoppingCart size={12} className="mr-1" />
+            Order{visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}
           </Button>
           
           <Button 
-            variant="outline" 
+            variant={visit.noOrderReason ? "destructive" : "outline"}
             size="sm"
             className="text-xs"
           >
-            <XCircle size={14} className="mr-1" />
-            No-order
+            <XCircle size={12} className="mr-1" />
+            No-order{visit.noOrderReason ? ` (${visit.noOrderReason.replace(/-/g, ' ')})` : ""}
           </Button>
           
           <Button 
@@ -145,7 +146,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             className="text-xs"
             onClick={() => onViewDetails(visit.id)}
           >
-            <BarChart3 size={14} className="mr-1" />
+            <BarChart3 size={12} className="mr-1" />
             Analytics
           </Button>
         </div>
