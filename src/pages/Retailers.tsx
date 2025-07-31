@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Store, TrendingUp, BarChart3, Calendar, Phone, MapPin } from "lucide-react";
+import { Search, Store, TrendingUp, BarChart3, Calendar, Phone, MapPin, Users, Truck } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +11,12 @@ interface Retailer {
   id: string;
   name: string;
   type: string;
-  category: string;
+  category: "A" | "B" | "C";
   phone: string;
   address: string;
+  image: string;
+  beatName: string;
+  distributor: string;
   lastVisitDate?: string;
   isSelected: boolean;
   priority?: "high" | "medium" | "low";
@@ -30,9 +33,12 @@ const mockRetailers: Retailer[] = [
     id: "1",
     name: "Vardhman Kirana",
     type: "Retailers",
-    category: "General Store",
+    category: "A",
     phone: "9926612072",
     address: "Indiranagar, Bangalore",
+    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&h=200&fit=crop&crop=face",
+    beatName: "Central Bangalore",
+    distributor: "Metro Distribution Co.",
     lastVisitDate: "2024-01-15",
     isSelected: false,
     priority: "high",
@@ -47,9 +53,12 @@ const mockRetailers: Retailer[] = [
     id: "2", 
     name: "Sham Kirana and General Stores",
     type: "Small and Medium Businesses",
-    category: "Grocery Store",
+    category: "B",
     phone: "9926963147",
     address: "34 A, Kharghar, Navi Mumbai, Maharashtra",
+    image: "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?w=200&h=200&fit=crop&crop=face",
+    beatName: "Navi Mumbai West",
+    distributor: "Sunrise Distributors",
     lastVisitDate: "2024-01-12",
     isSelected: false,
     priority: "medium",
@@ -64,9 +73,12 @@ const mockRetailers: Retailer[] = [
     id: "3",
     name: "Mahesh Kirana and General Stores",
     type: "Retailers",
-    category: "General Store", 
+    category: "A", 
     phone: "9955551112",
     address: "MG Road, Bangalore",
+    image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=200&h=200&fit=crop&crop=face",
+    beatName: "Central Bangalore",
+    distributor: "Metro Distribution Co.",
     lastVisitDate: "2024-01-10",
     isSelected: false,
     priority: "high",
@@ -81,9 +93,12 @@ const mockRetailers: Retailer[] = [
     id: "4",
     name: "Balaji Kiranad",
     type: "Retailers",
-    category: "Supermarket",
+    category: "C",
     phone: "9516584711", 
     address: "Commercial Street, Bangalore",
+    image: "https://images.unsplash.com/photo-1581090464777-f3220bbe1b8b?w=200&h=200&fit=crop&crop=face",
+    beatName: "South Bangalore",
+    distributor: "Quick Supply Ltd.",
     lastVisitDate: "2024-01-08",
     isSelected: false,
     priority: "medium",
@@ -98,9 +113,12 @@ const mockRetailers: Retailer[] = [
     id: "5",
     name: "Krishna General Store",
     type: "Retailers",
-    category: "General Store",
+    category: "B",
     phone: "9876543210",
     address: "Jayanagar, Bangalore", 
+    image: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=200&h=200&fit=crop&crop=face",
+    beatName: "South Bangalore",
+    distributor: "Quick Supply Ltd.",
     lastVisitDate: "2024-01-05",
     isSelected: false,
     priority: "low",
@@ -115,9 +133,12 @@ const mockRetailers: Retailer[] = [
     id: "6",
     name: "Lakshmi Provision Store",
     type: "Retailers",
-    category: "Provision Store",
+    category: "A",
     phone: "9123456789",
     address: "Koramangala, Bangalore",
+    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&h=200&fit=crop&crop=face",
+    beatName: "East Bangalore",
+    distributor: "Prime Logistics",
     lastVisitDate: "2024-01-03",
     isSelected: false,
     priority: "high",
@@ -218,78 +239,85 @@ export const Retailers = () => {
           ) : (
             filteredRetailers.map((retailer) => (
               <Card key={retailer.id} className="shadow-card hover:shadow-md transition-all">
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    {/* Header Row */}
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          {getCategoryIcon(retailer.category)}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{retailer.name}</h3>
-                          <p className="text-sm text-muted-foreground">{retailer.category}</p>
-                        </div>
-                      </div>
-                      <Badge className={getPriorityColor(retailer.priority)}>
-                        {retailer.priority?.toUpperCase()}
-                      </Badge>
+                <CardContent className="p-3">
+                  <div className="flex gap-3">
+                    {/* Retailer Image */}
+                    <div className="flex-shrink-0">
+                      <img
+                        src={retailer.image}
+                        alt={retailer.name}
+                        className="w-16 h-16 rounded-lg object-cover"
+                      />
                     </div>
+                    
+                    {/* Main Content */}
+                    <div className="flex-1 space-y-2">
+                      {/* Header Row */}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold text-sm">{retailer.name}</h3>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>Category {retailer.category}</span>
+                            <div className="flex items-center gap-1">
+                              <Users size={10} />
+                              <span>{retailer.beatName}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Truck size={10} />
+                              <span>{retailer.distributor}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge className={getPriorityColor(retailer.priority)}>
+                          {retailer.priority?.toUpperCase()}
+                        </Badge>
+                      </div>
 
-                    {/* Contact Info */}
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Phone size={14} />
-                        <span>{retailer.phone}</span>
+                      {/* Contact Info */}
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Phone size={10} />
+                          <span>{retailer.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MapPin size={10} />
+                          <span className="truncate">{retailer.address}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin size={14} />
-                        <span>{retailer.address}</span>
+
+                      {/* Quick Highlights */}
+                      <div className="bg-muted/20 rounded p-2">
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">3M Visits</div>
+                            <div className="font-semibold text-sm">{retailer.metrics.visitsIn3Months}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">12M Revenue</div>
+                            <div className="font-semibold text-sm">
+                              {formatCurrency(retailer.metrics.revenue12Months)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">Avg Order</div>
+                            <div className="font-semibold text-sm">
+                              {formatCurrency(retailer.metrics.avgOrderPerVisit)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Action Button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs"
+                        onClick={() => setSelectedAnalyticsRetailer(retailer)}
+                      >
+                        <BarChart3 size={12} className="mr-1" />
+                        View Analytics
+                      </Button>
                     </div>
-
-                    {/* Quick Highlight Section */}
-                    <div className="bg-muted/30 rounded-lg p-3">
-                      <h4 className="font-medium text-sm mb-2">Quick Highlights</h4>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <Calendar size={12} className="text-primary" />
-                            <span className="text-xs text-muted-foreground">3M Visits</span>
-                          </div>
-                          <div className="font-semibold text-sm">{retailer.metrics.visitsIn3Months}</div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <TrendingUp size={12} className="text-success" />
-                            <span className="text-xs text-muted-foreground">12M Revenue</span>
-                          </div>
-                          <div className="font-semibold text-sm">
-                            {formatCurrency(retailer.metrics.revenue12Months)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <Store size={12} className="text-warning" />
-                            <span className="text-xs text-muted-foreground">Avg Order</span>
-                          </div>
-                          <div className="font-semibold text-sm">
-                            {formatCurrency(retailer.metrics.avgOrderPerVisit)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setSelectedAnalyticsRetailer(retailer)}
-                    >
-                      <BarChart3 size={16} className="mr-2" />
-                      View Retailer Analytics
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
