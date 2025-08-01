@@ -116,10 +116,16 @@ const Index = () => {
                 <div className="text-xs text-orange-700 font-medium">Revenue This Month</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg col-span-2">
+            <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-indigo-600 mb-1">#3</div>
                 <div className="text-xs text-indigo-700 font-medium">Leader Rank</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border-emerald-200 shadow-lg">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-emerald-600 mb-1">124%</div>
+                <div className="text-xs text-emerald-700 font-medium">Achievement %</div>
               </CardContent>
             </Card>
           </div>
@@ -138,8 +144,8 @@ const Index = () => {
                   className="group block"
                 >
                   <div className="p-4 text-center transition-all duration-300 hover:scale-105">
-                    <div className="inline-flex items-center justify-center w-12 h-12 mb-3 group-hover:scale-110 transition-transform duration-300">
-                      <item.icon className="h-7 w-7 text-foreground/70 group-hover:text-primary transition-colors stroke-1" />
+                    <div className={`inline-flex items-center justify-center w-14 h-14 mb-3 rounded-2xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                      <item.icon className="h-7 w-7 text-white drop-shadow-sm" />
                     </div>
                     <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
                       {item.label}
