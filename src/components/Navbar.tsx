@@ -61,7 +61,7 @@ export const Navbar = () => {
 
       {/* Full Screen Navigation */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-background">
+        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
           <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
             {/* Header Section */}
             <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
