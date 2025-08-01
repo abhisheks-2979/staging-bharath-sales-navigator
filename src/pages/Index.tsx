@@ -67,87 +67,87 @@ const Index = () => {
         {/* Header Section with Welcome */}
         <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
-          <div className="relative p-6 text-center">
-            <div className="flex items-center justify-center space-x-4 mb-4">
-              <Avatar className="h-20 w-20 border-4 border-primary-foreground/20 shadow-lg">
+          <div className="relative p-4 text-center">
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <Avatar className="h-12 w-12 sm:h-16 sm:w-16 border-2 border-primary-foreground/20 shadow-lg">
                 <AvatarImage src="/placeholder.svg" alt="User" />
-                <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-2xl font-bold">
+                <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg sm:text-xl font-bold">
                   J
                 </AvatarFallback>
               </Avatar>
               <div className="text-left">
-                <h1 className="text-3xl font-bold mb-1">Good Morning!</h1>
-                <p className="text-xl opacity-90">James</p>
-                <p className="text-sm opacity-75">Sales Executive</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">Good Morning!</h1>
+                <p className="text-lg sm:text-xl opacity-90">James</p>
+                <p className="text-xs sm:text-sm opacity-75">Sales Executive</p>
               </div>
             </div>
             
             {/* Motivational Quote */}
-            <div className="bg-primary-foreground/10 rounded-xl p-5 mt-6 backdrop-blur-sm border border-primary-foreground/20">
-              <p className="text-lg font-medium italic leading-relaxed">"{currentQuote}"</p>
+            <div className="bg-primary-foreground/10 rounded-xl p-3 sm:p-5 mt-4 backdrop-blur-sm border border-primary-foreground/20">
+              <p className="text-sm sm:text-base lg:text-lg font-medium italic leading-relaxed">"{currentQuote}"</p>
             </div>
           </div>
         </div>
 
         {/* This Month's Progress */}
-        <div className="p-4 -mt-8 relative z-10">
-          <div className="grid grid-cols-2 gap-3 mb-8">
+        <div className="p-4 -mt-6 relative z-10">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
             <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
-              <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-blue-600 mb-1">15</div>
-                <div className="text-xs text-blue-700 font-medium">New Retailers (Current Month)</div>
+              <CardContent className="p-2 sm:p-3 text-center">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600 mb-1">15</div>
+                <div className="text-[10px] sm:text-xs text-blue-700 font-medium leading-tight">New Retailers (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
-              <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-green-600 mb-1">142</div>
-                <div className="text-xs text-green-700 font-medium">Check-ins (This Month)</div>
+              <CardContent className="p-2 sm:p-3 text-center">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600 mb-1">142</div>
+                <div className="text-[10px] sm:text-xs text-green-700 font-medium leading-tight">Check-ins (This Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
-              <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-purple-600 mb-1">89%</div>
-                <div className="text-xs text-purple-700 font-medium">Productive Visits (Current Month)</div>
+              <CardContent className="p-2 sm:p-3 text-center">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 mb-1">89%</div>
+                <div className="text-[10px] sm:text-xs text-purple-700 font-medium leading-tight">Productive Visits (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border-orange-200 shadow-lg">
-              <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-orange-600 mb-1">₹1.2L</div>
-                <div className="text-xs text-orange-700 font-medium">Revenue (This Month)</div>
+              <CardContent className="p-2 sm:p-3 text-center">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-orange-600 mb-1">₹1.2L</div>
+                <div className="text-[10px] sm:text-xs text-orange-700 font-medium leading-tight">Revenue (This Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg">
-              <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-indigo-600 mb-1">#3</div>
-                <div className="text-xs text-indigo-700 font-medium">Leader Rank (Current Month)</div>
+              <CardContent className="p-2 sm:p-3 text-center">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-indigo-600 mb-1">#3</div>
+                <div className="text-[10px] sm:text-xs text-indigo-700 font-medium leading-tight">Leader Rank (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border-emerald-200 shadow-lg">
-              <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-emerald-600 mb-1">124%</div>
-                <div className="text-xs text-emerald-700 font-medium">Achievement % (This Month)</div>
+              <CardContent className="p-2 sm:p-3 text-center">
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 mb-1">124%</div>
+                <div className="text-[10px] sm:text-xs text-emerald-700 font-medium leading-tight">Achievement % (This Month)</div>
               </CardContent>
             </Card>
           </div>
 
           {/* Navigation Grid */}
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-center text-foreground mb-8">
+          <div className="space-y-4">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-center text-foreground mb-4">
               Start Your Day Right
             </h2>
             
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               {navigationItems.map((item, index) => (
                 <NavLink 
                   key={item.href} 
                   to={item.href}
                   className="group block"
                 >
-                  <div className="p-4 text-center transition-all duration-300 hover:scale-105">
-                    <div className={`inline-flex items-center justify-center w-14 h-14 mb-3 rounded-2xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
-                      <item.icon className="h-7 w-7 text-white drop-shadow-sm" />
+                  <div className="p-3 sm:p-4 text-center transition-all duration-300 hover:scale-105">
+                    <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 mb-2 sm:mb-3 rounded-xl sm:rounded-2xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                      <item.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 text-white drop-shadow-sm" />
                     </div>
-                    <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
+                    <h3 className="font-medium text-[10px] sm:text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
                       {item.label}
                     </h3>
                   </div>
