@@ -95,37 +95,37 @@ const Index = () => {
             <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-blue-600 mb-1">15</div>
-                <div className="text-xs text-blue-700 font-medium">New Retailers</div>
+                <div className="text-xs text-blue-700 font-medium">New Retailers (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-green-600 mb-1">142</div>
-                <div className="text-xs text-green-700 font-medium">Total Check-ins</div>
+                <div className="text-xs text-green-700 font-medium">Check-ins (This Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-purple-600 mb-1">89%</div>
-                <div className="text-xs text-purple-700 font-medium">Productive Visits</div>
+                <div className="text-xs text-purple-700 font-medium">Productive Visits (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border-orange-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-orange-600 mb-1">₹1.2L</div>
-                <div className="text-xs text-orange-700 font-medium">Revenue This Month</div>
+                <div className="text-xs text-orange-700 font-medium">Revenue (This Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-indigo-600 mb-1">#3</div>
-                <div className="text-xs text-indigo-700 font-medium">Leader Rank</div>
+                <div className="text-xs text-indigo-700 font-medium">Leader Rank (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border-emerald-200 shadow-lg">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-emerald-600 mb-1">124%</div>
-                <div className="text-xs text-emerald-700 font-medium">Achievement %</div>
+                <div className="text-xs text-emerald-700 font-medium">Achievement % (This Month)</div>
               </CardContent>
             </Card>
           </div>
