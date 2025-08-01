@@ -89,25 +89,37 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Today's Quick Stats */}
+        {/* This Month's Progress */}
         <div className="p-4 -mt-8 relative z-10">
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-2 gap-3 mb-8">
             <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
-              <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-blue-600 mb-1">5</div>
-                <div className="text-xs text-blue-700 font-medium">Today's Visits</div>
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-blue-600 mb-1">15</div>
+                <div className="text-xs text-blue-700 font-medium">New Retailers</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
-              <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-green-600 mb-1">₹28K</div>
-                <div className="text-xs text-green-700 font-medium">Revenue</div>
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-green-600 mb-1">142</div>
+                <div className="text-xs text-green-700 font-medium">Total Check-ins</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
-              <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-1">12</div>
-                <div className="text-xs text-purple-700 font-medium">Orders</div>
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-purple-600 mb-1">89%</div>
+                <div className="text-xs text-purple-700 font-medium">Productive Visits</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border-orange-200 shadow-lg">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-orange-600 mb-1">₹1.2L</div>
+                <div className="text-xs text-orange-700 font-medium">Revenue This Month</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg col-span-2">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-indigo-600 mb-1">#3</div>
+                <div className="text-xs text-indigo-700 font-medium">Leader Rank</div>
               </CardContent>
             </Card>
           </div>
@@ -118,24 +130,21 @@ const Index = () => {
               Start Your Day Right
             </h2>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {navigationItems.map((item, index) => (
                 <NavLink 
                   key={item.href} 
                   to={item.href}
                   className="group block"
                 >
-                  <Card className="hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gradient-to-br from-background to-muted/50 border-2 hover:border-primary/30 group-hover:shadow-primary/20">
-                    <CardContent className="p-6 text-center relative overflow-hidden">
-                      <div className={`absolute inset-0 bg-gradient-to-r ${item.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
-                      <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r ${item.color} bg-opacity-10 mb-4 group-hover:scale-110 transition-transform duration-300 relative z-10`}>
-                        <item.icon className="h-8 w-8 text-primary group-hover:text-white transition-colors" />
-                      </div>
-                      <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors relative z-10">
-                        {item.label}
-                      </h3>
-                    </CardContent>
-                  </Card>
+                  <div className="p-4 text-center transition-all duration-300 hover:scale-105">
+                    <div className="inline-flex items-center justify-center w-12 h-12 mb-3 group-hover:scale-110 transition-transform duration-300">
+                      <item.icon className="h-7 w-7 text-foreground/70 group-hover:text-primary transition-colors stroke-1" />
+                    </div>
+                    <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
+                      {item.label}
+                    </h3>
+                  </div>
                 </NavLink>
               ))}
             </div>
