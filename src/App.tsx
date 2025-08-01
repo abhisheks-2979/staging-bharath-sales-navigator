@@ -24,6 +24,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Performance from "./pages/Performance";
 import SalesCoach from "./pages/SalesCoach";
 import Analytics from "./pages/Analytics";
+import { Schemes } from "./pages/Schemes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/performance" element={<Performance />} />
           <Route path="/sales-coach" element={<SalesCoach />} />
           <Route path="/beat-analytics" element={<Analytics />} />
+          <Route path="/schemes" element={<Schemes />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
