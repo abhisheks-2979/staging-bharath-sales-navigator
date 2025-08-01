@@ -8,7 +8,7 @@ export const Navbar = () => {
   const navItems = [
     { icon: Home, label: "Home", href: "/" },
     { icon: Calendar, label: "My Visits", href: "/visits" },
-    { icon: Users, label: "Retailers", href: "/retailers" },
+    { icon: Users, label: "Create Beat", href: "/create-beat" },
     { icon: BarChart, label: "Reports", href: "/reports" }
   ];
 
