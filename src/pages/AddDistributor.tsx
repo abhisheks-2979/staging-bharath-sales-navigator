@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag } from "lucide-react";
+import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
-export const AddRetailer = () => {
+export const AddDistributor = () => {
   const navigate = useNavigate();
-  const [retailerData, setRetailerData] = useState({
+  const [distributorData, setDistributorData] = useState({
     name: "",
     phone: "",
     address: "",
@@ -21,27 +21,29 @@ export const AddRetailer = () => {
     parentType: "",
     parentName: "",
     locationTag: "",
-    retailType: "",
+    businessType: "",
     potential: "",
     competitor1: "",
     competitor2: "",
-    competitor3: ""
+    competitor3: "",
+    territoryArea: "",
+    warehouseCapacity: ""
   });
 
   const categories = ["Category A", "Category B", "Category C"];
   const priorities = ["High", "Medium", "Low"];
-  const parentTypes = ["Company", "Super Stockist", "Distributor"];
-  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store"];
+  const parentTypes = ["Company", "Super Stockist"];
+  const businessTypes = ["Wholesale", "Distribution", "Trading", "Logistics"];
   const potentials = ["High", "Medium", "Low"];
 
   const handleInputChange = (field: string, value: string) => {
-    setRetailerData(prev => ({ ...prev, [field]: value }));
+    setDistributorData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+    if (!distributorData.name || !distributorData.phone || !distributorData.address) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields",
@@ -51,12 +53,12 @@ export const AddRetailer = () => {
     }
 
     toast({
-      title: "Retailer Added",
-      description: `${retailerData.name} has been added to today's visit plan`,
+      title: "Distributor Added",
+      description: `${distributorData.name} has been added to the system`,
     });
 
     // Reset form
-    setRetailerData({
+    setDistributorData({
       name: "",
       phone: "",
       address: "",
@@ -66,11 +68,13 @@ export const AddRetailer = () => {
       parentType: "",
       parentName: "",
       locationTag: "",
-      retailType: "",
+      businessType: "",
       potential: "",
       competitor1: "",
       competitor2: "",
-      competitor3: ""
+      competitor3: "",
+      territoryArea: "",
+      warehouseCapacity: ""
     });
   };
 
@@ -90,11 +94,11 @@ export const AddRetailer = () => {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <CardTitle className="text-xl font-bold">Add Retailer</CardTitle>
-                <p className="text-primary-foreground/80">Add a new retailer to today's plan</p>
+                <CardTitle className="text-xl font-bold">Add Distributor</CardTitle>
+                <p className="text-primary-foreground/80">Add a new distributor to the hierarchy</p>
               </div>
             </div>
-            <Plus size={24} />
+            <Truck size={24} />
           </CardHeader>
         </Card>
 
@@ -102,15 +106,15 @@ export const AddRetailer = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Retailer Information</CardTitle>
+              <CardTitle className="text-lg">Distributor Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Retailer Name *</Label>
+                <Label htmlFor="name">Distributor Name *</Label>
                 <Input
                   id="name"
-                  placeholder="Enter retailer name"
-                  value={retailerData.name}
+                  placeholder="Enter distributor name"
+                  value={distributorData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   className="bg-background"
                 />
@@ -122,7 +126,7 @@ export const AddRetailer = () => {
                   id="phone"
                   type="tel"
                   placeholder="Enter phone number"
-                  value={retailerData.phone}
+                  value={distributorData.phone}
                   onChange={(e) => handleInputChange("phone", e.target.value)}
                   className="bg-background"
                 />
@@ -133,7 +137,7 @@ export const AddRetailer = () => {
                 <Textarea
                   id="address"
                   placeholder="Enter complete address (Google Maps integration available)"
-                  value={retailerData.address}
+                  value={distributorData.address}
                   onChange={(e) => handleInputChange("address", e.target.value)}
                   className="bg-background min-h-[80px]"
                 />
@@ -143,7 +147,7 @@ export const AddRetailer = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                  <Select value={distributorData.category} onValueChange={(value) => handleInputChange("category", value)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -157,7 +161,7 @@ export const AddRetailer = () => {
 
                 <div className="space-y-2">
                   <Label>Priority</Label>
-                  <Select value={retailerData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
+                  <Select value={distributorData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
@@ -173,7 +177,7 @@ export const AddRetailer = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Parent Type</Label>
-                  <Select value={retailerData.parentType} onValueChange={(value) => handleInputChange("parentType", value)}>
+                  <Select value={distributorData.parentType} onValueChange={(value) => handleInputChange("parentType", value)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select parent" />
                     </SelectTrigger>
@@ -189,7 +193,7 @@ export const AddRetailer = () => {
                   <Label>Parent Name</Label>
                   <Input
                     placeholder="Enter parent name"
-                    value={retailerData.parentName}
+                    value={distributorData.parentName}
                     onChange={(e) => handleInputChange("parentName", e.target.value)}
                     className="bg-background"
                   />
@@ -201,8 +205,8 @@ export const AddRetailer = () => {
                 <div className="flex gap-2">
                   <Input
                     id="locationTag"
-                    placeholder="e.g., Near City Hospital, Main Market"
-                    value={retailerData.locationTag}
+                    placeholder="e.g., Industrial Area, Main Highway"
+                    value={distributorData.locationTag}
                     onChange={(e) => handleInputChange("locationTag", e.target.value)}
                     className="bg-background"
                   />
@@ -215,13 +219,13 @@ export const AddRetailer = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Retail Type</Label>
-                  <Select value={retailerData.retailType} onValueChange={(value) => handleInputChange("retailType", value)}>
+                  <Label>Business Type</Label>
+                  <Select value={distributorData.businessType} onValueChange={(value) => handleInputChange("businessType", value)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
-                      {retailTypes.map((type) => (
+                      {businessTypes.map((type) => (
                         <SelectItem key={type} value={type}>{type}</SelectItem>
                       ))}
                     </SelectContent>
@@ -230,7 +234,7 @@ export const AddRetailer = () => {
 
                 <div className="space-y-2">
                   <Label>Potential</Label>
-                  <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
+                  <Select value={distributorData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select potential" />
                     </SelectTrigger>
@@ -243,24 +247,46 @@ export const AddRetailer = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Territory Area</Label>
+                  <Input
+                    placeholder="e.g., North Bangalore, Mumbai Central"
+                    value={distributorData.territoryArea}
+                    onChange={(e) => handleInputChange("territoryArea", e.target.value)}
+                    className="bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Warehouse Capacity</Label>
+                  <Input
+                    placeholder="e.g., 10000 sq ft, 5000 tons"
+                    value={distributorData.warehouseCapacity}
+                    onChange={(e) => handleInputChange("warehouseCapacity", e.target.value)}
+                    className="bg-background"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Top 3 Competitors</Label>
                 <div className="space-y-2">
                   <Input
                     placeholder="Competitor 1"
-                    value={retailerData.competitor1}
+                    value={distributorData.competitor1}
                     onChange={(e) => handleInputChange("competitor1", e.target.value)}
                     className="bg-background"
                   />
                   <Input
                     placeholder="Competitor 2"
-                    value={retailerData.competitor2}
+                    value={distributorData.competitor2}
                     onChange={(e) => handleInputChange("competitor2", e.target.value)}
                     className="bg-background"
                   />
                   <Input
                     placeholder="Competitor 3"
-                    value={retailerData.competitor3}
+                    value={distributorData.competitor3}
                     onChange={(e) => handleInputChange("competitor3", e.target.value)}
                     className="bg-background"
                   />
@@ -283,10 +309,10 @@ export const AddRetailer = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
-                <Input
+                <Textarea
                   id="notes"
                   placeholder="Any additional notes"
-                  value={retailerData.notes}
+                  value={distributorData.notes}
                   onChange={(e) => handleInputChange("notes", e.target.value)}
                   className="bg-background"
                 />
@@ -300,12 +326,12 @@ export const AddRetailer = () => {
               <h3 className="font-semibold mb-3">Quick Info</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <Store size={14} className="text-muted-foreground" />
-                  <span>Retailer will be added to today's visit plan</span>
+                  <Truck size={14} className="text-muted-foreground" />
+                  <span>Distributor will be added to the hierarchy system</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin size={14} className="text-muted-foreground" />
-                  <span>Location will be verified before visit</span>
+                  <span>Location will be verified before visits</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone size={14} className="text-muted-foreground" />
@@ -318,7 +344,7 @@ export const AddRetailer = () => {
           {/* Submit Button */}
           <Button type="submit" className="w-full" size="lg">
             <Plus size={16} className="mr-2" />
-            Add Retailer to Plan
+            Add Distributor
           </Button>
         </form>
       </div>

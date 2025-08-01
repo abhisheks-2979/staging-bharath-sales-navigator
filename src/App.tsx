@@ -14,6 +14,8 @@ import { CreateBeat } from "./pages/CreateBeat";
 import { BeatAnalytics } from "./pages/BeatAnalytics";
 import { TodaySummary } from "./pages/TodaySummary";
 import { AddRetailer } from "./pages/AddRetailer";
+import { AddDistributor } from "./pages/AddDistributor";
+import { AddSuperStockist } from "./pages/AddSuperStockist";
 import { AddBeat } from "./pages/AddBeat";
 import NotFound from "./pages/NotFound";
 
@@ -37,6 +39,8 @@ const App = () => (
           <Route path="/beat-analytics" element={<BeatAnalytics />} />
           <Route path="/today-summary" element={<TodaySummary />} />
           <Route path="/add-retailer" element={<AddRetailer />} />
+          <Route path="/add-distributor" element={<AddDistributor />} />
+          <Route path="/add-super-stockist" element={<AddSuperStockist />} />
           <Route path="/add-beat" element={<AddBeat />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
