@@ -322,7 +322,7 @@ export const CreateBeat = () => {
 
         {/* Add Entity Buttons */}
         <Card className="shadow-card">
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4">
             <Button
               variant="outline"
               className="w-full"
@@ -330,24 +330,6 @@ export const CreateBeat = () => {
             >
               <Plus size={16} className="mr-2" />
               Add New Retailer
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/add-distributor")}
-            >
-              <Plus size={16} className="mr-2" />
-              Add New Distributor
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/add-super-stockist")}
-            >
-              <Plus size={16} className="mr-2" />
-              Add New Super Stockist
             </Button>
           </CardContent>
         </Card>

@@ -49,10 +49,10 @@ const Index = () => {
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
-    { icon: Car, label: "Today Visit", href: "/visit-planner", color: "from-green-500 to-green-600" },
+    { icon: Car, label: "Today's Visit", href: "https://preview--bharath-sales-navigator.lovable.app/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Route, label: "Journey Plan", href: "/visits", color: "from-purple-500 to-purple-600" },
     { icon: Users, label: "Create New Beat", href: "/create-beat", color: "from-orange-500 to-orange-600" },
-    { icon: Briefcase, label: "Add Retailer", href: "/add-retailer", color: "from-red-500 to-red-600" },
+    { icon: Briefcase, label: "Add Retailer", href: "/add-records", color: "from-red-500 to-red-600" },
     { icon: Gift, label: "Check Schemes", href: "/schemes", color: "from-pink-500 to-pink-600" },
     { icon: CreditCard, label: "My Expenses", href: "/expenses", color: "from-indigo-500 to-indigo-600" },
     { icon: BarChart, label: "Performance Summary", href: "/performance", color: "from-cyan-500 to-cyan-600" },

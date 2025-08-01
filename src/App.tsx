@@ -17,6 +17,7 @@ import { AddRetailer } from "./pages/AddRetailer";
 import { AddDistributor } from "./pages/AddDistributor";
 import { AddSuperStockist } from "./pages/AddSuperStockist";
 import { AddBeat } from "./pages/AddBeat";
+import AddRecords from "./pages/AddRecords";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,9 +39,10 @@ const App = () => (
           <Route path="/visit/:id" element={<VisitDetail />} />
           <Route path="/beat-analytics" element={<BeatAnalytics />} />
           <Route path="/today-summary" element={<TodaySummary />} />
-          <Route path="/add-retailer" element={<AddRetailer />} />
-          <Route path="/add-distributor" element={<AddDistributor />} />
-          <Route path="/add-super-stockist" element={<AddSuperStockist />} />
+            <Route path="/add-retailer" element={<AddRetailer />} />
+            <Route path="/add-distributor" element={<AddDistributor />} />
+            <Route path="/add-super-stockist" element={<AddSuperStockist />} />
+            <Route path="/add-records" element={<AddRecords />} />
           <Route path="/add-beat" element={<AddBeat />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
