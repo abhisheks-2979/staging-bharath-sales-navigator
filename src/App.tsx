@@ -10,7 +10,7 @@ import { MyVisits } from "./pages/MyVisits";
 import { VisitDetail } from "./pages/VisitDetail";
 import { OrderEntry } from "./pages/OrderEntry";
 import { Cart } from "./pages/Cart";
-import { Retailers } from "./pages/Retailers";
+import { CreateBeat } from "./pages/CreateBeat";
 import { BeatAnalytics } from "./pages/BeatAnalytics";
 import { TodaySummary } from "./pages/TodaySummary";
 import { AddRetailer } from "./pages/AddRetailer";
@@ -32,7 +32,7 @@ const App = () => (
           <Route path="/visits/retailers" element={<MyVisits />} />
           <Route path="/order-entry" element={<OrderEntry />} />
           <Route path="/cart" element={<Cart />} />
-          <Route path="/retailers" element={<Retailers />} />
+          <Route path="/create-beat" element={<CreateBeat />} />
           <Route path="/visit/:id" element={<VisitDetail />} />
           <Route path="/beat-analytics" element={<BeatAnalytics />} />
           <Route path="/today-summary" element={<TodaySummary />} />

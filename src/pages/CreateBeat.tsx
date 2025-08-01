@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Search, Store, TrendingUp, BarChart3, Calendar, Phone, MapPin, Users, Truck } from "lucide-react";
+import { Search, Store, TrendingUp, BarChart3, Calendar, Phone, MapPin, Users, Truck, Plus, Save, Trash2 } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
+import { useNavigate } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 
 interface Retailer {
   id: string;
@@ -151,15 +155,64 @@ const mockRetailers: Retailer[] = [
   }
 ];
 
-export const Retailers = () => {
+export const CreateBeat = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAnalyticsRetailer, setSelectedAnalyticsRetailer] = useState<Retailer | null>(null);
+  const [selectedRetailers, setSelectedRetailers] = useState<string[]>([]);
+  const [beatName, setBeatName] = useState("");
+  const [retailers, setRetailers] = useState(mockRetailers);
 
-  const filteredRetailers = mockRetailers.filter(retailer =>
+  const filteredRetailers = retailers.filter(retailer =>
     retailer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     retailer.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
     retailer.phone.includes(searchTerm)
   );
+
+  const handleRetailerSelection = (retailerId: string) => {
+    setSelectedRetailers(prev => 
+      prev.includes(retailerId) 
+        ? prev.filter(id => id !== retailerId)
+        : [...prev, retailerId]
+    );
+  };
+
+  const handleCreateBeat = () => {
+    if (!beatName.trim()) {
+      toast({
+        title: "Beat Name Required",
+        description: "Please enter a name for the beat",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedRetailers.length === 0) {
+      toast({
+        title: "No Retailers Selected",
+        description: "Please select at least one retailer for the beat",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const selectedRetailerNames = retailers
+      .filter(r => selectedRetailers.includes(r.id))
+      .map(r => r.name);
+
+    toast({
+      title: "Beat Created Successfully",
+      description: `"${beatName}" created with ${selectedRetailers.length} retailers`,
+    });
+
+    // Reset form
+    setBeatName("");
+    setSelectedRetailers([]);
+  };
+
+  const handleRemoveRetailer = (retailerId: string) => {
+    setSelectedRetailers(prev => prev.filter(id => id !== retailerId));
+  };
 
   const formatCurrency = (amount: number) => `₹${amount.toLocaleString()}`;
 
@@ -189,31 +242,95 @@ export const Retailers = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-xl font-bold flex items-center gap-2">
               <Store size={24} />
-              All Retailers
+              Create Beat
             </CardTitle>
             <p className="text-primary-foreground/80">
-              Manage and analyze your retailer relationships
+              Select retailers and create a new beat for planning
             </p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold">{mockRetailers.length}</div>
-                <div className="text-sm text-primary-foreground/80">Total Retailers</div>
+                <div className="text-2xl font-bold">{retailers.length}</div>
+                <div className="text-sm text-primary-foreground/80">Available Retailers</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{selectedRetailers.length}</div>
+                <div className="text-sm text-primary-foreground/80">Selected</div>
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(mockRetailers.reduce((sum, r) => sum + r.metrics.revenue12Months, 0))}
+                  {formatCurrency(retailers.filter(r => selectedRetailers.includes(r.id)).reduce((sum, r) => sum + r.metrics.revenue12Months, 0))}
                 </div>
-                <div className="text-sm text-primary-foreground/80">Total Revenue</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">
-                  {Math.round(mockRetailers.reduce((sum, r) => sum + r.metrics.visitsIn3Months, 0) / mockRetailers.length)}
-                </div>
-                <div className="text-sm text-primary-foreground/80">Avg Visits</div>
+                <div className="text-sm text-primary-foreground/80">Selected Revenue</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Beat Creation Form */}
+        {selectedRetailers.length > 0 && (
+          <Card className="shadow-card border-primary/20 bg-primary/5">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Create New Beat</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedRetailers([])}
+                >
+                  <Trash2 size={14} className="mr-1" />
+                  Clear Selection
+                </Button>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="beatName">Beat Name</Label>
+                <Input
+                  id="beatName"
+                  placeholder="Enter beat name (e.g., North Zone Beat)"
+                  value={beatName}
+                  onChange={(e) => setBeatName(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Selected Retailers ({selectedRetailers.length})</Label>
+                <div className="flex flex-wrap gap-2">
+                  {retailers
+                    .filter(r => selectedRetailers.includes(r.id))
+                    .map(retailer => (
+                      <Badge
+                        key={retailer.id}
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => handleRemoveRetailer(retailer.id)}
+                      >
+                        {retailer.name} ×
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+              
+              <Button onClick={handleCreateBeat} className="w-full">
+                <Save size={16} className="mr-2" />
+                Create Beat
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Add Retailer Button */}
+        <Card className="shadow-card">
+          <CardContent className="p-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/add-retailer")}
+            >
+              <Plus size={16} className="mr-2" />
+              Add New Retailer
+            </Button>
           </CardContent>
         </Card>
 
@@ -238,9 +355,28 @@ export const Retailers = () => {
             </Card>
           ) : (
             filteredRetailers.map((retailer) => (
-              <Card key={retailer.id} className="shadow-card hover:shadow-md transition-all">
+              <Card 
+                key={retailer.id} 
+                className={`shadow-card hover:shadow-md transition-all cursor-pointer ${
+                  selectedRetailers.includes(retailer.id) 
+                    ? "border-primary bg-primary/5 shadow-md" 
+                    : ""
+                }`}
+                onClick={() => handleRetailerSelection(retailer.id)}
+              >
                 <CardContent className="p-3">
                   <div className="flex gap-3">
+                    {/* Selection Indicator */}
+                    <div className="flex-shrink-0 flex items-center">
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                        selectedRetailers.includes(retailer.id)
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted-foreground"
+                      }`}>
+                        {selectedRetailers.includes(retailer.id) && "✓"}
+                      </div>
+                    </div>
+                    
                     {/* Retailer Image */}
                     <div className="flex-shrink-0">
                       <img
@@ -312,7 +448,10 @@ export const Retailers = () => {
                         variant="outline"
                         size="sm"
                         className="w-full h-8 text-xs"
-                        onClick={() => setSelectedAnalyticsRetailer(retailer)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAnalyticsRetailer(retailer);
+                        }}
                       >
                         <BarChart3 size={12} className="mr-1" />
                         View Analytics
