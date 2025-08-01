@@ -1,175 +1,155 @@
-import { Calendar, MapPin, Target, TrendingUp, Users } from "lucide-react";
+import { 
+  Calendar, 
+  MapPin, 
+  Target, 
+  TrendingUp, 
+  Users,
+  UserCheck,
+  Route,
+  Gift,
+  CreditCard,
+  Trophy,
+  BookOpen,
+  Briefcase,
+  Car,
+  BarChart,
+  Award
+} from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Layout } from "@/components/Layout";
+import { useState, useEffect } from "react";
+
+const motivationalQuotes = [
+  "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+  "The way to get started is to quit talking and begin doing.",
+  "Don't be afraid to give up the good to go for the great.",
+  "Innovation distinguishes between a leader and a follower.",
+  "The future depends on what you do today.",
+  "Excellence is never an accident. It is always the result of high intention.",
+  "Your limitation—it's only your imagination.",
+  "Push yourself, because no one else is going to do it for you.",
+  "Great things never come from comfort zones.",
+  "Dream it. Wish it. Do it.",
+  "Success doesn't come from what you do occasionally, it comes from what you do consistently.",
+  "Be yourself; everyone else is already taken.",
+  "The only way to do great work is to love what you do."
+];
 
 const Index = () => {
-  const todayStats = {
-    plannedVisits: 4,
-    completedVisits: 1,
-    totalRevenue: "₹18,650",
-    newOrders: 3
-  };
+  const [currentQuote, setCurrentQuote] = useState("");
 
-  const upcomingVisits = [
-    {
-      retailer: "Sham Kirana and General Stores",
-      time: "2:00 PM",
-      status: "Negotiation",
-      priority: "high"
-    },
-    {
-      retailer: "Balaji Kiranad", 
-      time: "4:00 PM",
-      status: "Follow-up",
-      priority: "medium"
-    }
+  useEffect(() => {
+    const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+    setCurrentQuote(randomQuote);
+  }, []);
+
+  const navigationItems = [
+    { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
+    { icon: Car, label: "Today Visit", href: "/visit-planner", color: "from-green-500 to-green-600" },
+    { icon: Route, label: "Journey Plan", href: "/visits", color: "from-purple-500 to-purple-600" },
+    { icon: Users, label: "Create New Beat", href: "/create-beat", color: "from-orange-500 to-orange-600" },
+    { icon: Briefcase, label: "Add Retailer", href: "/add-retailer", color: "from-red-500 to-red-600" },
+    { icon: Gift, label: "Check Schemes", href: "/schemes", color: "from-pink-500 to-pink-600" },
+    { icon: CreditCard, label: "My Expenses", href: "/expenses", color: "from-indigo-500 to-indigo-600" },
+    { icon: BarChart, label: "Performance Summary", href: "/performance", color: "from-cyan-500 to-cyan-600" },
+    { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
+    { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
+    { icon: Target, label: "Analytics", href: "/beat-analytics", color: "from-violet-500 to-violet-600" },
   ];
 
   return (
     <Layout>
-      <div className="p-4 space-y-6">
-        {/* Welcome Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-muted-foreground text-sm">Hello,</div>
-            <Avatar className="h-16 w-16">
-              <AvatarImage src="/placeholder.svg" alt="James" />
-              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-lg font-semibold">J</AvatarFallback>
-            </Avatar>
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        {/* Header Section with Welcome */}
+        <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+          <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+          <div className="relative p-6 text-center">
+            <div className="flex items-center justify-center space-x-4 mb-4">
+              <Avatar className="h-20 w-20 border-4 border-primary-foreground/20 shadow-lg">
+                <AvatarImage src="/placeholder.svg" alt="User" />
+                <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-2xl font-bold">
+                  J
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-left">
+                <h1 className="text-3xl font-bold mb-1">Good Morning!</h1>
+                <p className="text-xl opacity-90">James</p>
+                <p className="text-sm opacity-75">Sales Executive</p>
+              </div>
+            </div>
+            
+            {/* Motivational Quote */}
+            <div className="bg-primary-foreground/10 rounded-xl p-5 mt-6 backdrop-blur-sm border border-primary-foreground/20">
+              <p className="text-lg font-medium italic leading-relaxed">"{currentQuote}"</p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-4">Hi James</h1>
         </div>
 
-        {/* Beat Information Card */}
-        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2">M.G. Road Beat</h3>
-                <div className="space-y-1 text-primary-foreground/90 text-sm">
-                  <p>You have planned to visit M.G. Road Beat and there are 40 retailers.</p>
-                  <p>Last visited date was July 15, 2025 and the average productive visit is 22 retailers and revenue per visit from this beat is Rs. 5,585.</p>
-                </div>
-              </div>
-              <div className="ml-4">
-                <div className="text-right">
-                  <MapPin className="text-primary-foreground/70" size={24} />
-                </div>
-              </div>
+        {/* Today's Quick Stats */}
+        <div className="p-4 -mt-8 relative z-10">
+          <div className="grid grid-cols-3 gap-3 mb-8">
+            <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-3xl font-bold text-blue-600 mb-1">5</div>
+                <div className="text-xs text-blue-700 font-medium">Today's Visits</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-3xl font-bold text-green-600 mb-1">₹28K</div>
+                <div className="text-xs text-green-700 font-medium">Revenue</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-3xl font-bold text-purple-600 mb-1">12</div>
+                <div className="text-xs text-purple-700 font-medium">Orders</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Navigation Grid */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-center text-foreground mb-8">
+              Start Your Day Right
+            </h2>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {navigationItems.map((item, index) => (
+                <NavLink 
+                  key={item.href} 
+                  to={item.href}
+                  className="group block"
+                >
+                  <Card className="hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-gradient-to-br from-background to-muted/50 border-2 hover:border-primary/30 group-hover:shadow-primary/20">
+                    <CardContent className="p-6 text-center relative overflow-hidden">
+                      <div className={`absolute inset-0 bg-gradient-to-r ${item.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+                      <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r ${item.color} bg-opacity-10 mb-4 group-hover:scale-110 transition-transform duration-300 relative z-10`}>
+                        <item.icon className="h-8 w-8 text-primary group-hover:text-white transition-colors" />
+                      </div>
+                      <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors relative z-10">
+                        {item.label}
+                      </h3>
+                    </CardContent>
+                  </Card>
+                </NavLink>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Today's Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="shadow-card">
-            <CardContent className="p-4 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Target className="text-primary" size={24} />
-              </div>
-              <div className="text-2xl font-bold text-primary">{todayStats.completedVisits}/{todayStats.plannedVisits}</div>
-              <div className="text-sm text-muted-foreground">Visits Today</div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardContent className="p-4 text-center">
-              <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                <TrendingUp className="text-success" size={24} />
-              </div>
-              <div className="text-2xl font-bold text-success">{todayStats.totalRevenue}</div>
-              <div className="text-sm text-muted-foreground">Revenue Today</div>
+          {/* Achievement Badge */}
+          <Card className="mt-8 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-200 shadow-lg">
+            <CardContent className="p-6 text-center">
+              <Award className="h-10 w-10 mx-auto mb-3 text-amber-600" />
+              <div className="font-bold text-lg text-amber-700 mb-1">Top Performer This Week!</div>
+              <div className="text-sm text-amber-600">You're exceeding targets by 18%</div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Quick Actions */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <NavLink to="/visits">
-              <Button variant="outline" className="w-full h-12 justify-start">
-                <MapPin size={18} className="mr-2" />
-                Beat Plan
-              </Button>
-            </NavLink>
-            
-            <NavLink to="/visits/retailers">
-              <Button variant="outline" className="w-full h-12 justify-start">
-                <Calendar size={18} className="mr-2" />
-                Today's Visit
-              </Button>
-            </NavLink>
-            
-            <NavLink to="/create-beat">
-              <Button variant="outline" className="w-full h-12 justify-start">
-                <Users size={18} className="mr-2" />
-                Create Beat
-              </Button>
-            </NavLink>
-            
-            <Button variant="outline" className="w-full h-12 justify-start">
-              <TrendingUp size={18} className="mr-2" />
-              Analytics
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Visits */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Upcoming Visits Today</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingVisits.map((visit, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-sm">{visit.retailer}</h4>
-                  <p className="text-xs text-muted-foreground">{visit.time}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    className={visit.priority === "high" 
-                      ? "bg-destructive text-destructive-foreground" 
-                      : "bg-warning text-warning-foreground"
-                    }
-                  >
-                    {visit.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-            
-            <NavLink to="/visits">
-              <Button variant="outline" className="w-full mt-3">
-                View All Visits
-              </Button>
-            </NavLink>
-          </CardContent>
-        </Card>
-
-        {/* Performance Insight */}
-        <Card className="shadow-card border-l-4 border-l-success">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-success/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="text-success" size={20} />
-              </div>
-              <div>
-                <h4 className="font-semibold text-sm">Great Progress!</h4>
-                <p className="text-sm text-muted-foreground">
-                  You're ahead of your monthly target by 12%. Keep up the excellent work!
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </Layout>
   );
