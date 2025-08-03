@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Grid3X3, Table, XCircle } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Grid3X3, Table } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
@@ -96,7 +95,7 @@ export const OrderEntry = () => {
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
-  const [noOrderReason, setNoOrderReason] = useState<string>("");
+  
 
   const filteredProducts = selectedCategory === "All" 
     ? mockProducts 
@@ -196,10 +195,10 @@ export const OrderEntry = () => {
           </CardHeader>
         </Card>
 
-        {/* Order Mode Toggle & No Order */}
+        {/* Order Mode Toggle */}
         <Card>
           <CardContent className="p-3">
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2">
               <Button
                 variant={orderMode === "grid" ? "default" : "outline"}
                 onClick={() => setOrderMode("grid")}
@@ -217,37 +216,6 @@ export const OrderEntry = () => {
               >
                 <Table size={14} className="mr-1" />
                 Table
-              </Button>
-            </div>
-            
-            {/* No Order Section */}
-            <div className="space-y-2">
-              <Select value={noOrderReason} onValueChange={setNoOrderReason}>
-                <SelectTrigger className="h-8 bg-background">
-                  <SelectValue placeholder="Select reason for no order" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border z-50">
-                  <SelectItem value="overstocked">Over stocked</SelectItem>
-                  <SelectItem value="owner-not-available">The owner not available</SelectItem>
-                  <SelectItem value="store-closed">Store closed</SelectItem>
-                  <SelectItem value="permanently-closed">Permanently closed</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Button 
-                variant={noOrderReason ? "destructive" : "outline"}
-                className="w-full h-8"
-                size="sm"
-                disabled={!noOrderReason}
-                onClick={() => {
-                  toast({
-                    title: "No Order Recorded",
-                    description: `Reason: ${noOrderReason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
-                  });
-                }}
-              >
-                <XCircle size={14} className="mr-1" />
-                No-order {noOrderReason && `(${noOrderReason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')})`}
               </Button>
             </div>
           </CardContent>

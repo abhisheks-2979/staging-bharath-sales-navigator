@@ -1,8 +1,11 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3 } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { toast } from "@/hooks/use-toast";
 
 interface Visit {
   id: string;
@@ -27,6 +30,8 @@ interface VisitCardProps {
 
 export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const navigate = useNavigate();
+  const [showNoOrderDropdown, setShowNoOrderDropdown] = useState(false);
+  const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
   const getStatusColor = (status: string) => {
     switch (status) {
       case "productive":
@@ -88,6 +93,15 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     }
   };
 
+  const handleNoOrderReasonSelect = (reason: string) => {
+    setNoOrderReason(reason);
+    setShowNoOrderDropdown(false);
+    toast({
+      title: "No Order Recorded",
+      description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
+    });
+  };
+
   return (
     <Card className="shadow-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 bg-gradient-to-r from-card to-card/50">
       <CardContent className="p-4">
@@ -122,43 +136,62 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
-          <Button 
-            size="sm" 
-            className={`${getCheckInButtonColor(visit.checkInStatus)} p-2 h-10`}
-            title={getCheckInButtonText(visit.checkInStatus, visit.time)}
-          >
-            <MapPin size={16} />
-          </Button>
-          
-          <Button 
-            variant={visit.hasOrder ? "default" : "outline"}
-            size="sm"
-            className={`p-2 h-10 ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
-            onClick={() => navigate(`/order-entry?visitId=${visit.id}&retailer=${visit.retailerName}`)}
-            title={`Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}
-          >
-            <ShoppingCart size={16} />
-          </Button>
-          
-          <Button 
-            variant={visit.noOrderReason ? "destructive" : "outline"}
-            size="sm"
-            className="p-2 h-10"
-            title={`No-order${visit.noOrderReason ? ` (${visit.noOrderReason.replace(/-/g, ' ')})` : ""}`}
-          >
-            <XCircle size={16} />
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="p-2 h-10"
-            onClick={() => onViewDetails(visit.id)}
-            title="Analytics"
-          >
-            <BarChart3 size={16} />
-          </Button>
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 gap-2">
+            <Button 
+              size="sm" 
+              className={`${getCheckInButtonColor(visit.checkInStatus)} p-2 h-10`}
+              title={getCheckInButtonText(visit.checkInStatus, visit.time)}
+            >
+              <MapPin size={16} />
+            </Button>
+            
+            <Button 
+              variant={visit.hasOrder ? "default" : "outline"}
+              size="sm"
+              className={`p-2 h-10 ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
+              onClick={() => navigate(`/order-entry?visitId=${visit.id}&retailer=${visit.retailerName}`)}
+              title={`Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}
+            >
+              <ShoppingCart size={16} />
+            </Button>
+            
+            <Button 
+              variant={noOrderReason ? "default" : "outline"}
+              size="sm"
+              className={`p-2 h-10 ${noOrderReason ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
+              onClick={() => setShowNoOrderDropdown(!showNoOrderDropdown)}
+              title={`No-order${noOrderReason ? ` (${noOrderReason.replace(/-/g, ' ')})` : ""}`}
+            >
+              {noOrderReason ? <Check size={16} /> : <XCircle size={16} />}
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-2 h-10"
+              onClick={() => onViewDetails(visit.id)}
+              title="Analytics"
+            >
+              <BarChart3 size={16} />
+            </Button>
+          </div>
+
+          {showNoOrderDropdown && (
+            <div className="mt-2">
+              <Select value={noOrderReason} onValueChange={handleNoOrderReasonSelect}>
+                <SelectTrigger className="h-8 bg-background">
+                  <SelectValue placeholder="Select reason for no order" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border z-50">
+                  <SelectItem value="over-stocked">Over stocked</SelectItem>
+                  <SelectItem value="owner-not-available">The owner not available</SelectItem>
+                  <SelectItem value="store-closed">Store closed</SelectItem>
+                  <SelectItem value="permanently-closed">Permanently closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
