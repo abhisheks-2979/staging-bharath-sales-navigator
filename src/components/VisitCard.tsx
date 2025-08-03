@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { CompetitionInsightModal } from "./CompetitionInsightModal";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Visit {
   id: string;
@@ -37,6 +38,32 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
   const [showCompetitionModal, setShowCompetitionModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
+  // Check if user has viewed analytics for this visit
+  useEffect(() => {
+    const checkAnalyticsView = async () => {
+      try {
+        const { data: user } = await supabase.auth.getUser();
+        if (user.user) {
+          const { data, error } = await supabase
+            .from('analytics_views')
+            .select('id')
+            .eq('user_id', user.user.id)
+            .eq('visit_id', visit.id)
+            .single();
+          
+          if (data && !error) {
+            setHasViewedAnalytics(true);
+          }
+        }
+      } catch (error) {
+        console.log('Analytics view check error:', error);
+      }
+    };
+
+    checkAnalyticsView();
+  }, [visit.id]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "productive":
@@ -104,6 +131,27 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
       title: "No Order Recorded",
       description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
     });
+  };
+
+  const handleViewAnalytics = async (visitId: string) => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (user.user) {
+        // Record analytics view
+        await supabase
+          .from('analytics_views')
+          .insert({
+            user_id: user.user.id,
+            visit_id: visitId
+          });
+        
+        setHasViewedAnalytics(true);
+      }
+    } catch (error) {
+      console.log('Analytics view recording error:', error);
+    }
+    
+    onViewDetails(visitId);
   };
 
   return (
@@ -176,8 +224,10 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             <Button 
               variant="outline" 
               size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
-              onClick={() => onViewDetails(visit.id)}
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
+                hasViewedAnalytics ? "bg-success text-success-foreground hover:bg-success/90" : ""
+              }`}
+              onClick={() => handleViewAnalytics(visit.id)}
               title="Analytics"
             >
               <BarChart3 size={14} className="sm:size-4" />

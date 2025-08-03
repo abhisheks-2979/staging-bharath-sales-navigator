@@ -1,13 +1,85 @@
-import { BarChart3, PieChart, TrendingUp, ArrowLeft, Map, Users, Package, Calendar } from "lucide-react";
+import { BarChart3, PieChart, TrendingUp, ArrowLeft, Map, Users, Package, Calendar, Heart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const Analytics = () => {
   const navigate = useNavigate();
+  const [hasLiked, setHasLiked] = useState(false);
+
+  // Check if user has already liked
+  useEffect(() => {
+    const checkLikeStatus = async () => {
+      try {
+        const { data: user } = await supabase.auth.getUser();
+        if (user.user) {
+          const { data, error } = await supabase
+            .from('analytics_likes')
+            .select('id')
+            .eq('user_id', user.user.id)
+            .eq('page_type', 'general_analytics')
+            .single();
+          
+          if (data && !error) {
+            setHasLiked(true);
+          }
+        }
+      } catch (error) {
+        console.log('Like status check error:', error);
+      }
+    };
+
+    checkLikeStatus();
+  }, []);
+
+  const handleLike = async () => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (user.user) {
+        if (hasLiked) {
+          // Remove like
+          await supabase
+            .from('analytics_likes')
+            .delete()
+            .eq('user_id', user.user.id)
+            .eq('page_type', 'general_analytics');
+          
+          setHasLiked(false);
+          toast({
+            title: "Feedback Removed",
+            description: "Thank you for your feedback!"
+          });
+        } else {
+          // Add like
+          await supabase
+            .from('analytics_likes')
+            .insert({
+              user_id: user.user.id,
+              page_type: 'general_analytics'
+            });
+          
+          setHasLiked(true);
+          toast({
+            title: "Thank you!",
+            description: "Your positive feedback helps us improve analytics!"
+          });
+        }
+      }
+    } catch (error) {
+      console.log('Like action error:', error);
+      toast({
+        title: "Error",
+        description: "Could not record feedback. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   // Market Analysis Data
   const marketData = [
@@ -78,6 +150,17 @@ const Analytics = () => {
                 </h1>
                 <p className="text-primary-foreground/80 text-sm">Analyze market data and plan strategically</p>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLike}
+                className={`text-primary-foreground hover:bg-primary-foreground/20 ${
+                  hasLiked ? "bg-primary-foreground/20" : ""
+                }`}
+                title={hasLiked ? "Remove like" : "Like this page"}
+              >
+                <Heart size={20} className={hasLiked ? "fill-current" : ""} />
+              </Button>
             </div>
 
             {/* Quick Insights */}

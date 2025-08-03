@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_likes: {
+        Row: {
+          created_at: string
+          id: string
+          liked_at: string
+          page_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          liked_at?: string
+          page_type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          liked_at?: string
+          page_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      analytics_views: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          viewed_at: string
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          viewed_at?: string
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          viewed_at?: string
+          visit_id?: string
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           check_in_location: Json | null
