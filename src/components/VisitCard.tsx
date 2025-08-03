@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
+import { CompetitionInsightModal } from "./CompetitionInsightModal";
+import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 
 interface Visit {
   id: string;
@@ -32,6 +34,8 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const navigate = useNavigate();
   const [showNoOrderDropdown, setShowNoOrderDropdown] = useState(false);
   const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
+  const [showCompetitionModal, setShowCompetitionModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "productive":
@@ -137,6 +141,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         </div>
 
         <div className="space-y-2">
+          {/* Main action buttons */}
           <div className="grid grid-cols-4 gap-2">
             <Button 
               size="sm" 
@@ -177,6 +182,31 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             </Button>
           </div>
 
+          {/* Secondary action buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-2 h-10"
+              onClick={() => setShowCompetitionModal(true)}
+              title="Competition Insights"
+            >
+              <Users size={16} className="mr-1" />
+              <span className="text-xs">Competition</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-2 h-10"
+              onClick={() => setShowFeedbackModal(true)}
+              title="Retailer Feedback"
+            >
+              <MessageSquare size={16} className="mr-1" />
+              <span className="text-xs">Feedback</span>
+            </Button>
+          </div>
+
           {showNoOrderDropdown && (
             <div className="mt-2">
               <Select value={noOrderReason} onValueChange={handleNoOrderReasonSelect}>
@@ -193,6 +223,23 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             </div>
           )}
         </div>
+
+        {/* Modals */}
+        <CompetitionInsightModal
+          isOpen={showCompetitionModal}
+          onClose={() => setShowCompetitionModal(false)}
+          visitId={visit.id}
+          retailerId={visit.id} // Using visit.id as retailer ID for now
+          retailerName={visit.retailerName}
+        />
+
+        <RetailerFeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          visitId={visit.id}
+          retailerId={visit.id} // Using visit.id as retailer ID for now
+          retailerName={visit.retailerName}
+        />
       </CardContent>
     </Card>
   );

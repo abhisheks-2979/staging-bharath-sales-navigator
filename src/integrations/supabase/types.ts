@@ -65,6 +65,51 @@ export type Database = {
         }
         Relationships: []
       }
+      competition_insights: {
+        Row: {
+          action_required: boolean | null
+          competitor_name: string
+          created_at: string
+          description: string
+          id: string
+          impact_level: string | null
+          insight_type: string
+          product_category: string | null
+          retailer_id: string
+          updated_at: string
+          user_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          action_required?: boolean | null
+          competitor_name: string
+          created_at?: string
+          description: string
+          id?: string
+          impact_level?: string | null
+          insight_type: string
+          product_category?: string | null
+          retailer_id: string
+          updated_at?: string
+          user_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          action_required?: boolean | null
+          competitor_name?: string
+          created_at?: string
+          description?: string
+          id?: string
+          impact_level?: string | null
+          insight_type?: string
+          product_category?: string | null
+          retailer_id?: string
+          updated_at?: string
+          user_id?: string
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
       leave_applications: {
         Row: {
           applied_date: string
@@ -183,6 +228,42 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      retailer_feedback: {
+        Row: {
+          comments: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          rating: number | null
+          retailer_id: string
+          updated_at: string
+          user_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          rating?: number | null
+          retailer_id: string
+          updated_at?: string
+          user_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          rating?: number | null
+          retailer_id?: string
+          updated_at?: string
+          user_id?: string
+          visit_id?: string | null
         }
         Relationships: []
       }
