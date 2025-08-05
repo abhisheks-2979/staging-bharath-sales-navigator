@@ -1,14 +1,29 @@
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open('app-cache').then((cache) => {
+    caches.open('app-cache-v1').then((cache) => {
       return cache.addAll([
         '/',
         '/index.html',
-        '/src/main.tsx',
         '/manifest.json',
         '/icons/icon-192.png',
-        '/icons/icon-512.png'
+        '/icons/icon-512.png',
+        '/icons/apple-touch-icon.png'
       ]);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== 'app-cache-v1') {
+            return caches.delete(cacheName);
+          }
+        })
+      );
     })
   );
 });
