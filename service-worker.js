@@ -4,8 +4,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll([
         '/',
         '/index.html',
-        '/styles.css',
-        '/script.js',
+        '/src/main.tsx',
         '/manifest.json',
         '/icons/icon-192.png',
         '/icons/icon-512.png'
