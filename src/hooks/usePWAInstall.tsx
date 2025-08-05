@@ -18,15 +18,23 @@ export const usePWAInstall = () => {
     // Check if app is already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isIOSStandalone = (window.navigator as any).standalone === true;
-    setIsInstalled(isStandalone || isIOSStandalone);
+    const isInstalledApp = isStandalone || isIOSStandalone;
+    setIsInstalled(isInstalledApp);
+
+    // Always show install option for testing (remove this in production)
+    if (!isInstalledApp) {
+      setIsInstallable(true);
+    }
 
     const handler = (e: Event) => {
+      console.log('beforeinstallprompt event fired');
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setIsInstallable(true);
     };
 
     const appInstalledHandler = () => {
+      console.log('App was installed');
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
@@ -35,6 +43,14 @@ export const usePWAInstall = () => {
     window.addEventListener('beforeinstallprompt', handler);
     window.addEventListener('appinstalled', appInstalledHandler);
 
+    // Log current state for debugging
+    console.log('PWA Install Hook initialized:', {
+      isStandalone,
+      isIOSStandalone,
+      isInstalled: isInstalledApp,
+      userAgent: navigator.userAgent
+    });
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('appinstalled', appInstalledHandler);
@@ -42,15 +58,26 @@ export const usePWAInstall = () => {
   }, []);
 
   const installApp = async () => {
+    console.log('Install button clicked, deferredPrompt:', !!deferredPrompt);
+    
     if (!deferredPrompt) {
-      // Fallback for iOS or browsers that don't support the prompt
-      alert('To install this app:\n\n1. Tap the Share button\n2. Select "Add to Home Screen"');
+      // Check if we're on iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      
+      if (isIOS) {
+        alert('To install this app on iOS:\n\n1. Tap the Share button (⎋)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
+      } else {
+        // For other browsers that might not support beforeinstallprompt
+        alert('To install this app:\n\n1. Open browser menu (⋮)\n2. Look for "Install app" or "Add to Home Screen"\n3. Follow the prompts');
+      }
       return;
     }
 
     try {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
+      
+      console.log('User response to install prompt:', outcome);
       
       if (outcome === 'accepted') {
         setIsInstalled(true);
@@ -66,6 +93,7 @@ export const usePWAInstall = () => {
   return {
     isInstallable: isInstallable && !isInstalled,
     isInstalled,
-    installApp
+    installApp,
+    canPrompt: !!deferredPrompt
   };
 };
