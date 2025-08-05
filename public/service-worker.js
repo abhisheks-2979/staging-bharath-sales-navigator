@@ -1,8 +1,11 @@
-const CACHE_NAME = 'bharath-sales-navigator-v3';
+const CACHE_NAME = 'bharath-sales-navigator-v4';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -49,37 +52,69 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip caching POST requests and external APIs
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
+        // Cache hit - return cached version
         if (response) {
+          console.log('Serving from cache:', event.request.url);
           return response;
         }
         
+        // Network fetch with caching
         return fetch(event.request).then((response) => {
-          // Don't cache non-successful responses
+          // Don't cache non-successful responses or non-basic responses
           if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
           }
           
-          // Clone the response
+          // Clone the response before caching
           const responseToCache = response.clone();
           
-          // Cache new resources (for dynamic caching)
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          // Cache new resources (dynamic caching for JS, CSS, images)
+          const url = event.request.url;
+          const shouldCache = url.includes('/assets/') || 
+                             url.endsWith('.js') || 
+                             url.endsWith('.css') || 
+                             url.endsWith('.png') || 
+                             url.endsWith('.jpg') || 
+                             url.endsWith('.svg') ||
+                             url.endsWith('.woff2') ||
+                             url === self.location.origin + '/';
+          
+          if (shouldCache) {
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                console.log('Caching:', url);
+                cache.put(event.request, responseToCache);
+              })
+              .catch((error) => {
+                console.error('Failed to cache:', url, error);
+              });
+          }
           
           return response;
         });
       })
-      .catch(() => {
-        // If both cache and network fail, show offline page for navigation requests
+      .catch((error) => {
+        console.log('Fetch failed, serving from cache:', error);
+        
+        // If both cache and network fail, serve offline fallbacks
         if (event.request.destination === 'document') {
           return caches.match('/index.html');
         }
+        
+        // For images, you could return a default offline image
+        if (event.request.destination === 'image') {
+          return caches.match('/icons/icon-192.png');
+        }
+        
+        throw error;
       })
   );
 });
