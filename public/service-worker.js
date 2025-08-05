@@ -1,17 +1,9 @@
-const CACHE_NAME = 'bharath-sales-navigator-v1';
+const CACHE_NAME = 'bharath-sales-navigator-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  
-  // Icons
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png',
-  '/favicon.ico',
-  
-  // Static assets
-  '/placeholder.svg'
+  '/public/placeholder.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,9 +20,7 @@ self.addEventListener('install', (event) => {
           return cache.addAll([
             '/',
             '/index.html',
-            '/manifest.json',
-            '/icons/icon-192.png',
-            '/icons/icon-512.png'
+            '/manifest.json'
           ]);
         });
       })
@@ -55,6 +45,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only handle same-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -62,6 +57,7 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response;
         }
+        
         return fetch(event.request).then((response) => {
           // Don't cache non-successful responses
           if (!response || response.status !== 200 || response.type !== 'basic') {
