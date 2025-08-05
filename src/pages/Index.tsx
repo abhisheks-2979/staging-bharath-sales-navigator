@@ -13,7 +13,8 @@ import {
   Briefcase,
   Car,
   BarChart,
-  Award
+  Award,
+  Download
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Layout } from "@/components/Layout";
 import { useState, useEffect } from "react";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
 
 const motivationalQuotes = [
   "Success is not final, failure is not fatal: it is the courage to continue that counts.",
@@ -41,13 +43,22 @@ const motivationalQuotes = [
 
 const Index = () => {
   const [currentQuote, setCurrentQuote] = useState("");
+  const { isInstallable, installApp } = usePWAInstall();
 
   useEffect(() => {
     const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
     setCurrentQuote(randomQuote);
   }, []);
 
-  const navigationItems = [
+  type NavigationItem = {
+    icon: any;
+    label: string;
+    href: string;
+    color: string;
+    isInstall?: boolean;
+  };
+
+  const navigationItems: NavigationItem[] = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: "Today's Visit", href: "https://preview--bharath-sales-navigator.lovable.app/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Route, label: "Journey Plan", href: "/visits", color: "from-purple-500 to-purple-600" },
@@ -60,6 +71,17 @@ const Index = () => {
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
     { icon: Target, label: "Analytics", href: "/beat-analytics", color: "from-violet-500 to-violet-600" },
   ];
+
+  // Add install option if app is installable
+  const allNavigationItems: NavigationItem[] = isInstallable 
+    ? [...navigationItems, { 
+        icon: Download, 
+        label: "Install App", 
+        href: "#", 
+        color: "from-emerald-500 to-emerald-600",
+        isInstall: true 
+      }]
+    : navigationItems;
 
   return (
     <Layout>
@@ -137,22 +159,43 @@ const Index = () => {
             </h2>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              {navigationItems.map((item, index) => (
-                <NavLink 
-                  key={item.href} 
-                  to={item.href}
-                  className="group block"
-                >
-                  <div className="p-3 sm:p-4 text-center transition-all duration-300 hover:scale-105">
-                    <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 mb-2 sm:mb-3 rounded-xl sm:rounded-2xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
-                      <item.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 text-white drop-shadow-sm" />
+              {allNavigationItems.map((item, index) => {
+                if (item.isInstall) {
+                  return (
+                    <div 
+                      key="install"
+                      onClick={installApp}
+                      className="group block cursor-pointer"
+                    >
+                      <div className="p-3 sm:p-4 text-center transition-all duration-300 hover:scale-105">
+                        <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 mb-2 sm:mb-3 rounded-xl sm:rounded-2xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                          <item.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 text-white drop-shadow-sm" />
+                        </div>
+                        <h3 className="font-medium text-[10px] sm:text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
+                          {item.label}
+                        </h3>
+                      </div>
                     </div>
-                    <h3 className="font-medium text-[10px] sm:text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
-                      {item.label}
-                    </h3>
-                  </div>
-                </NavLink>
-              ))}
+                  );
+                }
+                
+                return (
+                  <NavLink 
+                    key={item.href} 
+                    to={item.href}
+                    className="group block"
+                  >
+                    <div className="p-3 sm:p-4 text-center transition-all duration-300 hover:scale-105">
+                      <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 mb-2 sm:mb-3 rounded-xl sm:rounded-2xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                        <item.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 text-white drop-shadow-sm" />
+                      </div>
+                      <h3 className="font-medium text-[10px] sm:text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
+                        {item.label}
+                      </h3>
+                    </div>
+                  </NavLink>
+                );
+              })}
             </div>
           </div>
 
