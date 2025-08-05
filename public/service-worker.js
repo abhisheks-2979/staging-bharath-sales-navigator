@@ -1,9 +1,8 @@
-const CACHE_NAME = 'bharath-sales-navigator-v2';
+const CACHE_NAME = 'bharath-sales-navigator-v3';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/public/placeholder.svg'
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {

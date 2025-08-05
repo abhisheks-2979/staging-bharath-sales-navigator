@@ -21,9 +21,11 @@ export const usePWAInstall = () => {
     const isInstalledApp = isStandalone || isIOSStandalone;
     setIsInstalled(isInstalledApp);
 
-    // Always show install option for testing (remove this in production)
+    // Always show install option for testing, but check browser capability
     if (!isInstalledApp) {
-      setIsInstallable(true);
+      // Check if browser supports PWA installation
+      const supportsInstall = 'serviceWorker' in navigator && 'PushManager' in window;
+      setIsInstallable(supportsInstall);
     }
 
     const handler = (e: Event) => {
@@ -60,33 +62,40 @@ export const usePWAInstall = () => {
   const installApp = async () => {
     console.log('Install button clicked, deferredPrompt:', !!deferredPrompt);
     
-    if (!deferredPrompt) {
-      // Check if we're on iOS
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      
-      if (isIOS) {
-        alert('To install this app on iOS:\n\n1. Tap the Share button (⎋)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm');
-      } else {
-        // For other browsers that might not support beforeinstallprompt
-        alert('To install this app:\n\n1. Open browser menu (⋮)\n2. Look for "Install app" or "Add to Home Screen"\n3. Follow the prompts');
+    if (deferredPrompt) {
+      try {
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        console.log('User response to install prompt:', outcome);
+        
+        if (outcome === 'accepted') {
+          setIsInstalled(true);
+        }
+        
+        setDeferredPrompt(null);
+        setIsInstallable(false);
+        return;
+      } catch (error) {
+        console.error('Install failed:', error);
       }
-      return;
     }
 
-    try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      
-      console.log('User response to install prompt:', outcome);
-      
-      if (outcome === 'accepted') {
-        setIsInstalled(true);
+    // Fallback for browsers that don't support beforeinstallprompt
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    if (isIOS) {
+      const isInApp = (window.navigator as any).standalone === true;
+      if (!isInApp) {
+        alert('To install this app on iOS:\n\n1. Tap the Share button (⎋) at the bottom\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" to confirm\n\nThis will create a native app icon on your home screen!');
       }
-      
-      setDeferredPrompt(null);
-      setIsInstallable(false);
-    } catch (error) {
-      console.error('Install failed:', error);
+    } else if (isAndroid) {
+      // Try to trigger Chrome's install banner manually
+      alert('To install this app:\n\n1. Tap the menu (⋮) in your browser\n2. Look for "Install app" or "Add to Home Screen"\n3. Follow the prompts\n\nThis will install the app as a native application!');
+    } else {
+      // Desktop browsers
+      alert('To install this app:\n\n1. Look for an install icon (⬇) in your address bar\n2. Or check browser menu for "Install app"\n3. Follow the installation prompts\n\nThis will install the app to your desktop!');
     }
   };
 
