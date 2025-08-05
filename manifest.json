@@ -2,9 +2,9 @@
   "name": "Bharath Sales Navigator",
   "short_name": "SalesNav",
   "start_url": "/",
-  "orientation": "portrait",
-  "categories": ["business", "productivity"]
   "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["business", "productivity"],
   "background_color": "#f0f0f0",
   "theme_color": "#007BFF",
   "icons": [
