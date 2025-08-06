@@ -4,6 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AuthPage } from "@/components/auth/AuthPage";
 import Index from "./pages/Index";
 import { VisitPlanner } from "./pages/VisitPlanner";
 import { BeatPlanning } from "./pages/BeatPlanning";
@@ -32,39 +35,129 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <PWAInstallPrompt />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/visit-planner" element={<VisitPlanner />} />
-          <Route path="/visits" element={<BeatPlanning />} />
-          <Route path="/visits/retailers" element={<MyVisits />} />
-          <Route path="/order-entry" element={<OrderEntry />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/create-beat" element={<CreateBeat />} />
-          <Route path="/visit/:id" element={<VisitDetail />} />
-          <Route path="/beat-analytics" element={<BeatAnalytics />} />
-          <Route path="/today-summary" element={<TodaySummary />} />
-            <Route path="/add-retailer" element={<AddRetailer />} />
-            <Route path="/add-distributor" element={<AddDistributor />} />
-            <Route path="/add-super-stockist" element={<AddSuperStockist />} />
-            <Route path="/add-records" element={<AddRecords />} />
-          <Route path="/add-beat" element={<AddBeat />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/performance" element={<Performance />} />
-          <Route path="/sales-coach" element={<SalesCoach />} />
-          <Route path="/beat-analytics" element={<Analytics />} />
-          <Route path="/schemes" element={<Schemes />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <PWAInstallPrompt />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } />
+            <Route path="/visit-planner" element={
+              <ProtectedRoute>
+                <VisitPlanner />
+              </ProtectedRoute>
+            } />
+            <Route path="/visits" element={
+              <ProtectedRoute>
+                <BeatPlanning />
+              </ProtectedRoute>
+            } />
+            <Route path="/visits/retailers" element={
+              <ProtectedRoute>
+                <MyVisits />
+              </ProtectedRoute>
+            } />
+            <Route path="/order-entry" element={
+              <ProtectedRoute>
+                <OrderEntry />
+              </ProtectedRoute>
+            } />
+            <Route path="/cart" element={
+              <ProtectedRoute>
+                <Cart />
+              </ProtectedRoute>
+            } />
+            <Route path="/create-beat" element={
+              <ProtectedRoute>
+                <CreateBeat />
+              </ProtectedRoute>
+            } />
+            <Route path="/visit/:id" element={
+              <ProtectedRoute>
+                <VisitDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/beat-analytics" element={
+              <ProtectedRoute>
+                <BeatAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/today-summary" element={
+              <ProtectedRoute>
+                <TodaySummary />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-retailer" element={
+              <ProtectedRoute>
+                <AddRetailer />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-distributor" element={
+              <ProtectedRoute>
+                <AddDistributor />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-super-stockist" element={
+              <ProtectedRoute>
+                <AddSuperStockist />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-records" element={
+              <ProtectedRoute>
+                <AddRecords />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-beat" element={
+              <ProtectedRoute>
+                <AddBeat />
+              </ProtectedRoute>
+            } />
+            <Route path="/attendance" element={
+              <ProtectedRoute>
+                <Attendance />
+              </ProtectedRoute>
+            } />
+            <Route path="/expenses" element={
+              <ProtectedRoute>
+                <Expenses />
+              </ProtectedRoute>
+            } />
+            <Route path="/leaderboard" element={
+              <ProtectedRoute>
+                <Leaderboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/performance" element={
+              <ProtectedRoute>
+                <Performance />
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-coach" element={
+              <ProtectedRoute>
+                <SalesCoach />
+              </ProtectedRoute>
+            } />
+            <Route path="/beat-analytics" element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/schemes" element={
+              <ProtectedRoute>
+                <Schemes />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

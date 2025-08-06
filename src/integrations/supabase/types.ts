@@ -365,6 +365,42 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          hint_answer: string
+          hint_question: string
+          id: string
+          phone_number: string | null
+          recovery_email: string | null
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          hint_answer: string
+          hint_question: string
+          id: string
+          phone_number?: string | null
+          recovery_email?: string | null
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          hint_answer?: string
+          hint_question?: string
+          id?: string
+          phone_number?: string | null
+          recovery_email?: string | null
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       retailer_feedback: {
         Row: {
           comments: string | null
@@ -406,7 +442,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      verify_hint_answer: {
+        Args: { user_email: string; submitted_answer: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

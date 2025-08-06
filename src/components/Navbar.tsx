@@ -1,6 +1,8 @@
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -19,6 +21,7 @@ import {
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { signOut, user } = useAuth();
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
@@ -80,12 +83,23 @@ export const Navbar = () => {
                       <p className="text-sm opacity-75">Sales Executive</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
-                  >
-                    <X size={24} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={signOut}
+                      className="text-primary-foreground hover:bg-primary-foreground/10 h-8"
+                    >
+                      <LogOut className="h-4 w-4 mr-1" />
+                      Logout
+                    </Button>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="bg-primary-foreground/10 rounded-xl p-4 backdrop-blur-sm border border-primary-foreground/20">
