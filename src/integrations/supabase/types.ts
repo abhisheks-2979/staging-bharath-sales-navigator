@@ -113,6 +113,39 @@ export type Database = {
         }
         Relationships: []
       }
+      beat_plans: {
+        Row: {
+          beat_data: Json
+          beat_id: string
+          beat_name: string
+          created_at: string
+          id: string
+          plan_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          beat_data?: Json
+          beat_id: string
+          beat_name: string
+          created_at?: string
+          id?: string
+          plan_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          beat_data?: Json
+          beat_id?: string
+          beat_name?: string
+          created_at?: string
+          id?: string
+          plan_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       competition_insights: {
         Row: {
           action_required: boolean | null
@@ -434,6 +467,54 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visit_id?: string | null
+        }
+        Relationships: []
+      }
+      retailers: {
+        Row: {
+          address: string
+          beat_id: string
+          category: string | null
+          created_at: string
+          id: string
+          last_visit_date: string | null
+          name: string
+          order_value: number | null
+          phone: string | null
+          priority: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          beat_id: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          last_visit_date?: string | null
+          name: string
+          order_value?: number | null
+          phone?: string | null
+          priority?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          beat_id?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          last_visit_date?: string | null
+          name?: string
+          order_value?: number | null
+          phone?: string | null
+          priority?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
