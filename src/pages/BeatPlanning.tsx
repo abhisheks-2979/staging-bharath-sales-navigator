@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { Calendar, MapPin, TrendingUp, Users, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, MapPin, TrendingUp, Users, CheckCircle, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface Beat {
   id: string;
@@ -76,21 +79,72 @@ const mockBeats: Beat[] = [
   }
 ];
 
-const weekDays = [
-  { day: "Mon", date: "21", fullDate: "July 21" },
-  { day: "Tue", date: "22", fullDate: "July 22" },
-  { day: "Wed", date: "23", fullDate: "July 23" },
-  { day: "Thu", date: "24", fullDate: "July 24" },
-  { day: "Fri", date: "25", fullDate: "July 25" },
-  { day: "Sat", date: "26", fullDate: "July 26" },
-  { day: "Sun", date: "27", fullDate: "July 27" }
-];
+const getWeekDays = () => {
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
+  
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(startOfWeek);
+    day.setDate(startOfWeek.getDate() + i);
+    
+    weekDays.push({
+      day: day.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: day.getDate().toString(),
+      fullDate: day.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
+      isoDate: day.toISOString().split('T')[0]
+    });
+  }
+  return weekDays;
+};
 
 export const BeatPlanning = () => {
   const [selectedCategory, setSelectedCategory] = useState<"all" | "recommended" | "high-performing">("all");
   const [selectedDay, setSelectedDay] = useState("Mon");
+  const [selectedDate, setSelectedDate] = useState("");
   const [plannedBeats, setPlannedBeats] = useState<{[key: string]: string[]}>({});
+  const [weekDays, setWeekDays] = useState(getWeekDays());
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Load existing beat plans when component mounts or selected day changes
+  useEffect(() => {
+    if (user && selectedDate) {
+      loadBeatPlans(selectedDate);
+    }
+  }, [user, selectedDate]);
+
+  // Set initial selected date and day
+  useEffect(() => {
+    const today = weekDays.find(d => d.day === selectedDay);
+    if (today) {
+      setSelectedDate(today.isoDate);
+    }
+  }, [selectedDay, weekDays]);
+
+  const loadBeatPlans = async (date: string) => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('beat_plans')
+        .select('beat_id')
+        .eq('user_id', user.id)
+        .eq('plan_date', date);
+
+      if (error) throw error;
+
+      const plannedBeatIds = data.map(plan => plan.beat_id);
+      setPlannedBeats(prev => ({
+        ...prev,
+        [selectedDay]: plannedBeatIds
+      }));
+    } catch (error) {
+      console.error('Error loading beat plans:', error);
+    }
+  };
 
   const filteredBeats = mockBeats.filter(beat => 
     selectedCategory === "all" ? true : beat.category === selectedCategory
@@ -108,6 +162,59 @@ export const BeatPlanning = () => {
       ...prev,
       [selectedDay]: (prev[selectedDay] || []).filter(id => id !== beatId)
     }));
+  };
+
+  const handleSubmitPlan = async () => {
+    if (!user || !selectedDate) return;
+    
+    const selectedBeatIds = plannedBeats[selectedDay] || [];
+    if (selectedBeatIds.length === 0) {
+      toast.error("Please select at least one beat to plan.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Delete existing plans for this date
+      await supabase
+        .from('beat_plans')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('plan_date', selectedDate);
+
+      // Insert new plans
+      const planData = selectedBeatIds.map(beatId => {
+        const beat = mockBeats.find(b => b.id === beatId);
+        return {
+          user_id: user.id,
+          plan_date: selectedDate,
+          beat_id: beatId,
+          beat_name: beat?.name || '',
+          beat_data: beat || {}
+        };
+      });
+
+      const { error } = await supabase
+        .from('beat_plans')
+        .insert(planData);
+
+      if (error) throw error;
+
+      toast.success(`Successfully planned ${selectedBeatIds.length} beat(s) for ${weekDays.find(d => d.day === selectedDay)?.fullDate}`);
+    } catch (error) {
+      console.error('Error saving beat plan:', error);
+      toast.error("Failed to save beat plan. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDayChange = (day: string) => {
+    setSelectedDay(day);
+    const dayInfo = weekDays.find(d => d.day === day);
+    if (dayInfo) {
+      setSelectedDate(dayInfo.isoDate);
+    }
   };
 
   const isBeatSelected = (beatId: string) => {
@@ -150,7 +257,7 @@ export const BeatPlanning = () => {
               {weekDays.map((dayInfo) => (
                 <button
                   key={dayInfo.day}
-                  onClick={() => setSelectedDay(dayInfo.day)}
+                  onClick={() => handleDayChange(dayInfo.day)}
                   className={`p-2 rounded-lg text-center transition-colors relative ${
                     selectedDay === dayInfo.day
                       ? 'bg-primary-foreground text-primary'
@@ -271,17 +378,28 @@ export const BeatPlanning = () => {
                       {plannedBeats[selectedDay]?.length} beat(s) selected for {selectedDay}
                     </div>
                     <div className="text-sm text-primary-foreground/80">
-                      Ready to view retailers?
+                      Save plan or view retailers
                     </div>
                   </div>
-                  <Button 
-                    variant="secondary"
-                    onClick={handleProceedToRetailers}
-                    className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-                  >
-                    <MapPin size={16} className="mr-2" />
-                    View Retailers
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="secondary"
+                      onClick={handleSubmitPlan}
+                      disabled={isLoading}
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                    >
+                      <Save size={16} className="mr-2" />
+                      {isLoading ? "Saving..." : "Save Plan"}
+                    </Button>
+                    <Button 
+                      variant="secondary"
+                      onClick={handleProceedToRetailers}
+                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                    >
+                      <MapPin size={16} className="mr-2" />
+                      View Retailers
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

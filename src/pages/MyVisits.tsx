@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, FileText, Plus, TrendingUp } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Visit {
   id: string;
@@ -101,29 +103,138 @@ const mockVisits: Visit[] = [
   }
 ];
 
-const weekDays = [
-  { day: "Sun", date: "20", isToday: false },
-  { day: "Mon", date: "21", isToday: false },
-  { day: "Tue", date: "22", isToday: false },
-  { day: "Wed", date: "23", isToday: true },
-  { day: "Thu", date: "24", isToday: false },
-  { day: "Fri", date: "25", isToday: false },
-  { day: "Sat", date: "26", isToday: false }
-];
+const getWeekDays = () => {
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
+  
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(startOfWeek);
+    day.setDate(startOfWeek.getDate() + i);
+    
+    const isToday = day.toDateString() === new Date().toDateString();
+    
+    weekDays.push({
+      day: day.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: day.getDate().toString(),
+      isToday: isToday,
+      isoDate: day.toISOString().split('T')[0]
+    });
+  }
+  return weekDays;
+};
 
 export const MyVisits = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDay, setSelectedDay] = useState("Wed");
+  const [selectedDay, setSelectedDay] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [weekDays, setWeekDays] = useState(getWeekDays());
+  const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
+  const [retailers, setRetailers] = useState<any[]>([]);
+  const [currentBeatName, setCurrentBeatName] = useState("Beat 1 (Central Bangalore)");
+  const { user } = useAuth();
 
-  const filteredVisits = mockVisits.filter(visit => {
+  // Initialize selected day to today
+  useEffect(() => {
+    const today = weekDays.find(d => d.isToday);
+    if (today && !selectedDay) {
+      setSelectedDay(today.day);
+      setSelectedDate(today.isoDate);
+    }
+  }, [weekDays, selectedDay]);
+
+  // Load beat plans and retailers when user or date changes
+  useEffect(() => {
+    if (user && selectedDate) {
+      loadPlannedBeats(selectedDate);
+    }
+  }, [user, selectedDate]);
+
+  const loadPlannedBeats = async (date: string) => {
+    if (!user) return;
+    
+    try {
+      const { data: beatPlans, error } = await supabase
+        .from('beat_plans')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('plan_date', date);
+
+      if (error) throw error;
+
+      setPlannedBeats(beatPlans || []);
+
+      // Update beat name based on planned beats
+      if (beatPlans && beatPlans.length > 0) {
+        const beatNames = beatPlans.map(plan => plan.beat_name).join(', ');
+        setCurrentBeatName(beatNames);
+        
+        // Load retailers for the planned beats
+        const beatIds = beatPlans.map(plan => plan.beat_id);
+        loadRetailersForBeats(beatIds);
+      } else {
+        setCurrentBeatName("No beats planned");
+        setRetailers([]);
+      }
+    } catch (error) {
+      console.error('Error loading beat plans:', error);
+    }
+  };
+
+  const loadRetailersForBeats = async (beatIds: string[]) => {
+    if (!user || beatIds.length === 0) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('retailers')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('beat_id', beatIds);
+
+      if (error) throw error;
+
+      // Transform retailers to match Visit interface
+      const transformedRetailers = (data || []).map(retailer => ({
+        id: retailer.id,
+        retailerName: retailer.name,
+        address: retailer.address,
+        phone: retailer.phone || '',
+        retailerCategory: retailer.category || 'Category A',
+        status: 'planned' as const,
+        visitType: 'Regular Visit',
+        day: 'Today',
+        checkInStatus: 'not-checked-in' as const,
+        hasOrder: false,
+        orderValue: retailer.order_value || 0
+      }));
+
+      setRetailers(transformedRetailers);
+    } catch (error) {
+      console.error('Error loading retailers:', error);
+    }
+  };
+
+  const handleDayChange = (day: string) => {
+    setSelectedDay(day);
+    const dayInfo = weekDays.find(d => d.day === day);
+    if (dayInfo) {
+      setSelectedDate(dayInfo.isoDate);
+    }
+  };
+
+  // Combine mock visits with retailer visits
+  const allVisits = [...mockVisits, ...retailers];
+
+  const filteredVisits = allVisits.filter(visit => {
     const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visit.phone.includes(searchTerm);
     const matchesStatus = !statusFilter || visit.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const todayVisits = mockVisits.filter(visit => visit.day === "Today");
+  const todayVisits = allVisits.filter(visit => visit.day === "Today");
   const plannedVisits = todayVisits.filter(visit => visit.status === "planned").length;
   const productiveVisits = todayVisits.filter(visit => visit.status === "productive").length;
   const pendingVisits = todayVisits.filter(visit => visit.status === "in-progress").length;
@@ -145,7 +256,7 @@ export const MyVisits = () => {
           <CardHeader className="pb-3">
             <div>
               <CardTitle className="text-xl font-bold">My Visits</CardTitle>
-              <p className="text-lg font-semibold mt-1">Beat 1 (Central Bangalore)</p>
+              <p className="text-lg font-semibold mt-1">{currentBeatName}</p>
             </div>
             <p className="text-primary-foreground/80">Manage your daily visit schedule</p>
           </CardHeader>
@@ -155,7 +266,7 @@ export const MyVisits = () => {
               {weekDays.map((dayInfo) => (
                 <button
                   key={dayInfo.day}
-                  onClick={() => setSelectedDay(dayInfo.day)}
+                  onClick={() => handleDayChange(dayInfo.day)}
                   className={`p-2 rounded-lg text-center transition-colors ${
                     dayInfo.isToday || selectedDay === dayInfo.day
                       ? 'bg-primary-foreground text-primary'
