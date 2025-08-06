@@ -1,57 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, X } from "lucide-react";
-
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
+import { usePWAInstall } from "@/hooks/usePWAInstall";
 
 export const PWAInstallPrompt = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const { isInstallable, installApp, canPrompt } = usePWAInstall();
+  const [isDismissed, setIsDismissed] = useState(false);
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Save the event so it can be triggered later
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Show the install prompt
-      setShowInstallPrompt(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handler);
-
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-
-    // Show the install prompt
-    await deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    console.log(`User response to the install prompt: ${outcome}`);
-    
-    // Clear the deferredPrompt variable
-    setDeferredPrompt(null);
-    setShowInstallPrompt(false);
+  const handleInstallClick = () => {
+    installApp();
+    setIsDismissed(true);
   };
 
   const handleDismiss = () => {
-    setShowInstallPrompt(false);
+    setIsDismissed(true);
   };
 
-  if (!showInstallPrompt || !deferredPrompt) {
+  if (!isInstallable || isDismissed) {
     return null;
   }
 
