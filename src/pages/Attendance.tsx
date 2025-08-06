@@ -73,41 +73,91 @@ const Attendance = () => {
   };
 
   const fetchAttendanceData = async () => {
-    // Mock data for now - will be replaced with real Supabase calls once types are updated
-    const mockData = [
-      { date: "2024-01-20", status: "present", checkIn: "09:15 AM", checkOut: "06:30 PM", location: "Bangalore Office" },
-      { date: "2024-01-19", status: "present", checkIn: "09:05 AM", checkOut: "06:45 PM", location: "Field Visit - Indiranagar" },
-      { date: "2024-01-18", status: "present", checkIn: "09:20 AM", checkOut: "06:25 PM", location: "Bangalore Office" },
-      { date: "2024-01-17", status: "absent", checkIn: "-", checkOut: "-", location: "-" },
-      { date: "2024-01-16", status: "present", checkIn: "09:10 AM", checkOut: "06:40 PM", location: "Field Visit - Koramangala" },
-    ];
-    setAttendanceData(mockData);
-    
-    // Check today's attendance
-    const today = new Date().toISOString().split('T')[0];
-    const todayRecord = mockData.find(record => record.date === today);
-    setTodaysAttendance(todayRecord);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: attendanceRecords, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching attendance:', error);
+        return;
+      }
+
+      // Format data for display
+      const formattedData = attendanceRecords?.map(record => ({
+        date: record.date,
+        status: record.status,
+        checkIn: record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : '-',
+        checkOut: record.check_out_time ? new Date(record.check_out_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : '-',
+        location: record.check_in_location && typeof record.check_in_location === 'object' && 'latitude' in record.check_in_location && 'longitude' in record.check_in_location 
+          ? `${(record.check_in_location as any).latitude?.toFixed(4)}, ${(record.check_in_location as any).longitude?.toFixed(4)}` 
+          : '-'
+      })) || [];
+
+      setAttendanceData(formattedData);
+      
+      // Check today's attendance
+      const today = new Date().toISOString().split('T')[0];
+      const todayRecord = attendanceRecords?.find(record => record.date === today);
+      setTodaysAttendance(todayRecord);
+    } catch (error) {
+      console.error('Error fetching attendance data:', error);
+    }
   };
 
   const fetchLeaveTypes = async () => {
-    // Mock data for now
-    const mockLeaveTypes = [
-      { id: '1', name: 'Annual Leave', description: 'Yearly vacation leave' },
-      { id: '2', name: 'Sick Leave', description: 'Medical leave for illness' },
-      { id: '3', name: 'Casual Leave', description: 'Short-term casual leave' },
-      { id: '4', name: 'Emergency Leave', description: 'Emergency or urgent leave' }
-    ];
-    setLeaveTypes(mockLeaveTypes);
+    try {
+      const { data: leaveTypes, error } = await supabase
+        .from('leave_types')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching leave types:', error);
+        return;
+      }
+
+      setLeaveTypes(leaveTypes || []);
+    } catch (error) {
+      console.error('Error fetching leave types:', error);
+    }
   };
 
   const fetchLeaveBalance = async () => {
-    // Mock data for now
-    const mockLeaveBalance = [
-      { id: '1', leave_type_id: '1', leave_types: { name: 'Annual Leave' }, opening_balance: 20, used_balance: 5, remaining_balance: 15 },
-      { id: '2', leave_type_id: '2', leave_types: { name: 'Sick Leave' }, opening_balance: 10, used_balance: 2, remaining_balance: 8 },
-      { id: '3', leave_type_id: '3', leave_types: { name: 'Casual Leave' }, opening_balance: 12, used_balance: 3, remaining_balance: 9 }
-    ];
-    setLeaveBalance(mockLeaveBalance);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: leaveBalance, error } = await supabase
+        .from('leave_balance')
+        .select(`
+          *,
+          leave_types:leave_type_id (name)
+        `)
+        .eq('user_id', user.id)
+        .eq('year', new Date().getFullYear());
+
+      if (error) {
+        console.error('Error fetching leave balance:', error);
+        return;
+      }
+
+      setLeaveBalance(leaveBalance || []);
+    } catch (error) {
+      console.error('Error fetching leave balance:', error);
+    }
   };
 
   const startCamera = async () => {
@@ -174,19 +224,111 @@ const Attendance = () => {
     setIsMarkingAttendance(true);
 
     try {
-      // Mock implementation - will be replaced with real Supabase calls
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Upload photo to storage
+      const photoFileName = `${user.id}/${Date.now()}_${type}.jpg`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('attendance-photos')
+        .upload(photoFileName, capturedPhoto, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600'
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const photoUrl = `attendance-photos/${photoFileName}`;
+      const currentTime = new Date().toISOString();
+      const today = new Date().toISOString().split('T')[0];
+
+      if (type === 'check_in') {
+        // Check if attendance record exists for today
+        const { data: existingRecord } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .single();
+
+        if (existingRecord) {
+          // Update existing record with check-in
+          const { error: updateError } = await supabase
+            .from('attendance')
+            .update({
+              check_in_time: currentTime,
+              check_in_photo_url: photoUrl,
+              check_in_location: location,
+              status: 'present'
+            })
+            .eq('id', existingRecord.id);
+
+          if (updateError) throw updateError;
+        } else {
+          // Create new attendance record
+          const { error: insertError } = await supabase
+            .from('attendance')
+            .insert({
+              user_id: user.id,
+              date: today,
+              check_in_time: currentTime,
+              check_in_photo_url: photoUrl,
+              check_in_location: location,
+              status: 'present'
+            });
+
+          if (insertError) throw insertError;
+        }
+      } else if (type === 'check_out') {
+        // Update existing record with check-out
+        const { data: existingRecord } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .single();
+
+        if (!existingRecord) {
+          throw new Error('No check-in record found for today. Please check in first.');
+        }
+
+        // Calculate total hours if check-in time exists
+        let totalHours = null;
+        if (existingRecord.check_in_time) {
+          const checkInTime = new Date(existingRecord.check_in_time);
+          const checkOutTime = new Date(currentTime);
+          totalHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60); // Convert to hours
+        }
+
+        const { error: updateError } = await supabase
+          .from('attendance')
+          .update({
+            check_out_time: currentTime,
+            check_out_photo_url: photoUrl,
+            check_out_location: location,
+            total_hours: totalHours
+          })
+          .eq('id', existingRecord.id);
+
+        if (updateError) throw updateError;
+      }
+
       toast({
         title: "Success",
         description: `${type === 'check_in' ? 'Check-in' : 'Check-out'} marked successfully!`,
       });
 
       setCapturedPhoto(null);
-      fetchAttendanceData();
+      await fetchAttendanceData();
     } catch (error) {
       console.error('Error marking attendance:', error);
       toast({
         title: "Error",
-        description: "Failed to mark attendance. Please try again.",
+        description: error.message || "Failed to mark attendance. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -207,7 +349,24 @@ const Attendance = () => {
     setIsApplyingLeave(true);
 
     try {
-      // Mock implementation - will be replaced with real Supabase calls
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase
+        .from('leave_applications')
+        .insert({
+          user_id: user.id,
+          leave_type_id: leaveForm.leaveTypeId,
+          start_date: leaveForm.startDate,
+          end_date: leaveForm.endDate,
+          reason: leaveForm.reason,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
       toast({
         title: "Success",
         description: "Leave application submitted successfully!",
@@ -218,7 +377,7 @@ const Attendance = () => {
       console.error('Error applying leave:', error);
       toast({
         title: "Error",
-        description: "Failed to submit leave application. Please try again.",
+        description: error.message || "Failed to submit leave application. Please try again.",
         variant: "destructive"
       });
     } finally {
