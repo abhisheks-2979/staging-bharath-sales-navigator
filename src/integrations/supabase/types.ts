@@ -279,6 +279,92 @@ export type Database = {
         }
         Relationships: []
       }
+      order_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          rate: number
+          total: number
+          unit: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          rate: number
+          total: number
+          unit: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          rate?: number
+          total?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          discount_amount: number | null
+          id: string
+          retailer_name: string
+          status: string
+          subtotal: number
+          total_amount: number
+          updated_at: string
+          user_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discount_amount?: number | null
+          id?: string
+          retailer_name: string
+          status?: string
+          subtotal: number
+          total_amount: number
+          updated_at?: string
+          user_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discount_amount?: number | null
+          id?: string
+          retailer_name?: string
+          status?: string
+          subtotal?: number
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
       retailer_feedback: {
         Row: {
           comments: string | null

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Trash2, Gift, ShoppingCart } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CartItem {
   id: string;
@@ -109,7 +110,7 @@ export const Cart = () => {
     return total;
   };
 
-  const handleSubmitOrder = () => {
+  const handleSubmitOrder = async () => {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
@@ -119,12 +120,75 @@ export const Cart = () => {
       return;
     }
 
-    toast({
-      title: "Order Submitted",
-      description: `Order for ${retailerName} submitted successfully!`
-    });
-    
-    navigate(`/visits/retailers`);
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to submit orders",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const subtotal = getTotalValue();
+      const scheme = getApplicableScheme();
+      const discountAmount = scheme ? (subtotal * scheme.discount / 100) : 0;
+      const totalAmount = getFinalTotal();
+
+      // Create order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          visit_id: visitId,
+          retailer_name: retailerName,
+          subtotal,
+          discount_amount: discountAmount,
+          total_amount: totalAmount,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = cartItems.map(item => ({
+        order_id: order.id,
+        product_id: item.id,
+        product_name: item.name,
+        category: item.category,
+        rate: item.rate,
+        unit: item.unit,
+        quantity: item.quantity,
+        total: item.total
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      toast({
+        title: "Order Submitted",
+        description: `Order for ${retailerName} submitted successfully!`
+      });
+      
+      // Clear cart and navigate
+      setCartItems([]);
+      navigate(`/visits/retailers`);
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit order. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
