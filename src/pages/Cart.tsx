@@ -143,7 +143,7 @@ export const Cart = () => {
         .from('orders')
         .insert({
           user_id: user.id,
-          visit_id: visitId,
+          visit_id: null, // visitId from URL is not a valid UUID, setting to null
           retailer_name: retailerName,
           subtotal,
           discount_amount: discountAmount,
