@@ -14,8 +14,8 @@ type UserType = 'admin' | 'user';
 
 export const RoleBasedAuthPage = () => {
   const { user, loading } = useAuth();
-  const [authMode, setAuthMode] = useState<AuthMode>('role-selection');
-  const [selectedUserType, setSelectedUserType] = useState<UserType | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('user-signin');
+  const [selectedUserType, setSelectedUserType] = useState<UserType | null>('user');
 
   if (loading) {
     return (
@@ -43,8 +43,18 @@ export const RoleBasedAuthPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-            <Shield className="w-8 h-8 text-primary" />
+          <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
+            <img 
+              src="/lovable-uploads/f1a677a5-6652-4477-972d-8c634cd05cd0.png" 
+              alt="Bharath Beverages" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <CardTitle className="text-4xl font-bold text-primary mb-2">Welcome</CardTitle>
+            <CardDescription className="text-lg font-medium text-muted-foreground">
+              Sign in to your account
+            </CardDescription>
           </div>
         </CardHeader>
         
@@ -97,30 +107,50 @@ export const RoleBasedAuthPage = () => {
 
           {(authMode === 'admin-signin' || authMode === 'user-signin') && (
             <div className="space-y-4">
-              <div className="text-center space-y-2">
-                <h1 className="text-xl font-semibold">
-                  {selectedUserType === 'admin' ? 'Admin' : 'User'} Sign In
-                </h1>
-                <p className="text-muted-foreground text-sm">
-                  Sign in to your {selectedUserType} account
-                </p>
-              </div>
+              {selectedUserType === 'admin' && (
+                <div className="text-center space-y-2">
+                  <h1 className="text-xl font-semibold">Admin Sign In</h1>
+                  <p className="text-muted-foreground text-sm">Full system access</p>
+                </div>
+              )}
               
-              <SignInForm />
+              <SignInForm role={selectedUserType as 'admin' | 'user'} />
               
               <div className="flex flex-col gap-2 text-center text-sm">
+                {selectedUserType === 'user' && (
+                  <button
+                    onClick={() => {
+                      setSelectedUserType('admin');
+                      setAuthMode('admin-signin');
+                    }}
+                    className="text-primary hover:underline"
+                  >
+                    Admin Sign In
+                  </button>
+                )}
                 <button
                   onClick={() => setAuthMode('forgot')}
-                  className="text-primary hover:underline"
+                  className="text-muted-foreground hover:underline"
                 >
                   Forgot your password?
                 </button>
                 <button
-                  onClick={goBackToRoleSelection}
+                  onClick={() => setAuthMode('signup')}
                   className="text-muted-foreground hover:underline"
                 >
-                  ← Back to role selection
+                  Don't have an account? Sign up
                 </button>
+                {selectedUserType === 'admin' && (
+                  <button
+                    onClick={() => {
+                      setSelectedUserType('user');
+                      setAuthMode('user-signin');
+                    }}
+                    className="text-muted-foreground hover:underline"
+                  >
+                    Back to user login
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -138,10 +168,13 @@ export const RoleBasedAuthPage = () => {
               
               <div className="text-center">
                 <button
-                  onClick={goBackToRoleSelection}
+                  onClick={() => {
+                    setAuthMode('user-signin');
+                    setSelectedUserType('user');
+                  }}
                   className="text-sm text-muted-foreground hover:underline"
                 >
-                  ← Back to sign in
+                  Back to sign in
                 </button>
               </div>
             </div>
@@ -160,10 +193,13 @@ export const RoleBasedAuthPage = () => {
               
               <div className="text-center">
                 <button
-                  onClick={goBackToRoleSelection}
+                  onClick={() => {
+                    setAuthMode('user-signin');
+                    setSelectedUserType('user');
+                  }}
                   className="text-sm text-muted-foreground hover:underline"
                 >
-                  ← Back to sign in
+                  Back to sign in
                 </button>
               </div>
             </div>
