@@ -153,18 +153,16 @@ const Attendance = () => {
         .select('*')
         .eq('user_id', user.id)
         .eq('date', formattedDate)
-        .maybeSingle();
+        .single();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching attendance for date:', error);
-        setSelectedDateAttendance(null);
         return;
       }
 
       setSelectedDateAttendance(attendanceRecord);
     } catch (error) {
       console.error('Error fetching attendance for date:', error);
-      setSelectedDateAttendance(null);
     }
   };
 
@@ -174,20 +172,8 @@ const Attendance = () => {
     setShowAttendanceDetail(true);
   };
 
-  const formatTime = (timeString) => {
-    if (!timeString) return '--';
-    try {
-      const date = new Date(timeString);
-      if (isNaN(date.getTime())) return '--';
-      return format(date, 'HH:mm');
-    } catch (error) {
-      console.error('Error formatting time:', error);
-      return '--';
-    }
-  };
-
   const formatHours = (hours) => {
-    if (!hours || isNaN(hours)) return '0h 0m';
+    if (!hours) return '0h 0m';
     const h = Math.floor(hours);
     const m = Math.round((hours - h) * 60);
     return `${h}h ${m}m`;
@@ -551,7 +537,7 @@ const Attendance = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/")}
+                onClick={() => navigate(-1)}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
@@ -613,10 +599,10 @@ const Attendance = () => {
                       {todaysAttendance ? (
                         <div className="space-y-1">
                           <div className="text-sm">
-                            <span className="text-green-600">In: {formatTime(todaysAttendance.check_in_time)}</span>
+                            <span className="text-green-600">In: {todaysAttendance.check_in_time ? format(new Date(todaysAttendance.check_in_time), 'HH:mm') : '--'}</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-orange-600">Out: {formatTime(todaysAttendance.check_out_time)}</span>
+                            <span className="text-orange-600">Out: {todaysAttendance.check_out_time ? format(new Date(todaysAttendance.check_out_time), 'HH:mm') : '--'}</span>
                           </div>
                           {todaysAttendance.total_hours && (
                             <div className="text-xs text-blue-600">
@@ -688,7 +674,10 @@ const Attendance = () => {
                           <Clock className="h-6 w-6 text-green-600 mx-auto mb-1" />
                           <div className="text-sm font-medium text-green-700">Check In</div>
                           <div className="text-lg font-bold text-green-600">
-                            {formatTime(selectedDateAttendance.check_in_time)}
+                            {selectedDateAttendance.check_in_time 
+                              ? format(new Date(selectedDateAttendance.check_in_time), 'HH:mm')
+                              : '--'
+                            }
                           </div>
                         </CardContent>
                       </Card>
@@ -698,7 +687,10 @@ const Attendance = () => {
                           <Clock className="h-6 w-6 text-orange-600 mx-auto mb-1" />
                           <div className="text-sm font-medium text-orange-700">Check Out</div>
                           <div className="text-lg font-bold text-orange-600">
-                            {formatTime(selectedDateAttendance.check_out_time)}
+                            {selectedDateAttendance.check_out_time 
+                              ? format(new Date(selectedDateAttendance.check_out_time), 'HH:mm')
+                              : '--'
+                            }
                           </div>
                         </CardContent>
                       </Card>
