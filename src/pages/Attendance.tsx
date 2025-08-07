@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText } from "lucide-react";
+import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,14 +12,17 @@ import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const Attendance = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   const [attendanceData, setAttendanceData] = useState([]);
   const [todaysAttendance, setTodaysAttendance] = useState(null);
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState([]);
+  const [leaveApplications, setLeaveApplications] = useState([]);
   const [isMarkingAttendance, setIsMarkingAttendance] = useState(false);
   const [isApplyingLeave, setIsApplyingLeave] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
@@ -48,6 +51,7 @@ const Attendance = () => {
     fetchAttendanceData();
     fetchLeaveTypes();
     fetchLeaveBalance();
+    fetchLeaveApplications();
     getCurrentLocation();
   }, []);
 
@@ -158,6 +162,65 @@ const Attendance = () => {
     } catch (error) {
       console.error('Error fetching leave balance:', error);
     }
+  };
+
+  const fetchLeaveApplications = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: applications, error } = await supabase
+        .from('leave_applications')
+        .select(`
+          *,
+          leave_types:leave_type_id (name)
+        `)
+        .eq('user_id', user.id)
+        .gte('start_date', `${new Date().getFullYear()}-01-01`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching leave applications:', error);
+        return;
+      }
+
+      setLeaveApplications(applications || []);
+    } catch (error) {
+      console.error('Error fetching leave applications:', error);
+    }
+  };
+
+  const getLeaveStatistics = (leaveTypeId) => {
+    const balance = leaveBalance.find(b => b.leave_type_id === leaveTypeId);
+    const applications = leaveApplications.filter(app => app.leave_type_id === leaveTypeId);
+    
+    const approvedLeaves = applications
+      .filter(app => app.status === 'approved')
+      .reduce((total, app) => {
+        const startDate = new Date(app.start_date);
+        const endDate = new Date(app.end_date);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        return total + days;
+      }, 0);
+
+    const pendingLeaves = applications
+      .filter(app => app.status === 'pending')
+      .reduce((total, app) => {
+        const startDate = new Date(app.start_date);
+        const endDate = new Date(app.end_date);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        return total + days;
+      }, 0);
+
+    const openingBalance = balance?.opening_balance || 0;
+    const usedBalance = balance?.used_balance || 0;
+    const availableLeaves = openingBalance - usedBalance - pendingLeaves;
+
+    return {
+      available: Math.max(0, availableLeaves),
+      pending: pendingLeaves,
+      booked: usedBalance
+    };
   };
 
   const startCamera = async () => {
@@ -346,6 +409,22 @@ const Attendance = () => {
       return;
     }
 
+    // Calculate leave days
+    const startDate = new Date(leaveForm.startDate);
+    const endDate = new Date(leaveForm.endDate);
+    const leaveDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Check available leave balance
+    const stats = getLeaveStatistics(leaveForm.leaveTypeId);
+    if (stats.available < leaveDays) {
+      toast({
+        title: "Insufficient Leave Balance",
+        description: `You do not have enough leave balance. Available: ${stats.available} days, Requested: ${leaveDays} days.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsApplyingLeave(true);
 
     try {
@@ -373,6 +452,10 @@ const Attendance = () => {
       });
 
       setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '' });
+      
+      // Refresh data to update leave statistics
+      await fetchLeaveApplications();
+      await fetchLeaveBalance();
     } catch (error) {
       console.error('Error applying leave:', error);
       toast({
@@ -602,17 +685,47 @@ const Attendance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm">Leave Balance</h4>
-                {leaveBalance.map((balance) => (
-                  <div key={balance.id} className="flex justify-between items-center p-3 bg-muted/20 rounded-lg">
-                    <span className="text-sm font-medium">{balance.leave_types.name}</span>
-                    <div className="text-right">
-                      <span className="text-sm font-bold text-green-600">{balance.remaining_balance}</span>
-                      <span className="text-xs text-muted-foreground">/{balance.opening_balance}</span>
+              {/* User Info Section */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <User size={20} className="text-blue-600" />
+                  <h4 className="font-semibold text-blue-800">Employee Information</h4>
+                </div>
+                <div className="text-sm text-blue-700">
+                  <p><span className="font-medium">Name:</span> {userProfile?.full_name || 'Not available'}</p>
+                  <p><span className="font-medium">Username:</span> {userProfile?.username || 'Not available'}</p>
+                  <p><span className="font-medium">Phone:</span> {userProfile?.phone_number || 'Not available'}</p>
+                </div>
+              </div>
+
+              {/* Leave Type Sections */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-purple-800 mb-4">Leave Balance Overview</h4>
+                {leaveTypes.map((leaveType) => {
+                  const stats = getLeaveStatistics(leaveType.id);
+                  return (
+                    <div key={leaveType.id} className="p-4 bg-white rounded-lg border border-purple-200 shadow-sm">
+                      <h5 className="font-medium text-purple-700 mb-3">{leaveType.name}</h5>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-2xl font-bold text-green-600">{stats.available}</div>
+                          <div className="text-xs text-green-700 font-medium">Available</div>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
+                          <div className="text-xs text-orange-700 font-medium">Pending</div>
+                        </div>
+                        <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
+                          <div className="text-xs text-blue-700 font-medium">Booked</div>
+                        </div>
+                      </div>
+                      {leaveType.description && (
+                        <p className="text-xs text-muted-foreground mt-2">{leaveType.description}</p>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
