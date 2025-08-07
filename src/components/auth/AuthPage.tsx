@@ -141,16 +141,21 @@ export const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-32 h-20 rounded-lg overflow-hidden bg-background">
+          <div className="mx-auto w-32 h-20 rounded-lg overflow-hidden bg-primary/10 p-2">
             <img 
               src="/lovable-uploads/68cfb497-c207-4b75-bfa7-c77928649502.png" 
               alt="Bharath Beverages" 
               className="w-full h-full object-contain"
+              onError={(e) => {
+                console.log('Image failed to load:', e);
+                e.currentTarget.style.display = 'none';
+              }}
+              onLoad={() => console.log('Image loaded successfully')}
             />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold">Welcome</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-3xl font-bold text-primary">Welcome</CardTitle>
+            <CardDescription className="text-lg font-medium">
               Bharath Beverages
             </CardDescription>
           </div>
