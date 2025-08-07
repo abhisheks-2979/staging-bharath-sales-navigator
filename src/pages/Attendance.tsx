@@ -608,7 +608,7 @@ const Attendance = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-3xl font-bold">{stats.attendance}%</div>
                 <div className="text-sm text-primary-foreground/80">This Month</div>
@@ -616,6 +616,10 @@ const Attendance = () => {
               <div className="text-center">
                 <div className="text-3xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
                 <div className="text-sm text-primary-foreground/80">Present Days</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold">{calculateMonthlyHours().toFixed(0)}h</div>
+                <div className="text-sm text-primary-foreground/80">Monthly Hours</div>
               </div>
             </div>
           </div>
@@ -867,9 +871,8 @@ const Attendance = () => {
               </DialogHeader>
               
               <Tabs value={detailsType} onValueChange={setDetailsType} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="present">Present Days</TabsTrigger>
-                  <TabsTrigger value="monthly">Monthly Hours</TabsTrigger>
                   <TabsTrigger value="absent">Absent Days</TabsTrigger>
                 </TabsList>
                 
@@ -951,42 +954,6 @@ const Attendance = () => {
                   </div>
                 </TabsContent>
                 
-                <TabsContent value="monthly" className="space-y-4">
-                  <div className="text-center p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-                    <h4 className="font-semibold text-purple-800 mb-4">Monthly Working Hours</h4>
-                    <div className="text-4xl font-bold text-purple-600 mb-2">
-                      {calculateMonthlyHours().toFixed(1)}h
-                    </div>
-                    <p className="text-sm text-purple-700">
-                      Total hours worked in {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                  
-                  {/* Monthly Breakdown */}
-                  <div className="space-y-3">
-                    <h5 className="font-medium">Daily Breakdown</h5>
-                    {allAttendanceData.slice(0, 10).map((day, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle size={20} className="text-green-600" />
-                          <div>
-                            <p className="font-medium text-sm">
-                              {new Date(day.date).toLocaleDateString('en-US', { 
-                                weekday: 'short',
-                                month: 'short', 
-                                day: 'numeric' 
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{day.checkIn} - {day.checkOut}</p>
-                          <p className="text-xs text-purple-600 font-medium">{day.totalHours}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
                 
                 <TabsContent value="absent" className="space-y-4">
                   <div className="space-y-3">
