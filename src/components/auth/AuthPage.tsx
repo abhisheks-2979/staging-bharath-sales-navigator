@@ -148,13 +148,14 @@ export const AuthPage = () => {
   };
 
   console.log('AuthPage rendering, authMode:', authMode);
+  console.log('About to render background...');
   
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        background: 'linear-gradient(135deg, #e0f2fe 0%, #81d4fa 25%, #29b6f6 50%, #0288d1 75%, #01579b 100%)',
-        backgroundAttachment: 'fixed'
+        background: '#1976d2',
+        minHeight: '100vh'
       }}
     >
       {/* Geometric pattern overlay */}
