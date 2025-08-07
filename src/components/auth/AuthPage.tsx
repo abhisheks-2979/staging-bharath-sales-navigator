@@ -143,9 +143,9 @@ export const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-32 h-20 rounded-lg overflow-hidden bg-primary/10 p-2 border-2 border-primary/20">
+          <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
             <img 
-              src="/lovable-uploads/68cfb497-c207-4b75-bfa7-c77928649502.png" 
+              src="/lovable-uploads/f1a677a5-6652-4477-972d-8c634cd05cd0.png" 
               alt="Bharath Beverages" 
               className="w-full h-full object-contain"
               onError={(e) => {
@@ -154,7 +154,6 @@ export const AuthPage = () => {
               }}
               onLoad={() => console.log('Image loaded successfully')}
             />
-            <div className="text-xs text-center mt-1 text-primary font-bold">BHARATH BEVERAGES</div>
           </div>
           <div>
             <CardTitle className="text-4xl font-bold text-primary mb-2">Welcome</CardTitle>
