@@ -730,8 +730,8 @@ const Attendance = () => {
             </CardContent>
           </Card>
 
-          {/* Attendance History */}
-          <Card className="shadow-lg">
+          {/* Recent Attendance - Hidden for now */}
+          {/* <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarDays size={20} />
@@ -761,7 +761,7 @@ const Attendance = () => {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </Layout>
