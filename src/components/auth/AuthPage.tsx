@@ -153,20 +153,23 @@ export const AuthPage = () => {
     <div 
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        background: 'linear-gradient(135deg, hsl(210 100% 95%) 0%, hsl(210 100% 85%) 50%, hsl(210 100% 75%) 100%)',
+        background: 'linear-gradient(135deg, #e0f2fe 0%, #81d4fa 25%, #29b6f6 50%, #0288d1 75%, #01579b 100%)',
         backgroundAttachment: 'fixed'
       }}
     >
-      {/* Subtle pattern overlay */}
+      {/* Geometric pattern overlay */}
       <div 
-        className="absolute inset-0 opacity-10"
+        className="absolute inset-0"
         style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(210 100% 60%) 1px, transparent 0)`,
-          backgroundSize: '20px 20px'
+          background: `
+            radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 2px, transparent 2px),
+            radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px, 25px 25px'
         }}
       ></div>
       
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-border/50 bg-card/95 backdrop-blur-sm">
+      <Card className="w-full max-w-md relative z-10 shadow-2xl border-white/20 bg-white/95 backdrop-blur-sm">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
             <img 

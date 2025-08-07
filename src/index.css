@@ -116,13 +116,6 @@
   }
 }
 
-/* Custom Auth Background */
-.auth-background {
-  background-image: url('/auth-background.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
 
 @layer base {
   * {
