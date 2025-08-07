@@ -566,6 +566,7 @@ const Attendance = () => {
   };
 
   const getSelectedDateAttendance = () => {
+    if (!selectedDate) return null;
     const selectedDateStr = selectedDate.toISOString().split('T')[0];
     return allAttendanceData.find(record => record.date === selectedDateStr);
   };
