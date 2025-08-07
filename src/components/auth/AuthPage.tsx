@@ -158,7 +158,7 @@ export const AuthPage = () => {
           <div>
             <CardTitle className="text-4xl font-bold text-primary mb-2">Welcome</CardTitle>
             <CardDescription className="text-lg font-medium text-muted-foreground">
-              Please select your login type
+              Select your role to continue
             </CardDescription>
           </div>
         </CardHeader>
