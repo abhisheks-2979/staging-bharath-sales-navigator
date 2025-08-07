@@ -5,9 +5,10 @@ import { SignInForm } from './SignInForm';
 import { SignUpForm } from './SignUpForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Shield, User } from 'lucide-react';
 
-type AuthMode = 'signin' | 'signup' | 'forgot';
+type AuthMode = 'signin' | 'signup' | 'forgot' | 'admin-signin' | 'user-signin';
 
 export const AuthPage = () => {
   const { user, loading } = useAuth();
@@ -25,52 +26,137 @@ export const AuthPage = () => {
     return <Navigate to="/" replace />;
   }
 
+  const renderAuthModeContent = () => {
+    switch (authMode) {
+      case 'forgot':
+        return (
+          <>
+            <ForgotPasswordForm />
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setAuthMode('signin')}
+                className="text-sm text-primary hover:underline"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          </>
+        );
+      
+      case 'admin-signin':
+        return (
+          <>
+            <SignInForm role="admin" />
+            <div className="mt-4 text-center space-y-2">
+              <button
+                onClick={() => setAuthMode('forgot')}
+                className="text-sm text-primary hover:underline block w-full"
+              >
+                Forgot your password?
+              </button>
+              <button
+                onClick={() => setAuthMode('signin')}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                Back to main login
+              </button>
+            </div>
+          </>
+        );
+      
+      case 'user-signin':
+        return (
+          <>
+            <SignInForm role="user" />
+            <div className="mt-4 text-center space-y-2">
+              <button
+                onClick={() => setAuthMode('forgot')}
+                className="text-sm text-primary hover:underline block w-full"
+              >
+                Forgot your password?
+              </button>
+              <button
+                onClick={() => setAuthMode('signin')}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                Back to main login
+              </button>
+            </div>
+          </>
+        );
+      
+      case 'signup':
+        return (
+          <>
+            <SignUpForm />
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setAuthMode('signin')}
+                className="text-sm text-muted-foreground hover:underline"
+              >
+                Already have an account? Sign in
+              </button>
+            </div>
+          </>
+        );
+      
+      default:
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setAuthMode('admin-signin')}
+                className="h-16 flex flex-col items-center justify-center space-y-2"
+              >
+                <Shield className="h-6 w-6" />
+                <span>Admin Sign In</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => setAuthMode('user-signin')}
+                className="h-16 flex flex-col items-center justify-center space-y-2"
+              >
+                <User className="h-6 w-6" />
+                <span>User Sign In</span>
+              </Button>
+            </div>
+            
+            <div className="text-center mt-6">
+              <p className="text-sm text-muted-foreground mb-2">Don't have an account?</p>
+              <button
+                onClick={() => setAuthMode('signup')}
+                className="text-sm text-primary hover:underline"
+              >
+                Sign up here
+              </button>
+            </div>
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Welcome Back</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to your account or create a new one
-          </CardDescription>
+        <CardHeader className="space-y-4 text-center">
+          <div className="mx-auto w-24 h-24 rounded-lg overflow-hidden bg-background">
+            <img 
+              src="/lovable-uploads/a31df152-1128-4f69-95cc-ef500b50331d.png" 
+              alt="Bharath Beverages" 
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <CardTitle className="text-2xl">Bharath Beverages</CardTitle>
+            <CardDescription>
+              Access your account
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
-          {authMode === 'forgot' ? (
-            <>
-              <ForgotPasswordForm />
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setAuthMode('signin')}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Back to Sign In
-                </button>
-              </div>
-            </>
-          ) : (
-            <Tabs value={authMode} onValueChange={(value) => setAuthMode(value as AuthMode)}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin" className="space-y-4">
-                <SignInForm />
-                <div className="text-center">
-                  <button
-                    onClick={() => setAuthMode('forgot')}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Forgot your password?
-                  </button>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="signup" className="space-y-4">
-                <SignUpForm />
-              </TabsContent>
-            </Tabs>
-          )}
+          {renderAuthModeContent()}
         </CardContent>
       </Card>
     </div>

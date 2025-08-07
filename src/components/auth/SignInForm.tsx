@@ -14,7 +14,11 @@ const signInSchema = z.object({
 
 type SignInFormData = z.infer<typeof signInSchema>;
 
-export const SignInForm = () => {
+interface SignInFormProps {
+  role?: 'admin' | 'user';
+}
+
+export const SignInForm = ({ role }: SignInFormProps) => {
   const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -28,8 +32,13 @@ export const SignInForm = () => {
 
   const onSubmit = async (data: SignInFormData) => {
     setIsLoading(true);
-    await signIn(data.email, data.password);
+    const { error } = await signIn(data.email, data.password, role);
     setIsLoading(false);
+    
+    if (error) {
+      // Error is already handled by the signIn function
+      return;
+    }
   };
 
   return (
@@ -72,7 +81,7 @@ export const SignInForm = () => {
         />
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Signing In...' : 'Sign In'}
+          {isLoading ? "Signing in..." : `Sign In${role ? ` as ${role.charAt(0).toUpperCase() + role.slice(1)}` : ''}`}
         </Button>
       </form>
     </Form>

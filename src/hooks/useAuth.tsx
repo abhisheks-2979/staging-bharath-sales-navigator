@@ -7,9 +7,9 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  userRole: string | null;
+  userRole: 'admin' | 'user' | null;
   signUp: (data: SignUpData) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string, role?: 'admin' | 'user') => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string, hintAnswer: string, newPassword: string) => Promise<{ error: any }>;
 }
@@ -23,6 +23,7 @@ interface SignUpData {
   recoveryEmail?: string;
   hintQuestion: string;
   hintAnswer: string;
+  role?: 'admin' | 'user';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,9 +39,30 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Function to fetch user role
+  const fetchUserRole = async (userId: string): Promise<'admin' | 'user'> => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return 'user';
+      }
+      
+      return data?.role || 'user';
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return 'user';
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -50,8 +72,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Set default role for now - will be updated after migration
-          setUserRole('user');
+          // Fetch user role when user is authenticated
+          setTimeout(async () => {
+            const role = await fetchUserRole(session.user.id);
+            setUserRole(role);
+          }, 0);
         } else {
           setUserRole(null);
         }
@@ -61,12 +86,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
       if (session?.user) {
-        setUserRole('user');
+        const role = await fetchUserRole(session.user.id);
+        setUserRole(role);
       }
+      
       setLoading(false);
     });
 
@@ -108,21 +136,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const signIn = async (email: string, password: string, role?: 'admin' | 'user') => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "Sign In Error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      // If role is specified, verify user has that role
+      if (role) {
+        const { data: currentUser } = await supabase.auth.getUser();
+        if (currentUser.user) {
+          const userRole = await fetchUserRole(currentUser.user.id);
+          if (userRole !== role) {
+            await supabase.auth.signOut();
+            toast({
+              title: "Access Denied",
+              description: `You don't have ${role} permissions.`,
+              variant: "destructive",
+            });
+            return { error: { message: 'Access denied' } };
+          }
+        }
+      }
+
+      toast({
+        title: "Success!",
+        description: "Signed in successfully!",
+      });
+
+      return { error: null };
+    } catch (error: any) {
       toast({
         title: "Sign In Error",
-        description: error.message,
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
+      return { error };
     }
-
-    return { error };
   };
 
   const signOut = async () => {
