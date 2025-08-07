@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
@@ -30,6 +32,9 @@ const Attendance = () => {
   const canvasRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [location, setLocation] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [allAttendanceData, setAllAttendanceData] = useState([]);
+  const [absentDaysData, setAbsentDaysData] = useState([]);
 
   // Leave application form state
   const [leaveForm, setLeaveForm] = useState({
@@ -49,6 +54,8 @@ const Attendance = () => {
 
   useEffect(() => {
     fetchAttendanceData();
+    fetchAllAttendanceData();
+    fetchAbsentDaysData();
     fetchLeaveTypes();
     fetchLeaveBalance();
     fetchLeaveApplications();
@@ -105,6 +112,7 @@ const Attendance = () => {
           hour: '2-digit', 
           minute: '2-digit' 
         }) : '-',
+        totalHours: record.total_hours ? `${record.total_hours.toFixed(1)}h` : '-',
         location: record.check_in_location && typeof record.check_in_location === 'object' && 'latitude' in record.check_in_location && 'longitude' in record.check_in_location 
           ? `${(record.check_in_location as any).latitude?.toFixed(4)}, ${(record.check_in_location as any).longitude?.toFixed(4)}` 
           : '-'
@@ -118,6 +126,90 @@ const Attendance = () => {
       setTodaysAttendance(todayRecord);
     } catch (error) {
       console.error('Error fetching attendance data:', error);
+    }
+  };
+
+  const fetchAllAttendanceData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const endDate = `${currentYear}-${String(currentMonth + 2).padStart(2, '0')}-01`;
+
+      const { data: attendanceRecords, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', startDate)
+        .lt('date', endDate)
+        .eq('status', 'present')
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching all attendance:', error);
+        return;
+      }
+
+      const formattedData = attendanceRecords?.map(record => ({
+        ...record,
+        checkIn: record.check_in_time ? new Date(record.check_in_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : '--',
+        checkOut: record.check_out_time ? new Date(record.check_out_time).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : '--',
+        totalHours: record.total_hours ? `${record.total_hours.toFixed(1)}h` : '--'
+      })) || [];
+
+      setAllAttendanceData(formattedData);
+    } catch (error) {
+      console.error('Error fetching all attendance data:', error);
+    }
+  };
+
+  const fetchAbsentDaysData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: applications, error } = await supabase
+        .from('leave_applications')
+        .select(`
+          *,
+          leave_types:leave_type_id (name)
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'approved')
+        .gte('start_date', `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
+        .order('start_date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching absent days:', error);
+        return;
+      }
+
+      const absentDays = [];
+      applications?.forEach(app => {
+        const startDate = new Date(app.start_date);
+        const endDate = new Date(app.end_date);
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          absentDays.push({
+            date: d.toISOString().split('T')[0],
+            reason: app.reason,
+            leaveType: app.leave_types?.name || 'Unknown'
+          });
+        }
+      });
+
+      setAbsentDaysData(absentDays);
+    } catch (error) {
+      console.error('Error fetching absent days data:', error);
     }
   };
 
@@ -387,6 +479,8 @@ const Attendance = () => {
 
       setCapturedPhoto(null);
       await fetchAttendanceData();
+      await fetchAllAttendanceData();
+      await fetchAbsentDaysData();
     } catch (error) {
       console.error('Error marking attendance:', error);
       toast({
@@ -468,6 +562,23 @@ const Attendance = () => {
     }
   };
 
+  const getSelectedDateAttendance = () => {
+    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    return allAttendanceData.find(record => record.date === selectedDateStr);
+  };
+
+  const calculateMonthlyHours = () => {
+    return allAttendanceData.reduce((total, record) => {
+      return total + (record.total_hours || 0);
+    }, 0);
+  };
+
+  const getTodayAttendanceData = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayRecord = allAttendanceData.find(record => record.date === today);
+    return todayRecord;
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -479,7 +590,7 @@ const Attendance = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/")}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
@@ -730,38 +841,174 @@ const Attendance = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Attendance - Hidden for now */}
-          {/* <Card className="shadow-lg">
+          {/* Attendance Details Tabs */}
+          <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarDays size={20} />
-                Recent Attendance
+                Attendance Details
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {attendanceData.map((day, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {day.status === "present" ? (
-                        <CheckCircle size={20} className="text-green-600" />
-                      ) : (
-                        <XCircle size={20} className="text-red-600" />
-                      )}
-                      <div>
-                        <p className="font-medium text-sm">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                        <p className="text-xs text-muted-foreground">{day.location}</p>
+              <Tabs defaultValue="present" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="present">Present Days</TabsTrigger>
+                  <TabsTrigger value="monthly">Monthly Hours</TabsTrigger>
+                  <TabsTrigger value="absent">Absent Days</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="present" className="space-y-4">
+                  {/* Today's Attendance */}
+                  {(() => {
+                    const todayData = getTodayAttendanceData();
+                    return (
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200">
+                        <h4 className="font-semibold text-blue-800 mb-3">Today's Attendance</h4>
+                        {todayData ? (
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Check In</p>
+                              <p className="font-medium text-green-600">{todayData.checkIn}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Check Out</p>
+                              <p className="font-medium text-blue-600">{todayData.checkOut}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Total Hours</p>
+                              <p className="font-medium text-purple-600">{todayData.totalHours}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center">No attendance recorded for today</p>
+                        )}
                       </div>
+                    );
+                  })()}
+
+                  {/* Date Selection */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Select Date to View Attendance</h4>
+                    <div className="flex justify-center">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border"
+                      />
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{day.checkIn}</p>
-                      <p className="text-xs text-muted-foreground">{day.checkOut}</p>
-                    </div>
+                    
+                    {/* Selected Date Attendance */}
+                    {(() => {
+                      const selectedDateAttendance = getSelectedDateAttendance();
+                      return (
+                        <div className="p-4 bg-muted/20 rounded-lg">
+                          <h5 className="font-medium mb-3">
+                            Attendance for {selectedDate.toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </h5>
+                          {selectedDateAttendance ? (
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Check In</p>
+                                <p className="font-medium text-green-600">{selectedDateAttendance.checkIn}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Check Out</p>
+                                <p className="font-medium text-blue-600">{selectedDateAttendance.checkOut}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Total Hours</p>
+                                <p className="font-medium text-purple-600">{selectedDateAttendance.totalHours}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground text-center">No attendance recorded for this date</p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
-                ))}
-              </div>
+                </TabsContent>
+                
+                <TabsContent value="monthly" className="space-y-4">
+                  <div className="text-center p-6 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+                    <h4 className="font-semibold text-purple-800 mb-4">Monthly Working Hours</h4>
+                    <div className="text-4xl font-bold text-purple-600 mb-2">
+                      {calculateMonthlyHours().toFixed(1)}h
+                    </div>
+                    <p className="text-sm text-purple-700">
+                      Total hours worked in {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                  
+                  {/* Monthly Breakdown */}
+                  <div className="space-y-3">
+                    <h5 className="font-medium">Daily Breakdown</h5>
+                    {allAttendanceData.slice(0, 10).map((day, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle size={20} className="text-green-600" />
+                          <div>
+                            <p className="font-medium text-sm">
+                              {new Date(day.date).toLocaleDateString('en-US', { 
+                                weekday: 'short',
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{day.checkIn} - {day.checkOut}</p>
+                          <p className="text-xs text-purple-600 font-medium">{day.totalHours}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="absent" className="space-y-4">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold">Absent Days This Month</h4>
+                    {absentDaysData.length > 0 ? (
+                      absentDaysData.map((absentDay, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                          <div className="flex items-center gap-3">
+                            <XCircle size={20} className="text-red-600" />
+                            <div>
+                              <p className="font-medium text-sm text-red-800">
+                                {new Date(absentDay.date).toLocaleDateString('en-US', { 
+                                  weekday: 'long',
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </p>
+                              <p className="text-xs text-red-600">{absentDay.leaveType}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-red-700 font-medium">Reason:</p>
+                            <p className="text-xs text-red-600 max-w-40 truncate">{absentDay.reason}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center p-6 bg-green-50 rounded-lg border border-green-200">
+                        <CheckCircle size={48} className="text-green-600 mx-auto mb-3" />
+                        <h5 className="font-medium text-green-800 mb-1">Perfect Attendance!</h5>
+                        <p className="text-sm text-green-600">No absent days recorded this month</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
       </div>
     </Layout>
