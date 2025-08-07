@@ -706,14 +706,22 @@ const Attendance = () => {
                   return (
                     <div key={leaveType.id} className="p-4 bg-white rounded-lg border border-purple-200 shadow-sm">
                       <h5 className="font-medium text-purple-700 mb-3">{leaveType.name}</h5>
-                      <div className="flex justify-center">
-                        <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200 min-w-[120px]">
-                          <div className="text-3xl font-bold text-blue-600">{stats.booked}</div>
-                          <div className="text-sm text-blue-700 font-medium">Booked</div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-2xl font-bold text-green-600">{stats.available}</div>
+                          <div className="text-xs text-green-700 font-medium">Available</div>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                          <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
+                          <div className="text-xs text-orange-700 font-medium">Pending</div>
+                        </div>
+                        <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
+                          <div className="text-xs text-blue-700 font-medium">Booked</div>
                         </div>
                       </div>
                       {leaveType.description && (
-                        <p className="text-xs text-muted-foreground mt-3 text-center">{leaveType.description}</p>
+                        <p className="text-xs text-muted-foreground mt-2">{leaveType.description}</p>
                       )}
                     </div>
                   );
