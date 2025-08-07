@@ -44,12 +44,15 @@ const Attendance = () => {
     reason: ''
   });
 
+  const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
+  const [detailsType, setDetailsType] = useState('present');
+
   const stats = {
     totalDays: 20,
-    presentDays: 18,
-    absentDays: 2,
+    presentDays: allAttendanceData.length,
+    absentDays: absentDaysData.length,
     avgCheckIn: "09:12 AM",
-    attendance: 90
+    attendance: Math.round((allAttendanceData.length / 20) * 100)
   };
 
   useEffect(() => {
@@ -622,14 +625,26 @@ const Attendance = () => {
         <div className="p-4 -mt-4 relative z-10">
           {/* Summary Cards */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
+            <Card 
+              className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+              onClick={() => {
+                setShowAttendanceDetails(true);
+                setDetailsType('present');
+              }}
+            >
               <CardContent className="p-4 text-center">
                 <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-green-600">{stats.presentDays}</div>
                 <div className="text-xs text-green-700">Present Days</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-red-500/10 to-red-600/10 border-red-200 shadow-lg">
+            <Card 
+              className="bg-gradient-to-r from-red-500/10 to-red-600/10 border-red-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+              onClick={() => {
+                setShowAttendanceDetails(true);
+                setDetailsType('absent');
+              }}
+            >
               <CardContent className="p-4 text-center">
                 <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-red-600">{stats.absentDays}</div>
@@ -841,16 +856,17 @@ const Attendance = () => {
             </CardContent>
           </Card>
 
-          {/* Attendance Details Tabs */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays size={20} />
-                Attendance Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="present" className="w-full">
+          {/* Attendance Details Modal */}
+          <Dialog open={showAttendanceDetails} onOpenChange={setShowAttendanceDetails}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CalendarDays size={20} />
+                  Attendance Details
+                </DialogTitle>
+              </DialogHeader>
+              
+              <Tabs value={detailsType} onValueChange={setDetailsType} className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="present">Present Days</TabsTrigger>
                   <TabsTrigger value="monthly">Monthly Hours</TabsTrigger>
@@ -1007,8 +1023,8 @@ const Attendance = () => {
                   </div>
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </Layout>
