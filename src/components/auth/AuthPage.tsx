@@ -150,9 +150,21 @@ export const AuthPage = () => {
   console.log('AuthPage rendering, authMode:', authMode);
   
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative auth-background">
-      {/* Overlay for better contrast */}
-      <div className="absolute inset-0 bg-background/40 backdrop-blur-sm"></div>
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        background: 'linear-gradient(135deg, hsl(210 100% 95%) 0%, hsl(210 100% 85%) 50%, hsl(210 100% 75%) 100%)',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Subtle pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, hsl(210 100% 60%) 1px, transparent 0)`,
+          backgroundSize: '20px 20px'
+        }}
+      ></div>
       
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-border/50 bg-card/95 backdrop-blur-sm">
         <CardHeader className="space-y-4 text-center">
