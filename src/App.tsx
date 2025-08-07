@@ -6,7 +6,7 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { AuthPage } from "@/components/auth/AuthPage";
+import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import Index from "./pages/Index";
 import { VisitPlanner } from "./pages/VisitPlanner";
 import { BeatPlanning } from "./pages/BeatPlanning";
@@ -41,8 +41,8 @@ const App = () => (
         <Sonner />
         <PWAInstallPrompt />
         <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
+        <Routes>
+          <Route path="/auth" element={<RoleBasedAuthPage />} />
             <Route path="/" element={
               <ProtectedRoute>
                 <Index />
