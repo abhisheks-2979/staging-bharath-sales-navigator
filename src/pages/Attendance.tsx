@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User } from "lucide-react";
+import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User, CalendarIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,12 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const Attendance = () => {
   const navigate = useNavigate();
@@ -30,6 +35,10 @@ const Attendance = () => {
   const canvasRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [location, setLocation] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDateAttendance, setSelectedDateAttendance] = useState(null);
+  const [monthlyHours, setMonthlyHours] = useState(0);
+  const [showAttendanceDetail, setShowAttendanceDetail] = useState(false);
 
   // Leave application form state
   const [leaveForm, setLeaveForm] = useState({
@@ -53,6 +62,7 @@ const Attendance = () => {
     fetchLeaveBalance();
     fetchLeaveApplications();
     getCurrentLocation();
+    fetchAttendanceForDate(selectedDate);
   }, []);
 
   const getCurrentLocation = () => {
@@ -116,9 +126,57 @@ const Attendance = () => {
       const today = new Date().toISOString().split('T')[0];
       const todayRecord = attendanceRecords?.find(record => record.date === today);
       setTodaysAttendance(todayRecord);
+      
+      // Calculate monthly hours
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const monthlyTotal = attendanceRecords
+        ?.filter(record => {
+          const recordDate = new Date(record.date);
+          return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+        })
+        .reduce((total, record) => total + (record.total_hours || 0), 0) || 0;
+      setMonthlyHours(monthlyTotal);
     } catch (error) {
       console.error('Error fetching attendance data:', error);
     }
+  };
+
+  const fetchAttendanceForDate = async (date) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const formattedDate = date.toISOString().split('T')[0];
+      const { data: attendanceRecord, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('date', formattedDate)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching attendance for date:', error);
+        return;
+      }
+
+      setSelectedDateAttendance(attendanceRecord);
+    } catch (error) {
+      console.error('Error fetching attendance for date:', error);
+    }
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    fetchAttendanceForDate(date);
+    setShowAttendanceDetail(true);
+  };
+
+  const formatHours = (hours) => {
+    if (!hours) return '0h 0m';
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h}h ${m}m`;
   };
 
   const fetchLeaveTypes = async () => {
@@ -494,14 +552,18 @@ const Attendance = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.attendance}%</div>
+                <div className="text-2xl font-bold">{stats.attendance}%</div>
                 <div className="text-sm text-primary-foreground/80">This Month</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
+                <div className="text-2xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
                 <div className="text-sm text-primary-foreground/80">Present Days</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{formatHours(monthlyHours)}</div>
+                <div className="text-sm text-primary-foreground/80">Monthly Hours</div>
               </div>
             </div>
           </div>
@@ -509,23 +571,169 @@ const Attendance = () => {
 
         {/* Content */}
         <div className="p-4 -mt-4 relative z-10">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
-              <CardContent className="p-4 text-center">
-                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-green-600">{stats.presentDays}</div>
-                <div className="text-xs text-green-700">Present Days</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-r from-red-500/10 to-red-600/10 border-red-200 shadow-lg">
-              <CardContent className="p-4 text-center">
-                <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-red-600">{stats.absentDays}</div>
-                <div className="text-xs text-red-700">Absent Days</div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Today's Attendance & Date Selector */}
+          <Tabs defaultValue="today" className="mb-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="today">Today's Attendance</TabsTrigger>
+              <TabsTrigger value="calendar">Select Date</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="today" className="space-y-4">
+              <Card 
+                className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                onClick={() => {
+                  setSelectedDate(new Date());
+                  fetchAttendanceForDate(new Date());
+                  setShowAttendanceDetail(true);
+                }}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-600">
+                        {format(new Date(), 'EEEE, MMM d')}
+                      </h3>
+                      <p className="text-sm text-blue-500">Click to view details</p>
+                    </div>
+                    <div className="text-right">
+                      {todaysAttendance ? (
+                        <div className="space-y-1">
+                          <div className="text-sm">
+                            <span className="text-green-600">In: {todaysAttendance.check_in_time ? format(new Date(todaysAttendance.check_in_time), 'HH:mm') : '--'}</span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-orange-600">Out: {todaysAttendance.check_out_time ? format(new Date(todaysAttendance.check_out_time), 'HH:mm') : '--'}</span>
+                          </div>
+                          {todaysAttendance.total_hours && (
+                            <div className="text-xs text-blue-600">
+                              Total: {formatHours(todaysAttendance.total_hours)}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">No attendance marked</div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="calendar" className="space-y-4">
+              <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-purple-600 mb-4">Select Date to View Attendance</h3>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={handleDateSelect}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Attendance Detail Modal */}
+          <Dialog open={showAttendanceDetail} onOpenChange={setShowAttendanceDetail}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-center">
+                  Attendance Details
+                </DialogTitle>
+                <p className="text-center text-sm text-muted-foreground">
+                  {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                </p>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                {selectedDateAttendance ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card className="bg-green-50 border-green-200">
+                        <CardContent className="p-3 text-center">
+                          <Clock className="h-6 w-6 text-green-600 mx-auto mb-1" />
+                          <div className="text-sm font-medium text-green-700">Check In</div>
+                          <div className="text-lg font-bold text-green-600">
+                            {selectedDateAttendance.check_in_time 
+                              ? format(new Date(selectedDateAttendance.check_in_time), 'HH:mm')
+                              : '--'
+                            }
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="bg-orange-50 border-orange-200">
+                        <CardContent className="p-3 text-center">
+                          <Clock className="h-6 w-6 text-orange-600 mx-auto mb-1" />
+                          <div className="text-sm font-medium text-orange-700">Check Out</div>
+                          <div className="text-lg font-bold text-orange-600">
+                            {selectedDateAttendance.check_out_time 
+                              ? format(new Date(selectedDateAttendance.check_out_time), 'HH:mm')
+                              : '--'
+                            }
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    
+                    <Card className="bg-blue-50 border-blue-200">
+                      <CardContent className="p-3 text-center">
+                        <CalendarDays className="h-6 w-6 text-blue-600 mx-auto mb-1" />
+                        <div className="text-sm font-medium text-blue-700">Total Working Hours</div>
+                        <div className="text-xl font-bold text-blue-600">
+                          {formatHours(selectedDateAttendance.total_hours)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card className="bg-purple-50 border-purple-200">
+                      <CardContent className="p-3 text-center">
+                        <Calendar className="h-6 w-6 text-purple-600 mx-auto mb-1" />
+                        <div className="text-sm font-medium text-purple-700">Monthly Total Hours</div>
+                        <div className="text-xl font-bold text-purple-600">
+                          {formatHours(monthlyHours)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <div className="pt-2 border-t">
+                      <Badge 
+                        variant={selectedDateAttendance.status === 'present' ? 'default' : 'destructive'}
+                        className="w-full justify-center py-2"
+                      >
+                        {selectedDateAttendance.status === 'present' ? 'Present' : 'Absent'}
+                      </Badge>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-6">
+                    <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">No attendance recorded for this date</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Mark Attendance Section */}
           <Card className="mb-6 bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
