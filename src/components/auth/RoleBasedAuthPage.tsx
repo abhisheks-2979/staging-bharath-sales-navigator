@@ -82,7 +82,7 @@ export const RoleBasedAuthPage = () => {
                 >
                   <Shield className="w-5 h-5" />
                   <div>
-                    <div className="font-medium">Admin Sign In</div>
+                    <div className="font-bold">Admin Sign In</div>
                     <div className="text-xs text-muted-foreground">Full system access</div>
                   </div>
                 </Button>
@@ -115,7 +115,7 @@ export const RoleBasedAuthPage = () => {
             <div className="space-y-4">
               {selectedUserType === 'admin' && (
                 <div className="text-center space-y-2">
-                  <h1 className="text-xl font-semibold">Admin Sign In</h1>
+                  <h1 className="text-xl font-bold">Admin Sign In</h1>
                   <p className="text-muted-foreground text-sm">Full system access</p>
                 </div>
               )}
@@ -129,7 +129,7 @@ export const RoleBasedAuthPage = () => {
                       setSelectedUserType('admin');
                       setAuthMode('admin-signin');
                     }}
-                    className="text-primary hover:underline"
+                    className="text-primary hover:underline font-bold"
                   >
                     Admin Sign In
                   </button>
