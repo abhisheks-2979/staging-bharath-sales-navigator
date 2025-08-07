@@ -7,6 +7,7 @@ import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, User } from 'lucide-react';
+import authBackground from '@/assets/auth-background.jpg';
 
 type AuthMode = 'signin' | 'signup' | 'forgot' | 'admin-signin' | 'user-signin';
 
@@ -150,8 +151,19 @@ export const AuthPage = () => {
   console.log('AuthPage rendering, authMode:', authMode);
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-      <Card className="w-full max-w-md">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `url(${authBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Overlay for better contrast */}
+      <div className="absolute inset-0 bg-background/40 backdrop-blur-sm"></div>
+      
+      <Card className="w-full max-w-md relative z-10 shadow-2xl border-border/50 bg-card/95 backdrop-blur-sm">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
             <img 
