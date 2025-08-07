@@ -13,6 +13,9 @@ export const usePWAInstall = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [dismissCount, setDismissCount] = useState(() => {
+    return parseInt(localStorage.getItem('pwa-dismiss-count') || '0');
+  });
 
   useEffect(() => {
     // Check if app is already installed
@@ -21,8 +24,8 @@ export const usePWAInstall = () => {
     const isInstalledApp = isStandalone || isIOSStandalone;
     setIsInstalled(isInstalledApp);
 
-    // Always show install option for testing, but check browser capability
-    if (!isInstalledApp) {
+    // Only show install option if dismissed less than 2 times
+    if (!isInstalledApp && dismissCount < 2) {
       // Check if browser supports PWA installation
       const supportsInstall = 'serviceWorker' in navigator && 'PushManager' in window;
       setIsInstallable(supportsInstall);
@@ -99,10 +102,18 @@ export const usePWAInstall = () => {
     }
   };
 
+  const handleDismiss = () => {
+    const newCount = dismissCount + 1;
+    setDismissCount(newCount);
+    localStorage.setItem('pwa-dismiss-count', newCount.toString());
+    setIsInstallable(false);
+  };
+
   return {
-    isInstallable: isInstallable && !isInstalled,
+    isInstallable: isInstallable && !isInstalled && dismissCount < 2,
     isInstalled,
     installApp,
-    canPrompt: !!deferredPrompt
+    canPrompt: !!deferredPrompt,
+    handleDismiss
   };
 };

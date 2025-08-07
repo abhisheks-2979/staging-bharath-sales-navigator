@@ -12,7 +12,7 @@ type AuthMode = 'signin' | 'signup' | 'forgot' | 'admin-signin' | 'user-signin';
 
 export const AuthPage = () => {
   const { user, loading } = useAuth();
-  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [authMode, setAuthMode] = useState<AuthMode>('user-signin');
 
   if (loading) {
     return (
@@ -46,6 +46,10 @@ export const AuthPage = () => {
       case 'admin-signin':
         return (
           <>
+            <div className="mb-4 text-center">
+              <h3 className="text-xl font-semibold text-primary">Admin Sign In</h3>
+              <p className="text-sm text-muted-foreground">Full system access</p>
+            </div>
             <SignInForm role="admin" />
             <div className="mt-4 text-center space-y-2">
               <button
@@ -55,10 +59,10 @@ export const AuthPage = () => {
                 Forgot your password?
               </button>
               <button
-                onClick={() => setAuthMode('signin')}
+                onClick={() => setAuthMode('user-signin')}
                 className="text-sm text-muted-foreground hover:underline"
               >
-                Back to main login
+                Back to user login
               </button>
             </div>
           </>
@@ -68,18 +72,24 @@ export const AuthPage = () => {
         return (
           <>
             <SignInForm role="user" />
-            <div className="mt-4 text-center space-y-2">
+            <div className="mt-4 text-center space-y-3">
+              <button
+                onClick={() => setAuthMode('admin-signin')}
+                className="text-sm text-primary hover:underline block w-full"
+              >
+                Admin Sign In
+              </button>
               <button
                 onClick={() => setAuthMode('forgot')}
-                className="text-sm text-primary hover:underline block w-full"
+                className="text-sm text-muted-foreground hover:underline block w-full"
               >
                 Forgot your password?
               </button>
               <button
-                onClick={() => setAuthMode('signin')}
+                onClick={() => setAuthMode('signup')}
                 className="text-sm text-muted-foreground hover:underline"
               >
-                Back to main login
+                Don't have an account? Sign up
               </button>
             </div>
           </>
@@ -91,7 +101,7 @@ export const AuthPage = () => {
             <SignUpForm />
             <div className="mt-4 text-center">
               <button
-                onClick={() => setAuthMode('signin')}
+                onClick={() => setAuthMode('user-signin')}
                 className="text-sm text-muted-foreground hover:underline"
               >
                 Already have an account? Sign in

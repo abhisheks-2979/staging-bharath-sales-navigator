@@ -5,7 +5,7 @@ import { Download, X } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 
 export const PWAInstallPrompt = () => {
-  const { isInstallable, installApp, canPrompt } = usePWAInstall();
+  const { isInstallable, installApp, canPrompt, handleDismiss } = usePWAInstall();
   const [isDismissed, setIsDismissed] = useState(false);
 
   const handleInstallClick = () => {
@@ -13,7 +13,8 @@ export const PWAInstallPrompt = () => {
     setIsDismissed(true);
   };
 
-  const handleDismiss = () => {
+  const handleLocalDismiss = () => {
+    handleDismiss();
     setIsDismissed(true);
   };
 
@@ -32,7 +33,7 @@ export const PWAInstallPrompt = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleDismiss}
+            onClick={handleLocalDismiss}
             className="h-8 w-8 p-0"
           >
             <X className="h-4 w-4" />
@@ -48,7 +49,7 @@ export const PWAInstallPrompt = () => {
             <Download className="mr-2 h-4 w-4" />
             Install Now
           </Button>
-          <Button variant="outline" onClick={handleDismiss}>
+          <Button variant="outline" onClick={handleLocalDismiss}>
             Maybe Later
           </Button>
         </div>
