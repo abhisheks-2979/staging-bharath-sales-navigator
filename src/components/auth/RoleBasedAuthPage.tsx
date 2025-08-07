@@ -40,8 +40,14 @@ export const RoleBasedAuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-      <Card className="w-full max-w-md">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: 'linear-gradient(135deg, #e3f2fd 0%, #90caf9 30%, #42a5f5 60%, #1976d2 100%)',
+        minHeight: '100vh'
+      }}
+    >
+      <Card className="w-full max-w-md shadow-2xl bg-white/95 backdrop-blur-sm border-white/20">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
             <img 
