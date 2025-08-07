@@ -175,9 +175,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (data.user) {
       const userRole = await fetchUserRole(data.user.id);
       
-      if (role && userRole !== role) {
+      // Only check role if user explicitly selected admin login
+      if (role === 'admin' && userRole !== 'admin') {
         await supabase.auth.signOut();
-        throw new Error(`Access denied. This account does not have ${role} privileges.`);
+        throw new Error(`Access denied. This account does not have admin privileges.`);
       }
       
       const profile = await fetchUserProfile(data.user.id);
