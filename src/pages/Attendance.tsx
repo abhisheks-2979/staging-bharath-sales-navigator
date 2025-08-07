@@ -869,6 +869,9 @@ const Attendance = () => {
                   <CalendarDays size={20} />
                   Attendance Details
                 </DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  View your attendance records, working hours, and absent days
+                </p>
               </DialogHeader>
               
               <Tabs value={detailsType} onValueChange={setDetailsType} className="w-full">
@@ -922,15 +925,15 @@ const Attendance = () => {
                     {(() => {
                       const selectedDateAttendance = getSelectedDateAttendance();
                       return (
-                        <div className="p-4 bg-muted/20 rounded-lg">
-                          <h5 className="font-medium mb-3">
-                            Attendance for {selectedDate.toLocaleDateString('en-US', { 
-                              weekday: 'long', 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
-                          </h5>
+                         <div className="p-4 bg-muted/20 rounded-lg">
+                           <h5 className="font-medium mb-3">
+                             Attendance for {selectedDate ? selectedDate.toLocaleDateString('en-US', { 
+                               weekday: 'long', 
+                               year: 'numeric', 
+                               month: 'long', 
+                               day: 'numeric' 
+                             }) : 'Selected Date'}
+                           </h5>
                           {selectedDateAttendance ? (
                             <div className="grid grid-cols-3 gap-4 text-center">
                               <div>
