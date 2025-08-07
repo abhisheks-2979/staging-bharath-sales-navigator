@@ -116,6 +116,14 @@
   }
 }
 
+/* Custom Auth Background */
+.auth-background {
+  background-image: url('/src/assets/auth-background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 @layer base {
   * {
     @apply border-border;
