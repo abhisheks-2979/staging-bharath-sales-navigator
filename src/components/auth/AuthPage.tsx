@@ -141,17 +141,17 @@ export const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-24 h-24 rounded-lg overflow-hidden bg-background">
+          <div className="mx-auto w-32 h-20 rounded-lg overflow-hidden bg-background">
             <img 
-              src="/lovable-uploads/a31df152-1128-4f69-95cc-ef500b50331d.png" 
+              src="/lovable-uploads/68cfb497-c207-4b75-bfa7-c77928649502.png" 
               alt="Bharath Beverages" 
               className="w-full h-full object-contain"
             />
           </div>
           <div>
-            <CardTitle className="text-2xl">Bharath Beverages</CardTitle>
+            <CardTitle className="text-3xl font-bold">Welcome</CardTitle>
             <CardDescription>
-              Access your account
+              Bharath Beverages
             </CardDescription>
           </div>
         </CardHeader>
