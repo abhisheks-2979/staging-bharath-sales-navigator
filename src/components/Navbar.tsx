@@ -21,7 +21,7 @@ import {
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { signOut, user } = useAuth();
+  const { signOut, user, userProfile } = useAuth();
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
@@ -36,6 +36,10 @@ export const Navbar = () => {
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
     { icon: Target, label: "Analytics", href: "/beat-analytics", color: "from-violet-500 to-violet-600" },
   ];
+
+  // Get user display name and initials
+  const displayName = userProfile?.full_name || userProfile?.username || 'User';
+  const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
   return (
     <>
@@ -75,11 +79,11 @@ export const Navbar = () => {
                     <Avatar className="h-16 w-16 border-4 border-primary-foreground/20 shadow-lg">
                       <AvatarImage src="/placeholder.svg" alt="User" />
                       <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-xl font-bold">
-                        J
+                        {userInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="text-left">
-                      <h1 className="text-2xl font-bold">James</h1>
+                      <h1 className="text-2xl font-bold">{displayName}</h1>
                       <p className="text-sm opacity-75">Sales Executive</p>
                     </div>
                   </div>

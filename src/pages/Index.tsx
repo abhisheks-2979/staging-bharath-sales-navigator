@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Layout } from "@/components/Layout";
 import { useState, useEffect } from "react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
+import { useAuth } from "@/hooks/useAuth";
 
 const motivationalQuotes = [
   "Success is not final, failure is not fatal: it is the courage to continue that counts.",
@@ -44,6 +45,7 @@ const motivationalQuotes = [
 const Index = () => {
   const [currentQuote, setCurrentQuote] = useState("");
   const { isInstallable, installApp } = usePWAInstall();
+  const { userProfile } = useAuth();
 
   useEffect(() => {
     const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
@@ -83,6 +85,10 @@ const Index = () => {
       }]
     : navigationItems;
 
+  // Get user display name and initials
+  const displayName = userProfile?.full_name || userProfile?.username || 'User';
+  const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -94,12 +100,14 @@ const Index = () => {
               <Avatar className="h-12 w-12 sm:h-16 sm:w-16 border-2 border-primary-foreground/20 shadow-lg">
                 <AvatarImage src="/placeholder.svg" alt="User" />
                 <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg sm:text-xl font-bold">
-                  J
+                  {userInitials}
                 </AvatarFallback>
               </Avatar>
               <div className="text-left">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">Good Morning!</h1>
-                <p className="text-lg sm:text-xl opacity-90">James</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+                  Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
+                </h1>
+                <p className="text-lg sm:text-xl opacity-90">{displayName}</p>
                 <p className="text-xs sm:text-sm opacity-75">Sales Executive</p>
               </div>
             </div>

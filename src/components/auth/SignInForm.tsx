@@ -32,13 +32,12 @@ export const SignInForm = ({ role }: SignInFormProps) => {
 
   const onSubmit = async (data: SignInFormData) => {
     setIsLoading(true);
-    const { error } = await signIn(data.email, data.password, role);
-    setIsLoading(false);
-    
-    if (error) {
+    try {
+      await signIn(data.email, data.password, role);
+    } catch (error) {
       // Error is already handled by the signIn function
-      return;
     }
+    setIsLoading(false);
   };
 
   return (
