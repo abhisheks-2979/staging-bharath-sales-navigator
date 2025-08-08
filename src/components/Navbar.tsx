@@ -3,7 +3,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   UserCheck, 
@@ -21,7 +21,7 @@ import {
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { signOut, user, userProfile } = useAuth();
+  const { signOut, userProfile } = useAuth();
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
@@ -73,18 +73,18 @@ export const Navbar = () => {
             {/* Header Section */}
             <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
               <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
-              <div className="relative p-6 text-center">
+              <div className="relative p-4 text-center">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <Avatar className="h-16 w-16 border-4 border-primary-foreground/20 shadow-lg">
+                    <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg">
                       <AvatarImage src="/placeholder.svg" alt="User" />
-                      <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-xl font-bold">
+                      <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
                         {userInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="text-left">
                       <h1 className="text-2xl font-bold">{displayName}</h1>
-                      <p className="text-sm opacity-75">Sales Executive</p>
+                      
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -106,58 +106,14 @@ export const Navbar = () => {
                   </div>
                 </div>
                 
-                <div className="bg-primary-foreground/10 rounded-xl p-4 backdrop-blur-sm border border-primary-foreground/20">
-                  <p className="text-sm font-medium">Keep pushing forward - Success awaits!</p>
-                </div>
               </div>
             </div>
 
             {/* Current Month Performance */}
             <div className="p-4 -mt-6 relative z-10">
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold text-blue-600 mb-1">15</div>
-                    <div className="text-xs text-blue-700 font-medium">New Retailers (Current Month)</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold text-green-600 mb-1">142</div>
-                    <div className="text-xs text-green-700 font-medium">Check-ins (This Month)</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold text-purple-600 mb-1">89%</div>
-                    <div className="text-xs text-purple-700 font-medium">Productive Visits (Current Month)</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border-orange-200 shadow-lg">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold text-orange-600 mb-1">₹1.2L</div>
-                    <div className="text-xs text-orange-700 font-medium">Revenue (This Month)</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold text-indigo-600 mb-1">#3</div>
-                    <div className="text-xs text-indigo-700 font-medium">Leader Rank (Current Month)</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border-emerald-200 shadow-lg">
-                  <CardContent className="p-3 text-center">
-                    <div className="text-2xl font-bold text-emerald-600 mb-1">124%</div>
-                    <div className="text-xs text-emerald-700 font-medium">Achievement % (This Month)</div>
-                  </CardContent>
-                </Card>
-              </div>
 
               {/* Navigation Grid */}
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold text-center text-foreground mb-4">
-                  Quick Actions
-                </h2>
+              <div className="space-y-2">
                 
                 <div className="grid grid-cols-3 gap-3">
                   {navigationItems.map((item) => (
@@ -167,9 +123,9 @@ export const Navbar = () => {
                       className="group block"
                       onClick={() => setIsOpen(false)}
                     >
-                      <div className="p-3 text-center transition-all duration-300 hover:scale-105">
-                        <div className={`inline-flex items-center justify-center w-12 h-12 mb-2 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
-                          <item.icon className="h-6 w-6 text-white drop-shadow-sm" />
+                      <div className="p-2 text-center transition-all duration-300 hover:scale-105">
+                        <div className={`inline-flex items-center justify-center w-10 h-10 mb-1 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                          <item.icon className="h-5 w-5 text-white drop-shadow-sm" />
                         </div>
                         <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
                           {item.label}
