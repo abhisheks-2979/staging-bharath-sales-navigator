@@ -11,8 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import HolidayManagement from '../components/HolidayManagement';
 
 interface User {
@@ -25,6 +25,7 @@ interface User {
 
 export const AdminDashboard = () => {
   const { userRole, loading } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
@@ -158,13 +159,21 @@ export const AdminDashboard = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage users and system settings</p>
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => navigate('/')} 
+              variant="ghost" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft size={16} />
+              Back to Menu
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+              <p className="text-muted-foreground">Manage users and system settings</p>
+            </div>
           </div>
-          <Button onClick={() => window.location.href = '/'} variant="outline">
-            Back to App
-          </Button>
         </div>
 
         {/* Stats Cards */}
