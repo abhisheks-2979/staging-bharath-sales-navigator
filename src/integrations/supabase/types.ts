@@ -431,6 +431,139 @@ export type Database = {
         }
         Relationships: []
       }
+      product_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      product_schemes: {
+        Row: {
+          condition_quantity: number | null
+          created_at: string
+          description: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          end_date: string | null
+          free_quantity: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          product_id: string | null
+          scheme_type: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          condition_quantity?: number | null
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          end_date?: string | null
+          free_quantity?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          product_id?: string | null
+          scheme_type?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          condition_quantity?: number | null
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          end_date?: string | null
+          free_quantity?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          product_id?: string | null
+          scheme_type?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_schemes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category_id: string | null
+          closing_stock: number | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          rate: number
+          sku: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          closing_stock?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          rate?: number
+          sku: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          closing_stock?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          rate?: number
+          sku?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

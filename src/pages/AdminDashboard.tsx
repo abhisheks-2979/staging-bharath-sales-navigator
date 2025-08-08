@@ -11,9 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft } from 'lucide-react';
+import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft, Package } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import HolidayManagement from '../components/HolidayManagement';
+import ProductManagement from '../components/ProductManagement';
 
 interface User {
   id: string;
@@ -216,7 +217,7 @@ export const AdminDashboard = () => {
 
         {/* Admin Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Overview
@@ -224,6 +225,10 @@ export const AdminDashboard = () => {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Users & Roles
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Product Management
             </TabsTrigger>
             <TabsTrigger value="create-user" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
@@ -355,6 +360,10 @@ export const AdminDashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="products" className="space-y-4">
+            <ProductManagement />
           </TabsContent>
 
           <TabsContent value="create-user" className="space-y-4">

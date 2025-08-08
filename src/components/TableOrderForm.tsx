@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,16 +6,24 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus, Gift } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
+  sku: string;
   name: string;
-  category: string;
+  category: { name: string } | null;
   rate: number;
   unit: string;
-  hasScheme?: boolean;
-  schemeDetails?: string;
-  closingStock?: number;
+  closing_stock: number;
+  schemes?: { 
+    name: string; 
+    description: string; 
+    is_active: boolean;
+    scheme_type: string;
+    condition_quantity: number;
+    discount_percentage: number;
+  }[];
 }
 
 interface OrderRow {
@@ -27,63 +35,6 @@ interface OrderRow {
   total: number;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: "P001",
-    name: "Premium Rice 25kg",
-    category: "Rice & Grains",
-    rate: 1200,
-    unit: "bag",
-    hasScheme: true,
-    schemeDetails: "Buy 5+ bags, get 10% off",
-    closingStock: 15
-  },
-  {
-    id: "P002",
-    name: "Wheat Flour 10kg",
-    category: "Rice & Grains",
-    rate: 400,
-    unit: "bag",
-    closingStock: 8
-  },
-  {
-    id: "P003",
-    name: "Sunflower Oil 1L",
-    category: "Oil & Ghee",
-    rate: 120,
-    unit: "bottle",
-    hasScheme: true,
-    schemeDetails: "Buy 12+ bottles, get 15% off",
-    closingStock: 24
-  },
-  {
-    id: "P004",
-    name: "Mustard Oil 1L",
-    category: "Oil & Ghee",
-    rate: 140,
-    unit: "bottle",
-    closingStock: 18
-  },
-  {
-    id: "P005",
-    name: "Toor Dal 1kg",
-    category: "Pulses",
-    rate: 80,
-    unit: "packet",
-    closingStock: 12
-  },
-  {
-    id: "P006",
-    name: "Moong Dal 1kg",
-    category: "Pulses",
-    rate: 90,
-    unit: "packet",
-    hasScheme: true,
-    schemeDetails: "Buy 10+ packets, get 5% off",
-    closingStock: 20
-  }
-];
-
 interface TableOrderFormProps {
   onCartUpdate: (items: any[]) => void;
 }
@@ -92,9 +43,41 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
     { id: "1", productCode: "", quantity: 0, closingStock: 0, total: 0 }
   ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          category:product_categories(name),
+          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage)
+        `)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load products",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const findProductByCode = (code: string): Product | undefined => {
-    return mockProducts.find(p => p.id.toLowerCase() === code.toLowerCase());
+    return products.find(p => p.sku.toLowerCase() === code.toLowerCase());
   };
 
   const addNewRow = () => {
@@ -120,7 +103,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         if (field === "productCode") {
           const product = findProductByCode(value);
           updatedRow.product = product;
-          updatedRow.closingStock = product?.closingStock || 0;
+          updatedRow.closingStock = product?.closing_stock || 0;
           updatedRow.total = product ? product.rate * updatedRow.quantity : 0;
         } else if (field === "quantity" && row.product) {
           updatedRow.total = row.product.rate * value;
@@ -165,19 +148,39 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
     return orderRows.reduce((sum, row) => sum + row.total, 0);
   };
 
+  const hasActiveSchemes = (product: Product) => {
+    return product.schemes && product.schemes.some(scheme => scheme.is_active);
+  };
+
+  const getActiveSchemeDetails = (product: Product) => {
+    const activeSchemes = product.schemes?.filter(scheme => scheme.is_active);
+    if (!activeSchemes || activeSchemes.length === 0) return null;
+    
+    const scheme = activeSchemes[0];
+    return `Buy ${scheme.condition_quantity}+ ${product.unit}s, get ${scheme.discount_percentage}% off`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Bulk Order Entry</CardTitle>
-          <p className="text-sm text-muted-foreground">Enter product codes directly for faster ordering</p>
+          <p className="text-sm text-muted-foreground">Enter product SKUs directly for faster ordering</p>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">Code</TableHead>
+                  <TableHead className="w-20">SKU</TableHead>
                   <TableHead className="min-w-32">Product</TableHead>
                   <TableHead className="w-16">Qty</TableHead>
                   <TableHead className="w-16">Stock</TableHead>
@@ -190,7 +193,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                   <TableRow key={row.id}>
                     <TableCell className="p-2">
                       <Input
-                        placeholder="P001"
+                        placeholder="RICE001"
                         value={row.productCode}
                         onChange={(e) => updateRow(row.id, "productCode", e.target.value)}
                         className="h-8 text-xs"
@@ -201,7 +204,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
                             <span className="text-xs font-medium">{row.product.name}</span>
-                            {row.product.hasScheme && (
+                            {hasActiveSchemes(row.product) && (
                               <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] px-1 py-0">
                                 <Gift size={8} className="mr-0.5" />
                                 Scheme
@@ -211,14 +214,14 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           <div className="text-[10px] text-muted-foreground">
                             ₹{row.product.rate}/{row.product.unit}
                           </div>
-                          {row.product.hasScheme && (
+                          {hasActiveSchemes(row.product) && (
                             <div className="text-[10px] text-orange-600 bg-orange-50 p-1 rounded">
-                              {row.product.schemeDetails}
+                              {getActiveSchemeDetails(row.product)}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Enter code</span>
+                        <span className="text-xs text-muted-foreground">Enter SKU</span>
                       )}
                     </TableCell>
                     <TableCell className="p-2">
