@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, FileText, Plus, TrendingUp, Route } from "lucide-react";
+import { Calendar, FileText, Plus, TrendingUp, Route, CheckCircle } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
 import { Button } from "@/components/ui/button";
@@ -133,7 +133,8 @@ export const MyVisits = () => {
   const [weekDays, setWeekDays] = useState(getWeekDays());
   const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
-  const [currentBeatName, setCurrentBeatName] = useState("Beat 1 (Central Bangalore)");
+  const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
+  const [currentBeatName, setCurrentBeatName] = useState("No beats planned");
   const { user } = useAuth();
 
   // Initialize selected day to today
@@ -151,6 +152,29 @@ export const MyVisits = () => {
       loadPlannedBeats(selectedDate);
     }
   }, [user, selectedDate]);
+
+  // Load week plan markers for calendar
+  useEffect(() => {
+    if (!user) return;
+    const loadWeekPlans = async () => {
+      try {
+        const startIso = weekDays[0]?.isoDate;
+        const endIso = weekDays[weekDays.length - 1]?.isoDate;
+        if (!startIso || !endIso) return;
+        const { data, error } = await supabase
+          .from('beat_plans')
+          .select('plan_date')
+          .eq('user_id', user.id)
+          .gte('plan_date', startIso)
+          .lte('plan_date', endIso);
+        if (error) throw error;
+        setPlannedDates(new Set((data || []).map((d: any) => d.plan_date)));
+      } catch (err) {
+        console.error('Error loading week plans:', err);
+      }
+    };
+    loadWeekPlans();
+  }, [user, weekDays]);
 
   const loadPlannedBeats = async (date: string) => {
     if (!user) return;
@@ -224,8 +248,8 @@ export const MyVisits = () => {
     }
   };
 
-  // Combine mock visits with retailer visits
-  const allVisits = [...mockVisits, ...retailers];
+  // Show visits for selected date based on planned beats
+  const allVisits = retailers;
 
   const filteredVisits = allVisits.filter(visit => {
     const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,11 +258,11 @@ export const MyVisits = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const todayVisits = allVisits.filter(visit => visit.day === "Today");
-  const plannedVisits = todayVisits.filter(visit => visit.status === "planned").length;
-  const productiveVisits = todayVisits.filter(visit => visit.status === "productive").length;
-  const pendingVisits = todayVisits.filter(visit => visit.status === "in-progress").length;
-  const totalOrdersToday = todayVisits.filter(visit => visit.hasOrder).length;
+  const visitsForSelectedDate = retailers;
+  const plannedVisits = visitsForSelectedDate.filter(visit => visit.status === "planned").length;
+  const productiveVisits = visitsForSelectedDate.filter(visit => visit.status === "productive").length;
+  const pendingVisits = visitsForSelectedDate.filter(visit => visit.status === "in-progress").length;
+  const totalOrdersToday = visitsForSelectedDate.filter(visit => visit.hasOrder).length;
 
   const handleViewDetails = (visitId: string) => {
     window.location.href = `/visit/${visitId}`;
@@ -267,7 +291,7 @@ export const MyVisits = () => {
                 <button
                   key={dayInfo.day}
                   onClick={() => handleDayChange(dayInfo.day)}
-                  className={`p-2 rounded-lg text-center transition-colors ${
+                  className={`relative p-2 rounded-lg text-center transition-colors ${
                     dayInfo.isToday || selectedDay === dayInfo.day
                       ? 'bg-primary-foreground text-primary'
                       : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'
@@ -275,6 +299,9 @@ export const MyVisits = () => {
                 >
                   <div className="text-xs font-medium">{dayInfo.day}</div>
                   <div className="text-lg font-bold">{dayInfo.date}</div>
+                  {plannedDates.has(dayInfo.isoDate) && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success" />
+                  )}
                 </button>
               ))}
             </div>
@@ -340,14 +367,14 @@ export const MyVisits = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-primary">Today's Progress</h3>
               <div className="text-sm text-muted-foreground">
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
+                {(selectedDate ? new Date(selectedDate) : new Date()).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
               </div>
             </div>
             
             {/* Key Metrics Row */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="bg-gradient-to-r from-success/10 to-success/5 p-4 rounded-xl border border-success/20">
-                <div className="text-2xl font-bold text-success">₹{todayVisits.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
+                <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
                 <div className="text-sm text-success/80 font-medium">Total Order Value</div>
               </div>
               <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20">
@@ -366,7 +393,7 @@ export const MyVisits = () => {
                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
                 }`}
               >
-                <div className="text-xl font-bold">{plannedVisits + 8}</div>
+                <div className="text-xl font-bold">{plannedVisits}</div>
                 <div className="text-xs font-medium opacity-80">Planned</div>
               </button>
               
@@ -378,7 +405,7 @@ export const MyVisits = () => {
                     : "bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-150 border border-green-200"
                 }`}
               >
-                <div className="text-xl font-bold">{productiveVisits + 12}</div>
+                <div className="text-xl font-bold">{productiveVisits}</div>
                 <div className="text-xs font-medium opacity-80">Productive</div>
               </button>
               
@@ -390,7 +417,7 @@ export const MyVisits = () => {
                     : "bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150 border border-orange-200"
                 }`}
               >
-                <div className="text-xl font-bold">{pendingVisits + 5}</div>
+                <div className="text-xl font-bold">{pendingVisits}</div>
                 <div className="text-xs font-medium opacity-80">Pending</div>
               </button>
             </div>
