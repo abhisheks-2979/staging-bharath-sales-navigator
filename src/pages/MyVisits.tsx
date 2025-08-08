@@ -219,9 +219,9 @@ export const MyVisits = () => {
 
       if (error) throw error;
 
-      // Transform retailers to match Visit interface
       const transformedRetailers = (data || []).map(retailer => ({
         id: retailer.id,
+        retailerId: retailer.id,
         retailerName: retailer.name,
         address: retailer.address,
         phone: retailer.phone || '',
@@ -231,7 +231,9 @@ export const MyVisits = () => {
         day: 'Today',
         checkInStatus: 'not-checked-in' as const,
         hasOrder: false,
-        orderValue: retailer.order_value || 0
+        orderValue: retailer.order_value || 0,
+        retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
+        retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
       }));
 
       setRetailers(transformedRetailers);

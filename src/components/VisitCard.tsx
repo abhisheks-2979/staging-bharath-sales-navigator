@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { CompetitionInsightModal } from "./CompetitionInsightModal";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface Visit {
   id: string;
+  retailerId?: string;
   retailerName: string;
   address: string;
   phone: string;
@@ -25,6 +26,8 @@ interface Visit {
   orderValue?: number;
   noOrderReason?: "over-stocked" | "owner-not-available" | "store-closed" | "permanently-closed";
   distributor?: string;
+  retailerLat?: number;
+  retailerLng?: number;
 }
 
 interface VisitCardProps {
@@ -39,6 +42,13 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [showCompetitionModal, setShowCompetitionModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
+  const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
+  const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
+  const [locationMatchOut, setLocationMatchOut] = useState<boolean | null>(null);
+  const [currentVisitId, setCurrentVisitId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
+  
   // Check if user has viewed analytics for this visit
   useEffect(() => {
     const checkAnalyticsView = async () => {
@@ -102,29 +112,167 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     }
   };
 
-  const getCheckInButtonColor = (checkInStatus?: string) => {
-    switch (checkInStatus) {
-      case "checked-in-correct":
-        return "bg-success text-success-foreground hover:bg-success/90";
-      case "checked-in-wrong-location":
-        return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
-      default:
-        return "bg-muted text-muted-foreground hover:bg-muted/80";
+  const getLocationBtnClass = () => {
+    if (phase === 'completed') {
+      return (locationMatchOut ?? false)
+        ? "bg-success text-success-foreground hover:bg-success/90"
+        : "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+    }
+    if (phase === 'in-progress') {
+      return "bg-warning text-warning-foreground hover:bg-warning/90";
+    }
+    // idle
+    return "bg-muted text-muted-foreground hover:bg-muted/80";
+  };
+
+  const getLocationBtnTitle = () => {
+    if (phase === 'completed') {
+      return (locationMatchOut ?? false) ? 'Checked Out (Location match)' : 'Checked Out (Location mismatch)';
+    }
+    if (phase === 'in-progress') {
+      return (locationMatchIn ?? false) ? 'In Progress (Location match)' : 'In Progress (Location mismatch)';
+    }
+    return 'Check-In';
+  };
+
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const distanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371000; // meters
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const getPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
+  });
+
+  const ensureVisit = async (userId: string, retailerId: string, date: string) => {
+    const { data, error } = await supabase
+      .from('visits')
+      .select('id, status, check_in_time, location_match_in, location_match_out')
+      .eq('user_id', userId)
+      .eq('retailer_id', retailerId)
+      .eq('planned_date', date)
+      .maybeSingle();
+
+    if (error) {
+      console.log('ensureVisit select error', error);
+    }
+
+    if (data) {
+      setCurrentVisitId(data.id);
+      if (data.check_in_time) setPhase('in-progress');
+      if (data.location_match_in != null) setLocationMatchIn(data.location_match_in);
+      if (data.location_match_out != null) setLocationMatchOut(data.location_match_out);
+      return data.id;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('visits')
+      .insert({ user_id: userId, retailer_id: retailerId, planned_date: date })
+      .select('id')
+      .single();
+    if (insertError) throw insertError;
+    setCurrentVisitId(inserted.id);
+    return inserted.id;
+  };
+
+  const handlePhotoSelected = async (e: any) => {
+    try {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file || !currentVisitId) return;
+      const action = pendingPhotoActionRef.current;
+      pendingPhotoActionRef.current = null;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const path = `${user.id}/${currentVisitId}-${action || 'checkin'}-${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('visit-photos')
+        .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+      if (uploadError) throw uploadError;
+
+      const column = action === 'checkout' ? 'check_out_photo_url' : 'check_in_photo_url';
+      const { error: updateError } = await supabase
+        .from('visits')
+        .update({ [column]: path })
+        .eq('id', currentVisitId);
+      if (updateError) throw updateError;
+
+      toast({ title: 'Photo saved', description: 'Visit photo uploaded successfully.' });
+    } catch (err: any) {
+      console.error('Photo upload error', err);
+      toast({ title: 'Photo upload failed', description: err.message || 'Try again.', variant: 'destructive' });
     }
   };
 
-  const getCheckInButtonText = (checkInStatus?: string, time?: string) => {
-    const timeText = time ? ` (${time})` : "";
-    switch (checkInStatus) {
-      case "checked-in-correct":
-        return `Checked In${timeText}`;
-      case "checked-in-wrong-location":
-        return `Wrong Location${timeText}`;
-      default:
-        return `Check-In${timeText}`;
+  const handleLocationClick = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: 'Login required', description: 'Please sign in to record visits.', variant: 'destructive' });
+        return;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const retailerId = visit.retailerId || visit.id;
+      const visitId = await ensureVisit(user.id, retailerId, today);
+
+      const pos = await getPosition();
+      const current = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+
+      let match: boolean | null = null;
+      if (typeof visit.retailerLat === 'number' && typeof visit.retailerLng === 'number') {
+        const dist = distanceMeters(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
+        match = dist <= 150; // within 150 meters
+      }
+
+      if (phase === 'idle') {
+        const { error } = await supabase
+          .from('visits')
+          .update({
+            check_in_time: new Date().toISOString(),
+            check_in_location: current,
+            location_match_in: match,
+            status: 'in-progress'
+          })
+          .eq('id', visitId);
+        if (error) throw error;
+        setPhase('in-progress');
+        setLocationMatchIn(match);
+        toast({ title: 'Checked in', description: match === false ? 'Location mismatch' : 'Location verified' });
+        pendingPhotoActionRef.current = 'checkin';
+        fileInputRef.current?.click();
+      } else if (phase === 'in-progress') {
+        const { error } = await supabase
+          .from('visits')
+          .update({
+            check_out_time: new Date().toISOString(),
+            check_out_location: current,
+            location_match_out: match,
+            status: 'completed'
+          })
+          .eq('id', visitId);
+        if (error) throw error;
+        setPhase('completed');
+        setLocationMatchOut(match);
+        toast({ title: 'Checked out', description: match === false ? 'Location mismatch' : 'Location verified' });
+        pendingPhotoActionRef.current = 'checkout';
+        fileInputRef.current?.click();
+      }
+    } catch (err: any) {
+      console.error('Check-in/out error', err);
+      toast({ title: 'Location/Permission error', description: err.message || 'Enable GPS and try again.', variant: 'destructive' });
     }
   };
-
   const handleNoOrderReasonSelect = (reason: string) => {
     setNoOrderReason(reason);
     toast({
@@ -195,8 +343,9 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             <Button 
               size="sm" 
-              className={`${getCheckInButtonColor(visit.checkInStatus)} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm`}
-              title={getCheckInButtonText(visit.checkInStatus, visit.time)}
+              className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm`}
+              onClick={handleLocationClick}
+              title={getLocationBtnTitle()}
             >
               <MapPin size={14} className="sm:size-4" />
             </Button>
@@ -261,6 +410,16 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             </Button>
           </div>
         </div>
+
+        {/* Hidden file input for photo capture */}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handlePhotoSelected}
+        />
 
         {/* Modals */}
         <NoOrderModal

@@ -644,6 +644,8 @@ export type Database = {
           created_at: string
           id: string
           last_visit_date: string | null
+          latitude: number | null
+          longitude: number | null
           name: string
           order_value: number | null
           phone: string | null
@@ -659,6 +661,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_visit_date?: string | null
+          latitude?: number | null
+          longitude?: number | null
           name: string
           order_value?: number | null
           phone?: string | null
@@ -674,6 +678,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_visit_date?: string | null
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           order_value?: number | null
           phone?: string | null
@@ -701,6 +707,60 @@ export type Database = {
           assigned_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      visits: {
+        Row: {
+          check_in_location: Json | null
+          check_in_photo_url: string | null
+          check_in_time: string | null
+          check_out_location: Json | null
+          check_out_photo_url: string | null
+          check_out_time: string | null
+          created_at: string
+          id: string
+          location_match_in: boolean | null
+          location_match_out: boolean | null
+          planned_date: string
+          retailer_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_in_location?: Json | null
+          check_in_photo_url?: string | null
+          check_in_time?: string | null
+          check_out_location?: Json | null
+          check_out_photo_url?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          id?: string
+          location_match_in?: boolean | null
+          location_match_out?: boolean | null
+          planned_date: string
+          retailer_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_in_location?: Json | null
+          check_in_photo_url?: string | null
+          check_in_time?: string | null
+          check_out_location?: Json | null
+          check_out_photo_url?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          id?: string
+          location_match_in?: boolean | null
+          location_match_out?: boolean | null
+          planned_date?: string
+          retailer_id?: string
+          status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
