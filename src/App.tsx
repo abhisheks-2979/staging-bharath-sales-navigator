@@ -32,6 +32,7 @@ import { Schemes } from "./pages/Schemes";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import AdminControls from "./pages/AdminControls";
 import ProductManagementPage from "./pages/ProductManagementPage";
+import AttendanceManagement from "./pages/AttendanceManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,11 @@ const App = () => (
           <Route path="/product-management" element={
             <ProtectedRoute>
               <ProductManagementPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/attendance-management" element={
+            <ProtectedRoute>
+              <AttendanceManagement />
             </ProtectedRoute>
           } />
             <Route path="/" element={
