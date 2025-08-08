@@ -84,47 +84,17 @@ export const AdminDashboard = () => {
     try {
       setLoadingUsers(true);
       
-      // Get profiles data directly (no admin API needed)
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username, full_name, phone_number, recovery_email, created_at');
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        toast.error('Failed to fetch user profiles');
+      // Call the edge function to get real user data with admin privileges
+      const { data, error } = await supabase.functions.invoke('admin-get-users');
+      
+      if (error) {
+        console.error('Error calling admin-get-users function:', error);
+        toast.error('Failed to fetch users: ' + error.message);
         return;
       }
 
-      // Get user roles
-      const { data: userRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role, assigned_at');
-
-      if (rolesError) {
-        console.error('Error fetching user roles:', rolesError);
-      }
-
-      // Combine profiles with role data
-      const usersWithDetails = profiles?.map(profile => {
-        const roleData = userRoles?.find(r => r.user_id === profile.id);
-        
-        return {
-          id: profile.id,
-          email: `${profile.username}@company.com`, // Placeholder email since we can't access auth.users
-          username: profile.username,
-          full_name: profile.full_name,
-          phone_number: profile.phone_number || 'N/A',
-          recovery_email: profile.recovery_email || 'N/A',
-          role: (roleData?.role as 'admin' | 'user') || 'user',
-          assigned_at: roleData?.assigned_at || profile.created_at,
-          created_at: profile.created_at,
-          last_sign_in_at: null, // Not available without admin access
-          email_confirmed_at: profile.created_at // Assume verified when profile created
-        };
-      }) || [];
-
-      console.log('Fetched users:', usersWithDetails); // Debug log
-      setUsers(usersWithDetails);
+      console.log('Fetched users from edge function:', data?.users);
+      setUsers(data?.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
