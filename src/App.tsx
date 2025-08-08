@@ -31,7 +31,6 @@ import Analytics from "./pages/Analytics";
 import { Schemes } from "./pages/Schemes";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import AdminControls from "./pages/AdminControls";
-import AdminMenu from "./pages/AdminMenu";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import NotFound from "./pages/NotFound";
 
@@ -50,11 +49,6 @@ const App = () => (
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin-menu" element={
-            <ProtectedRoute>
-              <AdminMenu />
             </ProtectedRoute>
           } />
           <Route path="/admin-controls" element={
