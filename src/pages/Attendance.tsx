@@ -609,7 +609,7 @@ const Attendance = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <div className="text-3xl font-bold">{stats.attendance}%</div>
                 <div className="text-sm text-primary-foreground/80">This Month</div>
@@ -617,10 +617,6 @@ const Attendance = () => {
               <div className="text-center">
                 <div className="text-3xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
                 <div className="text-sm text-primary-foreground/80">Present Days</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold">{calculateMonthlyHours().toFixed(0)}h</div>
-                <div className="text-sm text-primary-foreground/80">Monthly Hours</div>
               </div>
             </div>
           </div>
