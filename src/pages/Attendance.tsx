@@ -15,6 +15,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import HolidayList from "@/components/HolidayList";
 
 const Attendance = () => {
   const navigate = useNavigate();
@@ -856,6 +857,9 @@ const Attendance = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Holiday List Section */}
+          <HolidayList />
 
           {/* Attendance Details Modal */}
           <Dialog open={showAttendanceDetails} onOpenChange={setShowAttendanceDetails}>

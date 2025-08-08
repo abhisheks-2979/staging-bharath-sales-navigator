@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database } from 'lucide-react';
+import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
+import HolidayManagement from '../components/HolidayManagement';
 
 interface User {
   id: string;
@@ -215,7 +216,7 @@ export const AdminDashboard = () => {
 
         {/* Admin Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Overview
@@ -227,6 +228,10 @@ export const AdminDashboard = () => {
             <TabsTrigger value="create-user" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
               Create User
+            </TabsTrigger>
+            <TabsTrigger value="holidays" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Holiday Calendar
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -386,6 +391,10 @@ export const AdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="holidays" className="space-y-4">
+            <HolidayManagement />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">

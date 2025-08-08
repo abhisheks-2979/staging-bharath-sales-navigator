@@ -191,6 +191,39 @@ export type Database = {
         }
         Relationships: []
       }
+      holidays: {
+        Row: {
+          created_at: string
+          created_by: string
+          date: string
+          description: string | null
+          holiday_name: string
+          id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          date: string
+          description?: string | null
+          holiday_name: string
+          id?: string
+          updated_at?: string
+          year?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string | null
+          holiday_name?: string
+          id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       leave_applications: {
         Row: {
           applied_date: string
