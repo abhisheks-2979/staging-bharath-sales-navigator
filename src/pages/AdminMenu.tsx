@@ -3,9 +3,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, Calendar, UserPlus, BarChart3 } from 'lucide-react';
 
-const AdminControls = () => {
+const AdminMenu = () => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -27,7 +27,7 @@ const AdminControls = () => {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button 
-            onClick={() => navigate('/admin-menu')} 
+            onClick={() => navigate('/')} 
             variant="ghost" 
             size="sm"
             className="p-2"
@@ -35,24 +35,54 @@ const AdminControls = () => {
             <ArrowLeft size={20} />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Admin Controls</h1>
-            <p className="text-muted-foreground">Manage different aspects of your system</p>
+            <h1 className="text-3xl font-bold text-foreground">Admin Menu</h1>
+            <p className="text-muted-foreground">Choose an administrative area to manage</p>
           </div>
         </div>
 
-        {/* Admin Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Admin Menu Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/admin-controls')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Settings className="h-8 w-8 text-blue-600" />
+              </div>
+              <CardTitle>Admin Controls</CardTitle>
+              <CardDescription>
+                Access admin dashboard, user management, and product management
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => navigate('/admin')}
           >
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 p-4 bg-green-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Shield className="h-8 w-8 text-green-600" />
+                <BarChart3 className="h-8 w-8 text-green-600" />
               </div>
-              <CardTitle>Admin Dashboard</CardTitle>
+              <CardTitle>Dashboard</CardTitle>
               <CardDescription>
-                View system statistics and manage general administration tasks
+                View system statistics, analytics, and general administration
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/product-management')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Package className="h-8 w-8 text-purple-600" />
+              </div>
+              <CardTitle>Product Management</CardTitle>
+              <CardDescription>
+                Manage products, SKUs, categories, and promotional schemes
               </CardDescription>
             </CardHeader>
           </Card>
@@ -74,30 +104,30 @@ const AdminControls = () => {
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/admin#settings')}
+            onClick={() => navigate('/admin#holidays')}
           >
             <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Settings className="h-8 w-8 text-gray-600" />
+              <div className="mx-auto mb-4 p-4 bg-cyan-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Calendar className="h-8 w-8 text-cyan-600" />
               </div>
-              <CardTitle>System Settings</CardTitle>
+              <CardTitle>Holiday Management</CardTitle>
               <CardDescription>
-                Configure system-wide settings and preferences
+                Manage company holidays and calendar settings
               </CardDescription>
             </CardHeader>
           </Card>
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/product-management')}
+            onClick={() => navigate('/admin#create-user')}
           >
             <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Package className="h-8 w-8 text-blue-600" />
+              <div className="mx-auto mb-4 p-4 bg-red-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <UserPlus className="h-8 w-8 text-red-600" />
               </div>
-              <CardTitle>Product Management</CardTitle>
+              <CardTitle>Create User</CardTitle>
               <CardDescription>
-                Manage products, SKUs, categories, and promotional schemes
+                Add new users to the system with specific roles
               </CardDescription>
             </CardHeader>
           </Card>
@@ -107,4 +137,4 @@ const AdminControls = () => {
   );
 };
 
-export default AdminControls;
+export default AdminMenu;

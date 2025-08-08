@@ -27,7 +27,7 @@ const ProductManagementPage = () => {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button 
-            onClick={() => navigate('/admin-controls')} 
+            onClick={() => navigate('/admin-menu')} 
             variant="ghost" 
             size="sm"
             className="p-2"
