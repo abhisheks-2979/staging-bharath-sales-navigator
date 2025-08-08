@@ -110,7 +110,7 @@ export const Navbar = () => {
             </div>
 
             {/* Current Month Performance */}
-            <div className="p-4 -mt-6 relative z-10">
+            <div className="p-4 pt-4 mt-0 relative z-10">
 
               {/* Navigation Grid */}
               <div className="space-y-2">
