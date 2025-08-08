@@ -42,9 +42,7 @@ export const Navbar = () => {
 
   // Admin-only navigation items
   const adminNavigationItems = [
-    { icon: Shield, label: "Admin Dashboard", href: "/admin", color: "from-emerald-500 to-emerald-600" },
-    { icon: UserPlus, label: "User Management", href: "/admin", color: "from-amber-500 to-amber-600" },
-    { icon: Settings, label: "System Settings", href: "/admin", color: "from-slate-500 to-slate-600" },
+    { icon: Shield, label: "Admin Controls", href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
   ];
 
   // Get user display name and initials
