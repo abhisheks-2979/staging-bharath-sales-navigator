@@ -32,7 +32,6 @@ import { Schemes } from "./pages/Schemes";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import AdminControls from "./pages/AdminControls";
 import ProductManagementPage from "./pages/ProductManagementPage";
-import AdminMenu from "./pages/AdminMenu";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,11 +46,6 @@ const App = () => (
         <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<RoleBasedAuthPage />} />
-          <Route path="/admin-menu" element={
-            <ProtectedRoute>
-              <AdminMenu />
-            </ProtectedRoute>
-          } />
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
