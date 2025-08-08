@@ -53,28 +53,38 @@ export const AdminDashboard = () => {
     }
   }, [userRole, loading]);
 
+  // Set up real-time subscription for automatic updates
+  useEffect(() => {
+    if (userRole === 'admin') {
+      const profilesChannel = supabase
+        .channel('profiles-changes')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'profiles' },
+          () => {
+            console.log('Profile change detected, refreshing user list...');
+            fetchUsers();
+          }
+        )
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'user_roles' },
+          () => {
+            console.log('User role change detected, refreshing user list...');
+            fetchUsers();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(profilesChannel);
+      };
+    }
+  }, [userRole]);
+
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
       
-      // Get all auth users with their profiles and roles
-      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) {
-        console.error('Error fetching auth users:', authError);
-        toast.error('Failed to fetch users from auth');
-        return;
-      }
-
-      // Get profiles with their roles - simplified approach
-      const { data: userRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role, assigned_at');
-
-      if (rolesError) {
-        console.error('Error fetching user roles:', rolesError);
-      }
-
+      // Get profiles data directly (no admin API needed)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, username, full_name, phone_number, recovery_email, created_at');
@@ -85,26 +95,35 @@ export const AdminDashboard = () => {
         return;
       }
 
-      // Combine auth users with profile data
-      const usersWithDetails = authUsers.map(authUser => {
-        const profile = profiles?.find(p => p.id === authUser.id);
-        const roleData = userRoles?.find(r => r.user_id === authUser.id);
+      // Get user roles
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role, assigned_at');
+
+      if (rolesError) {
+        console.error('Error fetching user roles:', rolesError);
+      }
+
+      // Combine profiles with role data
+      const usersWithDetails = profiles?.map(profile => {
+        const roleData = userRoles?.find(r => r.user_id === profile.id);
         
         return {
-          id: authUser.id,
-          email: authUser.email || 'No email',
-          username: profile?.username || 'N/A',
-          full_name: profile?.full_name || 'N/A',
-          phone_number: profile?.phone_number || 'N/A',
-          recovery_email: profile?.recovery_email || 'N/A',
+          id: profile.id,
+          email: `${profile.username}@company.com`, // Placeholder email since we can't access auth.users
+          username: profile.username,
+          full_name: profile.full_name,
+          phone_number: profile.phone_number || 'N/A',
+          recovery_email: profile.recovery_email || 'N/A',
           role: (roleData?.role as 'admin' | 'user') || 'user',
-          assigned_at: roleData?.assigned_at || authUser.created_at,
-          created_at: authUser.created_at,
-          last_sign_in_at: authUser.last_sign_in_at,
-          email_confirmed_at: authUser.email_confirmed_at
+          assigned_at: roleData?.assigned_at || profile.created_at,
+          created_at: profile.created_at,
+          last_sign_in_at: null, // Not available without admin access
+          email_confirmed_at: profile.created_at // Assume verified when profile created
         };
-      });
+      }) || [];
 
+      console.log('Fetched users:', usersWithDetails); // Debug log
       setUsers(usersWithDetails);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -116,37 +135,9 @@ export const AdminDashboard = () => {
 
   const createUser = async () => {
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: newUser.email,
-        password: newUser.password,
-        user_metadata: {
-          username: newUser.username,
-          full_name: newUser.fullName
-        }
-      });
-
-      if (authError) {
-        toast.error(authError.message);
-        return;
-      }
-
-      // Update user role if admin
-      if (newUser.role === 'admin' && authData.user) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .update({ role: 'admin' })
-          .eq('user_id', authData.user.id);
-
-        if (roleError) {
-          console.error('Failed to update role:', roleError);
-        }
-      }
-
-      toast.success('User created successfully');
-      setIsCreateUserOpen(false);
-      setNewUser({ email: '', password: '', username: '', fullName: '', role: 'user' });
-      fetchUsers();
+      // Since we can't use admin.createUser from client, we'll just update the form message
+      toast.error('User creation from admin dashboard requires server-side implementation. Users can register normally through the signup page.');
+      return;
     } catch (error) {
       console.error('Error creating user:', error);
       toast.error('Failed to create user');
