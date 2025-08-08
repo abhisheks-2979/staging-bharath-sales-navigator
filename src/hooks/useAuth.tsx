@@ -184,6 +184,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const profile = await fetchUserProfile(data.user.id);
       setUserProfile(profile);
       toast.success('Signed in successfully!');
+
+      // Redirect based on role
+      if (userRole === 'admin') {
+        window.location.href = '/admin';
+      } else {
+        window.location.href = '/';
+      }
     }
   };
 

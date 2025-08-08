@@ -29,6 +29,7 @@ import Performance from "./pages/Performance";
 import SalesCoach from "./pages/SalesCoach";
 import Analytics from "./pages/Analytics";
 import { Schemes } from "./pages/Schemes";
+import { AdminDashboard } from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,11 @@ const App = () => (
         <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<RoleBasedAuthPage />} />
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
             <Route path="/" element={
               <ProtectedRoute>
                 <Index />
