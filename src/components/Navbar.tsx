@@ -16,12 +16,15 @@ import {
   BarChart,
   Trophy,
   BookOpen,
-  Target
+  Target,
+  Shield,
+  Settings,
+  UserPlus
 } from "lucide-react";
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { signOut, userProfile } = useAuth();
+  const { signOut, userProfile, userRole } = useAuth();
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
@@ -35,6 +38,13 @@ export const Navbar = () => {
     { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
     { icon: Target, label: "Analytics", href: "/beat-analytics", color: "from-violet-500 to-violet-600" },
+  ];
+
+  // Admin-only navigation items
+  const adminNavigationItems = [
+    { icon: Shield, label: "Admin Dashboard", href: "/admin", color: "from-emerald-500 to-emerald-600" },
+    { icon: UserPlus, label: "User Management", href: "/admin", color: "from-amber-500 to-amber-600" },
+    { icon: Settings, label: "System Settings", href: "/admin", color: "from-slate-500 to-slate-600" },
   ];
 
   // Get user display name and initials
@@ -84,7 +94,12 @@ export const Navbar = () => {
                     </Avatar>
                     <div className="text-left">
                       <h1 className="text-2xl font-bold">{displayName}</h1>
-                      
+                      {userRole === 'admin' && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Shield className="h-3 w-3" />
+                          <span className="text-xs font-medium opacity-90">Administrator</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -113,26 +128,55 @@ export const Navbar = () => {
             <div className="p-4 pt-4 mt-0 relative z-10">
 
               {/* Navigation Grid */}
-              <div className="space-y-2">
+              <div className="space-y-4">
+                {/* Admin Section - Only show for admin users */}
+                {userRole === 'admin' && (
+                  <div>
+                    <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Admin Controls</h2>
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      {adminNavigationItems.map((item) => (
+                        <NavLink 
+                          key={item.href} 
+                          to={item.href}
+                          className="group block"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <div className="p-2 text-center transition-all duration-300 hover:scale-105">
+                            <div className={`inline-flex items-center justify-center w-10 h-10 mb-1 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                              <item.icon className="h-5 w-5 text-white drop-shadow-sm" />
+                            </div>
+                            <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
+                              {item.label}
+                            </h3>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
-                <div className="grid grid-cols-3 gap-3">
-                  {navigationItems.map((item) => (
-                    <NavLink 
-                      key={item.href} 
-                      to={item.href}
-                      className="group block"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <div className="p-2 text-center transition-all duration-300 hover:scale-105">
-                        <div className={`inline-flex items-center justify-center w-10 h-10 mb-1 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
-                          <item.icon className="h-5 w-5 text-white drop-shadow-sm" />
+                {/* Regular Navigation */}
+                <div>
+                  <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Navigation</h2>
+                  <div className="grid grid-cols-3 gap-3">
+                    {navigationItems.map((item) => (
+                      <NavLink 
+                        key={item.href} 
+                        to={item.href}
+                        className="group block"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <div className="p-2 text-center transition-all duration-300 hover:scale-105">
+                          <div className={`inline-flex items-center justify-center w-10 h-10 mb-1 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
+                            <item.icon className="h-5 w-5 text-white drop-shadow-sm" />
+                          </div>
+                          <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
+                            {item.label}
+                          </h3>
                         </div>
-                        <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
-                          {item.label}
-                        </h3>
-                      </div>
-                    </NavLink>
-                  ))}
+                      </NavLink>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
