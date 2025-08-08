@@ -48,6 +48,29 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
 
   useEffect(() => {
     fetchProducts();
+    
+    // Set up real-time subscription for product changes
+    const channel = supabase
+      .channel('product-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'products' },
+        () => {
+          console.log('Product change detected, refreshing...');
+          fetchProducts();
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'product_schemes' },
+        () => {
+          console.log('Product scheme change detected, refreshing...');
+          fetchProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchProducts = async () => {

@@ -30,6 +30,8 @@ import SalesCoach from "./pages/SalesCoach";
 import Analytics from "./pages/Analytics";
 import { Schemes } from "./pages/Schemes";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import AdminControls from "./pages/AdminControls";
+import ProductManagementPage from "./pages/ProductManagementPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +49,16 @@ const App = () => (
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin-controls" element={
+            <ProtectedRoute>
+              <AdminControls />
+            </ProtectedRoute>
+          } />
+          <Route path="/product-management" element={
+            <ProtectedRoute>
+              <ProductManagementPage />
             </ProtectedRoute>
           } />
             <Route path="/" element={
