@@ -17,10 +17,16 @@ import HolidayManagement from '../components/HolidayManagement';
 
 interface User {
   id: string;
+  email: string;
   username: string;
   full_name: string;
-  email?: string;
-  role?: 'admin' | 'user';
+  phone_number: string;
+  recovery_email: string;
+  role: 'admin' | 'user';
+  assigned_at: string;
+  created_at: string;
+  last_sign_in_at?: string;
+  email_confirmed_at?: string;
 }
 
 export const AdminDashboard = () => {
@@ -49,30 +55,57 @@ export const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      // Get profiles with their roles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          username,
-          full_name,
-          user_roles (role)
-        `);
-
-      if (profilesError) {
-        toast.error('Failed to fetch users');
+      setLoadingUsers(true);
+      
+      // Get all auth users with their profiles and roles
+      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (authError) {
+        console.error('Error fetching auth users:', authError);
+        toast.error('Failed to fetch users from auth');
         return;
       }
 
-      const usersWithRoles = profiles?.map(profile => ({
-        id: profile.id,
-        username: profile.username,
-        full_name: profile.full_name,
-        email: `${profile.username}@company.com`, // Placeholder since we can't access auth emails
-        role: (profile.user_roles as any)?.[0]?.role || 'user'
-      })) || [];
+      // Get profiles with their roles - simplified approach
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role, assigned_at');
 
-      setUsers(usersWithRoles);
+      if (rolesError) {
+        console.error('Error fetching user roles:', rolesError);
+      }
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, phone_number, recovery_email, created_at');
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        toast.error('Failed to fetch user profiles');
+        return;
+      }
+
+      // Combine auth users with profile data
+      const usersWithDetails = authUsers.map(authUser => {
+        const profile = profiles?.find(p => p.id === authUser.id);
+        const roleData = userRoles?.find(r => r.user_id === authUser.id);
+        
+        return {
+          id: authUser.id,
+          email: authUser.email || 'No email',
+          username: profile?.username || 'N/A',
+          full_name: profile?.full_name || 'N/A',
+          phone_number: profile?.phone_number || 'N/A',
+          recovery_email: profile?.recovery_email || 'N/A',
+          role: (roleData?.role as 'admin' | 'user') || 'user',
+          assigned_at: roleData?.assigned_at || authUser.created_at,
+          created_at: authUser.created_at,
+          last_sign_in_at: authUser.last_sign_in_at,
+          email_confirmed_at: authUser.email_confirmed_at
+        };
+      });
+
+      setUsers(usersWithDetails);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
@@ -158,21 +191,18 @@ export const AdminDashboard = () => {
     <div className="min-h-screen bg-gradient-subtle p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              onClick={() => navigate('/')} 
-              variant="ghost" 
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft size={16} />
-              Back to Menu
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-              <p className="text-muted-foreground">Manage users and system settings</p>
-            </div>
+        <div className="flex items-center gap-4">
+          <Button 
+            onClick={() => navigate('/')} 
+            variant="ghost" 
+            size="sm"
+            className="p-2"
+          >
+            <ArrowLeft size={20} />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+            <p className="text-muted-foreground">Manage users and system settings</p>
           </div>
         </div>
 
@@ -286,6 +316,20 @@ export const AdminDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-lg font-semibold">Total Users: {users.length}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Admins: {users.filter(u => u.role === 'admin').length} | 
+                        Users: {users.filter(u => u.role === 'user').length}
+                      </p>
+                    </div>
+                    <Button onClick={fetchUsers} variant="outline" size="sm">
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
                 {loadingUsers ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
@@ -294,22 +338,41 @@ export const AdminDashboard = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Email</TableHead>
                         <TableHead>Username</TableHead>
                         <TableHead>Full Name</TableHead>
-                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
                         <TableHead>Role</TableHead>
+                        <TableHead>Joined</TableHead>
+                        <TableHead>Last Login</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {users.map((user) => (
                         <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.username}</TableCell>
+                          <TableCell className="font-medium">{user.email}</TableCell>
+                          <TableCell>{user.username}</TableCell>
                           <TableCell>{user.full_name}</TableCell>
-                          <TableCell>{user.email || 'N/A'}</TableCell>
+                          <TableCell>{user.phone_number}</TableCell>
                           <TableCell>
                             <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                               {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {user.last_sign_in_at 
+                              ? new Date(user.last_sign_in_at).toLocaleDateString()
+                              : 'Never'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={user.email_confirmed_at ? 'default' : 'secondary'}>
+                              {user.email_confirmed_at ? 'Verified' : 'Pending'}
                             </Badge>
                           </TableCell>
                           <TableCell>
