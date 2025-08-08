@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, FileText, Plus, TrendingUp } from "lucide-react";
+import { Calendar, FileText, Plus, TrendingUp, Route } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
 import { Button } from "@/components/ui/button";
@@ -300,7 +300,7 @@ export const MyVisits = () => {
                 Add Retailer
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <Button 
                 variant="secondary" 
                 size="sm"
@@ -318,6 +318,17 @@ export const MyVisits = () => {
               >
                 <Plus size={16} className="mr-1" />
                 Add Beat
+              </Button>
+            </div>
+            <div className="grid grid-cols-1">
+              <Button 
+                variant="secondary" 
+                size="sm"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                onClick={() => window.location.href = '/visits'}
+              >
+                <Route size={16} className="mr-1" />
+                Journey Plan
               </Button>
             </div>
           </CardContent>
