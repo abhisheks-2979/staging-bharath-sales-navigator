@@ -12,14 +12,15 @@ import { toast } from "sonner";
 interface Beat {
   id: string;
   name: string;
-  lastVisited: string;
+  lastVisited?: string;
   retailerCount: number;
-  avgSalesPerVisit: string;
+  avgSalesPerVisit?: string;
   category: "all" | "recommended" | "high-performing";
   priority: "high" | "medium" | "low";
-  totalRevenue: string;
-  visitHistory: number;
+  totalRevenue?: string;
+  visitHistory?: number;
 }
+
 
 const mockBeats: Beat[] = [
   {

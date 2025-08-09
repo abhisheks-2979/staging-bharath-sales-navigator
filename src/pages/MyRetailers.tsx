@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Search, Tags, Pencil, Trash2 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { Layout } from "@/components/Layout";
 
 interface Retailer {
   id: string;
@@ -21,6 +22,10 @@ interface Retailer {
   status: string | null;
   beat_id: string;
   created_at: string;
+  last_visit_date?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  order_value?: number | null;
 }
 
 export const MyRetailers = () => {
@@ -65,11 +70,11 @@ export const MyRetailers = () => {
   const loadRetailers = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("retailers")
-      .select("id,name,address,phone,category,priority,status,beat_id,created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+const { data, error } = await supabase
+  .from("retailers")
+  .select("id,name,address,phone,category,priority,status,beat_id,created_at,last_visit_date,latitude,longitude,order_value")
+  .eq("user_id", user.id)
+  .order("created_at", { ascending: false });
     setLoading(false);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -128,18 +133,19 @@ export const MyRetailers = () => {
     }
   }; 
 
-  const openEdit = (retailer: Retailer) => {
-    setEditForm({
-      id: retailer.id,
-      name: retailer.name,
-      phone: retailer.phone || "",
-      address: retailer.address,
-      category: retailer.category,
-      priority: retailer.priority,
-      status: retailer.status,
-    });
-    setEditDialogOpen(true);
-  };
+const openEdit = (retailer: Retailer) => {
+  setSelectedRetailer(retailer);
+  setEditForm({
+    id: retailer.id,
+    name: retailer.name,
+    phone: retailer.phone || "",
+    address: retailer.address,
+    category: retailer.category,
+    priority: retailer.priority,
+    status: retailer.status,
+  });
+  setEditDialogOpen(true);
+};
   const updateRetailer = async () => {
     if (!editForm) return;
     const { error } = await supabase
@@ -187,204 +193,211 @@ export const MyRetailers = () => {
     }
   }, [location.state, retailers]);
 
-  return (
-    <main className="min-h-screen bg-background">
-      <section className="container mx-auto p-4 space-y-4">
-        <Card className="bg-gradient-primary text-primary-foreground">
-          <CardHeader>
-            <CardTitle className="text-xl">My Retailers</CardTitle>
-          </CardHeader>
-        </Card>
+return (
+  <Layout>
+    <section className="container mx-auto p-4 space-y-4">
+      <Card className="bg-gradient-primary text-primary-foreground">
+        <CardHeader>
+          <CardTitle className="text-xl">My Retailers</CardTitle>
+        </CardHeader>
+      </Card>
 
-        <Card>
-          <CardContent className="pt-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-              </div>
-              <Button asChild variant="secondary">
-                <Link to="/add-retailer">
-                  <Plus className="mr-2 h-4 w-4" /> Add Retailer
-                </Link>
-              </Button>
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground">Priority</label>
-                <Select value={priority} onValueChange={(v) => setPriority(v === "all" ? undefined : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Beat</label>
-                <Select value={beatFilter} onValueChange={(v) => setBeatFilter(v === "all" ? undefined : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {beats.map(b => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <Button asChild variant="secondary">
+              <Link to="/add-retailer">
+                <Plus className="mr-2 h-4 w-4" /> Add Retailer
+              </Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Priority</label>
+              <Select value={priority} onValueChange={(v) => setPriority(v === "all" ? undefined : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Beat</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.name}</TableCell>
-                      <TableCell>{r.phone || '-'}</TableCell>
-                      <TableCell className="max-w-[280px] truncate" title={r.address}>{r.address}</TableCell>
-                      <TableCell className="capitalize">{(r.priority || 'medium')}</TableCell>
-                      <TableCell>{r.beat_id}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
-                          <Pencil className="mr-2 h-4 w-4" /> View/Edit
-                        </Button>
-                        {(!r.beat_id || r.beat_id.trim() === '' || r.beat_id === 'unassigned') && (
-                          <Button size="sm" variant="outline" onClick={() => openBeatDialog(r)}>
-                            <Tags className="mr-2 h-4 w-4" /> Add to Beat
-                          </Button>
-                        )}
-                        <Button size="sm" variant="destructive" onClick={() => deleteRetailer(r)}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+            <div>
+              <label className="text-xs text-muted-foreground">Beat</label>
+              <Select value={beatFilter} onValueChange={(v) => setBeatFilter(v === "all" ? undefined : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {beats.map(b => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
                   ))}
-                  {filtered.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Dialog open={beatDialogOpen} onOpenChange={setBeatDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Assign to a Beat</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Beat</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.name}</TableCell>
+                    <TableCell>{r.phone || '-'}</TableCell>
+                    <TableCell className="max-w-[280px] truncate" title={r.address}>{r.address}</TableCell>
+                    <TableCell className="capitalize">{(r.priority || 'medium')}</TableCell>
+                    <TableCell>{r.beat_id}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
+                        <Pencil className="mr-2 h-4 w-4" /> View/Edit
+                      </Button>
+                      {(!r.beat_id || r.beat_id.trim() === '' || r.beat_id === 'unassigned') && (
+                        <Button size="sm" variant="outline" onClick={() => openBeatDialog(r)}>
+                          <Tags className="mr-2 h-4 w-4" /> Add to Beat
+                        </Button>
+                      )}
+                      <Button size="sm" variant="destructive" onClick={() => deleteRetailer(r)}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={beatDialogOpen} onOpenChange={setBeatDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign to a Beat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Choose existing beat</label>
+              <Select value={existingBeat} onValueChange={setExistingBeat}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a beat" />
+                </SelectTrigger>
+                <SelectContent>
+                  {beats.map(b => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                  <SelectItem value="__new__">Create new…</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(existingBeat === "__new__" || (!existingBeat && newBeat)) && (
               <div>
-                <label className="text-xs text-muted-foreground">Choose existing beat</label>
-                <Select value={existingBeat} onValueChange={setExistingBeat}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a beat" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {beats.map(b => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__">Create new…</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {(existingBeat === "__new__" || (!existingBeat && newBeat)) && (
-                <div>
-                  <label className="text-xs text-muted-foreground">New beat name</label>
-                  <Input placeholder="Enter beat name" value={newBeat} onChange={(e) => setNewBeat(e.target.value)} />
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setBeatDialogOpen(false)}>Cancel</Button>
-              <Button onClick={confirmAssignBeat}>Assign</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>View / Edit Retailer</DialogTitle>
-            </DialogHeader>
-            {editForm && (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Name</label>
-                  <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Phone</label>
-                  <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Address</label>
-                  <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Category</label>
-                  <Input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value || null })} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Priority</label>
-                    <Select value={editForm.priority || undefined} onValueChange={(v) => setEditForm({ ...editForm, priority: v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Status</label>
-                    <Select value={editForm.status || undefined} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <label className="text-xs text-muted-foreground">New beat name</label>
+                <Input placeholder="Enter beat name" value={newBeat} onChange={(e) => setNewBeat(e.target.value)} />
               </div>
             )}
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setEditDialogOpen(false)}>Close</Button>
-              <Button onClick={updateRetailer}>Save Changes</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </section>
-    </main>
-  );
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setBeatDialogOpen(false)}>Cancel</Button>
+            <Button onClick={confirmAssignBeat}>Assign</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>View / Edit Retailer</DialogTitle>
+          </DialogHeader>
+          {editForm && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Name</label>
+                <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Phone</label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Address</label>
+                <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Category</label>
+                <Input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value || null })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Priority</label>
+                  <Select value={editForm.priority || undefined} onValueChange={(v) => setEditForm({ ...editForm, priority: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Status</label>
+                  <Select value={editForm.status || undefined} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="pt-2 text-xs text-muted-foreground grid grid-cols-2 gap-2">
+                <div><span className="font-medium text-foreground">Beat:</span> {selectedRetailer?.beat_id || '—'}</div>
+                <div><span className="font-medium text-foreground">Created:</span> {selectedRetailer ? new Date(selectedRetailer.created_at).toLocaleString() : '—'}</div>
+                {selectedRetailer?.last_visit_date && (
+                  <div className="col-span-2"><span className="font-medium text-foreground">Last Visit:</span> {new Date(selectedRetailer.last_visit_date).toLocaleDateString()}</div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setEditDialogOpen(false)}>Close</Button>
+            <Button onClick={updateRetailer}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  </Layout>
+);
 };
 
 export default MyRetailers;
