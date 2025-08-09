@@ -34,6 +34,7 @@ import AdminControls from "./pages/AdminControls";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import NotFound from "./pages/NotFound";
+import MyRetailers from "./pages/MyRetailers";
 
 const queryClient = new QueryClient();
 
@@ -175,6 +176,11 @@ const App = () => (
             <Route path="/schemes" element={
               <ProtectedRoute>
                 <Schemes />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-retailers" element={
+              <ProtectedRoute>
+                <MyRetailers />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

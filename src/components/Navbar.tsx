@@ -19,7 +19,8 @@ import {
   Target,
   Shield,
   Settings,
-  UserPlus
+  UserPlus,
+  Store,
 } from "lucide-react";
 
 export const Navbar = () => {
@@ -30,6 +31,7 @@ export const Navbar = () => {
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: "Today's Visit", href: "https://preview--bharath-sales-navigator.lovable.app/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Route, label: "Journey Plan", href: "/visits", color: "from-purple-500 to-purple-600" },
+    { icon: Store, label: "My Retailers", href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
     { icon: Users, label: "Create New Beat", href: "/create-beat", color: "from-orange-500 to-orange-600" },
     { icon: Briefcase, label: "Add Retailer", href: "/add-records", color: "from-red-500 to-red-600" },
     { icon: Gift, label: "Check Schemes", href: "/schemes", color: "from-pink-500 to-pink-600" },

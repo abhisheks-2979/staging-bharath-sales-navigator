@@ -118,6 +118,16 @@ export const AddRetailer = () => {
     setBeatDialogOpen(true);
   };
 
+  const confirmAssignBeat = async () => {
+    const chosenBeat = (existingBeat && existingBeat !== '__new__') ? existingBeat : newBeat.trim();
+    if (!chosenBeat) {
+      toast({ title: 'Choose a beat', description: 'Pick an existing beat or enter a new name.' });
+      return;
+    }
+    await performInsert(chosenBeat);
+    setBeatDialogOpen(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!retailerData.name || !retailerData.phone || !retailerData.address) {
@@ -373,12 +383,51 @@ export const AddRetailer = () => {
             </CardContent>
           </Card>
 
-          {/* Submit Button */}
-          <Button type="submit" className="w-full" size="lg">
-            <Plus size={16} className="mr-2" />
-            Add Retailer to Plan
-          </Button>
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1" size="lg" disabled={isSaving}>
+              <Plus size={16} className="mr-2" />
+              {isSaving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" className="flex-1" size="lg" onClick={handleSaveWithBeat} disabled={isSaving}>
+              <Tag size={16} className="mr-2" />
+              Add to the Beat
+            </Button>
+          </div>
         </form>
+        <Dialog open={beatDialogOpen} onOpenChange={setBeatDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add to Beat</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Choose existing beat</Label>
+                <Select value={existingBeat} onValueChange={setExistingBeat}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select a beat" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    {existingBeats.map((b) => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__">Create new…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(existingBeat === "__new__" || (!existingBeat && newBeat)) && (
+                <div className="space-y-2">
+                  <Label>New beat name</Label>
+                  <Input placeholder="Enter beat name" value={newBeat} onChange={(e) => setNewBeat(e.target.value)} className="bg-background" />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setBeatDialogOpen(false)}>Cancel</Button>
+              <Button onClick={confirmAssignBeat} disabled={isSaving}>Assign & Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
