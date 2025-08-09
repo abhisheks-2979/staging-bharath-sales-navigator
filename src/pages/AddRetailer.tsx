@@ -77,6 +77,13 @@ export const AddRetailer = () => {
       priority: retailerData.priority ? retailerData.priority.toLowerCase() : null,
       beat_id: beatId,
       status: 'active',
+      notes: retailerData.notes || null,
+      parent_type: retailerData.parentType || null,
+      parent_name: retailerData.parentName || null,
+      location_tag: retailerData.locationTag || null,
+      retail_type: retailerData.retailType || null,
+      potential: retailerData.potential ? retailerData.potential.toLowerCase() : null,
+      competitors: [retailerData.competitor1, retailerData.competitor2, retailerData.competitor3].filter(Boolean),
     };
 
     const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();

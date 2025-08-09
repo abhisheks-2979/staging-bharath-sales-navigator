@@ -26,6 +26,13 @@ interface Retailer {
   latitude?: number | null;
   longitude?: number | null;
   order_value?: number | null;
+  notes?: string | null;
+  parent_type?: string | null;
+  parent_name?: string | null;
+  location_tag?: string | null;
+  retail_type?: string | null;
+  potential?: string | null;
+  competitors?: string[] | null;
 }
 
 export const MyRetailers = () => {
@@ -50,6 +57,13 @@ export const MyRetailers = () => {
     category: string | null;
     priority: string | null;
     status: string | null;
+    notes: string | null;
+    parent_type: string | null;
+    parent_name: string | null;
+    location_tag: string | null;
+    retail_type: string | null;
+    potential: string | null;
+    competitorsString?: string;
   };
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
@@ -72,7 +86,7 @@ export const MyRetailers = () => {
     setLoading(true);
 const { data, error } = await supabase
   .from("retailers")
-  .select("id,name,address,phone,category,priority,status,beat_id,created_at,last_visit_date,latitude,longitude,order_value")
+  .select("id,name,address,phone,category,priority,status,beat_id,created_at,last_visit_date,latitude,longitude,order_value,notes,parent_type,parent_name,location_tag,retail_type,potential,competitors")
   .eq("user_id", user.id)
   .order("created_at", { ascending: false });
     setLoading(false);
@@ -143,6 +157,13 @@ const openEdit = (retailer: Retailer) => {
     category: retailer.category,
     priority: retailer.priority,
     status: retailer.status,
+    notes: retailer.notes || null,
+    parent_type: retailer.parent_type || null,
+    parent_name: retailer.parent_name || null,
+    location_tag: retailer.location_tag || null,
+    retail_type: retailer.retail_type || null,
+    potential: retailer.potential || null,
+    competitorsString: (retailer.competitors || []).join(", "),
   });
   setEditDialogOpen(true);
 };
@@ -157,6 +178,15 @@ const openEdit = (retailer: Retailer) => {
         category: editForm.category,
         priority: editForm.priority,
         status: editForm.status,
+        notes: editForm.notes || null,
+        parent_type: editForm.parent_type || null,
+        parent_name: editForm.parent_name || null,
+        location_tag: editForm.location_tag || null,
+        retail_type: editForm.retail_type || null,
+        potential: editForm.potential || null,
+        competitors: editForm.competitorsString
+          ? editForm.competitorsString.split(',').map(s => s.trim()).filter(Boolean)
+          : null,
       })
       .eq("id", editForm.id)
       .eq("user_id", user?.id);
@@ -379,6 +409,50 @@ return (
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              {/* Additional Details */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Parent Type</label>
+                  <Input value={editForm.parent_type || ''} onChange={(e) => setEditForm({ ...editForm, parent_type: e.target.value || null })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Parent Name</label>
+                  <Input value={editForm.parent_name || ''} onChange={(e) => setEditForm({ ...editForm, parent_name: e.target.value || null })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Location Tag</label>
+                  <Input value={editForm.location_tag || ''} onChange={(e) => setEditForm({ ...editForm, location_tag: e.target.value || null })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Retail Type</label>
+                  <Input value={editForm.retail_type || ''} onChange={(e) => setEditForm({ ...editForm, retail_type: e.target.value || null })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Potential</label>
+                  <Select value={editForm.potential || undefined} onValueChange={(v) => setEditForm({ ...editForm, potential: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select potential" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Competitors (comma separated)</label>
+                  <Input value={editForm.competitorsString || ''} onChange={(e) => setEditForm({ ...editForm, competitorsString: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Notes</label>
+                <Input value={editForm.notes || ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value || null })} />
               </div>
               <div className="pt-2 text-xs text-muted-foreground grid grid-cols-2 gap-2">
                 <div><span className="font-medium text-foreground">Beat:</span> {selectedRetailer?.beat_id || '—'}</div>

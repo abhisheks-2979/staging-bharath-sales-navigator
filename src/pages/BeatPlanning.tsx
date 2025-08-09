@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, MapPin, TrendingUp, Users, CheckCircle, Save } from "lucide-react";
+import { MapPin, Users, CheckCircle, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,75 +10,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface Beat {
-  id: string;
-  name: string;
-  lastVisited?: string;
+  id: string; // beat_id
+  name: string; // beat name (same as id unless we have prettier names)
   retailerCount: number;
-  avgSalesPerVisit?: string;
-  category: "all" | "recommended" | "high-performing";
+  lastVisited?: string;
+  category: "all";
   priority: "high" | "medium" | "low";
-  totalRevenue?: string;
-  visitHistory?: number;
 }
 
 
-const mockBeats: Beat[] = [
-  {
-    id: "1",
-    name: "M.G. Road Beat",
-    lastVisited: "July 15, 2025",
-    retailerCount: 40,
-    avgSalesPerVisit: "₹5,585",
-    category: "high-performing",
-    priority: "high",
-    totalRevenue: "₹2,23,400",
-    visitHistory: 8
-  },
-  {
-    id: "2", 
-    name: "Commercial Street Beat",
-    lastVisited: "July 12, 2025",
-    retailerCount: 35,
-    avgSalesPerVisit: "₹4,720",
-    category: "recommended",
-    priority: "medium",
-    totalRevenue: "₹1,65,200",
-    visitHistory: 6
-  },
-  {
-    id: "3",
-    name: "Indiranagar Beat",
-    lastVisited: "July 10, 2025", 
-    retailerCount: 28,
-    avgSalesPerVisit: "₹6,150",
-    category: "high-performing",
-    priority: "high",
-    totalRevenue: "₹1,72,200",
-    visitHistory: 7
-  },
-  {
-    id: "4",
-    name: "Koramangala Beat",
-    lastVisited: "July 8, 2025",
-    retailerCount: 32,
-    avgSalesPerVisit: "₹3,890",
-    category: "recommended", 
-    priority: "medium",
-    totalRevenue: "₹1,24,480",
-    visitHistory: 5
-  },
-  {
-    id: "5",
-    name: "Whitefield Beat",
-    lastVisited: "July 5, 2025",
-    retailerCount: 22,
-    avgSalesPerVisit: "₹2,950",
-    category: "all",
-    priority: "low",
-    totalRevenue: "₹64,900",
-    visitHistory: 3
-  }
-];
+// Beats are loaded dynamically from retailers table for the current user.
 
 const getWeekDays = () => {
   const today = new Date();
@@ -101,7 +42,7 @@ const getWeekDays = () => {
 };
 
 export const BeatPlanning = () => {
-  const [selectedCategory, setSelectedCategory] = useState<"all" | "recommended" | "high-performing">("all");
+  const [selectedCategory] = useState<"all">("all");
   const [selectedDay, setSelectedDay] = useState("Mon");
   const [selectedDate, setSelectedDate] = useState("");
   const [plannedBeats, setPlannedBeats] = useState<{[key: string]: string[]}>({});
@@ -109,11 +50,45 @@ export const BeatPlanning = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [beats, setBeats] = useState<Beat[]>([]);
 
+  const loadBeats = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('retailers')
+        .select('beat_id, priority')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const map = new Map<string, { count: number; priority: 'high' | 'medium' | 'low' }>();
+      (data || []).forEach((r: any) => {
+        const beatId = r.beat_id;
+        if (!beatId || beatId === 'unassigned') return;
+        const current = map.get(beatId) || { count: 0, priority: 'medium' };
+        const pr = (r.priority as string | null)?.toLowerCase() as 'high' | 'medium' | 'low' | undefined;
+        const priority = pr === 'high' ? 'high' : pr === 'low' ? (current.priority === 'high' ? 'high' : 'low') : current.priority;
+        map.set(beatId, { count: current.count + 1, priority });
+      });
+
+      const beatsArr: Beat[] = Array.from(map.entries()).map(([id, info]) => ({
+        id,
+        name: id,
+        retailerCount: info.count,
+        category: 'all',
+        priority: info.priority,
+      }));
+      setBeats(beatsArr);
+    } catch (e) {
+      console.error('Error loading beats', e);
+    }
+  };
   // Load existing beat plans when component mounts or selected day changes
   useEffect(() => {
     if (user && selectedDate) {
       loadBeatPlans(selectedDate);
+      loadBeats();
     }
   }, [user, selectedDate]);
 
@@ -147,9 +122,7 @@ export const BeatPlanning = () => {
     }
   };
 
-  const filteredBeats = mockBeats.filter(beat => 
-    selectedCategory === "all" ? true : beat.category === selectedCategory
-  );
+  const filteredBeats = beats;
 
   const handleSelectBeat = (beatId: string) => {
     setPlannedBeats(prev => ({
@@ -183,15 +156,14 @@ export const BeatPlanning = () => {
         .eq('user_id', user.id)
         .eq('plan_date', selectedDate);
 
-      // Insert new plans
       const planData = selectedBeatIds.map(beatId => {
-        const beat = mockBeats.find(b => b.id === beatId);
+        const beat = beats.find(b => b.id === beatId);
         return {
           user_id: user.id,
           plan_date: selectedDate,
           beat_id: beatId,
-          beat_name: beat?.name || '',
-          beat_data: beat || {}
+          beat_name: beat?.name || beatId,
+          beat_data: beat || { id: beatId, name: beatId, retailerCount: 0, category: 'all', priority: 'medium' }
         };
       });
 
@@ -285,33 +257,7 @@ export const BeatPlanning = () => {
           </CardContent>
         </Card>
 
-        {/* Category Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          <Button
-            variant={selectedCategory === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory("all")}
-            className="whitespace-nowrap"
-          >
-            All Beats ({mockBeats.length})
-          </Button>
-          <Button
-            variant={selectedCategory === "recommended" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory("recommended")}
-            className="whitespace-nowrap"
-          >
-            Recommended ({mockBeats.filter(b => b.category === "recommended").length})
-          </Button>
-          <Button
-            variant={selectedCategory === "high-performing" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedCategory("high-performing")}
-            className="whitespace-nowrap"
-          >
-            High Performing ({mockBeats.filter(b => b.category === "high-performing").length})
-          </Button>
-        </div>
+        {/* Category Tabs removed - showing all beats derived from your retailers */}
 
         {/* Beats List */}
         <div className="space-y-3">
@@ -340,27 +286,13 @@ export const BeatPlanning = () => {
                 </div>
 
                 {/* Beat Stats */}
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-1 gap-4 text-center">
                   <div>
                     <div className="flex items-center justify-center mb-1">
                       <Users size={16} className="text-primary mr-1" />
                     </div>
                     <div className="text-lg font-bold text-primary">{beat.retailerCount}</div>
                     <div className="text-xs text-muted-foreground">Retailers</div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-center mb-1">
-                      <TrendingUp size={16} className="text-success mr-1" />
-                    </div>
-                    <div className="text-lg font-bold text-success">{beat.avgSalesPerVisit}</div>
-                    <div className="text-xs text-muted-foreground">Avg per Visit</div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-center mb-1">
-                      <Calendar size={16} className="text-warning mr-1" />
-                    </div>
-                    <div className="text-lg font-bold text-warning">{beat.visitHistory}</div>
-                    <div className="text-xs text-muted-foreground">Past Visits</div>
                   </div>
                 </div>
               </CardContent>

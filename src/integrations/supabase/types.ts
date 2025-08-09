@@ -641,15 +641,22 @@ export type Database = {
           address: string
           beat_id: string
           category: string | null
+          competitors: string[] | null
           created_at: string
           id: string
           last_visit_date: string | null
           latitude: number | null
+          location_tag: string | null
           longitude: number | null
           name: string
+          notes: string | null
           order_value: number | null
+          parent_name: string | null
+          parent_type: string | null
           phone: string | null
+          potential: string | null
           priority: string | null
+          retail_type: string | null
           status: string | null
           updated_at: string
           user_id: string
@@ -658,15 +665,22 @@ export type Database = {
           address: string
           beat_id: string
           category?: string | null
+          competitors?: string[] | null
           created_at?: string
           id?: string
           last_visit_date?: string | null
           latitude?: number | null
+          location_tag?: string | null
           longitude?: number | null
           name: string
+          notes?: string | null
           order_value?: number | null
+          parent_name?: string | null
+          parent_type?: string | null
           phone?: string | null
+          potential?: string | null
           priority?: string | null
+          retail_type?: string | null
           status?: string | null
           updated_at?: string
           user_id: string
@@ -675,15 +689,22 @@ export type Database = {
           address?: string
           beat_id?: string
           category?: string | null
+          competitors?: string[] | null
           created_at?: string
           id?: string
           last_visit_date?: string | null
           latitude?: number | null
+          location_tag?: string | null
           longitude?: number | null
           name?: string
+          notes?: string | null
           order_value?: number | null
+          parent_name?: string | null
+          parent_type?: string | null
           phone?: string | null
+          potential?: string | null
           priority?: string | null
+          retail_type?: string | null
           status?: string | null
           updated_at?: string
           user_id?: string
