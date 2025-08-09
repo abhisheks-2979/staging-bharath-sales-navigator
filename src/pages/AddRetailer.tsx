@@ -8,9 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
-
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 export const AddRetailer = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [retailerData, setRetailerData] = useState({
     name: "",
     phone: "",
@@ -28,6 +31,12 @@ export const AddRetailer = () => {
     competitor3: ""
   });
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [beatDialogOpen, setBeatDialogOpen] = useState(false);
+  const [existingBeat, setExistingBeat] = useState<string | undefined>();
+  const [newBeat, setNewBeat] = useState("");
+  const [existingBeats, setExistingBeats] = useState<string[]>([]);
+
   const categories = ["Category A", "Category B", "Category C"];
   const priorities = ["High", "Medium", "Low"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
@@ -38,23 +47,47 @@ export const AddRetailer = () => {
     setRetailerData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
+  const loadExistingBeats = async () => {
+    if (!user) return setExistingBeats([]);
+    const { data, error } = await supabase
+      .from('retailers')
+      .select('beat_id')
+      .eq('user_id', user.id);
+    if (error) {
+      setExistingBeats([]);
+      return;
+    }
+    const set = new Set<string>();
+    (data || []).forEach((r: any) => r.beat_id && set.add(r.beat_id));
+    setExistingBeats(Array.from(set));
+  };
+
+  const performInsert = async (beatId: string) => {
+    if (!user) {
+      toast({ title: 'Not signed in', description: 'Please sign in to continue', variant: 'destructive' });
+      return;
+    }
+    setIsSaving(true);
+    const payload: any = {
+      user_id: user.id,
+      name: retailerData.name,
+      phone: retailerData.phone,
+      address: retailerData.address,
+      category: retailerData.category || null,
+      priority: retailerData.priority ? retailerData.priority.toLowerCase() : null,
+      beat_id: beatId,
+      status: 'active',
+    };
+
+    const { error } = await supabase.from('retailers').insert(payload);
+    setIsSaving(false);
+
+    if (error) {
+      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
       return;
     }
 
-    toast({
-      title: "Retailer Added",
-      description: `${retailerData.name} has been added to today's visit plan`,
-    });
-
+    toast({ title: 'Retailer Added', description: `${retailerData.name} saved successfully.` });
     // Reset form
     setRetailerData({
       name: "",
@@ -72,6 +105,31 @@ export const AddRetailer = () => {
       competitor2: "",
       competitor3: ""
     });
+  };
+
+  const handleSaveWithBeat = async () => {
+    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields', variant: 'destructive' });
+      return;
+    }
+    await loadExistingBeats();
+    setExistingBeat(undefined);
+    setNewBeat("");
+    setBeatDialogOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    // Save with default unassigned beat
+    await performInsert('unassigned');
   };
 
   return (
