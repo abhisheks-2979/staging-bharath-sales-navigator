@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Tags } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Plus, Search, Tags, Pencil, Trash2 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
 interface Retailer {
@@ -35,6 +35,19 @@ export const MyRetailers = () => {
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
   const [existingBeat, setExistingBeat] = useState<string | undefined>();
   const [newBeat, setNewBeat] = useState("");
+
+  const location = useLocation();
+  type EditForm = {
+    id: string;
+    name: string;
+    phone: string;
+    address: string;
+    category: string | null;
+    priority: string | null;
+    status: string | null;
+  };
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -113,7 +126,66 @@ export const MyRetailers = () => {
       setSelectedRetailer(null);
       loadRetailers();
     }
+  }; 
+
+  const openEdit = (retailer: Retailer) => {
+    setEditForm({
+      id: retailer.id,
+      name: retailer.name,
+      phone: retailer.phone || "",
+      address: retailer.address,
+      category: retailer.category,
+      priority: retailer.priority,
+      status: retailer.status,
+    });
+    setEditDialogOpen(true);
   };
+  const updateRetailer = async () => {
+    if (!editForm) return;
+    const { error } = await supabase
+      .from("retailers")
+      .update({
+        name: editForm.name,
+        phone: editForm.phone || null,
+        address: editForm.address,
+        category: editForm.category,
+        priority: editForm.priority,
+        status: editForm.status,
+      })
+      .eq("id", editForm.id)
+      .eq("user_id", user?.id);
+    if (error) {
+      toast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Updated", description: "Retailer updated successfully." });
+      setEditDialogOpen(false);
+      setEditForm(null);
+      loadRetailers();
+    }
+  };
+
+  const deleteRetailer = async (retailer: Retailer) => {
+    if (!window.confirm(`Delete ${retailer.name}? This cannot be undone.`)) return;
+    const { error } = await supabase
+      .from("retailers")
+      .delete()
+      .eq("id", retailer.id)
+      .eq("user_id", user?.id);
+    if (error) {
+      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: `${retailer.name} removed.` });
+      loadRetailers();
+    }
+  };
+
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.openRetailerId && retailers.length) {
+      const found = retailers.find((x) => x.id === state.openRetailerId);
+      if (found) openEdit(found);
+    }
+  }, [location.state, retailers]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -192,9 +264,17 @@ export const MyRetailers = () => {
                       <TableCell className="max-w-[280px] truncate" title={r.address}>{r.address}</TableCell>
                       <TableCell className="capitalize">{(r.priority || 'medium')}</TableCell>
                       <TableCell>{r.beat_id}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => openBeatDialog(r)}>
-                          <Tags className="mr-2 h-4 w-4" /> Add to Beat
+                      <TableCell className="text-right space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
+                          <Pencil className="mr-2 h-4 w-4" /> View/Edit
+                        </Button>
+                        {(!r.beat_id || r.beat_id.trim() === '' || r.beat_id === 'unassigned') && (
+                          <Button size="sm" variant="outline" onClick={() => openBeatDialog(r)}>
+                            <Tags className="mr-2 h-4 w-4" /> Add to Beat
+                          </Button>
+                        )}
+                        <Button size="sm" variant="destructive" onClick={() => deleteRetailer(r)}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -240,6 +320,65 @@ export const MyRetailers = () => {
             <DialogFooter>
               <Button variant="secondary" onClick={() => setBeatDialogOpen(false)}>Cancel</Button>
               <Button onClick={confirmAssignBeat}>Assign</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>View / Edit Retailer</DialogTitle>
+            </DialogHeader>
+            {editForm && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Name</label>
+                  <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Phone</label>
+                  <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Address</label>
+                  <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Category</label>
+                  <Input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value || null })} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Priority</label>
+                    <Select value={editForm.priority || undefined} onValueChange={(v) => setEditForm({ ...editForm, priority: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Status</label>
+                    <Select value={editForm.status || undefined} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setEditDialogOpen(false)}>Close</Button>
+              <Button onClick={updateRetailer}>Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

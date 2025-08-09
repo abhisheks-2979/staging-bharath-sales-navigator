@@ -79,7 +79,7 @@ export const AddRetailer = () => {
       status: 'active',
     };
 
-    const { error } = await supabase.from('retailers').insert(payload);
+    const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();
     setIsSaving(false);
 
     if (error) {
@@ -88,23 +88,9 @@ export const AddRetailer = () => {
     }
 
     toast({ title: 'Retailer Added', description: `${retailerData.name} saved successfully.` });
-    // Reset form
-    setRetailerData({
-      name: "",
-      phone: "",
-      address: "",
-      category: "",
-      priority: "",
-      notes: "",
-      parentType: "",
-      parentName: "",
-      locationTag: "",
-      retailType: "",
-      potential: "",
-      competitor1: "",
-      competitor2: "",
-      competitor3: ""
-    });
+    // Navigate to My Retailers and open the created record for view/edit
+    navigate('/my-retailers', { state: { openRetailerId: data?.id } });
+
   };
 
   const handleSaveWithBeat = async () => {
