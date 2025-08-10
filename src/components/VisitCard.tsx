@@ -48,6 +48,9 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
   const [locationMatchOut, setLocationMatchOut] = useState<boolean | null>(null);
   const [currentVisitId, setCurrentVisitId] = useState<string | null>(null);
+  const [orderPreviewOpen, setOrderPreviewOpen] = useState(false);
+  const [lastOrderItems, setLastOrderItems] = useState<Array<{ product_name: string; quantity: number; rate: number }>>([]);
+  const [loadingOrder, setLoadingOrder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
@@ -322,6 +325,42 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     }
   };
 
+  const loadLastOrder = async () => {
+    try {
+      if (loadingOrder) return;
+      setLoadingOrder(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoadingOrder(false); return; }
+      const retailerId = (visit.retailerId || visit.id) as string;
+      const todayStart = new Date();
+      todayStart.setHours(0,0,0,0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23,59,59,999);
+      const { data: order } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('retailer_id', retailerId)
+        .eq('status', 'confirmed')
+        .gte('created_at', todayStart.toISOString())
+        .lte('created_at', todayEnd.toISOString())
+        .order('created_at', { ascending: false })
+        .maybeSingle();
+      if (order?.id) {
+        const { data: items } = await supabase
+          .from('order_items')
+          .select('product_name, quantity, rate')
+          .eq('order_id', order.id)
+          .order('product_name');
+        setLastOrderItems(items || []);
+      } else {
+        setLastOrderItems([]);
+      }
+    } finally {
+      setLoadingOrder(false);
+    }
+  };
+
   return (
     <Card className="shadow-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 bg-gradient-to-r from-card to-card/50">
       <CardContent className="p-3 sm:p-4">
@@ -374,7 +413,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               variant={visit.hasOrder ? "default" : "outline"}
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
-              onClick={() => navigate(`/order-entry?visitId=${visit.id}&retailer=${visit.retailerName}`)}
+              onClick={() => navigate(`/order-entry?retailerId=${encodeURIComponent((visit.retailerId || visit.id) as string)}&visitId=${encodeURIComponent(currentVisitId || '')}&retailer=${encodeURIComponent(visit.retailerName)}`)}
               title={`Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}
             >
               <ShoppingCart size={14} className="sm:size-4" />
@@ -441,6 +480,42 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               <span className="xs:hidden">Brand</span>
             </Button>
           </div>
+
+          {visit.hasOrder && (
+            <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Last Order</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7"
+                  onClick={async () => {
+                    const next = !orderPreviewOpen;
+                    setOrderPreviewOpen(next);
+                    if (next && lastOrderItems.length === 0) {
+                      await loadLastOrder();
+                    }
+                  }}
+                >
+                  {orderPreviewOpen ? 'Hide' : 'View'}
+                </Button>
+              </div>
+              {orderPreviewOpen && (
+                <div className="mt-2 space-y-1">
+                  {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
+                  {!loadingOrder && lastOrderItems.length === 0 && (
+                    <div className="text-xs text-muted-foreground">No items found.</div>
+                  )}
+                  {!loadingOrder && lastOrderItems.map((it, idx) => (
+                    <div key={idx} className="flex justify-between text-xs">
+                      <span className="truncate pr-2">{it.product_name}</span>
+                      <span className="whitespace-nowrap">{it.quantity} x ₹{it.rate}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Hidden file input for photo capture */}
@@ -464,16 +539,16 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         <CompetitionInsightModal
           isOpen={showCompetitionModal}
           onClose={() => setShowCompetitionModal(false)}
-          visitId={visit.id}
-          retailerId={visit.id} // Using visit.id as retailer ID for now
+          visitId={currentVisitId || visit.id}
+          retailerId={(visit.retailerId || visit.id) as string}
           retailerName={visit.retailerName}
         />
 
         <RetailerFeedbackModal
           isOpen={showFeedbackModal}
           onClose={() => setShowFeedbackModal(false)}
-          visitId={visit.id}
-          retailerId={visit.id} // Using visit.id as retailer ID for now
+          visitId={currentVisitId || visit.id}
+          retailerId={(visit.retailerId || visit.id) as string}
           retailerName={visit.retailerName}
         />
 

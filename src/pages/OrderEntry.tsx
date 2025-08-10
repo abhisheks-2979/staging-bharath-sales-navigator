@@ -41,7 +41,8 @@ interface GridProduct {
 export const OrderEntry = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const visitId = searchParams.get("visitId");
+  const visitId = searchParams.get("visitId") || '';
+  const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
 
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -52,6 +53,31 @@ export const OrderEntry = () => {
 const [categories, setCategories] = useState<string[]>(["All"]);
 const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
+const [userId, setUserId] = useState<string | null>(null);
+
+useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    setUserId(data.user?.id || null);
+  });
+}, []);
+
+const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
+
+useEffect(() => {
+  if (!storageKey) return;
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const parsed = JSON.parse(raw) as CartItem[];
+      setCart(parsed);
+    }
+  } catch {}
+}, [storageKey]);
+
+useEffect(() => {
+  if (!storageKey) return;
+  localStorage.setItem(storageKey, JSON.stringify(cart));
+}, [cart, storageKey]);
 
 useEffect(() => {
   const fetchData = async () => {

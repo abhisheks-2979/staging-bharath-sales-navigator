@@ -64,10 +64,11 @@ const mockCartItems: CartItem[] = [
 export const Cart = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const visitId = searchParams.get("visitId");
+  const visitId = searchParams.get("visitId") || '';
+  const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
 
-  const [cartItems, setCartItems] = React.useState<CartItem[]>(mockCartItems);
+  const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
 
   const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId));

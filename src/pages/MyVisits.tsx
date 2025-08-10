@@ -209,14 +209,12 @@ export const MyVisits = () => {
 
   const loadRetailersForBeats = async (beatIds: string[]) => {
     if (!user || beatIds.length === 0) return;
-    
     try {
       const { data, error } = await supabase
         .from('retailers')
         .select('*')
         .eq('user_id', user.id)
         .in('beat_id', beatIds);
-
       if (error) throw error;
 
       const transformedRetailers = (data || []).map(retailer => ({
@@ -231,12 +229,55 @@ export const MyVisits = () => {
         day: 'Today',
         checkInStatus: 'not-checked-in' as const,
         hasOrder: false,
-        orderValue: retailer.order_value || 0,
+        orderValue: 0,
         retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
         retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
       }));
 
-      setRetailers(transformedRetailers);
+      // Derive today's visit and order status
+      const retailerIds = (data || []).map(r => r.id);
+      const todayStart = new Date(selectedDate || new Date().toISOString().split('T')[0]);
+      todayStart.setHours(0,0,0,0);
+      const todayEnd = new Date(selectedDate || new Date().toISOString().split('T')[0]);
+      todayEnd.setHours(23,59,59,999);
+
+      const [{ data: visitsToday }, { data: ordersToday }] = await Promise.all([
+        supabase
+          .from('visits')
+          .select('id, retailer_id, check_in_time')
+          .eq('user_id', user.id)
+          .eq('planned_date', (selectedDate || new Date().toISOString().split('T')[0]))
+          .in('retailer_id', retailerIds),
+        supabase
+          .from('orders')
+          .select('id, retailer_id, total_amount, created_at')
+          .eq('user_id', user.id)
+          .eq('status', 'confirmed')
+          .in('retailer_id', retailerIds)
+          .gte('created_at', todayStart.toISOString())
+          .lte('created_at', todayEnd.toISOString()),
+      ]);
+
+      const checkedInRetailers = new Set((visitsToday || []).filter(v => v.check_in_time).map(v => v.retailer_id));
+      const totalsByRetailer = new Map<string, number>();
+      (ordersToday || []).forEach(o => {
+        if (!o.retailer_id) return;
+        totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
+      });
+
+      const finalRetailers = transformedRetailers.map(v => {
+        const hasCheckIn = checkedInRetailers.has(v.retailerId);
+        const orderTotal = totalsByRetailer.get(v.retailerId || '') || 0;
+        const hasOrder = orderTotal > 0;
+        return {
+          ...v,
+          hasOrder,
+          orderValue: orderTotal,
+          status: hasCheckIn ? (hasOrder ? 'productive' as const : 'in-progress' as const) : 'planned' as const,
+        };
+      });
+
+      setRetailers(finalRetailers);
     } catch (error) {
       console.error('Error loading retailers:', error);
     }

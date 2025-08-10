@@ -483,6 +483,7 @@ export type Database = {
           created_at: string
           discount_amount: number | null
           id: string
+          retailer_id: string | null
           retailer_name: string
           status: string
           subtotal: number
@@ -495,6 +496,7 @@ export type Database = {
           created_at?: string
           discount_amount?: number | null
           id?: string
+          retailer_id?: string | null
           retailer_name: string
           status?: string
           subtotal: number
@@ -507,6 +509,7 @@ export type Database = {
           created_at?: string
           discount_amount?: number | null
           id?: string
+          retailer_id?: string | null
           retailer_name?: string
           status?: string
           subtotal?: number
@@ -515,7 +518,15 @@ export type Database = {
           user_id?: string
           visit_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_categories: {
         Row: {
