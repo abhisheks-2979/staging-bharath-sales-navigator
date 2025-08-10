@@ -69,7 +69,25 @@ export const Cart = () => {
   const retailerName = searchParams.get("retailer") || "Retailer Name";
 
   const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+  const [userId, setUserId] = React.useState<string | null>(null);
+  const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
 
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
+  }, []);
+
+  React.useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) setCartItems(JSON.parse(raw));
+    } catch {}
+  }, [storageKey]);
+
+  React.useEffect(() => {
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify(cartItems));
+  }, [cartItems, storageKey]);
   const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId));
     toast({
@@ -138,18 +156,22 @@ export const Cart = () => {
       const scheme = getApplicableScheme();
       const discountAmount = scheme ? (subtotal * scheme.discount / 100) : 0;
       const totalAmount = getFinalTotal();
+      // Prepare IDs
+      const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
+      const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
 
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
-          visit_id: null, // visitId from URL is not a valid UUID, setting to null
+          visit_id: validVisitId,
+          retailer_id: validRetailerId,
           retailer_name: retailerName,
           subtotal,
           discount_amount: discountAmount,
           total_amount: totalAmount,
-          status: 'pending'
+          status: 'confirmed'
         })
         .select()
         .single();
@@ -180,6 +202,7 @@ export const Cart = () => {
       });
       
       // Clear cart and navigate
+      if (storageKey) localStorage.removeItem(storageKey);
       setCartItems([]);
       navigate(`/visits/retailers`);
     } catch (error) {
@@ -202,7 +225,7 @@ export const Cart = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}`)}
+                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`)}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
@@ -226,7 +249,7 @@ export const Cart = () => {
               <ShoppingCart size={48} className="mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">Your cart is empty</p>
               <Button 
-                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}`)}
+                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`)}
                 className="mt-4"
               >
                 Continue Shopping

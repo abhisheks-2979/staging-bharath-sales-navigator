@@ -160,7 +160,7 @@ const filteredProducts = selectedCategory === "All"
       setClosingStocks(prev => ({ ...prev, [product.id]: Math.max(0, newStock - quantity) }));
     }
 
-    setQuantities(prev => ({ ...prev, [product.id]: 0 }));
+    // Keep quantity after add; do not reset
     
     toast({
       title: "Added to Cart",
@@ -344,7 +344,7 @@ const filteredProducts = selectedCategory === "All"
                   <p className="font-bold">₹{getTotalValue().toLocaleString()}</p>
                 </div>
                 <Button 
-                  onClick={() => navigate(`/cart?visitId=${visitId}&retailer=${retailerName}`)}
+                  onClick={() => navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`)}
                   className="flex items-center gap-2"
                 >
                   <ShoppingCart size={16} />
