@@ -218,6 +218,13 @@ const filteredProducts = selectedCategory === "All"
     return cart.reduce((sum, item) => sum + item.total, 0);
   };
 
+  // New: live selection value from current quantities (before adding to cart)
+  const getSelectionValue = () => {
+    return products.reduce((sum, p) => {
+      const qty = quantities[p.id] || 0;
+      return sum + Number(p.rate || 0) * Number(qty || 0);
+    }, 0);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -238,6 +245,10 @@ const filteredProducts = selectedCategory === "All"
                 <CardTitle className="text-lg">Order Entry</CardTitle>
                 <p className="text-primary-foreground/80">{retailerName}</p>
               </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-primary-foreground/80">Current value</p>
+              <p className="text-xl font-bold">₹{getSelectionValue().toLocaleString()}</p>
             </div>
           </CardHeader>
         </Card>
