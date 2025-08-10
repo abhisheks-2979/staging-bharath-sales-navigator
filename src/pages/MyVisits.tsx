@@ -265,17 +265,17 @@ export const MyVisits = () => {
         totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
       });
 
-      const finalRetailers = transformedRetailers.map(v => {
-        const hasCheckIn = checkedInRetailers.has(v.retailerId);
-        const orderTotal = totalsByRetailer.get(v.retailerId || '') || 0;
-        const hasOrder = orderTotal > 0;
-        return {
-          ...v,
-          hasOrder,
-          orderValue: orderTotal,
-          status: hasCheckIn ? (hasOrder ? 'productive' as const : 'in-progress' as const) : 'planned' as const,
-        };
-      });
+        const finalRetailers = transformedRetailers.map(v => {
+          const hasCheckIn = checkedInRetailers.has(v.retailerId);
+          const orderTotal = totalsByRetailer.get(v.retailerId || '') || 0;
+          const hasOrder = orderTotal > 0;
+          return {
+            ...v,
+            hasOrder,
+            orderValue: orderTotal,
+            status: hasOrder ? ('productive' as const) : (hasCheckIn ? ('in-progress' as const) : ('planned' as const)),
+          };
+        });
 
       setRetailers(finalRetailers);
     } catch (error) {

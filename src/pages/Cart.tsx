@@ -313,6 +313,28 @@ React.useEffect(() => {
                         <p className="font-bold">₹{computeItemTotal(item as any).toLocaleString()}</p>
                       </div>
                     </div>
+
+                    <div className="mt-3 space-y-1 text-sm">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>₹{item.rate}/{item.unit} × {item.quantity}</span>
+                        <span>₹{computeItemSubtotal(item as any).toLocaleString()}</span>
+                      </div>
+                      {computeItemDiscount(item as any) > 0 && (
+                        <div className="flex justify-between text-success">
+                          <span>
+                            {(() => {
+                              const s = getItemScheme(item as any);
+                              return s.discountPct ? `Scheme (${s.discountPct}% ≥ ${s.condition} ${item.unit})` : 'Scheme';
+                            })()}
+                          </span>
+                          <span>-₹{computeItemDiscount(item as any).toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-semibold">
+                        <span>Item Total</span>
+                        <span>₹{computeItemTotal(item as any).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -327,14 +349,14 @@ React.useEffect(() => {
                 </div>
 
                 {getDiscount() > 0 && (
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="p-3 bg-success/10 rounded-lg border border-success/20">
                     <div className="flex items-center gap-2 mb-1">
-                      <Gift size={16} className="text-green-600" />
-                      <p className="text-sm font-medium text-green-700">Scheme Applied!</p>
+                      <Gift size={16} className="text-success" />
+                      <p className="text-sm font-medium text-success">Schemes Applied</p>
                     </div>
                     <div className="flex justify-between text-sm mt-2">
                       <span>Discount:</span>
-                      <span className="text-green-600 font-medium">-₹{getDiscount().toLocaleString()}</span>
+                      <span className="text-success font-medium">-₹{getDiscount().toLocaleString()}</span>
                     </div>
                   </div>
                 )}

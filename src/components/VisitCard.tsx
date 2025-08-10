@@ -278,13 +278,27 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
       toast({ title: 'Location/Permission error', description: err.message || 'Enable GPS and try again.', variant: 'destructive' });
     }
   };
-  const handleNoOrderReasonSelect = (reason: string) => {
-    setNoOrderReason(reason);
-    toast({
-      title: "No Order Recorded",
-      description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
-    });
+  const handleNoOrderReasonSelect = async (reason: string) => {
+    try {
+      setNoOrderReason(reason);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const today = new Date().toISOString().split('T')[0];
+        const retailerId = (visit.retailerId || visit.id) as string;
+        const visitId = await ensureVisit(user.id, retailerId, today);
+        setCurrentVisitId(visitId);
+        await supabase.from('visits').update({ status: 'unproductive' }).eq('id', visitId);
+      }
+      toast({
+        title: "No Order Recorded",
+        description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
+      });
+    } catch (err: any) {
+      console.error('Mark unproductive error', err);
+      toast({ title: 'Failed to mark unproductive', description: err.message || 'Try again.', variant: 'destructive' });
+    }
   };
+
 
   const handleViewAnalytics = async (visitId: string) => {
     try {
@@ -430,7 +444,23 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               variant={visit.hasOrder ? "default" : "outline"}
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${visit.hasOrder ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
-              onClick={() => navigate(`/order-entry?retailerId=${encodeURIComponent((visit.retailerId || visit.id) as string)}&visitId=${encodeURIComponent(currentVisitId || '')}&retailer=${encodeURIComponent(visit.retailerName)}`)}
+              onClick={async () => {
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) {
+                    toast({ title: 'Login required', description: 'Please sign in to place orders.', variant: 'destructive' });
+                    return;
+                  }
+                  const today = new Date().toISOString().split('T')[0];
+                  const retailerId = (visit.retailerId || visit.id) as string;
+                  const visitId = await ensureVisit(user.id, retailerId, today);
+                  setCurrentVisitId(visitId);
+                  navigate(`/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(visitId)}&retailer=${encodeURIComponent(visit.retailerName)}`);
+                } catch (err: any) {
+                  console.error('Open order entry error', err);
+                  toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
+                }
+              }}
               title={`Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}
             >
               <ShoppingCart size={14} className="sm:size-4" />
