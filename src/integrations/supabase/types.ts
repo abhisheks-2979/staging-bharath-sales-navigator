@@ -64,9 +64,11 @@ export type Database = {
       }
       attendance: {
         Row: {
+          check_in_address: string | null
           check_in_location: Json | null
           check_in_photo_url: string | null
           check_in_time: string | null
+          check_out_address: string | null
           check_out_location: Json | null
           check_out_photo_url: string | null
           check_out_time: string | null
@@ -80,9 +82,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
           check_in_time?: string | null
+          check_out_address?: string | null
           check_out_location?: Json | null
           check_out_photo_url?: string | null
           check_out_time?: string | null
@@ -96,9 +100,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
           check_in_time?: string | null
+          check_out_address?: string | null
           check_out_location?: Json | null
           check_out_photo_url?: string | null
           check_out_time?: string | null
@@ -868,9 +874,11 @@ export type Database = {
       }
       visits: {
         Row: {
+          check_in_address: string | null
           check_in_location: Json | null
           check_in_photo_url: string | null
           check_in_time: string | null
+          check_out_address: string | null
           check_out_location: Json | null
           check_out_photo_url: string | null
           check_out_time: string | null
@@ -885,9 +893,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
           check_in_time?: string | null
+          check_out_address?: string | null
           check_out_location?: Json | null
           check_out_photo_url?: string | null
           check_out_time?: string | null
@@ -902,9 +912,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
           check_in_time?: string | null
+          check_out_address?: string | null
           check_out_location?: Json | null
           check_out_photo_url?: string | null
           check_out_time?: string | null
