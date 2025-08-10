@@ -68,26 +68,46 @@ export const Cart = () => {
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
 
-  const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
-  const [userId, setUserId] = React.useState<string | null>(null);
-  const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
+const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+const [userId, setUserId] = React.useState<string | null>(null);
+const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
+const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
 
-  React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
-  }, []);
+React.useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
+}, []);
 
-  React.useEffect(() => {
-    if (!storageKey) return;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) setCartItems(JSON.parse(raw));
-    } catch {}
-  }, [storageKey]);
+React.useEffect(() => {
+  try {
+    if (storageKey) {
+      const rawUser = localStorage.getItem(storageKey);
+      if (rawUser) {
+        setCartItems(JSON.parse(rawUser));
+        return;
+      }
+      if (tempStorageKey) {
+        const rawTemp = localStorage.getItem(tempStorageKey);
+        if (rawTemp) {
+          setCartItems(JSON.parse(rawTemp));
+          localStorage.setItem(storageKey, rawTemp);
+          localStorage.removeItem(tempStorageKey);
+          return;
+        }
+      }
+    } else if (tempStorageKey) {
+      const rawTemp = localStorage.getItem(tempStorageKey);
+      if (rawTemp) {
+        setCartItems(JSON.parse(rawTemp));
+      }
+    }
+  } catch {}
+}, [storageKey, tempStorageKey]);
 
-  React.useEffect(() => {
-    if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify(cartItems));
-  }, [cartItems, storageKey]);
+React.useEffect(() => {
+  const key = storageKey || tempStorageKey;
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(cartItems));
+}, [cartItems, storageKey, tempStorageKey]);
   const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId));
     toast({

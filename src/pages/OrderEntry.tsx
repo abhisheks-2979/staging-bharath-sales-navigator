@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Grid3X3, Table } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
@@ -62,22 +62,40 @@ useEffect(() => {
 }, []);
 
 const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
+const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
 
 useEffect(() => {
-  if (!storageKey) return;
   try {
-    const raw = localStorage.getItem(storageKey);
-    if (raw) {
-      const parsed = JSON.parse(raw) as CartItem[];
-      setCart(parsed);
+    if (storageKey) {
+      const rawUser = localStorage.getItem(storageKey);
+      if (rawUser) {
+        setCart(JSON.parse(rawUser) as CartItem[]);
+        return;
+      }
+      if (tempStorageKey) {
+        const rawTemp = localStorage.getItem(tempStorageKey);
+        if (rawTemp) {
+          const parsed = JSON.parse(rawTemp) as CartItem[];
+          setCart(parsed);
+          localStorage.setItem(storageKey, rawTemp);
+          localStorage.removeItem(tempStorageKey);
+          return;
+        }
+      }
+    } else if (tempStorageKey) {
+      const rawTemp = localStorage.getItem(tempStorageKey);
+      if (rawTemp) {
+        setCart(JSON.parse(rawTemp) as CartItem[]);
+      }
     }
   } catch {}
-}, [storageKey]);
+}, [storageKey, tempStorageKey]);
 
 useEffect(() => {
-  if (!storageKey) return;
-  localStorage.setItem(storageKey, JSON.stringify(cart));
-}, [cart, storageKey]);
+  const key = storageKey || tempStorageKey;
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(cart));
+}, [cart, storageKey, tempStorageKey]);
 
 useEffect(() => {
   const fetchData = async () => {
@@ -319,9 +337,19 @@ const filteredProducts = selectedCategory === "All"
                     onClick={() => addToCart(product)}
                     className="w-full h-8"
                     size="sm"
+                    variant={cart.some((i) => i.id === product.id) ? "secondary" : "default"}
                   >
-                    <Plus size={14} className="mr-1" />
-                    Add
+                    {cart.some((i) => i.id === product.id) ? (
+                      <>
+                        <Check size={14} className="mr-1" />
+                        Added
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={14} className="mr-1" />
+                        Add
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
