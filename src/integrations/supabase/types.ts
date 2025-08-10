@@ -146,6 +146,86 @@ export type Database = {
         }
         Relationships: []
       }
+      branding_requests: {
+        Row: {
+          approved_at: string | null
+          assigned_vendor_id: string | null
+          budget: number | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          executed_at: string | null
+          id: string
+          manager_comments: string | null
+          manager_id: string | null
+          pincode: string | null
+          procurement_id: string | null
+          requested_assets: string | null
+          retailer_id: string
+          size: string | null
+          status: Database["public"]["Enums"]["branding_status"]
+          title: string | null
+          updated_at: string
+          user_id: string
+          verification_photo_url: string | null
+          visit_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          assigned_vendor_id?: string | null
+          budget?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          executed_at?: string | null
+          id?: string
+          manager_comments?: string | null
+          manager_id?: string | null
+          pincode?: string | null
+          procurement_id?: string | null
+          requested_assets?: string | null
+          retailer_id: string
+          size?: string | null
+          status?: Database["public"]["Enums"]["branding_status"]
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          verification_photo_url?: string | null
+          visit_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          assigned_vendor_id?: string | null
+          budget?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          executed_at?: string | null
+          id?: string
+          manager_comments?: string | null
+          manager_id?: string | null
+          pincode?: string | null
+          procurement_id?: string | null
+          requested_assets?: string | null
+          retailer_id?: string
+          size?: string | null
+          status?: Database["public"]["Enums"]["branding_status"]
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_photo_url?: string | null
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_requests_assigned_vendor_id_fkey"
+            columns: ["assigned_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competition_insights: {
         Row: {
           action_required: boolean | null
@@ -738,6 +818,54 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string
+          id: string
+          is_approved: boolean
+          name: string
+          region_pincodes: string[]
+          skills: string[]
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          is_approved?: boolean
+          name: string
+          region_pincodes?: string[]
+          skills?: string[]
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_approved?: boolean
+          name?: string
+          region_pincodes?: string[]
+          skills?: string[]
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       visits: {
         Row: {
           check_in_location: Json | null
@@ -815,6 +943,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      branding_status:
+        | "submitted"
+        | "manager_approved"
+        | "manager_rejected"
+        | "assigned"
+        | "in_progress"
+        | "executed"
+        | "verified"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -943,6 +1079,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      branding_status: [
+        "submitted",
+        "manager_approved",
+        "manager_rejected",
+        "assigned",
+        "in_progress",
+        "executed",
+        "verified",
+      ],
     },
   },
 } as const
