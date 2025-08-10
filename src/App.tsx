@@ -35,6 +35,8 @@ import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import NotFound from "./pages/NotFound";
 import MyRetailers from "./pages/MyRetailers";
+import BrandingRequests from "./pages/BrandingRequests";
+import Vendors from "./pages/Vendors";
 
 const queryClient = new QueryClient();
 
@@ -181,6 +183,16 @@ const App = () => (
             <Route path="/my-retailers" element={
               <ProtectedRoute>
                 <MyRetailers />
+              </ProtectedRoute>
+            } />
+            <Route path="/branding-requests" element={
+              <ProtectedRoute>
+                <BrandingRequests />
+              </ProtectedRoute>
+            } />
+            <Route path="/vendors" element={
+              <ProtectedRoute>
+                <Vendors />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

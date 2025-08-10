@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { CompetitionInsightModal } from "./CompetitionInsightModal";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
+import BrandingRequestModal from "./BrandingRequestModal";
 
 interface Visit {
   id: string;
@@ -41,6 +42,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
   const [showCompetitionModal, setShowCompetitionModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showBrandingModal, setShowBrandingModal] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
