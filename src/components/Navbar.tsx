@@ -21,6 +21,7 @@ import {
   Settings,
   UserPlus,
   Store,
+  Package,
 } from "lucide-react";
 
 export const Navbar = () => {
@@ -45,6 +46,7 @@ export const Navbar = () => {
   // Admin-only navigation items
   const adminNavigationItems = [
     { icon: Shield, label: "Admin Controls", href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
+    { icon: Package, label: "Products", href: "/product-management", color: "from-rose-500 to-rose-600" },
   ];
 
   // Get user display name and initials
