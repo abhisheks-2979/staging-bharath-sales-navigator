@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Grid3X3, Table } from "lu
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
@@ -25,64 +26,17 @@ interface CartItem extends Product {
   total: number;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Premium Rice 25kg",
-    category: "Rice & Grains",
-    rate: 1200,
-    unit: "bag",
-    hasScheme: true,
-    schemeDetails: "Buy 5+ bags, get 10% off",
-    closingStock: 15
-  },
-  {
-    id: "2",
-    name: "Wheat Flour 10kg",
-    category: "Rice & Grains",
-    rate: 400,
-    unit: "bag",
-    closingStock: 8
-  },
-  {
-    id: "3",
-    name: "Sunflower Oil 1L",
-    category: "Oil & Ghee",
-    rate: 120,
-    unit: "bottle",
-    hasScheme: true,
-    schemeDetails: "Buy 12+ bottles, get 15% off",
-    closingStock: 24
-  },
-  {
-    id: "4",
-    name: "Mustard Oil 1L",
-    category: "Oil & Ghee",
-    rate: 140,
-    unit: "bottle",
-    closingStock: 18
-  },
-  {
-    id: "5",
-    name: "Toor Dal 1kg",
-    category: "Pulses",
-    rate: 80,
-    unit: "packet",
-    closingStock: 12
-  },
-  {
-    id: "6",
-    name: "Moong Dal 1kg",
-    category: "Pulses",
-    rate: 90,
-    unit: "packet",
-    hasScheme: true,
-    schemeDetails: "Buy 10+ packets, get 5% off",
-    closingStock: 20
-  }
-];
+interface GridProduct {
+  id: string;
+  name: string;
+  category: string;
+  rate: number;
+  unit: string;
+  hasScheme?: boolean;
+  schemeDetails?: string;
+  closingStock?: number;
+}
 
-const categories = ["All", "Rice & Grains", "Oil & Ghee", "Pulses", "Spices", "Beverages"];
 
 export const OrderEntry = () => {
   const navigate = useNavigate();
@@ -95,11 +49,52 @@ export const OrderEntry = () => {
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
-  
+const [categories, setCategories] = useState<string[]>(["All"]);
+const [products, setProducts] = useState<GridProduct[]>([]);
+const [loading, setLoading] = useState(true);
 
-  const filteredProducts = selectedCategory === "All" 
-    ? mockProducts 
-    : mockProducts.filter(product => product.category === selectedCategory);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [catRes, prodRes] = await Promise.all([
+        supabase.from('product_categories').select('name').order('name'),
+        supabase.from('products').select(`
+          *,
+          category:product_categories(name),
+          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage)
+        `).eq('is_active', true).order('name')
+      ]);
+
+      setCategories(["All", ...((catRes.data || []).map((c: any) => c.name))]);
+
+      const mapped: GridProduct[] = (prodRes.data || []).map((p: any) => {
+        const active = (p.schemes || []).find((s: any) => s.is_active);
+        return {
+          id: p.id,
+          name: p.name,
+          category: p.category?.name || 'Uncategorized',
+          rate: p.rate,
+          unit: p.unit,
+          hasScheme: !!active,
+          schemeDetails: active ? `Buy ${active.condition_quantity}+ ${p.unit}s, get ${active.discount_percentage}% off` : undefined,
+          closingStock: p.closing_stock
+        };
+      });
+      setProducts(mapped);
+    } catch (error) {
+      console.error('Error loading products', error);
+      toast({ title: 'Error', description: 'Failed to load products', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, []);
+
+const filteredProducts = selectedCategory === "All" 
+  ? products 
+  : products.filter(product => product.category === selectedCategory);
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     setQuantities(prev => ({ ...prev, [productId]: quantity }));

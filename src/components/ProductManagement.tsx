@@ -23,6 +23,7 @@ interface ProductCategory {
 interface Product {
   id: string;
   sku: string;
+  product_number?: string;
   name: string;
   description: string;
   category_id: string;
@@ -63,17 +64,18 @@ const ProductManagement = () => {
 
   // Form states
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '', description: '' });
-  const [productForm, setProductForm] = useState({
-    id: '',
-    sku: '',
-    name: '',
-    description: '',
-    category_id: '',
-    rate: 0,
-    unit: 'piece',
-    closing_stock: 0,
-    is_active: true
-  });
+const [productForm, setProductForm] = useState({
+  id: '',
+  sku: '',
+  product_number: '',
+  name: '',
+  description: '',
+  category_id: '',
+  rate: 0,
+  unit: 'piece',
+  closing_stock: 0,
+  is_active: true
+});
   const [schemeForm, setSchemeForm] = useState({
     id: '',
     product_id: '',
@@ -182,6 +184,7 @@ const ProductManagement = () => {
           .from('products')
           .update({
             sku: productForm.sku,
+            product_number: productForm.product_number || null,
             name: productForm.name,
             description: productForm.description,
             category_id: productForm.category_id,
@@ -199,6 +202,7 @@ const ProductManagement = () => {
           .from('products')
           .insert({
             sku: productForm.sku,
+            product_number: productForm.product_number || null,
             name: productForm.name,
             description: productForm.description,
             category_id: productForm.category_id,
@@ -213,17 +217,18 @@ const ProductManagement = () => {
       }
       
       setIsProductDialogOpen(false);
-      setProductForm({
-        id: '',
-        sku: '',
-        name: '',
-        description: '',
-        category_id: '',
-        rate: 0,
-        unit: 'piece',
-        closing_stock: 0,
-        is_active: true
-      });
+setProductForm({
+  id: '',
+  sku: '',
+  product_number: '',
+  name: '',
+  description: '',
+  category_id: '',
+  rate: 0,
+  unit: 'piece',
+  closing_stock: 0,
+  is_active: true
+});
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
@@ -407,17 +412,18 @@ const ProductManagement = () => {
                 </div>
                 <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setProductForm({
-                      id: '',
-                      sku: '',
-                      name: '',
-                      description: '',
-                      category_id: '',
-                      rate: 0,
-                      unit: 'piece',
-                      closing_stock: 0,
-                      is_active: true
-                    })}>
+<Button onClick={() => setProductForm({
+  id: '',
+  sku: '',
+  product_number: '',
+  name: '',
+  description: '',
+  category_id: '',
+  rate: 0,
+  unit: 'piece',
+  closing_stock: 0,
+  is_active: true
+})}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
                     </Button>
@@ -437,6 +443,15 @@ const ProductManagement = () => {
                           value={productForm.sku}
                           onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
                           placeholder="Enter SKU"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="productNumber">Product Number</Label>
+                        <Input
+                          id="productNumber"
+                          value={productForm.product_number}
+                          onChange={(e) => setProductForm({ ...productForm, product_number: e.target.value })}
+                          placeholder="Enter product number"
                         />
                       </div>
                       <div>
@@ -570,17 +585,18 @@ const ProductManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setProductForm({
-                                id: product.id,
-                                sku: product.sku,
-                                name: product.name,
-                                description: product.description || '',
-                                category_id: product.category_id || '',
-                                rate: product.rate,
-                                unit: product.unit,
-                                closing_stock: product.closing_stock,
-                                is_active: product.is_active
-                              });
+setProductForm({
+  id: product.id,
+  sku: product.sku,
+  product_number: product.product_number || '',
+  name: product.name,
+  description: product.description || '',
+  category_id: product.category_id || '',
+  rate: product.rate,
+  unit: product.unit,
+  closing_stock: product.closing_stock,
+  is_active: product.is_active
+});
                               setIsProductDialogOpen(true);
                             }}
                           >

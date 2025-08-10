@@ -158,12 +158,15 @@ export const BeatPlanning = () => {
 
       const planData = selectedBeatIds.map(beatId => {
         const beat = beats.find(b => b.id === beatId);
+        const beatData = beat
+          ? { id: beat.id, name: beat.name, retailerCount: beat.retailerCount, category: beat.category, priority: beat.priority }
+          : { id: beatId, name: beatId, retailerCount: 0, category: 'all', priority: 'medium' };
         return {
           user_id: user.id,
           plan_date: selectedDate,
           beat_id: beatId,
           beat_name: beat?.name || beatId,
-          beat_data: beat || { id: beatId, name: beatId, retailerCount: 0, category: 'all', priority: 'medium' }
+          beat_data: beatData as any
         };
       });
 
