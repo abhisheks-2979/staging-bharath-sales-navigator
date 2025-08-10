@@ -33,20 +33,30 @@ interface Retailer {
   retail_type?: string | null;
   potential?: string | null;
   competitors?: string[] | null;
+  entity_type?: string | null;
 }
 
 export const MyRetailers = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
-  const [search, setSearch] = useState("");
+const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<string | undefined>();
   const [beatFilter, setBeatFilter] = useState<string | undefined>();
+  const [typeFilter, setTypeFilter] = useState<string | undefined>();
 
   const [beatDialogOpen, setBeatDialogOpen] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
   const [existingBeat, setExistingBeat] = useState<string | undefined>();
   const [newBeat, setNewBeat] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [newForm, setNewForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    entity_type: "retailer",
+    beat_id: ""
+  });
 
   const location = useLocation();
   type EditForm = {
@@ -85,8 +95,8 @@ export const MyRetailers = () => {
     if (!user) return;
     setLoading(true);
 const { data, error } = await supabase
-  .from("retailers")
-  .select("id,name,address,phone,category,priority,status,beat_id,created_at,last_visit_date,latitude,longitude,order_value,notes,parent_type,parent_name,location_tag,retail_type,potential,competitors")
+.from("retailers")
+  .select("id,name,address,phone,category,priority,status,beat_id,created_at,last_visit_date,latitude,longitude,order_value,notes,parent_type,parent_name,location_tag,retail_type,potential,competitors,entity_type")
   .eq("user_id", user.id)
   .order("created_at", { ascending: false });
     setLoading(false);
@@ -108,15 +118,16 @@ const { data, error } = await supabase
     return Array.from(set);
   }, [retailers]);
 
-  const filtered = useMemo(() => {
+const filtered = useMemo(() => {
     return retailers.filter(r => {
       const s = search.toLowerCase();
       const matchesSearch = !s || [r.name, r.phone || "", r.address, r.category || "", r.beat_id || ""].some(v => v.toLowerCase().includes(s));
       const matchesPriority = !priority || (r.priority || "").toLowerCase() === priority;
       const matchesBeat = !beatFilter || r.beat_id === beatFilter;
-      return matchesSearch && matchesPriority && matchesBeat;
+      const matchesType = !typeFilter || (r.entity_type || 'retailer') === typeFilter;
+      return matchesSearch && matchesPriority && matchesBeat && matchesType;
     });
-  }, [retailers, search, priority, beatFilter]);
+  }, [retailers, search, priority, beatFilter, typeFilter]);
 
   const openBeatDialog = (retailer: Retailer) => {
     setSelectedRetailer(retailer);
@@ -215,6 +226,37 @@ const openEdit = (retailer: Retailer) => {
     }
   };
 
+  const saveNewEntity = async () => {
+    if (!user) return;
+    if (!newForm.name || !newForm.phone || !newForm.address) {
+      toast({ title: "Missing Information", description: "Please fill in name, phone and address", variant: "destructive" });
+      return;
+    }
+    const payload: any = {
+      user_id: user.id,
+      name: newForm.name,
+      phone: newForm.phone,
+      address: newForm.address,
+      entity_type: newForm.entity_type,
+      beat_id: newForm.beat_id || 'unassigned',
+      status: 'active'
+    };
+    const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();
+    if (error) {
+      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Added', description: `${newForm.name} saved successfully.` });
+    setAddOpen(false);
+    setNewForm({ name: '', phone: '', address: '', entity_type: 'retailer', beat_id: '' });
+    loadRetailers();
+    if (data?.id) {
+      // Open the newly created retailer for quick edits
+      const created = (retailers || []).find(r => r.id === data.id);
+      if (created) openEdit(created);
+    }
+  }; 
+
   useEffect(() => {
     const state = location.state as any;
     if (state?.openRetailerId && retailers.length) {
@@ -239,13 +281,11 @@ return (
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
-            <Button asChild variant="secondary">
-              <Link to="/add-retailer">
-                <Plus className="mr-2 h-4 w-4" /> Add Retailer
-              </Link>
+<Button variant="secondary" onClick={() => setAddOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Add
             </Button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-muted-foreground">Priority</label>
               <Select value={priority} onValueChange={(v) => setPriority(v === "all" ? undefined : v)}>
@@ -271,6 +311,20 @@ return (
                   {beats.map(b => (
                     <SelectItem key={b} value={b}>{b}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Type</label>
+              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v === "all" ? undefined : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="retailer">Retailer</SelectItem>
+                  <SelectItem value="distributor">Distributor</SelectItem>
+                  <SelectItem value="super_stockist">Super Stockist</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -356,6 +410,49 @@ return (
           <DialogFooter>
             <Button variant="secondary" onClick={() => setBeatDialogOpen(false)}>Cancel</Button>
             <Button onClick={confirmAssignBeat}>Assign</Button>
+          </DialogFooter>
+        </DialogContent>
+</Dialog>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">Name</label>
+              <Input value={newForm.name} onChange={(e) => setNewForm({ ...newForm, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Phone</label>
+              <Input value={newForm.phone} onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Address</label>
+              <Input value={newForm.address} onChange={(e) => setNewForm({ ...newForm, address: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Type</label>
+              <Select value={newForm.entity_type} onValueChange={(v) => setNewForm({ ...newForm, entity_type: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="retailer">Retailer</SelectItem>
+                  <SelectItem value="distributor">Distributor</SelectItem>
+                  <SelectItem value="super_stockist">Super Stockist</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Beat (optional)</label>
+              <Input placeholder="unassigned by default" value={newForm.beat_id} onChange={(e) => setNewForm({ ...newForm, beat_id: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={saveNewEntity}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

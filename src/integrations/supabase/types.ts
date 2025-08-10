@@ -646,6 +646,7 @@ export type Database = {
           category: string | null
           competitors: string[] | null
           created_at: string
+          entity_type: string
           id: string
           last_visit_date: string | null
           latitude: number | null
@@ -670,6 +671,7 @@ export type Database = {
           category?: string | null
           competitors?: string[] | null
           created_at?: string
+          entity_type?: string
           id?: string
           last_visit_date?: string | null
           latitude?: number | null
@@ -694,6 +696,7 @@ export type Database = {
           category?: string | null
           competitors?: string[] | null
           created_at?: string
+          entity_type?: string
           id?: string
           last_visit_date?: string | null
           latitude?: number | null
