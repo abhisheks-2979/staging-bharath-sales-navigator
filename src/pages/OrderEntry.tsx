@@ -34,6 +34,8 @@ interface GridProduct {
   unit: string;
   hasScheme?: boolean;
   schemeDetails?: string;
+  schemeConditionQuantity?: number;
+  schemeDiscountPercentage?: number;
   closingStock?: number;
 }
 
@@ -122,6 +124,8 @@ useEffect(() => {
           unit: p.unit,
           hasScheme: !!active,
           schemeDetails: active ? `Buy ${active.condition_quantity}+ ${p.unit}s, get ${active.discount_percentage}% off` : undefined,
+          schemeConditionQuantity: active?.condition_quantity ?? undefined,
+          schemeDiscountPercentage: active?.discount_percentage != null ? Number(active.discount_percentage) : undefined,
           closingStock: p.closing_stock
         };
       });
@@ -159,27 +163,31 @@ const filteredProducts = selectedCategory === "All"
       return;
     }
 
+    const computeTotal = (prod: any, qty: number) => {
+      const base = Number(prod.rate) * Number(qty);
+      const cond = prod.schemeConditionQuantity as number | undefined;
+      const disc = prod.schemeDiscountPercentage as number | undefined;
+      if (cond && disc && qty >= cond) {
+        return base - (base * (Number(disc) / 100));
+      }
+      return base;
+    };
+
     const existingItem = cart.find(item => item.id === product.id);
-    const total = product.rate * quantity;
+    const newTotal = computeTotal(product as any, quantity);
 
     if (existingItem) {
       setCart(prev => prev.map(item => 
         item.id === product.id 
-          ? { ...item, quantity: item.quantity + quantity, total: item.total + total }
+          ? { ...item, quantity, total: newTotal }
           : item
       ));
     } else {
-      setCart(prev => [...prev, { ...product, quantity, total }]);
+      setCart(prev => [...prev, { ...product, quantity, total: newTotal }]);
     }
 
-    // Update closing stock
-    const newStock = closingStocks[product.id] ?? product.closingStock;
-    if (newStock !== undefined) {
-      setClosingStocks(prev => ({ ...prev, [product.id]: Math.max(0, newStock - quantity) }));
-    }
+    // Do not auto-adjust closing stock; keep user's entered value
 
-    // Keep quantity after add; do not reset
-    
     toast({
       title: "Added to Cart",
       description: `${quantity} ${product.unit}(s) of ${product.name} added to cart`
@@ -335,9 +343,9 @@ const filteredProducts = selectedCategory === "All"
 
                   <Button 
                     onClick={() => addToCart(product)}
-                    className="w-full h-8"
+                    className={`w-full h-8 ${cart.some((i) => i.id === product.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
                     size="sm"
-                    variant={cart.some((i) => i.id === product.id) ? "secondary" : "default"}
+                    variant={cart.some((i) => i.id === product.id) ? "default" : "default"}
                   >
                     {cart.some((i) => i.id === product.id) ? (
                       <>

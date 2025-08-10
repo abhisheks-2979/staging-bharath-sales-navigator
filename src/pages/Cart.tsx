@@ -17,27 +17,31 @@ interface CartItem {
   total: number;
 }
 
-interface CartScheme {
-  type: "value" | "quantity";
-  condition: number;
-  discount: number;
-  description: string;
-}
+type AnyCartItem = CartItem & {
+  schemeConditionQuantity?: number;
+  schemeDiscountPercentage?: number;
+  schemes?: Array<{ is_active: boolean; condition_quantity?: number; discount_percentage?: number }>;
+};
 
-const cartSchemes: CartScheme[] = [
-  {
-    type: "value",
-    condition: 5000,
-    discount: 5,
-    description: "5% off on orders above ₹5,000"
-  },
-  {
-    type: "value",
-    condition: 10000,
-    discount: 10,
-    description: "10% off on orders above ₹10,000"
+const getItemScheme = (item: AnyCartItem) => {
+  const active = item.schemes?.find(s => s.is_active);
+  const condition = item.schemeConditionQuantity ?? active?.condition_quantity;
+  const discountPct = item.schemeDiscountPercentage ?? active?.discount_percentage;
+  return {
+    condition: condition != null ? Number(condition) : undefined,
+    discountPct: discountPct != null ? Number(discountPct) : undefined,
+  };
+};
+
+const computeItemSubtotal = (item: AnyCartItem) => Number(item.rate) * Number(item.quantity);
+const computeItemDiscount = (item: AnyCartItem) => {
+  const { condition, discountPct } = getItemScheme(item);
+  if (condition && discountPct && Number(item.quantity) >= condition) {
+    return (computeItemSubtotal(item) * discountPct) / 100;
   }
-];
+  return 0;
+};
+const computeItemTotal = (item: AnyCartItem) => computeItemSubtotal(item) - computeItemDiscount(item);
 
 // Mock cart data - in real app this would come from state management
 const mockCartItems: CartItem[] = [
@@ -124,30 +128,14 @@ React.useEffect(() => {
 
     setCartItems(prev => prev.map(item => 
       item.id === productId 
-        ? { ...item, quantity: newQuantity, total: item.rate * newQuantity }
+        ? { ...item, quantity: newQuantity, total: computeItemTotal({ ...(item as any), quantity: newQuantity } as any) }
         : item
     ));
   };
 
-  const getTotalValue = () => {
-    return cartItems.reduce((sum, item) => sum + item.total, 0);
-  };
-
-  const getApplicableScheme = () => {
-    const totalValue = getTotalValue();
-    return cartSchemes
-      .filter(scheme => totalValue >= scheme.condition)
-      .sort((a, b) => b.discount - a.discount)[0];
-  };
-
-  const getFinalTotal = () => {
-    const total = getTotalValue();
-    const scheme = getApplicableScheme();
-    if (scheme) {
-      return total - (total * scheme.discount / 100);
-    }
-    return total;
-  };
+  const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item as any), 0);
+  const getDiscount = () => cartItems.reduce((sum, item) => sum + computeItemDiscount(item as any), 0);
+  const getFinalTotal = () => getSubtotal() - getDiscount();
 
   const handleSubmitOrder = async () => {
     if (cartItems.length === 0) {
@@ -172,9 +160,8 @@ React.useEffect(() => {
         return;
       }
 
-      const subtotal = getTotalValue();
-      const scheme = getApplicableScheme();
-      const discountAmount = scheme ? (subtotal * scheme.discount / 100) : 0;
+      const subtotal = getSubtotal();
+      const discountAmount = getDiscount();
       const totalAmount = getFinalTotal();
       // Prepare IDs
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
@@ -207,7 +194,7 @@ React.useEffect(() => {
         rate: item.rate,
         unit: item.unit,
         quantity: item.quantity,
-        total: item.total
+        total: computeItemTotal(item as any)
       }));
 
       const { error: itemsError } = await supabase
@@ -215,6 +202,11 @@ React.useEffect(() => {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
+
+      // Mark visit as productive if available
+      if (validVisitId) {
+        await supabase.from('visits').update({ status: 'productive' }).eq('id', validVisitId);
+      }
 
       toast({
         title: "Order Submitted",
@@ -258,6 +250,7 @@ React.useEffect(() => {
             <div className="flex items-center gap-2">
               <ShoppingCart size={20} />
               <Badge variant="secondary">{cartItems.length} items</Badge>
+              <Badge variant="secondary">₹{getFinalTotal().toLocaleString()}</Badge>
             </div>
           </CardHeader>
         </Card>
@@ -317,7 +310,7 @@ React.useEffect(() => {
                         </Button>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">₹{item.total.toLocaleString()}</p>
+                        <p className="font-bold">₹{computeItemTotal(item as any).toLocaleString()}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -330,21 +323,18 @@ React.useEffect(() => {
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span className="font-bold">₹{getTotalValue().toLocaleString()}</span>
+                  <span className="font-bold">₹{getSubtotal().toLocaleString()}</span>
                 </div>
 
-                {getApplicableScheme() && (
+                {getDiscount() > 0 && (
                   <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-center gap-2 mb-1">
                       <Gift size={16} className="text-green-600" />
                       <p className="text-sm font-medium text-green-700">Scheme Applied!</p>
                     </div>
-                    <p className="text-xs text-green-600">{getApplicableScheme()?.description}</p>
                     <div className="flex justify-between text-sm mt-2">
                       <span>Discount:</span>
-                      <span className="text-green-600 font-medium">
-                        -₹{(getTotalValue() - getFinalTotal()).toLocaleString()}
-                      </span>
+                      <span className="text-green-600 font-medium">-₹{getDiscount().toLocaleString()}</span>
                     </div>
                   </div>
                 )}

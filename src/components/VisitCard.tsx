@@ -380,6 +380,23 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               {getStatusText(visit.status)}
             </Badge>
             <div className="text-xs text-muted-foreground">{visit.retailerCategory}</div>
+            {visit.orderValue && visit.orderValue > 0 && (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-6 p-0 text-primary"
+                onClick={async () => {
+                  const next = !orderPreviewOpen;
+                  setOrderPreviewOpen(next);
+                  if (next && lastOrderItems.length === 0) {
+                    await loadLastOrder();
+                  }
+                }}
+                title="View today's order"
+              >
+                ₹{visit.orderValue.toLocaleString()}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -484,7 +501,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           {visit.hasOrder && (
             <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Last Order</span>
+                <span className="text-sm font-medium">Today's Order</span>
                 <Button
                   variant="ghost"
                   size="sm"

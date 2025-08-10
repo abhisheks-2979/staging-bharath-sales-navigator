@@ -119,19 +119,27 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   };
 
   const updateRow = (id: string, field: keyof OrderRow, value: any) => {
+    const computeTotal = (prod?: Product, qty?: number) => {
+      if (!prod || !qty) return 0;
+      const base = Number(prod.rate) * Number(qty);
+      const active = prod.schemes?.find(s => s.is_active);
+      if (active && active.condition_quantity && active.discount_percentage && qty >= active.condition_quantity) {
+        return base - (base * (Number(active.discount_percentage) / 100));
+      }
+      return base;
+    };
+
     setOrderRows(prev => prev.map(row => {
       if (row.id === id) {
-        const updatedRow = { ...row, [field]: value };
-        
+        const updatedRow: OrderRow = { ...row, [field]: value } as OrderRow;
         if (field === "productCode") {
           const product = findProductByCode(value);
           updatedRow.product = product;
           updatedRow.closingStock = product?.closing_stock || 0;
-          updatedRow.total = product ? product.rate * updatedRow.quantity : 0;
-        } else if (field === "quantity" && row.product) {
-          updatedRow.total = row.product.rate * value;
+          updatedRow.total = computeTotal(product, updatedRow.quantity);
+        } else if (field === "quantity") {
+          updatedRow.total = computeTotal(row.product, value);
         }
-        
         return updatedRow;
       }
       return row;
