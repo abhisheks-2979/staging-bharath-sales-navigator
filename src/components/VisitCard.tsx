@@ -454,7 +454,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             <Button 
               variant={visit.hasOrder ? "default" : "outline"}
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm hover:bg-success/90 hover:text-success-foreground ${visit.hasOrder ? "bg-success text-success-foreground" : ""}`}
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${visit.hasOrder ? "bg-success text-success-foreground" : ""}`}
               onClick={async () => {
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
