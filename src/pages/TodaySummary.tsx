@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
@@ -40,6 +43,70 @@ export const TodaySummary = () => {
     { name: "New Corner Store", orderValue: 18500, location: "Koramangala" },
     { name: "City Mart", orderValue: 15750, location: "Brigade Road" }
   ];
+
+  // Dialog state and data sources for details
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState<string>("");
+  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency">("orders");
+  const [dialogFilter, setDialogFilter] = useState<string | null>(null);
+
+  const productSales = [
+    { name: "Premium Coffee Beans", quantity: 120, revenue: 54000 },
+    { name: "Energy Drinks Pack", quantity: 95, revenue: 47500 },
+    { name: "Organic Snacks", quantity: 80, revenue: 32000 },
+    { name: "Fresh Milk 1L", quantity: 72, revenue: 21600 },
+    { name: "Breakfast Cereal", quantity: 56, revenue: 25200 },
+  ];
+
+  const orders = [
+    { retailer: "Vardhman Kirana", amount: 25000, items: 12 },
+    { retailer: "Mahesh Kirana", amount: 22000, items: 10 },
+    { retailer: "New Corner Store", amount: 18500, items: 8 },
+    { retailer: "City Mart", amount: 15750, items: 6 },
+  ];
+
+  const visitsByStatus: Record<string, Array<{ retailer: string; note?: string }>> = {
+    Productive: [
+      { retailer: "Vardhman Kirana" },
+      { retailer: "Mahesh Kirana" },
+      { retailer: "New Corner Store" },
+      { retailer: "City Mart" },
+    ],
+    Unproductive: [
+      { retailer: "Shree Stores", note: "No requirements today" },
+      { retailer: "Anand Mart", note: "Budget constraints" },
+    ],
+    "Store Closed": [
+      { retailer: "Kaveri Traders", note: "Closed at time of visit" },
+      { retailer: "Sunrise Kirana", note: "Weekly off" },
+    ],
+    Pending: [
+      { retailer: "Green Fresh" },
+      { retailer: "Bright Mart" },
+      { retailer: "Royal Stores" },
+    ],
+  };
+
+  const openOrdersDialog = (title: string) => {
+    setDialogTitle(title);
+    setDialogContentType("orders");
+    setDialogFilter(null);
+    setDialogOpen(true);
+  };
+
+  const openEfficiencyDialog = () => {
+    setDialogTitle("Visit Efficiency Details");
+    setDialogContentType("efficiency");
+    setDialogFilter(null);
+    setDialogOpen(true);
+  };
+
+  const openVisitsDialog = (status: string) => {
+    setDialogTitle(`${status} Visits`);
+    setDialogContentType("visits");
+    setDialogFilter(status);
+    setDialogOpen(true);
+  };
 
   const handleDownloadPDF = () => {
     toast({
@@ -121,18 +188,30 @@ export const TodaySummary = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-primary/10 rounded-lg">
+              <div
+                role="button"
+                onClick={() => openOrdersDialog("Total Order Value - Orders")}
+                className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition"
+              >
                 <div className="text-2xl font-bold text-primary">₹{summaryData.totalOrderValue.toLocaleString()}</div>
                 <div className="text-sm text-muted-foreground">Total Order Value</div>
               </div>
-              <div className="text-center p-4 bg-success/10 rounded-lg">
+              <div
+                role="button"
+                onClick={() => openOrdersDialog("Orders Placed")}
+                className="text-center p-4 bg-success/10 rounded-lg cursor-pointer hover:bg-success/20 transition"
+              >
                 <div className="text-2xl font-bold text-success">{summaryData.totalOrders}</div>
                 <div className="text-sm text-muted-foreground">Orders Placed</div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-muted rounded-lg">
+              <div
+                role="button"
+                onClick={openEfficiencyDialog}
+                className="text-center p-3 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition"
+              >
                 <div className="text-lg font-bold">{summaryData.visitEfficiency}%</div>
                 <div className="text-sm text-muted-foreground">Visit Efficiency</div>
               </div>
@@ -152,7 +231,12 @@ export const TodaySummary = () => {
           <CardContent>
             <div className="space-y-3">
               {visitBreakdown.map((item) => (
-                <div key={item.status} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div
+                  key={item.status}
+                  onClick={() => openVisitsDialog(item.status)}
+                  role="button"
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition"
+                >
                   <div className="flex items-center gap-3">
                     <Badge 
                       className={
@@ -201,6 +285,33 @@ export const TodaySummary = () => {
           </CardContent>
         </Card>
 
+        {/* Product-wise Sales */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Product-wise Sales</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {productSales.map((p) => (
+                  <TableRow key={p.name}>
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="text-right">{p.quantity}</TableCell>
+                    <TableCell className="text-right">₹{p.revenue.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
         {/* Performance Summary */}
         <Card>
           <CardHeader>
@@ -231,6 +342,83 @@ export const TodaySummary = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{dialogTitle}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-2">
+              {dialogContentType === "orders" && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Total: ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} • {orders.length} orders
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orders.map((o, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{o.retailer}</TableCell>
+                          <TableCell className="text-right">{o.items}</TableCell>
+                          <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {dialogContentType === "visits" && (
+                <div className="space-y-2">
+                  {(visitsByStatus[dialogFilter || "Productive"] || []).map((v, idx) => (
+                    <div key={idx} className="p-3 rounded-md bg-muted/50">
+                      <div className="font-medium">{v.retailer}</div>
+                      {v.note && <div className="text-sm text-muted-foreground">{v.note}</div>}
+                    </div>
+                  ))}
+                  {(!visitsByStatus[dialogFilter || ""] || visitsByStatus[dialogFilter || ""].length === 0) && (
+                    <div className="text-sm text-muted-foreground">No records available.</div>
+                  )}
+                </div>
+              )}
+
+              {dialogContentType === "efficiency" && (
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span>Planned Visits</span>
+                    <span className="font-semibold">{summaryData.plannedVisits}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Completed Visits</span>
+                    <span className="font-semibold">{summaryData.completedVisits}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Visit Efficiency</span>
+                    <span className="font-semibold">{summaryData.visitEfficiency}%</span>
+                  </div>
+                  <div className="pt-2">
+                    <div className="mb-2 text-muted-foreground">Completed Visits</div>
+                    <div className="space-y-2">
+                      {(visitsByStatus["Productive"] || []).map((v, idx) => (
+                        <div key={idx} className="p-3 rounded-md bg-muted/50">
+                          <div className="font-medium">{v.retailer}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );
