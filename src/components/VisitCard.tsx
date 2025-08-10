@@ -304,6 +304,24 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     onViewDetails(visitId);
   };
 
+  const handleOpenBranding = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: 'Login required', description: 'Please sign in to create branding requests.', variant: 'destructive' });
+        return;
+      }
+      const today = new Date().toISOString().split('T')[0];
+      const retailerId = visit.retailerId || visit.id;
+      const visitId = await ensureVisit(user.id, retailerId, today);
+      setCurrentVisitId(visitId);
+      setShowBrandingModal(true);
+    } catch (err: any) {
+      console.error('Open branding modal error', err);
+      toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
+    }
+  };
+
   return (
     <Card className="shadow-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 bg-gradient-to-r from-card to-card/50">
       <CardContent className="p-3 sm:p-4">
@@ -386,7 +404,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           </div>
 
           {/* Secondary action buttons */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <Button 
               variant="outline" 
               size="sm"
@@ -409,6 +427,18 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               <MessageSquare size={12} className="sm:size-3.5 mr-1" />
               <span className="hidden xs:inline">Feedback</span>
               <span className="xs:hidden">Feed</span>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
+              onClick={handleOpenBranding}
+              title="Branding Request"
+            >
+              <Paintbrush size={12} className="sm:size-3.5 mr-1" />
+              <span className="hidden xs:inline">Branding</span>
+              <span className="xs:hidden">Brand</span>
             </Button>
           </div>
         </div>
@@ -445,6 +475,14 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           visitId={visit.id}
           retailerId={visit.id} // Using visit.id as retailer ID for now
           retailerName={visit.retailerName}
+        />
+
+        <BrandingRequestModal
+          isOpen={showBrandingModal}
+          onClose={() => setShowBrandingModal(false)}
+          defaultVisitId={currentVisitId}
+          defaultRetailerId={(visit.retailerId || visit.id) as string}
+          defaultPincode={null}
         />
       </CardContent>
     </Card>
