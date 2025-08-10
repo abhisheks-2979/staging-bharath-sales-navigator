@@ -350,23 +350,35 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
       todayStart.setHours(0,0,0,0);
       const todayEnd = new Date();
       todayEnd.setHours(23,59,59,999);
-      const { data: order } = await supabase
+
+      const { data: orders } = await supabase
         .from('orders')
         .select('id')
         .eq('user_id', user.id)
         .eq('retailer_id', retailerId)
         .eq('status', 'confirmed')
         .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString())
-        .order('created_at', { ascending: false })
-        .maybeSingle();
-      if (order?.id) {
+        .lte('created_at', todayEnd.toISOString());
+
+      if ((orders || []).length > 0) {
+        const orderIds = (orders || []).map(o => o.id);
         const { data: items } = await supabase
           .from('order_items')
-          .select('product_name, quantity, rate')
-          .eq('order_id', order.id)
-          .order('product_name');
-        setLastOrderItems(items || []);
+          .select('product_name, quantity, rate, order_id')
+          .in('order_id', orderIds);
+
+        // Group items by product for a clean summary
+        const grouped = new Map<string, { product_name: string; quantity: number; rate: number }>();
+        (items || []).forEach(it => {
+          const key = it.product_name;
+          const existing = grouped.get(key);
+          if (existing) {
+            existing.quantity += Number(it.quantity || 0);
+          } else {
+            grouped.set(key, { product_name: key, quantity: Number(it.quantity || 0), rate: Number(it.rate || 0) });
+          }
+        });
+        setLastOrderItems(Array.from(grouped.values()).sort((a, b) => a.product_name.localeCompare(b.product_name)));
       } else {
         setLastOrderItems([]);
       }
@@ -374,7 +386,6 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
       setLoadingOrder(false);
     }
   };
-
   return (
     <Card className="shadow-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 bg-gradient-to-r from-card to-card/50">
       <CardContent className="p-3 sm:p-4">

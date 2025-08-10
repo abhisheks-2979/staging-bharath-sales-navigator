@@ -244,7 +244,7 @@ export const MyVisits = () => {
       const [{ data: visitsToday }, { data: ordersToday }] = await Promise.all([
         supabase
           .from('visits')
-          .select('id, retailer_id, check_in_time')
+          .select('id, retailer_id, check_in_time, status')
           .eq('user_id', user.id)
           .eq('planned_date', (selectedDate || new Date().toISOString().split('T')[0]))
           .in('retailer_id', retailerIds),
@@ -259,23 +259,33 @@ export const MyVisits = () => {
       ]);
 
       const checkedInRetailers = new Set((visitsToday || []).filter(v => v.check_in_time).map(v => v.retailer_id));
+      const statusByRetailer = new Map<string, string>();
+      (visitsToday || []).forEach(v => {
+        if (v.retailer_id && v.status) statusByRetailer.set(v.retailer_id as string, v.status as string);
+      });
       const totalsByRetailer = new Map<string, number>();
       (ordersToday || []).forEach(o => {
         if (!o.retailer_id) return;
         totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
       });
 
-        const finalRetailers = transformedRetailers.map(v => {
-          const hasCheckIn = checkedInRetailers.has(v.retailerId);
-          const orderTotal = totalsByRetailer.get(v.retailerId || '') || 0;
-          const hasOrder = orderTotal > 0;
-          return {
-            ...v,
-            hasOrder,
-            orderValue: orderTotal,
-            status: hasOrder ? ('productive' as const) : (hasCheckIn ? ('in-progress' as const) : ('planned' as const)),
-          };
-        });
+      const finalRetailers = transformedRetailers.map(v => {
+        const hasCheckIn = checkedInRetailers.has(v.retailerId);
+        const orderTotal = totalsByRetailer.get(v.retailerId || '') || 0;
+        const hasOrder = orderTotal > 0;
+        const recordedStatus = statusByRetailer.get(v.retailerId || '');
+        const status = hasOrder
+          ? ('productive' as const)
+          : (recordedStatus === 'unproductive'
+              ? ('unproductive' as const)
+              : (hasCheckIn ? ('in-progress' as const) : ('planned' as const)));
+        return {
+          ...v,
+          hasOrder,
+          orderValue: orderTotal,
+          status,
+        };
+      });
 
       setRetailers(finalRetailers);
     } catch (error) {
