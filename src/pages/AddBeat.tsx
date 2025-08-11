@@ -65,7 +65,7 @@ export const AddBeat = () => {
       });
       
       // Navigate back after adding
-      setTimeout(() => navigate(-1), 1500);
+      setTimeout(() => navigate('/visits'), 1500);
     }
   };
 
@@ -79,7 +79,7 @@ export const AddBeat = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/visits')}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
