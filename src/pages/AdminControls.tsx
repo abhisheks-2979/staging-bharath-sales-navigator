@@ -87,20 +87,6 @@ const AdminControls = () => {
             </CardHeader>
           </Card>
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/product-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Package className="h-8 w-8 text-blue-600" />
-              </div>
-              <CardTitle>Product Management</CardTitle>
-              <CardDescription>
-                Manage products, SKUs, categories, and promotional schemes
-              </CardDescription>
-            </CardHeader>
-          </Card>
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow"
