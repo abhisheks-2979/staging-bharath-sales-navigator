@@ -118,19 +118,23 @@ export const MyBeats = () => {
         .select('beat_id, beat_name, category, created_at')
         .eq('user_id', user.id)
         .not('beat_id', 'is', null)
-        .not('beat_name', 'is', null);
+        .not('beat_name', 'is', null)
+        .neq('beat_id', '')
+        .neq('beat_name', '');
 
       if (beatsError) {
         console.error('Error fetching beats:', beatsError);
         throw beatsError;
       }
 
-      // Group by beat and calculate counts
+      console.log('Raw beats data:', beatsData);
+
+      // Group by beat_id and calculate counts
       const beatMap = new Map<string, any>();
       
       (beatsData || []).forEach((item) => {
         const beatId = item.beat_id;
-        const beatName = item.beat_name;
+        const beatName = item.beat_name || item.beat_id; // Fallback to beat_id if beat_name is missing
         
         if (!beatMap.has(beatId)) {
           beatMap.set(beatId, {
@@ -155,6 +159,7 @@ export const MyBeats = () => {
           total_retailers: beat.retailer_count
         }));
 
+      console.log('Processed beats array:', beatsArray);
       setBeats(beatsArray);
     } catch (error) {
       console.error('Error loading beats:', error);
