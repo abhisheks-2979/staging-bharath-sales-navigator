@@ -170,6 +170,45 @@ export const MyVisits = () => {
     }
   }, [user, selectedDate]);
 
+  // Set up real-time updates for visits and orders
+  useEffect(() => {
+    if (!user || !selectedDate) return;
+
+    const channel = supabase
+      .channel('visit-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'visits',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Reload data when visits are updated
+          loadPlannedBeats(selectedDate);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public', 
+          table: 'orders',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Reload data when orders are updated
+          loadPlannedBeats(selectedDate);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedDate]);
+
   // Load week plan markers for calendar
   useEffect(() => {
     if (!user) return;
@@ -368,7 +407,12 @@ export const MyVisits = () => {
   });
 
   const visitsForSelectedDate = retailers;
-  const plannedBeatsCount = plannedBeats.length; // Show number of planned beats
+  
+  // Calculate planned beats count: only beats that have visits still in planned or in-progress status
+  const plannedVisitsCount = visitsForSelectedDate.filter(visit => 
+    visit.status === "planned" || visit.status === "in-progress"
+  ).length;
+  
   const productiveVisits = visitsForSelectedDate.filter(visit => visit.status === "productive").length;
   const unproductiveVisits = visitsForSelectedDate.filter(visit => visit.status === "unproductive").length;
   const totalOrdersToday = visitsForSelectedDate.filter(visit => visit.hasOrder).length;
@@ -595,8 +639,8 @@ export const MyVisits = () => {
                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
                 }`}
               >
-                <div className="text-xl font-bold">{plannedBeatsCount}</div>
-                <div className="text-xs font-medium opacity-80">Planned Beats</div>
+                <div className="text-xl font-bold">{plannedVisitsCount}</div>
+                <div className="text-xs font-medium opacity-80">Planned Visits</div>
               </button>
               
               <button
