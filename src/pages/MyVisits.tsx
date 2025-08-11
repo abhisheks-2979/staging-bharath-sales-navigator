@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -141,6 +143,8 @@ export const MyVisits = () => {
   const [currentBeatName, setCurrentBeatName] = useState("No beats planned");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   const [isCreateVisitModalOpen, setIsCreateVisitModalOpen] = useState(false);
+  const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
+  const [ordersData, setOrdersData] = useState<any[]>([]);
   const { user } = useAuth();
 
   // Initialize selected day to today
@@ -352,9 +356,9 @@ export const MyVisits = () => {
   });
 
   const visitsForSelectedDate = retailers;
-  const plannedVisits = visitsForSelectedDate.filter(visit => visit.status === "planned").length;
+  const plannedBeatsCount = plannedBeats.length; // Show number of planned beats
   const productiveVisits = visitsForSelectedDate.filter(visit => visit.status === "productive").length;
-  const pendingVisits = visitsForSelectedDate.filter(visit => visit.status === "in-progress").length;
+  const unproductiveVisits = visitsForSelectedDate.filter(visit => visit.status === "unproductive").length;
   const totalOrdersToday = visitsForSelectedDate.filter(visit => visit.hasOrder).length;
 
   const handleViewDetails = (visitId: string) => {
@@ -363,6 +367,34 @@ export const MyVisits = () => {
 
   const handleStatusClick = (status: string) => {
     setStatusFilter(statusFilter === status ? "" : status);
+  };
+
+  const handleOrdersClick = async () => {
+    if (!user || !selectedDate) return;
+    try {
+      const todayStart = new Date(selectedDate);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(selectedDate);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *
+          )
+        `)
+        .eq('user_id', user.id)
+        .gte('created_at', todayStart.toISOString())
+        .lte('created_at', todayEnd.toISOString());
+
+      if (error) throw error;
+      setOrdersData(orders || []);
+      setIsOrdersDialogOpen(true);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    }
   };
 
   return (
@@ -483,27 +515,27 @@ export const MyVisits = () => {
               >
                 <TrendingUp size={16} className="mr-1" />
                 Beat Analytics
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm"
-                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                onClick={() => window.location.href = '/add-beat'}
-              >
-                <Plus size={16} className="mr-1" />
-                Add Beat
-              </Button>
-            </div>
-            <div className="grid grid-cols-1">
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                onClick={() => window.location.href = '/today-summary'}
-              >
-                <FileText size={16} className="mr-1" />
-                Today's Summary
-              </Button>
+               </Button>
+               <Button 
+                 variant="secondary" 
+                 size="sm"
+                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                 onClick={() => window.location.href = '/add-beat'}
+               >
+                 <Plus size={16} className="mr-1" />
+                 Add Beat
+               </Button>
+             </div>
+             <div className="grid grid-cols-1">
+               <Button 
+                 variant="secondary" 
+                 size="sm" 
+                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                 onClick={() => window.location.href = '/today-summary'}
+               >
+                 <FileText size={16} className="mr-1" />
+                 Today's Summary
+               </Button>
             </div>
           </CardContent>
         </Card>
@@ -524,10 +556,13 @@ export const MyVisits = () => {
                 <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
                 <div className="text-sm text-success/80 font-medium">Total Order Value</div>
               </div>
-              <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20">
-                <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                <div className="text-sm text-primary/80 font-medium">Orders Placed</div>
-              </div>
+               <button
+                 onClick={handleOrdersClick}
+                 className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all"
+               >
+                 <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
+                 <div className="text-sm text-primary/80 font-medium">Orders Placed</div>
+               </button>
             </div>
             
             {/* Visit Status Grid */}
@@ -540,8 +575,8 @@ export const MyVisits = () => {
                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
                 }`}
               >
-                <div className="text-xl font-bold">{plannedVisits}</div>
-                <div className="text-xs font-medium opacity-80">Planned</div>
+                <div className="text-xl font-bold">{plannedBeatsCount}</div>
+                <div className="text-xs font-medium opacity-80">Planned Beats</div>
               </button>
               
               <button
@@ -557,15 +592,15 @@ export const MyVisits = () => {
               </button>
               
               <button
-                onClick={() => handleStatusClick("in-progress")}
+                onClick={() => handleStatusClick("unproductive")}
                 className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
-                  statusFilter === "in-progress" 
+                  statusFilter === "unproductive" 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
-                    : "bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150 border border-orange-200"
+                    : "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 border border-red-200"
                 }`}
               >
-                <div className="text-xl font-bold">{pendingVisits}</div>
-                <div className="text-xs font-medium opacity-80">Pending</div>
+                <div className="text-xl font-bold">{unproductiveVisits}</div>
+                <div className="text-xs font-medium opacity-80">Unproductive</div>
               </button>
             </div>
           </CardContent>
@@ -625,6 +660,73 @@ export const MyVisits = () => {
             }
           }}
         />
+
+        {/* Orders Dialog */}
+        <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Orders Placed Today
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="mt-4">
+              {ordersData.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No orders placed today</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {ordersData.map((order, index) => (
+                    <Card key={order.id} className="border border-border/40">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold">Order #{index + 1}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {order.retailer_name} • {format(new Date(order.created_at), 'hh:mm a')}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="bg-success/10 text-success">
+                            ₹{Number(order.total_amount).toLocaleString()}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {order.order_items && order.order_items.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-muted-foreground">Items:</p>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Product</TableHead>
+                                  <TableHead>Quantity</TableHead>
+                                  <TableHead>Rate</TableHead>
+                                  <TableHead>Total</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {order.order_items.map((item: any) => (
+                                  <TableRow key={item.id}>
+                                    <TableCell>{item.product_name}</TableCell>
+                                    <TableCell>{item.quantity} {item.unit}</TableCell>
+                                    <TableCell>₹{Number(item.rate).toLocaleString()}</TableCell>
+                                    <TableCell>₹{Number(item.total).toLocaleString()}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
