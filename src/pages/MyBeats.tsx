@@ -248,6 +248,11 @@ export const MyBeats = () => {
       }));
 
       setAllRetailers(retailersWithMetrics);
+      
+      // If the create beat modal is open, refresh its retailer list
+      if (isCreateBeatOpen) {
+        setTimeout(() => loadRetailersForCreateBeat(), 100);
+      }
     } catch (error) {
       console.error('Error loading retailers:', error);
       toast.error('Failed to load retailers');
@@ -256,6 +261,13 @@ export const MyBeats = () => {
 
   const loadRetailersForCreateBeat = () => {
     console.log('Loading retailers for create beat. All retailers:', allRetailers.length);
+    
+    // If allRetailers is empty, we need to wait for the data to load
+    if (allRetailers.length === 0) {
+      console.log('No retailers loaded yet, retailers will be populated when data loads');
+      setRetailers([]);
+      return;
+    }
     
     // Show ALL retailers with their current beat status
     const retailersForBeat = allRetailers.map(retailer => {
@@ -286,7 +298,10 @@ export const MyBeats = () => {
     setSelectedRetailers(new Set());
   };
 
-  const handleCreateBeat = () => {
+  const handleCreateBeat = async () => {
+    // First, ensure we have the latest retailers data
+    await loadAllRetailers();
+    // Then load retailers for the modal (this will use the fresh data)
     loadRetailersForCreateBeat();
     setIsCreateBeatOpen(true);
     setBeatName("");
