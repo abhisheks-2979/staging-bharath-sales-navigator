@@ -56,6 +56,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [isNoOrderMarked, setIsNoOrderMarked] = useState(!!visit.noOrderReason);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isCheckedOut, setIsCheckedOut] = useState(false);
+  const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
@@ -91,11 +92,34 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           if (visitData) {
             setIsCheckedIn(!!visitData.check_in_time);
             setIsCheckedOut(!!visitData.check_out_time);
+            if (visitData.status === 'unproductive') {
+              setIsNoOrderMarked(true);
+            }
             if (visitData.check_in_time && !visitData.check_out_time) {
               setPhase('in-progress');
             } else if (visitData.check_out_time) {
               setPhase('completed');
             }
+          }
+
+          // Check if there are any orders today for this retailer
+          const todayStart = new Date(today);
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date(today);
+          todayEnd.setHours(23, 59, 59, 999);
+
+          const { data: ordersToday } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('user_id', user.user.id)
+            .eq('retailer_id', retailerId)
+            .eq('status', 'confirmed')
+            .gte('created_at', todayStart.toISOString())
+            .lte('created_at', todayEnd.toISOString())
+            .limit(1);
+
+          if (ordersToday && ordersToday.length > 0) {
+            setHasOrderToday(true);
           }
         }
       } catch (error) {
@@ -562,10 +586,10 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             </Button>
             
             <Button 
-              variant={visit.hasOrder ? "default" : "outline"}
+              variant={hasOrderToday ? "default" : "outline"}
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
-                visit.hasOrder ? "bg-success text-success-foreground" : ""
+                hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${isNoOrderMarked ? "opacity-50 cursor-not-allowed" : ""}`}
               disabled={isNoOrderMarked}
               onClick={async () => {
@@ -586,7 +610,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                   toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
                 }
               }}
-              title={`${isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}`}
+              title={`${isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
             >
               <ShoppingCart size={14} className="sm:size-4" />
             </Button>
@@ -596,14 +620,14 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
                 isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
-              } ${(isNoOrderMarked || visit.hasOrder) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${(isNoOrderMarked || hasOrderToday) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleNoOrderClick}
-              disabled={isNoOrderMarked || visit.hasOrder}
+              disabled={isNoOrderMarked || hasOrderToday}
               title={
                 isNoOrderMarked 
                   ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` 
-                  : visit.hasOrder 
-                    ? "Cannot mark no order - Order already placed"
+                  : hasOrderToday 
+                    ? "Cannot mark no order - Order already placed today"
                     : "Mark No Order"
               }
             >
@@ -669,7 +693,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             </Button>
           </div>
 
-          {visit.hasOrder && (
+          {(visit.hasOrder || hasOrderToday) && (
             <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Today's Order</span>
