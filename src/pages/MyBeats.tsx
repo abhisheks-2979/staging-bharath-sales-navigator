@@ -13,7 +13,7 @@ import { RetailerAnalytics } from "@/components/RetailerAnalytics";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface Beat {
   id: string;
@@ -55,6 +55,17 @@ export const MyBeats = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Check for openCreateModal parameter and open modal if present
+  useEffect(() => {
+    if (searchParams.get('openCreateModal') === 'true') {
+      setIsCreateBeatOpen(true);
+      // Remove the parameter from URL after opening modal
+      searchParams.delete('openCreateModal');
+      setSearchParams(searchParams);
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (user) {

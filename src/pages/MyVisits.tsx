@@ -596,7 +596,7 @@ export const MyVisits = () => {
                   variant="secondary" 
                   size="sm"
                   className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                  onClick={() => navigate('/my-beats')}
+                  onClick={() => navigate('/my-beats?openCreateModal=true')}
                 >
                   <Plus size={16} className="mr-1" />
                   Add Beat
