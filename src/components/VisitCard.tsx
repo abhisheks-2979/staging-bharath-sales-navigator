@@ -72,7 +72,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             .select('id')
             .eq('user_id', user.user.id)
             .eq('visit_id', visit.id)
-            .single();
+            .maybeSingle();
           
           if (data && !error) {
             setHasViewedAnalytics(true);
@@ -94,10 +94,11 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             setIsCheckedOut(!!visitData.check_out_time);
             if (visitData.status === 'unproductive') {
               setIsNoOrderMarked(true);
+              setPhase('completed');
             }
-            if (visitData.check_in_time && !visitData.check_out_time) {
+            if (visitData.check_in_time && !visitData.check_out_time && visitData.status === 'in-progress') {
               setPhase('in-progress');
-            } else if (visitData.check_out_time) {
+            } else if (visitData.check_out_time || visitData.status === 'unproductive' || visitData.status === 'productive') {
               setPhase('completed');
             }
           }
@@ -486,10 +487,21 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         const retailerId = (visit.retailerId || visit.id) as string;
         const visitId = await ensureVisit(user.id, retailerId, today);
         setCurrentVisitId(visitId);
-        await supabase.from('visits').update({ status: 'unproductive' }).eq('id', visitId);
+        
+        // Update visit status to unproductive and store the reason
+        await supabase
+          .from('visits')
+          .update({ 
+            status: 'unproductive',
+            no_order_reason: reason
+          })
+          .eq('id', visitId);
+        
+        // Update local state to reflect the change
+        setPhase('completed');
       }
       toast({
-        title: "No Order Recorded",
+        title: "Visit Marked as Unproductive",
         description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
       });
     } catch (err: any) {
