@@ -740,6 +740,7 @@ export type Database = {
         Row: {
           address: string
           beat_id: string
+          beat_name: string | null
           category: string | null
           competitors: string[] | null
           created_at: string
@@ -765,6 +766,7 @@ export type Database = {
         Insert: {
           address: string
           beat_id: string
+          beat_name?: string | null
           category?: string | null
           competitors?: string[] | null
           created_at?: string
@@ -790,6 +792,7 @@ export type Database = {
         Update: {
           address?: string
           beat_id?: string
+          beat_name?: string | null
           category?: string | null
           competitors?: string[] | null
           created_at?: string

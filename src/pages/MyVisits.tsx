@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
@@ -146,6 +147,7 @@ export const MyVisits = () => {
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [ordersData, setOrdersData] = useState<any[]>([]);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Initialize selected day to today
   useEffect(() => {
@@ -538,7 +540,7 @@ export const MyVisits = () => {
                  variant="secondary" 
                  size="sm"
                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                 onClick={() => window.location.href = '/add-beat'}
+                 onClick={() => navigate('/add-beat')}
                >
                  <Plus size={16} className="mr-1" />
                  Add Beat

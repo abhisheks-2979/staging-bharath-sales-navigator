@@ -31,14 +31,15 @@ interface Retailer {
   id: string;
   name: string;
   address: string;
-  phone?: string;
+  phone: string; // Required for compatibility with RetailerAnalytics
   category?: string;
   beat_id?: string;
-  isSelected?: boolean;
-  metrics?: {
-    monthly_sales: number;
-    last_order_date: string;
-    total_orders: number;
+  type: string; // Required for compatibility with RetailerAnalytics
+  isSelected: boolean; // Required for compatibility with RetailerAnalytics
+  metrics: {
+    avgOrders3Months: number;
+    avgOrderPerVisit: number;
+    visitsIn3Months: number;
   };
 }
 
@@ -76,7 +77,10 @@ export const MyBeats = () => {
         .not('beat_id', 'is', null)
         .not('beat_name', 'is', null);
 
-      if (beatsError) throw beatsError;
+      if (beatsError) {
+        console.error('Error fetching beats:', beatsError);
+        throw beatsError;
+      }
 
       // Group by beat and calculate counts
       const beatMap = new Map<string, any>();
@@ -133,14 +137,15 @@ export const MyBeats = () => {
         id: retailer.id,
         name: retailer.name,
         address: retailer.address,
-        phone: retailer.phone,
+        phone: retailer.phone || 'N/A', // Ensure phone is always a string
         category: retailer.category,
+        type: retailer.retail_type || 'General Store', // Add type field
         beat_id: retailer.beat_id,
         isSelected: false,
         metrics: {
-          monthly_sales: Math.floor(Math.random() * 50000) + 10000,
-          last_order_date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          total_orders: Math.floor(Math.random() * 20) + 5
+          avgOrders3Months: Math.floor(Math.random() * 20) + 5,
+          avgOrderPerVisit: Math.floor(Math.random() * 5000) + 1000,
+          visitsIn3Months: Math.floor(Math.random() * 12) + 3
         }
       }));
 
@@ -232,7 +237,7 @@ export const MyBeats = () => {
   const filteredRetailers = retailers.filter(retailer =>
     retailer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     retailer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (retailer.phone && retailer.phone.includes(searchTerm))
+    retailer.phone.includes(searchTerm)
   );
 
   const getPriorityColor = (priority?: string) => {
@@ -473,15 +478,13 @@ export const MyBeats = () => {
                                     <MapPin className="h-3 w-3" />
                                     <span className="truncate">{retailer.address}</span>
                                   </div>
-                                  {retailer.phone && (
-                                    <div>📞 {retailer.phone}</div>
-                                  )}
-                                  {retailer.metrics && (
-                                    <div className="text-xs">
-                                      Monthly Sales: ₹{retailer.metrics.monthly_sales.toLocaleString()} | 
-                                      Orders: {retailer.metrics.total_orders}
-                                    </div>
-                                  )}
+                                   <div>📞 {retailer.phone}</div>
+                                   {retailer.metrics && (
+                                     <div className="text-xs">
+                                       Avg Orders (3M): {retailer.metrics.avgOrders3Months} | 
+                                       Avg Order Value: ₹{retailer.metrics.avgOrderPerVisit.toLocaleString()}
+                                     </div>
+                                   )}
                                 </div>
                               </div>
                             </div>
