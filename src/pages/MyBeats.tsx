@@ -112,37 +112,73 @@ export const MyBeats = () => {
     try {
       setLoading(true);
       
-      // Get beats with retailer counts
-      const { data: beatsData, error: beatsError } = await supabase
+      // Get retailers with beat info
+      const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
         .select('beat_id, beat_name, category, created_at')
         .eq('user_id', user.id)
         .not('beat_id', 'is', null)
-        .not('beat_name', 'is', null)
         .neq('beat_id', '')
-        .neq('beat_name', '');
+        .neq('beat_id', 'unassigned');
 
-      if (beatsError) {
-        console.error('Error fetching beats:', beatsError);
-        throw beatsError;
+      if (retailersError) {
+        console.error('Error fetching retailers:', retailersError);
+        throw retailersError;
       }
 
-      console.log('Raw beats data:', beatsData);
+      // Get beat plans to get proper beat names
+      const { data: beatPlansData, error: beatPlansError } = await supabase
+        .from('beat_plans')
+        .select('beat_id, beat_name, created_at, beat_data')
+        .eq('user_id', user.id);
+
+      if (beatPlansError) {
+        console.error('Error fetching beat plans:', beatPlansError);
+      }
+
+      // Create a map of beat_id to beat info from beat_plans
+      const beatPlansMap = new Map<string, any>();
+      (beatPlansData || []).forEach((plan: any) => {
+        beatPlansMap.set(plan.beat_id, {
+          name: plan.beat_name,
+          created_at: plan.created_at,
+          beat_data: plan.beat_data
+        });
+      });
+
+      console.log('Raw retailers data:', retailersData);
+      console.log('Beat plans data:', beatPlansData);
 
       // Group by beat_id and calculate counts
       const beatMap = new Map<string, any>();
       
-      (beatsData || []).forEach((item) => {
+      (retailersData || []).forEach((item) => {
         const beatId = item.beat_id;
-        const beatName = item.beat_name || item.beat_id; // Fallback to beat_id if beat_name is missing
+        const planInfo = beatPlansMap.get(beatId);
+        
+        // Use beat name from beat_plans if available, otherwise use retailer beat_name, otherwise use beat_id
+        const beatName = planInfo?.name || item.beat_name || beatId;
+        
+        // Get category from beat_data if available
+        let category = item.category || 'General';
+        if (planInfo?.beat_data) {
+          try {
+            const beatDataParsed = typeof planInfo.beat_data === 'string' 
+              ? JSON.parse(planInfo.beat_data) 
+              : planInfo.beat_data;
+            category = beatDataParsed.category || category;
+          } catch (e) {
+            console.log('Could not parse beat_data:', e);
+          }
+        }
         
         if (!beatMap.has(beatId)) {
           beatMap.set(beatId, {
             id: beatId,
             name: beatName,
             retailer_count: 0,
-            category: item.category,
-            created_at: item.created_at,
+            category: category,
+            created_at: planInfo?.created_at || item.created_at,
             retailers: []
           });
         }

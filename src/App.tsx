@@ -37,6 +37,7 @@ import NotFound from "./pages/NotFound";
 import MyRetailers from "./pages/MyRetailers";
 import BrandingRequests from "./pages/BrandingRequests";
 import { MyBeats } from "./pages/MyBeats";
+import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,11 @@ const App = () => (
             <Route path="/my-beats" element={
               <ProtectedRoute>
                 <MyBeats />
+              </ProtectedRoute>
+            } />
+            <Route path="/beat/:id" element={
+              <ProtectedRoute>
+                <BeatDetail />
               </ProtectedRoute>
             } />
             <Route path="/visit/:id" element={

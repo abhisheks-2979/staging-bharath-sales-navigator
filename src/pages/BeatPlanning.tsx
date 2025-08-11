@@ -55,26 +55,47 @@ export const BeatPlanning = () => {
   const loadBeats = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
+      // Get retailers with beat info
+      const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
-        .select('beat_id, priority')
+        .select('beat_id, beat_name, priority')
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (retailersError) throw retailersError;
 
-      const map = new Map<string, { count: number; priority: 'high' | 'medium' | 'low' }>();
-      (data || []).forEach((r: any) => {
+      // Get beat plans to get proper beat names
+      const { data: beatPlansData, error: beatPlansError } = await supabase
+        .from('beat_plans')
+        .select('beat_id, beat_name')
+        .eq('user_id', user.id);
+
+      if (beatPlansError) console.error('Error loading beat plans:', beatPlansError);
+
+      // Create a map of beat_id to beat_name from beat_plans
+      const beatNamesMap = new Map<string, string>();
+      (beatPlansData || []).forEach((plan: any) => {
+        if (plan.beat_name && plan.beat_name !== plan.beat_id) {
+          beatNamesMap.set(plan.beat_id, plan.beat_name);
+        }
+      });
+
+      const map = new Map<string, { count: number; priority: 'high' | 'medium' | 'low'; name: string }>();
+      (retailersData || []).forEach((r: any) => {
         const beatId = r.beat_id;
         if (!beatId || beatId === 'unassigned') return;
-        const current = map.get(beatId) || { count: 0, priority: 'medium' };
+        const current = map.get(beatId) || { count: 0, priority: 'medium', name: beatId };
         const pr = (r.priority as string | null)?.toLowerCase() as 'high' | 'medium' | 'low' | undefined;
         const priority = pr === 'high' ? 'high' : pr === 'low' ? (current.priority === 'high' ? 'high' : 'low') : current.priority;
-        map.set(beatId, { count: current.count + 1, priority });
+        
+        // Use beat name from beat_plans if available, otherwise use retailer beat_name, otherwise use beat_id
+        const beatName = beatNamesMap.get(beatId) || r.beat_name || beatId;
+        
+        map.set(beatId, { count: current.count + 1, priority, name: beatName });
       });
 
       const beatsArr: Beat[] = Array.from(map.entries()).map(([id, info]) => ({
         id,
-        name: id,
+        name: info.name,
         retailerCount: info.count,
         category: 'all',
         priority: info.priority,
