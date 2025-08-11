@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Users, CheckCircle, Save } from "lucide-react";
+import { MapPin, Users, CheckCircle, Save, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -224,8 +224,20 @@ export const BeatPlanning = () => {
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl font-bold">Plan My Visits</CardTitle>
-            <p className="text-primary-foreground/80">Select beats for your weekly visit schedule</p>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate('/visits/retailers')}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft size={20} />
+              </Button>
+              <div>
+                <CardTitle className="text-xl font-bold">Plan My Visits</CardTitle>
+                <p className="text-primary-foreground/80">Select beats for your weekly visit schedule</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {/* Weekly Calendar */}
