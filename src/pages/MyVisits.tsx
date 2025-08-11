@@ -561,12 +561,12 @@ export const MyVisits = () => {
                  className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all"
                >
                  <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                 <div className="text-sm text-primary/80 font-medium">Orders Placed</div>
+                 <div className="text-sm text-primary/80 font-medium">Productive (Orders Placed)</div>
                </button>
             </div>
             
             {/* Visit Status Grid */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => handleStatusClick("planned")}
                 className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
@@ -577,18 +577,6 @@ export const MyVisits = () => {
               >
                 <div className="text-xl font-bold">{plannedBeatsCount}</div>
                 <div className="text-xs font-medium opacity-80">Planned Beats</div>
-              </button>
-              
-              <button
-                onClick={() => handleStatusClick("productive")}
-                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
-                  statusFilter === "productive" 
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
-                    : "bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-150 border border-green-200"
-                }`}
-              >
-                <div className="text-xl font-bold">{productiveVisits}</div>
-                <div className="text-xs font-medium opacity-80">Productive</div>
               </button>
               
               <button
