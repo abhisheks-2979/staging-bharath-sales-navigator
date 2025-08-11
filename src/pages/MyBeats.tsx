@@ -157,9 +157,9 @@ export const MyBeats = () => {
   };
 
   const loadRetailersForCreateBeat = () => {
-    // Filter retailers that are not already assigned to a beat
+    // Filter retailers that are not already assigned to a beat or have beat_id as 'unassigned'
     const unassignedRetailers = allRetailers
-      .filter(retailer => !retailer.beat_id)
+      .filter(retailer => !retailer.beat_id || retailer.beat_id === 'unassigned')
       .map(retailer => ({ ...retailer, isSelected: false }));
     
     setRetailers(unassignedRetailers);
@@ -268,58 +268,53 @@ export const MyBeats = () => {
 
   return (
     <Layout>
-      <div className="p-4 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">My Beats</h1>
-            <p className="text-muted-foreground">Manage your sales territories and beats</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
-              onClick={handleAddBeats}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Calendar className="h-4 w-4" />
-              Add Beats to Plan
-            </Button>
-            <Button 
-              onClick={handleCreateBeat}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Create New Beat
-            </Button>
-          </div>
-        </div>
+      <div className="container mx-auto p-4 space-y-6">
+        {/* Header Section */}
+        <Card className="bg-gradient-primary text-primary-foreground">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-2xl font-bold">My Beats</CardTitle>
+                <p className="text-primary-foreground/80">Manage your sales territories and routes</p>
+              </div>
+              <Button 
+                onClick={handleCreateBeat}
+                variant="secondary"
+                className="flex items-center gap-2 bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+              >
+                <Plus className="h-4 w-4" />
+                Create New Beat
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
 
-        {/* Stats Cards */}
+        {/* Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
+          <Card className="text-center">
+            <CardContent className="p-4">
               <div className="text-2xl font-bold text-primary">{beats.length}</div>
               <div className="text-sm text-muted-foreground">Total Beats</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
+          <Card className="text-center">
+            <CardContent className="p-4">
               <div className="text-2xl font-bold text-green-600">
                 {beats.reduce((sum, beat) => sum + beat.retailer_count, 0)}
               </div>
               <div className="text-sm text-muted-foreground">Total Retailers</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
+          <Card className="text-center">
+            <CardContent className="p-4">
               <div className="text-2xl font-bold text-orange-600">
-                {allRetailers.filter(r => !r.beat_id).length}
+                {allRetailers.filter(r => !r.beat_id || r.beat_id === 'unassigned').length}
               </div>
               <div className="text-sm text-muted-foreground">Unassigned</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
+          <Card className="text-center">
+            <CardContent className="p-4">
               <div className="text-2xl font-bold text-blue-600">
                 {beats.length > 0 ? Math.round(beats.reduce((sum, beat) => sum + beat.retailer_count, 0) / beats.length) : 0}
               </div>
@@ -330,75 +325,95 @@ export const MyBeats = () => {
 
         {/* Beats Grid */}
         {beats.length === 0 ? (
-          <Card className="p-8 text-center">
-            <div className="space-y-4">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground" />
-              <div>
-                <h3 className="text-lg font-semibold">No beats created yet</h3>
-                <p className="text-muted-foreground">Create your first beat to organize your retailers</p>
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="space-y-4">
+                <Users className="h-16 w-16 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">No beats created yet</h3>
+                  <p className="text-muted-foreground mb-4">Create your first beat to organize your retailers into manageable routes</p>
+                </div>
+                <Button onClick={handleCreateBeat} className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Your First Beat
+                </Button>
               </div>
-              <Button onClick={handleCreateBeat} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Create Your First Beat
-              </Button>
-            </div>
+            </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {beats.map((beat) => (
-              <Card key={beat.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          Beat #{beat.beat_number}
-                        </Badge>
-                        {beat.category && (
-                          <Badge variant="outline" className="text-xs">
-                            {beat.category}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-lg font-semibold">Your Beats ({beats.length})</h2>
+              <Button 
+                onClick={handleAddBeats}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Add Beats to Plan
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {beats.map((beat) => (
+                <Card key={beat.id} className="hover:shadow-lg transition-all duration-200 hover:scale-105">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="default" className="text-xs font-semibold">
+                            Beat #{beat.beat_number}
                           </Badge>
-                        )}
+                          {beat.category && (
+                            <Badge variant="outline" className="text-xs">
+                              {beat.category}
+                            </Badge>
+                          )}
+                        </div>
+                        <CardTitle className="text-lg leading-tight">{beat.name}</CardTitle>
                       </div>
-                      <CardTitle className="text-lg">{beat.name}</CardTitle>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>{beat.retailer_count} retailers</span>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Beat Stats */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="font-medium">{beat.retailer_count}</span>
+                        <span className="text-muted-foreground">retailers</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-green-600" />
+                        <span className="text-muted-foreground text-xs">
+                          {beat.last_visited 
+                            ? new Date(beat.last_visited).toLocaleDateString()
+                            : 'Not visited'
+                          }
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>
-                        {beat.last_visited 
-                          ? new Date(beat.last_visited).toLocaleDateString()
-                          : 'Never visited'
-                        }
-                      </span>
+                    
+                    {/* Beat Actions */}
+                    <div className="flex flex-col gap-2 pt-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="w-full flex items-center justify-center gap-2"
+                        onClick={() => navigate(`/beat/${beat.id}`)}
+                      >
+                        <BarChart className="h-4 w-4" />
+                        View Beat Details
+                      </Button>
                     </div>
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground">
-                    Created: {new Date(beat.created_at).toLocaleDateString()}
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="flex-1"
-                      onClick={() => navigate(`/beat/${beat.id}`)}
-                    >
-                      <BarChart className="h-3 w-3 mr-1" />
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    
+                    {/* Creation Date */}
+                    <div className="text-xs text-muted-foreground pt-2 border-t">
+                      Created: {new Date(beat.created_at).toLocaleDateString()}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
 

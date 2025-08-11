@@ -536,15 +536,15 @@ export const MyVisits = () => {
                 <TrendingUp size={16} className="mr-1" />
                 Beat Analytics
                </Button>
-               <Button 
-                 variant="secondary" 
-                 size="sm"
-                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                 onClick={() => navigate('/add-beat')}
-               >
-                 <Plus size={16} className="mr-1" />
-                 Add Beat
-               </Button>
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                  onClick={() => navigate('/my-beats')}
+                >
+                  <Plus size={16} className="mr-1" />
+                  Add Beat
+                </Button>
              </div>
              <div className="grid grid-cols-1">
                <Button 
