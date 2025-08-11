@@ -545,9 +545,11 @@ export const MyVisits = () => {
                   key={dayInfo.day}
                   onClick={() => handleDayChange(dayInfo.day)}
                   className={`relative p-2 rounded-lg text-center transition-colors ${
-                    dayInfo.isToday || selectedDay === dayInfo.day
+                    selectedDay === dayInfo.day
                       ? 'bg-primary-foreground text-primary'
-                      : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'
+                      : dayInfo.isToday 
+                        ? 'bg-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/40'
+                        : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'
                   }`}
                 >
                   <div className="text-xs font-medium">{dayInfo.day}</div>
