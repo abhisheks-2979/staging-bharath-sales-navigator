@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
-import { Calendar, FileText, Plus, TrendingUp, Route, CheckCircle } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays } from "lucide-react";
+import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 interface Visit {
   id: string;
@@ -103,23 +107,21 @@ const mockVisits: Visit[] = [
   }
 ];
 
-const getWeekDays = () => {
+const getWeekDays = (selectedWeekStart: Date) => {
+  const startOfSelectedWeek = startOfWeek(selectedWeekStart, { weekStartsOn: 0 }); // Start from Sunday
   const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
   
   const weekDays = [];
   for (let i = 0; i < 7; i++) {
-    const day = new Date(startOfWeek);
-    day.setDate(startOfWeek.getDate() + i);
-    
-    const isToday = day.toDateString() === new Date().toDateString();
+    const day = addDays(startOfSelectedWeek, i);
+    const isToday = isSameDay(day, today);
     
     weekDays.push({
-      day: day.toLocaleDateString('en-US', { weekday: 'short' }),
+      day: format(day, 'EEE'),
       date: day.getDate().toString(),
       isToday: isToday,
-      isoDate: day.toISOString().split('T')[0]
+      isoDate: format(day, 'yyyy-MM-dd'),
+      fullDate: day
     });
   }
   return weekDays;
@@ -130,11 +132,13 @@ export const MyVisits = () => {
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [weekDays, setWeekDays] = useState(getWeekDays());
+  const [selectedWeek, setSelectedWeek] = useState(new Date()); // Current week start
+  const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
   const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
   const [currentBeatName, setCurrentBeatName] = useState("No beats planned");
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
   const { user } = useAuth();
 
   // Initialize selected day to today
@@ -145,6 +149,11 @@ export const MyVisits = () => {
       setSelectedDate(today.isoDate);
     }
   }, [weekDays, selectedDay]);
+
+  // Update week days when selected week changes
+  useEffect(() => {
+    setWeekDays(getWeekDays(selectedWeek));
+  }, [selectedWeek]);
 
   // Load beat plans and retailers when user or date changes
   useEffect(() => {
@@ -301,6 +310,35 @@ export const MyVisits = () => {
     }
   };
 
+  const handleCalendarSelect = (date: Date | undefined) => {
+    if (!date) return;
+    
+    setCalendarDate(date);
+    const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+    setSelectedWeek(weekStart);
+    
+    // Set the selected day to the picked date
+    const newWeekDays = getWeekDays(weekStart);
+    const selectedDayInfo = newWeekDays.find(d => isSameDay(d.fullDate, date));
+    if (selectedDayInfo) {
+      setSelectedDay(selectedDayInfo.day);
+      setSelectedDate(selectedDayInfo.isoDate);
+    }
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const newWeek = direction === 'prev' ? subWeeks(selectedWeek, 1) : addWeeks(selectedWeek, 1);
+    setSelectedWeek(newWeek);
+    setCalendarDate(newWeek);
+    
+    // Keep the same day of week if possible, otherwise select the first day
+    const newWeekDays = getWeekDays(newWeek);
+    const sameWeekdayIndex = weekDays.findIndex(d => d.day === selectedDay);
+    const targetDay = newWeekDays[sameWeekdayIndex] || newWeekDays[0];
+    setSelectedDay(targetDay.day);
+    setSelectedDate(targetDay.isoDate);
+  };
+
   // Show visits for selected date based on planned beats
   const allVisits = retailers;
 
@@ -338,6 +376,60 @@ export const MyVisits = () => {
             <p className="text-primary-foreground/80">Manage your daily visit schedule</p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Calendar Selector */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20",
+                        !calendarDate && "text-primary-foreground/50"
+                      )}
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {calendarDate ? format(calendarDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={calendarDate}
+                      onSelect={handleCalendarSelect}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateWeek('prev')}
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                >
+                  ←
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateWeek('next')}
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                >
+                  →
+                </Button>
+              </div>
+            </div>
+            
+            {/* Week Display */}
+            <div className="text-center mb-4">
+              <p className="text-primary-foreground/80 text-sm">
+                Week of {format(selectedWeek, "MMMM d, yyyy")}
+              </p>
+            </div>
+
             {/* Weekly Calendar */}
             <div className="grid grid-cols-7 gap-2">
               {weekDays.map((dayInfo) => (
@@ -489,7 +581,7 @@ export const MyVisits = () => {
           {filteredVisits.length === 0 ? (
             <Card className="shadow-card">
               <CardContent className="p-8 text-center">
-                <Calendar size={48} className="mx-auto text-muted-foreground mb-4" />
+                <CalendarIcon size={48} className="mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-semibold text-muted-foreground mb-2">No visits found</h3>
                 <p className="text-sm text-muted-foreground">
                   Try adjusting your search or create a new visit
