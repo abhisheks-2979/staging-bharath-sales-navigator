@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Gift, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3 } from 'lucide-react';
 
 interface ProductCategory {
   id: string;
@@ -50,17 +50,33 @@ interface ProductScheme {
   end_date: string;
 }
 
+interface ProductVariant {
+  id: string;
+  product_id: string;
+  variant_name: string;
+  sku: string;
+  price: number;
+  stock_quantity: number;
+  discount_percentage: number;
+  discount_amount: number;
+  is_active: boolean;
+}
+
 const ProductManagement = () => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [schemes, setSchemes] = useState<ProductScheme[]>([]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
 
   // Dialog states
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [isSchemeDialogOpen, setIsSchemeDialogOpen] = useState(false);
+  const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
+  const [isVariantsViewOpen, setIsVariantsViewOpen] = useState(false);
 
   // Form states
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '', description: '' });
@@ -90,6 +106,18 @@ const [productForm, setProductForm] = useState({
     start_date: '',
     end_date: ''
   });
+  
+  const [variantForm, setVariantForm] = useState({
+    id: '',
+    product_id: '',
+    variant_name: '',
+    sku: '',
+    price: 0,
+    stock_quantity: 0,
+    discount_percentage: 0,
+    discount_amount: 0,
+    is_active: true
+  });
 
   useEffect(() => {
     fetchData();
@@ -98,7 +126,7 @@ const [productForm, setProductForm] = useState({
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCategories(), fetchProducts(), fetchSchemes()]);
+      await Promise.all([fetchCategories(), fetchProducts(), fetchSchemes(), fetchVariants()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
@@ -141,6 +169,90 @@ const [productForm, setProductForm] = useState({
     
     if (error) throw error;
     setSchemes(data || []);
+  };
+
+  const fetchVariants = async () => {
+    const { data, error } = await supabase
+      .from('product_variants')
+      .select('*')
+      .order('variant_name');
+    
+    if (error) throw error;
+    setVariants(data || []);
+  };
+
+  const handleVariantSubmit = async () => {
+    try {
+      if (variantForm.id) {
+        const { error } = await supabase
+          .from('product_variants')
+          .update({
+            product_id: variantForm.product_id,
+            variant_name: variantForm.variant_name,
+            sku: variantForm.sku,
+            price: variantForm.price,
+            stock_quantity: variantForm.stock_quantity,
+            discount_percentage: variantForm.discount_percentage,
+            discount_amount: variantForm.discount_amount,
+            is_active: variantForm.is_active
+          })
+          .eq('id', variantForm.id);
+        
+        if (error) throw error;
+        toast.success('Variant updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('product_variants')
+          .insert({
+            product_id: variantForm.product_id,
+            variant_name: variantForm.variant_name,
+            sku: variantForm.sku,
+            price: variantForm.price,
+            stock_quantity: variantForm.stock_quantity,
+            discount_percentage: variantForm.discount_percentage,
+            discount_amount: variantForm.discount_amount,
+            is_active: variantForm.is_active
+          });
+        
+        if (error) throw error;
+        toast.success('Variant created successfully');
+      }
+      
+      setIsVariantDialogOpen(false);
+      setVariantForm({
+        id: '',
+        product_id: '',
+        variant_name: '',
+        sku: '',
+        price: 0,
+        stock_quantity: 0,
+        discount_percentage: 0,
+        discount_amount: 0,
+        is_active: true
+      });
+      fetchVariants();
+    } catch (error) {
+      console.error('Error saving variant:', error);
+      toast.error('Failed to save variant');
+    }
+  };
+
+  const handleDeleteVariant = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this variant?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('product_variants')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast.success('Variant deleted successfully');
+      fetchVariants();
+    } catch (error) {
+      console.error('Error deleting variant:', error);
+      toast.error('Failed to delete variant');
+    }
   };
 
   const handleCategorySubmit = async () => {
@@ -561,6 +673,7 @@ setProductForm({
                     <TableHead>Rate</TableHead>
                     <TableHead>Unit</TableHead>
                     <TableHead>Stock</TableHead>
+                    <TableHead>Variants</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -574,6 +687,23 @@ setProductForm({
                       <TableCell>₹{product.rate}</TableCell>
                       <TableCell>{product.unit}</TableCell>
                       <TableCell>{product.closing_stock}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {variants.filter(v => v.product_id === product.id).length} variants
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedProductForVariants(product.id);
+                              setIsVariantsViewOpen(true);
+                            }}
+                          >
+                            <Grid3X3 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={product.is_active ? 'default' : 'secondary'}>
                           {product.is_active ? 'Active' : 'Inactive'}
@@ -963,6 +1093,226 @@ setProductForm({
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Product Variants Management Dialog */}
+      <Dialog open={isVariantsViewOpen} onOpenChange={setIsVariantsViewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Grid3X3 className="h-5 w-5" />
+              Product Variants
+              {selectedProductForVariants && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  - {products.find(p => p.id === selectedProductForVariants)?.name}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Manage variants for the selected product with different sizes, prices, and stock
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={isVariantDialogOpen} onOpenChange={setIsVariantDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    onClick={() => setVariantForm({
+                      id: '',
+                      product_id: selectedProductForVariants,
+                      variant_name: '',
+                      sku: '',
+                      price: 0,
+                      stock_quantity: 0,
+                      discount_percentage: 0,
+                      discount_amount: 0,
+                      is_active: true
+                    })}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Variant
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>{variantForm.id ? 'Edit Variant' : 'Add New Variant'}</DialogTitle>
+                    <DialogDescription>
+                      {variantForm.id ? 'Update variant details' : 'Create a new product variant'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="variantName">Variant Name</Label>
+                      <Input
+                        id="variantName"
+                        value={variantForm.variant_name}
+                        onChange={(e) => setVariantForm({ ...variantForm, variant_name: e.target.value })}
+                        placeholder="e.g., 1kg, 5kg bag, Large"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variantSku">SKU</Label>
+                      <Input
+                        id="variantSku"
+                        value={variantForm.sku}
+                        onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                        placeholder="Unique SKU for this variant"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variantPrice">Price (₹)</Label>
+                      <Input
+                        id="variantPrice"
+                        type="number"
+                        value={variantForm.price}
+                        onChange={(e) => setVariantForm({ ...variantForm, price: parseFloat(e.target.value) || 0 })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="variantStock">Stock Quantity</Label>
+                      <Input
+                        id="variantStock"
+                        type="number"
+                        value={variantForm.stock_quantity}
+                        onChange={(e) => setVariantForm({ ...variantForm, stock_quantity: parseInt(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="discountPerc">Discount %</Label>
+                        <Input
+                          id="discountPerc"
+                          type="number"
+                          value={variantForm.discount_percentage}
+                          onChange={(e) => setVariantForm({ ...variantForm, discount_percentage: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="discountAmt">Discount Amount (₹)</Label>
+                        <Input
+                          id="discountAmt"
+                          type="number"
+                          value={variantForm.discount_amount}
+                          onChange={(e) => setVariantForm({ ...variantForm, discount_amount: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="variantActive"
+                        checked={variantForm.is_active}
+                        onCheckedChange={(checked) => setVariantForm({ ...variantForm, is_active: checked })}
+                      />
+                      <Label htmlFor="variantActive">Active</Label>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsVariantDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleVariantSubmit}>
+                      {variantForm.id ? 'Update' : 'Create'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Variant Name</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Discounts</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {variants
+                  .filter(variant => variant.product_id === selectedProductForVariants)
+                  .map((variant) => (
+                    <TableRow key={variant.id}>
+                      <TableCell className="font-medium">{variant.variant_name}</TableCell>
+                      <TableCell className="font-mono">{variant.sku}</TableCell>
+                      <TableCell>₹{variant.price}</TableCell>
+                      <TableCell>{variant.stock_quantity}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {variant.discount_percentage > 0 && (
+                            <div>{variant.discount_percentage}% off</div>
+                          )}
+                          {variant.discount_amount > 0 && (
+                            <div>₹{variant.discount_amount} off</div>
+                          )}
+                          {variant.discount_percentage === 0 && variant.discount_amount === 0 && (
+                            <span className="text-muted-foreground">No discount</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={variant.is_active ? 'default' : 'secondary'}>
+                          {variant.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setVariantForm({
+                                id: variant.id,
+                                product_id: variant.product_id,
+                                variant_name: variant.variant_name,
+                                sku: variant.sku,
+                                price: variant.price,
+                                stock_quantity: variant.stock_quantity,
+                                discount_percentage: variant.discount_percentage,
+                                discount_amount: variant.discount_amount,
+                                is_active: variant.is_active
+                              });
+                              setIsVariantDialogOpen(true);
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteVariant(variant.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+            
+            {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No variants created yet</p>
+                <p className="text-sm">Create variants to manage different sizes and pricing</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsVariantsViewOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

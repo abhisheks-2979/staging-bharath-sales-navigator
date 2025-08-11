@@ -611,6 +611,56 @@ export type Database = {
           },
         ]
       }
+      product_variants: {
+        Row: {
+          created_at: string
+          discount_amount: number | null
+          discount_percentage: number | null
+          id: string
+          is_active: boolean | null
+          price: number
+          product_id: string
+          sku: string
+          stock_quantity: number
+          updated_at: string
+          variant_name: string
+        }
+        Insert: {
+          created_at?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          is_active?: boolean | null
+          price?: number
+          product_id: string
+          sku: string
+          stock_quantity?: number
+          updated_at?: string
+          variant_name: string
+        }
+        Update: {
+          created_at?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          is_active?: boolean | null
+          price?: number
+          product_id?: string
+          sku?: string
+          stock_quantity?: number
+          updated_at?: string
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string | null
