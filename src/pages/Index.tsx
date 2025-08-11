@@ -26,6 +26,7 @@ import { Layout } from "@/components/Layout";
 import { useState, useEffect } from "react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const motivationalQuotes = [
   "Success is not final, failure is not fatal: it is the courage to continue that counts.",
@@ -45,13 +46,89 @@ const motivationalQuotes = [
 
 const Index = () => {
   const [currentQuote, setCurrentQuote] = useState("");
+  const [monthlyStats, setMonthlyStats] = useState({
+    newRetailers: 0,
+    checkIns: 0,
+    productiveVisits: "0%",
+    revenue: "₹0"
+  });
   const { isInstallable, installApp } = usePWAInstall();
   const { userProfile } = useAuth();
 
   useEffect(() => {
     const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
     setCurrentQuote(randomQuote);
-  }, []);
+    
+    // Fetch monthly statistics when user profile is available
+    if (userProfile?.id) {
+      fetchMonthlyStats();
+    }
+  }, [userProfile]);
+
+  const fetchMonthlyStats = async () => {
+    if (!userProfile?.id) return;
+
+    try {
+      // Get current month date range
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      // Fetch new retailers count
+      const { count: retailersCount } = await supabase
+        .from('retailers')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userProfile.id)
+        .gte('created_at', firstDay)
+        .lte('created_at', `${lastDay}T23:59:59.999Z`);
+
+      // Fetch check-ins count
+      const { count: checkInsCount } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userProfile.id)
+        .gte('date', firstDay)
+        .lte('date', lastDay)
+        .not('check_in_time', 'is', null);
+
+      // Fetch total visits and completed visits
+      const { data: allVisits } = await supabase
+        .from('visits')
+        .select('status')
+        .eq('user_id', userProfile.id)
+        .gte('created_at', firstDay)
+        .lte('created_at', `${lastDay}T23:59:59.999Z`);
+
+      const totalVisits = allVisits?.length || 0;
+      const completedVisits = allVisits?.filter(visit => visit.status === 'completed').length || 0;
+      const productiveVisitsPercentage = totalVisits > 0 ? Math.round((completedVisits / totalVisits) * 100) : 0;
+
+      // Fetch revenue from orders
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('user_id', userProfile.id)
+        .gte('created_at', firstDay)
+        .lte('created_at', `${lastDay}T23:59:59.999Z`);
+
+      const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      const formattedRevenue = totalRevenue >= 100000 
+        ? `₹${(totalRevenue / 100000).toFixed(1)}L`
+        : totalRevenue >= 1000 
+        ? `₹${(totalRevenue / 1000).toFixed(1)}K`
+        : `₹${totalRevenue}`;
+
+      setMonthlyStats({
+        newRetailers: retailersCount || 0,
+        checkIns: checkInsCount || 0,
+        productiveVisits: `${productiveVisitsPercentage}%`,
+        revenue: formattedRevenue
+      });
+
+    } catch (error) {
+      console.error('Error fetching monthly stats:', error);
+    }
+  };
 
   type NavigationItem = {
     icon: any;
@@ -126,25 +203,25 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
             <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
               <CardContent className="p-2 sm:p-3 text-center">
-                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600 mb-1">15</div>
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600 mb-1">{monthlyStats.newRetailers}</div>
                 <div className="text-[10px] sm:text-xs text-blue-700 font-medium leading-tight">New Retailers (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
               <CardContent className="p-2 sm:p-3 text-center">
-                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600 mb-1">142</div>
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600 mb-1">{monthlyStats.checkIns}</div>
                 <div className="text-[10px] sm:text-xs text-green-700 font-medium leading-tight">Check-ins (This Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
               <CardContent className="p-2 sm:p-3 text-center">
-                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 mb-1">89%</div>
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 mb-1">{monthlyStats.productiveVisits}</div>
                 <div className="text-[10px] sm:text-xs text-purple-700 font-medium leading-tight">Productive Visits (Current Month)</div>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border-orange-200 shadow-lg">
               <CardContent className="p-2 sm:p-3 text-center">
-                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-orange-600 mb-1">₹1.2L</div>
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-orange-600 mb-1">{monthlyStats.revenue}</div>
                 <div className="text-[10px] sm:text-xs text-orange-700 font-medium leading-tight">Revenue (This Month)</div>
               </CardContent>
             </Card>
