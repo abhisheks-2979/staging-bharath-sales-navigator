@@ -83,7 +83,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           const retailerId = visit.retailerId || visit.id;
           const { data: visitData } = await supabase
             .from('visits')
-            .select('check_in_time, check_out_time, status')
+            .select('id, check_in_time, check_out_time, status')
             .eq('user_id', user.user.id)
             .eq('retailer_id', retailerId)
             .eq('planned_date', today)
@@ -120,6 +120,13 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
           if (ordersToday && ordersToday.length > 0) {
             setHasOrderToday(true);
+            // If an order exists and visit is checked in, automatically mark as productive
+            if (visitData?.check_in_time && visitData.status === 'in-progress') {
+              await supabase
+                .from('visits')
+                .update({ status: 'productive' })
+                .eq('id', visitData.id);
+            }
           }
         }
       } catch (error) {
@@ -129,6 +136,56 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
     checkStatus();
   }, [visit.id, visit.retailerId]);
+
+  // Set up real-time listener for orders to automatically update visit status
+  useEffect(() => {
+    const setupListener = async () => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const retailerId = visit.retailerId || visit.id;
+      const channel = supabase
+        .channel('order-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'orders',
+            filter: `retailer_id=eq.${retailerId}`
+          },
+          async (payload) => {
+            // When an order is placed, automatically mark visit as productive if checked in
+            const today = new Date().toISOString().split('T')[0];
+            const { data: userData } = await supabase.auth.getUser();
+            if (userData.user) {
+              const { data: visitData } = await supabase
+                .from('visits')
+                .select('id, status, check_in_time')
+                .eq('user_id', userData.user.id)
+                .eq('retailer_id', retailerId)
+                .eq('planned_date', today)
+                .maybeSingle();
+
+              if (visitData?.check_in_time && visitData.status === 'in-progress') {
+                await supabase
+                  .from('visits')
+                  .update({ status: 'productive' })
+                  .eq('id', visitData.id);
+              }
+              setHasOrderToday(true);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupListener();
+  }, [visit.retailerId, visit.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -345,6 +402,26 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         fileInputRef.current?.click();
 
       } else if (action === 'checkout') {
+        // Check if there are orders today for this retailer to determine final status
+        const today = new Date().toISOString().split('T')[0];
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const { data: ordersToday } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('retailer_id', visit.retailerId || visit.id)
+          .eq('status', 'confirmed')
+          .gte('created_at', todayStart.toISOString())
+          .lte('created_at', todayEnd.toISOString())
+          .limit(1);
+
+        // Determine final status based on orders
+        const finalStatus = (ordersToday && ordersToday.length > 0) ? 'productive' : 'unproductive';
+
         // Update visits table
         const { error } = await supabase
           .from('visits')
@@ -353,7 +430,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             check_out_location: current,
             check_out_address: address,
             location_match_out: match,
-            status: 'completed'
+            status: finalStatus
           })
           .eq('id', visitId);
         if (error) throw error;
