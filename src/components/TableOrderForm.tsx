@@ -24,12 +24,23 @@ interface Product {
     condition_quantity: number;
     discount_percentage: number;
   }[];
+  variants?: {
+    id: string;
+    variant_name: string;
+    sku: string;
+    price: number;
+    stock_quantity: number;
+    discount_amount: number;
+    discount_percentage: number;
+    is_active: boolean;
+  }[];
 }
 
 interface OrderRow {
   id: string;
   productCode: string;
   product?: Product;
+  variant?: any;
   quantity: number;
   closingStock: number;
   total: number;
@@ -81,7 +92,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         .select(`
           *,
           category:product_categories(name),
-          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage)
+          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage),
+          variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
         `)
         .eq('is_active', true);
       
@@ -99,8 +111,24 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
     }
   };
 
-  const findProductByCode = (code: string): Product | undefined => {
-    return products.find(p => p.sku.toLowerCase() === code.toLowerCase());
+  const findProductByCode = (code: string): { product: Product; variant?: any } | undefined => {
+    // First check base products
+    const baseProduct = products.find(p => p.sku.toLowerCase() === code.toLowerCase());
+    if (baseProduct) {
+      return { product: baseProduct };
+    }
+    
+    // Then check variants
+    for (const product of products) {
+      if (product.variants) {
+        const variant = product.variants.find(v => v.sku.toLowerCase() === code.toLowerCase() && v.is_active);
+        if (variant) {
+          return { product, variant };
+        }
+      }
+    }
+    
+    return undefined;
   };
 
   const addNewRow = () => {
@@ -119,9 +147,21 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   };
 
   const updateRow = (id: string, field: keyof OrderRow, value: any) => {
-    const computeTotal = (prod?: Product, qty?: number) => {
+    const computeTotal = (prod?: Product, variant?: any, qty?: number) => {
       if (!prod || !qty) return 0;
-      const base = Number(prod.rate) * Number(qty);
+      
+      let price = variant ? variant.price : prod.rate;
+      
+      // Apply variant discount if applicable
+      if (variant) {
+        if (variant.discount_percentage > 0) {
+          price = price - (price * variant.discount_percentage / 100);
+        } else if (variant.discount_amount > 0) {
+          price = price - variant.discount_amount;
+        }
+      }
+      
+      const base = Number(price) * Number(qty);
       const active = prod.schemes?.find(s => s.is_active);
       if (active && active.condition_quantity && active.discount_percentage && qty >= active.condition_quantity) {
         return base - (base * (Number(active.discount_percentage) / 100));
@@ -133,12 +173,20 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       if (row.id === id) {
         const updatedRow: OrderRow = { ...row, [field]: value } as OrderRow;
         if (field === "productCode") {
-          const product = findProductByCode(value);
-          updatedRow.product = product;
-          updatedRow.closingStock = product?.closing_stock || 0;
-          updatedRow.total = computeTotal(product, updatedRow.quantity);
+          const result = findProductByCode(value);
+          if (result) {
+            updatedRow.product = result.product;
+            updatedRow.variant = result.variant;
+            updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
+            updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity);
+          } else {
+            updatedRow.product = undefined;
+            updatedRow.variant = undefined;
+            updatedRow.closingStock = 0;
+            updatedRow.total = 0;
+          }
         } else if (field === "quantity") {
-          updatedRow.total = computeTotal(row.product, value);
+          updatedRow.total = computeTotal(row.product, row.variant, value);
         }
         return updatedRow;
       }
@@ -158,11 +206,21 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       return;
     }
 
-    const cartItems = validRows.map(row => ({
-      ...row.product!,
-      quantity: row.quantity,
-      total: row.total
-    }));
+    const cartItems = validRows.map(row => {
+      const baseProduct = {
+        ...row.product!,
+        rate: row.variant ? row.variant.price : row.product!.rate,
+        name: row.variant ? `${row.product!.name} - ${row.variant.variant_name}` : row.product!.name,
+        sku: row.variant ? row.variant.sku : row.product!.sku,
+        closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
+      };
+      
+      return {
+        ...baseProduct,
+        quantity: row.quantity,
+        total: row.total
+      };
+    });
 
     onCartUpdate(cartItems);
     
@@ -234,7 +292,9 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                       {row.product ? (
                         <div className="space-y-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-xs font-medium">{row.product.name}</span>
+                            <span className="text-xs font-medium">
+                              {row.variant ? `${row.product.name} - ${row.variant.variant_name}` : row.product.name}
+                            </span>
                             {hasActiveSchemes(row.product) && (
                               <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] px-1 py-0">
                                 <Gift size={8} className="mr-0.5" />
@@ -243,7 +303,17 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             )}
                           </div>
                           <div className="text-[10px] text-muted-foreground">
-                            ₹{row.product.rate}/{row.product.unit}
+                            ₹{row.variant ? row.variant.price : row.product.rate}/{row.product.unit}
+                            {row.variant && (row.variant.discount_percentage > 0 || row.variant.discount_amount > 0) && (
+                              <span className="text-green-600 ml-1">
+                                (Discounted: ₹{row.variant.discount_percentage > 0 
+                                  ? (row.variant.price - (row.variant.price * row.variant.discount_percentage / 100)).toFixed(2)
+                                  : (row.variant.price - row.variant.discount_amount).toFixed(2)})
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-blue-600 font-mono">
+                            SKU: {row.variant ? row.variant.sku : row.product.sku}
                           </div>
                           {hasActiveSchemes(row.product) && (
                             <div className="text-[10px] text-orange-600 bg-orange-50 p-1 rounded">

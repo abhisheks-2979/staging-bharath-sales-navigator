@@ -37,6 +37,10 @@ interface GridProduct {
   schemeConditionQuantity?: number;
   schemeDiscountPercentage?: number;
   closingStock?: number;
+  isVariant?: boolean;
+  variantId?: string;
+  originalProductId?: string;
+  sku?: string;
 }
 
 
@@ -108,15 +112,18 @@ useEffect(() => {
         supabase.from('products').select(`
           *,
           category:product_categories(name),
-          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage)
+          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage),
+          variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
         `).eq('is_active', true).order('name')
       ]);
 
       setCategories(["All", ...((catRes.data || []).map((c: any) => c.name))]);
 
-      const mapped: GridProduct[] = (prodRes.data || []).map((p: any) => {
+      const mapped: GridProduct[] = [];
+      
+      (prodRes.data || []).forEach((p: any) => {
         const active = (p.schemes || []).find((s: any) => s.is_active);
-        return {
+        const baseProduct = {
           id: p.id,
           name: p.name,
           category: p.category?.name || 'Uncategorized',
@@ -128,6 +135,39 @@ useEffect(() => {
           schemeDiscountPercentage: active?.discount_percentage != null ? Number(active.discount_percentage) : undefined,
           closingStock: p.closing_stock
         };
+
+        // Add base product
+        mapped.push(baseProduct);
+
+        // Add variants as separate products
+        if (p.variants && p.variants.length > 0) {
+          p.variants.forEach((variant: any) => {
+            if (variant.is_active) {
+              const variantPrice = variant.discount_percentage > 0 
+                ? variant.price - (variant.price * variant.discount_percentage / 100)
+                : variant.discount_amount > 0 
+                  ? variant.price - variant.discount_amount
+                  : variant.price;
+              
+              mapped.push({
+                id: `${p.id}_variant_${variant.id}`,
+                name: `${p.name} - ${variant.variant_name}`,
+                category: p.category?.name || 'Uncategorized',
+                rate: variantPrice,
+                unit: p.unit,
+                hasScheme: !!active,
+                schemeDetails: active ? `Buy ${active.condition_quantity}+ ${p.unit}s, get ${active.discount_percentage}% off` : undefined,
+                schemeConditionQuantity: active?.condition_quantity ?? undefined,
+                schemeDiscountPercentage: active?.discount_percentage != null ? Number(active.discount_percentage) : undefined,
+                closingStock: variant.stock_quantity,
+                isVariant: true,
+                variantId: variant.id,
+                originalProductId: p.id,
+                sku: variant.sku
+              });
+            }
+          });
+        }
       });
       setProducts(mapped);
     } catch (error) {
@@ -317,6 +357,9 @@ const filteredProducts = selectedCategory === "All"
                   <div className="flex-1">
                     <h3 className="font-semibold text-sm">{product.name}</h3>
                     <p className="text-xs text-muted-foreground">{product.category}</p>
+                    {product.sku && (
+                      <p className="text-xs text-blue-600 font-mono">SKU: {product.sku}</p>
+                    )}
                     <p className="text-base font-bold text-primary">₹{product.rate}/{product.unit}</p>
                   </div>
                   <Package size={16} className="text-muted-foreground" />
