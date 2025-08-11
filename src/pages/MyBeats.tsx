@@ -63,6 +63,49 @@ export const MyBeats = () => {
     }
   }, [user]);
 
+  // Set up real-time updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('beats-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'retailers',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Retailer updated, reloading beats:', payload);
+          // Reload beats and retailers when any retailer is updated
+          loadBeats();
+          loadAllRetailers();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'beat_plans',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Beat plan updated, reloading beats:', payload);
+          // Reload when beat plans are updated
+          loadBeats();
+          loadAllRetailers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const loadBeats = async () => {
     if (!user) return;
     
@@ -157,11 +200,17 @@ export const MyBeats = () => {
   };
 
   const loadRetailersForCreateBeat = () => {
-    // Filter retailers that are not already assigned to a beat or have beat_id as 'unassigned'
+    console.log('Loading retailers for create beat. All retailers:', allRetailers.length);
+    // Filter retailers that are not already assigned to a beat or have beat_id as null/undefined
     const unassignedRetailers = allRetailers
-      .filter(retailer => !retailer.beat_id || retailer.beat_id === 'unassigned')
+      .filter(retailer => {
+        const isUnassigned = !retailer.beat_id || retailer.beat_id === 'unassigned' || retailer.beat_id === '';
+        console.log(`Retailer ${retailer.name}: beat_id=${retailer.beat_id}, isUnassigned=${isUnassigned}`);
+        return isUnassigned;
+      })
       .map(retailer => ({ ...retailer, isSelected: false }));
     
+    console.log('Unassigned retailers:', unassignedRetailers.length);
     setRetailers(unassignedRetailers);
     setSelectedRetailers(new Set());
   };
@@ -456,9 +505,11 @@ export const MyBeats = () => {
 
                 {filteredRetailers.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    {allRetailers.filter(r => !r.beat_id).length === 0 
+                    {allRetailers.filter(r => !r.beat_id || r.beat_id === 'unassigned' || r.beat_id === '').length === 0 
                       ? "All retailers are already assigned to beats"
-                      : "No retailers found matching your search"
+                      : searchTerm 
+                        ? "No retailers found matching your search"
+                        : "No unassigned retailers found"
                     }
                   </div>
                 ) : (
