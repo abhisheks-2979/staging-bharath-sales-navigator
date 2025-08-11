@@ -1,0 +1,528 @@
+import { useState, useEffect } from "react";
+import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { SearchInput } from "@/components/SearchInput";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Layout } from "@/components/Layout";
+import { RetailerAnalytics } from "@/components/RetailerAnalytics";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+
+interface Beat {
+  id: string;
+  beat_number: number;
+  name: string;
+  retailer_count: number;
+  total_retailers: number;
+  last_visited?: string;
+  created_at: string;
+  category?: string;
+  priority?: string;
+}
+
+interface Retailer {
+  id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  category?: string;
+  beat_id?: string;
+  isSelected?: boolean;
+  metrics?: {
+    monthly_sales: number;
+    last_order_date: string;
+    total_orders: number;
+  };
+}
+
+export const MyBeats = () => {
+  const [beats, setBeats] = useState<Beat[]>([]);
+  const [retailers, setRetailers] = useState<Retailer[]>([]);
+  const [allRetailers, setAllRetailers] = useState<Retailer[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateBeatOpen, setIsCreateBeatOpen] = useState(false);
+  const [beatName, setBeatName] = useState("");
+  const [selectedRetailers, setSelectedRetailers] = useState<Set<string>>(new Set());
+  const [selectedAnalyticsRetailer, setSelectedAnalyticsRetailer] = useState<Retailer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      loadBeats();
+      loadAllRetailers();
+    }
+  }, [user]);
+
+  const loadBeats = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      
+      // Get beats with retailer counts
+      const { data: beatsData, error: beatsError } = await supabase
+        .from('retailers')
+        .select('beat_id, beat_name, category, created_at')
+        .eq('user_id', user.id)
+        .not('beat_id', 'is', null)
+        .not('beat_name', 'is', null);
+
+      if (beatsError) throw beatsError;
+
+      // Group by beat and calculate counts
+      const beatMap = new Map<string, any>();
+      
+      (beatsData || []).forEach((item) => {
+        const beatId = item.beat_id;
+        const beatName = item.beat_name;
+        
+        if (!beatMap.has(beatId)) {
+          beatMap.set(beatId, {
+            id: beatId,
+            name: beatName,
+            retailer_count: 0,
+            category: item.category,
+            created_at: item.created_at,
+            retailers: []
+          });
+        }
+        
+        beatMap.get(beatId).retailer_count += 1;
+      });
+
+      // Convert to array and add beat numbers
+      const beatsArray = Array.from(beatMap.values())
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .map((beat, index) => ({
+          ...beat,
+          beat_number: index + 1,
+          total_retailers: beat.retailer_count
+        }));
+
+      setBeats(beatsArray);
+    } catch (error) {
+      console.error('Error loading beats:', error);
+      toast.error('Failed to load beats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllRetailers = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('retailers')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+
+      if (error) throw error;
+
+      const retailersWithMetrics = (data || []).map(retailer => ({
+        id: retailer.id,
+        name: retailer.name,
+        address: retailer.address,
+        phone: retailer.phone,
+        category: retailer.category,
+        beat_id: retailer.beat_id,
+        isSelected: false,
+        metrics: {
+          monthly_sales: Math.floor(Math.random() * 50000) + 10000,
+          last_order_date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          total_orders: Math.floor(Math.random() * 20) + 5
+        }
+      }));
+
+      setAllRetailers(retailersWithMetrics);
+    } catch (error) {
+      console.error('Error loading retailers:', error);
+      toast.error('Failed to load retailers');
+    }
+  };
+
+  const loadRetailersForCreateBeat = () => {
+    // Filter retailers that are not already assigned to a beat
+    const unassignedRetailers = allRetailers
+      .filter(retailer => !retailer.beat_id)
+      .map(retailer => ({ ...retailer, isSelected: false }));
+    
+    setRetailers(unassignedRetailers);
+    setSelectedRetailers(new Set());
+  };
+
+  const handleCreateBeat = () => {
+    loadRetailersForCreateBeat();
+    setIsCreateBeatOpen(true);
+    setBeatName("");
+  };
+
+  const handleRetailerSelection = (retailerId: string) => {
+    const newSelectedRetailers = new Set(selectedRetailers);
+    if (newSelectedRetailers.has(retailerId)) {
+      newSelectedRetailers.delete(retailerId);
+    } else {
+      newSelectedRetailers.add(retailerId);
+    }
+    setSelectedRetailers(newSelectedRetailers);
+
+    // Update retailers list to reflect selection
+    setRetailers(retailers.map(retailer => ({
+      ...retailer,
+      isSelected: newSelectedRetailers.has(retailer.id)
+    })));
+  };
+
+  const handleSaveBeat = async () => {
+    if (!beatName.trim()) {
+      toast.error('Please enter a beat name');
+      return;
+    }
+
+    if (selectedRetailers.size === 0) {
+      toast.error('Please select at least one retailer');
+      return;
+    }
+
+    if (!user) return;
+
+    try {
+      // Generate unique beat ID
+      const beatId = `beat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Update selected retailers with beat information
+      const { error } = await supabase
+        .from('retailers')
+        .update({ 
+          beat_id: beatId,
+          beat_name: beatName.trim()
+        })
+        .in('id', Array.from(selectedRetailers));
+
+      if (error) throw error;
+
+      toast.success(`Beat "${beatName}" created successfully with ${selectedRetailers.size} retailers`);
+      setIsCreateBeatOpen(false);
+      setBeatName("");
+      setSelectedRetailers(new Set());
+      
+      // Reload data
+      loadBeats();
+      loadAllRetailers();
+    } catch (error) {
+      console.error('Error creating beat:', error);
+      toast.error('Failed to create beat');
+    }
+  };
+
+  const handleAddBeats = () => {
+    navigate('/add-beat');
+  };
+
+  const filteredRetailers = retailers.filter(retailer =>
+    retailer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    retailer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (retailer.phone && retailer.phone.includes(searchTerm))
+  );
+
+  const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800 border-red-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="p-4">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="p-4 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">My Beats</h1>
+            <p className="text-muted-foreground">Manage your sales territories and beats</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={handleAddBeats}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Add Beats to Plan
+            </Button>
+            <Button 
+              onClick={handleCreateBeat}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create New Beat
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-primary">{beats.length}</div>
+              <div className="text-sm text-muted-foreground">Total Beats</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {beats.reduce((sum, beat) => sum + beat.retailer_count, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Retailers</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {allRetailers.filter(r => !r.beat_id).length}
+              </div>
+              <div className="text-sm text-muted-foreground">Unassigned</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {beats.length > 0 ? Math.round(beats.reduce((sum, beat) => sum + beat.retailer_count, 0) / beats.length) : 0}
+              </div>
+              <div className="text-sm text-muted-foreground">Avg per Beat</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Beats Grid */}
+        {beats.length === 0 ? (
+          <Card className="p-8 text-center">
+            <div className="space-y-4">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground" />
+              <div>
+                <h3 className="text-lg font-semibold">No beats created yet</h3>
+                <p className="text-muted-foreground">Create your first beat to organize your retailers</p>
+              </div>
+              <Button onClick={handleCreateBeat} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create Your First Beat
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {beats.map((beat) => (
+              <Card key={beat.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          Beat #{beat.beat_number}
+                        </Badge>
+                        {beat.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {beat.category}
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-lg">{beat.name}</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>{beat.retailer_count} retailers</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        {beat.last_visited 
+                          ? new Date(beat.last_visited).toLocaleDateString()
+                          : 'Never visited'
+                        }
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground">
+                    Created: {new Date(beat.created_at).toLocaleDateString()}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => navigate(`/beat/${beat.id}`)}
+                    >
+                      <BarChart className="h-3 w-3 mr-1" />
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Create Beat Modal */}
+        <Dialog open={isCreateBeatOpen} onOpenChange={setIsCreateBeatOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Create New Beat
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 overflow-y-auto">
+              <div className="space-y-2">
+                <Label htmlFor="beatName">Beat Name</Label>
+                <Input
+                  id="beatName"
+                  placeholder="Enter beat name"
+                  value={beatName}
+                  onChange={(e) => setBeatName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Select Retailers</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Choose retailers to include in this beat ({selectedRetailers.size} selected)
+                    </p>
+                  </div>
+                </div>
+
+                <SearchInput
+                  placeholder="Search retailers by name, address, or phone"
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                />
+
+                {filteredRetailers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {allRetailers.filter(r => !r.beat_id).length === 0 
+                      ? "All retailers are already assigned to beats"
+                      : "No retailers found matching your search"
+                    }
+                  </div>
+                ) : (
+                  <div className="grid gap-4 max-h-64 overflow-y-auto">
+                    {filteredRetailers.map((retailer) => (
+                      <Card 
+                        key={retailer.id} 
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          retailer.isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
+                        }`}
+                        onClick={() => handleRetailerSelection(retailer.id)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                              <Checkbox
+                                checked={retailer.isSelected}
+                                onChange={() => handleRetailerSelection(retailer.id)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-medium truncate">{retailer.name}</h4>
+                                  {retailer.category && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {retailer.category}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="space-y-1 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="truncate">{retailer.address}</span>
+                                  </div>
+                                  {retailer.phone && (
+                                    <div>📞 {retailer.phone}</div>
+                                  )}
+                                  {retailer.metrics && (
+                                    <div className="text-xs">
+                                      Monthly Sales: ₹{retailer.metrics.monthly_sales.toLocaleString()} | 
+                                      Orders: {retailer.metrics.total_orders}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAnalyticsRetailer(retailer);
+                              }}
+                            >
+                              <BarChart className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsCreateBeatOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveBeat} disabled={selectedRetailers.size === 0 || !beatName.trim()}>
+                  Create Beat ({selectedRetailers.size} retailers)
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Retailer Analytics Modal */}
+        {selectedAnalyticsRetailer && (
+          <RetailerAnalytics
+            retailer={selectedAnalyticsRetailer}
+            onClose={() => setSelectedAnalyticsRetailer(null)}
+          />
+        )}
+      </div>
+    </Layout>
+  );
+};
