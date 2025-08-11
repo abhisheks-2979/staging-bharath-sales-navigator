@@ -184,7 +184,8 @@ export const MyVisits = () => {
           table: 'visits',
           filter: `user_id=eq.${user.id}`
         },
-        () => {
+        (payload) => {
+          console.log('Visit updated:', payload);
           // Reload data when visits are updated
           loadPlannedBeats(selectedDate);
         }
@@ -197,15 +198,24 @@ export const MyVisits = () => {
           table: 'orders',
           filter: `user_id=eq.${user.id}`
         },
-        () => {
+        (payload) => {
+          console.log('Order updated:', payload);
           // Reload data when orders are updated
           loadPlannedBeats(selectedDate);
         }
       )
       .subscribe();
 
+    // Also listen for custom events from VisitCard components
+    const handleVisitStatusChange = () => {
+      loadPlannedBeats(selectedDate);
+    };
+
+    window.addEventListener('visitStatusChanged', handleVisitStatusChange);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('visitStatusChanged', handleVisitStatusChange);
     };
   }, [user, selectedDate]);
 

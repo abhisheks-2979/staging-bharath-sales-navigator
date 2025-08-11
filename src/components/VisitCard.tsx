@@ -497,9 +497,15 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           })
           .eq('id', visitId);
         
-        // Update local state to reflect the change
+        // Update local state to reflect the change immediately
         setPhase('completed');
+        
+        // Trigger a manual refresh of the parent component's data
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
+          detail: { visitId, status: 'unproductive' } 
+        }));
       }
+      setShowNoOrderModal(false);
       toast({
         title: "Visit Marked as Unproductive",
         description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
