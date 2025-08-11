@@ -315,37 +315,41 @@ export const BeatPlanning = () => {
           ))}
         </div>
 
-        {/* Floating Action */}
+        {/* Floating Action - Mobile Optimized */}
         {(plannedBeats[selectedDay]?.length || 0) > 0 && (
           <div className="fixed bottom-4 left-4 right-4 z-10">
             <Card className="shadow-lg bg-primary text-primary-foreground">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm sm:text-base font-semibold truncate">
                       {plannedBeats[selectedDay]?.length} beat(s) selected for {selectedDay}
                     </div>
-                    <div className="text-sm text-primary-foreground/80">
+                    <div className="text-xs sm:text-sm text-primary-foreground/80">
                       Save plan or view retailers
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0">
                     <Button 
                       variant="secondary"
                       onClick={handleSubmitPlan}
                       disabled={isLoading}
-                      className="bg-success text-success-foreground hover:bg-success/90"
+                      size="sm"
+                      className="bg-success text-success-foreground hover:bg-success/90 text-xs sm:text-sm"
                     >
-                      <Save size={16} className="mr-2" />
-                      {isLoading ? "Saving..." : "Save Plan"}
+                      <Save size={14} className="mr-1 sm:mr-2" />
+                      <span className="hidden xs:inline">{isLoading ? "Saving..." : "Save Plan"}</span>
+                      <span className="xs:hidden">{isLoading ? "Save..." : "Save"}</span>
                     </Button>
                     <Button 
                       variant="secondary"
                       onClick={handleProceedToRetailers}
-                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+                      size="sm"
+                      className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-xs sm:text-sm"
                     >
-                      <MapPin size={16} className="mr-2" />
-                      View Retailers
+                      <MapPin size={14} className="mr-1 sm:mr-2" />
+                      <span className="hidden xs:inline">View Retailers</span>
+                      <span className="xs:hidden">View</span>
                     </Button>
                   </div>
                 </div>
