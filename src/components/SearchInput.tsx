@@ -9,15 +9,16 @@ interface SearchInputProps {
 
 export const SearchInput = ({ placeholder = "Search...", value, onChange }: SearchInputProps) => {
   return (
-    <div className="relative">
+    <div className="relative mb-4">
       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
       <Input
         type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="pl-10 bg-white/80 backdrop-blur-sm border-border/50 focus:border-primary focus:ring-primary/20"
+        className="pl-10 h-12 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 focus:border-primary focus:ring-primary/30 text-base font-medium placeholder:text-muted-foreground shadow-lg backdrop-blur-sm"
       />
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent rounded-md pointer-events-none" />
     </div>
   );
 };

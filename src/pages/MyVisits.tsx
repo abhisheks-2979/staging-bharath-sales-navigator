@@ -3,6 +3,7 @@ import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircl
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
+import { CreateNewVisitModal } from "@/components/CreateNewVisitModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +140,7 @@ export const MyVisits = () => {
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
   const [currentBeatName, setCurrentBeatName] = useState("No beats planned");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [isCreateVisitModalOpen, setIsCreateVisitModalOpen] = useState(false);
   const { user } = useAuth();
 
   // Initialize selected day to today
@@ -569,12 +571,16 @@ export const MyVisits = () => {
           </CardContent>
         </Card>
 
-        {/* Search */}
-        <SearchInput
-          placeholder="Search visits by name or status"
-          value={searchTerm}
-          onChange={setSearchTerm}
-        />
+        {/* Enhanced Search Bar */}
+        <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="p-4">
+            <SearchInput
+              placeholder="🔍 Search visits by name or status"
+              value={searchTerm}
+              onChange={setSearchTerm}
+            />
+          </CardContent>
+        </Card>
 
         {/* Visits List */}
         <div className="space-y-3">
@@ -586,7 +592,10 @@ export const MyVisits = () => {
                 <p className="text-sm text-muted-foreground">
                   Try adjusting your search or create a new visit
                 </p>
-                <Button className="mt-4">
+                <Button 
+                  className="mt-4"
+                  onClick={() => setIsCreateVisitModalOpen(true)}
+                >
                   <Plus size={16} className="mr-2" />
                   Create New Visit
                 </Button>
@@ -602,6 +611,18 @@ export const MyVisits = () => {
             ))
           )}
         </div>
+
+        {/* Create New Visit Modal */}
+        <CreateNewVisitModal
+          isOpen={isCreateVisitModalOpen}
+          onClose={() => setIsCreateVisitModalOpen(false)}
+          onVisitCreated={() => {
+            // Reload data after visit is created
+            if (selectedDate) {
+              loadPlannedBeats(selectedDate);
+            }
+          }}
+        />
       </div>
     </Layout>
   );

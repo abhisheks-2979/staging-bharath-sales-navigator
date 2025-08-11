@@ -44,7 +44,18 @@ export const AddRetailer = () => {
   const potentials = ["High", "Medium", "Low"];
 
   const handleInputChange = (field: string, value: string) => {
-    setRetailerData(prev => ({ ...prev, [field]: value }));
+    setRetailerData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-update Parent Name when Parent Type is Distributor
+      if (field === "parentType" && value === "Distributor") {
+        updated.parentName = "Auto-Selected Distributor";
+      } else if (field === "parentType" && value !== "Distributor") {
+        updated.parentName = "";
+      }
+      
+      return updated;
+    });
   };
 
   const loadExistingBeats = async () => {
@@ -191,14 +202,45 @@ export const AddRetailer = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="address">Address *</Label>
-                <Textarea
-                  id="address"
-                  placeholder="Enter complete address (Google Maps integration available)"
-                  value={retailerData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  className="bg-background min-h-[80px]"
-                />
-                <p className="text-xs text-muted-foreground">Tip: You can copy address from Google Maps for accuracy</p>
+                <div className="flex gap-2">
+                  <Textarea
+                    id="address"
+                    placeholder="Enter complete address"
+                    value={retailerData.address}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    className="bg-background min-h-[80px] flex-1"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon"
+                    onClick={async () => {
+                      if (!navigator.geolocation) {
+                        toast({ title: "GPS Not Available", description: "Your device doesn't support GPS", variant: "destructive" });
+                        return;
+                      }
+                      
+                      try {
+                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
+                        });
+                        
+                        // Reverse geocoding using a simple approach
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const address = `Latitude: ${lat.toFixed(6)}, Longitude: ${lon.toFixed(6)}`;
+                        handleInputChange("address", address);
+                        toast({ title: "Location Updated", description: "GPS coordinates added to address" });
+                      } catch (error) {
+                        toast({ title: "GPS Error", description: "Could not get location. Please enable GPS.", variant: "destructive" });
+                      }
+                    }}
+                    className="mt-auto"
+                  >
+                    <MapPin size={16} />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Use GPS button to auto-fill location or enter manually</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -249,11 +291,15 @@ export const AddRetailer = () => {
                 <div className="space-y-2">
                   <Label>Parent Name</Label>
                   <Input
-                    placeholder="Enter parent name"
+                    placeholder={retailerData.parentType === "Distributor" ? "Auto-updated based on selection" : "Enter parent name"}
                     value={retailerData.parentName}
                     onChange={(e) => handleInputChange("parentName", e.target.value)}
                     className="bg-background"
+                    disabled={retailerData.parentType === "Distributor"}
                   />
+                  {retailerData.parentType === "Distributor" && (
+                    <p className="text-xs text-muted-foreground">Name will auto-update when Distributor is selected</p>
+                  )}
                 </div>
               </div>
 
