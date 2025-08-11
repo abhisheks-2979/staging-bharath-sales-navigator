@@ -92,12 +92,14 @@ export const Navbar = () => {
               <div className="relative p-4 text-center">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg">
-                      <AvatarImage src="/placeholder.svg" alt="User" />
-                      <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
-                        {userInitials}
-                      </AvatarFallback>
-                    </Avatar>
+                    <NavLink to="/" onClick={() => setIsOpen(false)}>
+                      <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
+                        <AvatarImage src="/placeholder.svg" alt="User" />
+                        <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
+                          {userInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                    </NavLink>
                     <div className="text-left">
                       <h1 className="text-2xl font-bold">{displayName}</h1>
                       {userRole === 'admin' && (
