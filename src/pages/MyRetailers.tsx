@@ -281,8 +281,10 @@ return (
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
-<Button variant="secondary" onClick={() => setAddOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add
+            <Button variant="secondary" asChild>
+              <Link to="/add-retailer">
+                <Plus className="mr-2 h-4 w-4" /> Add
+              </Link>
             </Button>
           </div>
 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
