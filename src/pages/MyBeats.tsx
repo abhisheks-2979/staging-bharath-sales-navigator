@@ -36,6 +36,9 @@ interface Retailer {
   beat_id?: string;
   type: string; // Required for compatibility with RetailerAnalytics
   isSelected: boolean; // Required for compatibility with RetailerAnalytics
+  currentBeat?: string; // Current beat display name
+  isUnassigned?: boolean; // Whether retailer is unassigned
+  canBeReassigned?: boolean; // Whether retailer can be reassigned
   metrics: {
     avgOrders3Months: number;
     avgOrderPerVisit: number;
@@ -253,17 +256,33 @@ export const MyBeats = () => {
 
   const loadRetailersForCreateBeat = () => {
     console.log('Loading retailers for create beat. All retailers:', allRetailers.length);
-    // Filter retailers that are not already assigned to a beat or have beat_id as null/undefined
-    const unassignedRetailers = allRetailers
-      .filter(retailer => {
-        const isUnassigned = !retailer.beat_id || retailer.beat_id === 'unassigned' || retailer.beat_id === '';
-        console.log(`Retailer ${retailer.name}: beat_id=${retailer.beat_id}, isUnassigned=${isUnassigned}`);
-        return isUnassigned;
-      })
-      .map(retailer => ({ ...retailer, isSelected: false }));
     
-    console.log('Unassigned retailers:', unassignedRetailers.length);
-    setRetailers(unassignedRetailers);
+    // Show ALL retailers with their current beat status
+    const retailersForBeat = allRetailers.map(retailer => {
+      const currentBeatId = retailer.beat_id;
+      let beatDisplayName = 'Unassigned';
+      
+      // If retailer has a beat_id, try to find the beat name
+      if (currentBeatId && currentBeatId !== 'unassigned' && currentBeatId !== '') {
+        const beat = beats.find(b => b.id === currentBeatId);
+        beatDisplayName = beat ? beat.name : currentBeatId;
+      }
+      
+      const isUnassigned = !currentBeatId || currentBeatId === 'unassigned' || currentBeatId === '';
+      
+      console.log(`Retailer ${retailer.name}: beat_id=${currentBeatId}, beatName=${beatDisplayName}, isUnassigned=${isUnassigned}`);
+      
+      return {
+        ...retailer,
+        isSelected: false,
+        currentBeat: beatDisplayName,
+        isUnassigned: isUnassigned,
+        canBeReassigned: true // Allow all retailers to be reassigned to new beats
+      };
+    });
+    
+    console.log('All retailers for beat creation:', retailersForBeat.length);
+    setRetailers(retailersForBeat);
     setSelectedRetailers(new Set());
   };
 
@@ -557,11 +576,11 @@ export const MyBeats = () => {
 
                 {filteredRetailers.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    {allRetailers.filter(r => !r.beat_id || r.beat_id === 'unassigned' || r.beat_id === '').length === 0 
-                      ? "All retailers are already assigned to beats"
+                    {allRetailers.length === 0 
+                      ? "No retailers found. Please add some retailers first."
                       : searchTerm 
                         ? "No retailers found matching your search"
-                        : "No unassigned retailers found"
+                        : "No retailers available"
                     }
                   </div>
                 ) : (
@@ -590,6 +609,17 @@ export const MyBeats = () => {
                                       {retailer.category}
                                     </Badge>
                                   )}
+                                  {/* Current Beat Status */}
+                                  <Badge 
+                                    variant={retailer.isUnassigned ? "default" : "secondary"} 
+                                    className={`text-xs ${
+                                      retailer.isUnassigned 
+                                        ? "bg-green-100 text-green-800 border-green-200" 
+                                        : "bg-orange-100 text-orange-800 border-orange-200"
+                                    }`}
+                                  >
+                                    {retailer.currentBeat || 'Unassigned'}
+                                  </Badge>
                                 </div>
                                 <div className="space-y-1 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
@@ -597,6 +627,11 @@ export const MyBeats = () => {
                                     <span className="truncate">{retailer.address}</span>
                                   </div>
                                    <div>📞 {retailer.phone}</div>
+                                   {!retailer.isUnassigned && (
+                                     <div className="text-xs text-orange-600 font-medium">
+                                       ⚠️ Currently assigned to "{retailer.currentBeat}" - will be reassigned
+                                     </div>
+                                   )}
                                    {retailer.metrics && (
                                      <div className="text-xs">
                                        Avg Orders (3M): {retailer.metrics.avgOrders3Months} | 
