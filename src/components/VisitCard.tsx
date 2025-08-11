@@ -595,9 +595,10 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               variant={isNoOrderMarked ? "default" : "outline"}
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
-                isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
+                isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 opacity-50 cursor-not-allowed" : ""
               }`}
               onClick={handleNoOrderClick}
+              disabled={isNoOrderMarked}
               title={isNoOrderMarked ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` : "Mark No Order"}
             >
               {isNoOrderMarked ? (
