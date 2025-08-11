@@ -36,6 +36,8 @@ const Attendance = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [allAttendanceData, setAllAttendanceData] = useState([]);
   const [absentDaysData, setAbsentDaysData] = useState([]);
+  const [presentDates, setPresentDates] = useState(new Set());
+  const [absentDates, setAbsentDates] = useState(new Set());
 
   // Leave application form state
   const [leaveForm, setLeaveForm] = useState({
@@ -172,6 +174,10 @@ const Attendance = () => {
       })) || [];
 
       setAllAttendanceData(formattedData);
+      
+      // Update present dates set for calendar
+      const presentDateStrings = new Set(attendanceRecords?.map(record => record.date) || []);
+      setPresentDates(presentDateStrings);
     } catch (error) {
       console.error('Error fetching all attendance data:', error);
     }
@@ -271,6 +277,10 @@ const Attendance = () => {
       }
 
       setAbsentDaysData(absentDays);
+      
+      // Update absent dates set for calendar
+      const absentDateStrings = new Set(absentDays.map(day => day.date));
+      setAbsentDates(absentDateStrings);
     } catch (error) {
       console.error('Error fetching absent days data:', error);
     }
@@ -723,6 +733,68 @@ const Attendance = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Visual Attendance Calendar */}
+          <Card className="mb-6 bg-gradient-to-r from-emerald-500/10 to-blue-600/10 border-emerald-200 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-emerald-600">
+                <CalendarDays size={20} />
+                Attendance Calendar
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Visual representation of your attendance - Green for present, Red for absent
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-center">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  className="rounded-md border pointer-events-auto"
+                  modifiers={{
+                    present: (date) => {
+                      const dateStr = date.toISOString().split('T')[0];
+                      return presentDates.has(dateStr);
+                    },
+                    absent: (date) => {
+                      const dateStr = date.toISOString().split('T')[0];
+                      return absentDates.has(dateStr);
+                    }
+                  }}
+                  modifiersStyles={{
+                    present: {
+                      backgroundColor: 'hsl(142 76% 36%)',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    },
+                    absent: {
+                      backgroundColor: 'hsl(0 84% 60%)',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }
+                  }}
+                  disabled={(date) => date > new Date()}
+                />
+              </div>
+              
+              {/* Legend */}
+              <div className="flex justify-center gap-6 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-600 rounded"></div>
+                  <span className="text-sm text-green-700 font-medium">Present</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-500 rounded"></div>
+                  <span className="text-sm text-red-700 font-medium">Absent</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-gray-200 rounded border"></div>
+                  <span className="text-sm text-gray-600 font-medium">No Data</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Mark Attendance Section */}
           <Card className="mb-6 bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
