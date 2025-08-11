@@ -573,12 +573,14 @@ export const MyVisits = () => {
 
         {/* Enhanced Search Bar */}
         <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-4">
-            <SearchInput
-              placeholder="🔍 Search visits by name or status"
-              value={searchTerm}
-              onChange={setSearchTerm}
-            />
+          <CardContent className="p-4 flex justify-end">
+            <div className="w-64">
+              <SearchInput
+                placeholder="🔍 Search visits"
+                value={searchTerm}
+                onChange={setSearchTerm}
+              />
+            </div>
           </CardContent>
         </Card>
 
