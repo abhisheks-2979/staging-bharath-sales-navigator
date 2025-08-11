@@ -47,6 +47,7 @@ const Attendance = () => {
 
   const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
   const [detailsType, setDetailsType] = useState('present');
+  const [selectedLeaveType, setSelectedLeaveType] = useState('');
 
   const stats = {
     totalDays: 20,
@@ -181,7 +182,26 @@ const Attendance = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: applications, error } = await supabase
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+      const endDate = `${currentYear}-${String(currentMonth + 2).padStart(2, '0')}-01`;
+
+      // Get all attendance records for the month
+      const { data: attendanceRecords, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('date')
+        .eq('user_id', user.id)
+        .gte('date', startDate)
+        .lt('date', endDate);
+
+      if (attendanceError) {
+        console.error('Error fetching attendance records:', attendanceError);
+        return;
+      }
+
+      // Get approved leave applications for the month
+      const { data: applications, error: leaveError } = await supabase
         .from('leave_applications')
         .select(`
           *,
@@ -189,27 +209,66 @@ const Attendance = () => {
         `)
         .eq('user_id', user.id)
         .eq('status', 'approved')
-        .gte('start_date', `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
-        .order('start_date', { ascending: false });
+        .gte('start_date', startDate);
 
-      if (error) {
-        console.error('Error fetching absent days:', error);
+      if (leaveError) {
+        console.error('Error fetching leave applications:', leaveError);
         return;
       }
 
-      const absentDays = [];
+      // Create set of attended dates
+      const attendedDates = new Set(attendanceRecords?.map(record => record.date) || []);
+      
+      // Create set of leave dates
+      const leaveDates = new Set();
+      const leaveDetails = new Map();
+      
       applications?.forEach(app => {
-        const startDate = new Date(app.start_date);
-        const endDate = new Date(app.end_date);
+        const appStartDate = new Date(app.start_date);
+        const appEndDate = new Date(app.end_date);
         
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-          absentDays.push({
-            date: d.toISOString().split('T')[0],
+        for (let d = new Date(appStartDate); d <= appEndDate; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          leaveDates.add(dateStr);
+          leaveDetails.set(dateStr, {
             reason: app.reason,
             leaveType: app.leave_types?.name || 'Unknown'
           });
         }
       });
+
+      // Generate all working days in the month (excluding weekends for now)
+      const absentDays = [];
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+      
+      for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const dayOfWeek = d.getDay();
+        
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+        
+        // Skip future dates
+        if (d > new Date()) continue;
+        
+        // If not attended and not on leave, mark as absent
+        if (!attendedDates.has(dateStr) && !leaveDates.has(dateStr)) {
+          absentDays.push({
+            date: dateStr,
+            reason: 'No attendance recorded',
+            leaveType: 'Absent'
+          });
+        } else if (leaveDates.has(dateStr)) {
+          // Add leave days to absent days list
+          const leaveInfo = leaveDetails.get(dateStr);
+          absentDays.push({
+            date: dateStr,
+            reason: leaveInfo.reason,
+            leaveType: leaveInfo.leaveType
+          });
+        }
+      }
 
       setAbsentDaysData(absentDays);
     } catch (error) {
@@ -219,9 +278,19 @@ const Attendance = () => {
 
   const fetchLeaveTypes = async () => {
     try {
+      // Define allowed leave types
+      const allowedLeaveTypes = [
+        'Annual Leave',
+        'Casual Leave', 
+        'Sick Leave',
+        'Privileged Leave',
+        'Leave Without Pay'
+      ];
+
       const { data: leaveTypes, error } = await supabase
         .from('leave_types')
         .select('*')
+        .in('name', allowedLeaveTypes)
         .order('name');
 
       if (error) {
@@ -754,14 +823,17 @@ const Attendance = () => {
                         <Label htmlFor="leaveType">Leave Type</Label>
                         <Select 
                           value={leaveForm.leaveTypeId} 
-                          onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}
+                          onValueChange={(value) => {
+                            setLeaveForm(prev => ({ ...prev, leaveTypeId: value }));
+                            setSelectedLeaveType(value);
+                          }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-background border-input z-50">
                             <SelectValue placeholder="Select leave type" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-background border-input shadow-lg z-50">
                             {leaveTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
+                              <SelectItem key={type.id} value={type.id} className="hover:bg-muted">
                                 {type.name}
                               </SelectItem>
                             ))}
@@ -829,25 +901,47 @@ const Attendance = () => {
               {/* Leave Type Sections */}
               <div className="space-y-4">
                 <h4 className="font-semibold text-purple-800 mb-4">Leave Balance Overview</h4>
+                
+                {/* Show details only when a leave type is selected OR show all except LWP details */}
                 {leaveTypes.map((leaveType) => {
                   const stats = getLeaveStatistics(leaveType.id);
+                  const isLeaveWithoutPay = leaveType.name === 'Leave Without Pay';
+                  const isSelected = selectedLeaveType === leaveType.id;
+                  
                   return (
                     <div key={leaveType.id} className="p-4 bg-white rounded-lg border border-purple-200 shadow-sm">
                       <h5 className="font-medium text-purple-700 mb-3">{leaveType.name}</h5>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="text-2xl font-bold text-green-600">{stats.available}</div>
-                          <div className="text-xs text-green-700 font-medium">Available</div>
+                      
+                      {isLeaveWithoutPay ? (
+                        // For Leave Without Pay, only show Booked option
+                        <div className="flex justify-center">
+                          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
+                            <div className="text-xs text-blue-700 font-medium">Booked</div>
+                          </div>
                         </div>
-                        <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
-                          <div className="text-xs text-orange-700 font-medium">Pending</div>
+                      ) : (
+                        // For other leave types, show full details only if not selected or if selected show all
+                        <div className={`grid ${isSelected || !selectedLeaveType ? 'grid-cols-3' : 'grid-cols-1'} gap-4`}>
+                          {(isSelected || !selectedLeaveType) && (
+                            <>
+                              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div className="text-2xl font-bold text-green-600">{stats.available}</div>
+                                <div className="text-xs text-green-700 font-medium">Available</div>
+                              </div>
+                              <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
+                                <div className="text-xs text-orange-700 font-medium">Pending</div>
+                              </div>
+                            </>
+                          )}
+                          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
+                            <div className="text-xs text-blue-700 font-medium">Booked</div>
+                          </div>
                         </div>
-                        <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
-                          <div className="text-xs text-blue-700 font-medium">Booked</div>
-                        </div>
-                      </div>
+                      )}
+                      
                       {leaveType.description && (
                         <p className="text-xs text-muted-foreground mt-2">{leaveType.description}</p>
                       )}
