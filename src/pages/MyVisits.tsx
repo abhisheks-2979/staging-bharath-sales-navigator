@@ -457,12 +457,12 @@ export const MyVisits = () => {
             <div className="grid grid-cols-2 gap-2 mb-2">
               <Button 
                 variant="secondary" 
-                size="sm" 
+                size="sm"
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                onClick={() => window.location.href = '/today-summary'}
+                onClick={() => window.location.href = '/visits'}
               >
-                <FileText size={16} className="mr-1" />
-                Today's Summary
+                <Route size={16} className="mr-1" />
+                Journey Plan
               </Button>
               <Button 
                 variant="secondary" 
@@ -497,12 +497,12 @@ export const MyVisits = () => {
             <div className="grid grid-cols-1">
               <Button 
                 variant="secondary" 
-                size="sm"
+                size="sm" 
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                onClick={() => window.location.href = '/visits'}
+                onClick={() => window.location.href = '/today-summary'}
               >
-                <Route size={16} className="mr-1" />
-                Journey Plan
+                <FileText size={16} className="mr-1" />
+                Today's Summary
               </Button>
             </div>
           </CardContent>
