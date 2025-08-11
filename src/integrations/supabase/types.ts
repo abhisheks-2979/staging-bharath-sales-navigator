@@ -900,6 +900,7 @@ export type Database = {
           id: string
           location_match_in: boolean | null
           location_match_out: boolean | null
+          no_order_reason: string | null
           planned_date: string
           retailer_id: string
           status: string
@@ -919,6 +920,7 @@ export type Database = {
           id?: string
           location_match_in?: boolean | null
           location_match_out?: boolean | null
+          no_order_reason?: string | null
           planned_date: string
           retailer_id: string
           status?: string
@@ -938,6 +940,7 @@ export type Database = {
           id?: string
           location_match_in?: boolean | null
           location_match_out?: boolean | null
+          no_order_reason?: string | null
           planned_date?: string
           retailer_id?: string
           status?: string

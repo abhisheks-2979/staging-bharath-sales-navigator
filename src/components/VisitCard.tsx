@@ -478,6 +478,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     }
   };
   const handleNoOrderReasonSelect = async (reason: string) => {
+    console.log('Marking visit as unproductive with reason:', reason);
     try {
       setNoOrderReason(reason);
       setIsNoOrderMarked(true);
@@ -488,21 +489,31 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         const visitId = await ensureVisit(user.id, retailerId, today);
         setCurrentVisitId(visitId);
         
+        console.log('Updating visit status to unproductive for visitId:', visitId);
+        
         // Update visit status to unproductive and store the reason
-        await supabase
+        const { data, error } = await supabase
           .from('visits')
           .update({ 
             status: 'unproductive',
             no_order_reason: reason
           })
-          .eq('id', visitId);
+          .eq('id', visitId)
+          .select();
+        
+        if (error) {
+          console.error('Error updating visit:', error);
+          throw error;
+        }
+        
+        console.log('Visit updated successfully:', data);
         
         // Update local state to reflect the change immediately
         setPhase('completed');
         
         // Trigger a manual refresh of the parent component's data
         window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
-          detail: { visitId, status: 'unproductive' } 
+          detail: { visitId, status: 'unproductive', retailerId } 
         }));
       }
       setShowNoOrderModal(false);
