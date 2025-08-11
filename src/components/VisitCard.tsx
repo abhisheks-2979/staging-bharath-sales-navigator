@@ -1,8 +1,9 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
@@ -51,6 +52,8 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [orderPreviewOpen, setOrderPreviewOpen] = useState(false);
   const [lastOrderItems, setLastOrderItems] = useState<Array<{ product_name: string; quantity: number; rate: number }>>([]);
   const [loadingOrder, setLoadingOrder] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [isNoOrderMarked, setIsNoOrderMarked] = useState(!!visit.noOrderReason);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
@@ -219,7 +222,11 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     }
   };
 
-  const handleLocationClick = async () => {
+  const handleLocationClick = () => {
+    setShowLocationModal(true);
+  };
+
+  const handleCheckInOut = async (action: 'checkin' | 'checkout') => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -240,39 +247,103 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         match = dist <= 150; // within 150 meters
       }
 
-      if (phase === 'idle') {
+      // Get reverse geocoding for address
+      let address = '';
+      try {
+        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${current.latitude}&longitude=${current.longitude}&localityLanguage=en`);
+        const data = await response.json();
+        address = data.display_name || `${current.latitude}, ${current.longitude}`;
+      } catch {
+        address = `${current.latitude}, ${current.longitude}`;
+      }
+
+      const timestamp = new Date().toISOString();
+
+      if (action === 'checkin') {
+        // Update visits table
         const { error } = await supabase
           .from('visits')
           .update({
-            check_in_time: new Date().toISOString(),
+            check_in_time: timestamp,
             check_in_location: current,
+            check_in_address: address,
             location_match_in: match,
             status: 'in-progress'
           })
           .eq('id', visitId);
         if (error) throw error;
+
+        // Update attendance table
+        const { error: attendanceError } = await supabase
+          .from('attendance')
+          .upsert({
+            user_id: user.id,
+            date: today,
+            check_in_time: timestamp,
+            check_in_location: current,
+            check_in_address: address,
+            status: 'present'
+          }, {
+            onConflict: 'user_id,date'
+          });
+        
+        if (attendanceError) console.error('Attendance check-in error:', attendanceError);
+
         setPhase('in-progress');
         setLocationMatchIn(match);
         toast({ title: 'Checked in', description: match === false ? 'Location mismatch' : 'Location verified' });
         pendingPhotoActionRef.current = 'checkin';
         fileInputRef.current?.click();
-      } else if (phase === 'in-progress') {
+
+      } else if (action === 'checkout') {
+        // Update visits table
         const { error } = await supabase
           .from('visits')
           .update({
-            check_out_time: new Date().toISOString(),
+            check_out_time: timestamp,
             check_out_location: current,
+            check_out_address: address,
             location_match_out: match,
             status: 'completed'
           })
           .eq('id', visitId);
         if (error) throw error;
+
+        // Update attendance table
+        const { data: attendanceData } = await supabase
+          .from('attendance')
+          .select('check_in_time')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .single();
+
+        if (attendanceData?.check_in_time) {
+          const checkInTime = new Date(attendanceData.check_in_time);
+          const checkOutTime = new Date(timestamp);
+          const totalHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+          const { error: attendanceError } = await supabase
+            .from('attendance')
+            .update({
+              check_out_time: timestamp,
+              check_out_location: current,
+              check_out_address: address,
+              total_hours: totalHours
+            })
+            .eq('user_id', user.id)
+            .eq('date', today);
+          
+          if (attendanceError) console.error('Attendance check-out error:', attendanceError);
+        }
+
         setPhase('completed');
         setLocationMatchOut(match);
         toast({ title: 'Checked out', description: match === false ? 'Location mismatch' : 'Location verified' });
         pendingPhotoActionRef.current = 'checkout';
         fileInputRef.current?.click();
       }
+
+      setShowLocationModal(false);
     } catch (err: any) {
       console.error('Check-in/out error', err);
       toast({ title: 'Location/Permission error', description: err.message || 'Enable GPS and try again.', variant: 'destructive' });
@@ -281,6 +352,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const handleNoOrderReasonSelect = async (reason: string) => {
     try {
       setNoOrderReason(reason);
+      setIsNoOrderMarked(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const today = new Date().toISOString().split('T')[0];
@@ -296,6 +368,18 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
     } catch (err: any) {
       console.error('Mark unproductive error', err);
       toast({ title: 'Failed to mark unproductive', description: err.message || 'Try again.', variant: 'destructive' });
+    }
+  };
+
+  const handleNoOrderClick = () => {
+    if (isNoOrderMarked) {
+      // Show unproductive result or navigate to results
+      toast({
+        title: "Unproductive Visit",
+        description: `Reason: ${noOrderReason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`,
+      });
+    } else {
+      setShowNoOrderModal(true);
     }
   };
 
@@ -454,8 +538,12 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
             <Button 
               variant={visit.hasOrder ? "default" : "outline"}
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${visit.hasOrder ? "bg-success text-success-foreground" : ""}`}
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
+                visit.hasOrder ? "bg-success text-success-foreground" : ""
+              } ${isNoOrderMarked ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isNoOrderMarked}
               onClick={async () => {
+                if (isNoOrderMarked) return;
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
@@ -472,19 +560,28 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                   toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
                 }
               }}
-              title={`Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}
+              title={`${isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue ? ` (₹${visit.orderValue.toLocaleString()})` : ""}`}`}
             >
               <ShoppingCart size={14} className="sm:size-4" />
             </Button>
             
             <Button 
-              variant={noOrderReason ? "default" : "outline"}
+              variant={isNoOrderMarked ? "default" : "outline"}
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${noOrderReason ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}
-              onClick={() => setShowNoOrderModal(true)}
-              title={`No-order${noOrderReason ? ` (${noOrderReason.replace(/-/g, ' ')})` : ""}`}
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
+                isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
+              }`}
+              onClick={handleNoOrderClick}
+              title={isNoOrderMarked ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` : "Mark No Order"}
             >
-              {noOrderReason ? <Check size={14} className="sm:size-4" /> : <XCircle size={14} className="sm:size-4" />}
+              {isNoOrderMarked ? (
+                <span className="flex items-center gap-1">
+                  <XCircle size={14} className="sm:size-4" />
+                  <span className="hidden xs:inline text-xs">Unproductive</span>
+                </span>
+              ) : (
+                <XCircle size={14} className="sm:size-4" />
+              )}
             </Button>
             
             <Button 
@@ -585,6 +682,62 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           ref={fileInputRef}
           onChange={handlePhotoSelected}
         />
+
+        {/* Location Modal */}
+        <Dialog open={showLocationModal} onOpenChange={setShowLocationModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Location Action
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Choose an action for location tracking:
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {phase === 'idle' && (
+                  <Button
+                    onClick={() => handleCheckInOut('checkin')}
+                    className="flex flex-col items-center gap-2 h-auto py-4"
+                    variant="outline"
+                  >
+                    <LogIn className="h-6 w-6" />
+                    <span>Check In</span>
+                  </Button>
+                )}
+                {phase === 'in-progress' && (
+                  <Button
+                    onClick={() => handleCheckInOut('checkout')}
+                    className="flex flex-col items-center gap-2 h-auto py-4"
+                    variant="outline"
+                  >
+                    <LogOut className="h-6 w-6" />
+                    <span>Check Out</span>
+                  </Button>
+                )}
+                {phase === 'idle' && (
+                  <div className="opacity-50">
+                    <Button
+                      disabled
+                      className="flex flex-col items-center gap-2 h-auto py-4 w-full"
+                      variant="outline"
+                    >
+                      <LogOut className="h-6 w-6" />
+                      <span>Check Out</span>
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {(phase === 'in-progress' || phase === 'completed') && (
+                <div className="text-xs text-center text-muted-foreground">
+                  {phase === 'in-progress' ? 'Currently checked in' : 'Visit completed'}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Modals */}
         <NoOrderModal
