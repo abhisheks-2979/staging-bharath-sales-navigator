@@ -220,19 +220,41 @@ export const AddRetailer = () => {
                         return;
                       }
                       
+                      toast({ title: "Getting Location", description: "Please wait while we fetch your address..." });
+                      
                       try {
                         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
                         });
                         
-                        // Reverse geocoding using a simple approach
                         const lat = position.coords.latitude;
                         const lon = position.coords.longitude;
-                        const address = `Latitude: ${lat.toFixed(6)}, Longitude: ${lon.toFixed(6)}`;
-                        handleInputChange("address", address);
-                        toast({ title: "Location Updated", description: "GPS coordinates added to address" });
+                        
+                        // Use reverse geocoding to get proper address
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
+                        
+                        if (!response.ok) throw new Error('Geocoding failed');
+                        
+                        const data = await response.json();
+                        
+                        // Extract address components
+                        const address = data.address || {};
+                        const parts = [];
+                        
+                        if (address.house_number) parts.push(address.house_number);
+                        if (address.road) parts.push(address.road);
+                        if (address.neighbourhood || address.suburb) parts.push(address.neighbourhood || address.suburb);
+                        if (address.city || address.town || address.village) parts.push(address.city || address.town || address.village);
+                        if (address.state) parts.push(address.state);
+                        if (address.postcode) parts.push(address.postcode);
+                        
+                        const formattedAddress = parts.length > 0 ? parts.join(', ') : data.display_name || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+                        
+                        handleInputChange("address", formattedAddress);
+                        toast({ title: "Location Updated", description: "Address automatically filled from GPS" });
                       } catch (error) {
-                        toast({ title: "GPS Error", description: "Could not get location. Please enable GPS.", variant: "destructive" });
+                        console.error('GPS/Geocoding error:', error);
+                        toast({ title: "GPS Error", description: "Could not get location. Please enable GPS or check internet connection.", variant: "destructive" });
                       }
                     }}
                     className="mt-auto"
