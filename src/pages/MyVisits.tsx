@@ -351,7 +351,17 @@ export const MyVisits = () => {
   const filteredVisits = allVisits.filter(visit => {
     const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       visit.phone.includes(searchTerm);
-    const matchesStatus = !statusFilter || visit.status === statusFilter;
+    
+    let matchesStatus = true;
+    if (statusFilter === 'planned') {
+      // Show both planned and in-progress visits
+      matchesStatus = visit.status === 'planned' || visit.status === 'in-progress';
+    } else if (statusFilter === 'unproductive') {
+      matchesStatus = visit.status === 'unproductive';
+    } else if (statusFilter) {
+      matchesStatus = visit.status === statusFilter;
+    }
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -366,7 +376,15 @@ export const MyVisits = () => {
   };
 
   const handleStatusClick = (status: string) => {
-    setStatusFilter(statusFilter === status ? "" : status);
+    if (status === 'planned') {
+      // Show both planned and in-progress when clicking planned beats
+      setStatusFilter(statusFilter === 'planned' ? "" : 'planned');
+    } else if (status === 'unproductive') {
+      // Show unproductive visits
+      setStatusFilter(statusFilter === 'unproductive' ? "" : 'unproductive');
+    } else {
+      setStatusFilter(statusFilter === status ? "" : status);
+    }
   };
 
   const handleOrdersClick = async () => {
@@ -583,8 +601,8 @@ export const MyVisits = () => {
                 onClick={() => handleStatusClick("unproductive")}
                 className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
                   statusFilter === "unproductive" 
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
-                    : "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-150 border border-red-200"
+                    ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" 
+                    : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"
                 }`}
               >
                 <div className="text-xl font-bold">{unproductiveVisits}</div>

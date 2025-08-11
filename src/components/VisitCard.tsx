@@ -54,15 +54,18 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [isNoOrderMarked, setIsNoOrderMarked] = useState(!!visit.noOrderReason);
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isCheckedOut, setIsCheckedOut] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
-  // Check if user has viewed analytics for this visit
+  // Check if user has viewed analytics for this visit and check-in status
   useEffect(() => {
-    const checkAnalyticsView = async () => {
+    const checkStatus = async () => {
       try {
         const { data: user } = await supabase.auth.getUser();
         if (user.user) {
+          // Check analytics view
           const { data, error } = await supabase
             .from('analytics_views')
             .select('id')
@@ -73,14 +76,35 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
           if (data && !error) {
             setHasViewedAnalytics(true);
           }
+
+          // Check visit status for today
+          const today = new Date().toISOString().split('T')[0];
+          const retailerId = visit.retailerId || visit.id;
+          const { data: visitData } = await supabase
+            .from('visits')
+            .select('check_in_time, check_out_time, status')
+            .eq('user_id', user.user.id)
+            .eq('retailer_id', retailerId)
+            .eq('planned_date', today)
+            .maybeSingle();
+
+          if (visitData) {
+            setIsCheckedIn(!!visitData.check_in_time);
+            setIsCheckedOut(!!visitData.check_out_time);
+            if (visitData.check_in_time && !visitData.check_out_time) {
+              setPhase('in-progress');
+            } else if (visitData.check_out_time) {
+              setPhase('completed');
+            }
+          }
         }
       } catch (error) {
-        console.log('Analytics view check error:', error);
+        console.log('Status check error:', error);
       }
     };
 
-    checkAnalyticsView();
-  }, [visit.id]);
+    checkStatus();
+  }, [visit.id, visit.retailerId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -291,6 +315,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
         setPhase('in-progress');
         setLocationMatchIn(match);
+        setIsCheckedIn(true);
         toast({ title: 'Checked in', description: match === false ? 'Location mismatch' : 'Location verified' });
         pendingPhotoActionRef.current = 'checkin';
         fileInputRef.current?.click();
@@ -338,6 +363,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
         setPhase('completed');
         setLocationMatchOut(match);
+        setIsCheckedOut(true);
         toast({ title: 'Checked out', description: match === false ? 'Location mismatch' : 'Location verified' });
         pendingPhotoActionRef.current = 'checkout';
         fileInputRef.current?.click();
@@ -685,56 +711,36 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
         {/* Location Modal */}
         <Dialog open={showLocationModal} onOpenChange={setShowLocationModal}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[95%] max-w-sm mx-auto rounded-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Location Action
-              </DialogTitle>
+              <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Choose an action for location tracking:
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {phase === 'idle' && (
-                  <Button
-                    onClick={() => handleCheckInOut('checkin')}
-                    className="flex flex-col items-center gap-2 h-auto py-4"
-                    variant="outline"
-                  >
-                    <LogIn className="h-6 w-6" />
-                    <span>Check In</span>
-                  </Button>
-                )}
-                {phase === 'in-progress' && (
-                  <Button
-                    onClick={() => handleCheckInOut('checkout')}
-                    className="flex flex-col items-center gap-2 h-auto py-4"
-                    variant="outline"
-                  >
-                    <LogOut className="h-6 w-6" />
-                    <span>Check Out</span>
-                  </Button>
-                )}
-                {phase === 'idle' && (
-                  <div className="opacity-50">
-                    <Button
-                      disabled
-                      className="flex flex-col items-center gap-2 h-auto py-4 w-full"
-                      variant="outline"
-                    >
-                      <LogOut className="h-6 w-6" />
-                      <span>Check Out</span>
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {(phase === 'in-progress' || phase === 'completed') && (
-                <div className="text-xs text-center text-muted-foreground">
-                  {phase === 'in-progress' ? 'Currently checked in' : 'Visit completed'}
-                </div>
-              )}
+            <div className="space-y-3 py-4">
+              <Button
+                onClick={() => handleCheckInOut('checkin')}
+                className={`w-full h-12 text-base font-medium ${
+                  isCheckedIn 
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                    : 'bg-primary hover:bg-primary/90'
+                }`}
+                disabled={isCheckedIn}
+              >
+                <LogIn className="mr-2 h-5 w-5" />
+                {isCheckedIn ? 'Checked In' : 'Check In'}
+              </Button>
+              <Button
+                onClick={() => handleCheckInOut('checkout')}
+                className={`w-full h-12 text-base font-medium ${
+                  !isCheckedIn || isCheckedOut
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' 
+                    : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                }`}
+                variant="outline"
+                disabled={!isCheckedIn || isCheckedOut}
+              >
+                <LogOut className="mr-2 h-5 w-5" />
+                {isCheckedOut ? 'Checked Out' : 'Check Out'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
