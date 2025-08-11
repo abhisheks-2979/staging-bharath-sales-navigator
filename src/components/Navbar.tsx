@@ -62,7 +62,7 @@ export const Navbar = () => {
       <nav className="bg-gradient-primary text-primary-foreground shadow-lg relative z-50">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+            <NavLink to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center">
                 <span className="text-xs font-bold">BB</span>
               </div>
@@ -70,7 +70,7 @@ export const Navbar = () => {
                 <h1 className="text-lg font-semibold">Bharath Beverages</h1>
                 <p className="text-xs opacity-80">Field Sales App</p>
               </div>
-            </div>
+            </NavLink>
             
             <button
               onClick={() => setIsOpen(!isOpen)}
