@@ -554,7 +554,7 @@ export const MyBeats = () => {
 
         {/* Create Beat Modal */}
         <Dialog open={isCreateBeatOpen} onOpenChange={setIsCreateBeatOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Plus className="h-5 w-5" />
@@ -562,7 +562,7 @@ export const MyBeats = () => {
               </DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
               <div className="space-y-2">
                 <Label htmlFor="beatName">Beat Name</Label>
                 <Input
@@ -674,14 +674,16 @@ export const MyBeats = () => {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsCreateBeatOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveBeat} disabled={selectedRetailers.size === 0 || !beatName.trim()}>
-                  Create Beat ({selectedRetailers.size} retailers)
-                </Button>
-              </div>
+            </div>
+
+            {/* Fixed Footer */}
+            <div className="flex justify-end gap-2 pt-4 border-t bg-background">
+              <Button variant="outline" onClick={() => setIsCreateBeatOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveBeat} disabled={selectedRetailers.size === 0 || !beatName.trim()}>
+                Create Beat ({selectedRetailers.size} retailers)
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
