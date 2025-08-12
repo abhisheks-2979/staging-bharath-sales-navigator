@@ -71,6 +71,7 @@ export const OrderEntry = () => {
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
   const [openVariantSheet, setOpenVariantSheet] = useState<string | null>(null);
+  const [showSchemeDetails, setShowSchemeDetails] = useState<{[key: string]: boolean}>({});
 const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
@@ -438,10 +439,18 @@ const filteredProducts = selectedCategory === "All"
               <Card key={product.id} className="relative">
                 {product.hasScheme && (
                   <div className="absolute -top-1 -right-1 z-10">
-                    <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-1 h-auto hover:from-orange-600 hover:to-red-600"
+                      onClick={() => setShowSchemeDetails(prev => ({
+                        ...prev,
+                        [product.id]: !prev[product.id]
+                      }))}
+                    >
                       <Gift size={10} className="mr-1" />
                       Scheme
-                    </Badge>
+                    </Button>
                   </div>
                 )}
                 
@@ -680,7 +689,7 @@ const filteredProducts = selectedCategory === "All"
                     </div>
                   )}
 
-                  {product.hasScheme && (
+                  {product.hasScheme && showSchemeDetails[product.id] && (
                     <div className="mb-2 p-2 bg-orange-50 rounded border border-orange-200">
                       <p className="text-xs text-orange-700 font-medium">🎁 Active Schemes:</p>
                       <p className="text-xs text-orange-700">{product.schemeDetails}</p>
