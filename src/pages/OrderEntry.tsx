@@ -648,7 +648,31 @@ const filteredProducts = selectedCategory === "All"
                       {displayProduct.sku && (
                         <p className="text-xs text-blue-600 font-mono">SKU: {displayProduct.sku}</p>
                       )}
-                      <p className="text-base font-bold text-primary">₹{displayProduct.rate}</p>
+                      <p className="text-base font-bold text-primary">
+                        Total: ₹{(() => {
+                          const qty = quantities[product.id] || 0;
+                          if (qty > 0) {
+                            const selectedVariantId = selectedVariants[product.id];
+                            
+                            if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
+                              const variant = product.variants.find(v => v.id === selectedVariantId);
+                              if (variant) {
+                                const variantPrice = variant.discount_percentage > 0 
+                                  ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                  : variant.discount_amount > 0 
+                                    ? variant.price - variant.discount_amount
+                                    : variant.price;
+                                const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
+                                return ((qty * variantPrice) - totalDiscount).toLocaleString();
+                              }
+                            } else {
+                              const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
+                              return ((qty * product.rate) - totalDiscount).toLocaleString();
+                            }
+                          }
+                          return displayProduct.rate.toLocaleString();
+                        })()}
+                      </p>
                       {savingsAmount > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
                           You save ₹{savingsAmount.toFixed(2)}
