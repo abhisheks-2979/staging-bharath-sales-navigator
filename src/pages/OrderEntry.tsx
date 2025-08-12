@@ -80,6 +80,7 @@ const [showOrderSummary, setShowOrderSummary] = useState(false);
 const [currentProductName, setCurrentProductName] = useState<string>("Product");
 const [showSchemeModal, setShowSchemeModal] = useState(false);
 const [selectedProductForScheme, setSelectedProductForScheme] = useState<GridProduct | null>(null);
+const [filteredSchemes, setFilteredSchemes] = useState<any[]>([]);
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -554,8 +555,14 @@ const filteredProducts = selectedCategory === "All"
 
   // Function to handle scheme click
   const handleSchemeClick = (product: GridProduct) => {
-    const productSchemes = schemes.filter(scheme => scheme.product_id === product.id);
+    const productSchemes = schemes.filter(scheme => 
+      scheme.product_id === product.id && 
+      scheme.is_active && 
+      (!scheme.start_date || new Date(scheme.start_date) <= new Date()) &&
+      (!scheme.end_date || new Date(scheme.end_date) >= new Date())
+    );
     setSelectedProductForScheme(product);
+    setFilteredSchemes(productSchemes);
     setShowSchemeModal(true);
   };
 
@@ -1048,7 +1055,7 @@ const filteredProducts = selectedCategory === "All"
           isOpen={showSchemeModal}
           onClose={() => setShowSchemeModal(false)}
           productName={selectedProductForScheme?.name || "Product"}
-          schemes={selectedProductForScheme ? schemes.filter(scheme => scheme.product_id === selectedProductForScheme.id) : []}
+          schemes={filteredSchemes}
         />
       </div>
     </div>
