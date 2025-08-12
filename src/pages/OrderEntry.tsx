@@ -391,7 +391,12 @@ const filteredProducts = selectedCategory === "All"
     const items: any[] = [];
     let totalSavings = 0;
     
-    products.forEach(product => {
+    // Only include products from current category
+    const categoryProducts = selectedCategory === "All" 
+      ? products 
+      : products.filter(product => product.category === selectedCategory);
+    
+    categoryProducts.forEach(product => {
       // Check base product quantity
       const baseQty = quantities[product.id] || 0;
       
