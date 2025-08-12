@@ -679,14 +679,14 @@ const filteredProducts = selectedCategory === "All"
                         })()}
                       </p>
                       
-                      {/* View Item wise pricing Break Down Button */}
+                      {/* View Breakdown Button */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowOrderSummary(true)}
                         className="text-xs h-6 p-1 mt-1 text-primary hover:bg-primary/10"
                       >
-                        View Item wise pricing Break Down
+                        View Breakdown
                       </Button>
                       
                       {savingsAmount > 0 && (
