@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
@@ -73,6 +73,7 @@ const [categories, setCategories] = useState<string[]>(["All"]);
 const [loading, setLoading] = useState(true);
 const [userId, setUserId] = useState<string | null>(null);
 const [schemes, setSchemes] = useState<any[]>([]);
+const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -352,6 +353,41 @@ const filteredProducts = selectedCategory === "All"
     }, 0);
   };
 
+  // Function to toggle variant table visibility
+  const toggleVariantTable = (productId: string) => {
+    setExpandedProducts(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
+  };
+
+  // Function to handle product selection and auto-expand
+  const handleProductSelect = (productId: string, productName: string) => {
+    // Close all other variant tables
+    const newExpandedProducts: {[key: string]: boolean} = {};
+    
+    // Auto-expand for specific products or when clicking on a product
+    newExpandedProducts[productId] = true;
+    
+    setExpandedProducts(newExpandedProducts);
+  };
+
+  // Auto-expand logic for filtered products
+  useEffect(() => {
+    if (filteredProducts.length > 0) {
+      const newExpandedProducts: {[key: string]: boolean} = {};
+      
+      // Auto-expand first product or specific products like "Basmati Rice Premium"
+      filteredProducts.forEach((product, index) => {
+        if (product.name.includes("Basmati Rice Premium") || index === 0) {
+          newExpandedProducts[product.id] = true;
+        }
+      });
+      
+      setExpandedProducts(newExpandedProducts);
+    }
+  }, [filteredProducts]);
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="container mx-auto p-4 space-y-4">
@@ -463,94 +499,110 @@ const filteredProducts = selectedCategory === "All"
                   {/* Variant Grid */}
                   {product.variants && product.variants.length > 0 && (
                     <div className="mb-3">
-                      <label className="text-xs text-muted-foreground mb-2 block">Available Variants</label>
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-muted/50 grid grid-cols-4 gap-1 p-2 text-xs font-medium">
-                          <div>Variant</div>
-                          <div>Rate</div>
-                          <div>Qty</div>
-                          <div>Stock</div>
-                        </div>
-                        
-                        {/* Base Product Row */}
-                        <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
-                          <div className="text-xs">Base Product</div>
-                          <div className="font-medium">₹{product.rate}</div>
-                          <div>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={quantities[product.id] || ""}
-                              onChange={(e) => {
-                                const qty = parseInt(e.target.value) || 0;
-                                handleQuantityChange(product.id, qty);
-                                if (qty > 0) {
-                                  handleVariantChange(product.id, "base");
-                                }
-                              }}
-                              className="h-6 text-xs p-1"
-                              min="0"
-                            />
-                          </div>
-                          <div>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={closingStocks[product.id] ?? product.closingStock}
-                              onChange={(e) => handleClosingStockChange(product.id, e.target.value)}
-                              className="h-6 text-xs p-1"
-                              min="0"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Variant Rows */}
-                        {product.variants.map(variant => {
-                          const variantPrice = variant.discount_percentage > 0 
-                            ? variant.price - (variant.price * variant.discount_percentage / 100)
-                            : variant.discount_amount > 0 
-                              ? variant.price - variant.discount_amount
-                              : variant.price;
-                          const savings = variant.discount_percentage > 0 
-                            ? variant.price * variant.discount_percentage / 100
-                            : variant.discount_amount;
-                          const variantQuantity = quantities[variant.id] || 0;
-                          const variantAmount = variantQuantity * variantPrice;
-                          
-                          return (
-                            <div key={variant.id} className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
-                              <div className="text-xs">{variant.variant_name}</div>
-                              <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
-                              <div>
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={variantQuantity || ""}
-                                  onChange={(e) => {
-                                    const qty = parseInt(e.target.value) || 0;
-                                    handleQuantityChange(variant.id, qty);
-                                    if (qty > 0) {
-                                      handleVariantChange(product.id, variant.id);
-                                    }
-                                  }}
-                                  className="h-6 text-xs p-1"
-                                  min="0"
-                                />
-                              </div>
-                              <div>
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={closingStocks[variant.id] ?? variant.stock_quantity}
-                                  onChange={(e) => handleClosingStockChange(variant.id, e.target.value)}
-                                  className="h-6 text-xs p-1"
-                                  min="0"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs text-muted-foreground">Available Variants</label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleVariantTable(product.id)}
+                          className="h-6 w-6 p-0 hover:bg-muted"
+                        >
+                          {expandedProducts[product.id] ? (
+                            <Minus size={12} className="text-muted-foreground" />
+                          ) : (
+                            <Plus size={12} className="text-muted-foreground" />
+                          )}
+                        </Button>
                       </div>
+                      {expandedProducts[product.id] && (
+                        <div className="border rounded-lg overflow-hidden">
+                          <div className="bg-muted/50 grid grid-cols-4 gap-1 p-2 text-xs font-medium">
+                            <div>Variant</div>
+                            <div>Rate</div>
+                            <div>Qty</div>
+                            <div>Stock</div>
+                          </div>
+                          
+                          {/* Base Product Row */}
+                          <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
+                            <div className="text-xs">Base Product</div>
+                            <div className="font-medium">₹{product.rate}</div>
+                            <div>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={quantities[product.id] || ""}
+                                onChange={(e) => {
+                                  const qty = parseInt(e.target.value) || 0;
+                                  handleQuantityChange(product.id, qty);
+                                  if (qty > 0) {
+                                    handleVariantChange(product.id, "base");
+                                  }
+                                }}
+                                className="h-6 text-xs p-1"
+                                min="0"
+                              />
+                            </div>
+                            <div>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={closingStocks[product.id] ?? product.closingStock}
+                                onChange={(e) => handleClosingStockChange(product.id, e.target.value)}
+                                className="h-6 text-xs p-1"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Variant Rows */}
+                          {product.variants.map(variant => {
+                            const variantPrice = variant.discount_percentage > 0 
+                              ? variant.price - (variant.price * variant.discount_percentage / 100)
+                              : variant.discount_amount > 0 
+                                ? variant.price - variant.discount_amount
+                                : variant.price;
+                            const savings = variant.discount_percentage > 0 
+                              ? variant.price * variant.discount_percentage / 100
+                              : variant.discount_amount;
+                            const variantQuantity = quantities[variant.id] || 0;
+                            const variantAmount = variantQuantity * variantPrice;
+                            
+                            return (
+                              <div key={variant.id} className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
+                                <div className="text-xs">{variant.variant_name}</div>
+                                <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
+                                <div>
+                                  <Input
+                                    type="number"
+                                    placeholder="0"
+                                    value={variantQuantity || ""}
+                                    onChange={(e) => {
+                                      const qty = parseInt(e.target.value) || 0;
+                                      handleQuantityChange(variant.id, qty);
+                                      if (qty > 0) {
+                                        handleVariantChange(product.id, variant.id);
+                                      }
+                                    }}
+                                    className="h-6 text-xs p-1"
+                                    min="0"
+                                  />
+                                </div>
+                                <div>
+                                  <Input
+                                    type="number"
+                                    placeholder="0"
+                                    value={closingStocks[variant.id] ?? variant.stock_quantity}
+                                    onChange={(e) => handleClosingStockChange(variant.id, e.target.value)}
+                                    className="h-6 text-xs p-1"
+                                    min="0"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
