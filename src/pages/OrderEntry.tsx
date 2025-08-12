@@ -414,38 +414,30 @@ const filteredProducts = selectedCategory === "All"
                       <label className="text-xs text-muted-foreground mb-2 block">Available Variants</label>
                       <div className="border rounded-lg overflow-hidden">
                         <div className="bg-muted/50 grid grid-cols-6 gap-1 p-2 text-xs font-medium">
-                          <div>Select</div>
                           <div>Variant</div>
                           <div>Rate</div>
                           <div>Qty</div>
                           <div>Amount</div>
                           <div>Offer</div>
+                          <div>Stock</div>
                         </div>
                         
                         {/* Base Product Row */}
                         <div className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
-                          <div className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedVariants[product.id] === "base"}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  handleVariantChange(product.id, "base");
-                                } else {
-                                  handleVariantChange(product.id, "");
-                                }
-                              }}
-                              className="h-3 w-3"
-                            />
-                          </div>
-                          <div className="text-xs">Base</div>
+                          <div className="text-xs">Base Product</div>
                           <div className="font-medium">₹{product.rate}</div>
                           <div>
                             <Input
                               type="number"
                               placeholder="0"
                               value={quantities[product.id] || ""}
-                              onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0)}
+                              onChange={(e) => {
+                                const qty = parseInt(e.target.value) || 0;
+                                handleQuantityChange(product.id, qty);
+                                if (qty > 0) {
+                                  handleVariantChange(product.id, "base");
+                                }
+                              }}
                               className="h-6 text-xs p-1"
                               min="0"
                             />
@@ -454,6 +446,7 @@ const filteredProducts = selectedCategory === "All"
                             ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
                           </div>
                           <div className="text-green-600">-</div>
+                          <div className="text-xs">{product.closingStock || 0}</div>
                         </div>
 
                         {/* Variant Rows */}
@@ -471,20 +464,6 @@ const filteredProducts = selectedCategory === "All"
                           
                           return (
                             <div key={variant.id} className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedVariants[product.id] === variant.id}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      handleVariantChange(product.id, variant.id);
-                                    } else {
-                                      handleVariantChange(product.id, "");
-                                    }
-                                  }}
-                                  className="h-3 w-3"
-                                />
-                              </div>
                               <div className="text-xs">{variant.variant_name}</div>
                               <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
                               <div>
@@ -492,7 +471,13 @@ const filteredProducts = selectedCategory === "All"
                                   type="number"
                                   placeholder="0"
                                   value={variantQuantity || ""}
-                                  onChange={(e) => handleQuantityChange(variant.id, parseInt(e.target.value) || 0)}
+                                  onChange={(e) => {
+                                    const qty = parseInt(e.target.value) || 0;
+                                    handleQuantityChange(variant.id, qty);
+                                    if (qty > 0) {
+                                      handleVariantChange(product.id, variant.id);
+                                    }
+                                  }}
                                   className="h-6 text-xs p-1"
                                   min="0"
                                 />
@@ -501,6 +486,7 @@ const filteredProducts = selectedCategory === "All"
                               <div className="text-green-600 text-xs">
                                 {savings > 0 ? `Save ₹${savings.toFixed(2)}` : '-'}
                               </div>
+                              <div className="text-xs">{variant.stock_quantity || 0}</div>
                             </div>
                           );
                         })}
