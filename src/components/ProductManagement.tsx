@@ -369,7 +369,7 @@ setProductForm({
           .from('product_schemes')
           .update({
             product_id: schemeForm.product_id,
-            variant_id: schemeForm.variant_id || null,
+            variant_id: schemeForm.variant_id === 'all' ? null : schemeForm.variant_id,
             name: schemeForm.name,
             description: schemeForm.description,
             scheme_type: schemeForm.scheme_type,
@@ -391,7 +391,7 @@ setProductForm({
           .from('product_schemes')
           .insert({
             product_id: schemeForm.product_id,
-            variant_id: schemeForm.variant_id || null,
+            variant_id: schemeForm.variant_id === 'all' ? null : schemeForm.variant_id,
             name: schemeForm.name,
             description: schemeForm.description,
             scheme_type: schemeForm.scheme_type,
@@ -413,7 +413,7 @@ setProductForm({
       setSchemeForm({
         id: '',
         product_id: '',
-        variant_id: '',
+        variant_id: 'all',
         name: '',
         description: '',
         scheme_type: 'discount',
@@ -872,7 +872,7 @@ setProductForm({
                     <Button onClick={() => setSchemeForm({
                       id: '',
                       product_id: '',
-                      variant_id: '',
+                      variant_id: 'all',
                       name: '',
                       description: '',
                       scheme_type: 'discount',
@@ -901,7 +901,7 @@ setProductForm({
                         <Label htmlFor="product">Product</Label>
                         <Select
                           value={schemeForm.product_id}
-                          onValueChange={(value) => setSchemeForm({ ...schemeForm, product_id: value, variant_id: '' })}
+                          onValueChange={(value) => setSchemeForm({ ...schemeForm, product_id: value, variant_id: 'all' })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select product" />
@@ -926,7 +926,7 @@ setProductForm({
                               <SelectValue placeholder="Select variant or leave empty for all variants" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">All Variants</SelectItem>
+                              <SelectItem value="all">All Variants</SelectItem>
                               {variants
                                 .filter(variant => variant.product_id === schemeForm.product_id)
                                 .map((variant) => (
@@ -1124,7 +1124,7 @@ setProductForm({
                               setSchemeForm({
                                 id: scheme.id,
                                 product_id: scheme.product_id,
-                                variant_id: scheme.variant_id || '',
+                                variant_id: scheme.variant_id || 'all',
                                 name: scheme.name,
                                 description: scheme.description || '',
                                 scheme_type: scheme.scheme_type,
