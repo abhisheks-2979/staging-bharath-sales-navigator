@@ -183,13 +183,23 @@ const [productForm, setProductForm] = useState({
 
   const handleVariantSubmit = async () => {
     try {
+      // Auto-generate SKU if empty
+      let variantSku = variantForm.sku.trim();
+      if (!variantSku) {
+        // Generate unique SKU based on product and variant name
+        const baseProduct = products.find(p => p.id === variantForm.product_id);
+        const productSku = baseProduct?.sku || 'PROD';
+        const variantNameClean = variantForm.variant_name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        variantSku = `${productSku}_${variantNameClean}_${Date.now().toString().slice(-6)}`;
+      }
+
       if (variantForm.id) {
         const { error } = await supabase
           .from('product_variants')
           .update({
             product_id: variantForm.product_id,
             variant_name: variantForm.variant_name,
-            sku: variantForm.sku,
+            sku: variantSku,
             price: variantForm.price,
             stock_quantity: variantForm.stock_quantity,
             discount_percentage: variantForm.discount_percentage,
@@ -206,7 +216,7 @@ const [productForm, setProductForm] = useState({
           .insert({
             product_id: variantForm.product_id,
             variant_name: variantForm.variant_name,
-            sku: variantForm.sku,
+            sku: variantSku,
             price: variantForm.price,
             stock_quantity: variantForm.stock_quantity,
             discount_percentage: variantForm.discount_percentage,
