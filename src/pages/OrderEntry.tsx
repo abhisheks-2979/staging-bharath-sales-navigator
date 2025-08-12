@@ -644,10 +644,10 @@ const filteredProducts = selectedCategory === "All"
           </TabsList>
         </Tabs>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left Column - Products Grid */}
-          <div className="lg:col-span-2 space-y-3">
+        {/* Single Column Layout */}
+        <div className="space-y-3">
+          {/* Products Grid */}
+          <div className="space-y-3">
           {filteredProducts.map(product => {
             const displayProduct = getDisplayProduct(product);
             const savingsAmount = getSavingsAmount(product);
@@ -1004,131 +1004,6 @@ const filteredProducts = selectedCategory === "All"
            })}
           </div>
 
-          {/* Right Column - Available Variants */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Available Variants</CardTitle>
-              </CardHeader>
-              <CardContent className="p-3">
-                {(() => {
-                  const expandedProduct = filteredProducts.find(p => expandedProducts[p.id]);
-                  if (!expandedProduct || !expandedProduct.variants || expandedProduct.variants.length === 0) {
-                    return (
-                      <div className="text-center text-muted-foreground text-xs py-8">
-                        <Package size={24} className="mx-auto mb-2 opacity-50" />
-                        <p>Click on a product name to view its variants</p>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-primary border-b pb-2">
-                        {expandedProduct.name}
-                      </div>
-                      
-                      {/* Base Product */}
-                      <div className="border rounded-lg p-2">
-                        <div className="text-xs font-medium mb-1">Base Product</div>
-                        <div className="text-xs text-muted-foreground mb-2">
-                          Rate: ₹{expandedProduct.rate}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-xs text-muted-foreground">Qty</label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={quantities[expandedProduct.id] || ""}
-                              onChange={(e) => {
-                                const qty = parseInt(e.target.value) || 0;
-                                handleQuantityChange(expandedProduct.id, qty);
-                                if (qty > 0) {
-                                  handleVariantChange(expandedProduct.id, "base");
-                                }
-                              }}
-                              className="h-6 text-xs p-1"
-                              min="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Stock</label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={closingStocks[expandedProduct.id] ?? expandedProduct.closingStock}
-                              onChange={(e) => handleClosingStockChange(expandedProduct.id, e.target.value)}
-                              className="h-6 text-xs p-1"
-                              min="0"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Variants */}
-                      {expandedProduct.variants.map(variant => {
-                        const variantPrice = variant.discount_percentage > 0 
-                          ? variant.price - (variant.price * variant.discount_percentage / 100)
-                          : variant.discount_amount > 0 
-                            ? variant.price - variant.discount_amount
-                            : variant.price;
-                        
-                        return (
-                          <div key={variant.id} className="border rounded-lg p-2">
-                            <div className="text-xs font-medium mb-1">{variant.variant_name}</div>
-                            <div className="text-xs text-muted-foreground mb-2">
-                              Rate: ₹{variantPrice.toFixed(2)}
-                              {variant.discount_percentage > 0 && (
-                                <span className="text-green-600 ml-1">
-                                  ({variant.discount_percentage}% OFF)
-                                </span>
-                              )}
-                              {variant.discount_amount > 0 && (
-                                <span className="text-green-600 ml-1">
-                                  (₹{variant.discount_amount} OFF)
-                                </span>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="text-xs text-muted-foreground">Qty</label>
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={quantities[variant.id] || ""}
-                                  onChange={(e) => {
-                                    const qty = parseInt(e.target.value) || 0;
-                                    handleQuantityChange(variant.id, qty);
-                                    if (qty > 0) {
-                                      handleVariantChange(expandedProduct.id, variant.id);
-                                    }
-                                  }}
-                                  className="h-6 text-xs p-1"
-                                  min="0"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs text-muted-foreground">Stock</label>
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={closingStocks[variant.id] ?? variant.stock_quantity}
-                                  onChange={(e) => handleClosingStockChange(variant.id, e.target.value)}
-                                  className="h-6 text-xs p-1"
-                                  min="0"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-          </div>
         </div>
         </>
         ) : (
