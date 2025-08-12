@@ -22,6 +22,7 @@ interface OrderSummaryModalProps {
   totalAmount: number;
   totalSavings: number;
   onAddToCart: () => void;
+  productName?: string;
 }
 
 export const OrderSummaryModal = ({ 
@@ -30,7 +31,8 @@ export const OrderSummaryModal = ({
   items, 
   totalAmount, 
   totalSavings, 
-  onAddToCart 
+  onAddToCart,
+  productName = "Product"
 }: OrderSummaryModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -38,61 +40,66 @@ export const OrderSummaryModal = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package size={20} />
-            Order Summary
+            View Breakdown — {productName}
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
-          {/* Selected Items Grid */}
+          {/* Selected Items */}
           <div className="space-y-3">
             <h3 className="font-medium text-sm text-muted-foreground">Selected Items</h3>
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/50 grid grid-cols-3 gap-1 p-2 text-xs font-medium">
-                <div>Item</div>
+              <div className="bg-muted/50 grid grid-cols-4 gap-2 p-2 text-xs font-medium">
+                <div>Item / Variant</div>
+                <div>Unit Price</div>
                 <div>Qty</div>
-                <div>Price</div>
+                <div>Subtotal</div>
               </div>
-              {items.map((item) => (
-                <div key={item.id} className="grid grid-cols-3 gap-1 p-2 text-xs border-t">
-                  <div>
-                    <div className="font-medium">{item.variantName}</div>
-                    <div className="text-muted-foreground">{item.selectedItem}</div>
-                  </div>
-                  <div className="flex items-center">{item.quantity}</div>
-                  <div className="flex items-center">
+              {items.map((item) => {
+                const originalPrice = item.savings > 0 ? item.totalPrice + item.savings : item.totalPrice;
+                return (
+                  <div key={item.id} className="grid grid-cols-4 gap-2 p-2 text-xs border-t">
                     <div>
-                      <div className="font-medium">₹{item.totalPrice.toFixed(2)}</div>
-                      {item.savings > 0 && (
-                        <div className="text-green-600 text-xs">Save ₹{item.savings.toFixed(2)}</div>
+                      <div className="font-medium">{item.variantName}</div>
+                      <div className="text-muted-foreground">{item.selectedItem}</div>
+                    </div>
+                    <div className="flex flex-col">
+                      {item.savings > 0 ? (
+                        <>
+                          <span className="line-through text-muted-foreground">₹{item.rate.toFixed(2)}</span>
+                          <span className="font-medium">₹{(item.rate - (item.savings / item.quantity)).toFixed(2)}</span>
+                          {item.appliedOffers.length > 0 && (
+                            <span className="text-green-600 text-xs">{item.appliedOffers[0]}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="font-medium">₹{item.rate.toFixed(2)}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center font-medium">{item.quantity}</div>
+                    <div className="flex flex-col">
+                      {item.savings > 0 ? (
+                        <>
+                          <span className="line-through text-muted-foreground">₹{originalPrice.toFixed(2)}</span>
+                          <span className="font-medium">₹{item.totalPrice.toFixed(2)}</span>
+                          <span className="text-green-600 text-xs">You saved ₹{item.savings.toFixed(2)} on this item</span>
+                        </>
+                      ) : (
+                        <span className="font-medium">₹{item.totalPrice.toFixed(2)}</span>
                       )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Savings Section */}
+          {/* Total Savings */}
           {totalSavings > 0 && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Gift size={16} className="text-green-600" />
-                <h3 className="font-medium text-green-800">Offers Applied</h3>
-              </div>
-              <div className="space-y-1 text-sm">
-                {items.map((item) => 
-                  item.appliedOffers.map((offer, index) => (
-                    <div key={`${item.id}-${index}`} className="flex justify-between">
-                      <span className="text-green-700">{offer}</span>
-                      <span className="text-green-600 font-medium">-₹{item.savings.toFixed(2)}</span>
-                    </div>
-                  ))
-                )}
-                <div className="border-t border-green-200 pt-1 mt-2 flex justify-between font-medium">
-                  <span className="text-green-800">Total Savings:</span>
-                  <span className="text-green-600">₹{totalSavings.toFixed(2)}</span>
-                </div>
-              </div>
+            <div className="text-center">
+              <p className="text-green-600 font-medium">
+                You saved ₹{totalSavings.toFixed(2)} on this order
+              </p>
             </div>
           )}
 
@@ -109,7 +116,7 @@ export const OrderSummaryModal = ({
               size="lg"
             >
               <ShoppingCart size={16} className="mr-2" />
-              Add to Cart (₹{totalAmount.toFixed(2)})
+              Add Selected to Cart (₹{totalAmount.toFixed(2)})
             </Button>
           </div>
         </div>

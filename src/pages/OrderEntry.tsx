@@ -76,6 +76,7 @@ const [userId, setUserId] = useState<string | null>(null);
 const [schemes, setSchemes] = useState<any[]>([]);
 const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
 const [showOrderSummary, setShowOrderSummary] = useState(false);
+const [currentProductName, setCurrentProductName] = useState<string>("Product");
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -683,7 +684,10 @@ const filteredProducts = selectedCategory === "All"
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setShowOrderSummary(true)}
+                        onClick={() => {
+                          setCurrentProductName(product.name);
+                          setShowOrderSummary(true);
+                        }}
                         className="text-xs h-6 p-1 mt-1 text-primary hover:bg-primary/10"
                       >
                         View Breakdown
@@ -998,6 +1002,7 @@ const filteredProducts = selectedCategory === "All"
           totalAmount={getSelectionValue()}
           totalSavings={getSelectionDetails().totalSavings}
           onAddToCart={handleAddAllToCart}
+          productName={currentProductName}
         />
       </div>
     </div>
