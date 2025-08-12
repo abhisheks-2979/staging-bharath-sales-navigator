@@ -356,29 +356,30 @@ const filteredProducts = selectedCategory === "All"
     let total = 0;
     
     products.forEach(product => {
-      const qty = quantities[product.id] || 0;
+      // Check base product quantity
+      const baseQty = quantities[product.id] || 0;
       
-      if (qty > 0) {
-        const selectedVariantId = selectedVariants[product.id];
-        
-        if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
-          // Variant is selected
-          const variant = product.variants.find(v => v.id === selectedVariantId);
-          if (variant) {
+      if (baseQty > 0) {
+        const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+        total += (baseQty * product.rate) - totalDiscount;
+      }
+      
+      // Check all variant quantities
+      if (product.variants) {
+        product.variants.forEach(variant => {
+          const variantQty = quantities[variant.id] || 0;
+          
+          if (variantQty > 0) {
             const variantPrice = variant.discount_percentage > 0 
               ? variant.price - (variant.price * variant.discount_percentage / 100)
               : variant.discount_amount > 0 
                 ? variant.price - variant.discount_amount
                 : variant.price;
             
-            const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
-            total += (qty * variantPrice) - totalDiscount;
+            const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+            total += (variantQty * variantPrice) - totalDiscount;
           }
-        } else {
-          // Base product or no variant selected
-          const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
-          total += (qty * product.rate) - totalDiscount;
-        }
+        });
       }
     });
     
