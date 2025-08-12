@@ -272,7 +272,7 @@ const filteredProducts = selectedCategory === "All"
 
     applicableSchemes.forEach(scheme => {
       const meetsCondition = scheme.quantity_condition_type === 'more_than' 
-        ? quantity >= scheme.condition_quantity
+        ? quantity > scheme.condition_quantity
         : quantity === scheme.condition_quantity;
 
       if (meetsCondition) {
