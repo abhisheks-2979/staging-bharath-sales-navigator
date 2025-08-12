@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
 import { OrderSummaryModal } from "@/components/OrderSummaryModal";
+import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
@@ -77,6 +78,8 @@ const [schemes, setSchemes] = useState<any[]>([]);
 const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
 const [showOrderSummary, setShowOrderSummary] = useState(false);
 const [currentProductName, setCurrentProductName] = useState<string>("Product");
+const [showSchemeModal, setShowSchemeModal] = useState(false);
+const [selectedProductForScheme, setSelectedProductForScheme] = useState<GridProduct | null>(null);
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -248,7 +251,7 @@ const filteredProducts = selectedCategory === "All"
       ? `Buy ${scheme.condition_quantity}+ ${scheme.scheme_type === 'buy_get' ? 'items' : 'units'}`
       : `Buy exactly ${scheme.condition_quantity} ${scheme.scheme_type === 'buy_get' ? 'items' : 'units'}`;
     
-    if (scheme.scheme_type === 'discount') {
+    if (scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') {
       if (scheme.discount_percentage) {
         return `${conditionText}, get ${scheme.discount_percentage}% off`;
       } else if (scheme.discount_amount) {
@@ -549,6 +552,13 @@ const filteredProducts = selectedCategory === "All"
     }
   }, [selectedCategory, filteredProducts]);
 
+  // Function to handle scheme click
+  const handleSchemeClick = (product: GridProduct) => {
+    const productSchemes = schemes.filter(scheme => scheme.product_id === product.id);
+    setSelectedProductForScheme(product);
+    setShowSchemeModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="container mx-auto p-4 space-y-4">
@@ -646,7 +656,10 @@ const filteredProducts = selectedCategory === "All"
               <Card key={product.id} className="relative">
                 {product.hasScheme && (
                   <div className="absolute -top-1 -right-1 z-10">
-                    <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-0">
+                    <Badge 
+                      className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-0 cursor-pointer hover:from-orange-600 hover:to-red-600 transition-colors"
+                      onClick={() => handleSchemeClick(product)}
+                    >
                       <Gift size={10} className="mr-1" />
                       Scheme
                     </Badge>
@@ -1150,6 +1163,14 @@ const filteredProducts = selectedCategory === "All"
           totalSavings={getSelectionDetails().totalSavings}
           onAddToCart={handleAddAllToCart}
           productName={currentProductName}
+        />
+        
+        {/* Scheme Details Modal */}
+        <SchemeDetailsModal
+          isOpen={showSchemeModal}
+          onClose={() => setShowSchemeModal(false)}
+          productName={selectedProductForScheme?.name || "Product"}
+          schemes={selectedProductForScheme ? schemes.filter(scheme => scheme.product_id === selectedProductForScheme.id) : []}
         />
       </div>
     </div>
