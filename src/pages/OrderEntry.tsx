@@ -465,17 +465,15 @@ const filteredProducts = selectedCategory === "All"
                     <div className="mb-3">
                       <label className="text-xs text-muted-foreground mb-2 block">Available Variants</label>
                       <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-muted/50 grid grid-cols-6 gap-1 p-2 text-xs font-medium">
+                        <div className="bg-muted/50 grid grid-cols-4 gap-1 p-2 text-xs font-medium">
                           <div>Variant</div>
                           <div>Rate</div>
                           <div>Qty</div>
-                          <div>Amount</div>
-                          <div>Offer</div>
                           <div>Stock</div>
                         </div>
                         
                         {/* Base Product Row */}
-                        <div className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
+                        <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
                           <div className="text-xs">Base Product</div>
                           <div className="font-medium">₹{product.rate}</div>
                           <div>
@@ -494,11 +492,16 @@ const filteredProducts = selectedCategory === "All"
                               min="0"
                             />
                           </div>
-                          <div className="font-medium">
-                            ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
+                          <div>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={closingStocks[product.id] ?? product.closingStock}
+                              onChange={(e) => handleClosingStockChange(product.id, e.target.value)}
+                              className="h-6 text-xs p-1"
+                              min="0"
+                            />
                           </div>
-                          <div className="text-green-600">-</div>
-                          <div className="text-xs">{product.closingStock || 0}</div>
                         </div>
 
                         {/* Variant Rows */}
@@ -515,7 +518,7 @@ const filteredProducts = selectedCategory === "All"
                           const variantAmount = variantQuantity * variantPrice;
                           
                           return (
-                            <div key={variant.id} className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
+                            <div key={variant.id} className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
                               <div className="text-xs">{variant.variant_name}</div>
                               <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
                               <div>
@@ -534,11 +537,16 @@ const filteredProducts = selectedCategory === "All"
                                   min="0"
                                 />
                               </div>
-                              <div className="font-medium">₹{variantAmount.toFixed(2)}</div>
-                              <div className="text-green-600 text-xs">
-                                {savings > 0 ? `Save ₹${savings.toFixed(2)}` : '-'}
+                              <div>
+                                <Input
+                                  type="number"
+                                  placeholder="0"
+                                  value={closingStocks[variant.id] ?? variant.stock_quantity}
+                                  onChange={(e) => handleClosingStockChange(variant.id, e.target.value)}
+                                  className="h-6 text-xs p-1"
+                                  min="0"
+                                />
                               </div>
-                              <div className="text-xs">{variant.stock_quantity || 0}</div>
                             </div>
                           );
                         })}
