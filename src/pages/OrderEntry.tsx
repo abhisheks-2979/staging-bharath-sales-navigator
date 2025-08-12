@@ -650,27 +650,32 @@ const filteredProducts = selectedCategory === "All"
                       )}
                       <p className="text-base font-bold text-primary">
                         Total: ₹{(() => {
-                          const qty = quantities[product.id] || 0;
-                          if (qty > 0) {
-                            const selectedVariantId = selectedVariants[product.id];
-                            
-                            if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
-                              const variant = product.variants.find(v => v.id === selectedVariantId);
-                              if (variant) {
+                          let total = 0;
+                          
+                          // Calculate base product total
+                          const baseQty = quantities[product.id] || 0;
+                          if (baseQty > 0) {
+                            const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+                            total += (baseQty * product.rate) - totalDiscount;
+                          }
+                          
+                          // Calculate all variant totals
+                          if (product.variants) {
+                            product.variants.forEach(variant => {
+                              const variantQty = quantities[variant.id] || 0;
+                              if (variantQty > 0) {
                                 const variantPrice = variant.discount_percentage > 0 
                                   ? variant.price - (variant.price * variant.discount_percentage / 100)
                                   : variant.discount_amount > 0 
                                     ? variant.price - variant.discount_amount
                                     : variant.price;
-                                const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
-                                return ((qty * variantPrice) - totalDiscount).toLocaleString();
+                                const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+                                total += (variantQty * variantPrice) - totalDiscount;
                               }
-                            } else {
-                              const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
-                              return ((qty * product.rate) - totalDiscount).toLocaleString();
-                            }
+                            });
                           }
-                          return displayProduct.rate.toLocaleString();
+                          
+                          return total > 0 ? total.toLocaleString() : "0";
                         })()}
                       </p>
                       {savingsAmount > 0 && (
