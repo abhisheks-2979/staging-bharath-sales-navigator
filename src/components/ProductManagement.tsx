@@ -97,7 +97,7 @@ const [productForm, setProductForm] = useState({
   const [schemeForm, setSchemeForm] = useState({
     id: '',
     product_id: '',
-    variant_id: '',
+    variant_id: 'all',
     name: '',
     description: '',
     scheme_type: 'discount',
@@ -501,98 +501,105 @@ setProductForm({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <Package className="h-5 w-5 sm:h-6 sm:w-6" />
             Product Management
           </CardTitle>
-          <CardDescription>
-            Manage your product catalog, categories, SKUs, and promotional schemes
-          </CardDescription>
+          <CardDescription>Manage your product catalog, categories, and promotional schemes</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="products" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="products" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Products & SKUs
+        <CardContent className="p-4 sm:p-6">
+          <Tabs defaultValue="products" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-auto">
+              <TabsTrigger value="products" className="text-xs sm:text-sm px-2 py-2">
+                <Tag className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Products</span>
+                <span className="sm:hidden">Items</span>
               </TabsTrigger>
-              <TabsTrigger value="categories" className="flex items-center gap-2">
-                <Tag className="h-4 w-4" />
-                Categories
+              <TabsTrigger value="categories" className="text-xs sm:text-sm px-2 py-2">
+                <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Categories</span>
+                <span className="sm:hidden">Cat.</span>
               </TabsTrigger>
-              <TabsTrigger value="schemes" className="flex items-center gap-2">
-                <Gift className="h-4 w-4" />
-                Schemes & Offers
+              <TabsTrigger value="schemes" className="text-xs sm:text-sm px-2 py-2">
+                <Gift className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Schemes</span>
+                <span className="sm:hidden">Offers</span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="products" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div className="w-full sm:w-auto">
+                  <h3 className="text-lg font-semibold mb-2 sm:mb-0">Product Catalog</h3>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:flex-none">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search products or SKUs..."
+                      placeholder="Search products..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 w-80"
+                      className="pl-8 w-full sm:w-[250px]"
                     />
                   </div>
-                </div>
-                <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
-                  <DialogTrigger asChild>
-<Button onClick={() => setProductForm({
-  id: '',
-  sku: '',
-  product_number: '',
-  name: '',
-  description: '',
-  category_id: '',
-  rate: 0,
-  unit: 'piece',
-  closing_stock: 0,
-  is_active: true
-})}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Product
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>{productForm.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-                      <DialogDescription>
-                        {productForm.id ? 'Update product details' : 'Add a new product to your catalog'}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="sku">SKU</Label>
-                        <Input
-                          id="sku"
-                          value={productForm.sku}
-                          onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
-                          placeholder="Enter SKU"
-                        />
+                  <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        onClick={() => setProductForm({
+                          id: '',
+                          sku: '',
+                          product_number: '',
+                          name: '',
+                          description: '',
+                          category_id: '',
+                          rate: 0,
+                          unit: 'piece',
+                          closing_stock: 0,
+                          is_active: true
+                        })}
+                        className="w-full sm:w-auto"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        <span className="sm:inline">Add Product</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>{productForm.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                        <DialogDescription>
+                          {productForm.id ? 'Update product details' : 'Create a new product in your catalog'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="name">Product Name</Label>
+                          <Input
+                            id="name"
+                            value={productForm.name}
+                            onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                            placeholder="Enter product name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="sku">SKU</Label>
+                          <Input
+                            id="sku"
+                            value={productForm.sku}
+                            onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                            placeholder="Product SKU"
+                          />
+                        </div>
                       </div>
                       <div>
-                        <Label htmlFor="productNumber">Product Number</Label>
+                        <Label htmlFor="productNumber">Product Number (Optional)</Label>
                         <Input
                           id="productNumber"
                           value={productForm.product_number}
                           onChange={(e) => setProductForm({ ...productForm, product_number: e.target.value })}
-                          placeholder="Enter product number"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="name">Product Name</Label>
-                        <Input
-                          id="name"
-                          value={productForm.name}
-                          onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                          placeholder="Enter product name"
+                          placeholder="Product number"
                         />
                       </div>
                       <div>
@@ -601,7 +608,7 @@ setProductForm({
                           id="description"
                           value={productForm.description}
                           onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                          placeholder="Enter product description"
+                          placeholder="Product description"
                         />
                       </div>
                       <div>
@@ -622,15 +629,15 @@ setProductForm({
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="rate">Rate</Label>
+                          <Label htmlFor="rate">Rate (₹)</Label>
                           <Input
                             id="rate"
                             type="number"
                             value={productForm.rate}
                             onChange={(e) => setProductForm({ ...productForm, rate: parseFloat(e.target.value) || 0 })}
-                            placeholder="0.00"
+                            placeholder="Product rate"
                           />
                         </div>
                         <div>
@@ -644,11 +651,10 @@ setProductForm({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="piece">Piece</SelectItem>
-                              <SelectItem value="kg">Kg</SelectItem>
+                              <SelectItem value="kg">Kilogram</SelectItem>
                               <SelectItem value="liter">Liter</SelectItem>
-                              <SelectItem value="packet">Packet</SelectItem>
-                              <SelectItem value="bottle">Bottle</SelectItem>
                               <SelectItem value="box">Box</SelectItem>
+                              <SelectItem value="packet">Packet</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -660,7 +666,7 @@ setProductForm({
                           type="number"
                           value={productForm.closing_stock}
                           onChange={(e) => setProductForm({ ...productForm, closing_stock: parseInt(e.target.value) || 0 })}
-                          placeholder="0"
+                          placeholder="Current stock"
                         />
                       </div>
                       <div className="flex items-center space-x-2">
@@ -671,113 +677,111 @@ setProductForm({
                         />
                         <Label htmlFor="active">Active</Label>
                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleProductSubmit}>
-                        {productForm.id ? 'Update' : 'Create'}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleProductSubmit}>
+                          {productForm.id ? 'Update' : 'Create'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Variants</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-mono">{product.sku}</TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.category?.name}</TableCell>
-                      <TableCell>₹{product.rate}</TableCell>
-                      <TableCell>{product.unit}</TableCell>
-                      <TableCell>{product.closing_stock}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">
-                            {variants.filter(v => v.product_id === product.id).length} variants
-                          </Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedProductForVariants(product.id);
-                              setIsVariantsViewOpen(true);
-                            }}
-                          >
-                            <Grid3X3 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={product.is_active ? 'default' : 'secondary'}>
-                          {product.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-setProductForm({
-  id: product.id,
-  sku: product.sku,
-  product_number: product.product_number || '',
-  name: product.name,
-  description: product.description || '',
-  category_id: product.category_id || '',
-  rate: product.rate,
-  unit: product.unit,
-  closing_stock: product.closing_stock,
-  is_active: product.is_active
-});
-                              setIsProductDialogOpen(true);
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteProduct(product.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[600px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[150px]">Product Name</TableHead>
+                      <TableHead className="w-[100px]">SKU</TableHead>
+                      <TableHead className="w-[120px]">Category</TableHead>
+                      <TableHead className="w-[80px]">Rate</TableHead>
+                      <TableHead className="w-[80px]">Stock</TableHead>
+                      <TableHead className="w-[80px]">Status</TableHead>
+                      <TableHead className="w-[120px]">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell className="font-mono">{product.sku}</TableCell>
+                        <TableCell>{product.category?.name}</TableCell>
+                        <TableCell>₹{product.rate}</TableCell>
+                        <TableCell>{product.closing_stock}</TableCell>
+                        <TableCell>
+                          <Badge variant={product.is_active ? 'default' : 'secondary'}>
+                            {product.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 sm:gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setProductForm({
+                                  id: product.id,
+                                  sku: product.sku,
+                                  product_number: product.product_number || '',
+                                  name: product.name,
+                                  description: product.description,
+                                  category_id: product.category_id,
+                                  rate: product.rate,
+                                  unit: product.unit,
+                                  closing_stock: product.closing_stock,
+                                  is_active: product.is_active
+                                });
+                                setIsProductDialogOpen(true);
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setSelectedProductForVariants(product.id);
+                                setIsVariantsViewOpen(true);
+                              }}
+                            >
+                              <Grid3X3 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => handleDeleteProduct(product.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </TabsContent>
 
             <TabsContent value="categories" className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <h3 className="text-lg font-semibold">Product Categories</h3>
                 <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setCategoryForm({ id: '', name: '', description: '' })}>
+                    <Button 
+                      onClick={() => setCategoryForm({ id: '', name: '', description: '' })}
+                      className="w-full sm:w-auto"
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Category
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-[95vw] sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>{categoryForm.id ? 'Edit Category' : 'Add New Category'}</DialogTitle>
                       <DialogDescription>
@@ -786,7 +790,7 @@ setProductForm({
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="categoryName">Name</Label>
+                        <Label htmlFor="categoryName">Category Name</Label>
                         <Input
                           id="categoryName"
                           value={categoryForm.name}
@@ -816,87 +820,90 @@ setProductForm({
                 </Dialog>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Products</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {categories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell>{category.description}</TableCell>
-                      <TableCell>
-                        {products.filter(p => p.category_id === category.id).length} products
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setCategoryForm({
-                                id: category.id,
-                                name: category.name,
-                                description: category.description || ''
-                              });
-                              setIsCategoryDialogOpen(true);
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteCategory(category.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[400px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[200px]">Category Name</TableHead>
+                      <TableHead className="w-[250px]">Description</TableHead>
+                      <TableHead className="w-[100px]">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell>{category.description}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 sm:gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setCategoryForm({
+                                  id: category.id,
+                                  name: category.name,
+                                  description: category.description || ''
+                                });
+                                setIsCategoryDialogOpen(true);
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => handleDeleteCategory(category.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </TabsContent>
 
             <TabsContent value="schemes" className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <h3 className="text-lg font-semibold">Product Schemes & Offers</h3>
                 <Dialog open={isSchemeDialogOpen} onOpenChange={setIsSchemeDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSchemeForm({
-                      id: '',
-                      product_id: '',
-                      variant_id: 'all',
-                      name: '',
-                      description: '',
-                      scheme_type: 'discount',
-                      condition_quantity: 0,
-                      quantity_condition_type: 'more_than',
-                      discount_percentage: 0,
-                      discount_amount: 0,
-                      free_quantity: 0,
-                      is_active: true,
-                      start_date: '',
-                      end_date: ''
-                    })}>
+                    <Button 
+                      onClick={() => setSchemeForm({
+                        id: '',
+                        product_id: '',
+                        variant_id: 'all',
+                        name: '',
+                        description: '',
+                        scheme_type: 'discount',
+                        condition_quantity: 0,
+                        quantity_condition_type: 'more_than',
+                        discount_percentage: 0,
+                        discount_amount: 0,
+                        free_quantity: 0,
+                        is_active: true,
+                        start_date: '',
+                        end_date: ''
+                      })}
+                      className="w-full sm:w-auto"
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Scheme
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[90vh]">
+                  <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh]">
                     <DialogHeader>
                       <DialogTitle>{schemeForm.id ? 'Edit Scheme' : 'Add New Scheme'}</DialogTitle>
                       <DialogDescription>
                         {schemeForm.id ? 'Update scheme details' : 'Create a new promotional scheme'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 overflow-y-auto max-h-[70vh] pr-2">
+                    <div className="space-y-4 overflow-y-auto max-h-[70vh] pr-1 sm:pr-2">
                       <div>
                         <Label htmlFor="product">Product</Label>
                         <Select
@@ -1038,7 +1045,7 @@ setProductForm({
                           />
                         </div>
                       )}
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="startDate">Start Date</Label>
                           <Input
@@ -1067,11 +1074,18 @@ setProductForm({
                         <Label htmlFor="schemeActive">Active</Label>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsSchemeDialogOpen(false)}>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsSchemeDialogOpen(false)}
+                        className="w-full sm:w-auto"
+                      >
                         Cancel
                       </Button>
-                      <Button onClick={handleSchemeSubmit}>
+                      <Button 
+                        onClick={handleSchemeSubmit}
+                        className="w-full sm:w-auto"
+                      >
                         {schemeForm.id ? 'Update' : 'Create'}
                       </Button>
                     </DialogFooter>
@@ -1079,24 +1093,25 @@ setProductForm({
                 </Dialog>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Scheme Name</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Details</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {schemes.map((scheme) => (
-                    <TableRow key={scheme.id}>
-                      <TableCell className="font-medium">{scheme.name}</TableCell>
-                      <TableCell>{scheme.product?.name}</TableCell>
-                      <TableCell className="capitalize">{scheme.scheme_type.replace('_', ' ')}</TableCell>
-                      <TableCell>
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[700px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[150px]">Scheme Name</TableHead>
+                      <TableHead className="w-[120px]">Product</TableHead>
+                      <TableHead className="w-[100px]">Type</TableHead>
+                      <TableHead className="w-[150px]">Details</TableHead>
+                      <TableHead className="w-[80px]">Status</TableHead>
+                      <TableHead className="w-[120px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {schemes.map((scheme) => (
+                      <TableRow key={scheme.id}>
+                        <TableCell className="font-medium">{scheme.name}</TableCell>
+                        <TableCell>{scheme.product?.name}</TableCell>
+                        <TableCell className="capitalize">{scheme.scheme_type.replace('_', ' ')}</TableCell>
+                        <TableCell>
                           <div className="text-sm">
                             <p>Qty: {scheme.quantity_condition_type ? scheme.quantity_condition_type.replace('_', ' ') : 'min'} {scheme.condition_quantity}</p>
                             {(scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') && (
@@ -1109,52 +1124,55 @@ setProductForm({
                               <p>Free Qty: {scheme.free_quantity}</p>
                             )}
                           </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={scheme.is_active ? 'default' : 'secondary'}>
-                          {scheme.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSchemeForm({
-                                id: scheme.id,
-                                product_id: scheme.product_id,
-                                variant_id: scheme.variant_id || 'all',
-                                name: scheme.name,
-                                description: scheme.description || '',
-                                scheme_type: scheme.scheme_type,
-                                condition_quantity: scheme.condition_quantity,
-                                quantity_condition_type: scheme.quantity_condition_type || 'more_than',
-                                discount_percentage: scheme.discount_percentage,
-                                discount_amount: scheme.discount_amount,
-                                free_quantity: scheme.free_quantity,
-                                is_active: scheme.is_active,
-                                start_date: scheme.start_date || '',
-                                end_date: scheme.end_date || ''
-                              });
-                              setIsSchemeDialogOpen(true);
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteScheme(scheme.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={scheme.is_active ? 'default' : 'secondary'}>
+                            {scheme.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 sm:gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setSchemeForm({
+                                  id: scheme.id,
+                                  product_id: scheme.product_id,
+                                  variant_id: scheme.variant_id || 'all',
+                                  name: scheme.name,
+                                  description: scheme.description || '',
+                                  scheme_type: scheme.scheme_type,
+                                  condition_quantity: scheme.condition_quantity,
+                                  quantity_condition_type: scheme.quantity_condition_type || 'more_than',
+                                  discount_percentage: scheme.discount_percentage,
+                                  discount_amount: scheme.discount_amount,
+                                  free_quantity: scheme.free_quantity,
+                                  is_active: scheme.is_active,
+                                  start_date: scheme.start_date || '',
+                                  end_date: scheme.end_date || ''
+                                });
+                                setIsSchemeDialogOpen(true);
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => handleDeleteScheme(scheme.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1162,7 +1180,7 @@ setProductForm({
 
       {/* Product Variants Management Dialog */}
       <Dialog open={isVariantsViewOpen} onOpenChange={setIsVariantsViewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Grid3X3 className="h-5 w-5" />
@@ -1178,7 +1196,7 @@ setProductForm({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 p-1">
             <div className="flex justify-end">
               <Dialog open={isVariantDialogOpen} onOpenChange={setIsVariantDialogOpen}>
                 <DialogTrigger asChild>
@@ -1199,7 +1217,7 @@ setProductForm({
                     Add Variant
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-[95vw] sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>{variantForm.id ? 'Edit Variant' : 'Add New Variant'}</DialogTitle>
                     <DialogDescription>
@@ -1253,7 +1271,7 @@ setProductForm({
                         placeholder="0"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="discountPerc">Discount %</Label>
                         <Input
@@ -1306,16 +1324,17 @@ setProductForm({
               </Dialog>
             </div>
 
-            <Table>
+          <div className="rounded-md border overflow-x-auto">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Variant Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Discounts</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="w-[150px]">Variant Name</TableHead>
+                  <TableHead className="w-[120px]">SKU</TableHead>
+                  <TableHead className="w-[80px]">Price</TableHead>
+                  <TableHead className="w-[80px]">Stock</TableHead>
+                  <TableHead className="w-[100px]">Discounts</TableHead>
+                  <TableHead className="w-[80px]">Status</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1346,10 +1365,11 @@ setProductForm({
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex gap-1 sm:gap-2">
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-7 px-2"
                             onClick={() => {
                               setVariantForm({
                                 id: variant.id,
@@ -1365,14 +1385,15 @@ setProductForm({
                               setIsVariantDialogOpen(true);
                             }}
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <Edit2 className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-7 px-2"
                             onClick={() => handleDeleteVariant(variant.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
@@ -1380,14 +1401,15 @@ setProductForm({
                   ))}
               </TableBody>
             </Table>
-            
-            {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No variants created yet</p>
-                <p className="text-sm">Create variants to manage different sizes and pricing</p>
-              </div>
-            )}
+          </div>
+          
+          {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No variants created yet</p>
+              <p className="text-sm">Create variants to manage different sizes and pricing</p>
+            </div>
+          )}
           </div>
           
           <DialogFooter>
