@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
@@ -68,6 +70,7 @@ export const OrderEntry = () => {
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
+  const [openVariantSheet, setOpenVariantSheet] = useState<string | null>(null);
 const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
@@ -460,89 +463,245 @@ const filteredProducts = selectedCategory === "All"
                     <Package size={16} className="text-muted-foreground" />
                   </div>
 
-                  {/* Variant Grid */}
+                  {/* Available Variants Button */}
                   {product.variants && product.variants.length > 0 && (
                     <div className="mb-3">
-                      <label className="text-xs text-muted-foreground mb-2 block">Available Variants</label>
-                      <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-muted/50 grid grid-cols-6 gap-1 p-2 text-xs font-medium">
-                          <div>Variant</div>
-                          <div>Rate</div>
-                          <div>Qty</div>
-                          <div>Amount</div>
-                          <div>Offer</div>
-                          <div>Stock</div>
-                        </div>
-                        
-                        {/* Base Product Row */}
-                        <div className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
-                          <div className="text-xs">Base Product</div>
-                          <div className="font-medium">₹{product.rate}</div>
-                          <div>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={quantities[product.id] || ""}
-                              onChange={(e) => {
-                                const qty = parseInt(e.target.value) || 0;
-                                handleQuantityChange(product.id, qty);
-                                if (qty > 0) {
-                                  handleVariantChange(product.id, "base");
-                                }
-                              }}
-                              className="h-6 text-xs p-1"
-                              min="0"
-                            />
-                          </div>
-                          <div className="font-medium">
-                            ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
-                          </div>
-                          <div className="text-green-600">-</div>
-                          <div className="text-xs">{product.closingStock || 0}</div>
-                        </div>
+                      <Sheet open={openVariantSheet === product.id} onOpenChange={(open) => setOpenVariantSheet(open ? product.id : null)}>
+                        <SheetTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            className="w-full h-10 text-sm font-medium"
+                            onClick={() => setOpenVariantSheet(product.id)}
+                          >
+                            <Package size={16} className="mr-2" />
+                            Available Variants ({product.variants.length})
+                          </Button>
+                        </SheetTrigger>
+                        <SheetContent side="bottom" className="h-[90vh] p-0">
+                          <ScrollArea className="h-full">
+                            <div className="p-4 pb-24">
+                              <SheetHeader className="mb-4">
+                                <SheetTitle className="text-left">
+                                  {product.name} - Variants
+                                </SheetTitle>
+                              </SheetHeader>
 
-                        {/* Variant Rows */}
-                        {product.variants.map(variant => {
-                          const variantPrice = variant.discount_percentage > 0 
-                            ? variant.price - (variant.price * variant.discount_percentage / 100)
-                            : variant.discount_amount > 0 
-                              ? variant.price - variant.discount_amount
-                              : variant.price;
-                          const savings = variant.discount_percentage > 0 
-                            ? variant.price * variant.discount_percentage / 100
-                            : variant.discount_amount;
-                          const variantQuantity = quantities[variant.id] || 0;
-                          const variantAmount = variantQuantity * variantPrice;
-                          
-                          return (
-                            <div key={variant.id} className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
-                              <div className="text-xs">{variant.variant_name}</div>
-                              <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
-                              <div>
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={variantQuantity || ""}
-                                  onChange={(e) => {
-                                    const qty = parseInt(e.target.value) || 0;
-                                    handleQuantityChange(variant.id, qty);
-                                    if (qty > 0) {
-                                      handleVariantChange(product.id, variant.id);
-                                    }
-                                  }}
-                                  className="h-6 text-xs p-1"
-                                  min="0"
-                                />
+                              {/* Scheme Banner */}
+                              {product.hasScheme && (
+                                <div className="mb-4 p-3 bg-gradient-to-r from-orange-100 to-red-100 border border-orange-200 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Gift size={14} className="text-orange-600" />
+                                    <span className="text-sm font-semibold text-orange-700">Active Offers</span>
+                                  </div>
+                                  <p className="text-xs text-orange-700">{product.schemeDetails}</p>
+                                </div>
+                              )}
+
+                              {/* Base Product Card */}
+                              <Card className="mb-4 border-2 border-primary/20">
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-semibold text-base">Base Product</h3>
+                                    <Badge variant="secondary">Original</Badge>
+                                  </div>
+                                  
+                                  <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Rate</span>
+                                      <span className="text-lg font-bold text-primary">₹{product.rate}</span>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Stock</span>
+                                      <span className="text-sm font-medium">{product.closingStock || 0} units</span>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium">Quantity</label>
+                                      <Input
+                                        type="number"
+                                        placeholder="Enter quantity"
+                                        value={quantities[product.id] || ""}
+                                        onChange={(e) => {
+                                          const qty = parseInt(e.target.value) || 0;
+                                          handleQuantityChange(product.id, qty);
+                                          if (qty > 0) {
+                                            handleVariantChange(product.id, "base");
+                                          }
+                                        }}
+                                        className="h-12 text-base"
+                                        min="0"
+                                      />
+                                    </div>
+                                    
+                                    {quantities[product.id] > 0 && (
+                                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                                        <span className="text-sm font-medium">Amount</span>
+                                        <span className="text-lg font-bold">
+                                          ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              {/* Variant Cards */}
+                              <div className="space-y-3">
+                                {product.variants.map(variant => {
+                                  const variantPrice = variant.discount_percentage > 0 
+                                    ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                    : variant.discount_amount > 0 
+                                      ? variant.price - variant.discount_amount
+                                      : variant.price;
+                                  const savings = variant.discount_percentage > 0 
+                                    ? variant.price * variant.discount_percentage / 100
+                                    : variant.discount_amount;
+                                  const variantQuantity = quantities[variant.id] || 0;
+                                  const variantAmount = variantQuantity * variantPrice;
+                                  
+                                  return (
+                                    <Card 
+                                      key={variant.id} 
+                                      className={`border-2 ${variantQuantity > 0 ? 'border-green-200 bg-green-50/50' : 'border-border'}`}
+                                    >
+                                      <CardContent className="p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <h3 className="font-semibold text-base">{variant.variant_name}</h3>
+                                          {savings > 0 && (
+                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                                              Save ₹{savings.toFixed(2)}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="space-y-3">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Rate</span>
+                                            <span className="text-lg font-bold text-primary">₹{variantPrice.toFixed(2)}</span>
+                                          </div>
+                                          
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Stock</span>
+                                            <span className="text-sm font-medium">{variant.stock_quantity || 0} units</span>
+                                          </div>
+                                          
+                                          <div className="space-y-2">
+                                            <label className="text-sm font-medium">Quantity</label>
+                                            <Input
+                                              type="number"
+                                              placeholder="Enter quantity"
+                                              value={variantQuantity || ""}
+                                              onChange={(e) => {
+                                                const qty = parseInt(e.target.value) || 0;
+                                                handleQuantityChange(variant.id, qty);
+                                                if (qty > 0) {
+                                                  handleVariantChange(product.id, variant.id);
+                                                }
+                                              }}
+                                              className="h-12 text-base"
+                                              min="0"
+                                            />
+                                          </div>
+                                          
+                                          {variantQuantity > 0 && (
+                                            <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                                              <span className="text-sm font-medium">Amount</span>
+                                              <span className="text-lg font-bold">₹{variantAmount.toFixed(2)}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  );
+                                })}
                               </div>
-                              <div className="font-medium">₹{variantAmount.toFixed(2)}</div>
-                              <div className="text-green-600 text-xs">
-                                {savings > 0 ? `Save ₹${savings.toFixed(2)}` : '-'}
-                              </div>
-                              <div className="text-xs">{variant.stock_quantity || 0}</div>
                             </div>
-                          );
-                        })}
-                      </div>
+
+                            {/* Fixed Add to Cart Button */}
+                            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+                              <Button 
+                                onClick={() => {
+                                  // Add all selected variants to cart
+                                  const selectedItems = [];
+                                  
+                                  if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                                    selectedItems.push({
+                                      ...product,
+                                      quantity: quantities[product.id],
+                                      total: quantities[product.id] * product.rate
+                                    });
+                                  }
+                                  
+                                  product.variants?.forEach(variant => {
+                                    if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
+                                      const variantPrice = variant.discount_percentage > 0 
+                                        ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                        : variant.discount_amount > 0 
+                                          ? variant.price - variant.discount_amount
+                                          : variant.price;
+                                      
+                                      const baseTotal = quantities[variant.id] * variantPrice;
+                                      const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
+                                      const finalTotal = baseTotal - totalDiscount;
+                                      
+                                      selectedItems.push({
+                                        id: `${product.id}_variant_${variant.id}`,
+                                        name: `${product.name} - ${variant.variant_name}`,
+                                        category: product.category,
+                                        rate: variantPrice,
+                                        unit: product.unit,
+                                        quantity: quantities[variant.id],
+                                        total: finalTotal,
+                                        closingStock: variant.stock_quantity
+                                      });
+                                    }
+                                  });
+                                  
+                                  if (selectedItems.length === 0) {
+                                    toast({
+                                      title: "No Items Selected",
+                                      description: "Please select variants and enter quantities",
+                                      variant: "destructive"
+                                    });
+                                    return;
+                                  }
+                                  
+                                  // Add all items to cart
+                                  selectedItems.forEach(item => {
+                                    const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                                    if (existingItem) {
+                                      setCart(prev => prev.map(cartItem => 
+                                        cartItem.id === item.id 
+                                          ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
+                                          : cartItem
+                                      ));
+                                    } else {
+                                      setCart(prev => [...prev, item]);
+                                    }
+                                  });
+                                  
+                                  setOpenVariantSheet(null);
+                                  toast({
+                                    title: "Added to Cart",
+                                    description: `${selectedItems.length} item(s) added to cart`
+                                  });
+                                }}
+                                className="w-full h-12 text-base font-semibold"
+                                size="lg"
+                                disabled={(() => {
+                                  const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
+                                    product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
+                                  return !hasSelection;
+                                })()}
+                              >
+                                <ShoppingCart size={18} className="mr-2" />
+                                Add to Cart
+                              </Button>
+                            </div>
+                          </ScrollArea>
+                        </SheetContent>
+                      </Sheet>
                     </div>
                   )}
 
