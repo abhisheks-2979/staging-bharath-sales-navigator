@@ -408,38 +408,103 @@ const filteredProducts = selectedCategory === "All"
                     <Package size={16} className="text-muted-foreground" />
                   </div>
 
-                  {/* Variant Selector */}
+                  {/* Variant Grid */}
                   {product.variants && product.variants.length > 0 && (
-                    <div className="mb-2">
-                      <label className="text-xs text-muted-foreground">Variant</label>
-                      <Select
-                        value={selectedVariants[product.id] || "base"}
-                        onValueChange={(value) => handleVariantChange(product.id, value)}
-                      >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue placeholder="Select variant" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="base">Base Product (₹{product.rate})</SelectItem>
-                          {product.variants.map(variant => {
-                            const variantPrice = variant.discount_percentage > 0 
-                              ? variant.price - (variant.price * variant.discount_percentage / 100)
-                              : variant.discount_amount > 0 
-                                ? variant.price - variant.discount_amount
-                                : variant.price;
-                            const savings = variant.discount_percentage > 0 
-                              ? variant.price * variant.discount_percentage / 100
-                              : variant.discount_amount;
-                            
-                            return (
-                              <SelectItem key={variant.id} value={variant.id}>
-                                {variant.variant_name} (₹{variantPrice.toFixed(2)})
-                                {savings > 0 && ` - Save ₹${savings.toFixed(2)}`}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                    <div className="mb-3">
+                      <label className="text-xs text-muted-foreground mb-2 block">Available Variants</label>
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="bg-muted/50 grid grid-cols-6 gap-1 p-2 text-xs font-medium">
+                          <div>Select</div>
+                          <div>Variant</div>
+                          <div>Rate</div>
+                          <div>Qty</div>
+                          <div>Amount</div>
+                          <div>Offer</div>
+                        </div>
+                        
+                        {/* Base Product Row */}
+                        <div className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedVariants[product.id] === "base"}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  handleVariantChange(product.id, "base");
+                                } else {
+                                  handleVariantChange(product.id, "");
+                                }
+                              }}
+                              className="h-3 w-3"
+                            />
+                          </div>
+                          <div className="text-xs">Base</div>
+                          <div className="font-medium">₹{product.rate}</div>
+                          <div>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={quantities[product.id] || ""}
+                              onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0)}
+                              className="h-6 text-xs p-1"
+                              min="0"
+                            />
+                          </div>
+                          <div className="font-medium">
+                            ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
+                          </div>
+                          <div className="text-green-600">-</div>
+                        </div>
+
+                        {/* Variant Rows */}
+                        {product.variants.map(variant => {
+                          const variantPrice = variant.discount_percentage > 0 
+                            ? variant.price - (variant.price * variant.discount_percentage / 100)
+                            : variant.discount_amount > 0 
+                              ? variant.price - variant.discount_amount
+                              : variant.price;
+                          const savings = variant.discount_percentage > 0 
+                            ? variant.price * variant.discount_percentage / 100
+                            : variant.discount_amount;
+                          const variantQuantity = quantities[variant.id] || 0;
+                          const variantAmount = variantQuantity * variantPrice;
+                          
+                          return (
+                            <div key={variant.id} className="grid grid-cols-6 gap-1 p-2 text-xs border-t">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedVariants[product.id] === variant.id}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      handleVariantChange(product.id, variant.id);
+                                    } else {
+                                      handleVariantChange(product.id, "");
+                                    }
+                                  }}
+                                  className="h-3 w-3"
+                                />
+                              </div>
+                              <div className="text-xs">{variant.variant_name}</div>
+                              <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
+                              <div>
+                                <Input
+                                  type="number"
+                                  placeholder="0"
+                                  value={variantQuantity || ""}
+                                  onChange={(e) => handleQuantityChange(variant.id, parseInt(e.target.value) || 0)}
+                                  className="h-6 text-xs p-1"
+                                  min="0"
+                                />
+                              </div>
+                              <div className="font-medium">₹{variantAmount.toFixed(2)}</div>
+                              <div className="text-green-600 text-xs">
+                                {savings > 0 ? `Save ₹${savings.toFixed(2)}` : '-'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -449,18 +514,64 @@ const filteredProducts = selectedCategory === "All"
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-muted-foreground">Qty</label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={quantities[displayProduct.id] || ""}
-                          onChange={(e) => handleQuantityChange(displayProduct.id, parseInt(e.target.value) || 0)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
+                  {/* Selected Items Summary & Stock */}
+                  {(product.variants && product.variants.length > 0) ? (
+                    <div className="space-y-2">
+                      {/* Selected Items Summary */}
+                      {(() => {
+                        const selectedItems = [];
+                        
+                        // Add base product if selected and has quantity
+                        if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                          selectedItems.push({
+                            id: product.id,
+                            name: "Base Product",
+                            quantity: quantities[product.id],
+                            rate: product.rate,
+                            amount: quantities[product.id] * product.rate
+                          });
+                        }
+                        
+                        // Add variants if selected and have quantity
+                        product.variants.forEach(variant => {
+                          if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
+                            const variantPrice = variant.discount_percentage > 0 
+                              ? variant.price - (variant.price * variant.discount_percentage / 100)
+                              : variant.discount_amount > 0 
+                                ? variant.price - variant.discount_amount
+                                : variant.price;
+                            selectedItems.push({
+                              id: variant.id,
+                              name: variant.variant_name,
+                              quantity: quantities[variant.id],
+                              rate: variantPrice,
+                              amount: quantities[variant.id] * variantPrice
+                            });
+                          }
+                        });
+                        
+                        const totalAmount = selectedItems.reduce((sum, item) => sum + item.amount, 0);
+                        
+                        return selectedItems.length > 0 ? (
+                          <div className="border rounded-lg p-2 bg-muted/20">
+                            <label className="text-xs text-muted-foreground mb-2 block">Selected Items</label>
+                            <div className="space-y-1">
+                              {selectedItems.map(item => (
+                                <div key={item.id} className="flex justify-between text-xs">
+                                  <span>{item.name} x {item.quantity}</span>
+                                  <span className="font-medium">₹{item.amount.toFixed(2)}</span>
+                                </div>
+                              ))}
+                              <div className="border-t pt-1 mt-1 flex justify-between text-sm font-bold">
+                                <span>Total</span>
+                                <span>₹{totalAmount.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+                      
+                      {/* Stock Input */}
                       <div>
                         <label className="text-xs text-muted-foreground">Stock</label>
                         <Input
@@ -469,7 +580,6 @@ const filteredProducts = selectedCategory === "All"
                           value={closingStocks[displayProduct.id] ?? displayProduct.closingStock}
                           onChange={(e) => handleClosingStockChange(displayProduct.id, e.target.value)}
                           onFocus={(e) => {
-                            // Select all text when focusing on a field with value "0"
                             if (e.target.value === "0") {
                               e.target.select();
                             }
@@ -477,27 +587,132 @@ const filteredProducts = selectedCategory === "All"
                           className="h-8 text-sm"
                         />
                       </div>
-                    </div>
 
-                    <Button 
-                      onClick={() => addToCart(displayProduct)}
-                      className={`w-full h-8 ${cart.some((i) => i.id === displayProduct.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
-                      size="sm"
-                      variant={cart.some((i) => i.id === displayProduct.id) ? "default" : "default"}
-                    >
-                      {cart.some((i) => i.id === displayProduct.id) ? (
-                        <>
-                          <Check size={14} className="mr-1" />
-                          Added
-                        </>
-                      ) : (
-                        <>
-                          <Plus size={14} className="mr-1" />
-                          Add
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                      {/* Add to Cart Button */}
+                      <Button 
+                        onClick={() => {
+                          // Add all selected variants to cart
+                          const selectedItems = [];
+                          
+                          if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                            selectedItems.push({
+                              ...product,
+                              quantity: quantities[product.id],
+                              total: quantities[product.id] * product.rate
+                            });
+                          }
+                          
+                          product.variants?.forEach(variant => {
+                            if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
+                              const variantPrice = variant.discount_percentage > 0 
+                                ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                : variant.discount_amount > 0 
+                                  ? variant.price - variant.discount_amount
+                                  : variant.price;
+                              selectedItems.push({
+                                id: `${product.id}_variant_${variant.id}`,
+                                name: `${product.name} - ${variant.variant_name}`,
+                                category: product.category,
+                                rate: variantPrice,
+                                unit: product.unit,
+                                quantity: quantities[variant.id],
+                                total: quantities[variant.id] * variantPrice,
+                                closingStock: variant.stock_quantity
+                              });
+                            }
+                          });
+                          
+                          if (selectedItems.length === 0) {
+                            toast({
+                              title: "No Items Selected",
+                              description: "Please select variants and enter quantities",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+                          
+                          // Add all items to cart
+                          selectedItems.forEach(item => {
+                            const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                            if (existingItem) {
+                              setCart(prev => prev.map(cartItem => 
+                                cartItem.id === item.id 
+                                  ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
+                                  : cartItem
+                              ));
+                            } else {
+                              setCart(prev => [...prev, item]);
+                            }
+                          });
+                          
+                          toast({
+                            title: "Added to Cart",
+                            description: `${selectedItems.length} item(s) added to cart`
+                          });
+                        }}
+                        className="w-full h-8"
+                        size="sm"
+                        disabled={(() => {
+                          const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
+                            product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
+                          return !hasSelection;
+                        })()}
+                      >
+                        <Plus size={14} className="mr-1" />
+                        Add Selected to Cart
+                      </Button>
+                    </div>
+                  ) : (
+                    // Original layout for products without variants
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-muted-foreground">Qty</label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={quantities[displayProduct.id] || ""}
+                            onChange={(e) => handleQuantityChange(displayProduct.id, parseInt(e.target.value) || 0)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Stock</label>
+                          <Input
+                            type="number"
+                            placeholder={displayProduct.closingStock?.toString() || "0"}
+                            value={closingStocks[displayProduct.id] ?? displayProduct.closingStock}
+                            onChange={(e) => handleClosingStockChange(displayProduct.id, e.target.value)}
+                            onFocus={(e) => {
+                              if (e.target.value === "0") {
+                                e.target.select();
+                              }
+                            }}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <Button 
+                        onClick={() => addToCart(displayProduct)}
+                        className={`w-full h-8 ${cart.some((i) => i.id === displayProduct.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
+                        size="sm"
+                        variant={cart.some((i) => i.id === displayProduct.id) ? "default" : "default"}
+                      >
+                        {cart.some((i) => i.id === displayProduct.id) ? (
+                          <>
+                            <Check size={14} className="mr-1" />
+                            Added
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={14} className="mr-1" />
+                            Add
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
