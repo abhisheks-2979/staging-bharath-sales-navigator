@@ -38,10 +38,12 @@ interface ProductScheme {
   id: string;
   product_id: string;
   product?: Product;
+  variant_id?: string;
   name: string;
   description: string;
   scheme_type: string;
   condition_quantity: number;
+  quantity_condition_type?: string;
   discount_percentage: number;
   discount_amount: number;
   free_quantity: number;
@@ -95,10 +97,12 @@ const [productForm, setProductForm] = useState({
   const [schemeForm, setSchemeForm] = useState({
     id: '',
     product_id: '',
+    variant_id: '',
     name: '',
     description: '',
     scheme_type: 'discount',
     condition_quantity: 0,
+    quantity_condition_type: 'more_than',
     discount_percentage: 0,
     discount_amount: 0,
     free_quantity: 0,
@@ -365,10 +369,12 @@ setProductForm({
           .from('product_schemes')
           .update({
             product_id: schemeForm.product_id,
+            variant_id: schemeForm.variant_id || null,
             name: schemeForm.name,
             description: schemeForm.description,
             scheme_type: schemeForm.scheme_type,
             condition_quantity: schemeForm.condition_quantity,
+            quantity_condition_type: schemeForm.quantity_condition_type,
             discount_percentage: schemeForm.discount_percentage,
             discount_amount: schemeForm.discount_amount,
             free_quantity: schemeForm.free_quantity,
@@ -385,10 +391,12 @@ setProductForm({
           .from('product_schemes')
           .insert({
             product_id: schemeForm.product_id,
+            variant_id: schemeForm.variant_id || null,
             name: schemeForm.name,
             description: schemeForm.description,
             scheme_type: schemeForm.scheme_type,
             condition_quantity: schemeForm.condition_quantity,
+            quantity_condition_type: schemeForm.quantity_condition_type,
             discount_percentage: schemeForm.discount_percentage,
             discount_amount: schemeForm.discount_amount,
             free_quantity: schemeForm.free_quantity,
@@ -405,10 +413,12 @@ setProductForm({
       setSchemeForm({
         id: '',
         product_id: '',
+        variant_id: '',
         name: '',
         description: '',
         scheme_type: 'discount',
         condition_quantity: 0,
+        quantity_condition_type: 'more_than',
         discount_percentage: 0,
         discount_amount: 0,
         free_quantity: 0,
@@ -862,10 +872,12 @@ setProductForm({
                     <Button onClick={() => setSchemeForm({
                       id: '',
                       product_id: '',
+                      variant_id: '',
                       name: '',
                       description: '',
                       scheme_type: 'discount',
                       condition_quantity: 0,
+                      quantity_condition_type: 'more_than',
                       discount_percentage: 0,
                       discount_amount: 0,
                       free_quantity: 0,
@@ -877,14 +889,14 @@ setProductForm({
                       Add Scheme
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-md max-h-[90vh]">
                     <DialogHeader>
                       <DialogTitle>{schemeForm.id ? 'Edit Scheme' : 'Add New Scheme'}</DialogTitle>
                       <DialogDescription>
                         {schemeForm.id ? 'Update scheme details' : 'Create a new promotional scheme'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <div className="space-y-4 overflow-y-auto max-h-[70vh] pr-2">
                       <div>
                         <Label htmlFor="product">Product</Label>
                         <Select
@@ -935,20 +947,62 @@ setProductForm({
                             <SelectItem value="discount">Percentage Discount</SelectItem>
                             <SelectItem value="buy_x_get_y">Buy X Get Y Free</SelectItem>
                             <SelectItem value="percentage_off">Fixed Amount Off</SelectItem>
+                            <SelectItem value="volume_discount">Volume Discount</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+                      {schemeForm.product_id && (
+                        <div>
+                          <Label htmlFor="variant">Variant (Optional)</Label>
+                          <Select
+                            value={schemeForm.variant_id}
+                            onValueChange={(value) => setSchemeForm({ ...schemeForm, variant_id: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select variant or leave empty for all variants" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">All Variants</SelectItem>
+                              {variants
+                                .filter(variant => variant.product_id === schemeForm.product_id)
+                                .map((variant) => (
+                                  <SelectItem key={variant.id} value={variant.id}>
+                                    {variant.variant_name} ({variant.sku})
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div>
-                        <Label htmlFor="conditionQty">Minimum Quantity</Label>
+                        <Label htmlFor="conditionQty">Quantity Threshold</Label>
                         <Input
                           id="conditionQty"
                           type="number"
                           value={schemeForm.condition_quantity}
                           onChange={(e) => setSchemeForm({ ...schemeForm, condition_quantity: parseInt(e.target.value) || 0 })}
-                          placeholder="Minimum quantity required"
+                          placeholder="Quantity threshold"
                         />
                       </div>
-                      {schemeForm.scheme_type === 'discount' && (
+                      {(schemeForm.scheme_type === 'volume_discount' || schemeForm.scheme_type === 'buy_x_get_y') && (
+                        <div>
+                          <Label htmlFor="quantityConditionType">Quantity Condition</Label>
+                          <Select
+                            value={schemeForm.quantity_condition_type}
+                            onValueChange={(value) => setSchemeForm({ ...schemeForm, quantity_condition_type: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="more_than">More than</SelectItem>
+                              <SelectItem value="less_than">Less than</SelectItem>
+                              <SelectItem value="equal_to">Equal to</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {(schemeForm.scheme_type === 'discount' || schemeForm.scheme_type === 'volume_discount') && (
                         <div>
                           <Label htmlFor="discountPercentage">Discount Percentage (%)</Label>
                           <Input
@@ -1043,18 +1097,18 @@ setProductForm({
                       <TableCell>{scheme.product?.name}</TableCell>
                       <TableCell className="capitalize">{scheme.scheme_type.replace('_', ' ')}</TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          <p>Min Qty: {scheme.condition_quantity}</p>
-                          {scheme.scheme_type === 'discount' && (
-                            <p>Discount: {scheme.discount_percentage}%</p>
-                          )}
-                          {scheme.scheme_type === 'percentage_off' && (
-                            <p>Discount: ₹{scheme.discount_amount}</p>
-                          )}
-                          {scheme.scheme_type === 'buy_x_get_y' && (
-                            <p>Free Qty: {scheme.free_quantity}</p>
-                          )}
-                        </div>
+                          <div className="text-sm">
+                            <p>Qty: {scheme.quantity_condition_type ? scheme.quantity_condition_type.replace('_', ' ') : 'min'} {scheme.condition_quantity}</p>
+                            {(scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') && (
+                              <p>Discount: {scheme.discount_percentage}%</p>
+                            )}
+                            {scheme.scheme_type === 'percentage_off' && (
+                              <p>Discount: ₹{scheme.discount_amount}</p>
+                            )}
+                            {scheme.scheme_type === 'buy_x_get_y' && (
+                              <p>Free Qty: {scheme.free_quantity}</p>
+                            )}
+                          </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={scheme.is_active ? 'default' : 'secondary'}>
@@ -1070,10 +1124,12 @@ setProductForm({
                               setSchemeForm({
                                 id: scheme.id,
                                 product_id: scheme.product_id,
+                                variant_id: scheme.variant_id || '',
                                 name: scheme.name,
                                 description: scheme.description || '',
                                 scheme_type: scheme.scheme_type,
                                 condition_quantity: scheme.condition_quantity,
+                                quantity_condition_type: scheme.quantity_condition_type || 'more_than',
                                 discount_percentage: scheme.discount_percentage,
                                 discount_amount: scheme.discount_amount,
                                 free_quantity: scheme.free_quantity,
