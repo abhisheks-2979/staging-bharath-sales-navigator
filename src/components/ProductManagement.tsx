@@ -1165,7 +1165,15 @@ setProductForm({
                         id="variantPrice"
                         type="number"
                         value={variantForm.price}
-                        onChange={(e) => setVariantForm({ ...variantForm, price: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => {
+                          const price = parseFloat(e.target.value) || 0;
+                          const discountAmount = (price * variantForm.discount_percentage) / 100;
+                          setVariantForm({ 
+                            ...variantForm, 
+                            price,
+                            discount_amount: Number(discountAmount.toFixed(2))
+                          });
+                        }}
                         placeholder="0.00"
                       />
                     </div>
@@ -1186,7 +1194,15 @@ setProductForm({
                           id="discountPerc"
                           type="number"
                           value={variantForm.discount_percentage}
-                          onChange={(e) => setVariantForm({ ...variantForm, discount_percentage: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) => {
+                            const percentage = parseFloat(e.target.value) || 0;
+                            const discountAmount = (variantForm.price * percentage) / 100;
+                            setVariantForm({ 
+                              ...variantForm, 
+                              discount_percentage: percentage,
+                              discount_amount: Number(discountAmount.toFixed(2))
+                            });
+                          }}
                           placeholder="0"
                         />
                       </div>
@@ -1198,6 +1214,8 @@ setProductForm({
                           value={variantForm.discount_amount}
                           onChange={(e) => setVariantForm({ ...variantForm, discount_amount: parseFloat(e.target.value) || 0 })}
                           placeholder="0"
+                          readOnly
+                          className="bg-muted"
                         />
                       </div>
                     </div>
