@@ -525,10 +525,10 @@ const filteredProducts = selectedCategory === "All"
                                     <Input
                                       type="number"
                                       placeholder="0"
-                                      value={quantities[product.id] || ""}
+                                      value={quantities[`${product.id}_base`] || ""}
                                       onChange={(e) => {
                                         const qty = parseInt(e.target.value) || 0;
-                                        handleQuantityChange(product.id, qty);
+                                        handleQuantityChange(`${product.id}_base`, qty);
                                         if (qty > 0) {
                                           handleVariantChange(product.id, "base");
                                         }
@@ -538,7 +538,7 @@ const filteredProducts = selectedCategory === "All"
                                     />
                                   </div>
                                   <div className="text-sm font-bold">
-                                    ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
+                                    ₹{((quantities[`${product.id}_base`] || 0) * product.rate).toFixed(2)}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
                                     {product.closingStock || 0}
@@ -609,11 +609,11 @@ const filteredProducts = selectedCategory === "All"
                                   // Add all selected variants to cart
                                   const selectedItems = [];
                                   
-                                  if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                                  if (selectedVariants[product.id] === "base" && quantities[`${product.id}_base`] > 0) {
                                     selectedItems.push({
                                       ...product,
-                                      quantity: quantities[product.id],
-                                      total: quantities[product.id] * product.rate
+                                      quantity: quantities[`${product.id}_base`],
+                                      total: quantities[`${product.id}_base`] * product.rate
                                     });
                                   }
                                   
@@ -674,7 +674,7 @@ const filteredProducts = selectedCategory === "All"
                                 className="w-full h-12 text-base font-semibold"
                                 size="lg"
                                 disabled={(() => {
-                                  const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
+                                  const hasSelection = selectedVariants[product.id] === "base" && quantities[`${product.id}_base`] > 0 ||
                                     product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
                                   return !hasSelection;
                                 })()}
@@ -719,13 +719,13 @@ const filteredProducts = selectedCategory === "All"
                         const selectedItems = [];
                         
                         // Add base product if selected and has quantity
-                        if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                        if (selectedVariants[product.id] === "base" && quantities[`${product.id}_base`] > 0) {
                           selectedItems.push({
                             id: product.id,
                             name: "Base Product",
-                            quantity: quantities[product.id],
+                            quantity: quantities[`${product.id}_base`],
                             rate: product.rate,
-                            amount: quantities[product.id] * product.rate
+                            amount: quantities[`${product.id}_base`] * product.rate
                           });
                         }
                         
@@ -773,11 +773,11 @@ const filteredProducts = selectedCategory === "All"
                           // Add all selected variants to cart
                           const selectedItems = [];
                           
-                          if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                          if (selectedVariants[product.id] === "base" && quantities[`${product.id}_base`] > 0) {
                             selectedItems.push({
                               ...product,
-                              quantity: quantities[product.id],
-                              total: quantities[product.id] * product.rate
+                              quantity: quantities[`${product.id}_base`],
+                              total: quantities[`${product.id}_base`] * product.rate
                             });
                           }
                           
