@@ -497,57 +497,46 @@ const filteredProducts = selectedCategory === "All"
                                 </div>
                               )}
 
-                              {/* Base Product Card */}
-                              <Card className="mb-4 border-2 border-primary/20">
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-semibold text-base">Base Product</h3>
-                                    <Badge variant="secondary">Original</Badge>
-                                  </div>
-                                  
-                                  <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-sm text-muted-foreground">Rate</span>
-                                      <span className="text-lg font-bold text-primary">₹{product.rate}</span>
-                                    </div>
-                                    
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-sm text-muted-foreground">Stock</span>
-                                      <span className="text-sm font-medium">{product.closingStock || 0} units</span>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                      <label className="text-sm font-medium">Quantity</label>
-                                      <Input
-                                        type="number"
-                                        placeholder="Enter quantity"
-                                        value={quantities[product.id] || ""}
-                                        onChange={(e) => {
-                                          const qty = parseInt(e.target.value) || 0;
-                                          handleQuantityChange(product.id, qty);
-                                          if (qty > 0) {
-                                            handleVariantChange(product.id, "base");
-                                          }
-                                        }}
-                                        className="h-12 text-base"
-                                        min="0"
-                                      />
-                                    </div>
-                                    
-                                    {quantities[product.id] > 0 && (
-                                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                                        <span className="text-sm font-medium">Amount</span>
-                                        <span className="text-lg font-bold">
-                                          ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </CardContent>
-                              </Card>
+                              {/* Variants Grid */}
+                              <div className="border rounded-lg overflow-hidden bg-background">
+                                {/* Grid Header */}
+                                <div className="bg-muted/80 grid grid-cols-5 gap-2 p-3 text-sm font-semibold border-b">
+                                  <div>Variant</div>
+                                  <div>Rate</div>
+                                  <div>Qty</div>
+                                  <div>Amount</div>
+                                  <div>Stock</div>
+                                </div>
 
-                              {/* Variant Cards */}
-                              <div className="space-y-3">
+                                {/* Base Product Row */}
+                                <div className="grid grid-cols-5 gap-2 p-3 border-b bg-primary/5">
+                                  <div className="text-sm font-medium">Base Product</div>
+                                  <div className="text-sm font-bold text-primary">₹{product.rate}</div>
+                                  <div>
+                                    <Input
+                                      type="number"
+                                      placeholder="0"
+                                      value={quantities[product.id] || ""}
+                                      onChange={(e) => {
+                                        const qty = parseInt(e.target.value) || 0;
+                                        handleQuantityChange(product.id, qty);
+                                        if (qty > 0) {
+                                          handleVariantChange(product.id, "base");
+                                        }
+                                      }}
+                                      className="h-10 text-sm"
+                                      min="0"
+                                    />
+                                  </div>
+                                  <div className="text-sm font-bold">
+                                    ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {product.closingStock || 0}
+                                  </div>
+                                </div>
+
+                                {/* Variant Rows */}
                                 {product.variants.map(variant => {
                                   const variantPrice = variant.discount_percentage > 0 
                                     ? variant.price - (variant.price * variant.discount_percentage / 100)
@@ -561,58 +550,44 @@ const filteredProducts = selectedCategory === "All"
                                   const variantAmount = variantQuantity * variantPrice;
                                   
                                   return (
-                                    <Card 
+                                    <div 
                                       key={variant.id} 
-                                      className={`border-2 ${variantQuantity > 0 ? 'border-green-200 bg-green-50/50' : 'border-border'}`}
+                                      className={`grid grid-cols-5 gap-2 p-3 border-b ${variantQuantity > 0 ? 'bg-green-50' : ''}`}
                                     >
-                                      <CardContent className="p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                          <h3 className="font-semibold text-base">{variant.variant_name}</h3>
-                                          {savings > 0 && (
-                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                                              Save ₹{savings.toFixed(2)}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Rate</span>
-                                            <span className="text-lg font-bold text-primary">₹{variantPrice.toFixed(2)}</span>
-                                          </div>
-                                          
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-sm text-muted-foreground">Stock</span>
-                                            <span className="text-sm font-medium">{variant.stock_quantity || 0} units</span>
-                                          </div>
-                                          
-                                          <div className="space-y-2">
-                                            <label className="text-sm font-medium">Quantity</label>
-                                            <Input
-                                              type="number"
-                                              placeholder="Enter quantity"
-                                              value={variantQuantity || ""}
-                                              onChange={(e) => {
-                                                const qty = parseInt(e.target.value) || 0;
-                                                handleQuantityChange(variant.id, qty);
-                                                if (qty > 0) {
-                                                  handleVariantChange(product.id, variant.id);
-                                                }
-                                              }}
-                                              className="h-12 text-base"
-                                              min="0"
-                                            />
-                                          </div>
-                                          
-                                          {variantQuantity > 0 && (
-                                            <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                                              <span className="text-sm font-medium">Amount</span>
-                                              <span className="text-lg font-bold">₹{variantAmount.toFixed(2)}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </CardContent>
-                                    </Card>
+                                      <div className="space-y-1">
+                                        <div className="text-sm font-medium">{variant.variant_name}</div>
+                                        {savings > 0 && (
+                                          <Badge className="bg-green-100 text-green-700 text-xs px-1 py-0">
+                                            Save ₹{savings.toFixed(2)}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-sm font-bold text-primary">
+                                        ₹{variantPrice.toFixed(2)}
+                                      </div>
+                                      <div>
+                                        <Input
+                                          type="number"
+                                          placeholder="0"
+                                          value={variantQuantity || ""}
+                                          onChange={(e) => {
+                                            const qty = parseInt(e.target.value) || 0;
+                                            handleQuantityChange(variant.id, qty);
+                                            if (qty > 0) {
+                                              handleVariantChange(product.id, variant.id);
+                                            }
+                                          }}
+                                          className="h-10 text-sm"
+                                          min="0"
+                                        />
+                                      </div>
+                                      <div className="text-sm font-bold">
+                                        ₹{variantAmount.toFixed(2)}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {variant.stock_quantity || 0}
+                                      </div>
+                                    </div>
                                   );
                                 })}
                               </div>
