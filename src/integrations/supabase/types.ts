@@ -565,9 +565,11 @@ export type Database = {
           is_active: boolean | null
           name: string
           product_id: string | null
+          quantity_condition_type: string | null
           scheme_type: string
           start_date: string | null
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           condition_quantity?: number | null
@@ -581,9 +583,11 @@ export type Database = {
           is_active?: boolean | null
           name: string
           product_id?: string | null
+          quantity_condition_type?: string | null
           scheme_type?: string
           start_date?: string | null
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           condition_quantity?: number | null
@@ -597,9 +601,11 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           product_id?: string | null
+          quantity_condition_type?: string | null
           scheme_type?: string
           start_date?: string | null
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -607,6 +613,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_schemes_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
