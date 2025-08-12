@@ -554,27 +554,6 @@ const filteredProducts = selectedCategory === "All"
                     </div>
                   )}
 
-                  {product.hasScheme && (
-                    <div className="mb-2 p-2 bg-orange-50 rounded border border-orange-200">
-                      <p className="text-xs text-orange-700 font-medium">🎁 Active Schemes:</p>
-                      <p className="text-xs text-orange-700">{product.schemeDetails}</p>
-                      {(() => {
-                        const currentQty = quantities[product.id] || 0;
-                        if (currentQty > 0) {
-                          const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, currentQty, product.rate);
-                          if (totalDiscount > 0 || freeQuantity > 0) {
-                            return (
-                              <div className="mt-1 text-xs text-green-700 font-medium">
-                                {totalDiscount > 0 && `💰 You'll save ₹${totalDiscount.toFixed(2)}`}
-                                {freeQuantity > 0 && ` 🎁 ${freeQuantity} free item(s)`}
-                              </div>
-                            );
-                          }
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  )}
 
                   {/* Selected Items Summary & Stock */}
                   {(product.variants && product.variants.length > 0) ? (
@@ -633,22 +612,6 @@ const filteredProducts = selectedCategory === "All"
                         ) : null;
                       })()}
                       
-                      {/* Stock Input */}
-                      <div>
-                        <label className="text-xs text-muted-foreground">Stock</label>
-                        <Input
-                          type="number"
-                          placeholder={displayProduct.closingStock?.toString() || "0"}
-                          value={closingStocks[displayProduct.id] ?? displayProduct.closingStock}
-                          onChange={(e) => handleClosingStockChange(displayProduct.id, e.target.value)}
-                          onFocus={(e) => {
-                            if (e.target.value === "0") {
-                              e.target.select();
-                            }
-                          }}
-                          className="h-8 text-sm"
-                        />
-                      </div>
 
                       {/* Add to Cart Button */}
                       <Button 
