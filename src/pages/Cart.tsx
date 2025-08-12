@@ -3,9 +3,10 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Gift, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { CartItemDetail } from "@/components/CartItemDetail";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CartItem {
@@ -76,6 +77,8 @@ export const Cart = () => {
 const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
 const [userId, setUserId] = React.useState<string | null>(null);
 const [visitDate, setVisitDate] = React.useState<string | null>(null);
+const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
+const [showItemDetail, setShowItemDetail] = React.useState(false);
 const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
 const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
 
@@ -323,7 +326,21 @@ React.useEffect(() => {
                       <div className="flex-1">
                         <h3 className="font-semibold">{item.name}</h3>
                         <p className="text-sm text-muted-foreground">{item.category}</p>
-                        <p className="text-sm font-medium">₹{item.rate}/{item.unit}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">₹{item.rate}/{item.unit}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setShowItemDetail(true);
+                            }}
+                            className="text-xs text-muted-foreground hover:text-primary"
+                          >
+                            <Eye size={12} className="mr-1" />
+                            Show More
+                          </Button>
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
@@ -422,6 +439,13 @@ React.useEffect(() => {
             </Card>
           </>
         )}
+        
+        {/* Cart Item Detail Modal */}
+        <CartItemDetail
+          isOpen={showItemDetail}
+          onClose={() => setShowItemDetail(false)}
+          item={selectedItem}
+        />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Mi
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
+import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
@@ -74,6 +75,7 @@ const [loading, setLoading] = useState(true);
 const [userId, setUserId] = useState<string | null>(null);
 const [schemes, setSchemes] = useState<any[]>([]);
 const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
+const [showOrderSummary, setShowOrderSummary] = useState(false);
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -348,12 +350,148 @@ const filteredProducts = selectedCategory === "All"
     return cart.reduce((sum, item) => sum + item.total, 0);
   };
 
-  // New: live selection value from current quantities (before adding to cart)
+  // Calculate total value from selected quantities and variants
   const getSelectionValue = () => {
-    return products.reduce((sum, p) => {
-      const qty = quantities[p.id] || 0;
-      return sum + Number(p.rate || 0) * Number(qty || 0);
-    }, 0);
+    let total = 0;
+    
+    products.forEach(product => {
+      // Base product quantity
+      const baseQty = quantities[product.id] || 0;
+      if (selectedVariants[product.id] === "base" && baseQty > 0) {
+        total += baseQty * product.rate;
+      }
+      
+      // Variant quantities
+      product.variants?.forEach(variant => {
+        const variantQty = quantities[variant.id] || 0;
+        if (selectedVariants[product.id] === variant.id && variantQty > 0) {
+          const variantPrice = variant.discount_percentage > 0 
+            ? variant.price - (variant.price * variant.discount_percentage / 100)
+            : variant.discount_amount > 0 
+              ? variant.price - variant.discount_amount
+              : variant.price;
+          total += variantQty * variantPrice;
+        }
+      });
+    });
+    
+    return total;
+  };
+
+  // Get current selection details for order summary
+  const getSelectionDetails = () => {
+    const items: any[] = [];
+    let totalSavings = 0;
+    
+    products.forEach(product => {
+      // Base product
+      const baseQty = quantities[product.id] || 0;
+      if (selectedVariants[product.id] === "base" && baseQty > 0) {
+        const total = baseQty * product.rate;
+        const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+        totalSavings += totalDiscount;
+        
+        items.push({
+          id: product.id,
+          variantName: "Base Product",
+          selectedItem: product.name,
+          quantity: baseQty,
+          rate: product.rate,
+          totalPrice: total - totalDiscount,
+          savings: totalDiscount,
+          appliedOffers: totalDiscount > 0 ? [`Scheme discount: ₹${totalDiscount.toFixed(2)}`] : []
+        });
+      }
+      
+      // Variants
+      product.variants?.forEach(variant => {
+        const variantQty = quantities[variant.id] || 0;
+        if (selectedVariants[product.id] === variant.id && variantQty > 0) {
+          const variantPrice = variant.discount_percentage > 0 
+            ? variant.price - (variant.price * variant.discount_percentage / 100)
+            : variant.discount_amount > 0 
+              ? variant.price - variant.discount_amount
+              : variant.price;
+          
+          const variantSavings = variant.discount_percentage > 0 
+            ? variant.price * variant.discount_percentage / 100
+            : variant.discount_amount;
+          
+          const baseTotal = variantQty * variantPrice;
+          const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+          totalSavings += (variantSavings * variantQty) + totalDiscount;
+          
+          const appliedOffers = [];
+          if (variantSavings > 0) {
+            appliedOffers.push(`Variant discount: ₹${(variantSavings * variantQty).toFixed(2)}`);
+          }
+          if (totalDiscount > 0) {
+            appliedOffers.push(`Scheme discount: ₹${totalDiscount.toFixed(2)}`);
+          }
+          
+          items.push({
+            id: variant.id,
+            variantName: variant.variant_name,
+            selectedItem: `${product.name} - ${variant.variant_name}`,
+            quantity: variantQty,
+            rate: variantPrice,
+            totalPrice: baseTotal - totalDiscount,
+            savings: (variantSavings * variantQty) + totalDiscount,
+            appliedOffers
+          });
+        }
+      });
+    });
+    
+    return { items, totalSavings };
+  };
+
+  // Handle adding all selected items to cart
+  const handleAddAllToCart = () => {
+    const { items } = getSelectionDetails();
+    
+    if (items.length === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select items and enter quantities",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Add all items to cart
+    items.forEach(item => {
+      const cartItem = {
+        id: item.id,
+        name: item.selectedItem,
+        category: products.find(p => p.id === item.id.split('_')[0])?.category || "Unknown",
+        rate: item.rate,
+        unit: products.find(p => p.id === item.id.split('_')[0])?.unit || "piece",
+        quantity: item.quantity,
+        total: item.totalPrice
+      };
+      
+      const existingItem = cart.find(cartItem => cartItem.id === item.id);
+      if (existingItem) {
+        setCart(prev => prev.map(cartItem => 
+          cartItem.id === item.id 
+            ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.totalPrice }
+            : cartItem
+        ));
+      } else {
+        setCart(prev => [...prev, cartItem]);
+      }
+    });
+    
+    // Reset quantities and selections
+    setQuantities({});
+    setSelectedVariants({});
+    setShowOrderSummary(false);
+    
+    toast({
+      title: "Added to Cart",
+      description: `${items.length} item(s) added to cart`
+    });
   };
 
   // Function to toggle variant table visibility
@@ -411,10 +549,22 @@ const filteredProducts = selectedCategory === "All"
                 <p className="text-primary-foreground/80">{retailerName}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-primary-foreground/80">Current value</p>
-              <p className="text-xl font-bold">₹{getSelectionValue().toLocaleString()}</p>
-            </div>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                const { items } = getSelectionDetails();
+                if (items.length > 0) {
+                  setShowOrderSummary(true);
+                }
+              }}
+              className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2"
+              disabled={getSelectionValue() === 0}
+            >
+              <div className="text-right">
+                <p className="text-xs text-primary-foreground/80">Current value (Click)</p>
+                <p className="text-xl font-bold">₹{getSelectionValue().toLocaleString()}</p>
+              </div>
+            </Button>
           </CardHeader>
         </Card>
 
@@ -848,6 +998,16 @@ const filteredProducts = selectedCategory === "All"
             </div>
           </div>
         )}
+        
+        {/* Order Summary Modal */}
+        <OrderSummaryModal
+          isOpen={showOrderSummary}
+          onClose={() => setShowOrderSummary(false)}
+          items={getSelectionDetails().items}
+          totalAmount={getSelectionValue()}
+          totalSavings={getSelectionDetails().totalSavings}
+          onAddToCart={handleAddAllToCart}
+        />
       </div>
     </div>
   );
