@@ -533,6 +533,7 @@ const filteredProducts = selectedCategory === "All"
                                 placeholder="0"
                                 value={quantities[product.id] || ""}
                                 onChange={(e) => {
+                                  console.log('Base product quantity change:', product.id, e.target.value);
                                   const qty = parseInt(e.target.value) || 0;
                                   handleQuantityChange(product.id, qty);
                                   if (qty > 0) {
@@ -541,6 +542,7 @@ const filteredProducts = selectedCategory === "All"
                                 }}
                                 className="h-6 text-xs p-1"
                                 min="0"
+                                disabled={false}
                               />
                             </div>
                             <div>
