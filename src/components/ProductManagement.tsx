@@ -561,14 +561,15 @@ setProductForm({
                       Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
                     <DialogHeader>
                       <DialogTitle>{productForm.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                       <DialogDescription>
                         {productForm.id ? 'Update product details' : 'Add a new product to your catalog'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
+                    <ScrollArea className="flex-1 px-1">
+                      <div className="space-y-4 pr-4">
                       <div>
                         <Label htmlFor="sku">SKU</Label>
                         <Input
@@ -671,8 +672,9 @@ setProductForm({
                           onCheckedChange={(checked) => setProductForm({ ...productForm, is_active: checked })}
                         />
                         <Label htmlFor="active">Active</Label>
+                       </div>
                       </div>
-                    </div>
+                    </ScrollArea>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
                         Cancel
