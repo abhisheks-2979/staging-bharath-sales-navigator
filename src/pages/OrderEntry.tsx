@@ -188,7 +188,10 @@ const filteredProducts = selectedCategory === "All"
     setQuantities(prev => ({ ...prev, [productId]: quantity }));
   };
 
-  const handleClosingStockChange = (productId: string, stock: number) => {
+  const handleClosingStockChange = (productId: string, value: string) => {
+    // Remove leading zeros and convert to number
+    const cleanValue = value.replace(/^0+/, '') || '0';
+    const stock = parseInt(cleanValue) || 0;
     setClosingStocks(prev => ({ ...prev, [productId]: stock }));
   };
 
@@ -389,7 +392,13 @@ const filteredProducts = selectedCategory === "All"
                         type="number"
                         placeholder={product.closingStock?.toString() || "0"}
                         value={closingStocks[product.id] ?? product.closingStock}
-                        onChange={(e) => handleClosingStockChange(product.id, parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleClosingStockChange(product.id, e.target.value)}
+                        onFocus={(e) => {
+                          // Select all text when focusing on a field with value "0"
+                          if (e.target.value === "0") {
+                            e.target.select();
+                          }
+                        }}
                         className="h-8 text-sm"
                       />
                     </div>
