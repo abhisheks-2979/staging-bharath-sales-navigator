@@ -655,12 +655,12 @@ const filteredProducts = selectedCategory === "All"
             return (
               <Card key={product.id} className="relative">
                 {/* Always show scheme button for all products */}
-                <div className="absolute -top-1 -right-1 z-10">
+                <div className="absolute -top-2 -right-2 z-20">
                   <Badge 
-                    className={`text-white text-xs px-2 py-0 cursor-pointer transition-colors ${
+                    className={`text-white text-xs px-2 py-1 cursor-pointer transition-all duration-200 shadow-lg border-2 border-white ${
                       product.hasScheme 
-                        ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600' 
-                        : 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600'
+                        ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 hover:scale-105' 
+                        : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 hover:scale-105'
                     }`}
                     onClick={() => handleSchemeClick(product)}
                   >
