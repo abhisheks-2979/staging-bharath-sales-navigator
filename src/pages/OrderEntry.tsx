@@ -525,21 +525,19 @@ const filteredProducts = selectedCategory === "All"
     setExpandedProducts(newExpandedProducts);
   };
 
-  // Auto-expand logic for filtered products
+  // Auto-expand logic for filtered products when category changes
   useEffect(() => {
     if (filteredProducts.length > 0) {
       const newExpandedProducts: {[key: string]: boolean} = {};
       
-      // Auto-expand first product or specific products like "Basmati Rice Premium"
-      filteredProducts.forEach((product, index) => {
-        if (product.name.includes("Basmati Rice Premium") || index === 0) {
-          newExpandedProducts[product.id] = true;
-        }
-      });
+      // Auto-expand first product in the category
+      if (filteredProducts.length > 0) {
+        newExpandedProducts[filteredProducts[0].id] = true;
+      }
       
       setExpandedProducts(newExpandedProducts);
     }
-  }, [filteredProducts]);
+  }, [selectedCategory, filteredProducts]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
