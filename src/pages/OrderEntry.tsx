@@ -486,7 +486,7 @@ const filteredProducts = selectedCategory === "All"
                       {displayProduct.sku && (
                         <p className="text-xs text-blue-600 font-mono">SKU: {displayProduct.sku}</p>
                       )}
-                      <p className="text-base font-bold text-primary">₹{displayProduct.rate}/{product.unit}</p>
+                      <p className="text-base font-bold text-primary">₹{displayProduct.rate}</p>
                       {savingsAmount > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
                           You save ₹{savingsAmount.toFixed(2)}
