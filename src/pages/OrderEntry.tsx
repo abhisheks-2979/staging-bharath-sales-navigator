@@ -155,8 +155,8 @@ useEffect(() => {
           category: p.category?.name || 'Uncategorized',
           rate: p.rate,
           unit: p.unit,
-          hasScheme: activeSchemes.length > 0,
-          schemeDetails: activeSchemes.length > 0 ? activeSchemes.map(s => 
+          hasScheme: activeSchemes.length > 0 && !p.name.toLowerCase().includes('basmati rice premium'),
+          schemeDetails: activeSchemes.length > 0 && !p.name.toLowerCase().includes('basmati rice premium') ? activeSchemes.map(s => 
             `${s.name}: ${getSchemeDescription(s)}`
           ).join('; ') : undefined,
           closingStock: p.closing_stock,
