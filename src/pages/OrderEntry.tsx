@@ -509,16 +509,15 @@ const filteredProducts = selectedCategory === "All"
                               {/* Variants Grid */}
                               <div className="border rounded-lg overflow-hidden bg-background">
                                 {/* Grid Header */}
-                                <div className="bg-muted/80 grid grid-cols-5 gap-2 p-3 text-sm font-semibold border-b">
+                                <div className="bg-muted/80 grid grid-cols-4 gap-2 p-3 text-sm font-semibold border-b">
                                   <div>Variant</div>
                                   <div>Rate</div>
                                   <div>Qty</div>
                                   <div>Amount</div>
-                                  <div>Stock</div>
                                 </div>
 
                                 {/* Base Product Row */}
-                                <div className="grid grid-cols-5 gap-2 p-3 border-b bg-primary/5">
+                                <div className="grid grid-cols-4 gap-2 p-3 border-b bg-primary/5">
                                   <div className="text-sm font-medium">Base Product</div>
                                   <div className="text-sm font-bold text-primary">₹{product.rate}</div>
                                   <div>
@@ -540,9 +539,6 @@ const filteredProducts = selectedCategory === "All"
                                   <div className="text-sm font-bold">
                                     ₹{((quantities[product.id] || 0) * product.rate).toFixed(2)}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {product.closingStock || 0}
-                                  </div>
                                 </div>
 
                                 {/* Variant Rows */}
@@ -561,7 +557,7 @@ const filteredProducts = selectedCategory === "All"
                                   return (
                                     <div 
                                       key={variant.id} 
-                                      className={`grid grid-cols-5 gap-2 p-3 border-b ${variantQuantity > 0 ? 'bg-green-50' : ''}`}
+                                      className={`grid grid-cols-4 gap-2 p-3 border-b ${variantQuantity > 0 ? 'bg-green-50' : ''}`}
                                     >
                                       <div className="space-y-1">
                                         <div className="text-sm font-medium">{variant.variant_name}</div>
@@ -592,9 +588,6 @@ const filteredProducts = selectedCategory === "All"
                                       </div>
                                       <div className="text-sm font-bold">
                                         ₹{variantAmount.toFixed(2)}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {variant.stock_quantity || 0}
                                       </div>
                                     </div>
                                   );
