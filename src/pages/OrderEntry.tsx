@@ -678,6 +678,17 @@ const filteredProducts = selectedCategory === "All"
                           return total > 0 ? total.toLocaleString() : "0";
                         })()}
                       </p>
+                      
+                      {/* View Item wise pricing Break Down Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowOrderSummary(true)}
+                        className="text-xs h-6 p-1 mt-1 text-primary hover:bg-primary/10"
+                      >
+                        View Item wise pricing Break Down
+                      </Button>
+                      
                       {savingsAmount > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
                           You save ₹{savingsAmount.toFixed(2)}
@@ -800,150 +811,85 @@ const filteredProducts = selectedCategory === "All"
                   )}
 
 
-                   {/* Product Summary Section */}
+                   {/* Add to Cart Button */}
                    {(product.variants && product.variants.length > 0) ? (
-                     <div className="space-y-2">
-                       {/* Product Total Display */}
-                       {(() => {
-                         const qty = quantities[product.id] || 0;
-                         let totalValue = 0;
+                     <Button 
+                       onClick={() => {
+                         // Add all selected variants to cart
+                         const selectedItems = [];
                          
-                         if (qty > 0) {
-                           const selectedVariantId = selectedVariants[product.id];
-                           
-                           if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
-                             // Variant is selected
-                             const variant = product.variants.find(v => v.id === selectedVariantId);
-                             if (variant) {
-                               const variantPrice = variant.discount_percentage > 0 
-                                 ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                 : variant.discount_amount > 0 
-                                   ? variant.price - variant.discount_amount
-                                   : variant.price;
-                               
-                               const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
-                               totalValue = (qty * variantPrice) - totalDiscount;
-                             }
-                           } else {
-                             // Base product or no variant selected
-                             const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
-                             totalValue = (qty * product.rate) - totalDiscount;
-                           }
+                         if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
+                           selectedItems.push({
+                             ...product,
+                             quantity: quantities[product.id],
+                             total: quantities[product.id] * product.rate
+                           });
                          }
                          
-                         return totalValue > 0 ? (
-                           <div className="border rounded-lg p-3 bg-primary/5">
-                             <div className="space-y-1">
-                               <h4 className="font-semibold text-sm text-primary">{product.name}</h4>
-                               <p className="text-xs text-muted-foreground">{product.category}</p>
-                               <p className="text-xs text-blue-600 font-mono">SKU: {product.sku}</p>
-                               <div className="flex justify-between items-center pt-2 border-t">
-                                 <span className="text-sm font-medium">Total:</span>
-                                 <span className="text-lg font-bold text-primary">₹{totalValue.toLocaleString()}</span>
-                               </div>
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 onClick={() => {
-                                   const { items } = getSelectionDetails();
-                                   const productItems = items.filter(item => 
-                                     item.id === product.id || item.id.startsWith(`${product.id}_variant_`)
-                                   );
-                                   
-                                   if (productItems.length > 0) {
-                                     // Create a temporary modal state for this specific product
-                                     setShowOrderSummary(true);
-                                   }
-                                 }}
-                                 className="w-full text-xs h-6 p-0"
-                               >
-                                 View Item wise pricing Break Down
-                               </Button>
-                             </div>
-                           </div>
-                         ) : null;
-                       })()}
-                      
-
-                      {/* Add to Cart Button */}
-                      <Button 
-                        onClick={() => {
-                          // Add all selected variants to cart
-                          const selectedItems = [];
-                          
-                          if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
-                            selectedItems.push({
-                              ...product,
-                              quantity: quantities[product.id],
-                              total: quantities[product.id] * product.rate
-                            });
-                          }
-                          
-                           product.variants?.forEach(variant => {
-                             if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
-                               const variantPrice = variant.discount_percentage > 0 
-                                 ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                 : variant.discount_amount > 0 
-                                   ? variant.price - variant.discount_amount
-                                   : variant.price;
-                               
-                               const baseTotal = quantities[variant.id] * variantPrice;
-                               const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
-                               const finalTotal = baseTotal - totalDiscount;
-                               
-                               selectedItems.push({
-                                 id: `${product.id}_variant_${variant.id}`,
-                                 name: `${product.name} - ${variant.variant_name}`,
-                                 category: product.category,
-                                 rate: variantPrice,
-                                 unit: product.unit,
-                                 quantity: quantities[variant.id],
-                                 total: finalTotal,
-                                 closingStock: variant.stock_quantity
-                               });
-                             }
-                           });
-                          
-                          if (selectedItems.length === 0) {
-                            toast({
-                              title: "No Items Selected",
-                              description: "Please select variants and enter quantities",
-                              variant: "destructive"
-                            });
-                            return;
-                          }
-                          
-                          // Add all items to cart
-                          selectedItems.forEach(item => {
-                            const existingItem = cart.find(cartItem => cartItem.id === item.id);
-                            if (existingItem) {
-                              setCart(prev => prev.map(cartItem => 
-                                cartItem.id === item.id 
-                                  ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
-                                  : cartItem
-                              ));
-                            } else {
-                              setCart(prev => [...prev, item]);
+                          product.variants?.forEach(variant => {
+                            if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
+                              const variantPrice = variant.discount_percentage > 0 
+                                ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                : variant.discount_amount > 0 
+                                  ? variant.price - variant.discount_amount
+                                  : variant.price;
+                              
+                              const baseTotal = quantities[variant.id] * variantPrice;
+                              const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
+                              const finalTotal = baseTotal - totalDiscount;
+                              
+                              selectedItems.push({
+                                id: `${product.id}_variant_${variant.id}`,
+                                name: `${product.name} - ${variant.variant_name}`,
+                                category: product.category,
+                                rate: variantPrice,
+                                unit: product.unit,
+                                quantity: quantities[variant.id],
+                                total: finalTotal,
+                                closingStock: variant.stock_quantity
+                              });
                             }
                           });
-                          
-                          toast({
-                            title: "Added to Cart",
-                            description: `${selectedItems.length} item(s) added to cart`
-                          });
-                        }}
-                        className="w-full h-8"
-                        size="sm"
-                        disabled={(() => {
-                          const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
-                            product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
-                          return !hasSelection;
-                        })()}
-                      >
-                        <Plus size={14} className="mr-1" />
-                        Add Selected to Cart
-                      </Button>
-                    </div>
+                         
+                         if (selectedItems.length === 0) {
+                           toast({
+                             title: "No Items Selected",
+                             description: "Please select variants and enter quantities",
+                             variant: "destructive"
+                           });
+                           return;
+                         }
+                         
+                         // Add all items to cart
+                         selectedItems.forEach(item => {
+                           const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                           if (existingItem) {
+                             setCart(prev => prev.map(cartItem => 
+                               cartItem.id === item.id 
+                                 ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
+                                 : cartItem
+                             ));
+                           } else {
+                             setCart(prev => [...prev, item]);
+                           }
+                         });
+                         
+                         toast({
+                           title: "Added to Cart",
+                           description: `${selectedItems.length} item(s) added to cart`
+                         });
+                       }}
+                       className="w-full h-8"
+                       size="sm"
+                       disabled={(() => {
+                         const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
+                           product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
+                         return !hasSelection;
+                       })()}
+                     >
+                       <Plus size={14} className="mr-1" />
+                       Add Selected to Cart
+                     </Button>
                   ) : (
                     // Original layout for products without variants
                     <div className="space-y-2">
