@@ -188,7 +188,7 @@ const filteredProducts = selectedCategory === "All"
 
   const getDisplayProduct = (product: GridProduct) => {
     const selectedVariantId = selectedVariants[product.id];
-    if (selectedVariantId && product.variants) {
+    if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
       const variant = product.variants.find(v => v.id === selectedVariantId);
       if (variant) {
         const variantPrice = variant.discount_percentage > 0 
@@ -212,7 +212,7 @@ const filteredProducts = selectedCategory === "All"
 
   const getSavingsAmount = (product: GridProduct) => {
     const selectedVariantId = selectedVariants[product.id];
-    if (selectedVariantId && product.variants) {
+    if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
       const variant = product.variants.find(v => v.id === selectedVariantId);
       if (variant) {
         if (variant.discount_percentage > 0) {
@@ -413,14 +413,14 @@ const filteredProducts = selectedCategory === "All"
                     <div className="mb-2">
                       <label className="text-xs text-muted-foreground">Variant</label>
                       <Select
-                        value={selectedVariants[product.id] || ""}
+                        value={selectedVariants[product.id] || "base"}
                         onValueChange={(value) => handleVariantChange(product.id, value)}
                       >
                         <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder="Select variant" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Base Product (₹{product.rate})</SelectItem>
+                          <SelectItem value="base">Base Product (₹{product.rate})</SelectItem>
                           {product.variants.map(variant => {
                             const variantPrice = variant.discount_percentage > 0 
                               ? variant.price - (variant.price * variant.discount_percentage / 100)
