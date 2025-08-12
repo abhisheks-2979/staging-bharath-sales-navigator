@@ -901,7 +901,7 @@ setProductForm({
                         <Label htmlFor="product">Product</Label>
                         <Select
                           value={schemeForm.product_id}
-                          onValueChange={(value) => setSchemeForm({ ...schemeForm, product_id: value })}
+                          onValueChange={(value) => setSchemeForm({ ...schemeForm, product_id: value, variant_id: '' })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select product" />
@@ -915,6 +915,29 @@ setProductForm({
                           </SelectContent>
                         </Select>
                       </div>
+                      {schemeForm.product_id && (
+                        <div>
+                          <Label htmlFor="variant">Variant (Optional)</Label>
+                          <Select
+                            value={schemeForm.variant_id}
+                            onValueChange={(value) => setSchemeForm({ ...schemeForm, variant_id: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select variant or leave empty for all variants" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">All Variants</SelectItem>
+                              {variants
+                                .filter(variant => variant.product_id === schemeForm.product_id)
+                                .map((variant) => (
+                                  <SelectItem key={variant.id} value={variant.id}>
+                                    {variant.variant_name} ({variant.sku})
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div>
                         <Label htmlFor="schemeName">Scheme Name</Label>
                         <Input
@@ -951,29 +974,6 @@ setProductForm({
                           </SelectContent>
                         </Select>
                       </div>
-                      {schemeForm.product_id && (
-                        <div>
-                          <Label htmlFor="variant">Variant (Optional)</Label>
-                          <Select
-                            value={schemeForm.variant_id}
-                            onValueChange={(value) => setSchemeForm({ ...schemeForm, variant_id: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select variant or leave empty for all variants" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">All Variants</SelectItem>
-                              {variants
-                                .filter(variant => variant.product_id === schemeForm.product_id)
-                                .map((variant) => (
-                                  <SelectItem key={variant.id} value={variant.id}>
-                                    {variant.variant_name} ({variant.sku})
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                       <div>
                         <Label htmlFor="conditionQty">Quantity Threshold</Label>
                         <Input
