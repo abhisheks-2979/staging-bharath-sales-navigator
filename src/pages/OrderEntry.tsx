@@ -133,7 +133,7 @@ useEffect(() => {
         supabase.from('products').select(`
           *,
           category:product_categories(name),
-          schemes:product_schemes(id, name, description, is_active, scheme_type, condition_quantity, quantity_condition_type, discount_percentage, discount_amount, free_quantity, variant_id, start_date, end_date),
+          schemes:product_schemes(id, name, description, is_active, scheme_type, condition_quantity, quantity_condition_type, discount_percentage, discount_amount, free_quantity, variant_id, start_date, end_date, product_id),
           variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
         `).eq('is_active', true).order('name')
       ]);
@@ -555,27 +555,12 @@ const filteredProducts = selectedCategory === "All"
 
   // Function to handle scheme click
   const handleSchemeClick = (product: GridProduct) => {
-    console.log('All schemes:', schemes);
-    console.log('Product ID:', product.id);
-    
-    const productSchemes = schemes.filter(scheme => {
-      console.log('Checking scheme:', scheme);
-      console.log('Scheme product_id:', scheme.product_id);
-      console.log('Scheme is_active:', scheme.is_active);
-      console.log('Scheme start_date:', scheme.start_date);
-      console.log('Scheme end_date:', scheme.end_date);
-      
-      const matchesProduct = scheme.product_id === product.id;
-      const isActive = scheme.is_active;
-      const startDateValid = !scheme.start_date || new Date(scheme.start_date) <= new Date();
-      const endDateValid = !scheme.end_date || new Date(scheme.end_date) >= new Date();
-      
-      console.log('Matches:', { matchesProduct, isActive, startDateValid, endDateValid });
-      
-      return matchesProduct && isActive && startDateValid && endDateValid;
-    });
-    
-    console.log('Filtered schemes for product:', productSchemes);
+    const productSchemes = schemes.filter(scheme => 
+      scheme.product_id === product.id && 
+      scheme.is_active && 
+      (!scheme.start_date || new Date(scheme.start_date) <= new Date()) &&
+      (!scheme.end_date || new Date(scheme.end_date) >= new Date())
+    );
     
     setSelectedProductForScheme(product);
     setFilteredSchemes(productSchemes);
