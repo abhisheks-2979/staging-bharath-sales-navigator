@@ -767,24 +767,6 @@ const filteredProducts = selectedCategory === "All"
                           </div>
                         ) : null;
                       })()}
-                      
-                      {/* Stock Input */}
-                      <div>
-                        <label className="text-xs text-muted-foreground">Stock</label>
-                        <Input
-                          type="number"
-                          placeholder={displayProduct.closingStock?.toString() || "0"}
-                          value={closingStocks[displayProduct.id] ?? displayProduct.closingStock}
-                          onChange={(e) => handleClosingStockChange(displayProduct.id, e.target.value)}
-                          onFocus={(e) => {
-                            if (e.target.value === "0") {
-                              e.target.select();
-                            }
-                          }}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-
                       {/* Add to Cart Button */}
                       <Button 
                         onClick={() => {
