@@ -355,7 +355,12 @@ const filteredProducts = selectedCategory === "All"
   const getSelectionValue = () => {
     let total = 0;
     
-    products.forEach(product => {
+    // Only include products from current category
+    const categoryProducts = selectedCategory === "All" 
+      ? products 
+      : products.filter(product => product.category === selectedCategory);
+    
+    categoryProducts.forEach(product => {
       // Check base product quantity
       const baseQty = quantities[product.id] || 0;
       
@@ -417,7 +422,7 @@ const filteredProducts = selectedCategory === "All"
         });
       }
       
-      // Check all variant quantities
+      // Check all variant quantities - only for variants of this specific product
       if (product.variants) {
         product.variants.forEach(variant => {
           const variantQty = quantities[variant.id] || 0;
