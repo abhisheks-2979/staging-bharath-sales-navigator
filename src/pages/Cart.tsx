@@ -158,6 +158,7 @@ React.useEffect(() => {
   const canSubmitOrder = () => {
     if (!visitDate) return true; // Allow if no visit date (backwards compatibility)
     const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    console.log('Visit date:', visitDate, 'Today:', today, 'Can submit:', visitDate === today);
     return visitDate === today;
   };
 
