@@ -69,9 +69,10 @@ export const OrderEntry = () => {
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
 const [categories, setCategories] = useState<string[]>(["All"]);
-const [products, setProducts] = useState<GridProduct[]>([]);
+  const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
 const [userId, setUserId] = useState<string | null>(null);
+const [schemes, setSchemes] = useState<any[]>([]);
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -124,7 +125,7 @@ useEffect(() => {
         supabase.from('products').select(`
           *,
           category:product_categories(name),
-          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage),
+          schemes:product_schemes(id, name, description, is_active, scheme_type, condition_quantity, quantity_condition_type, discount_percentage, discount_amount, free_quantity, variant_id, start_date, end_date),
           variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
         `).eq('is_active', true).order('name')
       ]);
@@ -132,9 +133,16 @@ useEffect(() => {
       setCategories(["All", ...((catRes.data || []).map((c: any) => c.name))]);
 
       const mapped: GridProduct[] = [];
+      const allSchemes: any[] = [];
       
       (prodRes.data || []).forEach((p: any) => {
-        const active = (p.schemes || []).find((s: any) => s.is_active);
+        const activeSchemes = (p.schemes || []).filter((s: any) => s.is_active && 
+          (!s.start_date || new Date(s.start_date) <= new Date()) &&
+          (!s.end_date || new Date(s.end_date) >= new Date())
+        );
+        
+        allSchemes.push(...activeSchemes);
+        
         const activeVariants = (p.variants || []).filter((v: any) => v.is_active);
         
         const baseProduct: GridProduct = {
@@ -143,10 +151,10 @@ useEffect(() => {
           category: p.category?.name || 'Uncategorized',
           rate: p.rate,
           unit: p.unit,
-          hasScheme: !!active,
-          schemeDetails: active ? `Buy ${active.condition_quantity}+ ${p.unit}s, get ${active.discount_percentage}% off` : undefined,
-          schemeConditionQuantity: active?.condition_quantity ?? undefined,
-          schemeDiscountPercentage: active?.discount_percentage != null ? Number(active.discount_percentage) : undefined,
+          hasScheme: activeSchemes.length > 0,
+          schemeDetails: activeSchemes.length > 0 ? activeSchemes.map(s => 
+            `${s.name}: ${getSchemeDescription(s)}`
+          ).join('; ') : undefined,
           closingStock: p.closing_stock,
           variants: activeVariants,
           sku: p.sku
@@ -155,6 +163,7 @@ useEffect(() => {
         mapped.push(baseProduct);
       });
       setProducts(mapped);
+      setSchemes(allSchemes);
     } catch (error) {
       console.error('Error loading products', error);
       toast({ title: 'Error', description: 'Failed to load products', variant: 'destructive' });
@@ -226,6 +235,55 @@ const filteredProducts = selectedCategory === "All"
     return 0;
   };
 
+  // Helper function to get scheme description
+  const getSchemeDescription = (scheme: any) => {
+    const conditionText = scheme.quantity_condition_type === 'more_than' 
+      ? `Buy ${scheme.condition_quantity}+ ${scheme.scheme_type === 'buy_get' ? 'items' : 'units'}`
+      : `Buy exactly ${scheme.condition_quantity} ${scheme.scheme_type === 'buy_get' ? 'items' : 'units'}`;
+    
+    if (scheme.scheme_type === 'discount') {
+      if (scheme.discount_percentage) {
+        return `${conditionText}, get ${scheme.discount_percentage}% off`;
+      } else if (scheme.discount_amount) {
+        return `${conditionText}, get ₹${scheme.discount_amount} off`;
+      }
+    } else if (scheme.scheme_type === 'buy_get') {
+      return `${conditionText}, get ${scheme.free_quantity} free`;
+    }
+    return scheme.description || 'Special offer';
+  };
+
+  // Helper function to calculate scheme discount
+  const calculateSchemeDiscount = (productId: string, variantId: string | null, quantity: number, basePrice: number) => {
+    const applicableSchemes = schemes.filter(scheme => 
+      scheme.product_id === productId && 
+      (scheme.variant_id === variantId || scheme.variant_id === null)
+    );
+
+    let totalDiscount = 0;
+    let freeQuantity = 0;
+
+    applicableSchemes.forEach(scheme => {
+      const meetsCondition = scheme.quantity_condition_type === 'more_than' 
+        ? quantity >= scheme.condition_quantity
+        : quantity === scheme.condition_quantity;
+
+      if (meetsCondition) {
+        if (scheme.scheme_type === 'discount') {
+          if (scheme.discount_percentage) {
+            totalDiscount += (basePrice * quantity * scheme.discount_percentage) / 100;
+          } else if (scheme.discount_amount) {
+            totalDiscount += scheme.discount_amount;
+          }
+        } else if (scheme.scheme_type === 'buy_get') {
+          freeQuantity += scheme.free_quantity || 0;
+        }
+      }
+    });
+
+    return { totalDiscount, freeQuantity };
+  };
+
   const addToCart = (product: Product) => {
     const quantity = quantities[product.id] || 0;
     if (quantity <= 0) {
@@ -237,34 +295,28 @@ const filteredProducts = selectedCategory === "All"
       return;
     }
 
-    const computeTotal = (prod: any, qty: number) => {
-      const base = Number(prod.rate) * Number(qty);
-      const cond = prod.schemeConditionQuantity as number | undefined;
-      const disc = prod.schemeDiscountPercentage as number | undefined;
-      if (cond && disc && qty >= cond) {
-        return base - (base * (Number(disc) / 100));
-      }
-      return base;
-    };
+    const baseTotal = Number(product.rate) * Number(quantity);
+    const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, quantity, Number(product.rate));
+    const finalTotal = baseTotal - totalDiscount;
 
     const existingItem = cart.find(item => item.id === product.id);
-    const newTotal = computeTotal(product as any, quantity);
 
     if (existingItem) {
       setCart(prev => prev.map(item => 
         item.id === product.id 
-          ? { ...item, quantity, total: newTotal }
+          ? { ...item, quantity, total: finalTotal }
           : item
       ));
     } else {
-      setCart(prev => [...prev, { ...product, quantity, total: newTotal }]);
+      setCart(prev => [...prev, { ...product, quantity, total: finalTotal }]);
     }
 
-    // Do not auto-adjust closing stock; keep user's entered value
+    const schemeMessage = totalDiscount > 0 ? ` (Saved ₹${totalDiscount.toFixed(2)})` : '';
+    const freeMessage = freeQuantity > 0 ? ` + ${freeQuantity} free` : '';
 
     toast({
       title: "Added to Cart",
-      description: `${quantity} ${product.unit}(s) of ${product.name} added to cart`
+      description: `${quantity} ${product.unit}(s) of ${product.name} added to cart${schemeMessage}${freeMessage}`
     });
   };
 
@@ -496,7 +548,23 @@ const filteredProducts = selectedCategory === "All"
 
                   {product.hasScheme && (
                     <div className="mb-2 p-2 bg-orange-50 rounded border border-orange-200">
+                      <p className="text-xs text-orange-700 font-medium">🎁 Active Schemes:</p>
                       <p className="text-xs text-orange-700">{product.schemeDetails}</p>
+                      {(() => {
+                        const currentQty = quantities[product.id] || 0;
+                        if (currentQty > 0) {
+                          const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, currentQty, product.rate);
+                          if (totalDiscount > 0 || freeQuantity > 0) {
+                            return (
+                              <div className="mt-1 text-xs text-green-700 font-medium">
+                                {totalDiscount > 0 && `💰 You'll save ₹${totalDiscount.toFixed(2)}`}
+                                {freeQuantity > 0 && ` 🎁 ${freeQuantity} free item(s)`}
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
 
@@ -588,25 +656,30 @@ const filteredProducts = selectedCategory === "All"
                             });
                           }
                           
-                          product.variants?.forEach(variant => {
-                            if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
-                              const variantPrice = variant.discount_percentage > 0 
-                                ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                : variant.discount_amount > 0 
-                                  ? variant.price - variant.discount_amount
-                                  : variant.price;
-                              selectedItems.push({
-                                id: `${product.id}_variant_${variant.id}`,
-                                name: `${product.name} - ${variant.variant_name}`,
-                                category: product.category,
-                                rate: variantPrice,
-                                unit: product.unit,
-                                quantity: quantities[variant.id],
-                                total: quantities[variant.id] * variantPrice,
-                                closingStock: variant.stock_quantity
-                              });
-                            }
-                          });
+                           product.variants?.forEach(variant => {
+                             if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
+                               const variantPrice = variant.discount_percentage > 0 
+                                 ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                 : variant.discount_amount > 0 
+                                   ? variant.price - variant.discount_amount
+                                   : variant.price;
+                               
+                               const baseTotal = quantities[variant.id] * variantPrice;
+                               const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
+                               const finalTotal = baseTotal - totalDiscount;
+                               
+                               selectedItems.push({
+                                 id: `${product.id}_variant_${variant.id}`,
+                                 name: `${product.name} - ${variant.variant_name}`,
+                                 category: product.category,
+                                 rate: variantPrice,
+                                 unit: product.unit,
+                                 quantity: quantities[variant.id],
+                                 total: finalTotal,
+                                 closingStock: variant.stock_quantity
+                               });
+                             }
+                           });
                           
                           if (selectedItems.length === 0) {
                             toast({
@@ -679,24 +752,41 @@ const filteredProducts = selectedCategory === "All"
                         </div>
                       </div>
 
-                      <Button 
-                        onClick={() => addToCart(displayProduct)}
-                        className={`w-full h-8 ${cart.some((i) => i.id === displayProduct.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
-                        size="sm"
-                        variant={cart.some((i) => i.id === displayProduct.id) ? "default" : "default"}
-                      >
-                        {cart.some((i) => i.id === displayProduct.id) ? (
-                          <>
-                            <Check size={14} className="mr-1" />
-                            Added
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={14} className="mr-1" />
-                            Add
-                          </>
-                        )}
-                      </Button>
+                       {/* Show scheme discount preview */}
+                       {(() => {
+                         const currentQty = quantities[displayProduct.id] || 0;
+                         if (currentQty > 0 && product.hasScheme) {
+                           const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, currentQty, displayProduct.rate);
+                           if (totalDiscount > 0 || freeQuantity > 0) {
+                             return (
+                               <div className="text-xs text-green-600 font-medium mb-2">
+                                 {totalDiscount > 0 && `💰 Save ₹${totalDiscount.toFixed(2)}`}
+                                 {freeQuantity > 0 && ` 🎁 ${freeQuantity} free`}
+                               </div>
+                             );
+                           }
+                         }
+                         return null;
+                       })()}
+
+                       <Button 
+                         onClick={() => addToCart(displayProduct)}
+                         className={`w-full h-8 ${cart.some((i) => i.id === displayProduct.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
+                         size="sm"
+                         variant={cart.some((i) => i.id === displayProduct.id) ? "default" : "default"}
+                       >
+                         {cart.some((i) => i.id === displayProduct.id) ? (
+                           <>
+                             <Check size={14} className="mr-1" />
+                             Added
+                           </>
+                         ) : (
+                           <>
+                             <Plus size={14} className="mr-1" />
+                             Add
+                           </>
+                         )}
+                       </Button>
                     </div>
                   )}
                 </CardContent>
