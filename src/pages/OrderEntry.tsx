@@ -350,29 +350,35 @@ const filteredProducts = selectedCategory === "All"
     return cart.reduce((sum, item) => sum + item.total, 0);
   };
 
-  // Calculate total value from selected quantities and variants
+  // Calculate total value from selected quantities and variants with auto-calculation
   const getSelectionValue = () => {
     let total = 0;
     
     products.forEach(product => {
-      // Base product quantity
-      const baseQty = quantities[product.id] || 0;
-      if (selectedVariants[product.id] === "base" && baseQty > 0) {
-        total += baseQty * product.rate;
-      }
+      const qty = quantities[product.id] || 0;
       
-      // Variant quantities
-      product.variants?.forEach(variant => {
-        const variantQty = quantities[variant.id] || 0;
-        if (selectedVariants[product.id] === variant.id && variantQty > 0) {
-          const variantPrice = variant.discount_percentage > 0 
-            ? variant.price - (variant.price * variant.discount_percentage / 100)
-            : variant.discount_amount > 0 
-              ? variant.price - variant.discount_amount
-              : variant.price;
-          total += variantQty * variantPrice;
+      if (qty > 0) {
+        const selectedVariantId = selectedVariants[product.id];
+        
+        if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
+          // Variant is selected
+          const variant = product.variants.find(v => v.id === selectedVariantId);
+          if (variant) {
+            const variantPrice = variant.discount_percentage > 0 
+              ? variant.price - (variant.price * variant.discount_percentage / 100)
+              : variant.discount_amount > 0 
+                ? variant.price - variant.discount_amount
+                : variant.price;
+            
+            const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
+            total += (qty * variantPrice) - totalDiscount;
+          }
+        } else {
+          // Base product or no variant selected
+          const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
+          total += (qty * product.rate) - totalDiscount;
         }
-      });
+      }
     });
     
     return total;
@@ -384,63 +390,66 @@ const filteredProducts = selectedCategory === "All"
     let totalSavings = 0;
     
     products.forEach(product => {
-      // Base product
-      const baseQty = quantities[product.id] || 0;
-      if (selectedVariants[product.id] === "base" && baseQty > 0) {
-        const total = baseQty * product.rate;
-        const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
-        totalSavings += totalDiscount;
-        
-        items.push({
-          id: product.id,
-          variantName: "Base Product",
-          selectedItem: product.name,
-          quantity: baseQty,
-          rate: product.rate,
-          totalPrice: total - totalDiscount,
-          savings: totalDiscount,
-          appliedOffers: totalDiscount > 0 ? [`Scheme discount: ₹${totalDiscount.toFixed(2)}`] : []
-        });
-      }
+      const qty = quantities[product.id] || 0;
       
-      // Variants
-      product.variants?.forEach(variant => {
-        const variantQty = quantities[variant.id] || 0;
-        if (selectedVariants[product.id] === variant.id && variantQty > 0) {
-          const variantPrice = variant.discount_percentage > 0 
-            ? variant.price - (variant.price * variant.discount_percentage / 100)
-            : variant.discount_amount > 0 
-              ? variant.price - variant.discount_amount
-              : variant.price;
-          
-          const variantSavings = variant.discount_percentage > 0 
-            ? variant.price * variant.discount_percentage / 100
-            : variant.discount_amount;
-          
-          const baseTotal = variantQty * variantPrice;
-          const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
-          totalSavings += (variantSavings * variantQty) + totalDiscount;
-          
-          const appliedOffers = [];
-          if (variantSavings > 0) {
-            appliedOffers.push(`Variant discount: ₹${(variantSavings * variantQty).toFixed(2)}`);
+      if (qty > 0) {
+        const selectedVariantId = selectedVariants[product.id];
+        
+        if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
+          // Variant is selected
+          const variant = product.variants.find(v => v.id === selectedVariantId);
+          if (variant) {
+            const variantPrice = variant.discount_percentage > 0 
+              ? variant.price - (variant.price * variant.discount_percentage / 100)
+              : variant.discount_amount > 0 
+                ? variant.price - variant.discount_amount
+                : variant.price;
+            
+            const variantSavings = variant.discount_percentage > 0 
+              ? variant.price * variant.discount_percentage / 100
+              : variant.discount_amount;
+            
+            const baseTotal = qty * variantPrice;
+            const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
+            totalSavings += (variantSavings * qty) + totalDiscount;
+            
+            const appliedOffers = [];
+            if (variantSavings > 0) {
+              appliedOffers.push(`Variant discount: ₹${(variantSavings * qty).toFixed(2)}`);
+            }
+            if (totalDiscount > 0) {
+              appliedOffers.push(`Scheme discount: ₹${totalDiscount.toFixed(2)}`);
+            }
+            
+            items.push({
+              id: `${product.id}_variant_${variant.id}`,
+              variantName: variant.variant_name,
+              selectedItem: `${product.name} - ${variant.variant_name}`,
+              quantity: qty,
+              rate: variantPrice,
+              totalPrice: baseTotal - totalDiscount,
+              savings: (variantSavings * qty) + totalDiscount,
+              appliedOffers
+            });
           }
-          if (totalDiscount > 0) {
-            appliedOffers.push(`Scheme discount: ₹${totalDiscount.toFixed(2)}`);
-          }
+        } else {
+          // Base product or no variant selected
+          const total = qty * product.rate;
+          const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
+          totalSavings += totalDiscount;
           
           items.push({
-            id: variant.id,
-            variantName: variant.variant_name,
-            selectedItem: `${product.name} - ${variant.variant_name}`,
-            quantity: variantQty,
-            rate: variantPrice,
-            totalPrice: baseTotal - totalDiscount,
-            savings: (variantSavings * variantQty) + totalDiscount,
-            appliedOffers
+            id: product.id,
+            variantName: "Base Product",
+            selectedItem: product.name,
+            quantity: qty,
+            rate: product.rate,
+            totalPrice: total - totalDiscount,
+            savings: totalDiscount,
+            appliedOffers: totalDiscount > 0 ? [`Scheme discount: ₹${totalDiscount.toFixed(2)}`] : []
           });
         }
-      });
+      }
     });
     
     return { items, totalSavings };
@@ -762,62 +771,69 @@ const filteredProducts = selectedCategory === "All"
                   )}
 
 
-                  {/* Selected Items Summary & Stock */}
-                  {(product.variants && product.variants.length > 0) ? (
-                    <div className="space-y-2">
-                      {/* Selected Items Summary */}
-                      {(() => {
-                        const selectedItems = [];
-                        
-                        // Add base product if selected and has quantity
-                        if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
-                          selectedItems.push({
-                            id: product.id,
-                            name: "Base Product",
-                            quantity: quantities[product.id],
-                            rate: product.rate,
-                            amount: quantities[product.id] * product.rate
-                          });
-                        }
-                        
-                        // Add variants if selected and have quantity
-                        product.variants.forEach(variant => {
-                          if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
-                            const variantPrice = variant.discount_percentage > 0 
-                              ? variant.price - (variant.price * variant.discount_percentage / 100)
-                              : variant.discount_amount > 0 
-                                ? variant.price - variant.discount_amount
-                                : variant.price;
-                            selectedItems.push({
-                              id: variant.id,
-                              name: variant.variant_name,
-                              quantity: quantities[variant.id],
-                              rate: variantPrice,
-                              amount: quantities[variant.id] * variantPrice
-                            });
-                          }
-                        });
-                        
-                        const totalAmount = selectedItems.reduce((sum, item) => sum + item.amount, 0);
-                        
-                        return selectedItems.length > 0 ? (
-                          <div className="border rounded-lg p-2 bg-muted/20">
-                            <label className="text-xs text-muted-foreground mb-2 block">Selected Items</label>
-                            <div className="space-y-1">
-                              {selectedItems.map(item => (
-                                <div key={item.id} className="flex justify-between text-xs">
-                                  <span>{item.name} x {item.quantity}</span>
-                                  <span className="font-medium">₹{item.amount.toFixed(2)}</span>
-                                </div>
-                              ))}
-                              <div className="border-t pt-1 mt-1 flex justify-between text-sm font-bold">
-                                <span>Total</span>
-                                <span>₹{totalAmount.toFixed(2)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null;
-                      })()}
+                   {/* Product Summary Section */}
+                   {(product.variants && product.variants.length > 0) ? (
+                     <div className="space-y-2">
+                       {/* Product Total Display */}
+                       {(() => {
+                         const qty = quantities[product.id] || 0;
+                         let totalValue = 0;
+                         
+                         if (qty > 0) {
+                           const selectedVariantId = selectedVariants[product.id];
+                           
+                           if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
+                             // Variant is selected
+                             const variant = product.variants.find(v => v.id === selectedVariantId);
+                             if (variant) {
+                               const variantPrice = variant.discount_percentage > 0 
+                                 ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                 : variant.discount_amount > 0 
+                                   ? variant.price - variant.discount_amount
+                                   : variant.price;
+                               
+                               const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
+                               totalValue = (qty * variantPrice) - totalDiscount;
+                             }
+                           } else {
+                             // Base product or no variant selected
+                             const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
+                             totalValue = (qty * product.rate) - totalDiscount;
+                           }
+                         }
+                         
+                         return totalValue > 0 ? (
+                           <div className="border rounded-lg p-3 bg-primary/5">
+                             <div className="space-y-1">
+                               <h4 className="font-semibold text-sm text-primary">{product.name}</h4>
+                               <p className="text-xs text-muted-foreground">{product.category}</p>
+                               <p className="text-xs text-blue-600 font-mono">SKU: {product.sku}</p>
+                               <div className="flex justify-between items-center pt-2 border-t">
+                                 <span className="text-sm font-medium">Total:</span>
+                                 <span className="text-lg font-bold text-primary">₹{totalValue.toLocaleString()}</span>
+                               </div>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => {
+                                   const { items } = getSelectionDetails();
+                                   const productItems = items.filter(item => 
+                                     item.id === product.id || item.id.startsWith(`${product.id}_variant_`)
+                                   );
+                                   
+                                   if (productItems.length > 0) {
+                                     // Create a temporary modal state for this specific product
+                                     setShowOrderSummary(true);
+                                   }
+                                 }}
+                                 className="w-full text-xs h-6 p-0"
+                               >
+                                 View Item wise pricing Break Down
+                               </Button>
+                             </div>
+                           </div>
+                         ) : null;
+                       })()}
                       
 
                       {/* Add to Cart Button */}
