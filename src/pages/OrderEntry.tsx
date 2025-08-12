@@ -391,15 +391,32 @@ const filteredProducts = selectedCategory === "All"
     let totalSavings = 0;
     
     products.forEach(product => {
-      const qty = quantities[product.id] || 0;
+      // Check base product quantity
+      const baseQty = quantities[product.id] || 0;
       
-      if (qty > 0) {
-        const selectedVariantId = selectedVariants[product.id];
+      if (baseQty > 0) {
+        const total = baseQty * product.rate;
+        const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+        totalSavings += totalDiscount;
         
-        if (selectedVariantId && selectedVariantId !== "base" && product.variants) {
-          // Variant is selected
-          const variant = product.variants.find(v => v.id === selectedVariantId);
-          if (variant) {
+        items.push({
+          id: product.id,
+          variantName: "Base Product",
+          selectedItem: product.name,
+          quantity: baseQty,
+          rate: product.rate,
+          totalPrice: total - totalDiscount,
+          savings: totalDiscount,
+          appliedOffers: totalDiscount > 0 ? [`Scheme discount: ₹${totalDiscount.toFixed(2)}`] : []
+        });
+      }
+      
+      // Check all variant quantities
+      if (product.variants) {
+        product.variants.forEach(variant => {
+          const variantQty = quantities[variant.id] || 0;
+          
+          if (variantQty > 0) {
             const variantPrice = variant.discount_percentage > 0 
               ? variant.price - (variant.price * variant.discount_percentage / 100)
               : variant.discount_amount > 0 
@@ -410,13 +427,13 @@ const filteredProducts = selectedCategory === "All"
               ? variant.price * variant.discount_percentage / 100
               : variant.discount_amount;
             
-            const baseTotal = qty * variantPrice;
-            const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, qty, variantPrice);
-            totalSavings += (variantSavings * qty) + totalDiscount;
+            const baseTotal = variantQty * variantPrice;
+            const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+            totalSavings += (variantSavings * variantQty) + totalDiscount;
             
             const appliedOffers = [];
             if (variantSavings > 0) {
-              appliedOffers.push(`Variant discount: ₹${(variantSavings * qty).toFixed(2)}`);
+              appliedOffers.push(`Variant discount: ₹${(variantSavings * variantQty).toFixed(2)}`);
             }
             if (totalDiscount > 0) {
               appliedOffers.push(`Scheme discount: ₹${totalDiscount.toFixed(2)}`);
@@ -426,30 +443,14 @@ const filteredProducts = selectedCategory === "All"
               id: `${product.id}_variant_${variant.id}`,
               variantName: variant.variant_name,
               selectedItem: `${product.name} - ${variant.variant_name}`,
-              quantity: qty,
+              quantity: variantQty,
               rate: variantPrice,
               totalPrice: baseTotal - totalDiscount,
-              savings: (variantSavings * qty) + totalDiscount,
+              savings: (variantSavings * variantQty) + totalDiscount,
               appliedOffers
             });
           }
-        } else {
-          // Base product or no variant selected
-          const total = qty * product.rate;
-          const { totalDiscount } = calculateSchemeDiscount(product.id, null, qty, product.rate);
-          totalSavings += totalDiscount;
-          
-          items.push({
-            id: product.id,
-            variantName: "Base Product",
-            selectedItem: product.name,
-            quantity: qty,
-            rate: product.rate,
-            totalPrice: total - totalDiscount,
-            savings: totalDiscount,
-            appliedOffers: totalDiscount > 0 ? [`Scheme discount: ₹${totalDiscount.toFixed(2)}`] : []
-          });
-        }
+        });
       }
     });
     
