@@ -555,12 +555,28 @@ const filteredProducts = selectedCategory === "All"
 
   // Function to handle scheme click
   const handleSchemeClick = (product: GridProduct) => {
-    const productSchemes = schemes.filter(scheme => 
-      scheme.product_id === product.id && 
-      scheme.is_active && 
-      (!scheme.start_date || new Date(scheme.start_date) <= new Date()) &&
-      (!scheme.end_date || new Date(scheme.end_date) >= new Date())
-    );
+    console.log('All schemes:', schemes);
+    console.log('Product ID:', product.id);
+    
+    const productSchemes = schemes.filter(scheme => {
+      console.log('Checking scheme:', scheme);
+      console.log('Scheme product_id:', scheme.product_id);
+      console.log('Scheme is_active:', scheme.is_active);
+      console.log('Scheme start_date:', scheme.start_date);
+      console.log('Scheme end_date:', scheme.end_date);
+      
+      const matchesProduct = scheme.product_id === product.id;
+      const isActive = scheme.is_active;
+      const startDateValid = !scheme.start_date || new Date(scheme.start_date) <= new Date();
+      const endDateValid = !scheme.end_date || new Date(scheme.end_date) >= new Date();
+      
+      console.log('Matches:', { matchesProduct, isActive, startDateValid, endDateValid });
+      
+      return matchesProduct && isActive && startDateValid && endDateValid;
+    });
+    
+    console.log('Filtered schemes for product:', productSchemes);
+    
     setSelectedProductForScheme(product);
     setFilteredSchemes(productSchemes);
     setShowSchemeModal(true);
