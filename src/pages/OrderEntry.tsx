@@ -192,8 +192,11 @@ const filteredProducts = selectedCategory === "All"
 
   const handleVariantChange = (productId: string, variantId: string) => {
     setSelectedVariants(prev => ({ ...prev, [productId]: variantId }));
-    // Reset quantity when variant changes
-    setQuantities(prev => ({ ...prev, [productId]: 0 }));
+    // Only reset quantity when switching between different variants, not when setting base
+    const currentVariant = selectedVariants[productId];
+    if (currentVariant && currentVariant !== variantId) {
+      setQuantities(prev => ({ ...prev, [productId]: 0 }));
+    }
   };
 
   const getDisplayProduct = (product: GridProduct) => {
