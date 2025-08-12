@@ -276,7 +276,7 @@ const filteredProducts = selectedCategory === "All"
         : quantity === scheme.condition_quantity;
 
       if (meetsCondition) {
-        if (scheme.scheme_type === 'discount') {
+        if (scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') {
           if (scheme.discount_percentage) {
             totalDiscount += (basePrice * quantity * scheme.discount_percentage) / 100;
           } else if (scheme.discount_amount) {
