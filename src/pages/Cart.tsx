@@ -74,12 +74,29 @@ export const Cart = () => {
 
 const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
 const [userId, setUserId] = React.useState<string | null>(null);
+const [visitDate, setVisitDate] = React.useState<string | null>(null);
 const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
 const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
 
 React.useEffect(() => {
   supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || null));
 }, []);
+
+// Fetch visit date if visitId is available
+React.useEffect(() => {
+  if (visitId) {
+    supabase
+      .from('visits')
+      .select('planned_date')
+      .eq('id', visitId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setVisitDate(data.planned_date);
+        }
+      });
+  }
+}, [visitId]);
 
 React.useEffect(() => {
   try {
@@ -137,12 +154,36 @@ React.useEffect(() => {
   const getDiscount = () => cartItems.reduce((sum, item) => sum + computeItemDiscount(item as any), 0);
   const getFinalTotal = () => getSubtotal() - getDiscount();
 
+  // Check if the visit date allows order submission
+  const canSubmitOrder = () => {
+    if (!visitDate) return true; // Allow if no visit date (backwards compatibility)
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    return visitDate === today;
+  };
+
+  const getSubmitButtonText = () => {
+    if (!visitDate) return "Submit Order";
+    const today = new Date().toISOString().split('T')[0];
+    if (visitDate === today) return "Submit Order";
+    return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
+  };
+
   const handleSubmitOrder = async () => {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
         description: "Please add items to cart before submitting",
         variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if order can be submitted today
+    if (!canSubmitOrder()) {
+      toast({
+        title: "Order Scheduled",
+        description: `This order will be submitted on ${new Date(visitDate!).toLocaleDateString()}. Items will remain in your cart until then.`,
+        variant: "default"
       });
       return;
     }
@@ -370,8 +411,9 @@ React.useEffect(() => {
                   onClick={handleSubmitOrder}
                   className="w-full"
                   size="lg"
+                  variant={canSubmitOrder() ? "default" : "outline"}
                 >
-                  Submit Order
+                  {getSubmitButtonText()}
                 </Button>
               </CardContent>
             </Card>
