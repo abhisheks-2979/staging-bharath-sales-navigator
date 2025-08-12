@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,7 @@ React.useEffect(() => {
   if (!key) return;
   localStorage.setItem(key, JSON.stringify(cartItems));
 }, [cartItems, storageKey, tempStorageKey]);
+
   const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId));
     toast({
@@ -179,14 +181,14 @@ React.useEffect(() => {
       return;
     }
 
-    // Check if order can be submitted today
+    // Check if order can be submitted today - BLOCK submission if not today
     if (!canSubmitOrder()) {
       toast({
         title: "Order Scheduled",
         description: `This order will be submitted on ${new Date(visitDate!).toLocaleDateString()}. Items will remain in your cart until then.`,
         variant: "default"
       });
-      return;
+      return; // This prevents any further execution
     }
 
     try {
