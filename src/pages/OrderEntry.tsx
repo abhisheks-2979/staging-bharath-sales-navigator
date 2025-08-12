@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -37,10 +38,20 @@ interface GridProduct {
   schemeConditionQuantity?: number;
   schemeDiscountPercentage?: number;
   closingStock?: number;
-  isVariant?: boolean;
-  variantId?: string;
-  originalProductId?: string;
+  variants?: ProductVariant[];
+  selectedVariantId?: string;
   sku?: string;
+}
+
+interface ProductVariant {
+  id: string;
+  variant_name: string;
+  sku: string;
+  price: number;
+  stock_quantity: number;
+  discount_amount: number;
+  discount_percentage: number;
+  is_active: boolean;
 }
 
 
@@ -55,6 +66,7 @@ export const OrderEntry = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
+  const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
 const [categories, setCategories] = useState<string[]>(["All"]);
 const [products, setProducts] = useState<GridProduct[]>([]);
@@ -123,7 +135,9 @@ useEffect(() => {
       
       (prodRes.data || []).forEach((p: any) => {
         const active = (p.schemes || []).find((s: any) => s.is_active);
-        const baseProduct = {
+        const activeVariants = (p.variants || []).filter((v: any) => v.is_active);
+        
+        const baseProduct: GridProduct = {
           id: p.id,
           name: p.name,
           category: p.category?.name || 'Uncategorized',
@@ -133,41 +147,12 @@ useEffect(() => {
           schemeDetails: active ? `Buy ${active.condition_quantity}+ ${p.unit}s, get ${active.discount_percentage}% off` : undefined,
           schemeConditionQuantity: active?.condition_quantity ?? undefined,
           schemeDiscountPercentage: active?.discount_percentage != null ? Number(active.discount_percentage) : undefined,
-          closingStock: p.closing_stock
+          closingStock: p.closing_stock,
+          variants: activeVariants,
+          sku: p.sku
         };
 
-        // Add base product
         mapped.push(baseProduct);
-
-        // Add variants as separate products
-        if (p.variants && p.variants.length > 0) {
-          p.variants.forEach((variant: any) => {
-            if (variant.is_active) {
-              const variantPrice = variant.discount_percentage > 0 
-                ? variant.price - (variant.price * variant.discount_percentage / 100)
-                : variant.discount_amount > 0 
-                  ? variant.price - variant.discount_amount
-                  : variant.price;
-              
-              mapped.push({
-                id: `${p.id}_variant_${variant.id}`,
-                name: `${p.name} - ${variant.variant_name}`,
-                category: p.category?.name || 'Uncategorized',
-                rate: variantPrice,
-                unit: p.unit,
-                hasScheme: !!active,
-                schemeDetails: active ? `Buy ${active.condition_quantity}+ ${p.unit}s, get ${active.discount_percentage}% off` : undefined,
-                schemeConditionQuantity: active?.condition_quantity ?? undefined,
-                schemeDiscountPercentage: active?.discount_percentage != null ? Number(active.discount_percentage) : undefined,
-                closingStock: variant.stock_quantity,
-                isVariant: true,
-                variantId: variant.id,
-                originalProductId: p.id,
-                sku: variant.sku
-              });
-            }
-          });
-        }
       });
       setProducts(mapped);
     } catch (error) {
@@ -193,6 +178,52 @@ const filteredProducts = selectedCategory === "All"
     const cleanValue = value.replace(/^0+/, '') || '0';
     const stock = parseInt(cleanValue) || 0;
     setClosingStocks(prev => ({ ...prev, [productId]: stock }));
+  };
+
+  const handleVariantChange = (productId: string, variantId: string) => {
+    setSelectedVariants(prev => ({ ...prev, [productId]: variantId }));
+    // Reset quantity when variant changes
+    setQuantities(prev => ({ ...prev, [productId]: 0 }));
+  };
+
+  const getDisplayProduct = (product: GridProduct) => {
+    const selectedVariantId = selectedVariants[product.id];
+    if (selectedVariantId && product.variants) {
+      const variant = product.variants.find(v => v.id === selectedVariantId);
+      if (variant) {
+        const variantPrice = variant.discount_percentage > 0 
+          ? variant.price - (variant.price * variant.discount_percentage / 100)
+          : variant.discount_amount > 0 
+            ? variant.price - variant.discount_amount
+            : variant.price;
+        
+        return {
+          ...product,
+          id: `${product.id}_variant_${variant.id}`,
+          name: `${product.name} - ${variant.variant_name}`,
+          rate: variantPrice,
+          closingStock: variant.stock_quantity,
+          sku: variant.sku
+        };
+      }
+    }
+    return product;
+  };
+
+  const getSavingsAmount = (product: GridProduct) => {
+    const selectedVariantId = selectedVariants[product.id];
+    if (selectedVariantId && product.variants) {
+      const variant = product.variants.find(v => v.id === selectedVariantId);
+      if (variant) {
+        if (variant.discount_percentage > 0) {
+          return variant.price * variant.discount_percentage / 100;
+        }
+        if (variant.discount_amount > 0) {
+          return variant.discount_amount;
+        }
+      }
+    }
+    return 0;
   };
 
   const addToCart = (product: Product) => {
@@ -344,88 +375,133 @@ const filteredProducts = selectedCategory === "All"
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 gap-3">
-          {filteredProducts.map(product => (
-            <Card key={product.id} className="relative">
-              {product.hasScheme && (
-                <div className="absolute -top-1 -right-1 z-10">
-                  <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-0">
-                    <Gift size={10} className="mr-1" />
-                    Scheme
-                  </Badge>
-                </div>
-              )}
-              
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-sm">{product.name}</h3>
-                    <p className="text-xs text-muted-foreground">{product.category}</p>
-                    {product.sku && (
-                      <p className="text-xs text-blue-600 font-mono">SKU: {product.sku}</p>
-                    )}
-                    <p className="text-base font-bold text-primary">₹{product.rate}/{product.unit}</p>
-                  </div>
-                  <Package size={16} className="text-muted-foreground" />
-                </div>
-
+          {filteredProducts.map(product => {
+            const displayProduct = getDisplayProduct(product);
+            const savingsAmount = getSavingsAmount(product);
+            
+            return (
+              <Card key={product.id} className="relative">
                 {product.hasScheme && (
-                  <div className="mb-2 p-2 bg-orange-50 rounded border border-orange-200">
-                    <p className="text-xs text-orange-700">{product.schemeDetails}</p>
+                  <div className="absolute -top-1 -right-1 z-10">
+                    <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-0">
+                      <Gift size={10} className="mr-1" />
+                      Scheme
+                    </Badge>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Qty</label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={quantities[product.id] || ""}
-                        onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0)}
-                        className="h-8 text-sm"
-                      />
+                
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-sm">{product.name}</h3>
+                      <p className="text-xs text-muted-foreground">{product.category}</p>
+                      {displayProduct.sku && (
+                        <p className="text-xs text-blue-600 font-mono">SKU: {displayProduct.sku}</p>
+                      )}
+                      <p className="text-base font-bold text-primary">₹{displayProduct.rate}/{product.unit}</p>
+                      {savingsAmount > 0 && (
+                        <p className="text-xs text-green-600 font-semibold">
+                          You save ₹{savingsAmount.toFixed(2)}
+                        </p>
+                      )}
                     </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Stock</label>
-                      <Input
-                        type="number"
-                        placeholder={product.closingStock?.toString() || "0"}
-                        value={closingStocks[product.id] ?? product.closingStock}
-                        onChange={(e) => handleClosingStockChange(product.id, e.target.value)}
-                        onFocus={(e) => {
-                          // Select all text when focusing on a field with value "0"
-                          if (e.target.value === "0") {
-                            e.target.select();
-                          }
-                        }}
-                        className="h-8 text-sm"
-                      />
-                    </div>
+                    <Package size={16} className="text-muted-foreground" />
                   </div>
 
-                  <Button 
-                    onClick={() => addToCart(product)}
-                    className={`w-full h-8 ${cart.some((i) => i.id === product.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
-                    size="sm"
-                    variant={cart.some((i) => i.id === product.id) ? "default" : "default"}
-                  >
-                    {cart.some((i) => i.id === product.id) ? (
-                      <>
-                        <Check size={14} className="mr-1" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={14} className="mr-1" />
-                        Add
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {/* Variant Selector */}
+                  {product.variants && product.variants.length > 0 && (
+                    <div className="mb-2">
+                      <label className="text-xs text-muted-foreground">Variant</label>
+                      <Select
+                        value={selectedVariants[product.id] || ""}
+                        onValueChange={(value) => handleVariantChange(product.id, value)}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Select variant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Base Product (₹{product.rate})</SelectItem>
+                          {product.variants.map(variant => {
+                            const variantPrice = variant.discount_percentage > 0 
+                              ? variant.price - (variant.price * variant.discount_percentage / 100)
+                              : variant.discount_amount > 0 
+                                ? variant.price - variant.discount_amount
+                                : variant.price;
+                            const savings = variant.discount_percentage > 0 
+                              ? variant.price * variant.discount_percentage / 100
+                              : variant.discount_amount;
+                            
+                            return (
+                              <SelectItem key={variant.id} value={variant.id}>
+                                {variant.variant_name} (₹{variantPrice.toFixed(2)})
+                                {savings > 0 && ` - Save ₹${savings.toFixed(2)}`}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {product.hasScheme && (
+                    <div className="mb-2 p-2 bg-orange-50 rounded border border-orange-200">
+                      <p className="text-xs text-orange-700">{product.schemeDetails}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Qty</label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={quantities[displayProduct.id] || ""}
+                          onChange={(e) => handleQuantityChange(displayProduct.id, parseInt(e.target.value) || 0)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Stock</label>
+                        <Input
+                          type="number"
+                          placeholder={displayProduct.closingStock?.toString() || "0"}
+                          value={closingStocks[displayProduct.id] ?? displayProduct.closingStock}
+                          onChange={(e) => handleClosingStockChange(displayProduct.id, e.target.value)}
+                          onFocus={(e) => {
+                            // Select all text when focusing on a field with value "0"
+                            if (e.target.value === "0") {
+                              e.target.select();
+                            }
+                          }}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={() => addToCart(displayProduct)}
+                      className={`w-full h-8 ${cart.some((i) => i.id === displayProduct.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
+                      size="sm"
+                      variant={cart.some((i) => i.id === displayProduct.id) ? "default" : "default"}
+                    >
+                      {cart.some((i) => i.id === displayProduct.id) ? (
+                        <>
+                          <Check size={14} className="mr-1" />
+                          Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={14} className="mr-1" />
+                          Add
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
         </>
         ) : (
