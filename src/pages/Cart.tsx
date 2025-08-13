@@ -36,13 +36,27 @@ const getItemScheme = (item: AnyCartItem) => {
 
 const computeItemSubtotal = (item: AnyCartItem) => Number(item.rate) * Number(item.quantity);
 const computeItemDiscount = (item: AnyCartItem) => {
+  // If item has pre-calculated total (from OrderEntry with schemes), use that
+  if (item.total !== undefined) {
+    return computeItemSubtotal(item) - Number(item.total);
+  }
+  
+  // Fallback to basic scheme calculation for backwards compatibility
   const { condition, discountPct } = getItemScheme(item);
   if (condition && discountPct && Number(item.quantity) >= condition) {
     return (computeItemSubtotal(item) * discountPct) / 100;
   }
   return 0;
 };
-const computeItemTotal = (item: AnyCartItem) => computeItemSubtotal(item) - computeItemDiscount(item);
+const computeItemTotal = (item: AnyCartItem) => {
+  // If item has pre-calculated total (from OrderEntry with schemes), use that
+  if (item.total !== undefined) {
+    return Number(item.total);
+  }
+  
+  // Fallback calculation
+  return computeItemSubtotal(item) - computeItemDiscount(item);
+};
 
 // Mock cart data - in real app this would come from state management
 const mockCartItems: CartItem[] = [
@@ -446,6 +460,10 @@ React.useEffect(() => {
                           <span className="flex items-center gap-1">
                             <Gift size={12} />
                             {(() => {
+                              // Show scheme details if available, otherwise generic message
+                              if (item.total !== undefined) {
+                                return 'Scheme Offer Applied';
+                              }
                               const s = getItemScheme(item);
                               return s.discountPct ? `Scheme Discount (${s.discountPct}% off)` : 'Scheme Discount';
                             })()}
