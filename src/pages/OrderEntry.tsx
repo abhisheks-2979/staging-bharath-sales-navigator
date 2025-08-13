@@ -659,27 +659,23 @@ const filteredProducts = selectedCategory === "All"
     }));
   };
 
-  // Function to handle product selection and auto-expand
+  // Function to handle product selection - keep variants collapsed
   const handleProductSelect = (productId: string, productName: string) => {
-    // Close all other variant tables
-    const newExpandedProducts: {[key: string]: boolean} = {};
-    
-    // Auto-expand for specific products or when clicking on a product
-    newExpandedProducts[productId] = true;
-    
-    setExpandedProducts(newExpandedProducts);
+    // Do not auto-expand variants when selecting a product
+    // User can manually expand by clicking "Available Variants"
+    setCurrentProductName(productName);
   };
 
-  // Auto-expand logic for filtered products when category changes
+  // Auto-expand logic for filtered products when category changes - DISABLED to keep variants collapsed by default
   useEffect(() => {
+    // Keep all variant tables collapsed by default
+    // User can manually expand them by clicking on "Available Variants"
     if (filteredProducts.length > 0) {
       const newExpandedProducts: {[key: string]: boolean} = {};
-      
-      // Auto-expand first product in the category
-      if (filteredProducts.length > 0) {
-        newExpandedProducts[filteredProducts[0].id] = true;
-      }
-      
+      // Initialize all products as collapsed (false)
+      filteredProducts.forEach(product => {
+        newExpandedProducts[product.id] = false;
+      });
       setExpandedProducts(newExpandedProducts);
     }
   }, [selectedCategory, filteredProducts]);
