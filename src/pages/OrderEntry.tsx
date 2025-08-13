@@ -1058,6 +1058,7 @@ const filteredProducts = selectedCategory === "All"
                               : ''
                           }`}
                           size="sm"
+                          disabled={(quantities[displayProduct.id] || 0) <= 0}
                         >
                           {addedItems.has(displayProduct.id) || cart.some((i) => i.id === displayProduct.id) ? (
                             <>
