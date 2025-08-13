@@ -416,7 +416,24 @@ React.useEffect(() => {
                         </Button>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">₹{computeItemTotal(item as any).toLocaleString()}</p>
+                        {(() => {
+                          const originalPrice = computeItemSubtotal(item as any);
+                          const discount = computeItemDiscount(item as any);
+                          const finalPrice = computeItemTotal(item as any);
+                          const hasDiscount = discount > 0;
+                          
+                          return (
+                            <div className="flex flex-col items-end">
+                              {hasDiscount && (
+                                <span className="text-xs text-muted-foreground line-through">₹{originalPrice.toLocaleString()}</span>
+                              )}
+                              <span className="font-bold text-lg">₹{finalPrice.toLocaleString()}</span>
+                              {hasDiscount && (
+                                <span className="text-xs text-green-600 font-medium">You saved ₹{discount.toLocaleString()}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -426,18 +443,19 @@ React.useEffect(() => {
                         <span>₹{computeItemSubtotal(item as any).toLocaleString()}</span>
                       </div>
                       {computeItemDiscount(item as any) > 0 && (
-                        <div className="flex justify-between text-success">
-                          <span>
+                        <div className="flex justify-between text-green-600">
+                          <span className="flex items-center gap-1">
+                            <Gift size={12} />
                             {(() => {
                               const s = getItemScheme(item as any);
-                              return s.discountPct ? `Scheme (${s.discountPct}% ≥ ${s.condition} ${item.unit})` : 'Scheme';
+                              return s.discountPct ? `Scheme Discount (${s.discountPct}% off)` : 'Scheme Discount';
                             })()}
                           </span>
-                          <span>-₹{computeItemDiscount(item as any).toLocaleString()}</span>
+                          <span className="font-medium">-₹{computeItemDiscount(item as any).toLocaleString()}</span>
                         </div>
                       )}
-                      <div className="flex justify-between font-semibold">
-                        <span>Item Total</span>
+                      <div className="flex justify-between font-semibold border-t pt-2">
+                        <span>Final Total</span>
                         <span>₹{computeItemTotal(item as any).toLocaleString()}</span>
                       </div>
                     </div>
