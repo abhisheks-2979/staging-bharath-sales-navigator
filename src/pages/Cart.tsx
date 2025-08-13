@@ -124,30 +124,53 @@ React.useEffect(() => {
   }
 }, [visitId]);
 
+// Load cart items from localStorage with proper refresh handling
 React.useEffect(() => {
-  try {
-    if (storageKey) {
-      const rawUser = localStorage.getItem(storageKey);
-      if (rawUser) {
-        setCartItems(JSON.parse(rawUser));
-        return;
-      }
-      if (tempStorageKey) {
-        const rawTemp = localStorage.getItem(tempStorageKey);
-        if (rawTemp) {
-          setCartItems(JSON.parse(rawTemp));
-          localStorage.setItem(storageKey, rawTemp);
-          localStorage.removeItem(tempStorageKey);
+  const loadCartItems = () => {
+    try {
+      if (storageKey) {
+        const rawUser = localStorage.getItem(storageKey);
+        if (rawUser) {
+          const parsedItems = JSON.parse(rawUser);
+          setCartItems(parsedItems);
           return;
         }
+        if (tempStorageKey) {
+          const rawTemp = localStorage.getItem(tempStorageKey);
+          if (rawTemp) {
+            const parsedItems = JSON.parse(rawTemp);
+            setCartItems(parsedItems);
+            localStorage.setItem(storageKey, rawTemp);
+            localStorage.removeItem(tempStorageKey);
+            return;
+          }
+        }
+      } else if (tempStorageKey) {
+        const rawTemp = localStorage.getItem(tempStorageKey);
+        if (rawTemp) {
+          const parsedItems = JSON.parse(rawTemp);
+          setCartItems(parsedItems);
+        }
       }
-    } else if (tempStorageKey) {
-      const rawTemp = localStorage.getItem(tempStorageKey);
-      if (rawTemp) {
-        setCartItems(JSON.parse(rawTemp));
-      }
+    } catch (error) {
+      console.error('Error loading cart items:', error);
     }
-  } catch {}
+  };
+
+  loadCartItems();
+  
+  // Also listen for storage changes (when updated from OrderEntry)
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === storageKey || e.key === tempStorageKey) {
+      loadCartItems();
+    }
+  };
+  
+  window.addEventListener('storage', handleStorageChange);
+  
+  return () => {
+    window.removeEventListener('storage', handleStorageChange);
+  };
 }, [storageKey, tempStorageKey]);
 
 React.useEffect(() => {

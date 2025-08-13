@@ -559,29 +559,35 @@ const filteredProducts = selectedCategory === "All"
   const autoSyncCart = () => {
     const { items } = getSelectionDetails();
     
-    if (items.length > 0) {
-      // Clear existing cart and replace with current selections
-      const newCartItems: CartItem[] = [];
+    // Create new cart items from current selections
+    const newCartItems: CartItem[] = [];
+    
+    items.forEach(item => {
+      const baseProductId = item.id.split('_')[0];
+      const product = products.find(p => p.id === baseProductId);
       
-      items.forEach(item => {
-        const baseProductId = item.id.split('_')[0];
-        const product = products.find(p => p.id === baseProductId);
-        
-        const cartItem: CartItem = {
-          id: item.id,
-          name: item.selectedItem,
-          category: product?.category || "Unknown",
-          rate: item.rate,
-          unit: product?.unit || "piece",
-          quantity: item.quantity,
-          total: item.totalPrice
-        };
-        
-        newCartItems.push(cartItem);
-      });
+      const cartItem: CartItem = {
+        id: item.id,
+        name: item.selectedItem,
+        category: product?.category || "Unknown",
+        rate: item.rate,
+        unit: product?.unit || "piece",
+        quantity: item.quantity,
+        total: item.totalPrice
+      };
       
-      // Replace cart completely with new selections
-      setCart(newCartItems);
+      newCartItems.push(cartItem);
+    });
+    
+    // Update both state and localStorage
+    setCart(newCartItems);
+    
+    // Also update localStorage directly for cart page
+    const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : 
+                     retailerId ? `order_cart:temp:${retailerId}` : null;
+    
+    if (storageKey) {
+      localStorage.setItem(storageKey, JSON.stringify(newCartItems));
     }
   };
 
