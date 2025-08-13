@@ -544,7 +544,7 @@ const filteredProducts = selectedCategory === "All"
       }
     });
     
-    // Reset quantities and selections
+    // Clear current selections after adding to cart, not cart itself
     setQuantities({});
     setSelectedVariants({});
     setShowOrderSummary(false);
@@ -1146,28 +1146,29 @@ const filteredProducts = selectedCategory === "All"
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
 
-        {/* Fixed Bottom Cart Summary - Shows based on cart items OR current selections */}
-        {(cart.length > 0 || getSelectionItemCount() > 0) && (
+        {/* Fixed Bottom Cart Summary - Shows current selections or cart items */}
+        {(getSelectionItemCount() > 0 || cart.length > 0) && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
             <div className="container mx-auto">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {cart.length > 0 ? `${getTotalItems()} items in cart` : `${getSelectionItemCount()} items selected`}
+                    {getSelectionItemCount()} items selected
                   </p>
                   <p className="font-bold">
-                    ₹{(cart.length > 0 ? getTotalValue() : getSelectionValue()).toLocaleString()}
+                    ₹{getSelectionValue().toLocaleString()}
                   </p>
                 </div>
                 <Button 
                   onClick={() => {
-                    // Auto-add selections to cart if there are any
-                    if (getSelectionItemCount() > 0 && cart.length === 0) {
+                    // Always sync current selections to cart before navigating
+                    if (getSelectionItemCount() > 0) {
                       handleAddAllToCart();
                     }
                     navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`);
                   }}
                   className="flex items-center gap-2"
+                  disabled={getSelectionItemCount() === 0}
                 >
                   <ShoppingCart size={16} />
                   View Cart
