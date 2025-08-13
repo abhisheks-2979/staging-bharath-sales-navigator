@@ -645,7 +645,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               {getStatusText(visit.status)}
             </Badge>
             <div className="text-xs text-muted-foreground">{visit.retailerCategory}</div>
-            {visit.orderValue && visit.orderValue > 0 && (
+            {visit.orderValue && visit.orderValue > 0 && visit.status !== 'unproductive' && (
               <Button
                 variant="link"
                 size="sm"
