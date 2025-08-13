@@ -74,6 +74,7 @@ const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
 const [userId, setUserId] = useState<string | null>(null);
+const [loggedInUserName, setLoggedInUserName] = useState<string>("User");
 const [schemes, setSchemes] = useState<any[]>([]);
 const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
 const [showOrderSummary, setShowOrderSummary] = useState(false);
@@ -84,9 +85,28 @@ const [filteredSchemes, setFilteredSchemes] = useState<any[]>([]);
 const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
 
 useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    setUserId(data.user?.id || null);
-  });
+  const fetchUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setUserId(user.id);
+      
+      // Fetch user profile to get the name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, username')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile) {
+        setLoggedInUserName(profile.full_name || profile.username || user.email?.split('@')[0] || "User");
+      } else {
+        // Fallback to email username if no profile
+        setLoggedInUserName(user.email?.split('@')[0] || "User");
+      }
+    }
+  };
+  
+  fetchUserData();
 }, []);
 
 const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
@@ -586,7 +606,7 @@ const filteredProducts = selectedCategory === "All"
               </Button>
               <div>
                 <CardTitle className="text-lg">Order Entry</CardTitle>
-                <p className="text-primary-foreground/80">{retailerName}</p>
+                <p className="text-primary-foreground/80">{loggedInUserName}</p>
               </div>
             </div>
             <Button
