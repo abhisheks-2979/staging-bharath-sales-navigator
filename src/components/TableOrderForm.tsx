@@ -302,13 +302,16 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                               </Badge>
                             )}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            ₹{row.variant ? row.variant.price : row.product.rate}/{row.product.unit}
+                           <div className="text-[10px] text-muted-foreground">
+                            ₹{row.variant ? (row.variant.price % 1 === 0 ? row.variant.price.toString() : row.variant.price.toFixed(2)) : (row.product.rate % 1 === 0 ? row.product.rate.toString() : row.product.rate.toFixed(2))}/{row.product.unit}
                             {row.variant && (row.variant.discount_percentage > 0 || row.variant.discount_amount > 0) && (
                               <span className="text-green-600 ml-1">
-                                (Discounted: ₹{row.variant.discount_percentage > 0 
-                                  ? (row.variant.price - (row.variant.price * row.variant.discount_percentage / 100)).toFixed(2)
-                                  : (row.variant.price - row.variant.discount_amount).toFixed(2)})
+                                (Discounted: ₹{(() => {
+                                  const discountedPrice = row.variant.discount_percentage > 0 
+                                    ? (row.variant.price - (row.variant.price * row.variant.discount_percentage / 100))
+                                    : (row.variant.price - row.variant.discount_amount);
+                                  return discountedPrice % 1 === 0 ? discountedPrice.toString() : discountedPrice.toFixed(2);
+                                })()})
                               </span>
                             )}
                           </div>
@@ -335,16 +338,20 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         disabled={!row.product}
                       />
                     </TableCell>
-                    <TableCell className="p-2">
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={row.closingStock || ""}
-                        onChange={(e) => updateRow(row.id, "closingStock", parseInt(e.target.value) || 0)}
-                        className="h-8 text-xs"
-                        disabled={!row.product}
-                      />
-                    </TableCell>
+                     <TableCell className="p-2">
+                       <Input
+                         type="number"
+                         placeholder="0"
+                         value={row.closingStock === 0 ? "" : row.closingStock}
+                         onChange={(e) => {
+                           const value = e.target.value;
+                           // If input is empty, set to 0, otherwise parse the integer
+                           updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
+                         }}
+                         className={`h-8 text-xs ${row.closingStock === 0 ? "text-muted-foreground" : ""}`}
+                         disabled={!row.product}
+                       />
+                     </TableCell>
                     <TableCell className="p-2">
                       <span className="text-xs font-medium">
                         {row.total > 0 ? `₹${row.total}` : "-"}
