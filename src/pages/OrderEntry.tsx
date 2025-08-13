@@ -520,39 +520,69 @@ const filteredProducts = selectedCategory === "All"
       return;
     }
     
+    // Clear existing cart and replace with current selections
+    const newCartItems: CartItem[] = [];
+    
     // Add all items to cart
     items.forEach(item => {
-      const cartItem = {
+      const baseProductId = item.id.split('_')[0];
+      const product = products.find(p => p.id === baseProductId);
+      
+      const cartItem: CartItem = {
         id: item.id,
         name: item.selectedItem,
-        category: products.find(p => p.id === item.id.split('_')[0])?.category || "Unknown",
+        category: product?.category || "Unknown",
         rate: item.rate,
-        unit: products.find(p => p.id === item.id.split('_')[0])?.unit || "piece",
+        unit: product?.unit || "piece",
         quantity: item.quantity,
         total: item.totalPrice
       };
       
-      const existingItem = cart.find(cartItem => cartItem.id === item.id);
-      if (existingItem) {
-        setCart(prev => prev.map(cartItem => 
-          cartItem.id === item.id 
-            ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.totalPrice }
-            : cartItem
-        ));
-      } else {
-        setCart(prev => [...prev, cartItem]);
-      }
+      newCartItems.push(cartItem);
     });
     
-    // Clear current selections after adding to cart, not cart itself
+    // Replace cart completely with new selections
+    setCart(newCartItems);
+    
+    // Clear current selections after adding to cart
     setQuantities({});
     setSelectedVariants({});
     setShowOrderSummary(false);
     
     toast({
-      title: "Added to Cart",
-      description: `${items.length} item(s) added to cart`
+      title: "Cart Updated",
+      description: `Cart updated with ${items.length} item(s)`
     });
+  };
+
+  // Auto-sync function to update cart with current selections
+  const autoSyncCart = () => {
+    const { items } = getSelectionDetails();
+    
+    if (items.length > 0) {
+      // Clear existing cart and replace with current selections
+      const newCartItems: CartItem[] = [];
+      
+      items.forEach(item => {
+        const baseProductId = item.id.split('_')[0];
+        const product = products.find(p => p.id === baseProductId);
+        
+        const cartItem: CartItem = {
+          id: item.id,
+          name: item.selectedItem,
+          category: product?.category || "Unknown",
+          rate: item.rate,
+          unit: product?.unit || "piece",
+          quantity: item.quantity,
+          total: item.totalPrice
+        };
+        
+        newCartItems.push(cartItem);
+      });
+      
+      // Replace cart completely with new selections
+      setCart(newCartItems);
+    }
   };
 
   // Function to toggle variant table visibility
@@ -1146,8 +1176,8 @@ const filteredProducts = selectedCategory === "All"
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
 
-        {/* Fixed Bottom Cart Summary - Shows current selections or cart items */}
-        {(getSelectionItemCount() > 0 || cart.length > 0) && (
+        {/* Fixed Bottom Cart Summary - Shows current selections */}
+        {getSelectionItemCount() > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
             <div className="container mx-auto">
               <div className="flex items-center justify-between mb-2">
@@ -1161,10 +1191,8 @@ const filteredProducts = selectedCategory === "All"
                 </div>
                 <Button 
                   onClick={() => {
-                    // Always sync current selections to cart before navigating
-                    if (getSelectionItemCount() > 0) {
-                      handleAddAllToCart();
-                    }
+                    // Auto-sync current selections to cart before navigating
+                    autoSyncCart();
                     navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`);
                   }}
                   className="flex items-center gap-2"
