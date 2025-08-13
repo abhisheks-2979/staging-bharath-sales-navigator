@@ -1041,30 +1041,31 @@ const filteredProducts = selectedCategory === "All"
                            });
                          }
                          
-                          product.variants?.forEach(variant => {
-                            if (selectedVariants[product.id] === variant.id && quantities[variant.id] > 0) {
-                              const variantPrice = variant.discount_percentage > 0 
-                                ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                : variant.discount_amount > 0 
-                                  ? variant.price - variant.discount_amount
-                                  : variant.price;
-                              
-                              const baseTotal = quantities[variant.id] * variantPrice;
-                              const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
-                              const finalTotal = baseTotal - totalDiscount;
-                              
-                              selectedItems.push({
-                                id: `${product.id}_variant_${variant.id}`,
-                                name: `${product.name} - ${variant.variant_name}`,
-                                category: product.category,
-                                rate: variantPrice,
-                                unit: product.unit,
-                                quantity: quantities[variant.id],
-                                total: finalTotal,
-                                closingStock: variant.stock_quantity
-                              });
-                            }
-                          });
+                           product.variants?.forEach(variant => {
+                             // Add variant if it has quantity > 0, regardless of selected dropdown
+                             if (quantities[variant.id] > 0) {
+                               const variantPrice = variant.discount_percentage > 0 
+                                 ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                 : variant.discount_amount > 0 
+                                   ? variant.price - variant.discount_amount
+                                   : variant.price;
+                               
+                               const baseTotal = quantities[variant.id] * variantPrice;
+                               const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
+                               const finalTotal = baseTotal - totalDiscount;
+                               
+                               selectedItems.push({
+                                 id: `${product.id}_variant_${variant.id}`,
+                                 name: `${product.name} - ${variant.variant_name}`,
+                                 category: product.category,
+                                 rate: variantPrice,
+                                 unit: product.unit,
+                                 quantity: quantities[variant.id],
+                                 total: finalTotal,
+                                 closingStock: variant.stock_quantity
+                               });
+                             }
+                           });
                          
                          if (selectedItems.length === 0) {
                            toast({
