@@ -50,7 +50,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [locationMatchOut, setLocationMatchOut] = useState<boolean | null>(null);
   const [currentVisitId, setCurrentVisitId] = useState<string | null>(null);
   const [orderPreviewOpen, setOrderPreviewOpen] = useState(false);
-  const [lastOrderItems, setLastOrderItems] = useState<Array<{ product_name: string; quantity: number; rate: number }>>([]);
+  const [lastOrderItems, setLastOrderItems] = useState<Array<{ product_name: string; quantity: number; rate: number; actualRate: number }>>([]);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [isNoOrderMarked, setIsNoOrderMarked] = useState(!!visit.noOrderReason);
@@ -609,18 +609,27 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
         const orderIds = (orders || []).map(o => o.id);
         const { data: items } = await supabase
           .from('order_items')
-          .select('product_name, quantity, rate, order_id')
+          .select('product_name, quantity, rate, total, order_id')
           .in('order_id', orderIds);
 
         // Group items by product for a clean summary
-        const grouped = new Map<string, { product_name: string; quantity: number; rate: number }>();
+        const grouped = new Map<string, { product_name: string; quantity: number; rate: number; actualRate: number }>();
         (items || []).forEach(it => {
           const key = it.product_name;
           const existing = grouped.get(key);
+          const actualRate = Number(it.total || 0) / Number(it.quantity || 1); // Calculate actual price paid per unit
           if (existing) {
             existing.quantity += Number(it.quantity || 0);
+            // Recalculate weighted average of actual rate
+            const totalValue = (existing.actualRate * (existing.quantity - Number(it.quantity || 0))) + Number(it.total || 0);
+            existing.actualRate = totalValue / existing.quantity;
           } else {
-            grouped.set(key, { product_name: key, quantity: Number(it.quantity || 0), rate: Number(it.rate || 0) });
+            grouped.set(key, { 
+              product_name: key, 
+              quantity: Number(it.quantity || 0), 
+              rate: Number(it.rate || 0), // Original rate for reference
+              actualRate: actualRate // Actual price paid (with offers applied)
+            });
           }
         });
         setLastOrderItems(Array.from(grouped.values()).sort((a, b) => a.product_name.localeCompare(b.product_name)));
@@ -832,9 +841,16 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                     <div className="text-xs text-muted-foreground">No items found.</div>
                   )}
                   {!loadingOrder && lastOrderItems.map((it, idx) => (
-                    <div key={idx} className="flex justify-between text-xs">
+                    <div key={idx} className="flex justify-between items-center text-xs">
                       <span className="truncate pr-2">{it.product_name}</span>
-                      <span className="whitespace-nowrap">{it.quantity} x ₹{it.rate}</span>
+                      <div className="whitespace-nowrap text-right">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{it.quantity} x ₹{it.actualRate.toFixed(2)}</span>
+                          {it.actualRate !== it.rate && (
+                            <span className="text-xs text-muted-foreground line-through">₹{it.rate.toFixed(2)}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
