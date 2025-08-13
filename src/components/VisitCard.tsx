@@ -35,9 +35,10 @@ interface Visit {
 interface VisitCardProps {
   visit: Visit;
   onViewDetails: (visitId: string) => void;
+  selectedDate?: string; // Add selectedDate prop
 }
 
-export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
+export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps) => {
   const navigate = useNavigate();
   const [showNoOrderModal, setShowNoOrderModal] = useState(false);
   const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
@@ -61,15 +62,8 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
-  // Check if the visit is for today's date
-  const isToday = () => {
-    const today = new Date().toISOString().split('T')[0];
-    // Assuming visit has a planned date or we use today as default
-    const visitDate = visit.time ? new Date(visit.time).toISOString().split('T')[0] : today;
-    return visitDate === today;
-  };
-  
-  const isTodaysVisit = isToday();
+  // Check if the selected date is today's date
+  const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
   
   // Check if user has viewed analytics for this visit and check-in status
   useEffect(() => {

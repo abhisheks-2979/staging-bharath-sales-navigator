@@ -706,6 +706,7 @@ export const MyVisits = () => {
                 key={visit.id}
                 visit={visit}
                 onViewDetails={handleViewDetails}
+                selectedDate={selectedDate}
               />
             ))
           )}
