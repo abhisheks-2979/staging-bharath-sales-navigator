@@ -234,10 +234,10 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   };
 
   const getLocationBtnClass = () => {
-    if (phase === 'completed') {
+    if (isCheckedOut) {
       return "bg-success text-success-foreground hover:bg-success/90";
     }
-    if (phase === 'in-progress') {
+    if (isCheckedIn) {
       return "bg-warning text-warning-foreground hover:bg-warning/90";
     }
     // idle
