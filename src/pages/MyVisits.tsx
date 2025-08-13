@@ -626,47 +626,42 @@ export const MyVisits = () => {
               </div>
             </div>
             
-            {/* Key Metrics Row */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-gradient-to-r from-success/10 to-success/5 p-4 rounded-xl border border-success/20">
-                <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
-                <div className="text-sm text-success/80 font-medium">Total Order Value</div>
-              </div>
-                <button
-                  onClick={handleOrdersClick}
-                  className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all"
-                >
-                  <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                  <div className="text-sm text-primary/80 font-medium">Today's Order</div>
-                </button>
-            </div>
-            
-            {/* Visit Status Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleStatusClick("planned")}
-                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
-                  statusFilter === "planned" 
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
-                    : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
-                }`}
-              >
-                <div className="text-xl font-bold">{plannedVisitsCount}</div>
-                <div className="text-xs font-medium opacity-80">Planned Visits</div>
-              </button>
-              
-              <button
-                onClick={() => handleStatusClick("unproductive")}
-                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
-                  statusFilter === "unproductive" 
-                    ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" 
-                    : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"
-                }`}
-              >
-                <div className="text-xl font-bold">{unproductiveVisits}</div>
-                <div className="text-xs font-medium opacity-80">Unproductive</div>
-              </button>
-            </div>
+             {/* Stats Grid - All Equal Size */}
+             <div className="grid grid-cols-2 gap-3">
+               <div className="bg-gradient-to-r from-success/10 to-success/5 p-4 rounded-xl border border-success/20 flex flex-col items-center justify-center text-center min-h-[100px]">
+                 <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
+                 <div className="text-sm text-success/80 font-medium mt-1">Total Order Value</div>
+               </div>
+               <button
+                 onClick={handleOrdersClick}
+                 className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[100px]"
+               >
+                 <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
+                 <div className="text-sm text-primary/80 font-medium mt-1">Today's Order</div>
+               </button>
+               <button
+                 onClick={() => handleStatusClick("planned")}
+                 className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[100px] ${
+                   statusFilter === "planned" 
+                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
+                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
+                 }`}
+               >
+                 <div className="text-2xl font-bold">{plannedVisitsCount}</div>
+                 <div className="text-sm font-medium opacity-80 mt-1">Planned Visits</div>
+               </button>
+               <button
+                 onClick={() => handleStatusClick("unproductive")}
+                 className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[100px] ${
+                   statusFilter === "unproductive" 
+                     ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" 
+                     : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"
+                 }`}
+               >
+                 <div className="text-2xl font-bold">{unproductiveVisits}</div>
+                 <div className="text-sm font-medium opacity-80 mt-1">Unproductive</div>
+               </button>
+             </div>
           </CardContent>
         </Card>
 
