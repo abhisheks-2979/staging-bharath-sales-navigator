@@ -696,10 +696,10 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
-              } ${isNoOrderMarked ? "opacity-50 cursor-not-allowed" : ""}`}
-              disabled={isNoOrderMarked}
+              } ${(isNoOrderMarked || !isCheckedIn) ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isNoOrderMarked || !isCheckedIn}
               onClick={async () => {
-                if (isNoOrderMarked) return;
+                if (isNoOrderMarked || !isCheckedIn) return;
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
@@ -716,7 +716,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                   toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
                 }
               }}
-              title={`${isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
+              title={`${!isCheckedIn ? "Check in first to place order" : isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
             >
               <ShoppingCart size={14} className="sm:size-4" />
             </Button>
@@ -726,15 +726,17 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
                 isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
-              } ${(isNoOrderMarked || hasOrderToday) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${(isNoOrderMarked || hasOrderToday || !isCheckedIn) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleNoOrderClick}
-              disabled={isNoOrderMarked || hasOrderToday}
+              disabled={isNoOrderMarked || hasOrderToday || !isCheckedIn}
               title={
-                isNoOrderMarked 
-                  ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` 
-                  : hasOrderToday 
-                    ? "Cannot mark no order - Order already placed today"
-                    : "Mark No Order"
+                !isCheckedIn
+                  ? "Check in first to mark no order"
+                  : isNoOrderMarked 
+                    ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` 
+                    : hasOrderToday 
+                      ? "Cannot mark no order - Order already placed today"
+                      : "Mark No Order"
               }
             >
               {isNoOrderMarked ? (
@@ -870,9 +872,11 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                 className={`w-full h-12 text-base font-medium ${
                   !isCheckedIn || isCheckedOut
                     ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' 
-                    : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                    : hasOrderToday
+                      ? 'bg-success text-success-foreground hover:bg-success/90 border-success'
+                      : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
                 }`}
-                variant="outline"
+                variant={hasOrderToday && isCheckedIn && !isCheckedOut ? "default" : "outline"}
                 disabled={!isCheckedIn || isCheckedOut}
               >
                 <LogOut className="mr-2 h-5 w-5" />
