@@ -965,10 +965,10 @@ const filteredProducts = selectedCategory === "All"
                             description: `${selectedItems.length} item(s) added to cart`
                           });
                        }}
-                        className={`w-full h-8 transition-all ${
+                        className={`w-full h-8 transition-all duration-300 ${
                           addedItems.has(product.id) 
-                            ? 'bg-green-600 hover:bg-green-700 text-white' 
-                            : ''
+                            ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                            : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                         }`}
                         size="sm"
                         disabled={(() => {
@@ -1057,15 +1057,15 @@ const filteredProducts = selectedCategory === "All"
                               });
                             }, 3000);
                           }}
-                          className={`w-full h-8 transition-all ${
-                            addedItems.has(displayProduct.id) || cart.some((i) => i.id === displayProduct.id) 
-                              ? 'bg-green-600 hover:bg-green-700 text-white' 
-                              : ''
+                          className={`w-full h-8 transition-all duration-300 ${
+                            addedItems.has(displayProduct.id) 
+                              ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                              : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                           }`}
                           size="sm"
                           disabled={(quantities[displayProduct.id] || 0) <= 0}
                         >
-                          {addedItems.has(displayProduct.id) || cart.some((i) => i.id === displayProduct.id) ? (
+                          {addedItems.has(displayProduct.id) ? (
                             <>
                               <Check size={14} className="mr-1" />
                               Added
