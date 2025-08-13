@@ -17,13 +17,12 @@ interface CartItem {
   unit: string;
   quantity: number;
   total: number;
-}
-
-type AnyCartItem = CartItem & {
   schemeConditionQuantity?: number;
   schemeDiscountPercentage?: number;
   schemes?: Array<{ is_active: boolean; condition_quantity?: number; discount_percentage?: number }>;
-};
+}
+
+type AnyCartItem = CartItem;
 
 const getItemScheme = (item: AnyCartItem) => {
   const active = item.schemes?.find(s => s.is_active);
@@ -195,13 +194,13 @@ React.useEffect(() => {
 
     setCartItems(prev => prev.map(item => 
       item.id === productId 
-        ? { ...item, quantity: newQuantity, total: computeItemTotal({ ...(item as any), quantity: newQuantity } as any) }
+        ? { ...item, quantity: newQuantity, total: computeItemTotal({ ...item, quantity: newQuantity }) }
         : item
     ));
   };
 
-  const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item as any), 0);
-  const getDiscount = () => cartItems.reduce((sum, item) => sum + computeItemDiscount(item as any), 0);
+  const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item), 0);
+  const getDiscount = () => cartItems.reduce((sum, item) => sum + computeItemDiscount(item), 0);
   const getFinalTotal = () => getSubtotal() - getDiscount();
 
   // Check if the visit date allows order submission
@@ -286,7 +285,7 @@ React.useEffect(() => {
         rate: item.rate,
         unit: item.unit,
         quantity: item.quantity,
-        total: computeItemTotal(item as any)
+        total: computeItemTotal(item)
       }));
 
       const { error: itemsError } = await supabase
@@ -417,9 +416,9 @@ React.useEffect(() => {
                       </div>
                       <div className="text-right">
                         {(() => {
-                          const originalPrice = computeItemSubtotal(item as any);
-                          const discount = computeItemDiscount(item as any);
-                          const finalPrice = computeItemTotal(item as any);
+                          const originalPrice = computeItemSubtotal(item);
+                          const discount = computeItemDiscount(item);
+                          const finalPrice = computeItemTotal(item);
                           const hasDiscount = discount > 0;
                           
                           return (
@@ -440,23 +439,23 @@ React.useEffect(() => {
                     <div className="mt-3 space-y-1 text-sm">
                       <div className="flex justify-between text-muted-foreground">
                         <span>₹{item.rate}/{item.unit} × {item.quantity}</span>
-                        <span>₹{computeItemSubtotal(item as any).toLocaleString()}</span>
+                        <span>₹{computeItemSubtotal(item).toLocaleString()}</span>
                       </div>
-                      {computeItemDiscount(item as any) > 0 && (
+                      {computeItemDiscount(item) > 0 && (
                         <div className="flex justify-between text-green-600">
                           <span className="flex items-center gap-1">
                             <Gift size={12} />
                             {(() => {
-                              const s = getItemScheme(item as any);
+                              const s = getItemScheme(item);
                               return s.discountPct ? `Scheme Discount (${s.discountPct}% off)` : 'Scheme Discount';
                             })()}
                           </span>
-                          <span className="font-medium">-₹{computeItemDiscount(item as any).toLocaleString()}</span>
+                          <span className="font-medium">-₹{computeItemDiscount(item).toLocaleString()}</span>
                         </div>
                       )}
                       <div className="flex justify-between font-semibold border-t pt-2">
                         <span>Final Total</span>
-                        <span>₹{computeItemTotal(item as any).toLocaleString()}</span>
+                        <span>₹{computeItemTotal(item).toLocaleString()}</span>
                       </div>
                     </div>
                   </CardContent>
