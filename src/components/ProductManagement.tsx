@@ -568,7 +568,7 @@ setProductForm({
                         {productForm.id ? 'Update product details' : 'Add a new product to your catalog'}
                       </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="flex-1 px-1">
+                    <ScrollArea className="max-h-[60vh] px-1">
                       <div className="space-y-4 pr-4">
                       <div>
                         <Label htmlFor="sku">SKU</Label>
