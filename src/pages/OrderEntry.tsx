@@ -972,9 +972,14 @@ const filteredProducts = selectedCategory === "All"
                         }`}
                         size="sm"
                         disabled={(() => {
-                          const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
-                            product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
-                          return !hasSelection;
+                          // Check if base product has quantity
+                          const baseQty = quantities[product.id] || 0;
+                          
+                          // Check if any variant has quantity
+                          const hasVariantQty = product.variants?.some(v => (quantities[v.id] || 0) > 0) || false;
+                          
+                          // Button is disabled if no quantity is entered anywhere
+                          return baseQty <= 0 && !hasVariantQty;
                         })()}
                       >
                         {addedItems.has(product.id) ? (
