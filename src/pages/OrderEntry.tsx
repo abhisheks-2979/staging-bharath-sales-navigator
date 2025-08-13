@@ -200,9 +200,10 @@ const filteredProducts = selectedCategory === "All"
 
   const handleVariantChange = (productId: string, variantId: string) => {
     setSelectedVariants(prev => ({ ...prev, [productId]: variantId }));
-    // Only reset quantity when switching between different variants, not when setting base
+    // Don't reset quantities for base product to fix auto-update issue
+    // Only reset when switching between different non-base variants
     const currentVariant = selectedVariants[productId];
-    if (currentVariant && currentVariant !== variantId) {
+    if (currentVariant && currentVariant !== variantId && currentVariant !== "base" && variantId !== "base") {
       setQuantities(prev => ({ ...prev, [productId]: 0 }));
     }
   };
@@ -723,18 +724,18 @@ const filteredProducts = selectedCategory === "All"
                         })()}
                       </p>
                       
-                      {/* View Breakdown Button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setCurrentProductName(product.name);
-                          setShowOrderSummary(true);
-                        }}
-                        className="text-xs h-6 p-1 mt-1 text-primary hover:bg-primary/10"
-                      >
-                        View Breakdown
-                      </Button>
+                       {/* View Order Button */}
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => {
+                           setCurrentProductName(product.name);
+                           setShowOrderSummary(true);
+                         }}
+                         className="text-xs h-6 p-1 mt-1 text-primary hover:bg-primary/10"
+                       >
+                         View Order
+                       </Button>
                       
                       {savingsAmount > 0 && (
                         <p className="text-xs text-green-600 font-semibold">

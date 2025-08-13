@@ -36,26 +36,27 @@ export const OrderSummaryModal = ({
 }: OrderSummaryModalProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package size={20} />
-            View Breakdown — {productName}
+            View Order — {productName}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="flex-1 overflow-hidden">
           {/* Selected Items */}
-          <div className="space-y-3">
+          <div className="space-y-3 h-full">
             <h3 className="font-medium text-sm text-muted-foreground">Selected Items</h3>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/50 grid grid-cols-12 gap-2 p-3 text-xs font-medium border-b">
+            <div className="border rounded-lg overflow-hidden h-full flex flex-col">
+              <div className="bg-muted/50 grid grid-cols-12 gap-2 p-3 text-xs font-medium border-b flex-shrink-0">
                 <div className="col-span-4 text-left">Item / Variant</div>
                 <div className="col-span-3 text-right">Unit Price</div>
                 <div className="col-span-2 text-center">Qty</div>
                 <div className="col-span-3 text-right">Subtotal</div>
               </div>
-              {items.map((item) => {
+              <div className="flex-1 overflow-y-auto">
+                {items.map((item) => {
                 const originalPrice = item.savings > 0 ? item.totalPrice + item.savings : item.totalPrice;
                 const hasDiscount = item.savings > 0;
                 return (
@@ -95,23 +96,25 @@ export const OrderSummaryModal = ({
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
+        </div>
 
+        {/* Fixed Bottom Section */}
+        <div className="border-t pt-4 space-y-4 flex-shrink-0">
           {/* Savings Summary */}
           {totalSavings > 0 && (
-            <div className="border-t pt-3">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-green-600">You saved:</span>
-                <span className="font-bold text-green-600 text-right">₹{totalSavings.toFixed(2)}</span>
-              </div>
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-green-600">You saved:</span>
+              <span className="font-bold text-green-600 text-right">₹{totalSavings.toFixed(2)}</span>
             </div>
           )}
 
           {/* Total Section */}
-          <div className="border-t pt-3">
+          <div>
             <div className="flex justify-between items-center mb-3">
               <span className="text-lg font-semibold">Total Amount:</span>
               <span className="text-xl font-bold text-primary">₹{totalAmount.toFixed(2)}</span>
