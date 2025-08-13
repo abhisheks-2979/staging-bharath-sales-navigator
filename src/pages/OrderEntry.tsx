@@ -28,6 +28,9 @@ interface Product {
 interface CartItem extends Product {
   quantity: number;
   total: number;
+  schemeConditionQuantity?: number;
+  schemeDiscountPercentage?: number;
+  schemes?: Array<{ is_active: boolean; condition_quantity?: number; discount_percentage?: number }>;
 }
 
 interface GridProduct {
@@ -529,6 +532,24 @@ const filteredProducts = selectedCategory === "All"
       const baseProductId = item.id.split('_')[0];
       const product = products.find(p => p.id === baseProductId);
       
+      // Check if this is a variant or base product
+      const isVariant = item.id.includes('_variant_');
+      const variantId = isVariant ? item.id.split('_variant_')[1] : null;
+      
+      // Find applicable schemes for discount calculation
+      const applicableSchemes = schemes.filter(scheme => 
+        scheme.product_id === baseProductId && 
+        (scheme.variant_id === variantId || scheme.variant_id === null)
+      );
+      
+      // Get the active scheme (if any)
+      const activeScheme = applicableSchemes.find(scheme => {
+        const meetsCondition = scheme.quantity_condition_type === 'more_than' 
+          ? item.quantity > scheme.condition_quantity
+          : item.quantity === scheme.condition_quantity;
+        return meetsCondition;
+      });
+      
       const cartItem: CartItem = {
         id: item.id,
         name: item.selectedItem,
@@ -536,7 +557,17 @@ const filteredProducts = selectedCategory === "All"
         rate: item.rate,
         unit: product?.unit || "piece",
         quantity: item.quantity,
-        total: item.totalPrice
+        total: item.totalPrice,
+        // Add scheme information for discount calculations
+        ...(activeScheme && {
+          schemeConditionQuantity: activeScheme.condition_quantity,
+          schemeDiscountPercentage: activeScheme.discount_percentage || 0,
+          schemes: [{
+            is_active: true,
+            condition_quantity: activeScheme.condition_quantity,
+            discount_percentage: activeScheme.discount_percentage || 0
+          }]
+        })
       };
       
       newCartItems.push(cartItem);
@@ -567,6 +598,24 @@ const filteredProducts = selectedCategory === "All"
       const baseProductId = item.id.split('_')[0];
       const product = products.find(p => p.id === baseProductId);
       
+      // Check if this is a variant or base product
+      const isVariant = item.id.includes('_variant_');
+      const variantId = isVariant ? item.id.split('_variant_')[1] : null;
+      
+      // Find applicable schemes for discount calculation
+      const applicableSchemes = schemes.filter(scheme => 
+        scheme.product_id === baseProductId && 
+        (scheme.variant_id === variantId || scheme.variant_id === null)
+      );
+      
+      // Get the active scheme (if any)
+      const activeScheme = applicableSchemes.find(scheme => {
+        const meetsCondition = scheme.quantity_condition_type === 'more_than' 
+          ? item.quantity > scheme.condition_quantity
+          : item.quantity === scheme.condition_quantity;
+        return meetsCondition;
+      });
+      
       const cartItem: CartItem = {
         id: item.id,
         name: item.selectedItem,
@@ -574,7 +623,17 @@ const filteredProducts = selectedCategory === "All"
         rate: item.rate,
         unit: product?.unit || "piece",
         quantity: item.quantity,
-        total: item.totalPrice
+        total: item.totalPrice,
+        // Add scheme information for discount calculations
+        ...(activeScheme && {
+          schemeConditionQuantity: activeScheme.condition_quantity,
+          schemeDiscountPercentage: activeScheme.discount_percentage || 0,
+          schemes: [{
+            is_active: true,
+            condition_quantity: activeScheme.condition_quantity,
+            discount_percentage: activeScheme.discount_percentage || 0
+          }]
+        })
       };
       
       newCartItems.push(cartItem);
