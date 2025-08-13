@@ -566,8 +566,11 @@ export const MyVisits = () => {
               <Button 
                 variant="secondary" 
                 size="sm"
-                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 ${
+                  selectedDate !== new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
                 onClick={() => window.location.href = '/visits'}
+                disabled={selectedDate !== new Date().toISOString().split('T')[0]}
               >
                 <Route size={16} className="mr-1" />
                 Journey Plan

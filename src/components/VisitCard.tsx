@@ -61,6 +61,16 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
+  // Check if the visit is for today's date
+  const isToday = () => {
+    const today = new Date().toISOString().split('T')[0];
+    // Assuming visit has a planned date or we use today as default
+    const visitDate = visit.time ? new Date(visit.time).toISOString().split('T')[0] : today;
+    return visitDate === today;
+  };
+  
+  const isTodaysVisit = isToday();
+  
   // Check if user has viewed analytics for this visit and check-in status
   useEffect(() => {
     const checkStatus = async () => {
@@ -710,8 +720,8 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
-              } ${(isNoOrderMarked || !isCheckedIn) ? "opacity-50 cursor-not-allowed" : ""}`}
-              disabled={isNoOrderMarked || !isCheckedIn}
+              } ${(isNoOrderMarked || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isNoOrderMarked || !isCheckedIn || !isTodaysVisit}
               onClick={async () => {
                 if (isNoOrderMarked || !isCheckedIn) return;
                 try {
@@ -740,9 +750,9 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
                 isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
-              } ${(isNoOrderMarked || hasOrderToday || !isCheckedIn) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${(isNoOrderMarked || hasOrderToday || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleNoOrderClick}
-              disabled={isNoOrderMarked || hasOrderToday || !isCheckedIn}
+              disabled={isNoOrderMarked || hasOrderToday || !isCheckedIn || !isTodaysVisit}
               title={
                 !isCheckedIn
                   ? "Check in first to mark no order"
@@ -879,11 +889,11 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               <Button
                 onClick={() => handleCheckInOut('checkin')}
                 className={`w-full h-12 text-base font-medium ${
-                  isCheckedIn 
+                  isCheckedIn || !isTodaysVisit
                     ? 'bg-muted text-muted-foreground cursor-not-allowed' 
                     : 'bg-primary hover:bg-primary/90'
                 }`}
-                disabled={isCheckedIn}
+                disabled={isCheckedIn || !isTodaysVisit}
               >
                 <LogIn className="mr-2 h-5 w-5" />
                 {isCheckedIn ? 'Checked In' : 'Check In'}
@@ -893,12 +903,12 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                 className={`w-full h-12 text-base font-medium ${
                   isCheckedOut
                     ? 'bg-success text-success-foreground hover:bg-success/90 border-success'
-                    : !isCheckedIn
+                    : !isCheckedIn || !isTodaysVisit
                       ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' 
                       : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
                 }`}
                 variant={isCheckedOut ? "default" : "outline"}
-                disabled={!isCheckedIn || isCheckedOut}
+                disabled={!isCheckedIn || isCheckedOut || !isTodaysVisit}
               >
                 <LogOut className="mr-2 h-5 w-5" />
                 {isCheckedOut ? 'Checked Out' : 'Check Out'}
