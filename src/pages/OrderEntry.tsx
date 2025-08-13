@@ -381,12 +381,8 @@ const filteredProducts = selectedCategory === "All"
   const getSelectionValue = () => {
     let total = 0;
     
-    // Only include products from current category
-    const categoryProducts = selectedCategory === "All" 
-      ? products 
-      : products.filter(product => product.category === selectedCategory);
-    
-    categoryProducts.forEach(product => {
+    // Include all products regardless of category to match cart behavior
+    products.forEach(product => {
       // Check base product quantity
       const baseQty = quantities[product.id] || 0;
       
@@ -417,17 +413,34 @@ const filteredProducts = selectedCategory === "All"
     return total;
   };
 
+  // Get total selected items count
+  const getSelectionItemCount = () => {
+    let count = 0;
+    
+    products.forEach(product => {
+      // Count base product quantity
+      const baseQty = quantities[product.id] || 0;
+      count += baseQty;
+      
+      // Count all variant quantities
+      if (product.variants) {
+        product.variants.forEach(variant => {
+          const variantQty = quantities[variant.id] || 0;
+          count += variantQty;
+        });
+      }
+    });
+    
+    return count;
+  };
+
   // Get current selection details for order summary
   const getSelectionDetails = () => {
     const items: any[] = [];
     let totalSavings = 0;
     
-    // Only include products from current category
-    const categoryProducts = selectedCategory === "All" 
-      ? products 
-      : products.filter(product => product.category === selectedCategory);
-    
-    categoryProducts.forEach(product => {
+    // Include all products regardless of category
+    products.forEach(product => {
       // Check base product quantity
       const baseQty = quantities[product.id] || 0;
       
@@ -1133,17 +1146,27 @@ const filteredProducts = selectedCategory === "All"
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
 
-        {/* Fixed Bottom Cart Summary */}
-        {cart.length > 0 && (
+        {/* Fixed Bottom Cart Summary - Shows based on cart items OR current selections */}
+        {(cart.length > 0 || getSelectionItemCount() > 0) && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
             <div className="container mx-auto">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-sm text-muted-foreground">{getTotalItems()} items</p>
-                  <p className="font-bold">₹{getTotalValue().toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {cart.length > 0 ? `${getTotalItems()} items in cart` : `${getSelectionItemCount()} items selected`}
+                  </p>
+                  <p className="font-bold">
+                    ₹{(cart.length > 0 ? getTotalValue() : getSelectionValue()).toLocaleString()}
+                  </p>
                 </div>
                 <Button 
-                  onClick={() => navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`)}
+                  onClick={() => {
+                    // Auto-add selections to cart if there are any
+                    if (getSelectionItemCount() > 0 && cart.length === 0) {
+                      handleAddAllToCart();
+                    }
+                    navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`);
+                  }}
                   className="flex items-center gap-2"
                 >
                   <ShoppingCart size={16} />
