@@ -28,7 +28,9 @@ export const AddRetailer = () => {
     potential: "",
     competitor1: "",
     competitor2: "",
-    competitor3: ""
+    competitor3: "",
+    latitude: "",
+    longitude: ""
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -251,7 +253,9 @@ export const AddRetailer = () => {
                         const formattedAddress = parts.length > 0 ? parts.join(', ') : data.display_name || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
                         
                         handleInputChange("address", formattedAddress);
-                        toast({ title: "Location Updated", description: "Address automatically filled from GPS" });
+                        handleInputChange("latitude", lat.toFixed(6));
+                        handleInputChange("longitude", lon.toFixed(6));
+                        toast({ title: "Location Updated", description: "Address and coordinates automatically filled from GPS" });
                       } catch (error) {
                         console.error('GPS/Geocoding error:', error);
                         toast({ title: "GPS Error", description: "Could not get location. Please enable GPS or check internet connection.", variant: "destructive" });
@@ -263,6 +267,30 @@ export const AddRetailer = () => {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">Use GPS button to auto-fill location or enter manually</p>
+                
+                {/* Latitude and Longitude Display */}
+                {(retailerData.latitude || retailerData.longitude) && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Latitude</Label>
+                      <Input
+                        value={retailerData.latitude}
+                        readOnly
+                        className="bg-muted cursor-not-allowed"
+                        placeholder="GPS Latitude"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Longitude</Label>
+                      <Input
+                        value={retailerData.longitude}
+                        readOnly
+                        className="bg-muted cursor-not-allowed"
+                        placeholder="GPS Longitude"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
