@@ -848,7 +848,12 @@ const filteredProducts = selectedCategory === "All"
                           
                           {/* Base Product Row */}
                           <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
-                            <div className="text-xs">Base Product</div>
+                            <div className="text-xs">
+                              <div>Base Product</div>
+                              {product.sku && (
+                                <div className="text-xs text-blue-600 font-mono">SKU: {product.sku}</div>
+                              )}
+                            </div>
                             <div className="font-medium">₹{product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}</div>
                             <div>
                               <Input
@@ -918,7 +923,12 @@ const filteredProducts = selectedCategory === "All"
                              
                              return (
                                <div key={variant.id} className={`grid grid-cols-4 gap-1 p-2 text-xs border-t ${hasVariantScheme ? 'bg-green-50 border-green-200' : ''}`}>
-                                <div className="text-xs">{variant.variant_name}</div>
+                                 <div className="text-xs">
+                                   <div>{variant.variant_name}</div>
+                                   {variant.sku && (
+                                     <div className="text-xs text-blue-600 font-mono">SKU: {variant.sku}</div>
+                                   )}
+                                 </div>
                                 <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
                                 <div>
                                   <Input
