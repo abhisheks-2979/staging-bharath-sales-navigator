@@ -692,11 +692,8 @@ export const MyVisits = () => {
                   Try adjusting your search or create a new visit
                 </p>
                 <Button 
-                  className={`mt-4 ${
-                    selectedDate !== new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className="mt-4"
                   onClick={() => setIsCreateVisitModalOpen(true)}
-                  disabled={selectedDate !== new Date().toISOString().split('T')[0]}
                 >
                   <Plus size={16} className="mr-2" />
                   Create New Visit
