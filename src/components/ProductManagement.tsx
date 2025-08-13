@@ -561,15 +561,15 @@ setProductForm({
                       Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+                  <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
                     <DialogHeader>
                       <DialogTitle>{productForm.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                       <DialogDescription>
                         {productForm.id ? 'Update product details' : 'Add a new product to your catalog'}
                       </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[60vh] px-1">
-                      <div className="space-y-4 pr-4">
+                    <ScrollArea className="h-[400px] overflow-y-auto">
+                      <div className="space-y-4 p-4">
                       <div>
                         <Label htmlFor="sku">SKU</Label>
                         <Input
@@ -673,8 +673,8 @@ setProductForm({
                         />
                         <Label htmlFor="active">Active</Label>
                        </div>
-                      </div>
-                    </ScrollArea>
+                       </div>
+                     </ScrollArea>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
                         Cancel
