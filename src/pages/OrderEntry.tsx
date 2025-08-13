@@ -662,20 +662,18 @@ const filteredProducts = selectedCategory === "All"
             
             return (
               <Card key={product.id} className="relative">
-                {/* Always show scheme button for all products */}
-                <div className="absolute -top-2 -right-2 z-20">
-                  <Badge 
-                    className={`text-white text-xs px-2 py-1 cursor-pointer transition-all duration-200 shadow-lg border-2 border-white ${
-                      product.hasScheme 
-                        ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 hover:scale-105' 
-                        : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 hover:scale-105'
-                    }`}
-                    onClick={() => handleSchemeClick(product)}
-                  >
-                    <Gift size={10} className="mr-1" />
-                    Scheme
-                  </Badge>
-                </div>
+                {/* Only show scheme button for products with active schemes */}
+                {product.hasScheme && (
+                  <div className="absolute -top-2 -right-2 z-20">
+                    <Badge 
+                      className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 hover:scale-105 text-white text-xs px-2 py-1 cursor-pointer transition-all duration-200 shadow-lg border-2 border-white"
+                      onClick={() => handleSchemeClick(product)}
+                    >
+                      <Gift size={10} className="mr-1" />
+                      Scheme
+                    </Badge>
+                  </div>
+                )}
                 
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between mb-2">
@@ -816,21 +814,30 @@ const filteredProducts = selectedCategory === "All"
                              </div>
                           </div>
 
-                          {/* Variant Rows */}
-                          {product.variants.map(variant => {
-                            const variantPrice = variant.discount_percentage > 0 
-                              ? variant.price - (variant.price * variant.discount_percentage / 100)
-                              : variant.discount_amount > 0 
-                                ? variant.price - variant.discount_amount
-                                : variant.price;
-                            const savings = variant.discount_percentage > 0 
-                              ? variant.price * variant.discount_percentage / 100
-                              : variant.discount_amount;
-                            const variantQuantity = quantities[variant.id] || 0;
-                            const variantAmount = variantQuantity * variantPrice;
-                            
-                            return (
-                              <div key={variant.id} className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
+                           {/* Variant Rows */}
+                           {product.variants.map(variant => {
+                             const variantPrice = variant.discount_percentage > 0 
+                               ? variant.price - (variant.price * variant.discount_percentage / 100)
+                               : variant.discount_amount > 0 
+                                 ? variant.price - variant.discount_amount
+                                 : variant.price;
+                             const savings = variant.discount_percentage > 0 
+                               ? variant.price * variant.discount_percentage / 100
+                               : variant.discount_amount;
+                             const variantQuantity = quantities[variant.id] || 0;
+                             const variantAmount = variantQuantity * variantPrice;
+                             
+                             // Check if this variant has a scheme applied specifically to it
+                             const hasVariantScheme = schemes.some(scheme => 
+                               scheme.product_id === product.id && 
+                               scheme.variant_id === variant.id && 
+                               scheme.is_active &&
+                               (!scheme.start_date || new Date(scheme.start_date) <= new Date()) &&
+                               (!scheme.end_date || new Date(scheme.end_date) >= new Date())
+                             );
+                             
+                             return (
+                               <div key={variant.id} className={`grid grid-cols-4 gap-1 p-2 text-xs border-t ${hasVariantScheme ? 'bg-green-50 border-green-200' : ''}`}>
                                 <div className="text-xs">{variant.variant_name}</div>
                                 <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
                                 <div>
