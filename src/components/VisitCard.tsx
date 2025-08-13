@@ -870,13 +870,13 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               <Button
                 onClick={() => handleCheckInOut('checkout')}
                 className={`w-full h-12 text-base font-medium ${
-                  !isCheckedIn || isCheckedOut
-                    ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' 
-                    : hasOrderToday
-                      ? 'bg-success text-success-foreground hover:bg-success/90 border-success'
+                  isCheckedOut
+                    ? 'bg-success text-success-foreground hover:bg-success/90 border-success'
+                    : !isCheckedIn
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' 
                       : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
                 }`}
-                variant={hasOrderToday && isCheckedIn && !isCheckedOut ? "default" : "outline"}
+                variant={isCheckedOut ? "default" : "outline"}
                 disabled={!isCheckedIn || isCheckedOut}
               >
                 <LogOut className="mr-2 h-5 w-5" />
