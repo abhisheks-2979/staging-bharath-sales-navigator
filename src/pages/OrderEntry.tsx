@@ -776,7 +776,7 @@ const filteredProducts = selectedCategory === "All"
                           {/* Base Product Row */}
                           <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
                             <div className="text-xs">Base Product</div>
-                            <div className="font-medium">₹{product.rate}</div>
+                            <div className="font-medium">₹{product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}</div>
                             <div>
                               <Input
                                 type="number"
@@ -795,16 +795,25 @@ const filteredProducts = selectedCategory === "All"
                                 disabled={false}
                               />
                             </div>
-                            <div>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={closingStocks[product.id] ?? product.closingStock}
-                                onChange={(e) => handleClosingStockChange(product.id, e.target.value)}
-                                className="h-6 text-xs p-1"
-                                min="0"
-                              />
-                            </div>
+                             <div>
+                               <Input
+                                 type="number"
+                                 placeholder="0"
+                                 value={(() => {
+                                   const stock = closingStocks[product.id] ?? product.closingStock;
+                                   return stock === 0 ? "" : stock;
+                                 })()}
+                                 onChange={(e) => {
+                                   const value = e.target.value;
+                                   handleClosingStockChange(product.id, value === "" ? "0" : value);
+                                 }}
+                                 className={`h-6 text-xs p-1 ${(() => {
+                                   const stock = closingStocks[product.id] ?? product.closingStock;
+                                   return stock === 0 ? "text-muted-foreground" : "";
+                                 })()}`}
+                                 min="0"
+                               />
+                             </div>
                           </div>
 
                           {/* Variant Rows */}
@@ -823,7 +832,7 @@ const filteredProducts = selectedCategory === "All"
                             return (
                               <div key={variant.id} className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
                                 <div className="text-xs">{variant.variant_name}</div>
-                                <div className="font-medium">₹{variantPrice.toFixed(2)}</div>
+                                <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
                                 <div>
                                   <Input
                                     type="number"
@@ -840,14 +849,23 @@ const filteredProducts = selectedCategory === "All"
                                     min="0"
                                   />
                                 </div>
-                                <div>
-                                  <Input
-                                    type="number"
-                                    placeholder="0"
-                                    value={closingStocks[variant.id] ?? variant.stock_quantity}
-                                    onChange={(e) => handleClosingStockChange(variant.id, e.target.value)}
-                                    className="h-6 text-xs p-1"
-                                    min="0"
+                                 <div>
+                                   <Input
+                                     type="number"
+                                     placeholder="0"
+                                     value={(() => {
+                                       const stock = closingStocks[variant.id] ?? variant.stock_quantity;
+                                       return stock === 0 ? "" : stock;
+                                     })()}
+                                     onChange={(e) => {
+                                       const value = e.target.value;
+                                       handleClosingStockChange(variant.id, value === "" ? "0" : value);
+                                     }}
+                                     className={`h-6 text-xs p-1 ${(() => {
+                                       const stock = closingStocks[variant.id] ?? variant.stock_quantity;
+                                       return stock === 0 ? "text-muted-foreground" : "";
+                                     })()}`}
+                                     min="0"
                                   />
                                 </div>
                               </div>
