@@ -632,13 +632,13 @@ export const MyVisits = () => {
                 <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
                 <div className="text-sm text-success/80 font-medium">Total Order Value</div>
               </div>
-               <button
-                 onClick={handleOrdersClick}
-                 className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all"
-               >
-                 <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                 <div className="text-sm text-primary/80 font-medium">Productive (Orders Placed)</div>
-               </button>
+                <button
+                  onClick={handleOrdersClick}
+                  className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all"
+                >
+                  <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
+                  <div className="text-sm text-primary/80 font-medium">Today's Order</div>
+                </button>
             </div>
             
             {/* Visit Status Grid */}
