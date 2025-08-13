@@ -1135,100 +1135,62 @@ const filteredProducts = selectedCategory === "All"
                           </>
                         )}
                       </Button>
-                  ) : (
-                    // Original layout for products without variants
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-xs text-muted-foreground">Qty</label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={quantities[displayProduct.id] || ""}
-                            onChange={(e) => handleQuantityChange(displayProduct.id, parseInt(e.target.value) || 0)}
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-muted-foreground">Stock</label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={(() => {
-                              const stock = closingStocks[displayProduct.id] ?? displayProduct.closingStock;
-                              return stock === 0 ? "" : stock;
-                            })()}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              handleClosingStockChange(displayProduct.id, value === "" ? "0" : value);
-                            }}
-                            onFocus={(e) => {
-                              if (e.target.value === "0" || e.target.value === "") {
-                                e.target.select();
-                              }
-                            }}
-                            className={`h-8 text-sm ${(() => {
-                              const stock = closingStocks[displayProduct.id] ?? displayProduct.closingStock;
-                              return stock === 0 ? "text-muted-foreground" : "";
-                            })()}`}
-                            min="0"
-                          />
-                        </div>
-                      </div>
+                   ) : (
+                     // Simplified layout for products without variants - just the add button
+                     <div className="space-y-2">
+                        {/* Show scheme discount preview */}
+                        {(() => {
+                          const currentQty = quantities[displayProduct.id] || 0;
+                          if (currentQty > 0 && product.hasScheme) {
+                            const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, currentQty, displayProduct.rate);
+                            if (totalDiscount > 0 || freeQuantity > 0) {
+                              return (
+                                <div className="text-xs text-green-600 font-medium mb-2">
+                                  {totalDiscount > 0 && `💰 Save ₹${totalDiscount.toFixed(2)}`}
+                                  {freeQuantity > 0 && ` 🎁 ${freeQuantity} free`}
+                                </div>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
 
-                       {/* Show scheme discount preview */}
-                       {(() => {
-                         const currentQty = quantities[displayProduct.id] || 0;
-                         if (currentQty > 0 && product.hasScheme) {
-                           const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, currentQty, displayProduct.rate);
-                           if (totalDiscount > 0 || freeQuantity > 0) {
-                             return (
-                               <div className="text-xs text-green-600 font-medium mb-2">
-                                 {totalDiscount > 0 && `💰 Save ₹${totalDiscount.toFixed(2)}`}
-                                 {freeQuantity > 0 && ` 🎁 ${freeQuantity} free`}
-                               </div>
-                             );
-                           }
-                         }
-                         return null;
-                       })()}
-
-                        <Button 
-                          onClick={() => {
-                            addToCart(displayProduct);
-                            // Mark item as added
-                            setAddedItems(prev => new Set([...prev, displayProduct.id]));
-                            
-                            // Reset after 3 seconds
-                            setTimeout(() => {
-                              setAddedItems(prev => {
-                                const newSet = new Set(prev);
-                                newSet.delete(displayProduct.id);
-                                return newSet;
-                              });
-                            }, 3000);
-                          }}
-                          className={`w-full h-8 transition-all duration-300 ${
-                            addedItems.has(displayProduct.id) 
-                              ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
-                              : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                          }`}
-                          size="sm"
-                          disabled={(quantities[displayProduct.id] || 0) <= 0}
-                        >
-                          {addedItems.has(displayProduct.id) ? (
-                            <>
-                              <Check size={14} className="mr-1" />
-                              Added
-                            </>
-                          ) : (
-                            <>
-                              <Plus size={14} className="mr-1" />
-                              Add
-                            </>
-                          )}
-                        </Button>
-                    </div>
+                         <Button 
+                           onClick={() => {
+                             addToCart(displayProduct);
+                             // Mark item as added
+                             setAddedItems(prev => new Set([...prev, displayProduct.id]));
+                             
+                             // Reset after 3 seconds
+                             setTimeout(() => {
+                               setAddedItems(prev => {
+                                 const newSet = new Set(prev);
+                                 newSet.delete(displayProduct.id);
+                                 return newSet;
+                               });
+                             }, 3000);
+                           }}
+                           className={`w-full h-8 transition-all duration-300 ${
+                             addedItems.has(displayProduct.id) 
+                               ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                               : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                           }`}
+                           size="sm"
+                           disabled={(quantities[displayProduct.id] || 0) <= 0}
+                         >
+                           {addedItems.has(displayProduct.id) ? (
+                             <>
+                               <Check size={14} className="mr-1" />
+                               Added
+                             </>
+                           ) : (
+                             <>
+                               <Plus size={14} className="mr-1" />
+                               Add
+                             </>
+                           )}
+                         </Button>
+                     </div>
                   )}
                  </CardContent>
                </Card>
