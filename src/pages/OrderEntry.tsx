@@ -1205,27 +1205,25 @@ const filteredProducts = selectedCategory === "All"
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
 
-        {/* Fixed Bottom Cart Summary - Shows current selections */}
-        {getSelectionItemCount() > 0 && (
+        {/* Fixed Bottom Cart Summary - Shows actual cart items only */}
+        {getTotalItems() > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
             <div className="container mx-auto">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    {getSelectionItemCount()} items selected
+                    {getTotalItems()} items selected
                   </p>
                   <p className="font-bold">
-                    ₹{getSelectionValue().toLocaleString()}
+                    ₹{getTotalValue().toLocaleString()}
                   </p>
                 </div>
                 <Button 
                   onClick={() => {
-                    // Auto-sync current selections to cart before navigating
-                    autoSyncCart();
                     navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`);
                   }}
                   className="flex items-center gap-2"
-                  disabled={getSelectionItemCount() === 0}
+                  disabled={getTotalItems() === 0}
                 >
                   <ShoppingCart size={16} />
                   View Cart
