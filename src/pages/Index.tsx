@@ -186,7 +186,9 @@ const Index = () => {
                   Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
                 </h1>
                 <p className="text-lg sm:text-xl opacity-90">{displayName}</p>
-                <p className="text-xs sm:text-sm opacity-75">Sales Executive</p>
+                <p className="text-xs sm:text-sm opacity-75">
+                  {userProfile?.username ? `@${userProfile.username}` : 'Field Executive'}
+                </p>
               </div>
             </div>
             
