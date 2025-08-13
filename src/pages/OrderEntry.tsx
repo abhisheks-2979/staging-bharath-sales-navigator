@@ -797,21 +797,26 @@ const filteredProducts = selectedCategory === "All"
                             </div>
                              <div>
                                <Input
-                                 type="number"
-                                 placeholder="0"
-                                 value={(() => {
-                                   const stock = closingStocks[product.id] ?? product.closingStock;
-                                   return stock === 0 ? "" : stock;
-                                 })()}
-                                 onChange={(e) => {
-                                   const value = e.target.value;
-                                   handleClosingStockChange(product.id, value === "" ? "0" : value);
-                                 }}
-                                 className={`h-6 text-xs p-1 ${(() => {
-                                   const stock = closingStocks[product.id] ?? product.closingStock;
-                                   return stock === 0 ? "text-muted-foreground" : "";
-                                 })()}`}
-                                 min="0"
+                                  type="number"
+                                  placeholder="0"
+                                  value={(() => {
+                                    const stock = closingStocks[product.id] ?? product.closingStock;
+                                    return stock === 0 ? "" : stock;
+                                  })()}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    handleClosingStockChange(product.id, value === "" ? "0" : value);
+                                  }}
+                                  onFocus={(e) => {
+                                    if (e.target.value === "0" || e.target.value === "") {
+                                      e.target.select();
+                                    }
+                                  }}
+                                  className={`h-6 text-xs p-1 ${(() => {
+                                    const stock = closingStocks[product.id] ?? product.closingStock;
+                                    return stock === 0 ? "text-muted-foreground" : "";
+                                  })()}`}
+                                  min="0"
                                />
                              </div>
                           </div>
@@ -870,12 +875,17 @@ const filteredProducts = selectedCategory === "All"
                                        const value = e.target.value;
                                        handleClosingStockChange(variant.id, value === "" ? "0" : value);
                                      }}
+                                     onFocus={(e) => {
+                                       if (e.target.value === "0" || e.target.value === "") {
+                                         e.target.select();
+                                       }
+                                     }}
                                      className={`h-6 text-xs p-1 ${(() => {
                                        const stock = closingStocks[variant.id] ?? variant.stock_quantity;
                                        return stock === 0 ? "text-muted-foreground" : "";
                                      })()}`}
                                      min="0"
-                                  />
+                                   />
                                 </div>
                               </div>
                             );
@@ -1013,15 +1023,25 @@ const filteredProducts = selectedCategory === "All"
                           <label className="text-xs text-muted-foreground">Stock</label>
                           <Input
                             type="number"
-                            placeholder={displayProduct.closingStock?.toString() || "0"}
-                            value={closingStocks[displayProduct.id] ?? displayProduct.closingStock}
-                            onChange={(e) => handleClosingStockChange(displayProduct.id, e.target.value)}
+                            placeholder="0"
+                            value={(() => {
+                              const stock = closingStocks[displayProduct.id] ?? displayProduct.closingStock;
+                              return stock === 0 ? "" : stock;
+                            })()}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              handleClosingStockChange(displayProduct.id, value === "" ? "0" : value);
+                            }}
                             onFocus={(e) => {
-                              if (e.target.value === "0") {
+                              if (e.target.value === "0" || e.target.value === "") {
                                 e.target.select();
                               }
                             }}
-                            className="h-8 text-sm"
+                            className={`h-8 text-sm ${(() => {
+                              const stock = closingStocks[displayProduct.id] ?? displayProduct.closingStock;
+                              return stock === 0 ? "text-muted-foreground" : "";
+                            })()}`}
+                            min="0"
                           />
                         </div>
                       </div>
