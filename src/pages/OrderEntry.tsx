@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
@@ -818,22 +819,25 @@ const filteredProducts = selectedCategory === "All"
                   {/* Variant Grid */}
                   {product.variants && product.variants.length > 0 && (
                     <div className="mb-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs text-muted-foreground">Available Variants</label>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleVariantTable(product.id)}
-                          className="h-6 w-6 p-0 hover:bg-muted"
-                        >
-                          {expandedProducts[product.id] ? (
-                            <Minus size={12} className="text-muted-foreground" />
-                          ) : (
-                            <Plus size={12} className="text-muted-foreground" />
-                          )}
-                        </Button>
-                      </div>
-                      {expandedProducts[product.id] && (
+                      <Collapsible
+                        open={expandedProducts[product.id]}
+                        onOpenChange={(open) => {
+                          setExpandedProducts(prev => ({ ...prev, [product.id]: open }));
+                        }}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <div className="flex items-center justify-between mb-2 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors">
+                            <label className="text-xs text-muted-foreground">Available Variants</label>
+                            <div className="flex items-center">
+                              {expandedProducts[product.id] ? (
+                                <ChevronDown size={14} className="text-muted-foreground" />
+                              ) : (
+                                <ChevronRight size={14} className="text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
                         <div className="border rounded-lg overflow-hidden">
                           <div className="bg-muted/50 grid grid-cols-4 gap-1 p-2 text-xs font-medium">
                             <div>Variant</div>
@@ -958,11 +962,12 @@ const filteredProducts = selectedCategory === "All"
                                 </div>
                               </div>
                             );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                           })}
+                         </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                     </div>
+                   )}
 
 
                    {/* Add to Cart Button */}
