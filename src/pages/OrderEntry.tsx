@@ -966,6 +966,62 @@ const filteredProducts = selectedCategory === "All"
                          </div>
                         </CollapsibleContent>
                       </Collapsible>
+                      </div>
+                   )}
+
+                   {/* Simple table for products without variants */}
+                   {(!product.variants || product.variants.length === 0) && (
+                     <div className="mb-3">
+                       <div className="border rounded-lg overflow-hidden">
+                         <div className="bg-muted/50 grid grid-cols-4 gap-1 p-2 text-xs font-medium">
+                           <div>Product</div>
+                           <div>Rate</div>
+                           <div>Qty</div>
+                           <div>Stock</div>
+                         </div>
+                         
+                         <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
+                           <div className="text-xs">{product.name}</div>
+                           <div className="font-medium">₹{product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}</div>
+                           <div>
+                             <Input
+                               type="number"
+                               placeholder="0"
+                               value={quantities[product.id] || ""}
+                               onChange={(e) => {
+                                 const qty = parseInt(e.target.value) || 0;
+                                 handleQuantityChange(product.id, qty);
+                               }}
+                               className="h-6 text-xs p-1"
+                               min="0"
+                             />
+                           </div>
+                           <div>
+                             <Input
+                               type="number"
+                               placeholder="0"
+                               value={(() => {
+                                 const stock = closingStocks[product.id] ?? product.closingStock;
+                                 return stock === 0 ? "" : stock;
+                               })()}
+                               onChange={(e) => {
+                                 const value = e.target.value;
+                                 handleClosingStockChange(product.id, value === "" ? "0" : value);
+                               }}
+                               onFocus={(e) => {
+                                 if (e.target.value === "0" || e.target.value === "") {
+                                   e.target.select();
+                                 }
+                               }}
+                               className={`h-6 text-xs p-1 ${(() => {
+                                 const stock = closingStocks[product.id] ?? product.closingStock;
+                                 return stock === 0 ? "text-muted-foreground" : "";
+                               })()}`}
+                               min="0"
+                             />
+                           </div>
+                         </div>
+                       </div>
                      </div>
                    )}
 
