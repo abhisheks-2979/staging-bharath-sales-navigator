@@ -81,6 +81,7 @@ const [currentProductName, setCurrentProductName] = useState<string>("Product");
 const [showSchemeModal, setShowSchemeModal] = useState(false);
 const [selectedProductForScheme, setSelectedProductForScheme] = useState<GridProduct | null>(null);
 const [filteredSchemes, setFilteredSchemes] = useState<any[]>([]);
+const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
@@ -933,36 +934,61 @@ const filteredProducts = selectedCategory === "All"
                            return;
                          }
                          
-                         // Add all items to cart
-                         selectedItems.forEach(item => {
-                           const existingItem = cart.find(cartItem => cartItem.id === item.id);
-                           if (existingItem) {
-                             setCart(prev => prev.map(cartItem => 
-                               cartItem.id === item.id 
-                                 ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
-                                 : cartItem
-                             ));
-                           } else {
-                             setCart(prev => [...prev, item]);
-                           }
-                         });
-                         
-                         toast({
-                           title: "Added to Cart",
-                           description: `${selectedItems.length} item(s) added to cart`
-                         });
+                          // Add all items to cart
+                          selectedItems.forEach(item => {
+                            const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                            if (existingItem) {
+                              setCart(prev => prev.map(cartItem => 
+                                cartItem.id === item.id 
+                                  ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
+                                  : cartItem
+                              ));
+                            } else {
+                              setCart(prev => [...prev, item]);
+                            }
+                          });
+                          
+                          // Mark item as added
+                          setAddedItems(prev => new Set([...prev, product.id]));
+                          
+                          // Reset after 3 seconds
+                          setTimeout(() => {
+                            setAddedItems(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(product.id);
+                              return newSet;
+                            });
+                          }, 3000);
+                          
+                          toast({
+                            title: "Added to Cart",
+                            description: `${selectedItems.length} item(s) added to cart`
+                          });
                        }}
-                       className="w-full h-8"
-                       size="sm"
-                       disabled={(() => {
-                         const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
-                           product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
-                         return !hasSelection;
-                       })()}
-                     >
-                       <Plus size={14} className="mr-1" />
-                       Add Selected to Cart
-                     </Button>
+                        className={`w-full h-8 transition-all ${
+                          addedItems.has(product.id) 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : ''
+                        }`}
+                        size="sm"
+                        disabled={(() => {
+                          const hasSelection = selectedVariants[product.id] === "base" && quantities[product.id] > 0 ||
+                            product.variants?.some(v => selectedVariants[product.id] === v.id && quantities[v.id] > 0);
+                          return !hasSelection;
+                        })()}
+                      >
+                        {addedItems.has(product.id) ? (
+                          <>
+                            <Check size={14} className="mr-1" />
+                            Added
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={14} className="mr-1" />
+                            Add
+                          </>
+                        )}
+                      </Button>
                   ) : (
                     // Original layout for products without variants
                     <div className="space-y-2">
@@ -1011,24 +1037,40 @@ const filteredProducts = selectedCategory === "All"
                          return null;
                        })()}
 
-                       <Button 
-                         onClick={() => addToCart(displayProduct)}
-                         className={`w-full h-8 ${cart.some((i) => i.id === displayProduct.id) ? 'bg-success text-success-foreground hover:bg-success/90' : ''}`}
-                         size="sm"
-                         variant={cart.some((i) => i.id === displayProduct.id) ? "default" : "default"}
-                       >
-                         {cart.some((i) => i.id === displayProduct.id) ? (
-                           <>
-                             <Check size={14} className="mr-1" />
-                             Added
-                           </>
-                         ) : (
-                           <>
-                             <Plus size={14} className="mr-1" />
-                             Add
-                           </>
-                         )}
-                       </Button>
+                        <Button 
+                          onClick={() => {
+                            addToCart(displayProduct);
+                            // Mark item as added
+                            setAddedItems(prev => new Set([...prev, displayProduct.id]));
+                            
+                            // Reset after 3 seconds
+                            setTimeout(() => {
+                              setAddedItems(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(displayProduct.id);
+                                return newSet;
+                              });
+                            }, 3000);
+                          }}
+                          className={`w-full h-8 transition-all ${
+                            addedItems.has(displayProduct.id) || cart.some((i) => i.id === displayProduct.id) 
+                              ? 'bg-green-600 hover:bg-green-700 text-white' 
+                              : ''
+                          }`}
+                          size="sm"
+                        >
+                          {addedItems.has(displayProduct.id) || cart.some((i) => i.id === displayProduct.id) ? (
+                            <>
+                              <Check size={14} className="mr-1" />
+                              Added
+                            </>
+                          ) : (
+                            <>
+                              <Plus size={14} className="mr-1" />
+                              Add
+                            </>
+                          )}
+                        </Button>
                     </div>
                   )}
                  </CardContent>
