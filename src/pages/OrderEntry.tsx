@@ -934,9 +934,6 @@ const filteredProducts = selectedCategory === "All"
                                 <div key={variant.id} className={`grid grid-cols-4 gap-1 p-2 text-xs border-t ${hasVariantScheme ? 'bg-green-50 border-green-200' : ''}`}>
                                  <div className="text-xs">
                                    <div>{variant.variant_name}</div>
-                                   {variant.sku && (
-                                     <div className="text-blue-600 font-mono">SKU: {variant.sku}</div>
-                                   )}
                                    {variantSchemes.length > 0 && (
                                      <div className="text-orange-500 font-medium mt-1">
                                        {variantSchemes.map(scheme => scheme.description).join(', ')}
