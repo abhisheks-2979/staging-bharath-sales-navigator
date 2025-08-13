@@ -228,9 +228,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
   const getLocationBtnClass = () => {
     if (phase === 'completed') {
-      return (locationMatchOut ?? false)
-        ? "bg-success text-success-foreground hover:bg-success/90"
-        : "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+      return "bg-success text-success-foreground hover:bg-success/90";
     }
     if (phase === 'in-progress') {
       return "bg-warning text-warning-foreground hover:bg-warning/90";
