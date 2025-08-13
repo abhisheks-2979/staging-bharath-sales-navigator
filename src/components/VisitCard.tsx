@@ -57,6 +57,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isCheckedOut, setIsCheckedOut] = useState(false);
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
+  const [actualOrderValue, setActualOrderValue] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
@@ -111,16 +112,19 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
 
           const { data: ordersToday } = await supabase
             .from('orders')
-            .select('id')
+            .select('id, total_amount')
             .eq('user_id', user.user.id)
             .eq('retailer_id', retailerId)
             .eq('status', 'confirmed')
             .gte('created_at', todayStart.toISOString())
-            .lte('created_at', todayEnd.toISOString())
-            .limit(1);
+            .lte('created_at', todayEnd.toISOString());
 
           if (ordersToday && ordersToday.length > 0) {
             setHasOrderToday(true);
+            // Calculate the actual total of all orders today
+            const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+            setActualOrderValue(totalOrderValue);
+            
             // If an order exists and visit is checked in, automatically mark as productive
             if (visitData?.check_in_time && visitData.status === 'in-progress') {
               await supabase
@@ -128,6 +132,9 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                 .update({ status: 'productive' })
                 .eq('id', visitData.id);
             }
+          } else {
+            setHasOrderToday(false);
+            setActualOrderValue(0);
           }
         }
       } catch (error) {
@@ -643,7 +650,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
               {getStatusText(visit.status)}
             </Badge>
             <div className="text-xs text-muted-foreground">{visit.retailerCategory}</div>
-            {visit.orderValue && visit.orderValue > 0 && visit.status !== 'unproductive' && (
+            {actualOrderValue > 0 && hasOrderToday && visit.status !== 'unproductive' && (
               <Button
                 variant="link"
                 size="sm"
@@ -657,7 +664,7 @@ export const VisitCard = ({ visit, onViewDetails }: VisitCardProps) => {
                 }}
                 title="View today's order"
               >
-                ₹{visit.orderValue.toLocaleString()}
+                ₹{actualOrderValue.toLocaleString()}
               </Button>
             )}
           </div>
