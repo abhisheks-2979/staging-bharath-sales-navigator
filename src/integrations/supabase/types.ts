@@ -1017,6 +1017,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_basic_profiles_for_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          username: string
+          full_name: string
+          created_at: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1026,6 +1035,10 @@ export type Database = {
           _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
         }
+        Returns: boolean
+      }
+      update_security_info: {
+        Args: { new_hint_question: string; new_hint_answer: string }
         Returns: boolean
       }
       verify_hint_answer: {
