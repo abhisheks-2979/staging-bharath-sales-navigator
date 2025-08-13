@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm } from "@/components/TableOrderForm";
 import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
+import { SalesAnalytics } from "@/components/SalesAnalytics";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
@@ -677,31 +679,39 @@ const filteredProducts = selectedCategory === "All"
           </CardHeader>
         </Card>
 
-        {/* Order Mode Toggle */}
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex gap-2">
-              <Button
-                variant={orderMode === "grid" ? "default" : "outline"}
-                onClick={() => setOrderMode("grid")}
-                className="flex-1 h-8"
-                size="sm"
-              >
-                <Grid3X3 size={14} className="mr-1" />
-                Grid
-              </Button>
-              <Button
-                variant={orderMode === "table" ? "default" : "outline"}
-                onClick={() => setOrderMode("table")}
-                className="flex-1 h-8"
-                size="sm"
-              >
-                <Table size={14} className="mr-1" />
-                Table
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="order-entry" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="order-entry">Order Entry</TabsTrigger>
+            <TabsTrigger value="sales-analytics">Sales Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="order-entry" className="space-y-4">
+            {/* Order Mode Toggle */}
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex gap-2">
+                  <Button
+                    variant={orderMode === "grid" ? "default" : "outline"}
+                    onClick={() => setOrderMode("grid")}
+                    className="flex-1 h-8"
+                    size="sm"
+                  >
+                    <Grid3X3 size={14} className="mr-1" />
+                    Grid
+                  </Button>
+                  <Button
+                    variant={orderMode === "table" ? "default" : "outline"}
+                    onClick={() => setOrderMode("table")}
+                    className="flex-1 h-8"
+                    size="sm"
+                  >
+                    <Table size={14} className="mr-1" />
+                    Table
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
         {orderMode === "grid" ? (
           <>
@@ -1181,6 +1191,14 @@ const filteredProducts = selectedCategory === "All"
           /* Table Order Form */
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
+          </TabsContent>
+
+          <TabsContent value="sales-analytics" className="space-y-4">
+            {userId && retailerId && (
+              <SalesAnalytics userId={userId} retailerId={retailerId} />
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Fixed Bottom Cart Summary - Shows current selections */}
         {getSelectionItemCount() > 0 && (
