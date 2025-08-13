@@ -632,50 +632,40 @@ export const MyVisits = () => {
                 <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
                 <div className="text-sm text-success/80 font-medium">Total Order Value</div>
               </div>
-               <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20">
+               <button
+                 onClick={handleOrdersClick}
+                 className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all"
+               >
                  <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                 <div className="text-sm text-primary/80 font-medium">Orders Placed</div>
-               </div>
+                 <div className="text-sm text-primary/80 font-medium">Productive (Orders Placed)</div>
+               </button>
             </div>
             
             {/* Visit Status Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => handleStatusClick("planned")}
-                className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 ${
+                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
                   statusFilter === "planned" 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
                 }`}
               >
-                <div className="text-2xl font-bold">{plannedVisitsCount}</div>
-                <div className="text-sm font-medium opacity-80">Planned Visits</div>
-              </button>
-              
-              <button
-                onClick={handleOrdersClick}
-                className="bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-150 border border-emerald-200 p-4 rounded-xl text-center transition-all transform hover:scale-105"
-              >
-                <div className="text-2xl font-bold text-emerald-700">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
-                <div className="text-sm font-medium text-emerald-600">Today's Order</div>
+                <div className="text-xl font-bold">{plannedVisitsCount}</div>
+                <div className="text-xs font-medium opacity-80">Planned Visits</div>
               </button>
               
               <button
                 onClick={() => handleStatusClick("unproductive")}
-                className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 ${
+                className={`p-3 rounded-xl text-center transition-all transform hover:scale-105 ${
                   statusFilter === "unproductive" 
                     ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" 
                     : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"
                 }`}
               >
-                <div className="text-2xl font-bold">{unproductiveVisits}</div>
-                <div className="text-sm font-medium opacity-80">Unproductive</div>
+                <div className="text-xl font-bold">{unproductiveVisits}</div>
+                <div className="text-xs font-medium opacity-80">Unproductive</div>
               </button>
-              
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 p-4 rounded-xl text-center">
-                <div className="text-2xl font-bold text-gray-700">{visitsForSelectedDate.length}</div>
-                <div className="text-sm font-medium text-gray-600">Total Visits</div>
-              </div>
             </div>
           </CardContent>
         </Card>
