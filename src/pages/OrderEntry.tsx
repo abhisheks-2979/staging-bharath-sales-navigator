@@ -1172,70 +1172,85 @@ const filteredProducts = selectedCategory === "All"
                    {/* Add to Cart Button */}
                    {(product.variants && product.variants.length > 0) ? (
                      <Button 
-                       onClick={() => {
-                         // Add all selected variants to cart
-                         const selectedItems = [];
-                         
-                         if (selectedVariants[product.id] === "base" && quantities[product.id] > 0) {
-                           selectedItems.push({
-                             ...product,
-                             quantity: quantities[product.id],
-                             total: quantities[product.id] * product.rate
-                           });
-                         }
-                         
-                           product.variants?.forEach(variant => {
-                             // Add variant if it has quantity > 0, regardless of selected dropdown
-                             if (quantities[variant.id] > 0) {
-                               const variantPrice = variant.discount_percentage > 0 
-                                 ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                 : variant.discount_amount > 0 
-                                   ? variant.price - variant.discount_amount
-                                   : variant.price;
-                               
-                               const baseTotal = quantities[variant.id] * variantPrice;
-                               const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, quantities[variant.id], variantPrice);
-                               const finalTotal = baseTotal - totalDiscount;
-                               
-                               selectedItems.push({
-                                 id: `${product.id}_variant_${variant.id}`,
-                                 name: `${product.name} - ${variant.variant_name}`,
-                                 category: product.category,
-                                 rate: variantPrice,
-                                 unit: product.unit,
-                                 quantity: quantities[variant.id],
-                                 total: finalTotal,
-                                 closingStock: variant.stock_quantity
-                               });
-                             }
-                           });
-                         
-                         if (selectedItems.length === 0) {
-                           toast({
-                             title: "No Items Selected",
-                             description: "Please select variants and enter quantities",
-                             variant: "destructive"
-                           });
-                           return;
-                         }
-                         
-                          // Add all items to cart
+                        onClick={() => {
+                          // Check all quantities for this specific product (base + variants)
+                          const selectedItems = [];
+                          let totalQtyForProduct = 0;
+                          
+                          // Check base product quantity
+                          const baseQty = quantities[product.id] || 0;
+                          if (baseQty > 0) {
+                            const baseTotal = baseQty * product.rate;
+                            const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+                            const finalTotal = baseTotal - totalDiscount;
+                            
+                            selectedItems.push({
+                              ...product,
+                              quantity: baseQty,
+                              total: finalTotal
+                            });
+                            totalQtyForProduct += baseQty;
+                          }
+                          
+                          // Check all variant quantities for this product
+                          if (product.variants) {
+                            product.variants.forEach(variant => {
+                              const variantQty = quantities[variant.id] || 0;
+                              if (variantQty > 0) {
+                                const variantPrice = variant.discount_percentage > 0 
+                                  ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                  : variant.discount_amount > 0 
+                                    ? variant.price - variant.discount_amount
+                                    : variant.price;
+                                
+                                const baseTotal = variantQty * variantPrice;
+                                const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+                                const finalTotal = baseTotal - totalDiscount;
+                                
+                                selectedItems.push({
+                                  id: `${product.id}_variant_${variant.id}`,
+                                  name: `${product.name} - ${variant.variant_name}`,
+                                  category: product.category,
+                                  rate: variantPrice,
+                                  unit: product.unit,
+                                  quantity: variantQty,
+                                  total: finalTotal,
+                                  closingStock: variant.stock_quantity
+                                });
+                                totalQtyForProduct += variantQty;
+                              }
+                            });
+                          }
+                          
+                          // Only proceed if there are items with quantities
+                          if (selectedItems.length === 0 || totalQtyForProduct === 0) {
+                            toast({
+                              title: "No Quantity Entered",
+                              description: `Please enter quantities for ${product.name}`,
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+                          
+                          // Add all items with quantities to cart (replace existing)
                           selectedItems.forEach(item => {
                             const existingItem = cart.find(cartItem => cartItem.id === item.id);
                             if (existingItem) {
+                              // Replace existing item with new quantity
                               setCart(prev => prev.map(cartItem => 
                                 cartItem.id === item.id 
-                                  ? { ...cartItem, quantity: cartItem.quantity + item.quantity, total: cartItem.total + item.total }
+                                  ? { ...cartItem, quantity: item.quantity, total: item.total }
                                   : cartItem
                               ));
                             } else {
+                              // Add new item
                               setCart(prev => [...prev, item]);
                             }
                           });
-                          
+                           
                           // Mark item as added
                           setAddedItems(prev => new Set([...prev, product.id]));
-                          
+                           
                           // Reset after 3 seconds
                           setTimeout(() => {
                             setAddedItems(prev => {
@@ -1244,12 +1259,12 @@ const filteredProducts = selectedCategory === "All"
                               return newSet;
                             });
                           }, 3000);
-                          
+                           
                           toast({
                             title: "Added to Cart",
-                            description: `${selectedItems.length} item(s) added to cart`
+                            description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
                           });
-                       }}
+                        }}
                         className={`w-full h-8 transition-all duration-300 ${
                           addedItems.has(product.id) 
                             ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
@@ -1299,21 +1314,31 @@ const filteredProducts = selectedCategory === "All"
                           return null;
                         })()}
 
-                         <Button 
-                           onClick={() => {
-                             addToCart(displayProduct);
-                             // Mark item as added
-                             setAddedItems(prev => new Set([...prev, displayProduct.id]));
-                             
-                             // Reset after 3 seconds
-                             setTimeout(() => {
-                               setAddedItems(prev => {
-                                 const newSet = new Set(prev);
-                                 newSet.delete(displayProduct.id);
-                                 return newSet;
-                               });
-                             }, 3000);
-                           }}
+                          <Button 
+                            onClick={() => {
+                              const quantity = quantities[displayProduct.id] || 0;
+                              if (quantity <= 0) {
+                                toast({
+                                  title: "No Quantity Entered",
+                                  description: `Please enter quantity for ${displayProduct.name}`,
+                                  variant: "destructive"
+                                });
+                                return;
+                              }
+                              
+                              addToCart(displayProduct);
+                              // Mark item as added
+                              setAddedItems(prev => new Set([...prev, displayProduct.id]));
+                              
+                              // Reset after 3 seconds
+                              setTimeout(() => {
+                                setAddedItems(prev => {
+                                  const newSet = new Set(prev);
+                                  newSet.delete(displayProduct.id);
+                                  return newSet;
+                                });
+                              }, 3000);
+                            }}
                            className={`w-full h-8 transition-all duration-300 ${
                              addedItems.has(displayProduct.id) 
                                ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 

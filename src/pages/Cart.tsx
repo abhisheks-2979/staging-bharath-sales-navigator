@@ -432,7 +432,12 @@ React.useEffect(() => {
       });
       
       // Clear cart and navigate
-      if (storageKey) localStorage.removeItem(storageKey);
+      if (storageKey) {
+        localStorage.removeItem(storageKey);
+        // Also clear the quantities storage for order entry
+        const quantityKey = storageKey.replace('order_cart:', 'order_quantities:');
+        localStorage.removeItem(quantityKey);
+      }
       setCartItems([]);
       navigate(`/visits/retailers`);
     } catch (error) {
