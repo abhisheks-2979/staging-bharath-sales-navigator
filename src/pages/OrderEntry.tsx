@@ -155,15 +155,10 @@ useEffect(() => {
 // Function to sync quantities from cart back to order entry
 const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
-  const newAddedItems = new Set<string>();
-  
   cartData.forEach(item => {
     newQuantities[item.id] = item.quantity;
-    newAddedItems.add(item.id);
   });
-  
   setQuantities(prev => ({ ...prev, ...newQuantities }));
-  setAddedItems(newAddedItems);
 };
 
 useEffect(() => {
@@ -171,26 +166,16 @@ useEffect(() => {
   if (!key) return;
   localStorage.setItem(key, JSON.stringify(cart));
   
-  // Save all form state for persistence
+  // Also save quantities separately for persistence
   const quantityKey = key.replace('order_cart:', 'order_quantities:');
   localStorage.setItem(quantityKey, JSON.stringify(quantities));
-  
-  const stockKey = key.replace('order_cart:', 'order_stocks:');
-  localStorage.setItem(stockKey, JSON.stringify(closingStocks));
-  
-  const variantKey = key.replace('order_cart:', 'order_variants:');
-  localStorage.setItem(variantKey, JSON.stringify(selectedVariants));
-  
-  const addedKey = key.replace('order_cart:', 'order_added:');
-  localStorage.setItem(addedKey, JSON.stringify(Array.from(addedItems)));
-}, [cart, storageKey, tempStorageKey, quantities, closingStocks, selectedVariants, addedItems]);
+}, [cart, storageKey, tempStorageKey, quantities]);
 
-// Load saved state on component mount
+// Load saved quantities on component mount
 useEffect(() => {
   const key = storageKey || tempStorageKey;
   if (!key) return;
   
-  // Load quantities
   const quantityKey = key.replace('order_cart:', 'order_quantities:');
   const savedQuantities = localStorage.getItem(quantityKey);
   if (savedQuantities) {
@@ -198,39 +183,6 @@ useEffect(() => {
       setQuantities(JSON.parse(savedQuantities));
     } catch (error) {
       console.error('Error loading saved quantities:', error);
-    }
-  }
-  
-  // Load closing stocks
-  const stockKey = key.replace('order_cart:', 'order_stocks:');
-  const savedStocks = localStorage.getItem(stockKey);
-  if (savedStocks) {
-    try {
-      setClosingStocks(JSON.parse(savedStocks));
-    } catch (error) {
-      console.error('Error loading saved stocks:', error);
-    }
-  }
-  
-  // Load selected variants
-  const variantKey = key.replace('order_cart:', 'order_variants:');
-  const savedVariants = localStorage.getItem(variantKey);
-  if (savedVariants) {
-    try {
-      setSelectedVariants(JSON.parse(savedVariants));
-    } catch (error) {
-      console.error('Error loading saved variants:', error);
-    }
-  }
-  
-  // Load added items tracking
-  const addedKey = key.replace('order_cart:', 'order_added:');
-  const savedAdded = localStorage.getItem(addedKey);
-  if (savedAdded) {
-    try {
-      setAddedItems(new Set(JSON.parse(savedAdded)));
-    } catch (error) {
-      console.error('Error loading saved added items:', error);
     }
   }
 }, [storageKey, tempStorageKey]);
