@@ -113,18 +113,19 @@ useEffect(() => {
   fetchUserData();
 }, []);
 
-// Fix retailerId validation - don't use "." as a valid retailerId
+// Fix retailerId validation - don't use "." as a valid retailerId  
 const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-const storageKey = userId && validRetailerId ? `order_cart:${userId}:${validRetailerId}` : null;
-const tempStorageKey = validRetailerId ? `order_cart:temp:${validRetailerId}` : null;
-// Fallback storage key when retailerId is invalid
-const fallbackStorageKey = userId ? `order_cart:${userId}:fallback` : 'order_cart:temp:fallback';
+const validVisitId = visitId && visitId.length > 1 ? visitId : null;
 
-// Use fallback if no valid keys available
-const activeStorageKey = storageKey || tempStorageKey || fallbackStorageKey;
+// Use visitId and retailerId from URL params consistently
+const activeStorageKey = validVisitId && validRetailerId 
+  ? `order_cart:${validVisitId}:${validRetailerId}`
+  : validRetailerId 
+    ? `order_cart:temp:${validRetailerId}`
+    : 'order_cart:fallback';
 
 // Debug storage keys
-console.log('Storage Debug:', { userId, retailerId, validRetailerId, storageKey, tempStorageKey, activeStorageKey });
+console.log('Storage Debug:', { visitId, retailerId, validVisitId, validRetailerId, activeStorageKey });
 
 // Load cart and sync quantities
 useEffect(() => {
@@ -166,13 +167,21 @@ useEffect(() => {
   localStorage.setItem(stockKey, JSON.stringify(closingStocks));
 }, [cart, activeStorageKey, quantities, selectedVariants, closingStocks]);
 
-// Load saved quantities and form data on component mount
+// Load saved form data when storage key changes or products are loaded
 useEffect(() => {
+  if (!activeStorageKey) return;
+
   const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
   const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
   const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
   
-  console.log('Loading saved form data...', { quantityKey, variantKey, stockKey });
+  console.log('Loading saved form data...', { 
+    activeStorageKey, 
+    quantityKey, 
+    variantKey, 
+    stockKey,
+    productsLoaded: products.length > 0 
+  });
   
   // Load quantities
   const savedQuantities = localStorage.getItem(quantityKey);
@@ -209,25 +218,7 @@ useEffect(() => {
       console.error('Error loading saved stocks:', error);
     }
   }
-}, [activeStorageKey]);
-
-// Force UI update when both products and saved data are loaded
-useEffect(() => {
-  if (products.length > 0) {
-    console.log('Products loaded, restoring saved quantities...');
-    const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
-    const savedQuantities = localStorage.getItem(quantityKey);
-    if (savedQuantities) {
-      try {
-        const parsedQuantities = JSON.parse(savedQuantities);
-        console.log('Re-applying saved quantities after products loaded:', parsedQuantities);
-        setQuantities(prev => ({ ...prev, ...parsedQuantities }));
-      } catch (error) {
-        console.error('Error re-applying saved quantities:', error);
-      }
-    }
-  }
-}, [products, activeStorageKey]);
+}, [activeStorageKey, products.length]);
 
 useEffect(() => {
   const fetchData = async () => {
