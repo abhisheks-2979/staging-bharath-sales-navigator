@@ -444,16 +444,17 @@ const filteredProducts = selectedCategory === "All"
     }, 0);
   };
 
-  // Calculate total value from selected quantities and variants with auto-calculation
+  // Calculate total value from selected quantities and variants (only new selections, not cart items)
   const getSelectionValue = () => {
     let total = 0;
     
     // Include all products regardless of category to match cart behavior
     products.forEach(product => {
-      // Check base product quantity
+      // Check base product quantity - only if not already in cart
       const baseQty = Number(quantities[product.id]) || 0;
+      const isInCart = cart.some(item => item.id === product.id);
       
-      if (baseQty > 0) {
+      if (baseQty > 0 && !isInCart) {
         const productRate = Number(product.rate) || 0;
         const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, productRate);
         const discountValue = Number(totalDiscount) || 0;
@@ -461,12 +462,13 @@ const filteredProducts = selectedCategory === "All"
         total += Number(subtotal) || 0;
       }
       
-      // Check all variant quantities
+      // Check all variant quantities - only if not already in cart
       if (product.variants) {
         product.variants.forEach(variant => {
           const variantQty = Number(quantities[variant.id]) || 0;
+          const variantInCart = cart.some(item => item.id === variant.id);
           
-          if (variantQty > 0) {
+          if (variantQty > 0 && !variantInCart) {
             const basePrice = Number(variant.price) || 0;
             const discountPct = Number(variant.discount_percentage) || 0;
             const discountAmt = Number(variant.discount_amount) || 0;
@@ -489,20 +491,28 @@ const filteredProducts = selectedCategory === "All"
     return Number(total) || 0;
   };
 
-  // Get total selected items count
+  // Get total selected items count (only current selections, not cart items)
   const getSelectionItemCount = () => {
     let count = 0;
     
     products.forEach(product => {
-      // Count base product quantity
+      // Don't count items that are already in cart - only new selections
       const baseQty = quantities[product.id] || 0;
-      count += baseQty;
+      const isInCart = cart.some(item => item.id === product.id);
       
-      // Count all variant quantities
+      if (baseQty > 0 && !isInCart) {
+        count += baseQty;
+      }
+      
+      // Count all variant quantities that aren't in cart
       if (product.variants) {
         product.variants.forEach(variant => {
           const variantQty = quantities[variant.id] || 0;
-          count += variantQty;
+          const variantInCart = cart.some(item => item.id === variant.id);
+          
+          if (variantQty > 0 && !variantInCart) {
+            count += variantQty;
+          }
         });
       }
     });
@@ -1360,11 +1370,10 @@ const filteredProducts = selectedCategory === "All"
                   </p>
                   <p className="font-bold">
                     ₹{(() => {
-                      const cartTotal = Number(getTotalValue()) || 0;
+                      // Only show current selections, not items already in cart
                       const selectionTotal = Number(getSelectionValue()) || 0;
-                      const finalTotal = cartTotal + selectionTotal;
-                      console.log('Debug Total Calculation:', { cartTotal, selectionTotal, finalTotal });
-                      return finalTotal.toLocaleString();
+                      console.log('Order Entry Bottom Bar Total:', { selectionTotal });
+                      return selectionTotal.toLocaleString();
                     })()}
                   </p>
                 </div>
