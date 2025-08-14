@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -819,6 +819,7 @@ export type Database = {
           parent_name: string | null
           parent_type: string | null
           phone: string | null
+          photo_url: string | null
           potential: string | null
           priority: string | null
           retail_type: string | null
@@ -845,6 +846,7 @@ export type Database = {
           parent_name?: string | null
           parent_type?: string | null
           phone?: string | null
+          photo_url?: string | null
           potential?: string | null
           priority?: string | null
           retail_type?: string | null
@@ -871,6 +873,7 @@ export type Database = {
           parent_name?: string | null
           parent_type?: string | null
           phone?: string | null
+          photo_url?: string | null
           potential?: string | null
           priority?: string | null
           retail_type?: string | null
@@ -1020,10 +1023,10 @@ export type Database = {
       get_basic_profiles_for_admin: {
         Args: Record<PropertyKey, never>
         Returns: {
+          created_at: string
+          full_name: string
           id: string
           username: string
-          full_name: string
-          created_at: string
         }[]
       }
       get_user_role: {
@@ -1032,17 +1035,17 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
       update_security_info: {
-        Args: { new_hint_question: string; new_hint_answer: string }
+        Args: { new_hint_answer: string; new_hint_question: string }
         Returns: boolean
       }
       verify_hint_answer: {
-        Args: { user_email: string; submitted_answer: string }
+        Args: { submitted_answer: string; user_email: string }
         Returns: boolean
       }
     }

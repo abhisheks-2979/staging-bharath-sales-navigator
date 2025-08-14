@@ -30,7 +30,8 @@ export const AddRetailer = () => {
     competitor2: "",
     competitor3: "",
     latitude: "",
-    longitude: ""
+    longitude: "",
+    photo_url: ""
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +39,8 @@ export const AddRetailer = () => {
   const [existingBeat, setExistingBeat] = useState<string | undefined>();
   const [newBeat, setNewBeat] = useState("");
   const [existingBeats, setExistingBeats] = useState<string[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [capturedPhotoPreview, setCapturedPhotoPreview] = useState<string | null>(null);
 
   const categories = ["Category A", "Category B", "Category C"];
   const priorities = ["High", "Medium", "Low"];
@@ -58,6 +61,80 @@ export const AddRetailer = () => {
       
       return updated;
     });
+  };
+
+  const handlePhotoCapture = async () => {
+    if (!user) {
+      toast({ title: 'Authentication Error', description: 'Please sign in to upload photos', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setIsUploadingPhoto(true);
+      
+      // Create file input for camera
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Use rear camera if available
+      
+      input.onchange = async (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        try {
+          // Show preview
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            setCapturedPhotoPreview(e.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+
+          // Upload to Supabase Storage
+          const fileName = `${user.id}/${Date.now()}_retailer_photo.jpg`;
+          const { data, error } = await supabase.storage
+            .from('retailer-photos')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (error) throw error;
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('retailer-photos')
+            .getPublicUrl(fileName);
+
+          // Update retailer data with photo URL
+          handleInputChange('photo_url', urlData.publicUrl);
+          
+          toast({ 
+            title: 'Photo Captured', 
+            description: 'Retailer photo uploaded successfully!' 
+          });
+        } catch (error) {
+          console.error('Photo upload error:', error);
+          toast({ 
+            title: 'Upload Failed', 
+            description: 'Could not upload photo. Please try again.', 
+            variant: 'destructive' 
+          });
+        } finally {
+          setIsUploadingPhoto(false);
+        }
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('Camera access error:', error);
+      toast({ 
+        title: 'Camera Error', 
+        description: 'Could not access camera. Please check permissions.', 
+        variant: 'destructive' 
+      });
+      setIsUploadingPhoto(false);
+    }
   };
 
   const loadExistingBeats = async () => {
@@ -97,6 +174,9 @@ export const AddRetailer = () => {
       retail_type: retailerData.retailType || null,
       potential: retailerData.potential ? retailerData.potential.toLowerCase() : null,
       competitors: [retailerData.competitor1, retailerData.competitor2, retailerData.competitor3].filter(Boolean),
+      photo_url: retailerData.photo_url || null,
+      latitude: retailerData.latitude ? parseFloat(retailerData.latitude) : null,
+      longitude: retailerData.longitude ? parseFloat(retailerData.longitude) : null,
     };
 
     const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();
@@ -194,6 +274,38 @@ export const AddRetailer = () => {
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   className="bg-background"
                 />
+              </div>
+
+              {/* Photo Attachment Section */}
+              <div className="space-y-2">
+                <Label>Retailer Photo</Label>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePhotoCapture}
+                    disabled={isUploadingPhoto}
+                    className="flex items-center gap-2"
+                  >
+                    <Camera size={16} />
+                    {isUploadingPhoto ? 'Uploading...' : 'Take Photo'}
+                  </Button>
+                  
+                  {(capturedPhotoPreview || retailerData.photo_url) && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-12 h-12 border rounded-lg overflow-hidden bg-muted">
+                        <img
+                          src={capturedPhotoPreview || retailerData.photo_url}
+                          alt="Retailer photo"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground">Photo captured</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Take a photo of the retailer store front for reference</p>
               </div>
 
               <div className="space-y-2">
