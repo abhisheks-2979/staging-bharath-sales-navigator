@@ -40,15 +40,18 @@ export const Cart = () => {
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   
-  // Fix retailerId validation - don't use "." as a valid retailerId
+  // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-  const storageKey = userId && validRetailerId ? `order_cart:${userId}:${validRetailerId}` : null;
-  const tempStorageKey = validRetailerId ? `order_cart:temp:${validRetailerId}` : null;
-  // Fallback storage key when retailerId is invalid
-  const fallbackStorageKey = userId ? `order_cart:${userId}:fallback` : 'order_cart:temp:fallback';
+  const validVisitId = visitId && visitId.length > 1 ? visitId : null;
 
-  // Use fallback if no valid keys available
-  const activeStorageKey = storageKey || tempStorageKey || fallbackStorageKey;
+  // Use visitId and retailerId from URL params consistently (same as Order Entry)
+  const activeStorageKey = validVisitId && validRetailerId 
+    ? `order_cart:${validVisitId}:${validRetailerId}`
+    : validRetailerId 
+      ? `order_cart:temp:${validRetailerId}`
+      : 'order_cart:fallback';
+
+  console.log('Cart Storage Debug:', { visitId, retailerId, validVisitId, validRetailerId, activeStorageKey });
 
   React.useEffect(() => {
     const fetchSchemes = async () => {

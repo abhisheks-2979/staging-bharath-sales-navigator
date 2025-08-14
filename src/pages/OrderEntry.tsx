@@ -151,17 +151,25 @@ useEffect(() => {
 const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
   const newStocks: {[key: string]: number} = {};
+  const newVariants: {[key: string]: string} = {};
   
   cartData.forEach(item => {
     newQuantities[item.id] = item.quantity;
     if (item.closingStock) {
       newStocks[item.id] = item.closingStock;
     }
+    
+    // Handle variant mapping back to base product
+    if (item.id.includes('_variant_')) {
+      const [baseProductId, , variantId] = item.id.split('_variant_');
+      newVariants[baseProductId] = variantId;
+    }
   });
   
-  console.log('Syncing quantities from cart:', { newQuantities, newStocks });
+  console.log('Syncing quantities from cart:', { newQuantities, newStocks, newVariants });
   setQuantities(prev => ({ ...prev, ...newQuantities }));
   setClosingStocks(prev => ({ ...prev, ...newStocks }));
+  setSelectedVariants(prev => ({ ...prev, ...newVariants }));
 };
 
 useEffect(() => {
@@ -457,8 +465,17 @@ const filteredProducts = selectedCategory === "All"
   };
 
   const addToCart = (product: Product) => {
-    const quantity = quantities[product.id] || 0;
-    console.log('Adding to cart:', { productId: product.id, productName: product.name, quantity, activeStorageKey });
+    // Get the display product (could be variant)
+    const displayProduct = getDisplayProduct(product as GridProduct);
+    const quantity = quantities[displayProduct.id] || 0;
+    
+    console.log('Adding to cart:', { 
+      originalProductId: product.id, 
+      displayProductId: displayProduct.id,
+      productName: displayProduct.name, 
+      quantity, 
+      activeStorageKey 
+    });
     
     if (quantity <= 0) {
       toast({
@@ -469,17 +486,29 @@ const filteredProducts = selectedCategory === "All"
       return;
     }
 
-    const baseTotal = Number(product.rate) * Number(quantity);
-    const { totalDiscount, freeQuantity } = calculateSchemeDiscount(product.id, null, quantity, Number(product.rate));
+    const baseTotal = Number(displayProduct.rate) * Number(quantity);
+    const { totalDiscount, freeQuantity } = calculateSchemeDiscount(
+      product.id, 
+      selectedVariants[product.id] && selectedVariants[product.id] !== "base" ? selectedVariants[product.id] : null, 
+      quantity, 
+      Number(displayProduct.rate)
+    );
     const finalTotal = baseTotal - totalDiscount;
 
-    const existingItem = cart.find(item => item.id === product.id);
+    const cartItem = {
+      ...displayProduct,
+      quantity,
+      total: finalTotal,
+      closingStock: closingStocks[displayProduct.id] || displayProduct.closingStock
+    };
+
+    const existingItem = cart.find(item => item.id === displayProduct.id);
 
     if (existingItem) {
       setCart(prev => {
         const newCart = prev.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity, total: finalTotal }
+          item.id === displayProduct.id 
+            ? { ...item, quantity, total: finalTotal, closingStock: cartItem.closingStock }
             : item
         );
         console.log('Updated cart:', newCart);
@@ -487,7 +516,7 @@ const filteredProducts = selectedCategory === "All"
       });
     } else {
       setCart(prev => {
-        const newCart = [...prev, { ...product, quantity, total: finalTotal }];
+        const newCart = [...prev, cartItem];
         console.log('New cart:', newCart);
         return newCart;
       });
@@ -498,7 +527,7 @@ const filteredProducts = selectedCategory === "All"
 
     toast({
       title: "Added to Cart",
-      description: `${quantity} ${product.unit}(s) of ${product.name} added to cart${schemeMessage}${freeMessage}`
+      description: `${quantity} ${displayProduct.unit}(s) of ${displayProduct.name} added to cart${schemeMessage}${freeMessage}`
     });
   };
 
@@ -1297,17 +1326,37 @@ const filteredProducts = selectedCategory === "All"
                                    e.target.select();
                                  }
                                }}
-                               className={`h-6 text-xs p-1 ${(() => {
-                                 const stock = closingStocks[product.id] ?? product.closingStock;
-                                 return stock === 0 ? "text-muted-foreground" : "";
-                               })()}`}
-                               min="0"
-                             />
-                           </div>
-                         </div>
-                       </div>
-                     </div>
-                   )}
+                                className={`h-6 text-xs p-1 ${(() => {
+                                  const stock = closingStocks[product.id] ?? product.closingStock;
+                                  return stock === 0 ? "text-muted-foreground" : "";
+                                })()}`}
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add to Cart Button */}
+                    <div className="mt-3">
+                      <Button
+                        onClick={() => addToCart(product)}
+                        className="w-full h-8 text-xs"
+                        disabled={(() => {
+                          const displayProduct = getDisplayProduct(product);
+                          const qty = quantities[displayProduct.id] || 0;
+                          return qty <= 0;
+                        })()}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add {(() => {
+                          const displayProduct = getDisplayProduct(product);
+                          const qty = quantities[displayProduct.id] || 0;
+                          return qty > 0 ? `${qty} ${displayProduct.unit}(s)` : 'to Cart';
+                        })()} 
+                      </Button>
+                    </div>
 
 
                    {/* Add to Cart Button */}
