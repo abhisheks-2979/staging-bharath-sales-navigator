@@ -336,15 +336,24 @@ const filteredProducts = selectedCategory === "All"
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     console.log('Quantity changed:', { productId, quantity });
+    
+    // If this is a variant product (contains _variant_), extract the base product ID
+    let baseProductId = productId;
+    if (productId.includes('_variant_')) {
+      baseProductId = productId.split('_variant_')[0];
+      console.log('Extracted base product ID from variant:', { originalId: productId, baseProductId });
+    }
+    
     setQuantities(prev => {
-      const newQuantities = { ...prev, [productId]: quantity };
+      const newQuantities = { ...prev, [baseProductId]: quantity };
       // Immediately save to localStorage
       const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
       localStorage.setItem(quantityKey, JSON.stringify(newQuantities));
+      console.log('Saving quantity for base product:', { baseProductId, quantity });
       return newQuantities;
     });
     
-    // Update cart if item exists there
+    // Update cart if item exists there (use the full productId for cart lookup)
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === productId);
       if (existingItem && quantity > 0) {
@@ -365,8 +374,15 @@ const filteredProducts = selectedCategory === "All"
     // Remove leading zeros and convert to number
     const cleanValue = value.replace(/^0+/, '') || '0';
     const stock = parseInt(cleanValue) || 0;
+    
+    // If this is a variant product, extract the base product ID for stock storage
+    let baseProductId = productId;
+    if (productId.includes('_variant_')) {
+      baseProductId = productId.split('_variant_')[0];
+    }
+    
     setClosingStocks(prev => {
-      const newStocks = { ...prev, [productId]: stock };
+      const newStocks = { ...prev, [baseProductId]: stock };
       // Immediately save to localStorage
       const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
       localStorage.setItem(stockKey, JSON.stringify(newStocks));
@@ -488,7 +504,9 @@ const filteredProducts = selectedCategory === "All"
   const addToCart = (product: Product) => {
     // Get the display product (could be variant)
     const displayProduct = getDisplayProduct(product as GridProduct);
-    const quantity = quantities[displayProduct.id] || 0;
+    // For quantities, always use the base product ID
+    const quantityKey = product.id; // Always use base product ID for quantity lookup
+    const quantity = quantities[quantityKey] || 0;
     
     console.log('Adding to cart:', { 
       originalProductId: product.id, 
