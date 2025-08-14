@@ -768,42 +768,62 @@ const filteredProducts = selectedCategory === "All"
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="container mx-auto p-4 space-y-4">
-        {/* Header */}
-        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate("/visits/retailers")}
-                className="text-primary-foreground hover:bg-primary-foreground/20"
-              >
-                <ArrowLeft size={20} />
-              </Button>
-              <div>
-                <CardTitle className="text-lg">Order Entry</CardTitle>
-                <p className="text-primary-foreground/80">{loggedInUserName}</p>
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
+        <div className="container mx-auto p-4">
+          <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => navigate("/visits/retailers")}
+                  className="text-primary-foreground hover:bg-primary-foreground/20"
+                >
+                  <ArrowLeft size={20} />
+                </Button>
+                <div>
+                  <CardTitle className="text-lg">Order Entry</CardTitle>
+                  <p className="text-primary-foreground/80">{loggedInUserName}</p>
+                </div>
               </div>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                const { items } = getSelectionDetails();
-                if (items.length > 0) {
-                  setShowOrderSummary(true);
-                }
-              }}
-              className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2"
-              disabled={getSelectionValue() === 0}
-            >
-              <div className="text-right">
-                <p className="text-xs text-primary-foreground/80">Current value (Click)</p>
-                <p className="text-xl font-bold">₹{getSelectionValue().toLocaleString()}</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate("/cart")}
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart size={16} />
+                    <div className="text-right">
+                      <p className="text-xs text-primary-foreground/80">Cart</p>
+                      <p className="text-sm font-bold">{getTotalItems()} items</p>
+                    </div>
+                  </div>
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const { items } = getSelectionDetails();
+                    if (items.length > 0) {
+                      setShowOrderSummary(true);
+                    }
+                  }}
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2"
+                  disabled={getSelectionValue() === 0}
+                >
+                  <div className="text-right">
+                    <p className="text-xs text-primary-foreground/80">Current value (Click)</p>
+                    <p className="text-xl font-bold">₹{getSelectionValue().toLocaleString()}</p>
+                  </div>
+                </Button>
               </div>
-            </Button>
-          </CardHeader>
-        </Card>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+
+      <div className="container mx-auto p-4 space-y-4 pt-24">
 
         {/* Order Mode Toggle */}
         <Card>
@@ -940,7 +960,7 @@ const filteredProducts = selectedCategory === "All"
                         </p>
                       )}
                     </div>
-                    <Package size={16} className="text-muted-foreground" />
+                    
                   </div>
 
                   {/* Variant Grid */}
