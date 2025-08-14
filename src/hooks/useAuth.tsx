@@ -202,6 +202,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setUserProfile(null);
     toast.success('Signed out successfully!');
+    // Redirect to auth page after successful logout
+    window.location.href = '/auth';
   };
 
   const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {
