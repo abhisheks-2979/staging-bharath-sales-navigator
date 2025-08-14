@@ -338,7 +338,8 @@ return (
 
       <Card>
         <CardContent className="pt-6">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -395,6 +396,69 @@ return (
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {filtered.map(r => {
+              const shortAddress = r.address.length > 25 ? r.address.substring(0, 25) + '...' : r.address;
+              const isAddressExpanded = expandedAddress === r.id;
+              
+              const shortBeat = r.beat_id && r.beat_id.length > 12 ? r.beat_id.substring(0, 12) + '...' : r.beat_id;
+              const isBeatExpanded = expandedBeat === r.id;
+              
+              return (
+                <Card key={r.id} className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-medium text-lg">{r.name}</h3>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => deleteRetailer(r)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Phone:</span>
+                        <span className="font-medium">{r.phone || '-'}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-start">
+                        <span className="text-muted-foreground">Address:</span>
+                        <span 
+                          className="font-medium text-right cursor-pointer hover:text-primary max-w-[60%]"
+                          onClick={() => setExpandedAddress(isAddressExpanded ? null : r.id)}
+                          title="Click to expand/collapse address"
+                        >
+                          {isAddressExpanded ? r.address : shortAddress}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-start">
+                        <span className="text-muted-foreground">Beat:</span>
+                        <span 
+                          className="font-medium text-right cursor-pointer hover:text-primary max-w-[60%]"
+                          onClick={() => setExpandedBeat(isBeatExpanded ? null : r.id)}
+                          title="Click to expand/collapse beat"
+                        >
+                          {isBeatExpanded ? r.beat_id : shortBeat}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                {loading ? 'Loading...' : 'No retailers found'}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
