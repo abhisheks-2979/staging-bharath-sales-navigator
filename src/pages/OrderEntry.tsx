@@ -1391,25 +1391,7 @@ const filteredProducts = selectedCategory === "All"
           /* Table Order Form */
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
-        {/* Fixed Bottom Cart Summary - Shows actual cart items only */}
-        {getTotalItems() > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
-            <div className="container mx-auto">
-              <div className="flex items-center justify-end">
-                <Button 
-                  onClick={() => {
-                    navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`);
-                  }}
-                  className="flex items-center gap-2"
-                  disabled={getTotalItems() === 0}
-                >
-                  <ShoppingCart size={16} />
-                  View Cart
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+
         
         {/* Order Summary Modal */}
         <OrderSummaryModal
