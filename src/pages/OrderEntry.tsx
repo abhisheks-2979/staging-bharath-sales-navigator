@@ -156,20 +156,55 @@ useEffect(() => {
   console.log('Saving cart to localStorage:', { activeStorageKey, cartLength: cart.length, cart });
   localStorage.setItem(activeStorageKey, JSON.stringify(cart));
   
-  // Also save quantities separately for persistence
+  // Also save quantities, variants, and stocks separately for persistence
   const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+  const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
+  const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
+  
   localStorage.setItem(quantityKey, JSON.stringify(quantities));
-}, [cart, activeStorageKey, quantities]);
+  localStorage.setItem(variantKey, JSON.stringify(selectedVariants));
+  localStorage.setItem(stockKey, JSON.stringify(closingStocks));
+}, [cart, activeStorageKey, quantities, selectedVariants, closingStocks]);
 
-// Load saved quantities on component mount
+// Load saved quantities and form data on component mount
 useEffect(() => {
   const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+  const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
+  const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
+  
+  // Load quantities
   const savedQuantities = localStorage.getItem(quantityKey);
   if (savedQuantities) {
     try {
-      setQuantities(JSON.parse(savedQuantities));
+      const parsedQuantities = JSON.parse(savedQuantities);
+      console.log('Loading saved quantities:', parsedQuantities);
+      setQuantities(parsedQuantities);
     } catch (error) {
       console.error('Error loading saved quantities:', error);
+    }
+  }
+  
+  // Load selected variants
+  const savedVariants = localStorage.getItem(variantKey);
+  if (savedVariants) {
+    try {
+      const parsedVariants = JSON.parse(savedVariants);
+      console.log('Loading saved variants:', parsedVariants);
+      setSelectedVariants(parsedVariants);
+    } catch (error) {
+      console.error('Error loading saved variants:', error);
+    }
+  }
+  
+  // Load closing stocks
+  const savedStocks = localStorage.getItem(stockKey);
+  if (savedStocks) {
+    try {
+      const parsedStocks = JSON.parse(savedStocks);
+      console.log('Loading saved stocks:', parsedStocks);
+      setClosingStocks(parsedStocks);
+    } catch (error) {
+      console.error('Error loading saved stocks:', error);
     }
   }
 }, [activeStorageKey]);
@@ -237,7 +272,14 @@ const filteredProducts = selectedCategory === "All"
   : products.filter(product => product.category === selectedCategory);
 
   const handleQuantityChange = (productId: string, quantity: number) => {
-    setQuantities(prev => ({ ...prev, [productId]: quantity }));
+    console.log('Quantity changed:', { productId, quantity });
+    setQuantities(prev => {
+      const newQuantities = { ...prev, [productId]: quantity };
+      // Immediately save to localStorage
+      const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+      localStorage.setItem(quantityKey, JSON.stringify(newQuantities));
+      return newQuantities;
+    });
     
     // Update cart if item exists there
     setCart(prevCart => {
@@ -260,11 +302,23 @@ const filteredProducts = selectedCategory === "All"
     // Remove leading zeros and convert to number
     const cleanValue = value.replace(/^0+/, '') || '0';
     const stock = parseInt(cleanValue) || 0;
-    setClosingStocks(prev => ({ ...prev, [productId]: stock }));
+    setClosingStocks(prev => {
+      const newStocks = { ...prev, [productId]: stock };
+      // Immediately save to localStorage
+      const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
+      localStorage.setItem(stockKey, JSON.stringify(newStocks));
+      return newStocks;
+    });
   };
 
   const handleVariantChange = (productId: string, variantId: string) => {
-    setSelectedVariants(prev => ({ ...prev, [productId]: variantId }));
+    setSelectedVariants(prev => {
+      const newVariants = { ...prev, [productId]: variantId };
+      // Immediately save to localStorage
+      const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
+      localStorage.setItem(variantKey, JSON.stringify(newVariants));
+      return newVariants;
+    });
     // Don't reset any quantities - each variant and base product should maintain their own quantities independently
   };
 
@@ -428,6 +482,27 @@ const filteredProducts = selectedCategory === "All"
       });
       return newCart;
     });
+  };
+
+  // Function to clear all cached form data
+  const clearAllFormData = () => {
+    const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+    const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
+    const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
+    
+    // Clear from localStorage
+    localStorage.removeItem(activeStorageKey);
+    localStorage.removeItem(quantityKey);
+    localStorage.removeItem(variantKey);
+    localStorage.removeItem(stockKey);
+    
+    // Reset all state
+    setCart([]);
+    setQuantities({});
+    setSelectedVariants({});
+    setClosingStocks({});
+    
+    console.log('All form data cleared');
   };
 
   const getTotalItems = () => {
@@ -786,8 +861,23 @@ const filteredProducts = selectedCategory === "All"
                 </div>
               </div>
               
-              {/* Right side - Cart and Current value in single line */}
-              <div className="flex items-center gap-3 shrink-0">
+              {/* Right side - Clear, Cart and Current value */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Clear Form Button */}
+                <Button
+                  variant="ghost"
+                  onClick={clearAllFormData}
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 flex flex-col items-center gap-0 min-w-[45px]"
+                  title="Clear all form data"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                  <span className="text-[9px] leading-tight">Clear</span>
+                </Button>
+                
                 <Button
                   variant="ghost"
                   onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}`)}

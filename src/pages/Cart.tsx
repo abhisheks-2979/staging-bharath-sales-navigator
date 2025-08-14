@@ -437,11 +437,15 @@ React.useEffect(() => {
         description: `Order for ${retailerName} submitted successfully!`
       });
       
-      // Clear cart and navigate
+      // Clear cart and all order entry form data
       localStorage.removeItem(activeStorageKey);
-      // Also clear the quantities storage for order entry
+      // Also clear the quantities, variants, and stocks storage for order entry
       const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+      const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
+      const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
       localStorage.removeItem(quantityKey);
+      localStorage.removeItem(variantKey);
+      localStorage.removeItem(stockKey);
       setCartItems([]);
       navigate(`/visits/retailers`);
     } catch (error) {
