@@ -113,14 +113,24 @@ useEffect(() => {
   fetchUserData();
 }, []);
 
-const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
-const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
+// Fix retailerId validation - don't use "." as a valid retailerId
+const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+const storageKey = userId && validRetailerId ? `order_cart:${userId}:${validRetailerId}` : null;
+const tempStorageKey = validRetailerId ? `order_cart:temp:${validRetailerId}` : null;
+// Fallback storage key when retailerId is invalid
+const fallbackStorageKey = userId ? `order_cart:${userId}:fallback` : 'order_cart:temp:fallback';
+
+// Use fallback if no valid keys available
+const activeStorageKey = storageKey || tempStorageKey || fallbackStorageKey;
+
+// Debug storage keys
+console.log('Storage Debug:', { userId, retailerId, validRetailerId, storageKey, tempStorageKey, activeStorageKey });
 
 // Load cart and sync quantities
 useEffect(() => {
   try {
-    if (storageKey) {
-      const rawUser = localStorage.getItem(storageKey);
+    if (activeStorageKey) {
+      const rawUser = localStorage.getItem(activeStorageKey);
       if (rawUser) {
         const cartData = JSON.parse(rawUser) as CartItem[];
         setCart(cartData);
@@ -128,29 +138,10 @@ useEffect(() => {
         syncQuantitiesFromCart(cartData);
         return;
       }
-      if (tempStorageKey) {
-        const rawTemp = localStorage.getItem(tempStorageKey);
-        if (rawTemp) {
-          const parsed = JSON.parse(rawTemp) as CartItem[];
-          setCart(parsed);
-          localStorage.setItem(storageKey, rawTemp);
-          localStorage.removeItem(tempStorageKey);
-          // Sync quantities from cart to order entry
-          syncQuantitiesFromCart(parsed);
-          return;
-        }
-      }
-    } else if (tempStorageKey) {
-      const rawTemp = localStorage.getItem(tempStorageKey);
-      if (rawTemp) {
-        const cartData = JSON.parse(rawTemp) as CartItem[];
-        setCart(cartData);
-        // Sync quantities from cart to order entry
-        syncQuantitiesFromCart(cartData);
-      }
+      // Don't need complex temp storage logic with fallback key
     }
   } catch {}
-}, [storageKey, tempStorageKey]);
+}, [activeStorageKey]);
 
 // Function to sync quantities from cart back to order entry
 const syncQuantitiesFromCart = (cartData: CartItem[]) => {
@@ -162,21 +153,17 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
 };
 
 useEffect(() => {
-  const key = storageKey || tempStorageKey;
-  if (!key) return;
-  localStorage.setItem(key, JSON.stringify(cart));
+  console.log('Saving cart to localStorage:', { activeStorageKey, cartLength: cart.length, cart });
+  localStorage.setItem(activeStorageKey, JSON.stringify(cart));
   
   // Also save quantities separately for persistence
-  const quantityKey = key.replace('order_cart:', 'order_quantities:');
+  const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
   localStorage.setItem(quantityKey, JSON.stringify(quantities));
-}, [cart, storageKey, tempStorageKey, quantities]);
+}, [cart, activeStorageKey, quantities]);
 
 // Load saved quantities on component mount
 useEffect(() => {
-  const key = storageKey || tempStorageKey;
-  if (!key) return;
-  
-  const quantityKey = key.replace('order_cart:', 'order_quantities:');
+  const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
   const savedQuantities = localStorage.getItem(quantityKey);
   if (savedQuantities) {
     try {
@@ -185,7 +172,7 @@ useEffect(() => {
       console.error('Error loading saved quantities:', error);
     }
   }
-}, [storageKey, tempStorageKey]);
+}, [activeStorageKey]);
 
 useEffect(() => {
   const fetchData = async () => {
@@ -383,6 +370,8 @@ const filteredProducts = selectedCategory === "All"
 
   const addToCart = (product: Product) => {
     const quantity = quantities[product.id] || 0;
+    console.log('Adding to cart:', { productId: product.id, productName: product.name, quantity, activeStorageKey });
+    
     if (quantity <= 0) {
       toast({
         title: "Invalid Quantity",
@@ -399,13 +388,21 @@ const filteredProducts = selectedCategory === "All"
     const existingItem = cart.find(item => item.id === product.id);
 
     if (existingItem) {
-      setCart(prev => prev.map(item => 
-        item.id === product.id 
-          ? { ...item, quantity, total: finalTotal }
-          : item
-      ));
+      setCart(prev => {
+        const newCart = prev.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity, total: finalTotal }
+            : item
+        );
+        console.log('Updated cart:', newCart);
+        return newCart;
+      });
     } else {
-      setCart(prev => [...prev, { ...product, quantity, total: finalTotal }]);
+      setCart(prev => {
+        const newCart = [...prev, { ...product, quantity, total: finalTotal }];
+        console.log('New cart:', newCart);
+        return newCart;
+      });
     }
 
     const schemeMessage = totalDiscount > 0 ? ` (Saved ₹${totalDiscount.toFixed(2)})` : '';

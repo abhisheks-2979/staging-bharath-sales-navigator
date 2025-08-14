@@ -39,8 +39,16 @@ export const Cart = () => {
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
-  const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
-  const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
+  
+  // Fix retailerId validation - don't use "." as a valid retailerId
+  const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+  const storageKey = userId && validRetailerId ? `order_cart:${userId}:${validRetailerId}` : null;
+  const tempStorageKey = validRetailerId ? `order_cart:temp:${validRetailerId}` : null;
+  // Fallback storage key when retailerId is invalid
+  const fallbackStorageKey = userId ? `order_cart:${userId}:fallback` : 'order_cart:temp:fallback';
+
+  // Use fallback if no valid keys available
+  const activeStorageKey = storageKey || tempStorageKey || fallbackStorageKey;
 
   React.useEffect(() => {
     const fetchSchemes = async () => {
@@ -210,33 +218,21 @@ React.useEffect(() => {
 // Load cart items from localStorage with proper refresh handling
 React.useEffect(() => {
   const loadCartItems = () => {
+    console.log('Cart Debug - Loading cart items:', { userId, retailerId, validRetailerId, activeStorageKey });
     try {
-      if (storageKey) {
-        const rawUser = localStorage.getItem(storageKey);
-        if (rawUser) {
-          const parsedItems = JSON.parse(rawUser);
-          setCartItems(parsedItems);
-          return;
-        }
-        if (tempStorageKey) {
-          const rawTemp = localStorage.getItem(tempStorageKey);
-          if (rawTemp) {
-            const parsedItems = JSON.parse(rawTemp);
-            setCartItems(parsedItems);
-            localStorage.setItem(storageKey, rawTemp);
-            localStorage.removeItem(tempStorageKey);
-            return;
-          }
-        }
-      } else if (tempStorageKey) {
-        const rawTemp = localStorage.getItem(tempStorageKey);
-        if (rawTemp) {
-          const parsedItems = JSON.parse(rawTemp);
-          setCartItems(parsedItems);
-        }
+      const rawData = localStorage.getItem(activeStorageKey);
+      console.log('Found cart data:', rawData);
+      if (rawData) {
+        const parsedItems = JSON.parse(rawData);
+        console.log('Setting cart items:', parsedItems);
+        setCartItems(parsedItems);
+      } else {
+        console.log('No cart data found, cart will be empty');
+        setCartItems([]);
       }
     } catch (error) {
       console.error('Error loading cart items:', error);
+      setCartItems([]);
     }
   };
 
@@ -244,7 +240,7 @@ React.useEffect(() => {
   
   // Also listen for storage changes (when updated from OrderEntry)
   const handleStorageChange = (e: StorageEvent) => {
-    if (e.key === storageKey || e.key === tempStorageKey) {
+    if (e.key === activeStorageKey) {
       loadCartItems();
     }
   };
@@ -254,13 +250,11 @@ React.useEffect(() => {
   return () => {
     window.removeEventListener('storage', handleStorageChange);
   };
-}, [storageKey, tempStorageKey]);
+}, [activeStorageKey]);
 
 React.useEffect(() => {
-  const key = storageKey || tempStorageKey;
-  if (!key) return;
-  localStorage.setItem(key, JSON.stringify(cartItems));
-}, [cartItems, storageKey, tempStorageKey]);
+  localStorage.setItem(activeStorageKey, JSON.stringify(cartItems));
+}, [cartItems, activeStorageKey]);
 
   const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId));
@@ -322,10 +316,7 @@ React.useEffect(() => {
 
   // Function to update OrderEntry quantities storage
   const updateOrderEntryQuantities = (productId: string, quantity: number) => {
-    const key = storageKey || tempStorageKey;
-    if (!key) return;
-    
-    const quantityKey = key.replace('order_cart:', 'order_quantities:');
+    const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
     const existingQuantities = localStorage.getItem(quantityKey);
     
     try {
@@ -447,12 +438,10 @@ React.useEffect(() => {
       });
       
       // Clear cart and navigate
-      if (storageKey) {
-        localStorage.removeItem(storageKey);
-        // Also clear the quantities storage for order entry
-        const quantityKey = storageKey.replace('order_cart:', 'order_quantities:');
-        localStorage.removeItem(quantityKey);
-      }
+      localStorage.removeItem(activeStorageKey);
+      // Also clear the quantities storage for order entry
+      const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+      localStorage.removeItem(quantityKey);
       setCartItems([]);
       navigate(`/visits/retailers`);
     } catch (error) {
