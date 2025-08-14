@@ -206,11 +206,17 @@ React.useEffect(() => {
       return;
     }
 
-    setCartItems(prev => prev.map(item => 
-      item.id === productId 
-        ? { ...item, quantity: newQuantity, total: computeItemTotal({ ...item, quantity: newQuantity }) }
-        : item
-    ));
+    setCartItems(prev => prev.map(item => {
+      if (item.id === productId) {
+        const updatedItem = { ...item, quantity: newQuantity };
+        // Remove the old total so it gets recalculated with the new quantity
+        delete updatedItem.total;
+        // Recalculate the total with scheme discount applied
+        const newTotal = computeItemTotal(updatedItem);
+        return { ...updatedItem, total: newTotal };
+      }
+      return item;
+    }));
   };
 
   const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item), 0);
