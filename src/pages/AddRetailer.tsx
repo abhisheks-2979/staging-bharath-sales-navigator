@@ -448,7 +448,7 @@ export const AddRetailer = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 hidden">
                 <Label>Top 3 Competitors</Label>
                 <div className="space-y-2">
                   <Input
