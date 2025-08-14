@@ -238,7 +238,7 @@ export const AddRetailer = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/my-retailers')}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
