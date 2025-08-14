@@ -196,22 +196,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error && !error.message.includes('session')) {
-        toast.error(error.message);
-        throw error;
+      // Check if there's actually a session before trying to sign out
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (currentSession) {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error('Sign out error:', error);
+          // Don't throw error, just log it and continue with logout
+        }
       }
     } catch (error: any) {
-      // If it's a session missing error, we can ignore it and proceed with logout
-      if (!error.message?.includes('session')) {
-        toast.error(error.message);
-        throw error;
-      }
+      console.error('Logout error:', error);
+      // Don't throw error, just continue with logout
     }
     
+    // Clear local state regardless of API call success
+    setUser(null);
+    setSession(null);
+    setUserRole(null);
     setUserProfile(null);
+    
     toast.success('Signed out successfully!');
-    // Redirect to auth page after logout
+    // Redirect to auth page
     window.location.href = '/auth';
   };
 
