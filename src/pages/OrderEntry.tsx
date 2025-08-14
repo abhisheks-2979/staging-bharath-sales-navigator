@@ -166,12 +166,18 @@ useEffect(() => {
   if (!key) return;
   localStorage.setItem(key, JSON.stringify(cart));
   
-  // Also save quantities separately for persistence
+  // Also save quantities, variants, and stocks separately for persistence
   const quantityKey = key.replace('order_cart:', 'order_quantities:');
   localStorage.setItem(quantityKey, JSON.stringify(quantities));
-}, [cart, storageKey, tempStorageKey, quantities]);
+  
+  const variantKey = key.replace('order_cart:', 'order_variants:');
+  localStorage.setItem(variantKey, JSON.stringify(selectedVariants));
+  
+  const stockKey = key.replace('order_cart:', 'order_stocks:');
+  localStorage.setItem(stockKey, JSON.stringify(closingStocks));
+}, [cart, storageKey, tempStorageKey, quantities, selectedVariants, closingStocks]);
 
-// Load saved quantities on component mount
+// Load saved quantities and other order state on component mount
 useEffect(() => {
   const key = storageKey || tempStorageKey;
   if (!key) return;
@@ -180,9 +186,41 @@ useEffect(() => {
   const savedQuantities = localStorage.getItem(quantityKey);
   if (savedQuantities) {
     try {
-      setQuantities(JSON.parse(savedQuantities));
+      const parsedQuantities = JSON.parse(savedQuantities);
+      setQuantities(parsedQuantities);
+      
+      // Mark items as added if they have quantities
+      const newAddedItems = new Set<string>();
+      Object.entries(parsedQuantities).forEach(([productId, qty]) => {
+        if (Number(qty) > 0) {
+          newAddedItems.add(productId);
+        }
+      });
+      setAddedItems(newAddedItems);
     } catch (error) {
       console.error('Error loading saved quantities:', error);
+    }
+  }
+  
+  // Load saved variant selections
+  const variantKey = key.replace('order_cart:', 'order_variants:');
+  const savedVariants = localStorage.getItem(variantKey);
+  if (savedVariants) {
+    try {
+      setSelectedVariants(JSON.parse(savedVariants));
+    } catch (error) {
+      console.error('Error loading saved variants:', error);
+    }
+  }
+  
+  // Load saved closing stocks
+  const stockKey = key.replace('order_cart:', 'order_stocks:');
+  const savedStocks = localStorage.getItem(stockKey);
+  if (savedStocks) {
+    try {
+      setClosingStocks(JSON.parse(savedStocks));
+    } catch (error) {
+      console.error('Error loading saved stocks:', error);
     }
   }
 }, [storageKey, tempStorageKey]);
@@ -251,6 +289,17 @@ const filteredProducts = selectedCategory === "All"
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     setQuantities(prev => ({ ...prev, [productId]: quantity }));
+    
+    // Update added items state for visual feedback
+    setAddedItems(prev => {
+      const newSet = new Set(prev);
+      if (quantity > 0) {
+        newSet.add(productId);
+      } else {
+        newSet.delete(productId);
+      }
+      return newSet;
+    });
     
     // Update cart if item exists there
     setCart(prevCart => {
