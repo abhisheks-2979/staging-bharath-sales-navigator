@@ -1353,21 +1353,7 @@ const filteredProducts = selectedCategory === "All"
         {getTotalItems() > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
             <div className="container mx-auto">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {getTotalItems()} items selected
-                  </p>
-                  <p className="font-bold">
-                    ₹{(() => {
-                      const cartTotal = Number(getTotalValue()) || 0;
-                      const selectionTotal = Number(getSelectionValue()) || 0;
-                      const finalTotal = cartTotal + selectionTotal;
-                      console.log('Debug Total Calculation:', { cartTotal, selectionTotal, finalTotal });
-                      return finalTotal.toLocaleString();
-                    })()}
-                  </p>
-                </div>
+              <div className="flex items-center justify-end">
                 <Button 
                   onClick={() => {
                     navigate(`/cart?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`);
