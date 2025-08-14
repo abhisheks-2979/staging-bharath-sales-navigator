@@ -940,7 +940,7 @@ const filteredProducts = selectedCategory === "All"
                         </p>
                       )}
                     </div>
-                    <Package size={16} className="text-muted-foreground" />
+                    
                   </div>
 
                   {/* Variant Grid */}
