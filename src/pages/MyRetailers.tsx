@@ -78,6 +78,7 @@ const [search, setSearch] = useState("");
 const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [expandedAddress, setExpandedAddress] = useState<string | null>(null);
+  const [expandedBeat, setExpandedBeat] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -353,6 +354,9 @@ return (
                   const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
                   const isAddressExpanded = expandedAddress === r.id;
                   
+                  const shortBeat = r.beat_id && r.beat_id.length > 15 ? r.beat_id.substring(0, 15) + '...' : r.beat_id;
+                  const isBeatExpanded = expandedBeat === r.id;
+                  
                   return (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.name}</TableCell>
@@ -364,7 +368,13 @@ return (
                       >
                         {isAddressExpanded ? r.address : shortAddress}
                       </TableCell>
-                      <TableCell>{r.beat_id}</TableCell>
+                      <TableCell 
+                        className="max-w-[150px] cursor-pointer hover:text-primary"
+                        onClick={() => setExpandedBeat(isBeatExpanded ? null : r.id)}
+                        title="Click to expand/collapse beat"
+                      >
+                        {isBeatExpanded ? r.beat_id : shortBeat}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
