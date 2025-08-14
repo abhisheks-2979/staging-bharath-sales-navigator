@@ -821,7 +821,7 @@ const filteredProducts = selectedCategory === "All"
         </div>
       </div>
 
-      <div className="container mx-auto px-2 sm:px-4 space-y-3 pt-20">
+      <div className="container mx-auto px-2 sm:px-4 space-y-3 pt-28">
 
         {/* Order Mode Toggle */}
         <Card>
