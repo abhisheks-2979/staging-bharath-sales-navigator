@@ -158,7 +158,13 @@ export const AddRetailer = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate(-1)}
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate('/');
+                  }
+                }}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
