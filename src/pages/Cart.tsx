@@ -292,11 +292,9 @@ React.useEffect(() => {
       if (item.id === productId) {
         const updatedItem = { ...item, quantity: newQuantity };
         
-        // Recalculate total based on rate and quantity
-        const baseTotal = Number(item.rate) * newQuantity;
-        updatedItem.total = baseTotal;
-        
-        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity, 'New total:', baseTotal);
+        // Don't override total here - let the offer calculation functions handle it
+        // This preserves pre-calculated totals with offers applied
+        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity);
         
         // Update OrderEntry quantities storage - make sure to sync correctly
         updateOrderEntryQuantities(productId, newQuantity);
