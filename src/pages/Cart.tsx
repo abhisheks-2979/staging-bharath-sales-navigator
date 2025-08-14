@@ -116,16 +116,28 @@ export const Cart = () => {
   };
 
 const computeItemSubtotal = (item: AnyCartItem) => Number(item.rate) * Number(item.quantity);
+
 const computeItemDiscount = (item: AnyCartItem) => {
   // If item has pre-calculated total (from OrderEntry with schemes), use that
   if (item.total !== undefined) {
     return computeItemSubtotal(item) - Number(item.total);
   }
   
-  // Fallback to basic scheme calculation for backwards compatibility
+  // Get scheme from database or fallback
   const { condition, discountPct } = getItemScheme(item);
+  
+  console.log('Computing discount for:', {
+    itemName: item.name,
+    quantity: item.quantity,
+    condition,
+    discountPct,
+    meetsCondition: condition && Number(item.quantity) >= condition
+  });
+  
   if (condition && discountPct && Number(item.quantity) >= condition) {
-    return (computeItemSubtotal(item) * discountPct) / 100;
+    const discount = (computeItemSubtotal(item) * discountPct) / 100;
+    console.log('Applying discount:', discount);
+    return discount;
   }
   return 0;
 };
@@ -275,11 +287,12 @@ React.useEffect(() => {
     setCartItems(prev => prev.map(item => {
       if (item.id === productId) {
         const updatedItem = { ...item, quantity: newQuantity };
-        // Remove the old total so it gets recalculated with the new quantity
+        // Force recalculation by removing any pre-calculated total
         delete updatedItem.total;
-        // Recalculate the total with scheme discount applied
-        const newTotal = computeItemTotal(updatedItem);
-        return { ...updatedItem, total: newTotal };
+        
+        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity);
+        
+        return updatedItem;
       }
       return item;
     }));
