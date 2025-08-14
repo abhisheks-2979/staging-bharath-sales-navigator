@@ -341,6 +341,10 @@ const filteredProducts = selectedCategory === "All"
 
   // Helper function to calculate scheme discount
   const calculateSchemeDiscount = (productId: string, variantId: string | null, quantity: number, basePrice: number) => {
+    // Validate inputs
+    const safeQuantity = Number(quantity) || 0;
+    const safeBasePrice = Number(basePrice) || 0;
+    
     const applicableSchemes = schemes.filter(scheme => 
       scheme.product_id === productId && 
       (scheme.variant_id === variantId || scheme.variant_id === null)
@@ -350,24 +354,31 @@ const filteredProducts = selectedCategory === "All"
     let freeQuantity = 0;
 
     applicableSchemes.forEach(scheme => {
+      const conditionQty = Number(scheme.condition_quantity) || 0;
       const meetsCondition = scheme.quantity_condition_type === 'more_than' 
-        ? quantity > scheme.condition_quantity
-        : quantity === scheme.condition_quantity;
+        ? safeQuantity > conditionQty
+        : safeQuantity === conditionQty;
 
       if (meetsCondition) {
         if (scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') {
-          if (scheme.discount_percentage) {
-            totalDiscount += (basePrice * quantity * scheme.discount_percentage) / 100;
-          } else if (scheme.discount_amount) {
-            totalDiscount += scheme.discount_amount;
+          const discountPct = Number(scheme.discount_percentage) || 0;
+          const discountAmt = Number(scheme.discount_amount) || 0;
+          
+          if (discountPct > 0) {
+            totalDiscount += (safeBasePrice * safeQuantity * discountPct) / 100;
+          } else if (discountAmt > 0) {
+            totalDiscount += discountAmt;
           }
         } else if (scheme.scheme_type === 'buy_get') {
-          freeQuantity += scheme.free_quantity || 0;
+          freeQuantity += Number(scheme.free_quantity) || 0;
         }
       }
     });
 
-    return { totalDiscount, freeQuantity };
+    return { 
+      totalDiscount: Number(totalDiscount) || 0, 
+      freeQuantity: Number(freeQuantity) || 0 
+    };
   };
 
   const addToCart = (product: Product) => {
@@ -427,7 +438,10 @@ const filteredProducts = selectedCategory === "All"
   };
 
   const getTotalValue = () => {
-    return cart.reduce((sum, item) => sum + item.total, 0);
+    return cart.reduce((sum, item) => {
+      const itemTotal = Number(item.total) || 0;
+      return sum + itemTotal;
+    }, 0);
   };
 
   // Calculate total value from selected quantities and variants with auto-calculation
@@ -437,33 +451,42 @@ const filteredProducts = selectedCategory === "All"
     // Include all products regardless of category to match cart behavior
     products.forEach(product => {
       // Check base product quantity
-      const baseQty = quantities[product.id] || 0;
+      const baseQty = Number(quantities[product.id]) || 0;
       
       if (baseQty > 0) {
-        const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
-        total += (baseQty * product.rate) - totalDiscount;
+        const productRate = Number(product.rate) || 0;
+        const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, productRate);
+        const discountValue = Number(totalDiscount) || 0;
+        const subtotal = (baseQty * productRate) - discountValue;
+        total += Number(subtotal) || 0;
       }
       
       // Check all variant quantities
       if (product.variants) {
         product.variants.forEach(variant => {
-          const variantQty = quantities[variant.id] || 0;
+          const variantQty = Number(quantities[variant.id]) || 0;
           
           if (variantQty > 0) {
-            const variantPrice = variant.discount_percentage > 0 
-              ? variant.price - (variant.price * variant.discount_percentage / 100)
-              : variant.discount_amount > 0 
-                ? variant.price - variant.discount_amount
-                : variant.price;
+            const basePrice = Number(variant.price) || 0;
+            const discountPct = Number(variant.discount_percentage) || 0;
+            const discountAmt = Number(variant.discount_amount) || 0;
+            
+            const variantPrice = discountPct > 0 
+              ? basePrice - (basePrice * discountPct / 100)
+              : discountAmt > 0 
+                ? basePrice - discountAmt
+                : basePrice;
             
             const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
-            total += (variantQty * variantPrice) - totalDiscount;
+            const discountValue = Number(totalDiscount) || 0;
+            const subtotal = (variantQty * variantPrice) - discountValue;
+            total += Number(subtotal) || 0;
           }
         });
       }
     });
     
-    return total;
+    return Number(total) || 0;
   };
 
   // Get total selected items count
@@ -1336,7 +1359,13 @@ const filteredProducts = selectedCategory === "All"
                     {getTotalItems()} items selected
                   </p>
                   <p className="font-bold">
-                    ₹{(getTotalValue() + getSelectionValue()).toLocaleString()}
+                    ₹{(() => {
+                      const cartTotal = Number(getTotalValue()) || 0;
+                      const selectionTotal = Number(getSelectionValue()) || 0;
+                      const finalTotal = cartTotal + selectionTotal;
+                      console.log('Debug Total Calculation:', { cartTotal, selectionTotal, finalTotal });
+                      return finalTotal.toLocaleString();
+                    })()}
                   </p>
                 </div>
                 <Button 
