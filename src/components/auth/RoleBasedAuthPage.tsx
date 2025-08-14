@@ -51,8 +51,8 @@ export const RoleBasedAuthPage = () => {
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
             <img 
-              src="/lovable-uploads/9f7ffcf1-9bd9-472a-b8c1-c50198c85075.png" 
-              alt="Bharath Beverages" 
+              src="/lovable-uploads/4c36505f-db4e-43df-a38e-80e7d29ff090.png" 
+              alt="KVP Business Solutions" 
               className="w-full h-full object-contain"
             />
           </div>
