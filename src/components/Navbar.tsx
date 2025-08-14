@@ -1,4 +1,4 @@
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Home } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,8 +62,9 @@ export const Navbar = () => {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <NavLink to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center">
-                <span className="text-xs font-bold">KVP</span>
+              <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center relative">
+                <Home size={14} className="absolute opacity-30" />
+                <span className="text-xs font-bold relative z-10">KVP</span>
               </div>
               <div>
                 <h1 className="text-lg font-semibold">KVP Business Solutions</h1>
