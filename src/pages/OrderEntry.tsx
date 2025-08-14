@@ -790,7 +790,7 @@ const filteredProducts = selectedCategory === "All"
               <div className="flex items-center gap-3 shrink-0">
                 <Button
                   variant="ghost"
-                  onClick={() => navigate("/cart")}
+                  onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}`)}
                   className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-0 min-w-[50px]"
                 >
                   <ShoppingCart size={16} />
