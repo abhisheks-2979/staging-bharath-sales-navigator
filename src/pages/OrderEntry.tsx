@@ -791,15 +791,10 @@ const filteredProducts = selectedCategory === "All"
                 <Button
                   variant="ghost"
                   onClick={() => navigate("/cart")}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-1"
                 >
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart size={16} />
-                    <div className="text-right">
-                      <p className="text-xs text-primary-foreground/80">Cart</p>
-                      <p className="text-sm font-bold">{getTotalItems()} items</p>
-                    </div>
-                  </div>
+                  <ShoppingCart size={20} />
+                  <span className="text-xs">View Cart</span>
                 </Button>
                 <Button
                   variant="ghost"
