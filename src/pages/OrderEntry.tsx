@@ -571,9 +571,9 @@ const filteredProducts = selectedCategory === "All"
     // Replace cart completely with new selections
     setCart(newCartItems);
     
-    // Clear current selections after adding to cart
-    setQuantities({});
-    setSelectedVariants({});
+    // Don't clear quantities - keep them until order is submitted
+    // setQuantities({});
+    // setSelectedVariants({});
     setShowOrderSummary(false);
     
     toast({
