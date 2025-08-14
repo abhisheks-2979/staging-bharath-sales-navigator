@@ -49,7 +49,7 @@ export const RoleBasedAuthPage = () => {
     >
       <Card className="w-full max-w-md shadow-2xl bg-white/95 backdrop-blur-sm border-white/20">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-40 h-24 rounded-lg overflow-hidden bg-white p-3 border-2 border-primary/20 shadow-lg">
+          <div className="mx-auto w-56 h-20 rounded-lg overflow-hidden bg-white p-2 border-2 border-primary/20 shadow-lg">
             <img 
               src="/lovable-uploads/4c36505f-db4e-43df-a38e-80e7d29ff090.png" 
               alt="KVP Business Solutions" 
