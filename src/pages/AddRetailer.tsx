@@ -281,7 +281,7 @@ export const AddRetailer = () => {
                           placeholder="GPS Latitude"
                         />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2 hidden">
                         <Label>Longitude</Label>
                         <Input
                           value={retailerData.longitude}
