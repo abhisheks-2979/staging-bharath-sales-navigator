@@ -467,12 +467,13 @@ return (
       </Dialog>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>View / Edit Retailer</DialogTitle>
           </DialogHeader>
           {editForm && (
-            <div className="space-y-3">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3"
+                 style={{ maxHeight: 'calc(90vh - 140px)' }}>
               <div>
                 <label className="text-xs text-muted-foreground">Name</label>
                 <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
@@ -569,7 +570,7 @@ return (
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="secondary" onClick={() => setEditDialogOpen(false)}>Close</Button>
             <Button onClick={updateRetailer}>Save Changes</Button>
           </DialogFooter>
