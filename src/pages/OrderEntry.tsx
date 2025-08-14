@@ -1336,7 +1336,7 @@ const filteredProducts = selectedCategory === "All"
                     {getTotalItems()} items selected
                   </p>
                   <p className="font-bold">
-                    ₹{getTotalValue().toLocaleString()}
+                    ₹{(getTotalValue() + getSelectionValue()).toLocaleString()}
                   </p>
                 </div>
                 <Button 
