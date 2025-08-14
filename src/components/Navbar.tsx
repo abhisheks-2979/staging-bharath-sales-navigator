@@ -66,7 +66,7 @@ export const Navbar = () => {
                 <span className="text-xs font-bold">BB</span>
               </div>
               <div>
-                <h1 className="text-lg font-semibold">Bharath Beverages</h1>
+                <h1 className="text-lg font-semibold">KVP Business Solutions</h1>
                 <p className="text-xs opacity-80">Field Sales App</p>
               </div>
             </NavLink>
