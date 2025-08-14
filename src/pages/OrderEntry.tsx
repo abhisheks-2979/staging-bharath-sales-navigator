@@ -172,6 +172,8 @@ useEffect(() => {
   const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
   const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
   
+  console.log('Loading saved form data...', { quantityKey, variantKey, stockKey });
+  
   // Load quantities
   const savedQuantities = localStorage.getItem(quantityKey);
   if (savedQuantities) {
@@ -208,6 +210,24 @@ useEffect(() => {
     }
   }
 }, [activeStorageKey]);
+
+// Force UI update when both products and saved data are loaded
+useEffect(() => {
+  if (products.length > 0) {
+    console.log('Products loaded, restoring saved quantities...');
+    const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
+    const savedQuantities = localStorage.getItem(quantityKey);
+    if (savedQuantities) {
+      try {
+        const parsedQuantities = JSON.parse(savedQuantities);
+        console.log('Re-applying saved quantities after products loaded:', parsedQuantities);
+        setQuantities(prev => ({ ...prev, ...parsedQuantities }));
+      } catch (error) {
+        console.error('Error re-applying saved quantities:', error);
+      }
+    }
+  }
+}, [products, activeStorageKey]);
 
 useEffect(() => {
   const fetchData = async () => {
@@ -586,6 +606,8 @@ const filteredProducts = selectedCategory === "All"
   const getSelectionDetails = () => {
     const items: any[] = [];
     let totalSavings = 0;
+    
+    console.log('Getting selection details with current quantities:', quantities);
     
     // Include all products regardless of category
     products.forEach(product => {
