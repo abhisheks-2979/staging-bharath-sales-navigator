@@ -1338,153 +1338,153 @@ const filteredProducts = selectedCategory === "All"
                       </div>
                     )}
 
-                    {/* Add to Cart Button */}
+                    {/* Add to Cart Button - unified for both variants and non-variants */}
                     <div className="mt-3">
-                      <Button
-                        onClick={() => addToCart(product)}
-                        className="w-full h-8 text-xs"
-                        disabled={(() => {
-                          const displayProduct = getDisplayProduct(product);
-                          const qty = quantities[displayProduct.id] || 0;
-                          return qty <= 0;
-                        })()}
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Add {(() => {
-                          const displayProduct = getDisplayProduct(product);
-                          const qty = quantities[displayProduct.id] || 0;
-                          return qty > 0 ? `${qty} ${displayProduct.unit}(s)` : 'to Cart';
-                        })()} 
-                      </Button>
-                    </div>
-
-
-                   {/* Add to Cart Button */}
-                   {(product.variants && product.variants.length > 0) ? (
-                     <Button 
-                        onClick={() => {
-                          // Check all quantities for this specific product (base + variants)
-                          const selectedItems = [];
-                          let totalQtyForProduct = 0;
-                          
-                          // Check base product quantity
-                          const baseQty = quantities[product.id] || 0;
-                          if (baseQty > 0) {
-                            const baseTotal = baseQty * product.rate;
-                            const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
-                            const finalTotal = baseTotal - totalDiscount;
+                      <Button 
+                         onClick={() => {
+                           if (product.variants && product.variants.length > 0) {
+                             // Handle products with variants
+                             const selectedItems = [];
+                             let totalQtyForProduct = 0;
+                             
+                             // Check base product quantity
+                             const baseQty = quantities[product.id] || 0;
+                             if (baseQty > 0) {
+                               const baseTotal = baseQty * product.rate;
+                               const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+                               const finalTotal = baseTotal - totalDiscount;
+                               
+                               selectedItems.push({
+                                 ...product,
+                                 quantity: baseQty,
+                                 total: finalTotal,
+                                 closingStock: closingStocks[product.id] || product.closingStock
+                               });
+                               totalQtyForProduct += baseQty;
+                             }
+                             
+                             // Check all variant quantities for this product
+                             product.variants.forEach(variant => {
+                               const variantQty = quantities[variant.id] || 0;
+                               if (variantQty > 0) {
+                                 const variantPrice = variant.discount_percentage > 0 
+                                   ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                   : variant.discount_amount > 0 
+                                     ? variant.price - variant.discount_amount
+                                     : variant.price;
+                                 
+                                 const baseTotal = variantQty * variantPrice;
+                                 const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+                                 const finalTotal = baseTotal - totalDiscount;
+                                 
+                                 selectedItems.push({
+                                   id: `${product.id}_variant_${variant.id}`,
+                                   name: `${product.name} - ${variant.variant_name}`,
+                                   category: product.category,
+                                   rate: variantPrice,
+                                   unit: product.unit,
+                                   quantity: variantQty,
+                                   total: finalTotal,
+                                   closingStock: closingStocks[variant.id] || variant.stock_quantity
+                                 });
+                                 totalQtyForProduct += variantQty;
+                               }
+                             });
+                             
+                             // Only proceed if there are items with quantities
+                             if (selectedItems.length === 0 || totalQtyForProduct === 0) {
+                               toast({
+                                 title: "No Quantity Entered",
+                                 description: `Please enter quantities for ${product.name}`,
+                                 variant: "destructive"
+                               });
+                               return;
+                             }
+                             
+                             // Add all items with quantities to cart (replace existing)
+                             selectedItems.forEach(item => {
+                               const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                               if (existingItem) {
+                                 // Replace existing item with new quantity
+                                 setCart(prev => prev.map(cartItem => 
+                                   cartItem.id === item.id 
+                                     ? { ...cartItem, quantity: item.quantity, total: item.total, closingStock: item.closingStock }
+                                     : cartItem
+                                 ));
+                               } else {
+                                 // Add new item
+                                 setCart(prev => [...prev, item]);
+                               }
+                             });
+                              
+                             toast({
+                               title: "Added to Cart",
+                               description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
+                             });
+                           } else {
+                             // Handle single products without variants
+                             addToCart(product);
+                           }
+                           
+                           // Mark item as added
+                           setAddedItems(prev => new Set([...prev, product.id]));
                             
-                            selectedItems.push({
-                              ...product,
-                              quantity: baseQty,
-                              total: finalTotal
-                            });
-                            totalQtyForProduct += baseQty;
-                          }
-                          
-                          // Check all variant quantities for this product
-                          if (product.variants) {
-                            product.variants.forEach(variant => {
-                              const variantQty = quantities[variant.id] || 0;
-                              if (variantQty > 0) {
-                                const variantPrice = variant.discount_percentage > 0 
-                                  ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                  : variant.discount_amount > 0 
-                                    ? variant.price - variant.discount_amount
-                                    : variant.price;
-                                
-                                const baseTotal = variantQty * variantPrice;
-                                const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
-                                const finalTotal = baseTotal - totalDiscount;
-                                
-                                selectedItems.push({
-                                  id: `${product.id}_variant_${variant.id}`,
-                                  name: `${product.name} - ${variant.variant_name}`,
-                                  category: product.category,
-                                  rate: variantPrice,
-                                  unit: product.unit,
-                                  quantity: variantQty,
-                                  total: finalTotal,
-                                  closingStock: variant.stock_quantity
-                                });
-                                totalQtyForProduct += variantQty;
-                              }
-                            });
-                          }
-                          
-                          // Only proceed if there are items with quantities
-                          if (selectedItems.length === 0 || totalQtyForProduct === 0) {
-                            toast({
-                              title: "No Quantity Entered",
-                              description: `Please enter quantities for ${product.name}`,
-                              variant: "destructive"
-                            });
-                            return;
-                          }
-                          
-                          // Add all items with quantities to cart (replace existing)
-                          selectedItems.forEach(item => {
-                            const existingItem = cart.find(cartItem => cartItem.id === item.id);
-                            if (existingItem) {
-                              // Replace existing item with new quantity
-                              setCart(prev => prev.map(cartItem => 
-                                cartItem.id === item.id 
-                                  ? { ...cartItem, quantity: item.quantity, total: item.total }
-                                  : cartItem
-                              ));
-                            } else {
-                              // Add new item
-                              setCart(prev => [...prev, item]);
-                            }
-                          });
-                           
-                          // Mark item as added
-                          setAddedItems(prev => new Set([...prev, product.id]));
-                           
-                          // Reset after 3 seconds
-                          setTimeout(() => {
-                            setAddedItems(prev => {
-                              const newSet = new Set(prev);
-                              newSet.delete(product.id);
-                              return newSet;
-                            });
-                          }, 3000);
-                           
-                          toast({
-                            title: "Added to Cart",
-                            description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
-                          });
-                        }}
-                        className={`w-full h-8 transition-all duration-300 ${
-                          addedItems.has(product.id) 
-                            ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
-                            : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                        }`}
-                        size="sm"
-                        disabled={(() => {
-                          // Check if base product has quantity
-                          const baseQty = quantities[product.id] || 0;
-                          
-                          // Check if any variant has quantity
-                          const hasVariantQty = product.variants?.some(v => (quantities[v.id] || 0) > 0) || false;
-                          
-                          // Button is disabled if no quantity is entered anywhere
-                          return baseQty <= 0 && !hasVariantQty;
-                        })()}
-                      >
-                        {addedItems.has(product.id) ? (
-                          <>
-                            <Check size={14} className="mr-1" />
-                            Added
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={14} className="mr-1" />
-                            Add
-                          </>
-                        )}
-                      </Button>
-                   ) : (
+                           // Reset after 3 seconds
+                           setTimeout(() => {
+                             setAddedItems(prev => {
+                               const newSet = new Set(prev);
+                               newSet.delete(product.id);
+                               return newSet;
+                             });
+                           }, 3000);
+                         }}
+                         className={`w-full h-8 text-xs transition-all duration-300 ${
+                           addedItems.has(product.id) 
+                             ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                             : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                         }`}
+                         disabled={(() => {
+                           if (product.variants && product.variants.length > 0) {
+                             // Check if base product has quantity
+                             const baseQty = quantities[product.id] || 0;
+                             // Check if any variant has quantity
+                             const hasVariantQty = product.variants.some(v => (quantities[v.id] || 0) > 0);
+                             // Button is disabled if no quantity is entered anywhere
+                             return baseQty <= 0 && !hasVariantQty;
+                           } else {
+                             // For single products
+                             const displayProduct = getDisplayProduct(product);
+                             const qty = quantities[displayProduct.id] || 0;
+                             return qty <= 0;
+                           }
+                         })()}
+                       >
+                         {addedItems.has(product.id) ? (
+                           <>
+                             <Check className="w-3 h-3 mr-1" />
+                             Added
+                           </>
+                         ) : (
+                           <>
+                             <Plus className="w-3 h-3 mr-1" />
+                             Add {(() => {
+                               if (product.variants && product.variants.length > 0) {
+                                 // Show total quantity for products with variants
+                                 const baseQty = quantities[product.id] || 0;
+                                 const variantQty = product.variants.reduce((sum, v) => sum + (quantities[v.id] || 0), 0);
+                                 const totalQty = baseQty + variantQty;
+                                 return totalQty > 0 ? `${totalQty} item(s)` : '';
+                               } else {
+                                 // Show quantity for single products
+                                 const displayProduct = getDisplayProduct(product);
+                                 const qty = quantities[displayProduct.id] || 0;
+                                 return qty > 0 ? `${qty} ${displayProduct.unit}(s)` : '';
+                               }
+                             })()} 
+                           </>
+                         )}
+                       </Button>
+                     </div>
                      // Simplified layout for products without variants - just the add button
                      <div className="space-y-2">
                         {/* Show scheme discount preview */}
@@ -1548,10 +1548,9 @@ const filteredProducts = selectedCategory === "All"
                                Add
                              </>
                            )}
-                         </Button>
-                     </div>
-                  )}
-                 </CardContent>
+                          </Button>
+                      </div>
+                  </CardContent>
                </Card>
              );
            })}
