@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Trash2, Plus, Gift } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
 
 interface Product {
   id: string;
@@ -51,11 +52,47 @@ interface TableOrderFormProps {
 }
 
 export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
+  const [searchParams] = useSearchParams();
+  const visitId = searchParams.get("visitId") || '';
+  const retailerId = searchParams.get("retailerId") || '';
+  
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
     { id: "1", productCode: "", quantity: 0, closingStock: 0, total: 0 }
   ]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Create storage key for table form persistence
+  const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+  const validVisitId = visitId && visitId.length > 1 ? visitId : null;
+  
+  const tableFormStorageKey = validVisitId && validRetailerId 
+    ? `table_form:${validVisitId}:${validRetailerId}`
+    : validRetailerId 
+      ? `table_form:temp:${validRetailerId}`
+      : 'table_form:fallback';
+
+  // Load saved table form data when component mounts
+  useEffect(() => {
+    const savedData = localStorage.getItem(tableFormStorageKey);
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        console.log('Loading saved table form data:', parsedData);
+        setOrderRows(parsedData);
+      } catch (error) {
+        console.error('Error loading saved table form data:', error);
+      }
+    }
+  }, [tableFormStorageKey]);
+
+  // Save table form data whenever orderRows change
+  useEffect(() => {
+    if (orderRows.length > 0) {
+      console.log('Saving table form data:', orderRows);
+      localStorage.setItem(tableFormStorageKey, JSON.stringify(orderRows));
+    }
+  }, [orderRows, tableFormStorageKey]);
 
   useEffect(() => {
     fetchProducts();
@@ -229,8 +266,10 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       description: `${validRows.length} items added to cart`
     });
 
-    // Reset form
-    setOrderRows([{ id: Date.now().toString(), productCode: "", quantity: 0, closingStock: 0, total: 0 }]);
+    // Reset form and clear saved data
+    const resetRows = [{ id: Date.now().toString(), productCode: "", quantity: 0, closingStock: 0, total: 0 }];
+    setOrderRows(resetRows);
+    localStorage.setItem(tableFormStorageKey, JSON.stringify(resetRows));
   };
 
   const getTotalValue = () => {
