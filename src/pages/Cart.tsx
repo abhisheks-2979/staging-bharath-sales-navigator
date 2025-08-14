@@ -291,12 +291,14 @@ React.useEffect(() => {
     setCartItems(prev => prev.map(item => {
       if (item.id === productId) {
         const updatedItem = { ...item, quantity: newQuantity };
-        // Force recalculation by removing any pre-calculated total
-        delete updatedItem.total;
         
-        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity);
+        // Recalculate total based on rate and quantity
+        const baseTotal = Number(item.rate) * newQuantity;
+        updatedItem.total = baseTotal;
         
-        // Update OrderEntry quantities storage
+        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity, 'New total:', baseTotal);
+        
+        // Update OrderEntry quantities storage - make sure to sync correctly
         updateOrderEntryQuantities(productId, newQuantity);
         
         return updatedItem;
