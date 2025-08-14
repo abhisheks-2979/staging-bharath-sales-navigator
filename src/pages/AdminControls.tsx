@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin } from 'lucide-react';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
@@ -41,7 +41,7 @@ const AdminControls = () => {
         </div>
 
         {/* Admin Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => navigate('/admin')}
@@ -99,6 +99,51 @@ const AdminControls = () => {
               <CardTitle>Attendance Management</CardTitle>
               <CardDescription>
                 Manage user attendance, holidays, and leave approvals
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/product-management')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Package className="h-8 w-8 text-blue-600" />
+              </div>
+              <CardTitle>Products</CardTitle>
+              <CardDescription>
+                Manage your product catalog, SKUs, and promotional schemes
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/vendors')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-green-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Users className="h-8 w-8 text-green-600" />
+              </div>
+              <CardTitle>Vendors</CardTitle>
+              <CardDescription>
+                Manage vendor relationships and approvals
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/territories-distributors')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-indigo-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <MapPin className="h-8 w-8 text-indigo-600" />
+              </div>
+              <CardTitle>Territories & Distributors</CardTitle>
+              <CardDescription>
+                Manage territory assignments and distributor network
               </CardDescription>
             </CardHeader>
           </Card>

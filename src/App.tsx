@@ -39,6 +39,7 @@ import BrandingRequests from "./pages/BrandingRequests";
 import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
+import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,11 @@ const App = () => (
           <Route path="/attendance-management" element={
             <ProtectedRoute>
               <AttendanceManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/territories-distributors" element={
+            <ProtectedRoute>
+              <TerritoriesAndDistributors />
             </ProtectedRoute>
           } />
             <Route path="/" element={
