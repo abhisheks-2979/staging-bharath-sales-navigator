@@ -272,6 +272,8 @@ React.useEffect(() => {
 
   const removeFromCart = (productId: string) => {
     setCartItems(prev => prev.filter(item => item.id !== productId));
+    // Also remove from OrderEntry quantities
+    updateOrderEntryQuantities(productId, 0);
     toast({
       title: "Item Removed",
       description: "Item removed from cart"
@@ -281,6 +283,8 @@ React.useEffect(() => {
   const updateQuantity = (productId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(productId);
+      // Also update the quantities storage for OrderEntry sync
+      updateOrderEntryQuantities(productId, 0);
       return;
     }
 
@@ -292,10 +296,34 @@ React.useEffect(() => {
         
         console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity);
         
+        // Update OrderEntry quantities storage
+        updateOrderEntryQuantities(productId, newQuantity);
+        
         return updatedItem;
       }
       return item;
     }));
+  };
+
+  // Function to update OrderEntry quantities storage
+  const updateOrderEntryQuantities = (productId: string, quantity: number) => {
+    const key = storageKey || tempStorageKey;
+    if (!key) return;
+    
+    const quantityKey = key.replace('order_cart:', 'order_quantities:');
+    const existingQuantities = localStorage.getItem(quantityKey);
+    
+    try {
+      const quantities = existingQuantities ? JSON.parse(existingQuantities) : {};
+      if (quantity > 0) {
+        quantities[productId] = quantity;
+      } else {
+        delete quantities[productId];
+      }
+      localStorage.setItem(quantityKey, JSON.stringify(quantities));
+    } catch (error) {
+      console.error('Error updating OrderEntry quantities:', error);
+    }
   };
 
   const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item), 0);

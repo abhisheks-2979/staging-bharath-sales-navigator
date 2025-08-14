@@ -116,12 +116,16 @@ useEffect(() => {
 const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
 const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
 
+// Load cart and sync quantities
 useEffect(() => {
   try {
     if (storageKey) {
       const rawUser = localStorage.getItem(storageKey);
       if (rawUser) {
-        setCart(JSON.parse(rawUser) as CartItem[]);
+        const cartData = JSON.parse(rawUser) as CartItem[];
+        setCart(cartData);
+        // Sync quantities from cart to order entry
+        syncQuantitiesFromCart(cartData);
         return;
       }
       if (tempStorageKey) {
@@ -131,23 +135,57 @@ useEffect(() => {
           setCart(parsed);
           localStorage.setItem(storageKey, rawTemp);
           localStorage.removeItem(tempStorageKey);
+          // Sync quantities from cart to order entry
+          syncQuantitiesFromCart(parsed);
           return;
         }
       }
     } else if (tempStorageKey) {
       const rawTemp = localStorage.getItem(tempStorageKey);
       if (rawTemp) {
-        setCart(JSON.parse(rawTemp) as CartItem[]);
+        const cartData = JSON.parse(rawTemp) as CartItem[];
+        setCart(cartData);
+        // Sync quantities from cart to order entry
+        syncQuantitiesFromCart(cartData);
       }
     }
   } catch {}
 }, [storageKey, tempStorageKey]);
 
+// Function to sync quantities from cart back to order entry
+const syncQuantitiesFromCart = (cartData: CartItem[]) => {
+  const newQuantities: {[key: string]: number} = {};
+  cartData.forEach(item => {
+    newQuantities[item.id] = item.quantity;
+  });
+  setQuantities(prev => ({ ...prev, ...newQuantities }));
+};
+
 useEffect(() => {
   const key = storageKey || tempStorageKey;
   if (!key) return;
   localStorage.setItem(key, JSON.stringify(cart));
-}, [cart, storageKey, tempStorageKey]);
+  
+  // Also save quantities separately for persistence
+  const quantityKey = key.replace('order_cart:', 'order_quantities:');
+  localStorage.setItem(quantityKey, JSON.stringify(quantities));
+}, [cart, storageKey, tempStorageKey, quantities]);
+
+// Load saved quantities on component mount
+useEffect(() => {
+  const key = storageKey || tempStorageKey;
+  if (!key) return;
+  
+  const quantityKey = key.replace('order_cart:', 'order_quantities:');
+  const savedQuantities = localStorage.getItem(quantityKey);
+  if (savedQuantities) {
+    try {
+      setQuantities(JSON.parse(savedQuantities));
+    } catch (error) {
+      console.error('Error loading saved quantities:', error);
+    }
+  }
+}, [storageKey, tempStorageKey]);
 
 useEffect(() => {
   const fetchData = async () => {
@@ -213,6 +251,22 @@ const filteredProducts = selectedCategory === "All"
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     setQuantities(prev => ({ ...prev, [productId]: quantity }));
+    
+    // Update cart if item exists there
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === productId);
+      if (existingItem && quantity > 0) {
+        return prevCart.map(item => 
+          item.id === productId 
+            ? { ...item, quantity, total: item.rate * quantity }
+            : item
+        );
+      } else if (existingItem && quantity <= 0) {
+        // Remove from cart if quantity is 0 or negative
+        return prevCart.filter(item => item.id !== productId);
+      }
+      return prevCart;
+    });
   };
 
   const handleClosingStockChange = (productId: string, value: string) => {
