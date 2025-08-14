@@ -1101,9 +1101,7 @@ const filteredProducts = selectedCategory === "All"
                           // Calculate all variant totals
                           if (product.variants) {
                             product.variants.forEach(variant => {
-                              // Use composite ID for variant quantities
-                              const variantCompositeId = `${product.id}_variant_${variant.id}`;
-                              const variantQty = quantities[variantCompositeId] || 0;
+                              const variantQty = quantities[variant.id] || 0;
                               if (variantQty > 0) {
                                 const variantPrice = variant.discount_percentage > 0 
                                   ? variant.price - (variant.price * variant.discount_percentage / 100)
@@ -1230,9 +1228,7 @@ const filteredProducts = selectedCategory === "All"
                              const savings = variant.discount_percentage > 0 
                                ? variant.price * variant.discount_percentage / 100
                                : variant.discount_amount;
-                             // Use composite ID for variant quantities
-                             const variantCompositeId = `${product.id}_variant_${variant.id}`;
-                             const variantQuantity = quantities[variantCompositeId] || 0;
+                             const variantQuantity = quantities[variant.id] || 0;
                              const variantAmount = variantQuantity * variantPrice;
                              
                              // Check if this variant has a scheme applied specifically to it
@@ -1271,8 +1267,7 @@ const filteredProducts = selectedCategory === "All"
                                     value={variantQuantity || ""}
                                     onChange={(e) => {
                                       const qty = parseInt(e.target.value) || 0;
-                                      // Use composite ID for variant quantities
-                                      handleQuantityChange(variantCompositeId, qty);
+                                      handleQuantityChange(variant.id, qty);
                                       if (qty > 0) {
                                         handleVariantChange(product.id, variant.id);
                                       }
@@ -1286,12 +1281,12 @@ const filteredProducts = selectedCategory === "All"
                                      type="number"
                                      placeholder="0"
                                      value={(() => {
-                                       const stock = closingStocks[variantCompositeId] ?? variant.stock_quantity;
+                                       const stock = closingStocks[variant.id] ?? variant.stock_quantity;
                                        return stock === 0 ? "" : stock;
                                      })()}
                                      onChange={(e) => {
                                        const value = e.target.value;
-                                       handleClosingStockChange(variantCompositeId, value === "" ? "0" : value);
+                                       handleClosingStockChange(variant.id, value === "" ? "0" : value);
                                      }}
                                      onFocus={(e) => {
                                        if (e.target.value === "0" || e.target.value === "") {
@@ -1299,7 +1294,7 @@ const filteredProducts = selectedCategory === "All"
                                        }
                                      }}
                                      className={`h-6 text-xs p-1 ${(() => {
-                                       const stock = closingStocks[variantCompositeId] ?? variant.stock_quantity;
+                                       const stock = closingStocks[variant.id] ?? variant.stock_quantity;
                                        return stock === 0 ? "text-muted-foreground" : "";
                                      })()}`}
                                      min="0"
