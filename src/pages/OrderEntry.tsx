@@ -768,60 +768,42 @@ const filteredProducts = selectedCategory === "All"
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-        <div className="container mx-auto p-4">
-          <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 py-3">
-              {/* Left side - Back button and title */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate("/visits/retailers")}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 p-2 shrink-0"
-                >
-                  <ArrowLeft size={18} />
-                </Button>
-                <div className="min-w-0 flex-1">
-                  <CardTitle className="text-base font-medium leading-tight">Order Entry</CardTitle>
-                  <p className="text-xs text-primary-foreground/80 leading-tight truncate">{loggedInUserName}</p>
-                </div>
+      <div className="container mx-auto p-4 space-y-4">
+        {/* Header */}
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate("/visits/retailers")}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+              >
+                <ArrowLeft size={20} />
+              </Button>
+              <div>
+                <CardTitle className="text-lg">Order Entry</CardTitle>
+                <p className="text-primary-foreground/80">{loggedInUserName}</p>
               </div>
-              
-              {/* Right side - Cart and Current value in single line */}
-              <div className="flex items-center gap-3 shrink-0">
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate("/cart")}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-0 min-w-[50px]"
-                >
-                  <ShoppingCart size={16} />
-                  <span className="text-[10px] leading-tight">Cart</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    const { items } = getSelectionDetails();
-                    if (items.length > 0) {
-                      setShowOrderSummary(true);
-                    }
-                  }}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 min-w-[60px]"
-                  disabled={getSelectionValue() === 0}
-                >
-                  <div className="text-center">
-                    <p className="text-[10px] text-primary-foreground/80 leading-tight">Current</p>
-                    <p className="text-sm font-bold leading-tight">₹{getSelectionValue().toLocaleString()}</p>
-                  </div>
-                </Button>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                const { items } = getSelectionDetails();
+                if (items.length > 0) {
+                  setShowOrderSummary(true);
+                }
+              }}
+              className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2"
+              disabled={getSelectionValue() === 0}
+            >
+              <div className="text-right">
+                <p className="text-xs text-primary-foreground/80">Current value (Click)</p>
+                <p className="text-xl font-bold">₹{getSelectionValue().toLocaleString()}</p>
               </div>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-2 sm:px-4 space-y-3 pt-28">
+            </Button>
+          </CardHeader>
+        </Card>
 
         {/* Order Mode Toggle */}
         <Card>
@@ -958,7 +940,7 @@ const filteredProducts = selectedCategory === "All"
                         </p>
                       )}
                     </div>
-                    
+                    <Package size={16} className="text-muted-foreground" />
                   </div>
 
                   {/* Variant Grid */}
@@ -1391,6 +1373,7 @@ const filteredProducts = selectedCategory === "All"
           /* Table Order Form */
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
+
         {/* Fixed Bottom Cart Summary - Shows actual cart items only */}
         {getTotalItems() > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
