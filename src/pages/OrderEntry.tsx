@@ -161,8 +161,13 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
     
     // Handle variant mapping back to base product
     if (item.id.includes('_variant_')) {
-      const [baseProductId, , variantId] = item.id.split('_variant_');
-      newVariants[baseProductId] = variantId;
+      const parts = item.id.split('_variant_');
+      if (parts.length === 2) {
+        const baseProductId = parts[0];
+        const variantId = parts[1];
+        console.log('Mapping variant back to base product:', { baseProductId, variantId, itemId: item.id });
+        newVariants[baseProductId] = variantId;
+      }
     }
   });
   
