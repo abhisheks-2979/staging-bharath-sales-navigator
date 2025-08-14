@@ -272,7 +272,7 @@ export const AddRetailer = () => {
                 {(retailerData.latitude || retailerData.longitude) && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                      <div className="space-y-2 hidden">
                         <Label>Latitude</Label>
                         <Input
                           value={retailerData.latitude}
