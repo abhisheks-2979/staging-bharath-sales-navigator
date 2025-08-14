@@ -62,42 +62,58 @@ export const Cart = () => {
   }, []);
 
   const getItemScheme = (item: AnyCartItem) => {
-  // First check if item has pre-calculated scheme data
-  const active = item.schemes?.find(s => s.is_active);
-  if (active) {
+    // First check if item has pre-calculated scheme data
+    const active = item.schemes?.find(s => s.is_active);
+    if (active) {
+      return {
+        condition: active.condition_quantity ? Number(active.condition_quantity) : undefined,
+        discountPct: active.discount_percentage ? Number(active.discount_percentage) : undefined,
+      };
+    }
+
+    // Then check from database schemes by matching product name and variant
+    const matchingScheme = allSchemes.find(scheme => {
+      const productName = scheme.products?.name;
+      const variantName = scheme.product_variants?.variant_name;
+      
+      // For exact matching, check if product name matches and variant matches
+      const nameMatches = productName && (
+        item.name.toLowerCase().includes(productName.toLowerCase()) ||
+        productName.toLowerCase().includes(item.name.toLowerCase())
+      );
+      
+      const variantMatches = !variantName || item.name.toLowerCase().includes(variantName.toLowerCase());
+      
+      // Debug logging
+      console.log('Checking scheme:', {
+        schemeName: scheme.name,
+        productName,
+        variantName,
+        itemName: item.name,
+        nameMatches,
+        variantMatches,
+        isActive: scheme.is_active
+      });
+      
+      return nameMatches && variantMatches && scheme.is_active;
+    });
+
+    if (matchingScheme) {
+      console.log('Found matching scheme:', matchingScheme);
+      return {
+        condition: matchingScheme.condition_quantity ? Number(matchingScheme.condition_quantity) : undefined,
+        discountPct: matchingScheme.discount_percentage ? Number(matchingScheme.discount_percentage) : undefined,
+      };
+    }
+
+    // Fallback to item's own scheme data
+    const condition = item.schemeConditionQuantity;
+    const discountPct = item.schemeDiscountPercentage;
     return {
-      condition: active.condition_quantity ? Number(active.condition_quantity) : undefined,
-      discountPct: active.discount_percentage ? Number(active.discount_percentage) : undefined,
+      condition: condition != null ? Number(condition) : undefined,
+      discountPct: discountPct != null ? Number(discountPct) : undefined,
     };
-  }
-
-  // Then check from database schemes by matching product name
-  const matchingScheme = allSchemes.find(scheme => {
-    const productName = scheme.products?.name;
-    const variantName = scheme.product_variants?.variant_name;
-    
-    // Match by product name and optionally variant
-    const nameMatches = productName && item.name.includes(productName);
-    const variantMatches = !variantName || item.name.includes(variantName);
-    
-    return nameMatches && variantMatches && scheme.is_active;
-  });
-
-  if (matchingScheme) {
-    return {
-      condition: matchingScheme.condition_quantity ? Number(matchingScheme.condition_quantity) : undefined,
-      discountPct: matchingScheme.discount_percentage ? Number(matchingScheme.discount_percentage) : undefined,
-    };
-  }
-
-  // Fallback to item's own scheme data
-  const condition = item.schemeConditionQuantity;
-  const discountPct = item.schemeDiscountPercentage;
-  return {
-    condition: condition != null ? Number(condition) : undefined,
-    discountPct: discountPct != null ? Number(discountPct) : undefined,
   };
-};
 
 const computeItemSubtotal = (item: AnyCartItem) => Number(item.rate) * Number(item.quantity);
 const computeItemDiscount = (item: AnyCartItem) => {
