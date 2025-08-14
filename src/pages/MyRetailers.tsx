@@ -75,8 +75,9 @@ const [search, setSearch] = useState("");
     potential: string | null;
     competitorsString?: string;
   };
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [expandedAddress, setExpandedAddress] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -341,39 +342,45 @@ return (
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
+                  <TableHead>Phone Number</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Priority</TableHead>
                   <TableHead>Beat</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell>{r.phone || '-'}</TableCell>
-                    <TableCell className="max-w-[280px] truncate" title={r.address}>{r.address}</TableCell>
-                    <TableCell className="capitalize">{(r.priority || 'medium')}</TableCell>
-                    <TableCell>{r.beat_id}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(r)}>
-                        <Pencil className="mr-2 h-4 w-4" /> View/Edit
-                      </Button>
-                      {(!r.beat_id || r.beat_id.trim() === '' || r.beat_id === 'unassigned') && (
-                        <Button size="sm" variant="outline" onClick={() => openBeatDialog(r)}>
-                          <Tags className="mr-2 h-4 w-4" /> Add to Beat
-                        </Button>
-                      )}
-                      <Button size="sm" variant="destructive" onClick={() => deleteRetailer(r)}>
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filtered.map(r => {
+                  const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
+                  const isAddressExpanded = expandedAddress === r.id;
+                  
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell>{r.phone || '-'}</TableCell>
+                      <TableCell 
+                        className="max-w-[200px] cursor-pointer hover:text-primary"
+                        onClick={() => setExpandedAddress(isAddressExpanded ? null : r.id)}
+                        title="Click to expand/collapse address"
+                      >
+                        {isAddressExpanded ? r.address : shortAddress}
+                      </TableCell>
+                      <TableCell>{r.beat_id}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => deleteRetailer(r)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
