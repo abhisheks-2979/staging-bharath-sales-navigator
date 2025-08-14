@@ -164,27 +164,6 @@ const computeItemTotal = (item: AnyCartItem) => {
   return computeItemSubtotal(item) - computeItemDiscount(item);
 };
 
-// Mock cart data - in real app this would come from state management
-const mockCartItems: CartItem[] = [
-  {
-    id: "1",
-    name: "Premium Rice 25kg",
-    category: "Rice & Grains",
-    rate: 1200,
-    unit: "bag",
-    quantity: 3,
-    total: 3600
-  },
-  {
-    id: "3",
-    name: "Sunflower Oil 1L",
-    category: "Oil & Ghee",
-    rate: 120,
-    unit: "bottle",
-    quantity: 12,
-    total: 1440
-  }
-];
 
 
 React.useEffect(() => {
