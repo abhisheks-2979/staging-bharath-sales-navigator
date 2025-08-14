@@ -142,13 +142,21 @@ const computeItemDiscount = (item: AnyCartItem) => {
   return 0;
 };
 const computeItemTotal = (item: AnyCartItem) => {
-  // If item has pre-calculated total (from OrderEntry with schemes), use that
-  if (item.total !== undefined) {
-    return Number(item.total);
-  }
+  // Always recalculate based on quantity and rate, applying scheme discounts
+  const subtotal = computeItemSubtotal(item);
+  const discount = computeItemDiscount(item);
+  const total = subtotal - discount;
   
-  // Fallback calculation
-  return computeItemSubtotal(item) - computeItemDiscount(item);
+  console.log('Cart item total calculation:', {
+    itemName: item.name,
+    quantity: item.quantity,
+    rate: item.rate,
+    subtotal,
+    discount,
+    total
+  });
+  
+  return total;
 };
 
 // Mock cart data - in real app this would come from state management
@@ -291,10 +299,8 @@ React.useEffect(() => {
     setCartItems(prev => prev.map(item => {
       if (item.id === productId) {
         const updatedItem = { ...item, quantity: newQuantity };
-        // Force recalculation by removing any pre-calculated total
-        delete updatedItem.total;
         
-        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity);
+        console.log('Updating cart quantity for:', updatedItem.name, 'New quantity:', newQuantity);
         
         // Update OrderEntry quantities storage
         updateOrderEntryQuantities(productId, newQuantity);
@@ -328,7 +334,11 @@ React.useEffect(() => {
 
   const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item), 0);
   const getDiscount = () => cartItems.reduce((sum, item) => sum + computeItemDiscount(item), 0);
-  const getFinalTotal = () => getSubtotal() - getDiscount();
+  const getFinalTotal = () => {
+    const total = cartItems.reduce((sum, item) => sum + computeItemTotal(item), 0);
+    console.log('Cart Final Total:', total, 'Items:', cartItems.length);
+    return total;
+  };
 
   // Check if the visit date allows order submission
   const canSubmitOrder = () => {
