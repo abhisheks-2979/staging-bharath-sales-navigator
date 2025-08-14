@@ -132,25 +132,36 @@ useEffect(() => {
   try {
     if (activeStorageKey) {
       const rawUser = localStorage.getItem(activeStorageKey);
+      console.log('Loading cart from localStorage:', { activeStorageKey, rawUser });
       if (rawUser) {
         const cartData = JSON.parse(rawUser) as CartItem[];
+        console.log('Parsed cart data:', cartData);
         setCart(cartData);
-        // Sync quantities from cart to order entry
+        // Sync quantities from cart to order entry immediately
         syncQuantitiesFromCart(cartData);
         return;
       }
-      // Don't need complex temp storage logic with fallback key
     }
-  } catch {}
+  } catch (error) {
+    console.error('Error loading cart:', error);
+  }
 }, [activeStorageKey]);
 
 // Function to sync quantities from cart back to order entry
 const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
+  const newStocks: {[key: string]: number} = {};
+  
   cartData.forEach(item => {
     newQuantities[item.id] = item.quantity;
+    if (item.closingStock) {
+      newStocks[item.id] = item.closingStock;
+    }
   });
+  
+  console.log('Syncing quantities from cart:', { newQuantities, newStocks });
   setQuantities(prev => ({ ...prev, ...newQuantities }));
+  setClosingStocks(prev => ({ ...prev, ...newStocks }));
 };
 
 useEffect(() => {
@@ -189,7 +200,7 @@ useEffect(() => {
     try {
       const parsedQuantities = JSON.parse(savedQuantities);
       console.log('Loading saved quantities:', parsedQuantities);
-      setQuantities(parsedQuantities);
+      setQuantities(prev => ({ ...prev, ...parsedQuantities }));
     } catch (error) {
       console.error('Error loading saved quantities:', error);
     }
@@ -201,7 +212,7 @@ useEffect(() => {
     try {
       const parsedVariants = JSON.parse(savedVariants);
       console.log('Loading saved variants:', parsedVariants);
-      setSelectedVariants(parsedVariants);
+      setSelectedVariants(prev => ({ ...prev, ...parsedVariants }));
     } catch (error) {
       console.error('Error loading saved variants:', error);
     }
@@ -213,9 +224,21 @@ useEffect(() => {
     try {
       const parsedStocks = JSON.parse(savedStocks);
       console.log('Loading saved stocks:', parsedStocks);
-      setClosingStocks(parsedStocks);
+      setClosingStocks(prev => ({ ...prev, ...parsedStocks }));
     } catch (error) {
       console.error('Error loading saved stocks:', error);
+    }
+  }
+
+  // Also sync from cart data to ensure consistency
+  const cartData = localStorage.getItem(activeStorageKey);
+  if (cartData) {
+    try {
+      const parsedCart = JSON.parse(cartData) as CartItem[];
+      console.log('Also syncing from cart data for consistency:', parsedCart);
+      syncQuantitiesFromCart(parsedCart);
+    } catch (error) {
+      console.error('Error syncing from cart:', error);
     }
   }
 }, [activeStorageKey, products.length]);
