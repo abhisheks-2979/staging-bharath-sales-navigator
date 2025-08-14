@@ -152,7 +152,9 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
   const newStocks: {[key: string]: number} = {};
   const newVariants: {[key: string]: string} = {};
+  const variantQuantities: {[key: string]: {[variantId: string]: number}} = {};
   
+  // First pass: collect all quantities and group variants by base product
   cartData.forEach(item => {
     newQuantities[item.id] = item.quantity;
     if (item.closingStock) {
@@ -165,9 +167,36 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
       if (parts.length === 2) {
         const baseProductId = parts[0];
         const variantId = parts[1];
-        console.log('Mapping variant back to base product:', { baseProductId, variantId, itemId: item.id });
-        newVariants[baseProductId] = variantId;
+        console.log('Mapping variant back to base product:', { baseProductId, variantId, itemId: item.id, quantity: item.quantity });
+        
+        // Track variant quantities for each base product
+        if (!variantQuantities[baseProductId]) {
+          variantQuantities[baseProductId] = {};
+        }
+        variantQuantities[baseProductId][variantId] = item.quantity;
       }
+    }
+  });
+
+  // Second pass: determine which variant should be selected for each base product
+  Object.keys(variantQuantities).forEach(baseProductId => {
+    const variants = variantQuantities[baseProductId];
+    
+    // Find the variant with the highest quantity (or first one with quantity > 0)
+    let selectedVariantId = '';
+    let maxQuantity = 0;
+    
+    Object.keys(variants).forEach(variantId => {
+      const quantity = variants[variantId];
+      if (quantity > 0 && quantity > maxQuantity) {
+        maxQuantity = quantity;
+        selectedVariantId = variantId;
+      }
+    });
+    
+    if (selectedVariantId) {
+      newVariants[baseProductId] = selectedVariantId;
+      console.log('Selected variant for base product:', { baseProductId, selectedVariantId, maxQuantity });
     }
   });
   
