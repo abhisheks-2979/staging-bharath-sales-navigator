@@ -185,7 +185,17 @@ useEffect(() => {
       console.error('Error loading saved quantities:', error);
     }
   }
-}, [storageKey, tempStorageKey]);
+  }, [storageKey, tempStorageKey]);
+
+// Auto-sync quantities to cart whenever they change
+useEffect(() => {
+  // Debounce the auto-sync to avoid too frequent updates
+  const timeoutId = setTimeout(() => {
+    autoSyncCart();
+  }, 300);
+  
+  return () => clearTimeout(timeoutId);
+}, [quantities, selectedVariants]);
 
 useEffect(() => {
   const fetchData = async () => {
@@ -1412,6 +1422,28 @@ const filteredProducts = selectedCategory === "All"
           schemes={filteredSchemes}
         />
       </div>
+
+      {/* Floating View Cart Button */}
+      {cart.length > 0 && (
+        <div className="fixed bottom-4 left-4 right-4 z-50">
+          <Button
+            onClick={() => {
+              // Auto-sync current selections to cart before navigating
+              autoSyncCart();
+              navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}`);
+            }}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 shadow-lg border border-primary/20"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center">
+                <ShoppingCart size={20} className="mr-2" />
+                <span className="font-medium">View Cart ({getTotalItems()} items)</span>
+              </div>
+              <span className="font-bold">₹{getTotalValue().toLocaleString()}</span>
+            </div>
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
