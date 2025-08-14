@@ -152,51 +152,38 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
   const newStocks: {[key: string]: number} = {};
   const newVariants: {[key: string]: string} = {};
-  const variantQuantities: {[key: string]: {[variantId: string]: number}} = {};
   
-  // First pass: collect all quantities and group variants by base product
+  console.log('=== Syncing cart data ===', cartData);
+  
   cartData.forEach(item => {
-    newQuantities[item.id] = item.quantity;
+    console.log('Processing cart item:', { id: item.id, quantity: item.quantity, name: item.name });
+    
+    // Set stock if available
     if (item.closingStock) {
       newStocks[item.id] = item.closingStock;
     }
     
-    // Handle variant mapping back to base product
+    // Check if this is a variant item (format: baseId_variant_variantId)
     if (item.id.includes('_variant_')) {
       const parts = item.id.split('_variant_');
       if (parts.length === 2) {
         const baseProductId = parts[0];
         const variantId = parts[1];
-        console.log('Mapping variant back to base product:', { baseProductId, variantId, itemId: item.id, quantity: item.quantity });
+        console.log('Found variant item:', { baseProductId, variantId, quantity: item.quantity });
         
-        // Track variant quantities for each base product
-        if (!variantQuantities[baseProductId]) {
-          variantQuantities[baseProductId] = {};
+        // For variant items, set quantity on the base product and select the variant
+        newQuantities[baseProductId] = item.quantity;
+        newVariants[baseProductId] = variantId;
+        
+        // Also set the variant-specific stock if available
+        if (item.closingStock) {
+          newStocks[baseProductId] = item.closingStock;
         }
-        variantQuantities[baseProductId][variantId] = item.quantity;
       }
-    }
-  });
-
-  // Second pass: determine which variant should be selected for each base product
-  Object.keys(variantQuantities).forEach(baseProductId => {
-    const variants = variantQuantities[baseProductId];
-    
-    // Find the variant with the highest quantity (or first one with quantity > 0)
-    let selectedVariantId = '';
-    let maxQuantity = 0;
-    
-    Object.keys(variants).forEach(variantId => {
-      const quantity = variants[variantId];
-      if (quantity > 0 && quantity > maxQuantity) {
-        maxQuantity = quantity;
-        selectedVariantId = variantId;
-      }
-    });
-    
-    if (selectedVariantId) {
-      newVariants[baseProductId] = selectedVariantId;
-      console.log('Selected variant for base product:', { baseProductId, selectedVariantId, maxQuantity });
+    } else {
+      // This is a base product, set its quantity directly
+      console.log('Found base product:', { id: item.id, quantity: item.quantity });
+      newQuantities[item.id] = item.quantity;
     }
   });
   
