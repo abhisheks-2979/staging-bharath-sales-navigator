@@ -1359,8 +1359,8 @@ const filteredProducts = selectedCategory === "All"
           <TableOrderForm onCartUpdate={handleBulkCartUpdate} />
         )}
 
-        {/* Fixed Bottom Cart Summary - Shows actual cart items only */}
-        {getTotalItems() > 0 && (
+        {/* Fixed Bottom Cart Summary - HIDDEN PER USER REQUEST */}
+        {false && getTotalItems() > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 z-50">
             <div className="container mx-auto">
               <div className="flex items-center justify-between mb-2">
