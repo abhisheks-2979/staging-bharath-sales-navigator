@@ -171,13 +171,13 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
         const variantId = parts[1];
         console.log('Found variant item:', { baseProductId, variantId, quantity: item.quantity });
         
-        // For variant items, set quantity on the base product and select the variant
-        newQuantities[baseProductId] = item.quantity;
+        // For variant items, store quantity under the full variant ID and set the variant selection
+        newQuantities[item.id] = item.quantity; // Store under full variant ID
         newVariants[baseProductId] = variantId;
         
         // Also set the variant-specific stock if available
         if (item.closingStock) {
-          newStocks[baseProductId] = item.closingStock;
+          newStocks[item.id] = item.closingStock;
         }
       }
     } else {
@@ -337,19 +337,13 @@ const filteredProducts = selectedCategory === "All"
   const handleQuantityChange = (productId: string, quantity: number) => {
     console.log('Quantity changed:', { productId, quantity });
     
-    // If this is a variant product (contains _variant_), extract the base product ID
-    let baseProductId = productId;
-    if (productId.includes('_variant_')) {
-      baseProductId = productId.split('_variant_')[0];
-      console.log('Extracted base product ID from variant:', { originalId: productId, baseProductId });
-    }
-    
+    // Store quantity under the actual productId (could be base or variant)
     setQuantities(prev => {
-      const newQuantities = { ...prev, [baseProductId]: quantity };
+      const newQuantities = { ...prev, [productId]: quantity };
       // Immediately save to localStorage
       const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
       localStorage.setItem(quantityKey, JSON.stringify(newQuantities));
-      console.log('Saving quantity for base product:', { baseProductId, quantity });
+      console.log('Saving quantity for product:', { productId, quantity });
       return newQuantities;
     });
     
@@ -375,14 +369,9 @@ const filteredProducts = selectedCategory === "All"
     const cleanValue = value.replace(/^0+/, '') || '0';
     const stock = parseInt(cleanValue) || 0;
     
-    // If this is a variant product, extract the base product ID for stock storage
-    let baseProductId = productId;
-    if (productId.includes('_variant_')) {
-      baseProductId = productId.split('_variant_')[0];
-    }
-    
+    // Store stock under the actual productId (could be base or variant)
     setClosingStocks(prev => {
-      const newStocks = { ...prev, [baseProductId]: stock };
+      const newStocks = { ...prev, [productId]: stock };
       // Immediately save to localStorage
       const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
       localStorage.setItem(stockKey, JSON.stringify(newStocks));
@@ -504,9 +493,8 @@ const filteredProducts = selectedCategory === "All"
   const addToCart = (product: Product) => {
     // Get the display product (could be variant)
     const displayProduct = getDisplayProduct(product as GridProduct);
-    // For quantities, always use the base product ID
-    const quantityKey = product.id; // Always use base product ID for quantity lookup
-    const quantity = quantities[quantityKey] || 0;
+    // Use the display product ID for quantity lookup (supports both base and variant quantities)
+    const quantity = quantities[displayProduct.id] || 0;
     
     console.log('Adding to cart:', { 
       originalProductId: product.id, 
