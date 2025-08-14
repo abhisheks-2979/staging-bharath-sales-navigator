@@ -92,7 +92,9 @@ export const Cart = () => {
         itemName: item.name,
         nameMatches,
         variantMatches,
-        isActive: scheme.is_active
+        isActive: scheme.is_active,
+        condition: scheme.condition_quantity,
+        discount: scheme.discount_percentage
       });
       
       return nameMatches && variantMatches && scheme.is_active;
