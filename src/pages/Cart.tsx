@@ -24,10 +24,75 @@ interface CartItem {
 
 type AnyCartItem = CartItem;
 
-const getItemScheme = (item: AnyCartItem) => {
+export const Cart = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const visitId = searchParams.get("visitId") || '';
+  const retailerId = searchParams.get("retailerId") || '';
+  const retailerName = searchParams.get("retailer") || "Retailer Name";
+
+  // Fetch and cache schemes from database
+  const [allSchemes, setAllSchemes] = React.useState<any[]>([]);
+  const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+  const [userId, setUserId] = React.useState<string | null>(null);
+  const [loggedInUserName, setLoggedInUserName] = React.useState<string>("User");
+  const [visitDate, setVisitDate] = React.useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
+  const [showItemDetail, setShowItemDetail] = React.useState(false);
+  const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
+  const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
+
+  React.useEffect(() => {
+    const fetchSchemes = async () => {
+      const { data } = await supabase
+        .from('product_schemes')
+        .select(`
+          *,
+          products(name),
+          product_variants(variant_name)
+        `)
+        .eq('is_active', true);
+      
+      if (data) {
+        setAllSchemes(data);
+      }
+    };
+    
+    fetchSchemes();
+  }, []);
+
+  const getItemScheme = (item: AnyCartItem) => {
+  // First check if item has pre-calculated scheme data
   const active = item.schemes?.find(s => s.is_active);
-  const condition = item.schemeConditionQuantity ?? active?.condition_quantity;
-  const discountPct = item.schemeDiscountPercentage ?? active?.discount_percentage;
+  if (active) {
+    return {
+      condition: active.condition_quantity ? Number(active.condition_quantity) : undefined,
+      discountPct: active.discount_percentage ? Number(active.discount_percentage) : undefined,
+    };
+  }
+
+  // Then check from database schemes by matching product name
+  const matchingScheme = allSchemes.find(scheme => {
+    const productName = scheme.products?.name;
+    const variantName = scheme.product_variants?.variant_name;
+    
+    // Match by product name and optionally variant
+    const nameMatches = productName && item.name.includes(productName);
+    const variantMatches = !variantName || item.name.includes(variantName);
+    
+    return nameMatches && variantMatches && scheme.is_active;
+  });
+
+  if (matchingScheme) {
+    return {
+      condition: matchingScheme.condition_quantity ? Number(matchingScheme.condition_quantity) : undefined,
+      discountPct: matchingScheme.discount_percentage ? Number(matchingScheme.discount_percentage) : undefined,
+    };
+  }
+
+  // Fallback to item's own scheme data
+  const condition = item.schemeConditionQuantity;
+  const discountPct = item.schemeDiscountPercentage;
   return {
     condition: condition != null ? Number(condition) : undefined,
     discountPct: discountPct != null ? Number(discountPct) : undefined,
@@ -80,21 +145,6 @@ const mockCartItems: CartItem[] = [
   }
 ];
 
-export const Cart = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const visitId = searchParams.get("visitId") || '';
-  const retailerId = searchParams.get("retailerId") || '';
-  const retailerName = searchParams.get("retailer") || "Retailer Name";
-
-const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
-const [userId, setUserId] = React.useState<string | null>(null);
-const [loggedInUserName, setLoggedInUserName] = React.useState<string>("User");
-const [visitDate, setVisitDate] = React.useState<string | null>(null);
-const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
-const [showItemDetail, setShowItemDetail] = React.useState(false);
-const storageKey = userId && retailerId ? `order_cart:${userId}:${retailerId}` : null;
-const tempStorageKey = retailerId ? `order_cart:temp:${retailerId}` : null;
 
 React.useEffect(() => {
   const fetchUserData = async () => {
