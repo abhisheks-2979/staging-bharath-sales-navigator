@@ -127,7 +127,7 @@ const activeStorageKey = validVisitId && validRetailerId
 // Debug storage keys
 console.log('Storage Debug:', { visitId, retailerId, validVisitId, validRetailerId, activeStorageKey });
 
-// Load cart and sync quantities
+// Load cart and sync quantities - this runs every time we come back to OrderEntry
 useEffect(() => {
   try {
     if (activeStorageKey) {
@@ -137,7 +137,7 @@ useEffect(() => {
         const cartData = JSON.parse(rawUser) as CartItem[];
         console.log('Parsed cart data:', cartData);
         setCart(cartData);
-        // Sync quantities from cart to order entry immediately
+        // Sync quantities from cart to order entry immediately - CRITICAL for persistence
         syncQuantitiesFromCart(cartData);
         return;
       }
@@ -147,13 +147,55 @@ useEffect(() => {
   }
 }, [activeStorageKey]);
 
+// Additional effect to ensure quantities are always synced when returning from cart
+useEffect(() => {
+  const handleVisibilityChange = () => {
+    if (!document.hidden) {
+      // Page became visible - likely returning from cart
+      console.log('Page became visible, re-syncing cart data');
+      const rawUser = localStorage.getItem(activeStorageKey);
+      if (rawUser) {
+        try {
+          const cartData = JSON.parse(rawUser) as CartItem[];
+          syncQuantitiesFromCart(cartData);
+        } catch (error) {
+          console.error('Error re-syncing cart on visibility change:', error);
+        }
+      }
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // Also sync on window focus (when coming back from another tab/page)
+  const handleFocus = () => {
+    console.log('Window focused, re-syncing cart data');
+    const rawUser = localStorage.getItem(activeStorageKey);
+    if (rawUser) {
+      try {
+        const cartData = JSON.parse(rawUser) as CartItem[];
+        syncQuantitiesFromCart(cartData);
+      } catch (error) {
+        console.error('Error re-syncing cart on focus:', error);
+      }
+    }
+  };
+
+  window.addEventListener('focus', handleFocus);
+  
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('focus', handleFocus);
+  };
+}, [activeStorageKey]);
+
   // Function to sync quantities from cart back to order entry
 const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
   const newStocks: {[key: string]: number} = {};
   const newVariants: {[key: string]: string} = {};
   
-  console.log('=== Syncing cart data ===', cartData);
+  console.log('=== Syncing cart data to OrderEntry ===', cartData);
   
   cartData.forEach(item => {
     console.log('Processing cart item:', { id: item.id, quantity: item.quantity, name: item.name });
@@ -187,10 +229,29 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
     }
   });
   
-  console.log('Syncing quantities from cart:', { newQuantities, newStocks, newVariants });
-  setQuantities(prev => ({ ...prev, ...newQuantities }));
-  setClosingStocks(prev => ({ ...prev, ...newStocks }));
-  setSelectedVariants(prev => ({ ...prev, ...newVariants }));
+  console.log('Applying synced data to OrderEntry state:', { newQuantities, newStocks, newVariants });
+  
+  // Use functional updates to ensure we get the latest state
+  setQuantities(prev => {
+    const updated = { ...prev, ...newQuantities };
+    console.log('Updated quantities state:', updated);
+    return updated;
+  });
+  setClosingStocks(prev => {
+    const updated = { ...prev, ...newStocks };
+    console.log('Updated stocks state:', updated);
+    return updated;
+  });
+  setSelectedVariants(prev => {
+    const updated = { ...prev, ...newVariants };
+    console.log('Updated variants state:', updated);
+    return updated;
+  });
+  
+  // Also update the addedItems set to show visual feedback
+  const newAddedItems = new Set(Object.keys(newQuantities).filter(id => newQuantities[id] > 0));
+  setAddedItems(newAddedItems);
+  console.log('Updated addedItems:', newAddedItems);
 };
 
 useEffect(() => {
