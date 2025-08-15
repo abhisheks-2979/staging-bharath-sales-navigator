@@ -147,7 +147,7 @@ useEffect(() => {
   }
 }, [activeStorageKey]);
 
-// Function to sync quantities from cart back to order entry
+  // Function to sync quantities from cart back to order entry
 const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   const newQuantities: {[key: string]: number} = {};
   const newStocks: {[key: string]: number} = {};
@@ -157,11 +157,6 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
   
   cartData.forEach(item => {
     console.log('Processing cart item:', { id: item.id, quantity: item.quantity, name: item.name });
-    
-    // Set stock if available
-    if (item.closingStock) {
-      newStocks[item.id] = item.closingStock;
-    }
     
     // Check if this is a variant item (format: baseId_variant_variantId)
     if (item.id.includes('_variant_')) {
@@ -184,6 +179,11 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
       // This is a base product, set its quantity directly
       console.log('Found base product:', { id: item.id, quantity: item.quantity });
       newQuantities[item.id] = item.quantity;
+      
+      // Set stock if available
+      if (item.closingStock) {
+        newStocks[item.id] = item.closingStock;
+      }
     }
   });
   
@@ -339,11 +339,17 @@ const filteredProducts = selectedCategory === "All"
     
     // Store quantity under the actual productId (could be base or variant)
     setQuantities(prev => {
-      const newQuantities = { ...prev, [productId]: quantity };
+      const newQuantities = { ...prev };
+      if (quantity > 0) {
+        newQuantities[productId] = quantity;
+      } else {
+        delete newQuantities[productId];
+      }
+      
       // Immediately save to localStorage
       const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
       localStorage.setItem(quantityKey, JSON.stringify(newQuantities));
-      console.log('Saving quantity for product:', { productId, quantity });
+      console.log('Saving quantity for product:', { productId, quantity, newQuantities });
       return newQuantities;
     });
     
@@ -371,10 +377,17 @@ const filteredProducts = selectedCategory === "All"
     
     // Store stock under the actual productId (could be base or variant)
     setClosingStocks(prev => {
-      const newStocks = { ...prev, [productId]: stock };
+      const newStocks = { ...prev };
+      if (stock > 0) {
+        newStocks[productId] = stock;
+      } else {
+        delete newStocks[productId];
+      }
+      
       // Immediately save to localStorage
       const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
       localStorage.setItem(stockKey, JSON.stringify(newStocks));
+      console.log('Saving stock for product:', { productId, stock, newStocks });
       return newStocks;
     });
   };
@@ -1228,7 +1241,8 @@ const filteredProducts = selectedCategory === "All"
                              const savings = variant.discount_percentage > 0 
                                ? variant.price * variant.discount_percentage / 100
                                : variant.discount_amount;
-                             const variantQuantity = quantities[variant.id] || 0;
+                              const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                              const variantQuantity = quantities[variantCompositeId] || 0;
                              const variantAmount = variantQuantity * variantPrice;
                              
                              // Check if this variant has a scheme applied specifically to it
@@ -1265,13 +1279,14 @@ const filteredProducts = selectedCategory === "All"
                                     type="number"
                                     placeholder="0"
                                     value={variantQuantity || ""}
-                                    onChange={(e) => {
-                                      const qty = parseInt(e.target.value) || 0;
-                                      handleQuantityChange(variant.id, qty);
-                                      if (qty > 0) {
-                                        handleVariantChange(product.id, variant.id);
-                                      }
-                                    }}
+                                     onChange={(e) => {
+                                       const qty = parseInt(e.target.value) || 0;
+                                       const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                                       handleQuantityChange(variantCompositeId, qty);
+                                       if (qty > 0) {
+                                         handleVariantChange(product.id, variant.id);
+                                       }
+                                     }}
                                     className="h-6 text-xs p-1"
                                     min="0"
                                   />
@@ -1281,22 +1296,25 @@ const filteredProducts = selectedCategory === "All"
                                      type="number"
                                      placeholder="0"
                                      value={(() => {
-                                       const stock = closingStocks[variant.id] ?? variant.stock_quantity;
+                                        const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                                        const stock = closingStocks[variantCompositeId] ?? variant.stock_quantity;
                                        return stock === 0 ? "" : stock;
                                      })()}
-                                     onChange={(e) => {
-                                       const value = e.target.value;
-                                       handleClosingStockChange(variant.id, value === "" ? "0" : value);
-                                     }}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                                        handleClosingStockChange(variantCompositeId, value === "" ? "0" : value);
+                                      }}
                                      onFocus={(e) => {
                                        if (e.target.value === "0" || e.target.value === "") {
                                          e.target.select();
                                        }
                                      }}
-                                     className={`h-6 text-xs p-1 ${(() => {
-                                       const stock = closingStocks[variant.id] ?? variant.stock_quantity;
-                                       return stock === 0 ? "text-muted-foreground" : "";
-                                     })()}`}
+                                      className={`h-6 text-xs p-1 ${(() => {
+                                        const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                                        const stock = closingStocks[variantCompositeId] ?? variant.stock_quantity;
+                                        return stock === 0 ? "text-muted-foreground" : "";
+                                      })()}`}
                                      min="0"
                                    />
                                 </div>
@@ -1390,9 +1408,10 @@ const filteredProducts = selectedCategory === "All"
                                totalQtyForProduct += baseQty;
                              }
                              
-                             // Check all variant quantities for this product
-                             product.variants.forEach(variant => {
-                               const variantQty = quantities[variant.id] || 0;
+                              // Check all variant quantities for this product
+                              product.variants.forEach(variant => {
+                                const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                                const variantQty = quantities[variantCompositeId] || 0;
                                if (variantQty > 0) {
                                  const variantPrice = variant.discount_percentage > 0 
                                    ? variant.price - (variant.price * variant.discount_percentage / 100)
@@ -1412,7 +1431,7 @@ const filteredProducts = selectedCategory === "All"
                                    unit: product.unit,
                                    quantity: variantQty,
                                    total: finalTotal,
-                                   closingStock: closingStocks[variant.id] || variant.stock_quantity
+                                   closingStock: closingStocks[variantCompositeId] || variant.stock_quantity
                                  });
                                  totalQtyForProduct += variantQty;
                                }
@@ -1474,8 +1493,11 @@ const filteredProducts = selectedCategory === "All"
                            if (product.variants && product.variants.length > 0) {
                              // Check if base product has quantity
                              const baseQty = quantities[product.id] || 0;
-                             // Check if any variant has quantity
-                             const hasVariantQty = product.variants.some(v => (quantities[v.id] || 0) > 0);
+                              // Check if any variant has quantity
+                              const hasVariantQty = product.variants.some(v => {
+                                const variantCompositeId = `${product.id}_variant_${v.id}`;
+                                return (quantities[variantCompositeId] || 0) > 0;
+                              });
                              // Button is disabled if no quantity is entered anywhere
                              return baseQty <= 0 && !hasVariantQty;
                            } else {
@@ -1498,7 +1520,10 @@ const filteredProducts = selectedCategory === "All"
                                if (product.variants && product.variants.length > 0) {
                                  // Show total quantity for products with variants
                                  const baseQty = quantities[product.id] || 0;
-                                 const variantQty = product.variants.reduce((sum, v) => sum + (quantities[v.id] || 0), 0);
+                                  const variantQty = product.variants.reduce((sum, v) => {
+                                    const variantCompositeId = `${product.id}_variant_${v.id}`;
+                                    return sum + (quantities[variantCompositeId] || 0);
+                                  }, 0);
                                  const totalQty = baseQty + variantQty;
                                  return totalQty > 0 ? `${totalQty} item(s)` : '';
                                } else {

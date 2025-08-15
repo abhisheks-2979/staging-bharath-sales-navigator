@@ -330,6 +330,7 @@ React.useEffect(() => {
         delete quantities[productId];
       }
       localStorage.setItem(quantityKey, JSON.stringify(quantities));
+      console.log('Updated OrderEntry quantities:', { productId, quantity, allQuantities: quantities });
     } catch (error) {
       console.error('Error updating OrderEntry quantities:', error);
     }
