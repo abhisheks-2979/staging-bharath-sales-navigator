@@ -533,14 +533,39 @@ const filteredProducts = selectedCategory === "All"
       (scheme.variant_id === variantId || scheme.variant_id === null)
     );
 
+    console.log('Calculating scheme discount:', {
+      productId,
+      variantId,
+      quantity: safeQuantity,
+      basePrice: safeBasePrice,
+      availableSchemes: applicableSchemes.map(s => ({
+        id: s.id,
+        name: s.name,
+        variant_id: s.variant_id,
+        condition_quantity: s.condition_quantity,
+        quantity_condition_type: s.quantity_condition_type,
+        discount_percentage: s.discount_percentage,
+        scheme_type: s.scheme_type
+      }))
+    });
+
     let totalDiscount = 0;
     let freeQuantity = 0;
 
     applicableSchemes.forEach(scheme => {
       const conditionQty = Number(scheme.condition_quantity) || 0;
+      // Fix condition logic: "more_than" should check >= not just >
       const meetsCondition = scheme.quantity_condition_type === 'more_than' 
-        ? safeQuantity > conditionQty
+        ? safeQuantity >= conditionQty  // Changed from > to >=
         : safeQuantity === conditionQty;
+
+      console.log('Scheme condition check:', {
+        schemeName: scheme.name,
+        conditionType: scheme.quantity_condition_type,
+        conditionQty,
+        actualQty: safeQuantity,
+        meetsCondition
+      });
 
       if (meetsCondition) {
         if (scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') {
@@ -548,9 +573,19 @@ const filteredProducts = selectedCategory === "All"
           const discountAmt = Number(scheme.discount_amount) || 0;
           
           if (discountPct > 0) {
-            totalDiscount += (safeBasePrice * safeQuantity * discountPct) / 100;
+            const schemeDiscount = (safeBasePrice * safeQuantity * discountPct) / 100;
+            totalDiscount += schemeDiscount;
+            console.log('Applied percentage discount:', {
+              discountPct,
+              schemeDiscount,
+              totalDiscount
+            });
           } else if (discountAmt > 0) {
             totalDiscount += discountAmt;
+            console.log('Applied fixed discount:', {
+              discountAmt,
+              totalDiscount
+            });
           }
         } else if (scheme.scheme_type === 'buy_get') {
           freeQuantity += Number(scheme.free_quantity) || 0;
@@ -558,10 +593,13 @@ const filteredProducts = selectedCategory === "All"
       }
     });
 
-    return { 
+    const result = { 
       totalDiscount: Number(totalDiscount) || 0, 
       freeQuantity: Number(freeQuantity) || 0 
     };
+    
+    console.log('Final scheme calculation result:', result);
+    return result;
   };
 
   const addToCart = (product: Product) => {
@@ -588,13 +626,31 @@ const filteredProducts = selectedCategory === "All"
     }
 
     const baseTotal = Number(displayProduct.rate) * Number(quantity);
+    
+    // Determine the variant ID for scheme calculation
+    let variantIdForScheme = null;
+    if (displayProduct.id.includes('_variant_')) {
+      // For composite variant IDs, extract the actual variant ID
+      variantIdForScheme = displayProduct.id.split('_variant_')[1];
+    }
+    
+    console.log('Scheme calculation debug:', {
+      productId: product.id,
+      variantIdForScheme,
+      quantity,
+      basePrice: Number(displayProduct.rate),
+      displayProductId: displayProduct.id
+    });
+    
     const { totalDiscount, freeQuantity } = calculateSchemeDiscount(
       product.id, 
-      selectedVariants[product.id] && selectedVariants[product.id] !== "base" ? selectedVariants[product.id] : null, 
+      variantIdForScheme, 
       quantity, 
       Number(displayProduct.rate)
     );
     const finalTotal = baseTotal - totalDiscount;
+    
+    console.log('Scheme discount result:', { baseTotal, totalDiscount, finalTotal });
 
     const cartItem = {
       ...displayProduct,
@@ -1172,10 +1228,11 @@ const filteredProducts = selectedCategory === "All"
                             total += (baseQty * product.rate) - totalDiscount;
                           }
                           
-                          // Calculate all variant totals
+                          // Calculate all variant totals using composite IDs
                           if (product.variants) {
                             product.variants.forEach(variant => {
-                              const variantQty = quantities[variant.id] || 0;
+                              const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                              const variantQty = quantities[variantCompositeId] || 0;
                               if (variantQty > 0) {
                                 const variantPrice = variant.discount_percentage > 0 
                                   ? variant.price - (variant.price * variant.discount_percentage / 100)
