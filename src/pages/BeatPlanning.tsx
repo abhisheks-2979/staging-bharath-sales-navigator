@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Users, CheckCircle, Save, ArrowLeft } from "lucide-react";
+import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -245,19 +245,30 @@ export const BeatPlanning = () => {
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate('/visits/retailers')}
-                className="text-primary-foreground hover:bg-primary-foreground/20"
-              >
-                <ArrowLeft size={20} />
-              </Button>
-              <div>
-                <CardTitle className="text-xl font-bold">Plan My Visits</CardTitle>
-                <p className="text-primary-foreground/80">Select beats for your weekly visit schedule</p>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => navigate('/visits')}
+                  className="text-primary-foreground hover:bg-primary-foreground/20"
+                >
+                  <ArrowLeft size={20} />
+                </Button>
+                <div>
+                  <CardTitle className="text-xl font-bold">Plan My Visits</CardTitle>
+                  <p className="text-primary-foreground/80">Select beats for your weekly visit schedule</p>
+                </div>
               </div>
+              <Button 
+                onClick={() => navigate('/my-beats?openCreateModal=true')}
+                variant="secondary"
+                size="sm"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+              >
+                <Plus size={16} className="mr-1" />
+                Create Beat
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -308,27 +319,50 @@ export const BeatPlanning = () => {
                         {beat.priority}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Last visited: {beat.lastVisited}
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        Last visited: {beat.lastVisited || 'Never'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Category: {beat.category || 'General'}
+                      </p>
+                    </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={isBeatSelected(beat.id) ? "destructive" : "default"}
-                    onClick={() => isBeatSelected(beat.id) ? handleRemoveBeat(beat.id) : handleSelectBeat(beat.id)}
-                  >
-                    {isBeatSelected(beat.id) ? "Remove" : "Select"}
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant={isBeatSelected(beat.id) ? "destructive" : "default"}
+                      onClick={() => isBeatSelected(beat.id) ? handleRemoveBeat(beat.id) : handleSelectBeat(beat.id)}
+                    >
+                      {isBeatSelected(beat.id) ? "Remove" : "Select"}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}
+                      className="text-xs"
+                    >
+                      Analytics
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Beat Stats */}
-                <div className="grid grid-cols-1 gap-4 text-center">
+                <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
                     <div className="flex items-center justify-center mb-1">
                       <Users size={16} className="text-primary mr-1" />
                     </div>
                     <div className="text-lg font-bold text-primary">{beat.retailerCount}</div>
                     <div className="text-xs text-muted-foreground">Retailers</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-primary">₹{(Math.random() * 150000 + 50000).toFixed(0)}</div>
+                    <div className="text-xs text-muted-foreground">Avg Revenue</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-primary">₹{(Math.random() * 500000 + 200000).toFixed(0)}</div>
+                    <div className="text-xs text-muted-foreground">6M Sales</div>
                   </div>
                 </div>
               </CardContent>

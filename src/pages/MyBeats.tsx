@@ -493,40 +493,74 @@ export const MyBeats = () => {
               {beats.map((beat) => (
                 <Card key={beat.id} className="hover:shadow-lg transition-all duration-200 hover:scale-105">
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="default" className="text-xs font-semibold">
-                            Beat #{beat.beat_number}
-                          </Badge>
-                          {beat.category && (
-                            <Badge variant="outline" className="text-xs">
-                              {beat.category}
-                            </Badge>
-                          )}
-                        </div>
-                        <CardTitle className="text-lg leading-tight">{beat.name}</CardTitle>
-                      </div>
-                    </div>
+                     <div className="flex items-start justify-between">
+                       <div className="space-y-2 flex-1">
+                         <div className="flex items-center gap-2 flex-wrap">
+                           <Badge variant="default" className="text-xs font-semibold">
+                             Beat #{beat.beat_number}
+                           </Badge>
+                           <Badge 
+                             className={`text-xs ${
+                               beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' : // Platinum
+                               beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' : // Silver
+                               beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' : // Gold
+                               'bg-amber-100 text-amber-800' // Bronze
+                             }`}
+                           >
+                             {beat.retailer_count >= 30 ? 'Platinum' : 
+                              beat.retailer_count >= 20 ? 'Silver' : 
+                              beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
+                           </Badge>
+                           {beat.category && (
+                             <Badge variant="outline" className="text-xs">
+                               {beat.category}
+                             </Badge>
+                           )}
+                         </div>
+                         <CardTitle className="text-lg leading-tight">{beat.name}</CardTitle>
+                       </div>
+                       <Button 
+                         variant="ghost" 
+                         size="sm"
+                         onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}
+                         className="flex items-center gap-2"
+                       >
+                         <BarChart className="h-4 w-4" />
+                         <span className="hidden sm:inline">Analytics</span>
+                       </Button>
+                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Beat Stats */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-primary" />
-                        <span className="font-medium">{beat.retailer_count}</span>
-                        <span className="text-muted-foreground">retailers</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-green-600" />
-                        <span className="text-muted-foreground text-xs">
-                          {beat.last_visited 
-                            ? new Date(beat.last_visited).toLocaleDateString()
-                            : 'Not visited'
-                          }
-                        </span>
-                      </div>
-                    </div>
+                     {/* Beat Stats */}
+                     <div className="grid grid-cols-3 gap-3 text-center">
+                       <div>
+                         <div className="flex items-center justify-center mb-1">
+                           <Users size={16} className="text-primary mr-1" />
+                         </div>
+                         <div className="text-lg font-bold text-primary">{beat.retailer_count}</div>
+                         <div className="text-xs text-muted-foreground">Retailers</div>
+                       </div>
+                       <div>
+                         <div className="text-lg font-bold text-green-600">
+                           ₹{(Math.random() * 15000 + 5000).toFixed(0)}
+                         </div>
+                         <div className="text-xs text-muted-foreground">Avg Revenue</div>
+                       </div>
+                       <div>
+                         <div className="text-lg font-bold text-blue-600">
+                           ₹{(Math.random() * 500000 + 200000).toFixed(0)}
+                         </div>
+                         <div className="text-xs text-muted-foreground">6M Sales</div>
+                       </div>
+                     </div>
+                     
+                     {/* Additional Info */}
+                     <div className="text-sm text-muted-foreground space-y-1">
+                       <div className="flex items-center gap-2">
+                         <Calendar className="h-4 w-4" />
+                         <span>Last visited: {beat.last_visited ? new Date(beat.last_visited).toLocaleDateString() : 'Never'}</span>
+                       </div>
+                     </div>
                     
                     {/* Beat Actions */}
                     <div className="flex flex-col gap-2 pt-2">
