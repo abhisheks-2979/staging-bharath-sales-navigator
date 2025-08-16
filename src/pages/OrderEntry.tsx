@@ -753,10 +753,11 @@ const filteredProducts = selectedCategory === "All"
         total += Number(subtotal) || 0;
       }
       
-      // Check all variant quantities
+      // Check all variant quantities using composite IDs
       if (product.variants) {
         product.variants.forEach(variant => {
-          const variantQty = Number(quantities[variant.id]) || 0;
+          const variantCompositeId = `${product.id}_variant_${variant.id}`;
+          const variantQty = Number(quantities[variantCompositeId]) || 0;
           
           if (variantQty > 0) {
             const basePrice = Number(variant.price) || 0;
