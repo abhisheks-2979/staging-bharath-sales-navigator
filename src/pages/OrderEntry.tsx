@@ -1250,19 +1250,6 @@ const filteredProducts = selectedCategory === "All"
                         })()}
                       </p>
                       
-                       {/* View Order Button */}
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         onClick={() => {
-                           setCurrentProductName(product.name);
-                           setShowOrderSummary(true);
-                         }}
-                         className="text-xs h-6 p-1 mt-1 text-primary hover:bg-primary/10"
-                       >
-                         View Order
-                       </Button>
-                      
                       {savingsAmount > 0 && (
                         <p className="text-xs text-green-600 font-semibold">
                           You save ₹{savingsAmount.toFixed(2)}
