@@ -256,8 +256,18 @@ export const BeatPlanning = () => {
                   <ArrowLeft size={20} />
                 </Button>
                 <div>
-                  <CardTitle className="text-xl font-bold">Plan My Visits</CardTitle>
-                  <p className="text-primary-foreground/80">Select beats for your weekly visit schedule</p>
+                  <CardTitle className="text-xl font-bold">
+                    {plannedBeats[selectedDay]?.length > 0 
+                      ? `Journey: ${plannedBeats[selectedDay].map(beatId => beats.find(b => b.id === beatId)?.name || beatId).join(', ')}`
+                      : 'Plan My Visits'
+                    }
+                  </CardTitle>
+                  <p className="text-primary-foreground/80">
+                    {plannedBeats[selectedDay]?.length > 0 
+                      ? `${plannedBeats[selectedDay].length} beat(s) selected for ${weekDays.find(d => d.day === selectedDay)?.fullDate}`
+                      : 'Select beats for your weekly visit schedule'
+                    }
+                  </p>
                 </div>
               </div>
               <Button 
