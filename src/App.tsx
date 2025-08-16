@@ -93,6 +93,11 @@ const App = () => (
                 <BeatPlanning />
               </ProtectedRoute>
             } />
+            <Route path="/beat-planning" element={
+              <ProtectedRoute>
+                <BeatPlanning />
+              </ProtectedRoute>
+            } />
             <Route path="/visits/retailers" element={
               <ProtectedRoute>
                 <MyVisits />
