@@ -26,7 +26,7 @@ export const RoleBasedAuthPage = () => {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleRoleSelection = (role: UserType) => {

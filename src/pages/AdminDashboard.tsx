@@ -145,7 +145,7 @@ export const AdminDashboard = () => {
   }
 
   if (userRole !== 'admin') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

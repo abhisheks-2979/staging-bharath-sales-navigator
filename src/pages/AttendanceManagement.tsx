@@ -128,7 +128,7 @@ const AttendanceManagement = () => {
   }
 
   if (userRole !== 'admin') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const fetchAttendanceRecords = async () => {

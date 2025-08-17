@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import Index from "./pages/Index";
+import { LandingPage } from "./pages/LandingPage";
 import { VisitPlanner } from "./pages/VisitPlanner";
 import { BeatPlanning } from "./pages/BeatPlanning";
 import { MyVisits } from "./pages/MyVisits";
@@ -52,7 +53,13 @@ const App = () => (
         <PWAInstallPrompt />
         <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<RoleBasedAuthPage />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Index />
+            </ProtectedRoute>
+          } />
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
@@ -78,11 +85,6 @@ const App = () => (
               <TerritoriesAndDistributors />
             </ProtectedRoute>
           } />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
             <Route path="/visit-planner" element={
               <ProtectedRoute>
                 <VisitPlanner />

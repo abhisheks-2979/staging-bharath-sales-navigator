@@ -23,7 +23,7 @@ export const AuthPage = () => {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const renderAuthModeContent = () => {

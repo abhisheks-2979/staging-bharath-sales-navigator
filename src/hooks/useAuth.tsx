@@ -189,7 +189,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (userRole === 'admin') {
         window.location.href = '/admin';
       } else {
-        window.location.href = '/';
+        window.location.href = '/dashboard';
       }
     }
   };
