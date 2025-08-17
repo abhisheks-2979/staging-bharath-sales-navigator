@@ -579,10 +579,10 @@ export const MyVisits = () => {
                 variant="secondary" 
                 size="sm"
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                onClick={() => window.location.href = '/add-retailer'}
+                onClick={() => navigate('/my-retailers')}
               >
                 <Plus size={16} className="mr-1" />
-                Add Retailer
+                All Retailers
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-2">

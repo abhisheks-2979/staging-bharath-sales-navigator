@@ -6,11 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Tags, Pencil, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus, Search, Pencil, Trash2, Calendar, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
+import { AddRetailerToVisitModal } from "@/components/AddRetailerToVisitModal";
+import { MassEditBeatsModal } from "@/components/MassEditBeatsModal";
+import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 
 interface Retailer {
   id: string;
@@ -40,10 +43,11 @@ export const MyRetailers = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
-const [search, setSearch] = useState("");
-  const [priority, setPriority] = useState<string | undefined>();
+  const [search, setSearch] = useState("");
+  const [potentialFilter, setPotentialFilter] = useState<string | undefined>();
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  const [retailTypeFilter, setRetailTypeFilter] = useState<string | undefined>();
   const [beatFilter, setBeatFilter] = useState<string | undefined>();
-  const [typeFilter, setTypeFilter] = useState<string | undefined>();
 
   const [beatDialogOpen, setBeatDialogOpen] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
@@ -75,10 +79,17 @@ const [search, setSearch] = useState("");
     potential: string | null;
     competitorsString?: string;
   };
-const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [expandedAddress, setExpandedAddress] = useState<string | null>(null);
   const [expandedBeat, setExpandedBeat] = useState<string | null>(null);
+  
+  // New state for enhanced functionality
+  const [addToVisitModalOpen, setAddToVisitModalOpen] = useState(false);
+  const [massEditModalOpen, setMassEditModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedRetailerForVisit, setSelectedRetailerForVisit] = useState<Retailer | null>(null);
+  const [selectedRetailerForDetail, setSelectedRetailerForDetail] = useState<Retailer | null>(null);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -96,46 +107,89 @@ const [editDialogOpen, setEditDialogOpen] = useState(false);
   const loadRetailers = async () => {
     if (!user) return;
     setLoading(true);
-const { data, error } = await supabase
-.from("retailers")
-  .select("id,name,address,phone,category,priority,status,beat_id,created_at,last_visit_date,latitude,longitude,order_value,notes,parent_type,parent_name,location_tag,retail_type,potential,competitors,entity_type")
-  .eq("user_id", user.id)
-  .order("created_at", { ascending: false });
-    setLoading(false);
+    const { data, error } = await supabase
+      .from("retailers")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("name");
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
+      toast({ title: "Failed to load", description: error.message, variant: "destructive" });
+    } else {
+      setRetailers(data || []);
     }
-    setRetailers((data as any) || []);
+    setLoading(false);
   };
 
   useEffect(() => {
-    loadRetailers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    if (user) loadRetailers();
+  }, [user]);
 
-  const beats = useMemo(() => {
-    const set = new Set<string>();
-    retailers.forEach(r => r.beat_id && set.add(r.beat_id));
-    return Array.from(set);
+  const categories = useMemo(() => {
+    return [...new Set(retailers.map(r => r.category).filter(Boolean))].sort();
+  }, [retailers]);
+  
+  const retailTypes = useMemo(() => {
+    return [...new Set(retailers.map(r => r.retail_type).filter(Boolean))].sort();
   }, [retailers]);
 
-const filtered = useMemo(() => {
-    return retailers.filter(r => {
-      const s = search.toLowerCase();
-      const matchesSearch = !s || [r.name, r.phone || "", r.address, r.category || "", r.beat_id || ""].some(v => v.toLowerCase().includes(s));
-      const matchesPriority = !priority || (r.priority || "").toLowerCase() === priority;
+  const filtered = useMemo(() => {
+    let result = retailers.filter(r => {
+      const searchLower = search.toLowerCase();
+      const matchesSearch = !search || 
+        r.name.toLowerCase().includes(searchLower) ||
+        (r.phone || '').toLowerCase().includes(searchLower) ||
+        r.address.toLowerCase().includes(searchLower) ||
+        (r.category || '').toLowerCase().includes(searchLower) ||
+        r.beat_id.toLowerCase().includes(searchLower);
+      
+      const matchesPotential = !potentialFilter || r.potential === potentialFilter;
+      const matchesCategory = !categoryFilter || (r.category || '').toLowerCase().includes(categoryFilter.toLowerCase());
+      const matchesRetailType = !retailTypeFilter || (r.retail_type || '').toLowerCase().includes(retailTypeFilter.toLowerCase());
       const matchesBeat = !beatFilter || r.beat_id === beatFilter;
-      const matchesType = !typeFilter || (r.entity_type || 'retailer') === typeFilter;
-      return matchesSearch && matchesPriority && matchesBeat && matchesType;
+      
+      return matchesSearch && matchesPotential && matchesCategory && matchesRetailType && matchesBeat;
     });
-  }, [retailers, search, priority, beatFilter, typeFilter]);
+    
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [retailers, search, potentialFilter, categoryFilter, retailTypeFilter, beatFilter]);
 
-  const openBeatDialog = (retailer: Retailer) => {
+  const beats = useMemo(() => {
+    return [...new Set(retailers.map(r => r.beat_id))].filter(Boolean).sort();
+  }, [retailers]);
+
+  const openEdit = (retailer: Retailer) => {
     setSelectedRetailer(retailer);
-    setExistingBeat(undefined);
-    setNewBeat("");
-    setBeatDialogOpen(true);
+    setEditForm({
+      id: retailer.id,
+      name: retailer.name,
+      phone: retailer.phone || '',
+      address: retailer.address,
+      category: retailer.category,
+      priority: retailer.priority,
+      status: retailer.status,
+      notes: retailer.notes,
+      parent_type: retailer.parent_type,
+      parent_name: retailer.parent_name,
+      location_tag: retailer.location_tag,
+      retail_type: retailer.retail_type,
+      potential: retailer.potential,
+      competitorsString: retailer.competitors ? retailer.competitors.join(', ') : ''
+    });
+    setEditDialogOpen(true);
+  };
+
+  const openRetailerDetail = (retailer: Retailer) => {
+    setSelectedRetailerForDetail(retailer);
+    setDetailModalOpen(true);
+  };
+
+  const openAddToVisit = (retailer: Retailer) => {
+    setSelectedRetailerForVisit(retailer);
+    setAddToVisitModalOpen(true);
+  };
+
+  const openMassEdit = () => {
+    setMassEditModalOpen(true);
   };
 
   const confirmAssignBeat = async () => {
@@ -160,26 +214,6 @@ const filtered = useMemo(() => {
     }
   }; 
 
-const openEdit = (retailer: Retailer) => {
-  setSelectedRetailer(retailer);
-  setEditForm({
-    id: retailer.id,
-    name: retailer.name,
-    phone: retailer.phone || "",
-    address: retailer.address,
-    category: retailer.category,
-    priority: retailer.priority,
-    status: retailer.status,
-    notes: retailer.notes || null,
-    parent_type: retailer.parent_type || null,
-    parent_name: retailer.parent_name || null,
-    location_tag: retailer.location_tag || null,
-    retail_type: retailer.retail_type || null,
-    potential: retailer.potential || null,
-    competitorsString: (retailer.competitors || []).join(", "),
-  });
-  setEditDialogOpen(true);
-};
   const updateRetailer = async () => {
     if (!editForm) return;
     const { error } = await supabase
@@ -267,392 +301,210 @@ const openEdit = (retailer: Retailer) => {
     }
   }, [location.state, retailers]);
 
-return (
-  <Layout>
-    <section className="container mx-auto p-4 space-y-4">
-      <Card className="bg-gradient-primary text-primary-foreground">
-        <CardHeader>
-          <CardTitle className="text-xl">My Retailers</CardTitle>
-        </CardHeader>
-      </Card>
+  return (
+    <Layout>
+      <section className="container mx-auto p-4 space-y-4">
+        <Card className="bg-gradient-primary text-primary-foreground">
+          <CardHeader>
+            <CardTitle className="text-xl">My Retailers</CardTitle>
+          </CardHeader>
+        </Card>
 
-      <Card>
-        <CardContent className="pt-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <Card>
+          <CardContent className="pt-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              </div>
+              <Button variant="secondary" asChild>
+                <Link to="/add-retailer">
+                  <Plus className="mr-2 h-4 w-4" /> Add
+                </Link>
+              </Button>
             </div>
-            <Button variant="secondary" asChild>
-              <Link to="/add-retailer">
-                <Plus className="mr-2 h-4 w-4" /> Add
-              </Link>
-            </Button>
-          </div>
-<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Priority</label>
-              <Select value={priority} onValueChange={(v) => setPriority(v === "all" ? undefined : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
+            
+            <div className="flex flex-wrap gap-3 mb-4">
+              <Button onClick={openMassEdit} variant="outline" size="sm" className="flex items-center gap-1">
+                <Users size={16} />
+                Mass Edit Beats
+              </Button>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Beat</label>
-              <Select value={beatFilter} onValueChange={(v) => setBeatFilter(v === "all" ? undefined : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {beats.map(b => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Potential</label>
+                <Select value={potentialFilter} onValueChange={(v) => setPotentialFilter(v === "all" ? undefined : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Category</label>
+                <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v === "all" ? undefined : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {categories.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Retailer Type</label>
+                <Select value={retailTypeFilter} onValueChange={(v) => setRetailTypeFilter(v === "all" ? undefined : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {retailTypes.map(rt => (
+                      <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Beat</label>
+                <Select value={beatFilter} onValueChange={(v) => setBeatFilter(v === "all" ? undefined : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {beats.map(b => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Type</label>
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v === "all" ? undefined : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="retailer">Retailer</SelectItem>
-                  <SelectItem value="distributor">Distributor</SelectItem>
-                  <SelectItem value="super_stockist">Super Stockist</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone Number</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Beat</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(r => {
-                  const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
-                  const isAddressExpanded = expandedAddress === r.id;
-                  
-                  const shortBeat = r.beat_id && r.beat_id.length > 15 ? r.beat_id.substring(0, 15) + '...' : r.beat_id;
-                  const isBeatExpanded = expandedBeat === r.id;
-                  
-                  return (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.name}</TableCell>
-                      <TableCell>{r.phone || '-'}</TableCell>
-                      <TableCell 
-                        className="max-w-[200px] cursor-pointer hover:text-primary"
-                        onClick={() => setExpandedAddress(isAddressExpanded ? null : r.id)}
-                        title="Click to expand/collapse address"
-                      >
-                        {isAddressExpanded ? r.address : shortAddress}
-                      </TableCell>
-                      <TableCell 
-                        className="max-w-[150px] cursor-pointer hover:text-primary"
-                        onClick={() => setExpandedBeat(isBeatExpanded ? null : r.id)}
-                        title="Click to expand/collapse beat"
-                      >
-                        {isBeatExpanded ? r.beat_id : shortBeat}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => deleteRetailer(r)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filtered.length === 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Phone Number</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Beat</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="md:hidden space-y-3">
-            {filtered.map(r => {
-              const shortAddress = r.address.length > 25 ? r.address.substring(0, 25) + '...' : r.address;
-              const isAddressExpanded = expandedAddress === r.id;
-              
-              const shortBeat = r.beat_id && r.beat_id.length > 12 ? r.beat_id.substring(0, 12) + '...' : r.beat_id;
-              const isBeatExpanded = expandedBeat === r.id;
-              
-              return (
-                <Card key={r.id} className="border shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="font-medium text-lg">{r.name}</h3>
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => deleteRetailer(r)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(r => {
+                    const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
+                    const isAddressExpanded = expandedAddress === r.id;
                     
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Phone:</span>
-                        <span className="font-medium">{r.phone || '-'}</span>
-                      </div>
-                      
-                      <div className="flex justify-between items-start">
-                        <span className="text-muted-foreground">Address:</span>
-                        <span 
-                          className="font-medium text-right cursor-pointer hover:text-primary max-w-[60%]"
+                    const shortBeat = r.beat_id && r.beat_id.length > 15 ? r.beat_id.substring(0, 15) + '...' : r.beat_id;
+                    const isBeatExpanded = expandedBeat === r.id;
+                    
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell 
+                          className="font-medium cursor-pointer hover:text-primary"
+                          onClick={() => openRetailerDetail(r)}
+                          title="Click to view details"
+                        >
+                          {r.name}
+                        </TableCell>
+                        <TableCell>{r.phone || '-'}</TableCell>
+                        <TableCell 
+                          className="max-w-[200px] cursor-pointer hover:text-primary"
                           onClick={() => setExpandedAddress(isAddressExpanded ? null : r.id)}
                           title="Click to expand/collapse address"
                         >
                           {isAddressExpanded ? r.address : shortAddress}
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-start">
-                        <span className="text-muted-foreground">Beat:</span>
-                        <span 
-                          className="font-medium text-right cursor-pointer hover:text-primary max-w-[60%]"
+                        </TableCell>
+                        <TableCell 
+                          className="max-w-[150px] cursor-pointer hover:text-primary"
                           onClick={() => setExpandedBeat(isBeatExpanded ? null : r.id)}
                           title="Click to expand/collapse beat"
                         >
                           {isBeatExpanded ? r.beat_id : shortBeat}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                {loading ? 'Loading...' : 'No retailers found'}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => openAddToVisit(r)} 
+                              className="h-8 w-8 p-0"
+                              title="Add to visit"
+                            >
+                              <Calendar className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
-      <Dialog open={beatDialogOpen} onOpenChange={setBeatDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign to a Beat</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Choose existing beat</label>
-              <Select value={existingBeat} onValueChange={setExistingBeat}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a beat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {beats.map(b => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                  <SelectItem value="__new__">Create new…</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {(existingBeat === "__new__" || (!existingBeat && newBeat)) && (
-              <div>
-                <label className="text-xs text-muted-foreground">New beat name</label>
-                <Input placeholder="Enter beat name" value={newBeat} onChange={(e) => setNewBeat(e.target.value)} />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setBeatDialogOpen(false)}>Cancel</Button>
-            <Button onClick={confirmAssignBeat}>Assign</Button>
-          </DialogFooter>
-        </DialogContent>
-</Dialog>
+        {/* Add Retailer to Visit Modal */}
+        <AddRetailerToVisitModal
+          isOpen={addToVisitModalOpen}
+          onClose={() => setAddToVisitModalOpen(false)}
+          retailer={selectedRetailerForVisit}
+          onVisitCreated={() => {
+            setAddToVisitModalOpen(false);
+            setSelectedRetailerForVisit(null);
+          }}
+        />
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Name</label>
-              <Input value={newForm.name} onChange={(e) => setNewForm({ ...newForm, name: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Phone</label>
-              <Input value={newForm.phone} onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Address</label>
-              <Input value={newForm.address} onChange={(e) => setNewForm({ ...newForm, address: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Type</label>
-              <Select value={newForm.entity_type} onValueChange={(v) => setNewForm({ ...newForm, entity_type: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="retailer">Retailer</SelectItem>
-                  <SelectItem value="distributor">Distributor</SelectItem>
-                  <SelectItem value="super_stockist">Super Stockist</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Beat (optional)</label>
-              <Input placeholder="unassigned by default" value={newForm.beat_id} onChange={(e) => setNewForm({ ...newForm, beat_id: e.target.value })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={saveNewEntity}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Mass Edit Beats Modal */}
+        <MassEditBeatsModal
+          isOpen={massEditModalOpen}
+          onClose={() => setMassEditModalOpen(false)}
+          retailers={retailers}
+          beats={beats}
+          onSuccess={() => {
+            loadRetailers();
+            setMassEditModalOpen(false);
+          }}
+        />
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>View / Edit Retailer</DialogTitle>
-          </DialogHeader>
-          {editForm && (
-            <div className="flex-1 overflow-y-auto pr-2 space-y-3"
-                 style={{ maxHeight: 'calc(90vh - 140px)' }}>
-              <div>
-                <label className="text-xs text-muted-foreground">Name</label>
-                <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Phone</label>
-                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Address</label>
-                <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Category</label>
-                <Input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value || null })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Priority</label>
-                  <Select value={editForm.priority || undefined} onValueChange={(v) => setEditForm({ ...editForm, priority: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Status</label>
-                  <Select value={editForm.status || undefined} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {/* Additional Details */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Parent Type</label>
-                  <Input value={editForm.parent_type || ''} onChange={(e) => setEditForm({ ...editForm, parent_type: e.target.value || null })} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Parent Name</label>
-                  <Input value={editForm.parent_name || ''} onChange={(e) => setEditForm({ ...editForm, parent_name: e.target.value || null })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Location Tag</label>
-                  <Input value={editForm.location_tag || ''} onChange={(e) => setEditForm({ ...editForm, location_tag: e.target.value || null })} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Retail Type</label>
-                  <Input value={editForm.retail_type || ''} onChange={(e) => setEditForm({ ...editForm, retail_type: e.target.value || null })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Potential</label>
-                  <Select value={editForm.potential || undefined} onValueChange={(v) => setEditForm({ ...editForm, potential: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select potential" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Competitors (comma separated)</label>
-                  <Input value={editForm.competitorsString || ''} onChange={(e) => setEditForm({ ...editForm, competitorsString: e.target.value })} />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Notes</label>
-                <Input value={editForm.notes || ''} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value || null })} />
-              </div>
-              <div className="pt-2 text-xs text-muted-foreground grid grid-cols-2 gap-2">
-                <div><span className="font-medium text-foreground">Beat:</span> {selectedRetailer?.beat_id || '—'}</div>
-                <div><span className="font-medium text-foreground">Created:</span> {selectedRetailer ? new Date(selectedRetailer.created_at).toLocaleString() : '—'}</div>
-                {selectedRetailer?.last_visit_date && (
-                  <div className="col-span-2"><span className="font-medium text-foreground">Last Visit:</span> {new Date(selectedRetailer.last_visit_date).toLocaleDateString()}</div>
-                )}
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex-shrink-0 pt-4 border-t">
-            <Button variant="secondary" onClick={() => setEditDialogOpen(false)}>Close</Button>
-            <Button onClick={updateRetailer}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
-  </Layout>
-);
+        {/* Retailer Detail Modal */}
+        <RetailerDetailModal
+          isOpen={detailModalOpen}
+          onClose={() => setDetailModalOpen(false)}
+          retailer={selectedRetailerForDetail}
+          onSuccess={() => {
+            loadRetailers();
+            setDetailModalOpen(false);
+            setSelectedRetailerForDetail(null);
+          }}
+        />
+      </section>
+    </Layout>
+  );
 };
 
 export default MyRetailers;
