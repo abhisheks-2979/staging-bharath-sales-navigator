@@ -7,7 +7,16 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
+import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
+
+// Lazy load feature pages
+const BeatPlanningFeature = lazy(() => import("./pages/features/BeatPlanningFeature").then(module => ({ default: module.BeatPlanningFeature })));
+const RetailerManagementFeature = lazy(() => import("./pages/features/RetailerManagementFeature").then(module => ({ default: module.RetailerManagementFeature })));
+const VisitSchedulingFeature = lazy(() => import("./pages/features/VisitSchedulingFeature").then(module => ({ default: module.VisitSchedulingFeature })));
+const SalesAnalyticsFeature = lazy(() => import("./pages/features/SalesAnalyticsFeature").then(module => ({ default: module.SalesAnalyticsFeature })));
+const PerformanceTrackingFeature = lazy(() => import("./pages/features/PerformanceTrackingFeature").then(module => ({ default: module.PerformanceTrackingFeature })));
+const GrowthAnalyticsFeature = lazy(() => import("./pages/features/GrowthAnalyticsFeature").then(module => ({ default: module.GrowthAnalyticsFeature })));
 import { LandingPage } from "./pages/LandingPage";
 import { VisitPlanner } from "./pages/VisitPlanner";
 import { BeatPlanning } from "./pages/BeatPlanning";
@@ -220,6 +229,12 @@ const App = () => (
                 <Vendors />
               </ProtectedRoute>
             } />
+            <Route path="/features/beat-planning" element={<Suspense fallback={<div>Loading...</div>}><BeatPlanningFeature /></Suspense>} />
+            <Route path="/features/retailer-management" element={<Suspense fallback={<div>Loading...</div>}><RetailerManagementFeature /></Suspense>} />
+            <Route path="/features/visit-scheduling" element={<Suspense fallback={<div>Loading...</div>}><VisitSchedulingFeature /></Suspense>} />
+            <Route path="/features/sales-analytics" element={<Suspense fallback={<div>Loading...</div>}><SalesAnalyticsFeature /></Suspense>} />
+            <Route path="/features/performance-tracking" element={<Suspense fallback={<div>Loading...</div>}><PerformanceTrackingFeature /></Suspense>} />
+            <Route path="/features/growth-analytics" element={<Suspense fallback={<div>Loading...</div>}><GrowthAnalyticsFeature /></Suspense>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

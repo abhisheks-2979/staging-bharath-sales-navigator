@@ -86,6 +86,60 @@ export const LandingPage = () => {
         </div>
       </section>
 
+      {/* AI Differentiation Section */}
+      <section className="py-20 px-4 bg-primary/5">
+        <div className="container mx-auto text-center">
+          <h3 className="text-3xl font-bold text-foreground mb-6">
+            AI-Powered Sales Intelligence
+          </h3>
+          <p className="text-xl text-muted-foreground mb-12 max-w-4xl mx-auto">
+            Our AI technology analyzes retailer behavior, market trends, and sales patterns to provide 
+            personalized insights that help you build stronger relationships and close more deals in the field.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Card className="border-border/40 bg-card/50 backdrop-blur">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <h4 className="text-lg font-semibold text-foreground mb-3">
+                  Smart Retailer Insights
+                </h4>
+                <p className="text-muted-foreground text-sm">
+                  AI analyzes purchase patterns, preferences, and timing to suggest the best products and offers for each retailer visit.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/40 bg-card/50 backdrop-blur">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <h4 className="text-lg font-semibold text-foreground mb-3">
+                  Predictive Analytics
+                </h4>
+                <p className="text-muted-foreground text-sm">
+                  Forecast demand, identify growth opportunities, and predict which retailers are most likely to increase their orders.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/40 bg-card/50 backdrop-blur">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <h4 className="text-lg font-semibold text-foreground mb-3">
+                  Personalized Conversations
+                </h4>
+                <p className="text-muted-foreground text-sm">
+                  Get conversation starters, talking points, and relationship-building tips tailored to each retailer's history and preferences.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-20 px-4 bg-background/50">
         <div className="container mx-auto">
@@ -94,7 +148,8 @@ export const LandingPage = () => {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="border-border/40 bg-card/50 backdrop-blur">
+              <Card key={index} className="border-border/40 bg-card/50 backdrop-blur hover:shadow-lg transition-all duration-200 cursor-pointer" 
+                    onClick={() => navigate(`/features/${feature.title.toLowerCase().replace(/\s+/g, '-')}`)}>
                 <CardContent className="p-6 text-center">
                   <div className="flex justify-center mb-4">
                     {feature.icon}
@@ -102,9 +157,12 @@ export const LandingPage = () => {
                   <h4 className="text-xl font-semibold text-foreground mb-3">
                     {feature.title}
                   </h4>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground mb-4">
                     {feature.description}
                   </p>
+                  <Button variant="outline" size="sm">
+                    Learn More
+                  </Button>
                 </CardContent>
               </Card>
             ))}
