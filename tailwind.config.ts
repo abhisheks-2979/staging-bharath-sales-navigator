@@ -26,6 +26,9 @@ export default {
 			'2xl': '1536px',
 		},
 		extend: {
+			fontFamily: {
+				sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -52,7 +55,11 @@ export default {
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					foreground: 'hsl(var(--accent-foreground))',
+					gold: 'hsl(var(--accent-gold))',
+					'gold-foreground': 'hsl(var(--accent-gold-foreground))',
+					bronze: 'hsl(var(--accent-bronze))',
+					'bronze-foreground': 'hsl(var(--accent-bronze-foreground))'
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
@@ -88,11 +95,13 @@ export default {
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
-				'gradient-subtle': 'var(--gradient-subtle)'
+				'gradient-subtle': 'var(--gradient-subtle)',
+				'gradient-hero': 'var(--gradient-hero)'
 			},
 			boxShadow: {
 				'card': 'var(--shadow-card)',
-				'button': 'var(--shadow-button)'
+				'button': 'var(--shadow-button)',
+				'hero': 'var(--shadow-hero)'
 			},
 			keyframes: {
 				'accordion-down': {

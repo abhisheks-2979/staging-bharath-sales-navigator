@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { BarChart3, Users, MapPin, Target, TrendingUp, Calendar } from "lucide-react";
+import { BarChart3, Users, MapPin, Target, TrendingUp, Calendar, Star, Award, CheckCircle } from "lucide-react";
 
 export const LandingPage = () => {
   const navigate = useNavigate();
@@ -40,17 +40,22 @@ export const LandingPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <BarChart3 className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Field Sales AI</h1>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-hero rounded-lg flex items-center justify-center shadow-button">
+              <BarChart3 className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Field Sales AI</h1>
+              <p className="text-xs text-muted-foreground">by KVP Business Solutions</p>
+            </div>
           </div>
           <Button 
             onClick={() => navigate('/auth')}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-button"
           >
             Login
           </Button>
@@ -58,38 +63,71 @@ export const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto text-center">
-          <h2 className="text-5xl font-bold text-foreground mb-6">
-            Revolutionize Your <span className="text-primary">Field Sales</span>
+      <section className="relative py-24 px-4 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-hero"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/40"></div>
+        <div className="container mx-auto text-center relative z-10">
+          <div className="inline-flex items-center gap-2 bg-accent-gold/20 text-accent-gold px-4 py-2 rounded-full text-sm font-medium mb-6 backdrop-blur">
+            <Star className="h-4 w-4" />
+            Certified Salesforce Partner Solutions
+          </div>
+          <h2 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            Revolutionize Your <br />
+            <span className="bg-gradient-to-r from-accent-gold to-accent-bronze bg-clip-text text-transparent">
+              Field Sales
+            </span>
           </h2>
-          <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            Empower your sales team with AI-driven insights, intelligent route planning, 
+          <p className="text-xl text-white/90 mb-8 max-w-3xl mx-auto leading-relaxed">
+            Empower your sales team with KVP's AI-driven insights, intelligent route planning, 
             and comprehensive performance analytics. Transform your field operations today.
           </p>
-          <div className="space-x-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg"
               onClick={() => navigate('/auth')}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 text-lg"
+              className="bg-accent-gold hover:bg-accent-gold/90 text-accent-gold-foreground px-8 py-4 text-lg font-semibold shadow-hero"
             >
               Get Started
             </Button>
             <Button 
               variant="outline" 
               size="lg"
-              className="px-8 py-4 text-lg"
+              className="border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg backdrop-blur"
             >
-              Learn More
+              Watch Demo
             </Button>
+          </div>
+          
+          {/* Trust Indicators */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-16 text-white/80">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-accent-gold">500+</div>
+              <div className="text-sm">Successful Projects</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-accent-gold">15,000+</div>
+              <div className="text-sm">Users Supported</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-accent-gold">18+</div>
+              <div className="text-sm">Countries Served</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-accent-gold">98%</div>
+              <div className="text-sm">Client Satisfaction</div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* AI Differentiation Section */}
-      <section className="py-20 px-4 bg-primary/5">
+      <section className="py-20 px-4 bg-muted/30">
         <div className="container mx-auto text-center">
-          <h3 className="text-3xl font-bold text-foreground mb-6">
+          <div className="inline-flex items-center gap-2 bg-accent-gold/10 text-accent-gold px-4 py-2 rounded-full text-sm font-medium mb-6">
+            <Award className="h-4 w-4" />
+            Powered by Advanced AI Technology
+          </div>
+          <h3 className="text-4xl font-bold text-foreground mb-6">
             AI-Powered Sales Intelligence
           </h3>
           <p className="text-xl text-muted-foreground mb-12 max-w-4xl mx-auto">
@@ -97,41 +135,41 @@ export const LandingPage = () => {
             personalized insights that help you build stronger relationships and close more deals in the field.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="border-border/40 bg-card/50 backdrop-blur">
-              <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Target className="h-8 w-8 text-primary-foreground" />
+            <Card className="border-border/40 bg-card shadow-card hover:shadow-hero transition-all duration-300">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-button">
+                  <Target className="h-8 w-8 text-white" />
                 </div>
-                <h4 className="text-lg font-semibold text-foreground mb-3">
+                <h4 className="text-xl font-semibold text-foreground mb-4">
                   Smart Retailer Insights
                 </h4>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                   AI analyzes purchase patterns, preferences, and timing to suggest the best products and offers for each retailer visit.
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-border/40 bg-card/50 backdrop-blur">
-              <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="h-8 w-8 text-primary-foreground" />
+            <Card className="border-border/40 bg-card shadow-card hover:shadow-hero transition-all duration-300">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-button">
+                  <TrendingUp className="h-8 w-8 text-white" />
                 </div>
-                <h4 className="text-lg font-semibold text-foreground mb-3">
+                <h4 className="text-xl font-semibold text-foreground mb-4">
                   Predictive Analytics
                 </h4>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                   Forecast demand, identify growth opportunities, and predict which retailers are most likely to increase their orders.
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-border/40 bg-card/50 backdrop-blur">
-              <CardContent className="p-6 text-center">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="h-8 w-8 text-primary-foreground" />
+            <Card className="border-border/40 bg-card shadow-card hover:shadow-hero transition-all duration-300">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-button">
+                  <Users className="h-8 w-8 text-white" />
                 </div>
-                <h4 className="text-lg font-semibold text-foreground mb-3">
+                <h4 className="text-xl font-semibold text-foreground mb-4">
                   Personalized Conversations
                 </h4>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground">
                   Get conversation starters, talking points, and relationship-building tips tailored to each retailer's history and preferences.
                 </p>
               </CardContent>
@@ -141,26 +179,33 @@ export const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 bg-background/50">
+      <section className="py-20 px-4 bg-background">
         <div className="container mx-auto">
-          <h3 className="text-3xl font-bold text-center text-foreground mb-12">
-            Powerful Features for Modern Sales Teams
-          </h3>
+          <div className="text-center mb-16">
+            <h3 className="text-4xl font-bold text-foreground mb-6">
+              Powerful Features for Modern Sales Teams
+            </h3>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Discover how our comprehensive suite of tools transforms field sales operations
+            </p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="border-border/40 bg-card/50 backdrop-blur hover:shadow-lg transition-all duration-200 cursor-pointer" 
+              <Card key={index} className="border-border/40 bg-card shadow-card hover:shadow-hero transition-all duration-300 hover:scale-105 cursor-pointer group" 
                     onClick={() => navigate(`/features/${feature.title.toLowerCase().replace(/\s+/g, '-')}`)}>
-                <CardContent className="p-6 text-center">
-                  <div className="flex justify-center mb-4">
-                    {feature.icon}
+                <CardContent className="p-8 text-center">
+                  <div className="flex justify-center mb-6">
+                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary-light rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                      {feature.icon}
+                    </div>
                   </div>
-                  <h4 className="text-xl font-semibold text-foreground mb-3">
+                  <h4 className="text-xl font-semibold text-foreground mb-4">
                     {feature.title}
                   </h4>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="text-muted-foreground mb-6">
                     {feature.description}
                   </p>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                     Learn More
                   </Button>
                 </CardContent>
@@ -171,34 +216,63 @@ export const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto text-center">
-          <h3 className="text-3xl font-bold text-foreground mb-6">
+      <section className="py-20 px-4 bg-gradient-hero relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/40"></div>
+        <div className="container mx-auto text-center relative z-10">
+          <h3 className="text-4xl font-bold text-white mb-6">
             Ready to Transform Your Sales Process?
           </h3>
-          <p className="text-xl text-muted-foreground mb-8">
-            Join thousands of sales professionals who trust Field Sales AI
+          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+            Join thousands of sales professionals who trust KVP's Field Sales AI solutions
           </p>
-          <Button 
-            size="lg"
-            onClick={() => navigate('/auth')}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-12 py-4 text-lg"
-          >
-            Start Your Journey
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg"
+              onClick={() => navigate('/auth')}
+              className="bg-accent-gold hover:bg-accent-gold/90 text-accent-gold-foreground px-12 py-4 text-lg font-semibold shadow-hero"
+            >
+              Start Your Journey
+            </Button>
+            <Button 
+              variant="outline"
+              size="lg"
+              className="border-white/30 text-white hover:bg-white/10 px-12 py-4 text-lg backdrop-blur"
+            >
+              Schedule Demo
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 bg-background/95 py-8">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <BarChart3 className="h-6 w-6 text-primary" />
-            <span className="text-lg font-semibold text-foreground">Field Sales AI</span>
+      <footer className="border-t border-border/40 bg-background py-12">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="flex items-center space-x-3 mb-6 md:mb-0">
+              <div className="w-10 h-10 bg-gradient-hero rounded-lg flex items-center justify-center shadow-button">
+                <BarChart3 className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <span className="text-lg font-semibold text-foreground">Field Sales AI</span>
+                <p className="text-sm text-muted-foreground">by KVP Business Solutions</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-accent-gold" />
+                <span>Certified Salesforce Partner</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Award className="h-4 w-4 text-accent-gold" />
+                <span>ISO 27001 Certified</span>
+              </div>
+            </div>
           </div>
-          <p className="text-muted-foreground">
-            © 2024 Field Sales AI. Empowering sales teams worldwide.
-          </p>
+          <div className="border-t border-border/40 mt-8 pt-8 text-center">
+            <p className="text-muted-foreground">
+              © 2024 KVP Business Solutions. Empowering sales teams worldwide.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
