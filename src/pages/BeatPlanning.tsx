@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus, Calendar as CalendarIcon, Search } from "lucide-react";
+import { MapPin, Users, CheckCircle, Save, ArrowLeft, Plus, Calendar as CalendarIcon, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SearchInput } from "@/components/SearchInput";
-import { format, isAfter, startOfDay } from "date-fns";
+import { format, isAfter, startOfDay, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface Beat {
@@ -26,21 +26,22 @@ interface Beat {
 
 // Beats are loaded dynamically from retailers table for the current user.
 
-const getWeekDays = () => {
+const getWeekDays = (selectedWeekStart: Date) => {
+  const startOfSelectedWeek = startOfWeek(selectedWeekStart, { weekStartsOn: 1 }); // Start from Monday
   const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
   
   const weekDays = [];
   for (let i = 0; i < 7; i++) {
-    const day = new Date(startOfWeek);
-    day.setDate(startOfWeek.getDate() + i);
+    const day = addDays(startOfSelectedWeek, i);
+    const isToday = isSameDay(day, today);
     
     weekDays.push({
-      day: day.toLocaleDateString('en-US', { weekday: 'short' }),
+      day: format(day, 'EEE'),
       date: day.getDate().toString(),
-      fullDate: day.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
-      isoDate: day.toISOString().split('T')[0]
+      isToday: isToday,
+      isoDate: format(day, 'yyyy-MM-dd'),
+      fullDate: day,
+      dayName: format(day, 'EEEE')
     });
   }
   return weekDays;
@@ -50,11 +51,13 @@ export const BeatPlanning = () => {
   const [selectedCategory] = useState<"all">("all");
   const [selectedDay, setSelectedDay] = useState("Mon");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedWeek, setSelectedWeek] = useState(new Date());
   const [plannedBeats, setPlannedBeats] = useState<{[key: string]: string[]}>({});
-  const [weekDays, setWeekDays] = useState(getWeekDays());
+  const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
+  const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { user } = useAuth();
   const [beats, setBeats] = useState<Beat[]>([]);
@@ -112,6 +115,21 @@ export const BeatPlanning = () => {
       console.error('Error loading beats', e);
     }
   };
+
+  // Initialize selected day to today if it exists in current week
+  useEffect(() => {
+    const today = weekDays.find(d => d.isToday);
+    if (today && !selectedDay) {
+      setSelectedDay(today.day);
+      setSelectedDate(today.fullDate);
+    }
+  }, [weekDays, selectedDay]);
+
+  // Update week days when selected week changes
+  useEffect(() => {
+    setWeekDays(getWeekDays(selectedWeek));
+  }, [selectedWeek]);
+
   // Load existing beat plans when component mounts or selected date changes
   useEffect(() => {
     if (user && selectedDate) {
@@ -121,13 +139,28 @@ export const BeatPlanning = () => {
     }
   }, [user, selectedDate]);
 
-  // Set initial selected date and day
+  // Load week plan markers for calendar
   useEffect(() => {
-    const today = weekDays.find(d => d.day === selectedDay);
-    if (today && !selectedDate) {
-      setSelectedDate(new Date(today.isoDate));
-    }
-  }, [selectedDay, weekDays]);
+    if (!user) return;
+    const loadWeekPlans = async () => {
+      try {
+        const startIso = weekDays[0]?.isoDate;
+        const endIso = weekDays[weekDays.length - 1]?.isoDate;
+        if (!startIso || !endIso) return;
+        const { data, error } = await supabase
+          .from('beat_plans')
+          .select('plan_date')
+          .eq('user_id', user.id)
+          .gte('plan_date', startIso)
+          .lte('plan_date', endIso);
+        if (error) throw error;
+        setPlannedDates(new Set((data || []).map((d: any) => d.plan_date)));
+      } catch (err) {
+        console.error('Error loading week plans:', err);
+      }
+    };
+    loadWeekPlans();
+  }, [user, weekDays]);
 
   const loadBeatPlans = async (date: string) => {
     if (!user) return;
@@ -223,18 +256,39 @@ export const BeatPlanning = () => {
     setSelectedDay(day);
     const dayInfo = weekDays.find(d => d.day === day);
     if (dayInfo) {
-      setSelectedDate(new Date(dayInfo.isoDate));
+      setSelectedDate(dayInfo.fullDate);
     }
   };
 
   const handleCalendarDateSelect = (date: Date | undefined) => {
     if (date && isAfter(date, startOfDay(new Date()))) {
-      setSelectedDate(date);
-      setSelectedDay(date.toLocaleDateString('en-US', { weekday: 'short' }));
-      setCalendarOpen(false);
+      setCalendarDate(date);
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      setSelectedWeek(weekStart);
+      
+      // Set the selected day to the picked date
+      const newWeekDays = getWeekDays(weekStart);
+      const selectedDayInfo = newWeekDays.find(d => isSameDay(d.fullDate, date));
+      if (selectedDayInfo) {
+        setSelectedDay(selectedDayInfo.day);
+        setSelectedDate(selectedDayInfo.fullDate);
+      }
     } else if (date && !isAfter(date, startOfDay(new Date()))) {
       toast.error("Cannot plan for past dates. Please select a future date.");
     }
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const newWeek = direction === 'prev' ? subWeeks(selectedWeek, 1) : addWeeks(selectedWeek, 1);
+    setSelectedWeek(newWeek);
+    setCalendarDate(newWeek);
+    
+    // Keep the same day of week if possible, otherwise select the first day
+    const newWeekDays = getWeekDays(newWeek);
+    const sameWeekdayIndex = weekDays.findIndex(d => d.day === selectedDay);
+    const targetDay = newWeekDays[sameWeekdayIndex] || newWeekDays[0];
+    setSelectedDay(targetDay.day);
+    setSelectedDate(targetDay.fullDate);
   };
 
   const isBeatSelected = (beatId: string) => {
@@ -269,52 +323,69 @@ export const BeatPlanning = () => {
       <div className="p-4 space-y-4">
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 sm:pb-3">
             <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Button 
                   variant="ghost" 
                   size="icon"
                   onClick={() => navigate('/visits')}
                   className="text-primary-foreground hover:bg-primary-foreground/20"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={18} className="sm:hidden" />
+                  <ArrowLeft size={20} className="hidden sm:block" />
                 </Button>
                 <div>
-                  <CardTitle className="text-xl font-bold">
+                  <CardTitle className="text-lg sm:text-xl font-bold">
                     {(() => {
                       const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
                       return plannedBeats[dateKey]?.length > 0 
-                        ? `Journey: ${plannedBeats[dateKey].map(beatId => beats.find(b => b.id === beatId)?.name || beatId).join(', ')}`
-                        : 'Plan My Visits';
+                        ? `Journey: ${plannedBeats[dateKey].slice(0, 2).map(beatId => beats.find(b => b.id === beatId)?.name || beatId).join(', ')}${plannedBeats[dateKey].length > 2 ? '...' : ''}`
+                        : 'Plan My Journey';
                     })()}
                   </CardTitle>
-                  <p className="text-primary-foreground/80">
+                  <p className="text-xs sm:text-sm text-primary-foreground/80">
                     {(() => {
                       const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
                       return plannedBeats[dateKey]?.length > 0 
-                        ? `${plannedBeats[dateKey].length} beat(s) selected for ${format(selectedDate, 'MMMM d, yyyy')}`
-                        : 'Select beats for your journey schedule';
+                        ? `${plannedBeats[dateKey].length} beat${plannedBeats[dateKey].length > 1 ? 's' : ''} selected`
+                        : 'Select beats for your visit schedule';
                     })()}
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <Button 
+                onClick={() => navigate('/my-beats?openCreateModal=true')}
+                variant="secondary"
+                size="sm"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm"
+              >
+                <Plus size={14} className="sm:mr-1" />
+                <span className="hidden sm:inline">Create Beat</span>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Calendar Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Popover>
                   <PopoverTrigger asChild>
-                    <Button 
-                      variant="secondary"
-                      size="sm"
-                      className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20",
+                        !calendarDate && "text-primary-foreground/50"
+                      )}
                     >
-                      <CalendarIcon size={16} className="mr-1" />
-                      {format(selectedDate, 'MMM d')}
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {calendarDate ? format(calendarDate, "MMM yyyy") : "Pick a month"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
+                  <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={selectedDate}
+                      selected={calendarDate}
                       onSelect={handleCalendarDateSelect}
                       disabled={(date) => !isAfter(date, startOfDay(new Date()))}
                       initialFocus
@@ -322,21 +393,57 @@ export const BeatPlanning = () => {
                     />
                   </PopoverContent>
                 </Popover>
-                <Button 
-                  onClick={() => navigate('/my-beats?openCreateModal=true')}
-                  variant="secondary"
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
                   size="sm"
+                  onClick={() => navigateWeek('prev')}
                   className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
                 >
-                  <Plus size={16} className="mr-1" />
-                  Create Beat
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium text-primary-foreground px-2">
+                  {format(selectedWeek, "MMM d")} - {format(addDays(selectedWeek, 6), "MMM d, yyyy")}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateWeek('next')}
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                >
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
+
+            {/* Weekly Calendar - Mobile Optimized */}
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-6">
+              {weekDays.map((dayInfo) => (
+                <button
+                  key={dayInfo.day}
+                  onClick={() => handleDayChange(dayInfo.day)}
+                  className={`p-2 sm:p-3 rounded-lg text-center transition-colors relative ${
+                    selectedDay === dayInfo.day
+                      ? 'bg-primary-foreground text-primary'
+                      : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'
+                  }`}
+                >
+                  <div className="text-xs font-medium mb-1">{dayInfo.day}</div>
+                  <div className="text-sm sm:text-lg font-bold">{dayInfo.date}</div>
+                  {plannedDates.has(dayInfo.isoDate) && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-success rounded-full"></div>
+                  )}
+                  {dayInfo.isToday && (
+                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary-foreground rounded-full"></div>
+                  )}
+                </button>
+              ))}
+            </div>
+
             {/* Search Section */}
-            <div className="mb-6">
+            <div className="mb-4">
               <SearchInput
                 placeholder="Search beats by name or ID..."
                 value={searchTerm}
@@ -346,12 +453,11 @@ export const BeatPlanning = () => {
 
             {/* Planning Summary */}
             <div className="text-center text-primary-foreground/90 text-sm">
-              Planning for {format(selectedDate, 'MMMM d, yyyy')} • 
+              Planning for {format(selectedDate, 'EEEE, MMMM d, yyyy')} • 
               {(() => {
                 const dateKey = selectedDate.toLocaleDateString('en-US', { weekday: 'short' });
                 return plannedBeats[dateKey]?.length || 0;
-              })()} beats selected • 
-              {getTotalPlannedDays()} days planned
+              })()} beats selected
             </div>
           </CardContent>
         </Card>
