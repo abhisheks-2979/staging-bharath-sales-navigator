@@ -261,22 +261,19 @@ export const MyVisits = () => {
         const beatNames = beatPlans.map(plan => plan.beat_name).join(', ');
         setCurrentBeatName(beatNames);
         
-        // Load retailers for the planned beats
-        const beatIds = beatPlans.map(plan => plan.beat_id);
-        await loadRetailersForBeats(beatIds);
+        // Load all visits and retailers for this date
+        await loadAllVisitsForDate(date, beatPlans);
       } else {
         setCurrentBeatName("No beats planned");
-        setRetailers([]);
+        // Still load unplanned visits even if no beats are planned
+        await loadAllVisitsForDate(date, []);
       }
-
-      // Also load unplanned visits for the selected date
-      await loadUnplannedVisits(date);
     } catch (error) {
       console.error('Error loading beat plans:', error);
     }
   };
 
-  const loadUnplannedVisits = async (date: string) => {
+  const loadAllVisitsForDate = async (date: string, beatPlans: any[]) => {
     if (!user) return;
     
     try {
@@ -289,179 +286,122 @@ export const MyVisits = () => {
 
       if (visitsError) throw visitsError;
 
-      if (visits && visits.length > 0) {
-        // Get retailer data for these visits
-        const visitRetailerIds = visits.map(v => v.retailer_id);
-        const { data: retailersData, error: retailersError } = await supabase
+      // Get planned beat IDs
+      const plannedBeatIds = beatPlans.map(plan => plan.beat_id);
+      
+      // Get all retailers that should be shown (from planned beats + visit retailers)
+      const visitRetailerIds = (visits || []).map(v => v.retailer_id);
+      const allRetailerIds = new Set([...visitRetailerIds]);
+      
+      // If there are planned beats, also include retailers from those beats
+      if (plannedBeatIds.length > 0) {
+        const { data: plannedRetailers, error: plannedError } = await supabase
           .from('retailers')
-          .select('*')
-          .in('id', visitRetailerIds);
-
-        if (retailersError) throw retailersError;
-
-        // Create map of retailer data
-        const retailerMap = new Map();
-        (retailersData || []).forEach(retailer => {
-          retailerMap.set(retailer.id, retailer);
-        });
-
-        // Get retailer IDs from existing retailers to avoid duplicates
-        const existingRetailerIds = new Set(retailers.map(r => r.retailerId));
+          .select('id')
+          .eq('user_id', user.id)
+          .in('beat_id', plannedBeatIds);
         
-        // Filter out visits for retailers that are already in planned beats
-        const unplannedVisits = visits.filter(visit => 
-          !existingRetailerIds.has(visit.retailer_id)
-        );
-
-        if (unplannedVisits.length > 0) {
-          const todayStart = new Date(date);
-          todayStart.setHours(0,0,0,0);
-          const todayEnd = new Date(date);
-          todayEnd.setHours(23,59,59,999);
-
-          // Get orders for these retailers
-          const unplannedRetailerIds = unplannedVisits.map(v => v.retailer_id);
-          const { data: ordersToday } = await supabase
-            .from('orders')
-            .select('id, retailer_id, total_amount, created_at')
-            .eq('user_id', user.id)
-            .eq('status', 'confirmed')
-            .in('retailer_id', unplannedRetailerIds)
-            .gte('created_at', todayStart.toISOString())
-            .lte('created_at', todayEnd.toISOString());
-
-          const totalsByRetailer = new Map<string, number>();
-          (ordersToday || []).forEach(o => {
-            if (!o.retailer_id) return;
-            totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
-          });
-
-          const unplannedRetailers = unplannedVisits.map(visit => {
-            const retailer = retailerMap.get(visit.retailer_id);
-            if (!retailer) return null;
-            
-            const orderTotal = totalsByRetailer.get(visit.retailer_id) || 0;
-            const hasOrder = orderTotal > 0;
-            const hasCheckIn = !!visit.check_in_time;
-            
-            const status = hasOrder
-              ? ('productive' as const)
-              : (visit.status === 'unproductive'
-                  ? ('unproductive' as const)
-                  : (hasCheckIn ? ('in-progress' as const) : ('planned' as const)));
-
-            return {
-              id: visit.id,
-              retailerId: retailer.id,
-              retailerName: retailer.name,
-              address: retailer.address,
-              phone: retailer.phone || '',
-              retailerCategory: retailer.category || 'Category A',
-              status,
-              visitType: 'Unplanned Visit',
-              day: 'Today',
-              checkInStatus: hasCheckIn ? ('checked-in' as const) : ('not-checked-in' as const),
-              hasOrder,
-              orderValue: orderTotal,
-              retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
-              retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
-            };
-          }).filter(Boolean);
-
-          // Add unplanned retailers to the existing retailers list
-          setRetailers(prev => [...prev, ...unplannedRetailers]);
+        if (!plannedError && plannedRetailers) {
+          plannedRetailers.forEach(r => allRetailerIds.add(r.id));
         }
       }
-    } catch (error) {
-      console.error('Error loading unplanned visits:', error);
-    }
-  };
 
-  const loadRetailersForBeats = async (beatIds: string[]) => {
-    if (!user || beatIds.length === 0) return;
-    try {
-      const { data, error } = await supabase
+      if (allRetailerIds.size === 0) {
+        setRetailers([]);
+        return;
+      }
+
+      // Get all retailer data
+      const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
         .select('*')
         .eq('user_id', user.id)
-        .in('beat_id', beatIds);
-      if (error) throw error;
+        .in('id', Array.from(allRetailerIds));
 
-      const transformedRetailers = (data || []).map(retailer => ({
-        id: retailer.id,
-        retailerId: retailer.id,
-        retailerName: retailer.name,
-        address: retailer.address,
-        phone: retailer.phone || '',
-        retailerCategory: retailer.category || 'Category A',
-        status: 'planned' as const,
-        visitType: 'Regular Visit',
-        day: 'Today',
-        checkInStatus: 'not-checked-in' as const,
-        hasOrder: false,
-        orderValue: 0,
-        retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
-        retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
-      }));
+      if (retailersError) throw retailersError;
 
-      // Derive today's visit and order status
-      const retailerIds = (data || []).map(r => r.id);
-      const todayStart = new Date(selectedDate || new Date().toISOString().split('T')[0]);
+      // Create retailer map
+      const retailerMap = new Map();
+      (retailersData || []).forEach(retailer => {
+        retailerMap.set(retailer.id, retailer);
+      });
+
+      // Create visit map
+      const visitMap = new Map();
+      (visits || []).forEach(visit => {
+        visitMap.set(visit.retailer_id, visit);
+      });
+
+      // Get orders for today
+      const todayStart = new Date(date);
       todayStart.setHours(0,0,0,0);
-      const todayEnd = new Date(selectedDate || new Date().toISOString().split('T')[0]);
+      const todayEnd = new Date(date);
       todayEnd.setHours(23,59,59,999);
 
-      const [{ data: visitsToday }, { data: ordersToday }] = await Promise.all([
-        supabase
-          .from('visits')
-          .select('id, retailer_id, check_in_time, status')
-          .eq('user_id', user.id)
-          .eq('planned_date', (selectedDate || new Date().toISOString().split('T')[0]))
-          .in('retailer_id', retailerIds),
-        supabase
-          .from('orders')
-          .select('id, retailer_id, total_amount, created_at')
-          .eq('user_id', user.id)
-          .eq('status', 'confirmed')
-          .in('retailer_id', retailerIds)
-          .gte('created_at', todayStart.toISOString())
-          .lte('created_at', todayEnd.toISOString()),
-      ]);
+      const { data: ordersToday } = await supabase
+        .from('orders')
+        .select('id, retailer_id, total_amount, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'confirmed')
+        .in('retailer_id', Array.from(allRetailerIds))
+        .gte('created_at', todayStart.toISOString())
+        .lte('created_at', todayEnd.toISOString());
 
-      const checkedInRetailers = new Set((visitsToday || []).filter(v => v.check_in_time).map(v => v.retailer_id));
-      const statusByRetailer = new Map<string, string>();
-      (visitsToday || []).forEach(v => {
-        if (v.retailer_id && v.status) statusByRetailer.set(v.retailer_id as string, v.status as string);
-      });
       const totalsByRetailer = new Map<string, number>();
       (ordersToday || []).forEach(o => {
         if (!o.retailer_id) return;
         totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
       });
 
-      const finalRetailers = transformedRetailers.map(v => {
-        const hasCheckIn = checkedInRetailers.has(v.retailerId);
-        const orderTotal = totalsByRetailer.get(v.retailerId || '') || 0;
-        const hasOrder = orderTotal > 0;
-        const recordedStatus = statusByRetailer.get(v.retailerId || '');
-        const status = hasOrder
-          ? ('productive' as const)
-          : (recordedStatus === 'unproductive'
-              ? ('unproductive' as const)
-              : (hasCheckIn ? ('in-progress' as const) : ('planned' as const)));
-        return {
-          ...v,
-          hasOrder,
-          orderValue: orderTotal,
-          status,
-        };
-      });
+      // Transform retailers into visit format
+      const transformedRetailers = Array.from(allRetailerIds)
+        .map(retailerId => {
+          const retailer = retailerMap.get(retailerId);
+          if (!retailer) return null;
 
-      setRetailers(finalRetailers);
+          const visit = visitMap.get(retailerId);
+          const orderTotal = totalsByRetailer.get(retailerId) || 0;
+          const hasOrder = orderTotal > 0;
+          const hasCheckIn = visit?.check_in_time;
+          
+          // Determine if this is unplanned (has visit but retailer not in planned beats)
+          const isPlanned = plannedBeatIds.includes(retailer.beat_id);
+          const visitType = visit && !isPlanned ? 'Unplanned Visit' : 'Regular Visit';
+          
+          // Only show retailers that either have a visit or are in planned beats
+          if (!visit && !isPlanned) return null;
+
+          const status = hasOrder
+            ? ('productive' as const)
+            : (visit?.status === 'unproductive'
+                ? ('unproductive' as const)
+                : (hasCheckIn ? ('in-progress' as const) : ('planned' as const)));
+
+          return {
+            id: visit?.id || retailerId,
+            retailerId: retailer.id,
+            retailerName: retailer.name,
+            address: retailer.address,
+            phone: retailer.phone || '',
+            retailerCategory: retailer.category || 'Category A',
+            status,
+            visitType,
+            day: 'Today',
+            checkInStatus: hasCheckIn ? ('checked-in' as const) : ('not-checked-in' as const),
+            hasOrder,
+            orderValue: orderTotal,
+            retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
+            retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
+          };
+        })
+        .filter(Boolean);
+
+      setRetailers(transformedRetailers);
     } catch (error) {
-      console.error('Error loading retailers:', error);
+      console.error('Error loading visits for date:', error);
     }
   };
+
 
   const handleDayChange = (day: string) => {
     setSelectedDay(day);
