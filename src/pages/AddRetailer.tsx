@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +19,8 @@ export const AddRetailer = () => {
     phone: "",
     address: "",
     category: "",
-    priority: "",
     notes: "",
-    parentType: "",
+    parentType: "Distributor", // Default to Distributor
     parentName: "",
     locationTag: "",
     retailType: "",
@@ -41,26 +40,39 @@ export const AddRetailer = () => {
   const [existingBeats, setExistingBeats] = useState<string[]>([]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [capturedPhotoPreview, setCapturedPhotoPreview] = useState<string | null>(null);
+  const [distributors, setDistributors] = useState<{id: string, name: string}[]>([]);
 
   const categories = ["Category A", "Category B", "Category C"];
-  const priorities = ["High", "Medium", "Low"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
   const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store"];
   const potentials = ["High", "Medium", "Low"];
 
+  // Load distributors from retailers table
+  const loadDistributors = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('retailers')
+      .select('id, name')
+      .eq('user_id', user.id)
+      .eq('entity_type', 'distributor')
+      .order('name');
+    
+    if (error) {
+      console.error('Failed to load distributors:', error);
+      setDistributors([]);
+    } else {
+      setDistributors(data || []);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadDistributors();
+    }
+  }, [user]);
+
   const handleInputChange = (field: string, value: string) => {
-    setRetailerData(prev => {
-      const updated = { ...prev, [field]: value };
-      
-      // Auto-update Parent Name when Parent Type is Distributor
-      if (field === "parentType" && value === "Distributor") {
-        updated.parentName = "Auto-Selected Distributor";
-      } else if (field === "parentType" && value !== "Distributor") {
-        updated.parentName = "";
-      }
-      
-      return updated;
-    });
+    setRetailerData(prev => ({ ...prev, [field]: value }));
   };
 
   const handlePhotoCapture = async () => {
@@ -164,7 +176,6 @@ export const AddRetailer = () => {
       phone: retailerData.phone,
       address: retailerData.address,
       category: retailerData.category || null,
-      priority: retailerData.priority ? retailerData.priority.toLowerCase() : null,
       beat_id: beatId,
       status: 'active',
       notes: retailerData.notes || null,
@@ -447,34 +458,18 @@ export const AddRetailer = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border z-50">
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select value={retailerData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border z-50">
-                      {priorities.map((priority) => (
-                        <SelectItem key={priority} value={priority}>{priority}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -494,15 +489,27 @@ export const AddRetailer = () => {
 
                 <div className="space-y-2">
                   <Label>Parent Name</Label>
-                  <Input
-                    placeholder={retailerData.parentType === "Distributor" ? "Auto-updated based on selection" : "Enter parent name"}
-                    value={retailerData.parentName}
-                    onChange={(e) => handleInputChange("parentName", e.target.value)}
-                    className="bg-background"
-                    disabled={retailerData.parentType === "Distributor"}
-                  />
-                  {retailerData.parentType === "Distributor" && (
-                    <p className="text-xs text-muted-foreground">Name will auto-update when Distributor is selected</p>
+                  {retailerData.parentType === "Distributor" ? (
+                    <Select value={retailerData.parentName} onValueChange={(value) => handleInputChange("parentName", value)}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select distributor" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border z-50">
+                        {distributors.map((distributor) => (
+                          <SelectItem key={distributor.id} value={distributor.name}>{distributor.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Enter parent name"
+                      value={retailerData.parentName}
+                      onChange={(e) => handleInputChange("parentName", e.target.value)}
+                      className="bg-background"
+                    />
+                  )}
+                  {retailerData.parentType === "Distributor" && distributors.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No distributors found. Please add distributors first.</p>
                   )}
                 </div>
               </div>
