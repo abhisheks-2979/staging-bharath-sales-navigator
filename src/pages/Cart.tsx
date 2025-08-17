@@ -131,22 +131,7 @@ export const Cart = () => {
 const computeItemSubtotal = (item: AnyCartItem) => Number(item.rate) * Number(item.quantity);
 
 const computeItemDiscount = (item: AnyCartItem) => {
-  console.log('=== Computing discount for item ===', {
-    itemName: item.name,
-    quantity: item.quantity,
-    rate: item.rate,
-    hasPreCalculatedTotal: item.total !== undefined,
-    preCalculatedTotal: item.total
-  });
-
-  // If item has pre-calculated total (from OrderEntry with schemes), use that
-  if (item.total !== undefined) {
-    const discount = computeItemSubtotal(item) - Number(item.total);
-    console.log('Using pre-calculated total. Discount:', discount);
-    return discount;
-  }
-  
-  // Get scheme from database or fallback
+  // Always recalculate discount based on current quantity and schemes
   const { condition, discountPct } = getItemScheme(item);
   
   console.log('Computing discount for:', {
@@ -166,12 +151,7 @@ const computeItemDiscount = (item: AnyCartItem) => {
   return 0;
 };
 const computeItemTotal = (item: AnyCartItem) => {
-  // If item has pre-calculated total (from OrderEntry with schemes), use that
-  if (item.total !== undefined) {
-    return Number(item.total);
-  }
-  
-  // Fallback calculation
+  // Always recalculate total based on current quantity and schemes
   return computeItemSubtotal(item) - computeItemDiscount(item);
 };
 
@@ -281,32 +261,10 @@ React.useEffect(() => {
       if (item.id === productId) {
         const updatedItem = { ...item, quantity: newQuantity };
         
-        // If the item had a pre-calculated total, we need to recalculate it with the new quantity
-        // while preserving the scheme discount percentage
-        if (item.total !== undefined) {
-          // Calculate what the discount percentage was originally
-          const originalSubtotal = Number(item.rate) * Number(item.quantity);
-          const originalDiscount = originalSubtotal - Number(item.total);
-          const discountPercentage = originalSubtotal > 0 ? (originalDiscount / originalSubtotal) * 100 : 0;
-          
-          // Apply the same discount percentage to the new quantity
-          const newSubtotal = Number(item.rate) * newQuantity;
-          const newDiscount = (newSubtotal * discountPercentage) / 100;
-          updatedItem.total = newSubtotal - newDiscount;
-          
-          console.log('Recalculating total with preserved discount:', {
-            originalQuantity: item.quantity,
-            newQuantity,
-            originalSubtotal,
-            originalDiscount,
-            discountPercentage,
-            newSubtotal,
-            newDiscount,
-            newTotal: updatedItem.total
-          });
-        }
+        // Remove pre-calculated total so schemes are recalculated based on new quantity
+        delete updatedItem.total;
         
-        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity);
+        console.log('Updating quantity for:', updatedItem.name, 'New quantity:', newQuantity, 'Schemes will be recalculated');
         
         // Update OrderEntry quantities storage - make sure to sync correctly
         updateOrderEntryQuantities(productId, newQuantity);
