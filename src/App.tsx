@@ -52,6 +52,7 @@ import Vendors from "./pages/Vendors";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
+import StockCycle from "./pages/StockCycle";
 
 const queryClient = new QueryClient();
 
@@ -235,6 +236,11 @@ const App = () => (
             <Route path="/vendors" element={
               <ProtectedRoute>
                 <Vendors />
+              </ProtectedRoute>
+            } />
+            <Route path="/stock-cycle" element={
+              <ProtectedRoute>
+                <StockCycle />
               </ProtectedRoute>
             } />
             <Route path="/features/beat-planning" element={<Suspense fallback={<div>Loading...</div>}><BeatPlanningFeature /></Suspense>} />

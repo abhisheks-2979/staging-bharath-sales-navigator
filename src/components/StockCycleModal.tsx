@@ -19,18 +19,16 @@ interface StockCycleModalProps {
 export const StockCycleModal = ({ isOpen, onClose, visitId, retailerId, retailerName }: StockCycleModalProps) => {
   const [loading, setLoading] = useState(false);
   const [productName, setProductName] = useState("");
-  const [currentStock, setCurrentStock] = useState("");
-  const [previousStock, setPreviousStock] = useState("");
-  const [stockMovement, setStockMovement] = useState<"increase" | "decrease" | "same" | "">("");
-  const [stockTurnover, setStockTurnover] = useState("");
+  const [stockQuantity, setStockQuantity] = useState("");
+  const [orderedQuantity, setOrderedQuantity] = useState("");
   const [notes, setNotes] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productName.trim() || !currentStock.trim() || !stockMovement) {
+    if (!productName.trim() || !stockQuantity.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in product name and stock quantity.",
         variant: "destructive",
       });
       return;
@@ -48,26 +46,19 @@ export const StockCycleModal = ({ isOpen, onClose, visitId, retailerId, retailer
         return;
       }
 
-      // For now, we'll store this in the retailer_feedback table with a special feedback_type
-      // In a real implementation, you might want a dedicated stock_cycle table
       const stockCycleData = {
         user_id: user.id,
         retailer_id: retailerId,
         visit_id: visitId,
-        feedback_type: "stock_cycle",
-        rating: null,
-        comments: JSON.stringify({
-          product_name: productName,
-          current_stock: parseInt(currentStock),
-          previous_stock: previousStock ? parseInt(previousStock) : null,
-          stock_movement: stockMovement,
-          stock_turnover: stockTurnover ? parseInt(stockTurnover) : null,
-          notes: notes.trim() || null
-        })
+        product_id: productName.toLowerCase().replace(/\s+/g, '_'),
+        product_name: productName,
+        ordered_quantity: orderedQuantity ? parseInt(orderedQuantity) : 0,
+        stock_quantity: parseInt(stockQuantity),
+        visit_date: new Date().toISOString().split('T')[0],
       };
 
       const { error } = await supabase
-        .from('retailer_feedback')
+        .from('stock_cycle_data')
         .insert(stockCycleData);
 
       if (error) throw error;
@@ -79,10 +70,8 @@ export const StockCycleModal = ({ isOpen, onClose, visitId, retailerId, retailer
 
       // Reset form
       setProductName("");
-      setCurrentStock("");
-      setPreviousStock("");
-      setStockMovement("");
-      setStockTurnover("");
+      setStockQuantity("");
+      setOrderedQuantity("");
       setNotes("");
       onClose();
     } catch (error: any) {
@@ -118,55 +107,29 @@ export const StockCycleModal = ({ isOpen, onClose, visitId, retailerId, retailer
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="currentStock">Current Stock *</Label>
+              <Label htmlFor="stockQuantity">Stock Quantity *</Label>
               <Input
-                id="currentStock"
+                id="stockQuantity"
                 type="number"
-                value={currentStock}
-                onChange={(e) => setCurrentStock(e.target.value)}
-                placeholder="0"
+                value={stockQuantity}
+                onChange={(e) => setStockQuantity(e.target.value)}
+                placeholder="Current stock level"
                 min="0"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="previousStock">Previous Stock</Label>
+              <Label htmlFor="orderedQuantity">Ordered Quantity</Label>
               <Input
-                id="previousStock"
+                id="orderedQuantity"
                 type="number"
-                value={previousStock}
-                onChange={(e) => setPreviousStock(e.target.value)}
-                placeholder="0"
+                value={orderedQuantity}
+                onChange={(e) => setOrderedQuantity(e.target.value)}
+                placeholder="Quantity ordered today"
                 min="0"
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stockMovement">Stock Movement *</Label>
-            <Select value={stockMovement} onValueChange={(value: "increase" | "decrease" | "same") => setStockMovement(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select stock movement" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="increase">Increase</SelectItem>
-                <SelectItem value="decrease">Decrease</SelectItem>
-                <SelectItem value="same">No Change</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stockTurnover">Stock Turnover (Days)</Label>
-            <Input
-              id="stockTurnover"
-              type="number"
-              value={stockTurnover}
-              onChange={(e) => setStockTurnover(e.target.value)}
-              placeholder="Number of days to sell current stock"
-              min="0"
-            />
           </div>
 
           <div className="space-y-2">

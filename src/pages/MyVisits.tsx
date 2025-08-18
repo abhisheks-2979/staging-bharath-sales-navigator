@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Package } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
 import { CreateNewVisitModal } from "@/components/CreateNewVisitModal";
+import { StockCycleTable } from "@/components/StockCycleTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -146,6 +148,7 @@ export const MyVisits = () => {
   const [isCreateVisitModalOpen, setIsCreateVisitModalOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [ordersData, setOrdersData] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("visits");
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -692,49 +695,73 @@ export const MyVisits = () => {
           </CardContent>
         </Card>
 
-        {/* Enhanced Search Bar - Mobile Optimized */}
-        <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-3 sm:p-4 flex justify-end">
-            <div className="w-full sm:w-64">
-              <SearchInput
-                placeholder="🔍 Search visits"
-                value={searchTerm}
-                onChange={setSearchTerm}
-              />
-            </div>
+        {/* Tabs for Visits and Stock Cycle */}
+        <Card className="shadow-card">
+          <CardContent className="p-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="visits" className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  My Visits
+                </TabsTrigger>
+                <TabsTrigger value="stock-cycle" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Stock Cycle
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="visits" className="p-4 space-y-4">
+                {/* Enhanced Search Bar - Mobile Optimized */}
+                <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+                  <CardContent className="p-3 sm:p-4 flex justify-end">
+                    <div className="w-full sm:w-64">
+                      <SearchInput
+                        placeholder="🔍 Search visits"
+                        value={searchTerm}
+                        onChange={setSearchTerm}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Visits List */}
+                <div className="space-y-3">
+                  {filteredVisits.length === 0 ? (
+                    <Card className="shadow-card">
+                      <CardContent className="p-8 text-center">
+                        <CalendarIcon size={48} className="mx-auto text-muted-foreground mb-4" />
+                        <h3 className="font-semibold text-muted-foreground mb-2">No visits found</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Try adjusting your search or create a new visit
+                        </p>
+                        <Button 
+                          className="mt-4"
+                          onClick={() => setIsCreateVisitModalOpen(true)}
+                        >
+                          <Plus size={16} className="mr-2" />
+                          Create New Visit
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    filteredVisits.map((visit) => (
+                      <VisitCard
+                        key={visit.id}
+                        visit={visit}
+                        onViewDetails={handleViewDetails}
+                        selectedDate={selectedDate}
+                      />
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="stock-cycle" className="p-4">
+                <StockCycleTable />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
-        {/* Visits List */}
-        <div className="space-y-3">
-          {filteredVisits.length === 0 ? (
-            <Card className="shadow-card">
-              <CardContent className="p-8 text-center">
-                <CalendarIcon size={48} className="mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-semibold text-muted-foreground mb-2">No visits found</h3>
-                <p className="text-sm text-muted-foreground">
-                  Try adjusting your search or create a new visit
-                </p>
-                <Button 
-                  className="mt-4"
-                  onClick={() => setIsCreateVisitModalOpen(true)}
-                >
-                  <Plus size={16} className="mr-2" />
-                  Create New Visit
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredVisits.map((visit) => (
-              <VisitCard
-                key={visit.id}
-                visit={visit}
-                onViewDetails={handleViewDetails}
-                selectedDate={selectedDate}
-              />
-            ))
-          )}
-        </div>
 
         {/* Create New Visit Modal */}
         <CreateNewVisitModal
