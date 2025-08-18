@@ -1,5 +1,5 @@
 import {precacheAndRoute, cleanupOutdatedCaches} from 'workbox-precaching';
-import {registerRoute, setCatchHandler} from 'workbox-routing';
+import {registerRoute, setCatchHandler, NavigationRoute} from 'workbox-routing';
 import {NetworkFirst, CacheFirst, StaleWhileRevalidate, NetworkOnly} from 'workbox-strategies';
 import {ExpirationPlugin} from 'workbox-expiration';
 
@@ -7,6 +7,7 @@ import {ExpirationPlugin} from 'workbox-expiration';
 cleanupOutdatedCaches();
 
 // Precache ALL build assets (HTML, JS, CSS, fonts, images, icons, static files)
+// This will cache everything in the build during install
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 self.skipWaiting();
@@ -23,9 +24,8 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// 1. NAVIGATION FALLBACK: Always serve cached app shell for all routes
-registerRoute(
-  ({request}) => request.mode === 'navigate',
+// 1. NAVIGATION FALLBACK: Serve cached app shell for all SPA routes
+const navigationRoute = new NavigationRoute(
   async ({event}) => {
     try {
       // Try network first for fresh content
@@ -33,16 +33,22 @@ registerRoute(
       return response;
     } catch (error) {
       // Network failed - serve cached app shell for ANY route
-      console.log('Navigation request failed, serving cached app shell');
+      console.log('Navigation request failed, serving cached app shell for:', event.request.url);
       const cachedResponse = await caches.match('/index.html');
       if (cachedResponse) {
         return cachedResponse;
       }
-      // Fallback to root if index.html not found
+      // Fallback to precached root
       return await caches.match('/') || new Response('App offline', {status: 503});
     }
+  },
+  {
+    // Don't handle requests to files with extensions (like .js, .css, .png)
+    denylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
   }
 );
+
+registerRoute(navigationRoute);
 
 // 2. STATIC ASSETS: Cache-first for all build assets
 registerRoute(
