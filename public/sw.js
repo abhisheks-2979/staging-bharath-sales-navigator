@@ -21,20 +21,14 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// Handle all navigation requests (SPA routing)
+// Serve all navigation requests from cache if offline
 registerRoute(
   ({request}) => request.mode === 'navigate',
   async ({event}) => {
-    // Use preloaded response if available
-    const preloaded = await event.preloadResponse;
-    if (preloaded) return preloaded;
-
     try {
-      // Try network first for fresh content
-      return await fetch(event.request);
+      return await fetch(event.request); // online attempt
     } catch {
-      // Offline: serve cached app shell for all routes
-      return await caches.match('/index.html') || await caches.match('/');
+      return await caches.match('/index.html'); // always fallback to cached app shell
     }
   }
 );
