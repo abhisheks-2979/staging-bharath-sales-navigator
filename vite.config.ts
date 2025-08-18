@@ -18,14 +18,57 @@ export default defineConfig(({ mode }) => ({
       strategies: 'injectManifest',
       srcDir: 'public',
       filename: 'sw.js',
+      registerType: 'autoUpdate',
+      workbox: {
+        globDirectory: 'dist',
+        globPatterns: [
+          '**/*.{html,js,mjs,css,woff,woff2,ttf,eot,ico,png,jpg,jpeg,svg,gif,webp,json,txt}',
+        ],
+        // Precache critical assets
+        globIgnores: [
+          '**/node_modules/**/*',
+          '**/*.map',
+          '**/lovable-uploads/**/*', // User uploads don't need to be precached
+        ],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+        cleanupOutdatedCaches: true,
+      },
       injectManifest: {
         swSrc: 'public/sw.js',
         swDest: 'dist/sw.js',
         globDirectory: 'dist',
         globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,json,txt}',
+          '**/*.{html,js,mjs,css,woff,woff2,ttf,eot,ico,png,jpg,jpeg,svg,gif,webp,json,txt}',
         ],
-        maximumFileSizeToCacheInBytes: 5000000,
+        globIgnores: [
+          '**/node_modules/**/*',
+          '**/*.map',
+          '**/lovable-uploads/**/*',
+        ],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+      manifest: {
+        name: 'Your App Name',
+        short_name: 'App',
+        description: 'Your app description',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
       },
       devOptions: {
         enabled: true,
