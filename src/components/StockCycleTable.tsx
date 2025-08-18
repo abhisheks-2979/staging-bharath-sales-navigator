@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Calendar, Package } from "lucide-react";
+import { Calendar, Package, TrendingUp, TrendingDown } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
@@ -39,6 +40,15 @@ interface ProductWithStock {
   }>;
 }
 
+interface TertiarySalesData {
+  product_id: string;
+  product_name: string;
+  lastVisitSales: number;
+  previousVisitSales: number;
+  salesChange: number;
+  salesChangePercentage: number;
+}
+
 export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: StockCycleTableProps) => {
   const { user } = useAuth();
   const [stockData, setStockData] = useState<StockCycleData[]>([]);
@@ -46,6 +56,7 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
+  const [activeTab, setActiveTab] = useState("stock-movement");
 
   useEffect(() => {
     if (user && retailerId) {
@@ -278,6 +289,82 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
     return previousStock + orderedQty - currentStock;
   };
 
+  // Calculate tertiary sales data
+  const calculateTertiarySalesData = (): TertiarySalesData[] => {
+    const productMap = new Map<string, TertiarySalesData>();
+    
+    // First, add all available products
+    allProducts.forEach(product => {
+      productMap.set(product.id, {
+        product_id: product.id,
+        product_name: product.name,
+        lastVisitSales: 0,
+        previousVisitSales: 0,
+        salesChange: 0,
+        salesChangePercentage: 0
+      });
+    });
+    
+    // Calculate sales for each product based on stock movement
+    stockData.forEach(item => {
+      if (!productMap.has(item.product_id)) {
+        productMap.set(item.product_id, {
+          product_id: item.product_id,
+          product_name: item.product_name,
+          lastVisitSales: 0,
+          previousVisitSales: 0,
+          salesChange: 0,
+          salesChangePercentage: 0
+        });
+      }
+    });
+
+    // Group visits by product and calculate sales
+    const productVisits = new Map<string, Array<{visit_date: string, ordered_quantity: number, stock_quantity: number}>>();
+    
+    stockData.forEach(item => {
+      if (!productVisits.has(item.product_id)) {
+        productVisits.set(item.product_id, []);
+      }
+      productVisits.get(item.product_id)!.push({
+        visit_date: item.visit_date,
+        ordered_quantity: item.ordered_quantity,
+        stock_quantity: item.stock_quantity
+      });
+    });
+
+    productVisits.forEach((visits, productId) => {
+      const product = productMap.get(productId);
+      if (!product) return;
+
+      // Sort visits by date (newest first)
+      visits.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+      
+      if (visits.length >= 2) {
+        const lastVisit = visits[0];
+        const previousVisit = visits[1];
+        
+        // Calculate sales as consumption: Previous Stock + Ordered - Current Stock
+        const lastVisitSales = Math.max(0, previousVisit.stock_quantity + lastVisit.ordered_quantity - lastVisit.stock_quantity);
+        const previousVisitSales = visits.length >= 3 
+          ? Math.max(0, visits[2].stock_quantity + previousVisit.ordered_quantity - previousVisit.stock_quantity)
+          : 0;
+        
+        const salesChange = lastVisitSales - previousVisitSales;
+        const salesChangePercentage = previousVisitSales > 0 
+          ? ((salesChange / previousVisitSales) * 100) 
+          : (lastVisitSales > 0 ? 100 : 0);
+
+        product.lastVisitSales = lastVisitSales;
+        product.previousVisitSales = previousVisitSales;
+        product.salesChange = salesChange;
+        product.salesChangePercentage = salesChangePercentage;
+      }
+    });
+    
+    return Array.from(productMap.values()).filter(p => p.lastVisitSales > 0 || p.previousVisitSales > 0);
+  };
+
 
   // Create comprehensive product data that includes all available products
   const createComprehensiveProductData = () => {
@@ -321,6 +408,7 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
   };
 
   const comprehensiveProductData = createComprehensiveProductData();
+  const tertiarySalesData = calculateTertiarySalesData();
   
   // Get unique visit dates for headers (last 6 visits max)
   const uniqueDates = Array.from(new Set(stockData.map(item => item.visit_date)))
@@ -363,87 +451,176 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
           </div>
         </CardHeader>
         <CardContent>
-          {comprehensiveProductData.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No products available</p>
-              <p className="text-sm">Add products to start tracking stock cycles</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px] sticky left-0 bg-background">Product Name</TableHead>
-                    {uniqueDates.map((date, index) => (
-                      <TableHead key={date} className="text-center min-w-[150px]">
-                        <div className="space-y-1">
-                          <div className="font-semibold">
-                            {index === 0 ? "Last Visit" : `Previous Visit ${index}`}
-                          </div>
-                          <div className="text-xs text-muted-foreground">{format(new Date(date), "MMM dd, yyyy")}</div>
-                          <div className="text-xs text-muted-foreground grid grid-cols-3 gap-1">
-                            <span>Order</span>
-                            <span>Stock</span>
-                            <span>Balance</span>
-                          </div>
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {comprehensiveProductData.map((product) => {
-                    return (
-                      <TableRow key={product.product_id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium sticky left-0 bg-background">
-                          {product.product_name}
-                        </TableCell>
-                        {uniqueDates.map(date => {
-                          const visitData = product.visits.find(v => v.visit_date === date);
-                          const previousVisitIndex = product.visits.findIndex(v => v.visit_date === date) + 1;
-                          const previousVisit = product.visits[previousVisitIndex];
-                          
-                          if (!visitData) {
-                            return (
-                              <TableCell key={date} className="text-center text-muted-foreground">
-                                <div className="text-sm">No visit data</div>
-                              </TableCell>
-                            );
-                          }
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="stock-movement">Stock Movement</TabsTrigger>
+              <TabsTrigger value="tertiary-sales">Tertiary Sales</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="stock-movement" className="space-y-4">
+              {comprehensiveProductData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No products available</p>
+                  <p className="text-sm">Add products to start tracking stock cycles</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[200px] sticky left-0 bg-background">Product Name</TableHead>
+                        {uniqueDates.map((date, index) => (
+                          <TableHead key={date} className="text-center min-w-[150px]">
+                            <div className="space-y-1">
+                              <div className="font-semibold">
+                                {index === 0 ? "Last Visit" : `Previous Visit ${index}`}
+                              </div>
+                              <div className="text-xs text-muted-foreground">{format(new Date(date), "MMM dd, yyyy")}</div>
+                              <div className="text-xs text-muted-foreground grid grid-cols-3 gap-1">
+                                <span>Order</span>
+                                <span>Stock</span>
+                                <span>Balance</span>
+                              </div>
+                            </div>
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {comprehensiveProductData.map((product) => {
+                        return (
+                          <TableRow key={product.product_id} className="hover:bg-muted/50">
+                            <TableCell className="font-medium sticky left-0 bg-background">
+                              {product.product_name}
+                            </TableCell>
+                            {uniqueDates.map(date => {
+                              const visitData = product.visits.find(v => v.visit_date === date);
+                              const previousVisitIndex = product.visits.findIndex(v => v.visit_date === date) + 1;
+                              const previousVisit = product.visits[previousVisitIndex];
+                              
+                              if (!visitData) {
+                                return (
+                                  <TableCell key={date} className="text-center text-muted-foreground">
+                                    <div className="text-sm">No visit data</div>
+                                  </TableCell>
+                                );
+                              }
 
-                          const balance = previousVisit 
-                            ? previousVisit.stock_quantity + visitData.ordered_quantity - visitData.stock_quantity
-                            : visitData.ordered_quantity - visitData.stock_quantity;
+                              const balance = previousVisit 
+                                ? previousVisit.stock_quantity + visitData.ordered_quantity - visitData.stock_quantity
+                                : visitData.ordered_quantity - visitData.stock_quantity;
 
-                          return (
-                            <TableCell key={date} className="text-center">
-                              <div className="space-y-1">
-                                <div className="grid grid-cols-3 gap-1 text-sm">
-                                  <Badge variant="outline" className="text-xs px-1">
-                                    {visitData.ordered_quantity}
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs px-1">
-                                    {visitData.stock_quantity}
-                                  </Badge>
-                                  <Badge 
-                                    variant={balance > 0 ? "default" : balance < 0 ? "destructive" : "secondary"} 
-                                    className="text-xs px-1"
-                                  >
-                                    {balance}
-                                  </Badge>
-                                </div>
+                              return (
+                                <TableCell key={date} className="text-center">
+                                  <div className="space-y-1">
+                                    <div className="grid grid-cols-3 gap-1 text-sm">
+                                      <Badge variant="outline" className="text-xs px-1">
+                                        {visitData.ordered_quantity}
+                                      </Badge>
+                                      <Badge variant="secondary" className="text-xs px-1">
+                                        {visitData.stock_quantity}
+                                      </Badge>
+                                      <Badge 
+                                        variant={balance > 0 ? "default" : balance < 0 ? "destructive" : "secondary"} 
+                                        className="text-xs px-1"
+                                      >
+                                        {balance}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="tertiary-sales" className="space-y-4">
+              {tertiarySalesData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No sales data available</p>
+                  <p className="text-sm">Complete visits with orders and stock to see tertiary sales</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[200px] sticky left-0 bg-background">Product Name</TableHead>
+                        <TableHead className="text-center min-w-[120px]">Last Visit Sales</TableHead>
+                        <TableHead className="text-center min-w-[120px]">Previous Visit Sales</TableHead>
+                        <TableHead className="text-center min-w-[120px]">Sales Change</TableHead>
+                        <TableHead className="text-center min-w-[150px]">% Change</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tertiarySalesData.map((product) => {
+                        const isPositive = product.salesChange >= 0;
+                        const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+                        
+                        return (
+                          <TableRow key={product.product_id} className="hover:bg-muted/50">
+                            <TableCell className="font-medium sticky left-0 bg-background">
+                              {product.product_name}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className="text-sm">
+                                {product.lastVisitSales}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="text-sm">
+                                {product.previousVisitSales}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <TrendIcon 
+                                  className={cn(
+                                    "h-4 w-4",
+                                    isPositive ? "text-green-500" : "text-red-500"
+                                  )} 
+                                />
+                                <Badge 
+                                  variant={isPositive ? "default" : "destructive"} 
+                                  className="text-sm"
+                                >
+                                  {isPositive ? "+" : ""}{product.salesChange}
+                                </Badge>
                               </div>
                             </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <TrendIcon 
+                                  className={cn(
+                                    "h-4 w-4",
+                                    isPositive ? "text-green-500" : "text-red-500"
+                                  )} 
+                                />
+                                <Badge 
+                                  variant={isPositive ? "default" : "destructive"} 
+                                  className="text-sm"
+                                >
+                                  {isPositive ? "+" : ""}{product.salesChangePercentage.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
