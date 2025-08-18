@@ -283,26 +283,6 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
     return previousStock + orderedQty - currentStock;
   };
 
-  const calculateAverageConsumption = (productId: string) => {
-    const productData = stockData.filter(item => item.product_id === productId);
-    if (productData.length < 2) return 0;
-
-    let totalConsumption = 0;
-    let validEntries = 0;
-
-    for (let i = 0; i < productData.length - 1; i++) {
-      const current = productData[i];
-      const previous = productData[i + 1];
-      
-      const consumption = calculateBalance(current.stock_quantity, previous.stock_quantity, current.ordered_quantity);
-      if (consumption >= 0) {
-        totalConsumption += consumption;
-        validEntries++;
-      }
-    }
-
-    return validEntries > 0 ? Math.round(totalConsumption / validEntries) : 0;
-  };
 
   // Create comprehensive product data that includes all available products
   const createComprehensiveProductData = () => {
@@ -406,10 +386,13 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[200px] sticky left-0 bg-background">Product Name</TableHead>
-                    {uniqueDates.map(date => (
+                    {uniqueDates.map((date, index) => (
                       <TableHead key={date} className="text-center min-w-[150px]">
                         <div className="space-y-1">
-                          <div className="font-semibold">{format(new Date(date), "MMM dd, yyyy")}</div>
+                          <div className="font-semibold">
+                            {index === 0 ? "Last Visit" : `Previous Visit ${index}`}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{format(new Date(date), "MMM dd, yyyy")}</div>
                           <div className="text-xs text-muted-foreground grid grid-cols-3 gap-1">
                             <span>Order</span>
                             <span>Stock</span>
@@ -418,13 +401,10 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
                         </div>
                       </TableHead>
                     ))}
-                    <TableHead className="text-center min-w-[120px]">Avg. Consumption</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {comprehensiveProductData.map((product) => {
-                    const avgConsumption = calculateAverageConsumption(product.product_id);
-                    
                     return (
                       <TableRow key={product.product_id} className="hover:bg-muted/50">
                         <TableCell className="font-medium sticky left-0 bg-background">
@@ -468,11 +448,6 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
                             </TableCell>
                           );
                         })}
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="text-sm">
-                            {avgConsumption}
-                          </Badge>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
