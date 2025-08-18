@@ -277,6 +277,90 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_documents: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          doc_type: Database["public"]["Enums"]["employee_doc_type"]
+          file_name: string | null
+          file_path: string
+          id: string
+          uploaded_by: string
+          user_id: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          doc_type: Database["public"]["Enums"]["employee_doc_type"]
+          file_name?: string | null
+          file_path: string
+          id?: string
+          uploaded_by: string
+          user_id: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          doc_type?: Database["public"]["Enums"]["employee_doc_type"]
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          uploaded_by?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          address: string | null
+          alternate_email: string | null
+          created_at: string
+          daily_da_allowance: number
+          date_of_exit: string | null
+          date_of_joining: string | null
+          education: string | null
+          emergency_contact_number: string | null
+          hq: string | null
+          manager_id: string | null
+          monthly_salary: number
+          photo_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          alternate_email?: string | null
+          created_at?: string
+          daily_da_allowance?: number
+          date_of_exit?: string | null
+          date_of_joining?: string | null
+          education?: string | null
+          emergency_contact_number?: string | null
+          hq?: string | null
+          manager_id?: string | null
+          monthly_salary?: number
+          photo_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          alternate_email?: string | null
+          created_at?: string
+          daily_da_allowance?: number
+          date_of_exit?: string | null
+          date_of_joining?: string | null
+          education?: string | null
+          emergency_contact_number?: string | null
+          hq?: string | null
+          manager_id?: string | null
+          monthly_salary?: number
+          photo_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           created_at: string
@@ -1059,6 +1143,7 @@ export type Database = {
         | "in_progress"
         | "executed"
         | "verified"
+      employee_doc_type: "address_proof" | "id_proof" | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1196,6 +1281,7 @@ export const Constants = {
         "executed",
         "verified",
       ],
+      employee_doc_type: ["address_proof", "id_proof", "other"],
     },
   },
 } as const

@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, ArrowLeft } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import HolidayManagement from '../components/HolidayManagement';
+import HolidayManagement from '@/components/HolidayManagement';
+import CreateUserForm from '@/components/CreateUserForm';
 
 interface User {
   id: string;
@@ -353,73 +354,8 @@ export const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="create-user" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create New User</CardTitle>
-                <CardDescription>
-                  Create a new user account with specified role (Admin access only)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 max-w-md">
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                      placeholder="user@example.com"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newUser.password}
-                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                      placeholder="Enter password"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      value={newUser.username}
-                      onChange={(e) => setNewUser({...newUser, username: e.target.value})}
-                      placeholder="username"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      value={newUser.fullName}
-                      onChange={(e) => setNewUser({...newUser, fullName: e.target.value})}
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <Select value={newUser.role} onValueChange={(value: 'admin' | 'user') => setNewUser({...newUser, role: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={createUser} className="w-full">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Create User
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="create-user" className="space-y-6">
+            <CreateUserForm />
           </TabsContent>
 
           <TabsContent value="holidays" className="space-y-4">
