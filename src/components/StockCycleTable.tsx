@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
-import { Calendar, Plus, Download, Package } from "lucide-react";
-import { format, subDays, startOfDay } from "date-fns";
+import { Calendar, Package } from "lucide-react";
+import { format, subDays } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,14 +45,7 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [newProduct, setNewProduct] = useState({
-    product_name: "",
-    product_id: "",
-    ordered_quantity: "",
-    stock_quantity: ""
-  });
 
   useEffect(() => {
     if (user && retailerId) {
@@ -204,80 +193,6 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
     }
   };
 
-  const handleAddProduct = async () => {
-    if (!user || !newProduct.product_name || !newProduct.stock_quantity) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide product name and stock quantity.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const productId = newProduct.product_id || newProduct.product_name.toLowerCase().replace(/\s+/g, '_');
-      
-      // Check if entry already exists for today
-      const { data: existing } = await supabase
-        .from('stock_cycle_data')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('retailer_id', retailerId)
-        .eq('product_id', productId)
-        .eq('visit_date', today)
-        .maybeSingle();
-
-      if (existing) {
-        // Update existing entry
-        await supabase
-          .from('stock_cycle_data')
-          .update({
-            stock_quantity: parseInt(newProduct.stock_quantity),
-            ordered_quantity: parseInt(newProduct.ordered_quantity) || 0
-          })
-          .eq('id', existing.id);
-      } else {
-        // Create new entry
-        const productData = {
-          user_id: user.id,
-          retailer_id: retailerId,
-          visit_id: currentVisitId || null,
-          product_id: productId,
-          product_name: newProduct.product_name,
-          ordered_quantity: parseInt(newProduct.ordered_quantity) || 0,
-          stock_quantity: parseInt(newProduct.stock_quantity),
-          visit_date: today
-        };
-
-        await supabase
-          .from('stock_cycle_data')
-          .insert(productData);
-      }
-
-      toast({
-        title: "Stock Updated",
-        description: `Stock data for ${newProduct.product_name} has been recorded.`,
-      });
-
-      setNewProduct({
-        product_name: "",
-        product_id: "",
-        ordered_quantity: "",
-        stock_quantity: ""
-      });
-      setShowAddModal(false);
-      loadAllData();
-    } catch (error: any) {
-      console.error('Error adding product:', error);
-      toast({
-        title: "Error Adding Product",
-        description: error.message || "Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const calculateBalance = (currentStock: number, previousStock: number, orderedQty: number) => {
     // Balance = Previous Stock + Ordered - Current Stock (consumption)
     return previousStock + orderedQty - currentStock;
@@ -348,29 +263,23 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Stock Cycle - {retailerName}</CardTitle>
-            <div className="flex gap-2">
-              <Popover open={showCalendar} onOpenChange={setShowCalendar}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {selectedDate ? format(selectedDate, "MMM dd, yyyy") : "Select Date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button onClick={() => setShowAddModal(true)} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-            </div>
+            <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {selectedDate ? format(selectedDate, "MMM dd, yyyy") : "Select Date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </CardHeader>
         <CardContent>
@@ -458,85 +367,6 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
         </CardContent>
       </Card>
 
-      {/* Add Product Modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="w-[95%] max-w-md mx-auto">
-          <DialogHeader>
-            <DialogTitle>Update Product Stock Data</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="productName">Product Name *</Label>
-              <Select 
-                value={newProduct.product_name} 
-                onValueChange={(value) => {
-                  const selectedProduct = allProducts.find(p => p.name === value);
-                  setNewProduct(prev => ({ 
-                    ...prev, 
-                    product_name: value,
-                    product_id: selectedProduct?.id || value.toLowerCase().replace(/\s+/g, '_')
-                  }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allProducts.map(product => (
-                    <SelectItem key={product.id} value={product.name}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="orderedQty">Ordered Quantity</Label>
-                <Input
-                  id="orderedQty"
-                  type="number"
-                  value={newProduct.ordered_quantity}
-                  onChange={(e) => setNewProduct(prev => ({ ...prev, ordered_quantity: e.target.value }))}
-                  placeholder="0"
-                  min="0"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="stockQty">Current Stock *</Label>
-                <Input
-                  id="stockQty"
-                  type="number"
-                  value={newProduct.stock_quantity}
-                  onChange={(e) => setNewProduct(prev => ({ ...prev, stock_quantity: e.target.value }))}
-                  placeholder="0"
-                  min="0"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowAddModal(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddProduct}
-                className="flex-1"
-              >
-                Update Stock Data
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
