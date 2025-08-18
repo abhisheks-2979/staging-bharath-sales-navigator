@@ -600,16 +600,7 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
                     <TableHeader>
                        <TableRow>
                          <TableHead className="w-[200px]">Product Name</TableHead>
-                         <TableHead className="text-center">
-                           <div className="space-y-1">
-                             <div className="font-semibold">Last Visit</div>
-                             {tertiarySalesData.length > 0 && tertiarySalesData[0].lastVisitDate && (
-                               <div className="text-xs text-muted-foreground">
-                                 {format(new Date(tertiarySalesData[0].lastVisitDate), "MMM dd, yyyy")}
-                               </div>
-                             )}
-                           </div>
-                         </TableHead>
+                         <TableHead className="text-center">Last Visit Sales & Date</TableHead>
                          <TableHead className="text-center">Previous Visit Sales 1</TableHead>
                          <TableHead className="text-center">Previous Visit Sales 2</TableHead>
                          <TableHead className="text-center">Previous Visit Sales 3</TableHead>
@@ -620,9 +611,16 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
                         <TableRow key={product.product_id}>
                           <TableCell className="font-medium">{product.product_name}</TableCell>
                            <TableCell className="text-center">
-                             <Badge variant="outline" className="text-sm">
-                               {product.lastVisitSales}
-                             </Badge>
+                             <div className="space-y-1">
+                               <Badge variant="outline" className="text-sm">
+                                 {product.lastVisitSales}
+                               </Badge>
+                               {product.lastVisitDate && (
+                                 <div className="text-xs text-muted-foreground">
+                                   {format(new Date(product.lastVisitDate), "MMM dd, yyyy")}
+                                 </div>
+                               )}
+                             </div>
                            </TableCell>
                           <TableCell className="text-center">
                             <div className="flex items-center justify-center gap-2">
