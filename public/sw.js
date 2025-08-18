@@ -1,8 +1,11 @@
-import {precacheAndRoute, createHandlerBoundToURL} from 'workbox-precaching';
+import {precacheAndRoute, cleanupOutdatedCaches} from 'workbox-precaching';
 import {registerRoute, setCatchHandler} from 'workbox-routing';
-import {NetworkOnly} from 'workbox-strategies';
+import {NetworkOnly, CacheFirst} from 'workbox-strategies';
 
-// Injected at build: self.__WB_MANIFEST
+// Clean up old caches
+cleanupOutdatedCaches();
+
+// Precache all assets defined by __WB_MANIFEST (injected by Vite PWA)
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 self.skipWaiting();
@@ -17,7 +20,7 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// 1) For navigations, try network first (with navigation preload), then fall back to the app shell.
+// Handle navigation requests (SPA routing)
 registerRoute(
   ({request}) => request.mode === 'navigate',
   async ({event}) => {
@@ -26,23 +29,33 @@ registerRoute(
     if (preloaded) return preloaded;
 
     try {
-      // Try network (when online).
+      // Try network first (when online).
       return await fetch(event.request);
     } catch {
-      // Fallback to cached app shell (serve '/' or '/index.html' depending on your build).
-      // If your build precaches '/index.html', use that. Otherwise use '/'.
+      // Fallback to cached app shell - serve index.html for all routes
       return await caches.match('/index.html') || await caches.match('/');
     }
   }
 );
 
-// 2) Do NOT cache the connectivity probe.
+// Cache static assets with cache-first strategy
+registerRoute(
+  ({request}) => 
+    request.destination === 'style' ||
+    request.destination === 'script' ||
+    request.destination === 'worker',
+  new CacheFirst({
+    cacheName: 'static-assets',
+  })
+);
+
+// Do NOT cache the connectivity probe - always go to network
 registerRoute(
   ({url}) => url.pathname === '/ping.txt',
   new NetworkOnly()
 );
 
-// 3) Generic catch: if anything fails for a document, show the app shell instead of an offline page.
+// Generic catch handler: serve app shell for any document request that fails
 setCatchHandler(async ({event}) => {
   if (event.request?.destination === 'document') {
     return await caches.match('/index.html') || await caches.match('/');
