@@ -1,18 +1,8 @@
 module.exports = {
-  globDirectory: 'dist/',
+  swSrc: 'src/service-worker.ts',   // your custom SW (TypeScript)
+  swDest: 'dist/service-worker.js', // output SW written to Vite's build dir
+  globDirectory: 'dist',            // Vite build output
   globPatterns: [
-    '**/*.{html,js,mjs,css,woff,woff2,ttf,eot,ico,png,jpg,jpeg,svg,gif,webp,json,txt}',
+    '**/*.{js,css,html,ico,png,svg,json,txt}'
   ],
-  globIgnores: [
-    '**/node_modules/**/*',
-    '**/*.map',
-    '**/lovable-uploads/**/*', // User uploads don't need to be precached
-  ],
-  swSrc: 'public/sw.js',
-  swDest: 'dist/sw.js',
-  maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-  cleanupOutdatedCaches: true,
-  // Ensure all routes fallback to index.html for SPA navigation
-  navigateFallback: '/index.html',
-  navigateFallbackDenylist: [/^\/_/, /\/[^/?]+\.[^/]+$/],
 };
