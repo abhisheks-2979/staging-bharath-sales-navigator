@@ -700,21 +700,22 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         </div>
 
         <div className="space-y-2">
-          {/* Main action buttons */}
+          {/* First row - Check-in/Order actions */}
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             <Button 
               size="sm" 
-              className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm`}
+              className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
               onClick={handleLocationClick}
               title={getLocationBtnTitle()}
             >
-              <MapPin size={14} className="sm:size-4" />
+              <MapPin size={12} className="sm:size-3.5" />
+              <span className="text-xs">Check-in</span>
             </Button>
             
             <Button 
               variant={hasOrderToday ? "default" : "outline"}
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${(isNoOrderMarked || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               disabled={isNoOrderMarked || !isCheckedIn || !isTodaysVisit}
@@ -738,13 +739,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               }}
               title={`${!isCheckedIn ? "Check in first to place order" : isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
             >
-              <ShoppingCart size={14} className="sm:size-4" />
+              <ShoppingCart size={12} className="sm:size-3.5" />
+              <span className="text-xs">Order</span>
             </Button>
             
             <Button 
               variant={isNoOrderMarked ? "default" : "outline"}
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
               } ${(isNoOrderMarked || hasOrderToday || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleNoOrderClick}
@@ -759,77 +761,68 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                       : "Mark No Order"
               }
             >
-              {isNoOrderMarked ? (
-                <span className="flex items-center gap-1">
-                  <XCircle size={14} className="sm:size-4" />
-                  <span className="hidden xs:inline text-xs">Unproductive</span>
-                </span>
-              ) : (
-                <XCircle size={14} className="sm:size-4" />
-              )}
+              <XCircle size={12} className="sm:size-3.5" />
+              <span className="text-xs">No Order</span>
             </Button>
             
             <Button 
               variant="outline" 
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm ${
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasViewedAnalytics ? "bg-success text-success-foreground hover:bg-success/90" : ""
               }`}
               onClick={() => handleViewAnalytics(visit.id)}
               title="Analytics"
             >
-              <BarChart3 size={14} className="sm:size-4" />
+              <BarChart3 size={12} className="sm:size-3.5" />
+              <span className="text-xs">Analytics</span>
             </Button>
           </div>
 
-          {/* Secondary action buttons */}
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {/* Second row - Feedback actions */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             <Button 
               variant="outline" 
               size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
               onClick={() => setShowCompetitionModal(true)}
               title="Competition Insights"
             >
-              <Users size={12} className="sm:size-3.5 mr-1" />
-              <span className="hidden xs:inline">Competition</span>
-              <span className="xs:hidden">Comp</span>
+              <Users size={12} className="sm:size-3.5" />
+              <span className="text-xs">Competition</span>
             </Button>
             
             <Button 
               variant="outline" 
               size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
               onClick={() => setShowFeedbackModal(true)}
               title="Retailer Feedback"
             >
-              <MessageSquare size={12} className="sm:size-3.5 mr-1" />
-              <span className="hidden xs:inline">Feedback</span>
-              <span className="xs:hidden">Feed</span>
+              <MessageSquare size={12} className="sm:size-3.5" />
+              <span className="text-xs">Feedback</span>
             </Button>
 
             <Button 
               variant="outline" 
               size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
               onClick={handleOpenBranding}
               title="Branding Request"
             >
-              <Paintbrush size={12} className="sm:size-3.5 mr-1" />
-              <span className="hidden xs:inline">Branding</span>
-              <span className="xs:hidden">Brand</span>
+              <Paintbrush size={12} className="sm:size-3.5" />
+              <span className="text-xs">Branding</span>
             </Button>
 
             <Button 
               variant="outline" 
               size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
               onClick={() => setShowStockCycleModal(true)}
               title="Stock Cycle"
             >
-              <Package size={12} className="sm:size-3.5 mr-1" />
-              <span className="hidden xs:inline">Stock Cycle</span>
-              <span className="xs:hidden">Stock</span>
+              <Package size={12} className="sm:size-3.5" />
+              <span className="text-xs">Stock Cycle</span>
             </Button>
           </div>
 
