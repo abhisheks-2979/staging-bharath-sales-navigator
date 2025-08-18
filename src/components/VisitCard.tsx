@@ -782,7 +782,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           </div>
 
           {/* Second row - Feedback actions */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
             <Button 
               variant="outline" 
               size="sm"
