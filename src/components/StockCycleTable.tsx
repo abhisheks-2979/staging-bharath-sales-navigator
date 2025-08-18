@@ -380,17 +380,17 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
         const sales1Change = lastVisitSales - previousVisitSales1;
         const sales1ChangePercentage = previousVisitSales1 > 0 
           ? ((sales1Change / previousVisitSales1) * 100) 
-          : (lastVisitSales > 0 ? 100 : 0);
+          : (lastVisitSales > 0 ? 100 : (previousVisitSales1 > 0 ? -100 : 0));
           
         const sales2Change = lastVisitSales - previousVisitSales2;
         const sales2ChangePercentage = previousVisitSales2 > 0 
           ? ((sales2Change / previousVisitSales2) * 100) 
-          : (lastVisitSales > 0 ? 100 : 0);
+          : (lastVisitSales > 0 ? 100 : (previousVisitSales2 > 0 ? -100 : 0));
           
         const sales3Change = lastVisitSales - previousVisitSales3;
         const sales3ChangePercentage = previousVisitSales3 > 0 
           ? ((sales3Change / previousVisitSales3) * 100) 
-          : (lastVisitSales > 0 ? 100 : 0);
+          : (lastVisitSales > 0 ? 100 : (previousVisitSales3 > 0 ? -100 : 0));
 
         product.lastVisitSales = lastVisitSales;
         product.previousVisitSales1 = previousVisitSales1;
@@ -405,9 +405,8 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
       }
     });
     
-    return Array.from(productMap.values()).filter(p => 
-      p.lastVisitSales > 0 || p.previousVisitSales1 > 0 || p.previousVisitSales2 > 0 || p.previousVisitSales3 > 0
-    );
+    // Return all products, not just those with sales data
+    return Array.from(productMap.values());
   };
 
 
