@@ -44,9 +44,15 @@ interface TertiarySalesData {
   product_id: string;
   product_name: string;
   lastVisitSales: number;
-  previousVisitSales: number;
-  salesChange: number;
-  salesChangePercentage: number;
+  previousVisitSales1: number;
+  previousVisitSales2: number;
+  previousVisitSales3: number;
+  sales1Change: number;
+  sales1ChangePercentage: number;
+  sales2Change: number;
+  sales2ChangePercentage: number;
+  sales3Change: number;
+  sales3ChangePercentage: number;
 }
 
 export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: StockCycleTableProps) => {
@@ -299,9 +305,15 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
         product_id: product.id,
         product_name: product.name,
         lastVisitSales: 0,
-        previousVisitSales: 0,
-        salesChange: 0,
-        salesChangePercentage: 0
+        previousVisitSales1: 0,
+        previousVisitSales2: 0,
+        previousVisitSales3: 0,
+        sales1Change: 0,
+        sales1ChangePercentage: 0,
+        sales2Change: 0,
+        sales2ChangePercentage: 0,
+        sales3Change: 0,
+        sales3ChangePercentage: 0
       });
     });
     
@@ -312,9 +324,15 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
           product_id: item.product_id,
           product_name: item.product_name,
           lastVisitSales: 0,
-          previousVisitSales: 0,
-          salesChange: 0,
-          salesChangePercentage: 0
+          previousVisitSales1: 0,
+          previousVisitSales2: 0,
+          previousVisitSales3: 0,
+          sales1Change: 0,
+          sales1ChangePercentage: 0,
+          sales2Change: 0,
+          sales2ChangePercentage: 0,
+          sales3Change: 0,
+          sales3ChangePercentage: 0
         });
       }
     });
@@ -341,28 +359,55 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
       visits.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
       
       if (visits.length >= 2) {
-        const lastVisit = visits[0];
-        const previousVisit = visits[1];
-        
         // Calculate sales as consumption: Previous Stock + Ordered - Current Stock
-        const lastVisitSales = Math.max(0, previousVisit.stock_quantity + lastVisit.ordered_quantity - lastVisit.stock_quantity);
-        const previousVisitSales = visits.length >= 3 
-          ? Math.max(0, visits[2].stock_quantity + previousVisit.ordered_quantity - previousVisit.stock_quantity)
+        const lastVisitSales = visits.length >= 2 
+          ? Math.max(0, visits[1].stock_quantity + visits[0].ordered_quantity - visits[0].stock_quantity)
           : 0;
         
-        const salesChange = lastVisitSales - previousVisitSales;
-        const salesChangePercentage = previousVisitSales > 0 
-          ? ((salesChange / previousVisitSales) * 100) 
+        const previousVisitSales1 = visits.length >= 3 
+          ? Math.max(0, visits[2].stock_quantity + visits[1].ordered_quantity - visits[1].stock_quantity)
+          : 0;
+          
+        const previousVisitSales2 = visits.length >= 4 
+          ? Math.max(0, visits[3].stock_quantity + visits[2].ordered_quantity - visits[2].stock_quantity)
+          : 0;
+          
+        const previousVisitSales3 = visits.length >= 5 
+          ? Math.max(0, visits[4].stock_quantity + visits[3].ordered_quantity - visits[3].stock_quantity)
+          : 0;
+        
+        // Calculate changes and percentages compared to last visit
+        const sales1Change = lastVisitSales - previousVisitSales1;
+        const sales1ChangePercentage = previousVisitSales1 > 0 
+          ? ((sales1Change / previousVisitSales1) * 100) 
+          : (lastVisitSales > 0 ? 100 : 0);
+          
+        const sales2Change = lastVisitSales - previousVisitSales2;
+        const sales2ChangePercentage = previousVisitSales2 > 0 
+          ? ((sales2Change / previousVisitSales2) * 100) 
+          : (lastVisitSales > 0 ? 100 : 0);
+          
+        const sales3Change = lastVisitSales - previousVisitSales3;
+        const sales3ChangePercentage = previousVisitSales3 > 0 
+          ? ((sales3Change / previousVisitSales3) * 100) 
           : (lastVisitSales > 0 ? 100 : 0);
 
         product.lastVisitSales = lastVisitSales;
-        product.previousVisitSales = previousVisitSales;
-        product.salesChange = salesChange;
-        product.salesChangePercentage = salesChangePercentage;
+        product.previousVisitSales1 = previousVisitSales1;
+        product.previousVisitSales2 = previousVisitSales2;
+        product.previousVisitSales3 = previousVisitSales3;
+        product.sales1Change = sales1Change;
+        product.sales1ChangePercentage = sales1ChangePercentage;
+        product.sales2Change = sales2Change;
+        product.sales2ChangePercentage = sales2ChangePercentage;
+        product.sales3Change = sales3Change;
+        product.sales3ChangePercentage = sales3ChangePercentage;
       }
     });
     
-    return Array.from(productMap.values()).filter(p => p.lastVisitSales > 0 || p.previousVisitSales > 0);
+    return Array.from(productMap.values()).filter(p => 
+      p.lastVisitSales > 0 || p.previousVisitSales1 > 0 || p.previousVisitSales2 > 0 || p.previousVisitSales3 > 0
+    );
   };
 
 
@@ -544,77 +589,99 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
             <TabsContent value="tertiary-sales" className="space-y-4">
               {tertiarySalesData.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No sales data available</p>
-                  <p className="text-sm">Complete visits with orders and stock to see tertiary sales</p>
+                  <p className="text-sm">Sales data will appear after visits with stock movements</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[200px] sticky left-0 bg-background">Product Name</TableHead>
-                        <TableHead className="text-center min-w-[120px]">Last Visit Sales</TableHead>
-                        <TableHead className="text-center min-w-[120px]">Previous Visit Sales</TableHead>
-                        <TableHead className="text-center min-w-[120px]">Sales Change</TableHead>
-                        <TableHead className="text-center min-w-[150px]">% Change</TableHead>
+                        <TableHead className="w-[200px]">Product Name</TableHead>
+                        <TableHead className="text-center">Last Visit Sales</TableHead>
+                        <TableHead className="text-center">Previous Visit Sales 1</TableHead>
+                        <TableHead className="text-center">Previous Visit Sales 2</TableHead>
+                        <TableHead className="text-center">Previous Visit Sales 3</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tertiarySalesData.map((product) => {
-                        const isPositive = product.salesChange >= 0;
-                        const TrendIcon = isPositive ? TrendingUp : TrendingDown;
-                        
-                        return (
-                          <TableRow key={product.product_id} className="hover:bg-muted/50">
-                            <TableCell className="font-medium sticky left-0 bg-background">
-                              {product.product_name}
-                            </TableCell>
-                            <TableCell className="text-center">
+                      {tertiarySalesData.map((product) => (
+                        <TableRow key={product.product_id}>
+                          <TableCell className="font-medium">{product.product_name}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="text-sm">
+                              {product.lastVisitSales}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
                               <Badge variant="outline" className="text-sm">
-                                {product.lastVisitSales}
+                                {product.previousVisitSales1}
                               </Badge>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant="secondary" className="text-sm">
-                                {product.previousVisitSales}
+                              {product.previousVisitSales1 > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {product.sales1Change > 0 ? (
+                                    <TrendingUp className="h-3 w-3 text-green-600" />
+                                  ) : product.sales1Change < 0 ? (
+                                    <TrendingDown className="h-3 w-3 text-red-600" />
+                                  ) : null}
+                                  <span className={`text-xs ${
+                                    product.sales1Change > 0 ? 'text-green-600' : 
+                                    product.sales1Change < 0 ? 'text-red-600' : 'text-muted-foreground'
+                                  }`}>
+                                    {product.sales1Change > 0 ? "+" : ""}{product.sales1ChangePercentage.toFixed(1)}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Badge variant="outline" className="text-sm">
+                                {product.previousVisitSales2}
                               </Badge>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <TrendIcon 
-                                  className={cn(
-                                    "h-4 w-4",
-                                    isPositive ? "text-green-500" : "text-red-500"
-                                  )} 
-                                />
-                                <Badge 
-                                  variant={isPositive ? "default" : "destructive"} 
-                                  className="text-sm"
-                                >
-                                  {isPositive ? "+" : ""}{product.salesChange}
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <TrendIcon 
-                                  className={cn(
-                                    "h-4 w-4",
-                                    isPositive ? "text-green-500" : "text-red-500"
-                                  )} 
-                                />
-                                <Badge 
-                                  variant={isPositive ? "default" : "destructive"} 
-                                  className="text-sm"
-                                >
-                                  {isPositive ? "+" : ""}{product.salesChangePercentage.toFixed(1)}%
-                                </Badge>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                              {product.previousVisitSales2 > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {product.sales2Change > 0 ? (
+                                    <TrendingUp className="h-3 w-3 text-green-600" />
+                                  ) : product.sales2Change < 0 ? (
+                                    <TrendingDown className="h-3 w-3 text-red-600" />
+                                  ) : null}
+                                  <span className={`text-xs ${
+                                    product.sales2Change > 0 ? 'text-green-600' : 
+                                    product.sales2Change < 0 ? 'text-red-600' : 'text-muted-foreground'
+                                  }`}>
+                                    {product.sales2Change > 0 ? "+" : ""}{product.sales2ChangePercentage.toFixed(1)}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Badge variant="outline" className="text-sm">
+                                {product.previousVisitSales3}
+                              </Badge>
+                              {product.previousVisitSales3 > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {product.sales3Change > 0 ? (
+                                    <TrendingUp className="h-3 w-3 text-green-600" />
+                                  ) : product.sales3Change < 0 ? (
+                                    <TrendingDown className="h-3 w-3 text-red-600" />
+                                  ) : null}
+                                  <span className={`text-xs ${
+                                    product.sales3Change > 0 ? 'text-green-600' : 
+                                    product.sales3Change < 0 ? 'text-red-600' : 'text-muted-foreground'
+                                  }`}>
+                                    {product.sales3Change > 0 ? "+" : ""}{product.sales3ChangePercentage.toFixed(1)}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
