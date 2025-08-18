@@ -624,12 +624,19 @@ const filteredProducts = selectedCategory === "All"
         console.error('Error saving stock data:', error);
         toast({
           title: "Stock Save Error",
-          description: "Failed to save stock quantity",
+          description: error?.message ? String(error.message) : "Failed to save stock quantity",
           variant: "destructive"
         });
+      } else {
+        console.log('Stock saved successfully', { productId, stockQuantity });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving stock data:', error);
+      toast({
+        title: "Stock Save Error",
+        description: error?.message ? String(error.message) : "Failed to save stock quantity",
+        variant: "destructive"
+      });
     }
   };
 
