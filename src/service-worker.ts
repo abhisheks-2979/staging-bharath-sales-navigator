@@ -1,5 +1,13 @@
 /// <reference lib="webworker" />
 
+declare const self: ServiceWorkerGlobalScope & {
+  __WB_MANIFEST: (string | PrecacheEntry)[];
+};
+
+interface PrecacheEntry {
+  url: string;
+  revision?: string;
+}
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
