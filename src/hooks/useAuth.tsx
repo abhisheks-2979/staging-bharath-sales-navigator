@@ -195,31 +195,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    try {
-      // Check if there's actually a session before trying to sign out
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (currentSession) {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          console.error('Sign out error:', error);
-          // Don't throw error, just log it and continue with logout
-        }
-      }
-    } catch (error: any) {
-      console.error('Logout error:', error);
-      // Don't throw error, just continue with logout
-    }
-    
-    // Clear local state regardless of API call success
+    // Clear local session state first (works offline)
     setUser(null);
     setSession(null);
     setUserRole(null);
     setUserProfile(null);
     
-    toast.success('Signed out successfully!');
-    // Redirect to auth page
+    // Clear any local storage
+    localStorage.removeItem("supabase.auth.token");
+    sessionStorage.clear();
+    
+    // Redirect immediately
     window.location.href = '/auth';
+    
+    // Try server logout when online (background operation)
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.log('Server logout failed (offline or network error):', error);
+      // Ignore errors - user is already logged out locally
+    }
   };
 
   const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {
