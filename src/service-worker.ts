@@ -8,21 +8,19 @@ interface PrecacheEntry {
   url: string;
   revision?: string;
 }
-import { precacheAndRoute } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Cache all navigation requests (SPA app shell)
-const appShellHandler = new NetworkFirst({
-  cacheName: 'app-shell',
-  networkTimeoutSeconds: 3,
-});
-const navigationRoute = new NavigationRoute(appShellHandler);
-registerRoute(navigationRoute);
+// Fallback to index.html for SPA routes
+registerRoute(
+  ({ request }) => request.mode === 'navigate',
+  createHandlerBoundToURL('/index.html')
+);
 
 // Runtime caching: Supabase API
 registerRoute(
