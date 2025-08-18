@@ -1039,6 +1039,42 @@ export type Database = {
         }
         Relationships: []
       }
+      stock: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          product_name: string
+          retailer_id: string
+          stock_quantity: number
+          updated_at: string
+          user_id: string
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          product_name: string
+          retailer_id: string
+          stock_quantity?: number
+          updated_at?: string
+          user_id: string
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          retailer_id?: string
+          stock_quantity?: number
+          updated_at?: string
+          user_id?: string
+          visit_id?: string
+        }
+        Relationships: []
+      }
       stock_cycle_data: {
         Row: {
           created_at: string

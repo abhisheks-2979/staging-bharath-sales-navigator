@@ -602,11 +602,43 @@ const filteredProducts = selectedCategory === "All"
     return result;
   };
 
+  // Function to save stock data to database
+  const saveStockData = async (productId: string, stockQuantity: number, productName: string) => {
+    if (!userId || !visitId || !retailerId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('stock')
+        .upsert({
+          user_id: userId,
+          retailer_id: retailerId,
+          visit_id: visitId,
+          product_id: productId,
+          product_name: productName,
+          stock_quantity: stockQuantity
+        }, {
+          onConflict: 'user_id,retailer_id,visit_id,product_id'
+        });
+      
+      if (error) {
+        console.error('Error saving stock data:', error);
+        toast({
+          title: "Stock Save Error",
+          description: "Failed to save stock quantity",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error saving stock data:', error);
+    }
+  };
+
   const addToCart = (product: Product) => {
     // Get the display product (could be variant)
     const displayProduct = getDisplayProduct(product as GridProduct);
     // Use the display product ID for quantity lookup (supports both base and variant quantities)
     const quantity = quantities[displayProduct.id] || 0;
+    const stockQuantity = closingStocks[displayProduct.id] || 0;
     
     console.log('Adding to cart:', { 
       originalProductId: product.id, 
@@ -681,6 +713,11 @@ const filteredProducts = selectedCategory === "All"
 
     const schemeMessage = totalDiscount > 0 ? ` (Saved ₹${totalDiscount.toFixed(2)})` : '';
     const freeMessage = freeQuantity > 0 ? ` + ${freeQuantity} free` : '';
+
+    // Save stock data if stock quantity is provided
+    if (stockQuantity > 0) {
+      saveStockData(displayProduct.id, stockQuantity, displayProduct.name);
+    }
 
     toast({
       title: "Added to Cart",
@@ -1553,26 +1590,31 @@ const filteredProducts = selectedCategory === "All"
                                return;
                              }
                              
-                             // Add all items with quantities to cart (replace existing)
-                             selectedItems.forEach(item => {
-                               const existingItem = cart.find(cartItem => cartItem.id === item.id);
-                               if (existingItem) {
-                                 // Replace existing item with new quantity
-                                 setCart(prev => prev.map(cartItem => 
-                                   cartItem.id === item.id 
-                                     ? { ...cartItem, quantity: item.quantity, total: item.total, closingStock: item.closingStock }
-                                     : cartItem
-                                 ));
-                               } else {
-                                 // Add new item
-                                 setCart(prev => [...prev, item]);
-                               }
-                             });
-                              
-                             toast({
-                               title: "Added to Cart",
-                               description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
-                             });
+                              // Add all items with quantities to cart (replace existing)
+                              selectedItems.forEach(item => {
+                                const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                                if (existingItem) {
+                                  // Replace existing item with new quantity
+                                  setCart(prev => prev.map(cartItem => 
+                                    cartItem.id === item.id 
+                                      ? { ...cartItem, quantity: item.quantity, total: item.total, closingStock: item.closingStock }
+                                      : cartItem
+                                  ));
+                                } else {
+                                  // Add new item
+                                  setCart(prev => [...prev, item]);
+                                }
+                                
+                                // Save stock data if stock quantity is provided
+                                if (item.closingStock > 0) {
+                                  saveStockData(item.id, item.closingStock, item.name);
+                                }
+                              });
+                               
+                              toast({
+                                title: "Added to Cart",
+                                description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
+                              });
                            } else {
                              // Handle single products without variants
                              addToCart(product);
@@ -1595,24 +1637,30 @@ const filteredProducts = selectedCategory === "All"
                              ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
                              : 'bg-primary hover:bg-primary/90 text-primary-foreground'
                          }`}
-                         disabled={(() => {
-                           if (product.variants && product.variants.length > 0) {
-                             // Check if base product has quantity
-                             const baseQty = quantities[product.id] || 0;
-                              // Check if any variant has quantity
-                              const hasVariantQty = product.variants.some(v => {
-                                const variantCompositeId = `${product.id}_variant_${v.id}`;
-                                return (quantities[variantCompositeId] || 0) > 0;
-                              });
-                             // Button is disabled if no quantity is entered anywhere
-                             return baseQty <= 0 && !hasVariantQty;
-                           } else {
-                             // For single products
-                             const displayProduct = getDisplayProduct(product);
-                             const qty = quantities[displayProduct.id] || 0;
-                             return qty <= 0;
-                           }
-                         })()}
+                          disabled={(() => {
+                            if (product.variants && product.variants.length > 0) {
+                              // Check if base product has quantity and stock
+                              const baseQty = quantities[product.id] || 0;
+                              const baseStock = closingStocks[product.id] || 0;
+                              const hasValidBase = baseQty > 0 && baseStock > 0;
+                              
+                               // Check if any variant has both quantity and stock
+                               const hasValidVariant = product.variants.some(v => {
+                                 const variantCompositeId = `${product.id}_variant_${v.id}`;
+                                 const variantQty = quantities[variantCompositeId] || 0;
+                                 const variantStock = closingStocks[variantCompositeId] || 0;
+                                 return variantQty > 0 && variantStock > 0;
+                               });
+                              // Button is disabled if no valid quantity+stock combination exists
+                              return !hasValidBase && !hasValidVariant;
+                            } else {
+                              // For single products - require both quantity and stock
+                              const displayProduct = getDisplayProduct(product);
+                              const qty = quantities[displayProduct.id] || 0;
+                              const stock = closingStocks[displayProduct.id] || 0;
+                              return qty <= 0 || stock <= 0;
+                            }
+                          })()}
                        >
                          {addedItems.has(product.id) ? (
                            <>
