@@ -13,6 +13,7 @@ import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
 import { StockCycleModal } from "./StockCycleModal";
+import { StockCycleTable } from "./StockCycleTable";
 
 interface Visit {
   id: string;
@@ -47,6 +48,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showBrandingModal, setShowBrandingModal] = useState(false);
   const [showStockCycleModal, setShowStockCycleModal] = useState(false);
+  const [showStockCycleTable, setShowStockCycleTable] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
@@ -818,7 +820,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               variant="outline" 
               size="sm"
               className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
-              onClick={() => setShowStockCycleModal(true)}
+              onClick={() => setShowStockCycleTable(true)}
               title="Stock Cycle"
             >
               <Package size={12} className="sm:size-3.5" />
@@ -957,6 +959,20 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           retailerId={(visit.retailerId || visit.id) as string}
           retailerName={visit.retailerName}
         />
+
+        {/* Stock Cycle Table Dialog */}
+        <Dialog open={showStockCycleTable} onOpenChange={setShowStockCycleTable}>
+          <DialogContent className="w-[95%] max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold">Stock Cycle Tracking</DialogTitle>
+            </DialogHeader>
+            <StockCycleTable
+              retailerId={(visit.retailerId || visit.id) as string}
+              retailerName={visit.retailerName}
+              currentVisitId={currentVisitId || visit.id}
+            />
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

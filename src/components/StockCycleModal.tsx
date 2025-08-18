@@ -48,26 +48,20 @@ export const StockCycleModal = ({ isOpen, onClose, visitId, retailerId, retailer
         return;
       }
 
-      // For now, we'll store this in the retailer_feedback table with a special feedback_type
-      // In a real implementation, you might want a dedicated stock_cycle table
+      // Store in the dedicated stock_cycle_data table
       const stockCycleData = {
         user_id: user.id,
         retailer_id: retailerId,
         visit_id: visitId,
-        feedback_type: "stock_cycle",
-        rating: null,
-        comments: JSON.stringify({
-          product_name: productName,
-          current_stock: parseInt(currentStock),
-          previous_stock: previousStock ? parseInt(previousStock) : null,
-          stock_movement: stockMovement,
-          stock_turnover: stockTurnover ? parseInt(stockTurnover) : null,
-          notes: notes.trim() || null
-        })
+        product_id: productName.toLowerCase().replace(/\s+/g, '_'),
+        product_name: productName,
+        ordered_quantity: 0, // Will be updated from order entry
+        stock_quantity: parseInt(currentStock),
+        visit_date: new Date().toISOString().split('T')[0]
       };
 
       const { error } = await supabase
-        .from('retailer_feedback')
+        .from('stock_cycle_data')
         .insert(stockCycleData);
 
       if (error) throw error;
