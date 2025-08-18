@@ -21,7 +21,10 @@ export function useConnectivity(pollMs = 15000, startupDelayMs = 2500) {
     timer.current = window.setTimeout(probe, startupDelayMs);
 
     const onOnline = () => probe();
-    const onOffline = () => setStatus('offline');
+    const onOffline = () => {
+      // Don't immediately set offline - probe to verify
+      probe();
+    };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
