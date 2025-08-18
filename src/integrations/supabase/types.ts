@@ -62,6 +62,36 @@ export type Database = {
         }
         Relationships: []
       }
+      approvers: {
+        Row: {
+          approver_level: number
+          created_at: string
+          department: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          approver_level: number
+          created_at?: string
+          department?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          approver_level?: number
+          created_at?: string
+          department?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       attendance: {
         Row: {
           check_in_address: string | null
@@ -515,6 +545,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          related_id: string | null
+          related_table: string | null
+          title: string
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          related_id?: string | null
+          related_table?: string | null
+          title: string
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          related_id?: string | null
+          related_table?: string | null
+          title?: string
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           category: string
@@ -818,9 +884,11 @@ export type Database = {
           hint_answer: string
           hint_question: string
           id: string
+          invitation_token: string | null
           phone_number: string | null
           recovery_email: string | null
           updated_at: string
+          user_status: Database["public"]["Enums"]["user_status"] | null
           username: string
         }
         Insert: {
@@ -829,9 +897,11 @@ export type Database = {
           hint_answer: string
           hint_question: string
           id: string
+          invitation_token?: string | null
           phone_number?: string | null
           recovery_email?: string | null
           updated_at?: string
+          user_status?: Database["public"]["Enums"]["user_status"] | null
           username: string
         }
         Update: {
@@ -840,9 +910,11 @@ export type Database = {
           hint_answer?: string
           hint_question?: string
           id?: string
+          invitation_token?: string | null
           phone_number?: string | null
           recovery_email?: string | null
           updated_at?: string
+          user_status?: Database["public"]["Enums"]["user_status"] | null
           username?: string
         }
         Relationships: []
@@ -964,6 +1036,84 @@ export type Database = {
           status?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_approvals: {
+        Row: {
+          approval_level: number
+          approved_at: string | null
+          approver_id: string | null
+          comments: string | null
+          created_at: string
+          id: string
+          status: Database["public"]["Enums"]["approval_status"] | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          approval_level: number
+          approved_at?: string | null
+          approver_id?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["approval_status"] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          approval_level?: number
+          approved_at?: string | null
+          approver_id?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["approval_status"] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_invitations: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          invitation_token: string
+          manager_id: string | null
+          phone_number: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
+          full_name: string
+          id?: string
+          invitation_token: string
+          manager_id?: string | null
+          phone_number?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          invitation_token?: string
+          manager_id?: string | null
+          phone_number?: string | null
+          status?: string | null
         }
         Relationships: []
       }
@@ -1104,6 +1254,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_approval_workflow: {
+        Args: { user_id_param: string }
+        Returns: undefined
+      }
       get_basic_profiles_for_admin: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1124,6 +1278,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      send_notification: {
+        Args: {
+          message_param: string
+          related_id_param?: string
+          related_table_param?: string
+          title_param: string
+          type_param?: string
+          user_id_param: string
+        }
+        Returns: string
+      }
       update_security_info: {
         Args: { new_hint_answer: string; new_hint_question: string }
         Returns: boolean
@@ -1135,6 +1300,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      approval_status: "pending" | "approved" | "rejected"
       branding_status:
         | "submitted"
         | "manager_approved"
@@ -1144,6 +1310,12 @@ export type Database = {
         | "executed"
         | "verified"
       employee_doc_type: "address_proof" | "id_proof" | "other"
+      user_status:
+        | "pending_completion"
+        | "pending_approval"
+        | "approved"
+        | "rejected"
+        | "active"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1272,6 +1444,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      approval_status: ["pending", "approved", "rejected"],
       branding_status: [
         "submitted",
         "manager_approved",
@@ -1282,6 +1455,13 @@ export const Constants = {
         "verified",
       ],
       employee_doc_type: ["address_proof", "id_proof", "other"],
+      user_status: [
+        "pending_completion",
+        "pending_approval",
+        "approved",
+        "rejected",
+        "active",
+      ],
     },
   },
 } as const
