@@ -1039,48 +1039,6 @@ export type Database = {
         }
         Relationships: []
       }
-      stock_cycle_data: {
-        Row: {
-          created_at: string
-          id: string
-          ordered_quantity: number | null
-          product_id: string
-          product_name: string
-          retailer_id: string
-          stock_quantity: number | null
-          updated_at: string
-          user_id: string
-          visit_date: string
-          visit_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          ordered_quantity?: number | null
-          product_id: string
-          product_name: string
-          retailer_id: string
-          stock_quantity?: number | null
-          updated_at?: string
-          user_id: string
-          visit_date: string
-          visit_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          ordered_quantity?: number | null
-          product_id?: string
-          product_name?: string
-          retailer_id?: string
-          stock_quantity?: number | null
-          updated_at?: string
-          user_id?: string
-          visit_date?: string
-          visit_id?: string | null
-        }
-        Relationships: []
-      }
       user_approvals: {
         Row: {
           approval_level: number
