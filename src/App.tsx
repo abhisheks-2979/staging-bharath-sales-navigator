@@ -50,6 +50,8 @@ import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
+import UserProfile from "./pages/UserProfile";
+import CompleteProfile from "./pages/CompleteProfile";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +66,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<RoleBasedAuthPage />} />
+          <Route path="/auth/complete-profile" element={<CompleteProfile />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Index />
@@ -72,6 +75,11 @@ const App = () => (
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <UserProfile />
             </ProtectedRoute>
           } />
           <Route path="/admin-controls" element={

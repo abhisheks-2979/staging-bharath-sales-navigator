@@ -15,6 +15,8 @@ import { Users, UserPlus, Shield, BarChart3, Settings, Database, Calendar, Arrow
 import { Navigate, useNavigate } from 'react-router-dom';
 import HolidayManagement from '@/components/HolidayManagement';
 import CreateUserForm from '@/components/CreateUserForm';
+import UserInvitationForm from '@/components/UserInvitationForm';
+import ApproverManagement from '@/components/ApproverManagement';
 
 interface User {
   id: string;
@@ -217,7 +219,7 @@ export const AdminDashboard = () => {
 
         {/* Admin Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Overview
@@ -229,6 +231,14 @@ export const AdminDashboard = () => {
             <TabsTrigger value="create-user" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
               Create User
+            </TabsTrigger>
+            <TabsTrigger value="invite-user" className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Invite User
+            </TabsTrigger>
+            <TabsTrigger value="approvers" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Approvers
             </TabsTrigger>
             <TabsTrigger value="holidays" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -356,6 +366,14 @@ export const AdminDashboard = () => {
 
           <TabsContent value="create-user" className="space-y-6">
             <CreateUserForm />
+          </TabsContent>
+
+          <TabsContent value="invite-user" className="space-y-6">
+            <UserInvitationForm />
+          </TabsContent>
+
+          <TabsContent value="approvers" className="space-y-6">
+            <ApproverManagement />
           </TabsContent>
 
           <TabsContent value="holidays" className="space-y-4">
