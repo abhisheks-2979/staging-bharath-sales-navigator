@@ -44,6 +44,7 @@ interface TertiarySalesData {
   product_id: string;
   product_name: string;
   lastVisitSales: number;
+  lastVisitDate?: string;
   previousVisitSales1: number;
   previousVisitSales2: number;
   previousVisitSales3: number;
@@ -393,6 +394,7 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
           : (lastVisitSales > 0 ? 100 : (previousVisitSales3 > 0 ? -100 : 0));
 
         product.lastVisitSales = lastVisitSales;
+        product.lastVisitDate = visits[0].visit_date;
         product.previousVisitSales1 = previousVisitSales1;
         product.previousVisitSales2 = previousVisitSales2;
         product.previousVisitSales3 = previousVisitSales3;
@@ -596,23 +598,30 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[200px]">Product Name</TableHead>
-                        <TableHead className="text-center">Last Visit Sales</TableHead>
-                        <TableHead className="text-center">Previous Visit Sales 1</TableHead>
-                        <TableHead className="text-center">Previous Visit Sales 2</TableHead>
-                        <TableHead className="text-center">Previous Visit Sales 3</TableHead>
-                      </TableRow>
+                       <TableRow>
+                         <TableHead className="w-[200px]">Product Name</TableHead>
+                         <TableHead className="text-center">Last Visit Sales & Date</TableHead>
+                         <TableHead className="text-center">Previous Visit Sales 1</TableHead>
+                         <TableHead className="text-center">Previous Visit Sales 2</TableHead>
+                         <TableHead className="text-center">Previous Visit Sales 3</TableHead>
+                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {tertiarySalesData.map((product) => (
                         <TableRow key={product.product_id}>
                           <TableCell className="font-medium">{product.product_name}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline" className="text-sm">
-                              {product.lastVisitSales}
-                            </Badge>
-                          </TableCell>
+                           <TableCell className="text-center">
+                             <div className="space-y-1">
+                               <Badge variant="outline" className="text-sm">
+                                 {product.lastVisitSales}
+                               </Badge>
+                               {product.lastVisitDate && (
+                                 <div className="text-xs text-muted-foreground">
+                                   {format(new Date(product.lastVisitDate), "MMM dd, yyyy")}
+                                 </div>
+                               )}
+                             </div>
+                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex items-center justify-center gap-2">
                               <Badge variant="outline" className="text-sm">
