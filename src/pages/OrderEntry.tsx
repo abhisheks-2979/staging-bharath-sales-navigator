@@ -1529,96 +1529,127 @@ const filteredProducts = selectedCategory === "All"
                     {/* Add to Cart Button - unified for both variants and non-variants */}
                     <div className="mt-3">
                       <Button 
-                         onClick={() => {
-                           if (product.variants && product.variants.length > 0) {
-                             // Handle products with variants
-                             const selectedItems = [];
-                             let totalQtyForProduct = 0;
-                             
-                             // Check base product quantity
-                             const baseQty = quantities[product.id] || 0;
-                             if (baseQty > 0) {
-                               const baseTotal = baseQty * product.rate;
-                               const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
-                               const finalTotal = baseTotal - totalDiscount;
-                               
-                               selectedItems.push({
-                                 ...product,
-                                 quantity: baseQty,
-                                 total: finalTotal,
-                                 closingStock: closingStocks[product.id] || product.closingStock
-                               });
-                               totalQtyForProduct += baseQty;
-                             }
-                             
-                              // Check all variant quantities for this product
-                              product.variants.forEach(variant => {
-                                const variantCompositeId = `${product.id}_variant_${variant.id}`;
-                                const variantQty = quantities[variantCompositeId] || 0;
-                               if (variantQty > 0) {
-                                 const variantPrice = variant.discount_percentage > 0 
-                                   ? variant.price - (variant.price * variant.discount_percentage / 100)
-                                   : variant.discount_amount > 0 
-                                     ? variant.price - variant.discount_amount
-                                     : variant.price;
-                                 
-                                 const baseTotal = variantQty * variantPrice;
-                                 const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
-                                 const finalTotal = baseTotal - totalDiscount;
-                                 
-                                 selectedItems.push({
-                                   id: `${product.id}_variant_${variant.id}`,
-                                   name: `${product.name} - ${variant.variant_name}`,
-                                   category: product.category,
-                                   rate: variantPrice,
-                                   unit: product.unit,
-                                   quantity: variantQty,
-                                   total: finalTotal,
-                                   closingStock: closingStocks[variantCompositeId] || variant.stock_quantity
-                                 });
-                                 totalQtyForProduct += variantQty;
-                               }
-                             });
-                             
-                             // Only proceed if there are items with quantities
-                             if (selectedItems.length === 0 || totalQtyForProduct === 0) {
-                               toast({
-                                 title: "No Quantity Entered",
-                                 description: `Please enter quantities for ${product.name}`,
-                                 variant: "destructive"
-                               });
-                               return;
-                             }
-                             
-                              // Add all items with quantities to cart (replace existing)
-                              selectedItems.forEach(item => {
-                                const existingItem = cart.find(cartItem => cartItem.id === item.id);
-                                if (existingItem) {
-                                  // Replace existing item with new quantity
-                                  setCart(prev => prev.map(cartItem => 
-                                    cartItem.id === item.id 
-                                      ? { ...cartItem, quantity: item.quantity, total: item.total, closingStock: item.closingStock }
-                                      : cartItem
-                                  ));
-                                } else {
-                                  // Add new item
-                                  setCart(prev => [...prev, item]);
-                                }
+                           onClick={() => {
+                            if (product.variants && product.variants.length > 0) {
+                              // Handle products with variants
+                              const selectedItems = [];
+                              const stockOnlyItems = [];
+                              let totalQtyForProduct = 0;
+                              
+                              // Check base product quantity and stock
+                              const baseQty = quantities[product.id] || 0;
+                              const baseStock = closingStocks[product.id] || 0;
+                              
+                              if (baseQty > 0) {
+                                const baseTotal = baseQty * product.rate;
+                                const { totalDiscount } = calculateSchemeDiscount(product.id, null, baseQty, product.rate);
+                                const finalTotal = baseTotal - totalDiscount;
                                 
-                                // Save stock data if stock quantity is provided
-                                if (item.closingStock > 0) {
-                                  saveStockData(item.id, item.closingStock, item.name);
+                                selectedItems.push({
+                                  ...product,
+                                  quantity: baseQty,
+                                  total: finalTotal,
+                                  closingStock: baseStock || product.closingStock
+                                });
+                                totalQtyForProduct += baseQty;
+                              } else if (baseStock > 0) {
+                                // Only stock, no quantity
+                                stockOnlyItems.push({
+                                  id: product.id,
+                                  name: product.name,
+                                  stock: baseStock
+                                });
+                              }
+                              
+                               // Check all variant quantities and stocks for this product
+                               product.variants.forEach(variant => {
+                                 const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                                 const variantQty = quantities[variantCompositeId] || 0;
+                                 const variantStock = closingStocks[variantCompositeId] || 0;
+                                 
+                                if (variantQty > 0) {
+                                  const variantPrice = variant.discount_percentage > 0 
+                                    ? variant.price - (variant.price * variant.discount_percentage / 100)
+                                    : variant.discount_amount > 0 
+                                      ? variant.price - variant.discount_amount
+                                      : variant.price;
+                                  
+                                  const baseTotal = variantQty * variantPrice;
+                                  const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
+                                  const finalTotal = baseTotal - totalDiscount;
+                                  
+                                  selectedItems.push({
+                                    id: `${product.id}_variant_${variant.id}`,
+                                    name: `${product.name} - ${variant.variant_name}`,
+                                    category: product.category,
+                                    rate: variantPrice,
+                                    unit: product.unit,
+                                    quantity: variantQty,
+                                    total: finalTotal,
+                                    closingStock: variantStock || variant.stock_quantity
+                                  });
+                                  totalQtyForProduct += variantQty;
+                                } else if (variantStock > 0) {
+                                  // Only stock, no quantity
+                                  stockOnlyItems.push({
+                                    id: `${product.id}_variant_${variant.id}`,
+                                    name: `${product.name} - ${variant.variant_name}`,
+                                    stock: variantStock
+                                  });
                                 }
                               });
-                               
-                              toast({
-                                title: "Added to Cart",
-                                description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
-                              });
-                           } else {
-                             // Handle single products without variants
-                             addToCart(product);
-                           }
+                              
+                              // Handle stock-only items (save to database only)
+                              if (stockOnlyItems.length > 0) {
+                                stockOnlyItems.forEach(item => {
+                                  saveStockData(item.id, item.stock, item.name);
+                                });
+                              }
+                              
+                              // Handle cart items (quantity > 0)
+                              if (selectedItems.length > 0) {
+                                selectedItems.forEach(item => {
+                                  const existingItem = cart.find(cartItem => cartItem.id === item.id);
+                                  if (existingItem) {
+                                    // Replace existing item with new quantity
+                                    setCart(prev => prev.map(cartItem => 
+                                      cartItem.id === item.id 
+                                        ? { ...cartItem, quantity: item.quantity, total: item.total, closingStock: item.closingStock }
+                                        : cartItem
+                                    ));
+                                  } else {
+                                    // Add new item
+                                    setCart(prev => [...prev, item]);
+                                  }
+                                  
+                                  // Save stock data if stock quantity is provided
+                                  if (item.closingStock > 0) {
+                                    saveStockData(item.id, item.closingStock, item.name);
+                                  }
+                                });
+                              }
+                              
+                              // Show appropriate toast message
+                              if (selectedItems.length > 0 && stockOnlyItems.length > 0) {
+                                toast({
+                                  title: "Updated",
+                                  description: `${totalQtyForProduct} item(s) added to cart and stock quantities saved for ${stockOnlyItems.length} item(s)`
+                                });
+                              } else if (selectedItems.length > 0) {
+                                toast({
+                                  title: "Added to Cart",
+                                  description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
+                                });
+                              } else if (stockOnlyItems.length > 0) {
+                                toast({
+                                  title: "Stock Updated",
+                                  description: `Stock quantities saved for ${stockOnlyItems.length} item(s) of ${product.name}`
+                                });
+                              }
+                            } else {
+                              // Handle single products without variants
+                              addToCart(product);
+                            }
                            
                            // Mark item as added
                            setAddedItems(prev => new Set([...prev, product.id]));
@@ -1639,26 +1670,26 @@ const filteredProducts = selectedCategory === "All"
                          }`}
                           disabled={(() => {
                             if (product.variants && product.variants.length > 0) {
-                              // Check if base product has quantity and stock
+                              // Check if base product has quantity or stock
                               const baseQty = quantities[product.id] || 0;
                               const baseStock = closingStocks[product.id] || 0;
-                              const hasValidBase = baseQty > 0 && baseStock > 0;
+                              const hasValidBase = baseQty > 0 || baseStock > 0;
                               
-                               // Check if any variant has both quantity and stock
+                               // Check if any variant has quantity or stock
                                const hasValidVariant = product.variants.some(v => {
                                  const variantCompositeId = `${product.id}_variant_${v.id}`;
                                  const variantQty = quantities[variantCompositeId] || 0;
                                  const variantStock = closingStocks[variantCompositeId] || 0;
-                                 return variantQty > 0 && variantStock > 0;
+                                 return variantQty > 0 || variantStock > 0;
                                });
-                              // Button is disabled if no valid quantity+stock combination exists
+                              // Button is enabled if either quantity OR stock exists
                               return !hasValidBase && !hasValidVariant;
                             } else {
-                              // For single products - require both quantity and stock
+                              // For single products - enable if either quantity OR stock exists
                               const displayProduct = getDisplayProduct(product);
                               const qty = quantities[displayProduct.id] || 0;
                               const stock = closingStocks[displayProduct.id] || 0;
-                              return qty <= 0 || stock <= 0;
+                              return qty <= 0 && stock <= 0;
                             }
                           })()}
                        >
