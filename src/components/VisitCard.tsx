@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
+import { StockCycleModal } from "./StockCycleModal";
 
 interface Visit {
   id: string;
@@ -45,6 +46,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showCompetitionModal, setShowCompetitionModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showBrandingModal, setShowBrandingModal] = useState(false);
+  const [showStockCycleModal, setShowStockCycleModal] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
@@ -817,6 +819,18 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <span className="hidden xs:inline">Branding</span>
               <span className="xs:hidden">Brand</span>
             </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm"
+              onClick={() => setShowStockCycleModal(true)}
+              title="Stock Cycle"
+            >
+              <Package size={12} className="sm:size-3.5 mr-1" />
+              <span className="hidden xs:inline">Stock Cycle</span>
+              <span className="xs:hidden">Stock</span>
+            </Button>
           </div>
 
           {(visit.hasOrder || hasOrderToday) && (
@@ -941,6 +955,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           defaultVisitId={currentVisitId}
           defaultRetailerId={(visit.retailerId || visit.id) as string}
           defaultPincode={null}
+        />
+
+        <StockCycleModal
+          isOpen={showStockCycleModal}
+          onClose={() => setShowStockCycleModal(false)}
+          visitId={currentVisitId || visit.id}
+          retailerId={(visit.retailerId || visit.id) as string}
+          retailerName={visit.retailerName}
         />
       </CardContent>
     </Card>
