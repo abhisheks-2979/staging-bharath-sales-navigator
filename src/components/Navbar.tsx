@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { NetworkBadge } from "@/components/NetworkBadge";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -111,6 +112,7 @@ export const Navbar = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <NetworkBadge />
                     <Button
                       variant="ghost"
                       size="sm"
