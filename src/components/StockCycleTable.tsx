@@ -102,6 +102,10 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
       const endDate = format(dateFilter, 'yyyy-MM-dd');
       const startDate = format(subDays(dateFilter, 180), 'yyyy-MM-dd'); // Get last 6 months for comprehensive data
       
+      // First, sync order data with stock cycle data to ensure orders are reflected
+      await syncOrderDataWithDatabase(startDate, endDate);
+      
+      // Then get the updated stock cycle data
       const { data, error } = await supabase
         .from('stock_cycle_data')
         .select('*')
@@ -114,13 +118,29 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
 
       if (error) throw error;
       
-      // Also get order data to sync with stock cycle data
+      setStockData(data || []);
+    } catch (error) {
+      console.error('Error loading stock data:', error);
+      toast({
+        title: "Error Loading Data",
+        description: "Could not load stock cycle data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const syncOrderDataWithDatabase = async (startDate: string, endDate: string) => {
+    if (!user) return;
+    
+    try {
+      // Get all confirmed orders for this retailer and user in the date range
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select(`
           id,
           created_at,
           retailer_id,
+          visit_id,
           order_items (
             product_id,
             product_name,
@@ -133,63 +153,123 @@ export const StockCycleTable = ({ retailerId, retailerName, currentVisitId }: St
         .gte('created_at', startDate + 'T00:00:00.000Z')
         .lte('created_at', endDate + 'T23:59:59.999Z');
 
-      if (!orderError && orderData) {
-        // Process order data to create/update stock cycle entries
-        await syncOrderDataWithStockCycle(orderData);
+      if (orderError || !orderData) {
+        console.log('No order data found or error:', orderError);
+        return;
       }
-      
-      setStockData(data || []);
-    } catch (error) {
-      console.error('Error loading stock data:', error);
-      toast({
-        title: "Error Loading Data",
-        description: "Could not load stock cycle data. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
-  const syncOrderDataWithStockCycle = async (orderData: any[]) => {
-    if (!user) return;
-    
-    // Process each order to update stock cycle data
-    for (const order of orderData) {
-      const orderDate = format(new Date(order.created_at), 'yyyy-MM-dd');
-      
-      for (const item of order.order_items || []) {
-        // Check if stock cycle entry exists for this product and date
-        const { data: existing } = await supabase
-          .from('stock_cycle_data')
-          .select('id, ordered_quantity')
-          .eq('user_id', user.id)
-          .eq('retailer_id', retailerId)
-          .eq('product_id', item.product_id)
-          .eq('visit_date', orderDate)
-          .maybeSingle();
+      console.log('Found order data:', orderData);
 
-        if (existing) {
-          // Update existing entry with ordered quantity
-          await supabase
+      // Process each order to update stock cycle data
+      for (const order of orderData) {
+        const orderDate = format(new Date(order.created_at), 'yyyy-MM-dd');
+        
+        for (const item of order.order_items || []) {
+          // Check if stock cycle entry exists for this product and date
+          const { data: existing } = await supabase
             .from('stock_cycle_data')
-            .update({ 
-              ordered_quantity: existing.ordered_quantity + item.quantity 
-            })
-            .eq('id', existing.id);
-        } else {
-          // Create new entry
-          await supabase
-            .from('stock_cycle_data')
-            .insert({
-              user_id: user.id,
-              retailer_id: retailerId,
-              product_id: item.product_id,
-              product_name: item.product_name,
-              ordered_quantity: item.quantity,
-              stock_quantity: 0, // Will be updated separately
-              visit_date: orderDate
-            });
+            .select('id, ordered_quantity')
+            .eq('user_id', user.id)
+            .eq('retailer_id', retailerId)
+            .eq('product_id', item.product_id)
+            .eq('visit_date', orderDate)
+            .maybeSingle();
+
+          if (existing) {
+            // Update existing entry - set the ordered quantity (don't add, just set)
+            // Since we're getting all orders, we need to calculate total for this date
+            const { data: allOrdersForDate } = await supabase
+              .from('orders')
+              .select(`
+                order_items!inner (
+                  quantity
+                )
+              `)
+              .eq('user_id', user.id)
+              .eq('retailer_id', retailerId)
+              .eq('status', 'confirmed')
+              .eq('order_items.product_id', item.product_id)
+              .gte('created_at', orderDate + 'T00:00:00.000Z')
+              .lte('created_at', orderDate + 'T23:59:59.999Z');
+
+            const totalQuantity = allOrdersForDate?.reduce((sum, order) => {
+              return sum + (Array.isArray(order.order_items) ? order.order_items.reduce((s, i) => s + i.quantity, 0) : 0);
+            }, 0) || item.quantity;
+
+            await supabase
+              .from('stock_cycle_data')
+              .update({ 
+                ordered_quantity: totalQuantity,
+                visit_id: order.visit_id 
+              })
+              .eq('id', existing.id);
+          } else {
+            // Create new entry with order data
+            await supabase
+              .from('stock_cycle_data')
+              .insert({
+                user_id: user.id,
+                retailer_id: retailerId,
+                product_id: item.product_id,
+                product_name: item.product_name,
+                ordered_quantity: item.quantity,
+                stock_quantity: 0, // Will be updated from stock entries
+                visit_date: orderDate,
+                visit_id: order.visit_id
+              });
+          }
         }
       }
+
+      // Also get latest stock data from the stock table for current stock levels
+      const { data: stockData } = await supabase
+        .from('stock')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('retailer_id', retailerId)
+        .order('created_at', { ascending: false });
+
+      if (stockData && stockData.length > 0) {
+        // Update stock cycle data with latest stock quantities
+        for (const stockItem of stockData) {
+          const stockDate = format(new Date(stockItem.created_at), 'yyyy-MM-dd');
+          
+          const { data: existing } = await supabase
+            .from('stock_cycle_data')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('retailer_id', retailerId)
+            .eq('product_id', stockItem.product_id)
+            .eq('visit_date', stockDate)
+            .maybeSingle();
+
+          if (existing) {
+            await supabase
+              .from('stock_cycle_data')
+              .update({ 
+                stock_quantity: stockItem.stock_quantity,
+                visit_id: stockItem.visit_id
+              })
+              .eq('id', existing.id);
+          } else {
+            // Create new entry for stock data if no order exists
+            await supabase
+              .from('stock_cycle_data')
+              .insert({
+                user_id: user.id,
+                retailer_id: retailerId,
+                product_id: stockItem.product_id,
+                product_name: stockItem.product_name,
+                ordered_quantity: 0,
+                stock_quantity: stockItem.stock_quantity,
+                visit_date: stockDate,
+                visit_id: stockItem.visit_id
+              });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing order data:', error);
     }
   };
 
