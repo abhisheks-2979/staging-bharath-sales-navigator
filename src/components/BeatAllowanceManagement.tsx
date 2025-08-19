@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import AdditionalExpenses from '@/components/AdditionalExpenses';
 
 interface BeatAllowance {
   id: string;
@@ -44,6 +45,9 @@ const BeatAllowanceManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
+  const [selectedBeatForExpenses, setSelectedBeatForExpenses] = useState<string>('');
+  const [selectedDateForExpenses, setSelectedDateForExpenses] = useState<string>('');
   const [editingAllowance, setEditingAllowance] = useState<BeatAllowance | null>(null);
   const [formData, setFormData] = useState({
     beat_id: '',
@@ -184,6 +188,12 @@ const BeatAllowanceManagement = () => {
       travel_allowance: allowance.travel_allowance.toString()
     });
     setIsDialogOpen(true);
+  };
+
+  const handleAdditionalExpensesClick = (beatId: string, date: string) => {
+    setSelectedBeatForExpenses(beatId);
+    setSelectedDateForExpenses(date);
+    setIsAdditionalExpensesOpen(true);
   };
 
   const filteredAllowances = allowances.filter(allowance => {
@@ -362,9 +372,19 @@ const BeatAllowanceManagement = () => {
                           <span className="text-muted-foreground">TA:</span>
                           <span className="ml-1 font-medium">₹{allowance.travel_allowance.toFixed(2)}</span>
                         </div>
-                        <div>
+                        <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Additional:</span>
-                          <span className="ml-1 font-medium">₹0.00</span>
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium">₹0.00</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Plus size={12} />
+                            </Button>
+                          </div>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Total:</span>
@@ -414,7 +434,19 @@ const BeatAllowanceManagement = () => {
                         <TableCell className="font-medium text-xs md:text-sm">{allowance.beat_name}</TableCell>
                         <TableCell className="text-xs md:text-sm">₹{allowance.daily_allowance.toFixed(2)}</TableCell>
                         <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">₹0.00</TableCell>
+                        <TableCell className="text-xs md:text-sm">
+                          <div className="flex items-center gap-2">
+                            <span>₹0.00</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Plus size={12} />
+                            </Button>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs md:text-sm">₹{(allowance.daily_allowance + allowance.travel_allowance).toFixed(2)}</TableCell>
                         <TableCell className="text-xs md:text-sm">₹0.00</TableCell>
                         <TableCell className="text-xs md:text-sm">-</TableCell>
@@ -427,6 +459,21 @@ const BeatAllowanceManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Additional Expenses Dialog */}
+      <Dialog open={isAdditionalExpensesOpen} onOpenChange={setIsAdditionalExpensesOpen}>
+        <DialogContent className="sm:max-w-[800px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">Additional Expenses</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base">
+              Add additional expenses for the selected beat and date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <AdditionalExpenses />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
