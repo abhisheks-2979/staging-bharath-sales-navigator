@@ -47,8 +47,16 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
 
   const handleReasonSelect = (reason: string) => {
     setSelectedReason(reason);
-    onReasonSelect(reason);
-    onClose();
+    if (reason === "over-stocked") {
+      // Show message about updating stock quantities
+      setTimeout(() => {
+        onReasonSelect(reason);
+        onClose();
+      }, 100);
+    } else {
+      onReasonSelect(reason);
+      onClose();
+    }
   };
 
   return (
@@ -61,7 +69,7 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
           {reasons.map((reason) => {
             const IconComponent = reason.icon;
             return (
-              <Card 
+                <Card 
                 key={reason.value}
                 className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
                   selectedReason === reason.value ? 'ring-2 ring-primary' : ''
@@ -74,6 +82,11 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
                     <div className="flex-1">
                       <h4 className="font-medium text-card-foreground">{reason.label}</h4>
                       <p className="text-sm text-muted-foreground">{reason.description}</p>
+                      {reason.value === "over-stocked" && (
+                        <p className="text-xs text-primary mt-1 font-medium">
+                          Update stock quantities in Order Entry page - this option will auto-select
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>

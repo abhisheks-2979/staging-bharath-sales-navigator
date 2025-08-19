@@ -88,6 +88,29 @@ const [selectedProductForScheme, setSelectedProductForScheme] = useState<GridPro
 const [filteredSchemes, setFilteredSchemes] = useState<any[]>([]);
 const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
 
+// Function to auto-select "Over Stocked" option
+const handleAutoSelectOverStocked = async () => {
+  if (!visitId) return;
+  
+  try {
+    const { error } = await supabase
+      .from('visits')
+      .update({ 
+        status: 'unproductive',
+        no_order_reason: 'over-stocked'
+      })
+      .eq('id', visitId);
+    
+    if (error) {
+      console.error('Error auto-selecting over stocked:', error);
+    } else {
+      console.log('Auto-selected "Over Stocked" for visit:', visitId);
+    }
+  } catch (error) {
+    console.error('Error in handleAutoSelectOverStocked:', error);
+  }
+};
+
 useEffect(() => {
   const fetchUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -652,8 +675,21 @@ const filteredProducts = selectedCategory === "All"
       displayProductId: displayProduct.id,
       productName: displayProduct.name, 
       quantity, 
+      stockQuantity,
       activeStorageKey 
     });
+    
+    // Check if only stock is updated without any quantity
+    if (quantity <= 0 && stockQuantity > 0) {
+      // Save stock data only and auto-select "Over Stocked"
+      saveStockData(displayProduct.id, stockQuantity, displayProduct.name);
+      toast({
+        title: "Over Stocked - Auto Selected",
+        description: `Stock quantity saved for ${displayProduct.name}. Over Stocked reason auto-selected.`
+      });
+      handleAutoSelectOverStocked();
+      return;
+    }
     
     if (quantity <= 0) {
       toast({
@@ -1658,9 +1694,11 @@ const filteredProducts = selectedCategory === "All"
                                 });
                               } else if (stockOnlyItems.length > 0) {
                                 toast({
-                                  title: "Stock Updated",
-                                  description: `Stock quantities saved for ${stockOnlyItems.length} item(s) of ${product.name}`
+                                  title: "Over Stocked - Auto Selected",
+                                  description: `Stock quantities saved for ${stockOnlyItems.length} item(s) of ${product.name}. Over Stocked reason auto-selected.`
                                 });
+                                // Auto-select "Over Stocked" option
+                                handleAutoSelectOverStocked();
                               }
                             } else {
                               // Handle single products without variants
