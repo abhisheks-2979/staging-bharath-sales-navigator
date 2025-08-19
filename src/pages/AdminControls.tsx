@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin } from 'lucide-react';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
@@ -148,20 +148,6 @@ const AdminControls = () => {
             </CardHeader>
           </Card>
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/expense-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-emerald-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <DollarSign className="h-8 w-8 text-emerald-600" />
-              </div>
-              <CardTitle>Expense Management</CardTitle>
-              <CardDescription>
-                Set daily allowances, travel allowances and track productivity by beat
-              </CardDescription>
-            </CardHeader>
-          </Card>
         </div>
       </div>
     </div>
