@@ -61,30 +61,52 @@ const BeatAllowanceManagement = () => {
       const user = await supabase.auth.getUser();
       if (!user.data.user) return;
 
-      const { data, error } = await (supabase as any)
+      // Fetch beat allowances
+      const { data: allowanceData, error: allowanceError } = await (supabase as any)
         .from('beat_allowances')
         .select('*')
         .eq('user_id', user.data.user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (allowanceError) throw allowanceError;
 
-      const formattedData = (data as any[] | null)?.map((item: any) => ({
-        id: item.id,
-        beat_id: item.beat_id,
-        beat_name: item.beat_name,
-        daily_allowance: item.daily_allowance,
-        travel_allowance: item.travel_allowance,
-        user_id: item.user_id,
-        user_name: '-', // Not needed for user's own expenses
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        date: new Date(item.created_at).toLocaleDateString(),
-        additional_expenses: 0, // Placeholder for future implementation
-        total_expenses: item.daily_allowance + item.travel_allowance,
-        todays_order: 0, // Placeholder for future implementation
-        productivity: 0 // Placeholder for future implementation
-      })) || [];
+      // Fetch additional expenses and group by beat and date
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('additional_expenses')
+        .select('*')
+        .eq('user_id', user.data.user.id);
+
+      if (expensesError) throw expensesError;
+
+      // Create a map of additional expenses by beat and date
+      const expensesMap = new Map();
+      expensesData?.forEach((expense: any) => {
+        const key = `${expense.expense_date}`;
+        const current = expensesMap.get(key) || 0;
+        expensesMap.set(key, current + parseFloat(expense.amount));
+      });
+
+      const formattedData = (allowanceData as any[] | null)?.map((item: any) => {
+        const expenseDate = item.created_at.split('T')[0]; // Get date part only
+        const additionalExpenses = expensesMap.get(expenseDate) || 0;
+        
+        return {
+          id: item.id,
+          beat_id: item.beat_id,
+          beat_name: item.beat_name,
+          daily_allowance: item.daily_allowance,
+          travel_allowance: item.travel_allowance,
+          user_id: item.user_id,
+          user_name: '-', // Not needed for user's own expenses
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          date: new Date(item.created_at).toLocaleDateString(),
+          additional_expenses: additionalExpenses,
+          total_expenses: item.daily_allowance + item.travel_allowance + additionalExpenses,
+          todays_order: 0, // Placeholder for future implementation
+          productivity: 0 // Placeholder for future implementation
+        };
+      }) || [];
 
       setAllowances(formattedData);
     } catch (error) {
@@ -374,9 +396,9 @@ const BeatAllowanceManagement = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Additional:</span>
-                          <div className="flex items-center gap-1">
-                            <span className="font-medium">₹0.00</span>
-                            <Button
+                           <div className="flex items-center gap-1">
+                             <span className="font-medium">₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
+                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
@@ -436,7 +458,7 @@ const BeatAllowanceManagement = () => {
                         <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
                         <TableCell className="text-xs md:text-sm">
                           <div className="flex items-center gap-2">
-                            <span>₹0.00</span>
+                            <span>₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -447,7 +469,7 @@ const BeatAllowanceManagement = () => {
                             </Button>
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs md:text-sm">₹{(allowance.daily_allowance + allowance.travel_allowance).toFixed(2)}</TableCell>
+                        <TableCell className="text-xs md:text-sm">₹{(allowance.total_expenses || 0).toFixed(2)}</TableCell>
                         <TableCell className="text-xs md:text-sm">₹0.00</TableCell>
                         <TableCell className="text-xs md:text-sm">-</TableCell>
                       </TableRow>
