@@ -190,9 +190,9 @@ const BeatAllowanceManagement = () => {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Beat Allowance Management</CardTitle>
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <CardTitle className="text-lg sm:text-xl">Beat Allowance Management</CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
@@ -200,15 +200,18 @@ const BeatAllowanceManagement = () => {
                     setEditingAllowance(null);
                     setFormData({ beat_id: '', daily_allowance: '', travel_allowance: '' });
                   }}
+                  className="w-full sm:w-auto"
+                  size="sm"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Beat Allowance
+                  <span className="hidden sm:inline">Add Beat Allowance</span>
+                  <span className="sm:hidden">Add Allowance</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editingAllowance ? 'Edit' : 'Add'} Beat Allowance</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-lg sm:text-xl">{editingAllowance ? 'Edit' : 'Add'} Beat Allowance</DialogTitle>
+                  <DialogDescription className="text-sm sm:text-base">
                     Set daily and travel allowances for specific beats.
                   </DialogDescription>
                 </DialogHeader>
@@ -253,11 +256,19 @@ const BeatAllowanceManagement = () => {
                       placeholder="Enter travel allowance"
                     />
                   </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsDialogOpen(false)}
+                      className="w-full sm:w-auto order-2 sm:order-1"
+                    >
                       Cancel
                     </Button>
-                    <Button type="submit">
+                    <Button 
+                      type="submit"
+                      className="w-full sm:w-auto order-1 sm:order-2"
+                    >
                       {editingAllowance ? 'Update' : 'Create'} Allowance
                     </Button>
                   </DialogFooter>
@@ -266,45 +277,90 @@ const BeatAllowanceManagement = () => {
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
+              <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <Input
                 placeholder="Search by beat name or user..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
+                className="flex-1 text-sm"
               />
             </div>
 
-            <div className="rounded-md border">
+            {/* Mobile Cards View */}
+            <div className="block sm:hidden space-y-3">
+              {filteredAllowances.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No beat allowances found
+                </div>
+              ) : (
+                filteredAllowances.map((allowance) => (
+                  <Card key={allowance.id} className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium text-sm">{allowance.beat_name}</h3>
+                          <p className="text-xs text-muted-foreground">{allowance.user_name}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(allowance)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Daily:</span>
+                          <span className="ml-1 font-medium">₹{allowance.daily_allowance.toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Travel:</span>
+                          <span className="ml-1 font-medium">₹{allowance.travel_allowance.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Monthly Total:</span>
+                        <span className="ml-1 font-medium">₹{((allowance.daily_allowance + allowance.travel_allowance) * 30).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Beat Name</TableHead>
-                    <TableHead>Assigned User</TableHead>
-                    <TableHead>Daily Allowance</TableHead>
-                    <TableHead>Travel Allowance</TableHead>
-                    <TableHead>Total Monthly</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-xs md:text-sm">Beat Name</TableHead>
+                    <TableHead className="text-xs md:text-sm">Assigned User</TableHead>
+                    <TableHead className="text-xs md:text-sm">Daily Allowance</TableHead>
+                    <TableHead className="text-xs md:text-sm">Travel Allowance</TableHead>
+                    <TableHead className="text-xs md:text-sm">Total Monthly</TableHead>
+                    <TableHead className="text-xs md:text-sm">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAllowances.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
                         No beat allowances found
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredAllowances.map((allowance) => (
                       <TableRow key={allowance.id}>
-                        <TableCell className="font-medium">{allowance.beat_name}</TableCell>
-                        <TableCell>{allowance.user_name}</TableCell>
-                        <TableCell>₹{allowance.daily_allowance.toFixed(2)}</TableCell>
-                        <TableCell>₹{allowance.travel_allowance.toFixed(2)}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium text-xs md:text-sm">{allowance.beat_name}</TableCell>
+                        <TableCell className="text-xs md:text-sm">{allowance.user_name}</TableCell>
+                        <TableCell className="text-xs md:text-sm">₹{allowance.daily_allowance.toFixed(2)}</TableCell>
+                        <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
+                        <TableCell className="text-xs md:text-sm">
                           ₹{((allowance.daily_allowance + allowance.travel_allowance) * 30).toFixed(2)}
                         </TableCell>
                         <TableCell>
@@ -312,8 +368,9 @@ const BeatAllowanceManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEdit(allowance)}
+                            className="h-8 w-8 p-0"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3 md:h-4 md:w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>

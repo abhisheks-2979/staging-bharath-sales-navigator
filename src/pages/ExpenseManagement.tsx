@@ -25,35 +25,39 @@ const ExpenseManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-subtle p-2 sm:p-4">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button 
             onClick={() => navigate('/admin-controls')} 
             variant="ghost" 
             size="sm"
-            className="p-2"
+            className="p-1.5 sm:p-2"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Expense Management</h1>
-            <p className="text-muted-foreground">Manage daily allowances, travel allowances and track productivity</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">Expense Management</h1>
+            <p className="text-sm sm:text-base text-muted-foreground hidden sm:block">Manage daily allowances, travel allowances and track productivity</p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="allowances">Beat Allowances</TabsTrigger>
-            <TabsTrigger value="productivity">Productivity Tracking</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-auto">
+            <TabsTrigger value="allowances" className="text-xs sm:text-sm py-2 px-2 sm:px-4">
+              Beat Allowances
+            </TabsTrigger>
+            <TabsTrigger value="productivity" className="text-xs sm:text-sm py-2 px-2 sm:px-4">
+              Productivity Tracking
+            </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="allowances" className="mt-6">
+          <TabsContent value="allowances" className="mt-4 sm:mt-6">
             <BeatAllowanceManagement />
           </TabsContent>
           
-          <TabsContent value="productivity" className="mt-6">
+          <TabsContent value="productivity" className="mt-4 sm:mt-6">
             <ProductivityTracking />
           </TabsContent>
         </Tabs>
