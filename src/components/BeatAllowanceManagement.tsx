@@ -81,10 +81,26 @@ const BeatAllowanceManagement = () => {
       // Fetch all orders to calculate today's order value for each beat/date
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('total_amount, created_at, visit_id, visits(retailer_id, retailers(beat_id))')
+        .select('total_amount, created_at, visit_id')
         .eq('user_id', user.data.user.id);
 
       if (ordersError) throw ordersError;
+
+      // Fetch visits to get retailer information for orders
+      const { data: visitsData, error: visitsError } = await supabase
+        .from('visits')
+        .select('id, retailer_id, retailers(beat_id)')
+        .eq('user_id', user.data.user.id);
+
+      if (visitsError) throw visitsError;
+
+      // Create a map of visit_id to beat_id
+      const visitToBeatMap = new Map();
+      visitsData?.forEach((visit: any) => {
+        if (visit.retailers?.beat_id) {
+          visitToBeatMap.set(visit.id, visit.retailers.beat_id);
+        }
+      });
 
       // Create a map of additional expenses by date
       const expensesMap = new Map();
@@ -98,7 +114,7 @@ const BeatAllowanceManagement = () => {
       const ordersMap = new Map();
       ordersData?.forEach((order: any) => {
         const orderDate = order.created_at.split('T')[0]; // Get date part only
-        const beatId = order.visits?.retailers?.beat_id;
+        const beatId = visitToBeatMap.get(order.visit_id);
         if (beatId) {
           const key = `${beatId}-${orderDate}`;
           const current = ordersMap.get(key) || 0;
