@@ -1408,6 +1408,10 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: undefined
       }
+      get_authenticated_email: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_basic_profiles_for_admin: {
         Args: Record<PropertyKey, never>
         Returns: {
