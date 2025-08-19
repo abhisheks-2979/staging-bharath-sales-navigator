@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Package, UserX, DoorClosed, XCircle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface NoOrderModalProps {
   isOpen: boolean;
@@ -48,11 +49,13 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
   const handleReasonSelect = (reason: string) => {
     setSelectedReason(reason);
     if (reason === "over-stocked") {
-      // Show message about updating stock quantities
-      setTimeout(() => {
-        onReasonSelect(reason);
-        onClose();
-      }, 100);
+      // Show notification instead of selecting
+      toast({
+        title: "Information",
+        description: "Update stock quantities in Order Entry page - this option will auto-select",
+        duration: 4000
+      });
+      return;
     } else {
       onReasonSelect(reason);
       onClose();
@@ -71,24 +74,17 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
             return (
                 <Card 
                 key={reason.value}
-                className={`transition-all duration-200 ${
-                  reason.value === "over-stocked" 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'cursor-pointer hover:shadow-md'
-                } ${selectedReason === reason.value ? 'ring-2 ring-primary' : ''}`}
-                onClick={reason.value === "over-stocked" ? undefined : () => handleReasonSelect(reason.value)}
+                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                  selectedReason === reason.value ? 'ring-2 ring-primary' : ''
+                }`}
+                onClick={() => handleReasonSelect(reason.value)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <IconComponent className={`size-5 ${reason.color} ${reason.value === "over-stocked" ? 'opacity-50' : ''}`} />
+                    <IconComponent className={`size-5 ${reason.color}`} />
                     <div className="flex-1">
-                      <h4 className={`font-medium text-card-foreground ${reason.value === "over-stocked" ? 'opacity-50' : ''}`}>{reason.label}</h4>
-                      <p className={`text-sm text-muted-foreground ${reason.value === "over-stocked" ? 'opacity-50' : ''}`}>{reason.description}</p>
-                      {reason.value === "over-stocked" && (
-                        <p className="text-xs text-primary mt-1 font-medium opacity-75">
-                          Update stock quantities in Order Entry page - this option will auto-select
-                        </p>
-                      )}
+                      <h4 className="font-medium text-card-foreground">{reason.label}</h4>
+                      <p className="text-sm text-muted-foreground">{reason.description}</p>
                     </div>
                   </div>
                 </CardContent>
