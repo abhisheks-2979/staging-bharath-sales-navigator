@@ -78,7 +78,15 @@ const BeatAllowanceManagement = () => {
 
       if (expensesError) throw expensesError;
 
-      // Create a map of additional expenses by beat and date
+      // Fetch all orders to calculate today's order value for each beat/date
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('total_amount, created_at, visit_id, visits(retailer_id, retailers(beat_id))')
+        .eq('user_id', user.data.user.id);
+
+      if (ordersError) throw ordersError;
+
+      // Create a map of additional expenses by date
       const expensesMap = new Map();
       expensesData?.forEach((expense: any) => {
         const key = `${expense.expense_date}`;
@@ -86,9 +94,22 @@ const BeatAllowanceManagement = () => {
         expensesMap.set(key, current + parseFloat(expense.amount));
       });
 
+      // Create a map of order values by beat and date
+      const ordersMap = new Map();
+      ordersData?.forEach((order: any) => {
+        const orderDate = order.created_at.split('T')[0]; // Get date part only
+        const beatId = order.visits?.retailers?.beat_id;
+        if (beatId) {
+          const key = `${beatId}-${orderDate}`;
+          const current = ordersMap.get(key) || 0;
+          ordersMap.set(key, current + parseFloat(order.total_amount || 0));
+        }
+      });
+
       const formattedData = (allowanceData as any[] | null)?.map((item: any) => {
         const expenseDate = item.created_at.split('T')[0]; // Get date part only
         const additionalExpenses = expensesMap.get(expenseDate) || 0;
+        const todaysOrderValue = ordersMap.get(`${item.beat_id}-${expenseDate}`) || 0;
         
         return {
           id: item.id,
@@ -103,8 +124,8 @@ const BeatAllowanceManagement = () => {
           date: new Date(item.created_at).toLocaleDateString(),
           additional_expenses: additionalExpenses,
           total_expenses: item.daily_allowance + item.travel_allowance + additionalExpenses,
-          todays_order: 0, // Placeholder for future implementation
-          productivity: 0 // Placeholder for future implementation
+          todays_order: todaysOrderValue,
+          productivity: todaysOrderValue > 0 ? ((todaysOrderValue / (item.daily_allowance + item.travel_allowance + additionalExpenses)) * 100) : 0
         };
       }) || [];
 
@@ -414,11 +435,11 @@ const BeatAllowanceManagement = () => {
                         </div>
                         <div>
                           <span className="text-muted-foreground">Today's Order:</span>
-                          <span className="ml-1 font-medium">₹0.00</span>
+                          <span className="ml-1 font-medium">₹{(allowance.todays_order || 0).toFixed(2)}</span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Productivity:</span>
-                          <span className="ml-1 font-medium">-</span>
+                          <span className="ml-1 font-medium">{(allowance.productivity || 0).toFixed(1)}%</span>
                         </div>
                       </div>
                     </div>
@@ -470,8 +491,8 @@ const BeatAllowanceManagement = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-xs md:text-sm">₹{(allowance.total_expenses || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">₹0.00</TableCell>
-                        <TableCell className="text-xs md:text-sm">-</TableCell>
+                        <TableCell className="text-xs md:text-sm">₹{(allowance.todays_order || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-xs md:text-sm">{(allowance.productivity || 0).toFixed(1)}%</TableCell>
                       </TableRow>
                     ))
                   )}
