@@ -1148,9 +1148,18 @@ const filteredProducts = selectedCategory === "All"
                 <Button
                   variant="ghost"
                   onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}`)}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-0 min-w-[50px]"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-0 min-w-[50px] relative"
                 >
-                  <ShoppingCart size={16} />
+                  <div className="relative">
+                    <ShoppingCart size={16} />
+                    {cart.length > 0 && (
+                      <Badge 
+                        className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive text-destructive-foreground rounded-full border-0"
+                      >
+                        {cart.length}
+                      </Badge>
+                    )}
+                  </div>
                   <span className="text-[10px] leading-tight">Cart</span>
                 </Button>
                 <Button
