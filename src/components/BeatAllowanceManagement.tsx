@@ -288,30 +288,34 @@ const BeatAllowanceManagement = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium text-sm">{allowance.beat_name}</h3>
-                          <p className="text-xs text-muted-foreground">{allowance.user_name}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(allowance.created_at).toLocaleDateString()}</p>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(allowance)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
-                          <span className="text-muted-foreground">Daily:</span>
+                          <span className="text-muted-foreground">DA:</span>
                           <span className="ml-1 font-medium">₹{allowance.daily_allowance.toFixed(2)}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Travel:</span>
+                          <span className="text-muted-foreground">TA:</span>
                           <span className="ml-1 font-medium">₹{allowance.travel_allowance.toFixed(2)}</span>
                         </div>
-                      </div>
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Monthly Total:</span>
-                        <span className="ml-1 font-medium">₹{((allowance.daily_allowance + allowance.travel_allowance) * 30).toFixed(2)}</span>
+                        <div>
+                          <span className="text-muted-foreground">Additional:</span>
+                          <span className="ml-1 font-medium">₹0.00</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total:</span>
+                          <span className="ml-1 font-medium">₹{allowance.daily_allowance + allowance.travel_allowance}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Today's Order:</span>
+                          <span className="ml-1 font-medium">₹0.00</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Productivity:</span>
+                          <span className="ml-1 font-medium">-</span>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -324,41 +328,34 @@ const BeatAllowanceManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-xs md:text-sm">Date</TableHead>
                     <TableHead className="text-xs md:text-sm">Beat Name</TableHead>
-                    <TableHead className="text-xs md:text-sm">Assigned User</TableHead>
-                    <TableHead className="text-xs md:text-sm">Daily Allowance</TableHead>
-                    <TableHead className="text-xs md:text-sm">Travel Allowance</TableHead>
-                    <TableHead className="text-xs md:text-sm">Total Monthly</TableHead>
-                    <TableHead className="text-xs md:text-sm">Actions</TableHead>
+                    <TableHead className="text-xs md:text-sm">DA</TableHead>
+                    <TableHead className="text-xs md:text-sm">TA</TableHead>
+                    <TableHead className="text-xs md:text-sm">Additional Expenses</TableHead>
+                    <TableHead className="text-xs md:text-sm">Total Expenses</TableHead>
+                    <TableHead className="text-xs md:text-sm">Today's Order</TableHead>
+                    <TableHead className="text-xs md:text-sm">Productivity</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAllowances.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
                         No expenses found
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredAllowances.map((allowance) => (
                       <TableRow key={allowance.id}>
+                        <TableCell className="text-xs md:text-sm">{new Date(allowance.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium text-xs md:text-sm">{allowance.beat_name}</TableCell>
-                        <TableCell className="text-xs md:text-sm">{allowance.user_name}</TableCell>
                         <TableCell className="text-xs md:text-sm">₹{allowance.daily_allowance.toFixed(2)}</TableCell>
                         <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">
-                          ₹{((allowance.daily_allowance + allowance.travel_allowance) * 30).toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(allowance)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-3 w-3 md:h-4 md:w-4" />
-                          </Button>
-                        </TableCell>
+                        <TableCell className="text-xs md:text-sm">₹0.00</TableCell>
+                        <TableCell className="text-xs md:text-sm">₹{(allowance.daily_allowance + allowance.travel_allowance).toFixed(2)}</TableCell>
+                        <TableCell className="text-xs md:text-sm">₹0.00</TableCell>
+                        <TableCell className="text-xs md:text-sm">-</TableCell>
                       </TableRow>
                     ))
                   )}
