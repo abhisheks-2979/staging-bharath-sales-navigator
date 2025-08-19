@@ -492,7 +492,12 @@ const BeatAllowanceManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
-            <AdditionalExpenses />
+            <AdditionalExpenses 
+              beatId={selectedBeatForExpenses}
+              beatName={allowances.find(a => a.beat_id === selectedBeatForExpenses)?.beat_name}
+              expenseDate={selectedDateForExpenses.split('T')[0]}
+              onExpensesUpdated={fetchAllowances}
+            />
           </div>
         </DialogContent>
       </Dialog>

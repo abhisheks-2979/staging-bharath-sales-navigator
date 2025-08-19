@@ -6,9 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+interface AdditionalExpensesProps {
+  beatId?: string;
+  beatName?: string;
+  expenseDate?: string;
+  onExpensesUpdated?: () => void;
+}
 
 interface AdditionalExpense {
   id?: string;
@@ -29,21 +37,29 @@ const EXPENSE_CATEGORIES = [
   'Other'
 ];
 
-const AdditionalExpenses = () => {
+const AdditionalExpenses: React.FC<AdditionalExpensesProps> = ({
+  beatId,
+  beatName,
+  expenseDate,
+  onExpensesUpdated
+}) => {
   const { user, userProfile } = useAuth();
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(true); // Auto-open for beat-specific form
   const [expenses, setExpenses] = useState<AdditionalExpense[]>([]);
   const [savedExpenses, setSavedExpenses] = useState<AdditionalExpense[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [applyToAllBeats, setApplyToAllBeats] = useState(false);
 
-  console.log('AdditionalExpenses component rendering', { user, userProfile });
+  console.log('AdditionalExpenses component rendering', { user, userProfile, beatId, beatName, expenseDate });
 
+  const defaultDate = expenseDate || new Date().toISOString().split('T')[0];
+  
   const initialExpense: AdditionalExpense = {
     category: '',
     amount: 0,
     description: '',
-    expense_date: new Date().toISOString().split('T')[0]
+    expense_date: defaultDate
   };
 
   useEffect(() => {
@@ -59,11 +75,17 @@ const AdditionalExpenses = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('additional_expenses')
         .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.id);
+
+      // If beatId and expenseDate are provided, filter for specific beat and date
+      if (beatId && expenseDate) {
+        query = query.eq('expense_date', expenseDate);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setSavedExpenses(data || []);
@@ -114,40 +136,80 @@ const AdditionalExpenses = () => {
 
     setLoading(true);
     try {
-      const expensesToSave = [];
+      if (applyToAllBeats && expenseDate) {
+        // Get all beats for this user on this date
+        const { data: beatAllowances, error: beatError } = await supabase
+          .from('beat_allowances')
+          .select('beat_id, beat_name')
+          .eq('user_id', user.id)
+          .eq('created_at', expenseDate);
 
-      for (const expense of expenses) {
-        let billUrl = null;
-        
-        if (expense.bill_file) {
-          billUrl = await uploadFile(expense.bill_file, user.id);
-          if (!billUrl) {
-            toast.error('Failed to upload file for one of the expenses');
-            continue;
+        if (beatError) throw beatError;
+
+        // Apply expenses to all beats
+        for (const beatAllowance of beatAllowances || []) {
+          for (const expense of expenses) {
+            let billUrl = null;
+            
+            if (expense.bill_file) {
+              billUrl = await uploadFile(expense.bill_file, user.id);
+            }
+
+            await supabase
+              .from('additional_expenses')
+              .insert({
+                user_id: user.id,
+                category: expense.category,
+                custom_category: expense.category === 'Other' ? expense.custom_category : null,
+                amount: expense.amount,
+                description: `${expense.description} (Applied to ${beatAllowance.beat_name})`,
+                bill_url: billUrl,
+                expense_date: expense.expense_date
+              });
           }
         }
+      } else {
+        // Apply expenses to current beat only
+        const expensesToSave = [];
 
-        expensesToSave.push({
-          user_id: user.id,
-          category: expense.category,
-          custom_category: expense.category === 'Other' ? expense.custom_category : null,
-          amount: expense.amount,
-          description: expense.description,
-          bill_url: billUrl,
-          expense_date: expense.expense_date
-        });
+        for (const expense of expenses) {
+          let billUrl = null;
+          
+          if (expense.bill_file) {
+            billUrl = await uploadFile(expense.bill_file, user.id);
+            if (!billUrl) {
+              toast.error('Failed to upload file for one of the expenses');
+              continue;
+            }
+          }
+
+          expensesToSave.push({
+            user_id: user.id,
+            category: expense.category,
+            custom_category: expense.category === 'Other' ? expense.custom_category : null,
+            amount: expense.amount,
+            description: beatName ? `${expense.description} (${beatName})` : expense.description,
+            bill_url: billUrl,
+            expense_date: expense.expense_date
+          });
+        }
+
+        const { error } = await supabase
+          .from('additional_expenses')
+          .insert(expensesToSave);
+
+        if (error) throw error;
       }
-
-      const { error } = await supabase
-        .from('additional_expenses')
-        .insert(expensesToSave);
-
-      if (error) throw error;
 
       toast.success('Expenses saved successfully!');
       setExpenses([]);
       setIsFormOpen(false);
       fetchSavedExpenses();
+      
+      // Call parent callback to refresh data
+      if (onExpensesUpdated) {
+        onExpensesUpdated();
+      }
     } catch (error) {
       console.error('Error saving expenses:', error);
       toast.error('Failed to save expenses');
@@ -195,10 +257,33 @@ const AdditionalExpenses = () => {
       <CardContent>
         {isFormOpen && (
           <div className="space-y-6 mb-6">
-            {/* User Info */}
-            <div className="p-4 bg-muted/50 rounded-lg">
+            {/* User Info and Beat Info */}
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <Label className="text-sm font-medium">User: {userProfile?.full_name || 'Loading...'}</Label>
+              {beatName && (
+                <Label className="text-sm font-medium text-primary">Beat: {beatName}</Label>
+              )}
+              {expenseDate && (
+                <Label className="text-sm font-medium text-muted-foreground">Date: {new Date(expenseDate).toLocaleDateString()}</Label>
+              )}
             </div>
+
+            {/* Apply to all beats option */}
+            {beatId && expenseDate && (
+              <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <Checkbox
+                  id="apply-all-beats"
+                  checked={applyToAllBeats}
+                  onCheckedChange={(checked) => setApplyToAllBeats(checked === true)}
+                />
+                <Label
+                  htmlFor="apply-all-beats"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Apply these expenses to all beats for this date
+                </Label>
+              </div>
+            )}
 
             {/* Expense Rows */}
             <div className="space-y-4">
