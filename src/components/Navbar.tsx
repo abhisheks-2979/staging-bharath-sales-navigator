@@ -51,6 +51,7 @@ export const Navbar = () => {
     { icon: Shield, label: "Admin Controls", href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
     { icon: Package, label: "Products", href: "/product-management", color: "from-rose-500 to-rose-600" },
     { icon: Factory, label: "Vendors", href: "/vendors", color: "from-sky-500 to-sky-600" },
+    { icon: Settings, label: "Expense Management", href: "/expense-management", color: "from-purple-500 to-purple-600" },
   ];
 
   // Get user display name and initials
