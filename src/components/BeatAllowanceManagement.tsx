@@ -436,7 +436,7 @@ const BeatAllowanceManagement = () => {
                         <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
                         <TableCell className="text-xs md:text-sm">
                           <div className="flex items-center gap-2">
-                            <span>₹{(allowance.daily_allowance + allowance.travel_allowance).toFixed(2)}</span>
+                            <span>₹0.00</span>
                             <Button
                               variant="ghost"
                               size="sm"
