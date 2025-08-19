@@ -517,31 +517,33 @@ export const MyVisits = () => {
 
   return (
     <Layout>
-      <div className="p-4 space-y-4">
+      <div className="p-2 sm:p-4 space-y-3 sm:space-y-4">
         {/* Header Card */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 sm:pb-3">
             <div>
-              <CardTitle className="text-xl font-bold">My Visits</CardTitle>
-              <p className="text-lg font-semibold mt-1">{currentBeatName}</p>
+              <CardTitle className="text-lg sm:text-xl font-bold">My Visits</CardTitle>
+              <p className="text-sm sm:text-lg font-semibold mt-1 truncate">{currentBeatName}</p>
             </div>
-            <p className="text-primary-foreground/80">Manage your daily visit schedule</p>
+            <p className="text-primary-foreground/80 text-xs sm:text-sm">Manage your daily visit schedule</p>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {/* Calendar Selector */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20",
+                        "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm w-full sm:w-auto",
                         !calendarDate && "text-primary-foreground/50"
                       )}
                     >
-                      <CalendarDays className="mr-2 h-4 w-4" />
-                      {calendarDate ? format(calendarDate, "PPP") : <span>Pick a date</span>}
+                      <CalendarDays className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="truncate">
+                        {calendarDate ? format(calendarDate, "MMM d, yyyy") : "Pick a date"}
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -555,12 +557,12 @@ export const MyVisits = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 self-end sm:self-auto">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigateWeek('prev')}
-                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-8 w-8 p-0"
                 >
                   ←
                 </Button>
@@ -568,7 +570,7 @@ export const MyVisits = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => navigateWeek('next')}
-                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                  className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-8 w-8 p-0"
                 >
                   →
                 </Button>
@@ -576,19 +578,19 @@ export const MyVisits = () => {
             </div>
             
             {/* Week Display */}
-            <div className="text-center mb-4">
-              <p className="text-primary-foreground/80 text-sm">
-                Week of {format(selectedWeek, "MMMM d, yyyy")}
+            <div className="text-center mb-3 sm:mb-4">
+              <p className="text-primary-foreground/80 text-xs sm:text-sm">
+                Week of {format(selectedWeek, "MMM d, yyyy")}
               </p>
             </div>
 
             {/* Weekly Calendar */}
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2">
               {weekDays.map((dayInfo) => (
                 <button
                   key={dayInfo.day}
                   onClick={() => handleDayChange(dayInfo.day)}
-                  className={`relative p-2 rounded-lg text-center transition-colors ${
+                  className={`relative p-1 sm:p-2 rounded-lg text-center transition-colors min-h-[60px] sm:min-h-auto ${
                     selectedDay === dayInfo.day
                       ? 'bg-primary-foreground text-primary'
                       : dayInfo.isToday 
@@ -596,97 +598,97 @@ export const MyVisits = () => {
                         : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'
                   }`}
                 >
-                  <div className="text-xs font-medium">{dayInfo.day}</div>
-                  <div className="text-lg font-bold">{dayInfo.date}</div>
+                  <div className="text-[10px] sm:text-xs font-medium">{dayInfo.day}</div>
+                  <div className="text-sm sm:text-lg font-bold">{dayInfo.date}</div>
                   {plannedDates.has(dayInfo.isoDate) && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success" />
+                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-success" />
                   )}
                 </button>
               ))}
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
               <Button 
                 variant="secondary" 
                 size="sm"
-                className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 ${
+                className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto ${
                   selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
                 onClick={() => window.location.href = '/beat-planning'}
                 disabled={selectedDate < new Date().toISOString().split('T')[0]}
               >
-                <Route size={16} className="mr-1" />
+                <Route size={14} className="mr-1" />
                 Journey Plan
               </Button>
               <Button 
                 variant="secondary" 
                 size="sm"
-                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
                 onClick={() => navigate('/my-retailers')}
               >
-                <Plus size={16} className="mr-1" />
+                <Plus size={14} className="mr-1" />
                 All Retailers
               </Button>
             </div>
-             <div className="grid grid-cols-1">
-               <Button 
-                 variant="secondary" 
-                 size="sm" 
-                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20"
-                 onClick={() => window.location.href = '/today-summary'}
-               >
-                 <FileText size={16} className="mr-1" />
-                 Today's Summary
-               </Button>
+            <div className="grid grid-cols-1">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
+                onClick={() => window.location.href = '/today-summary'}
+              >
+                <FileText size={14} className="mr-1" />
+                Today's Summary
+              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Progress Card */}
         <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-primary">Today's Progress</h3>
-              <div className="text-sm text-muted-foreground">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 gap-2">
+              <h3 className="font-bold text-base sm:text-lg text-primary">Today's Progress</h3>
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 {(selectedDate ? new Date(selectedDate) : new Date()).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
               </div>
             </div>
             
-             {/* Stats Grid - All Equal Size */}
-             <div className="grid grid-cols-2 gap-3">
-               <div className="bg-gradient-to-r from-success/10 to-success/5 p-4 rounded-xl border border-success/20 flex flex-col items-center justify-center text-center min-h-[100px]">
-                 <div className="text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
-                 <div className="text-sm text-success/80 font-medium mt-1">Total Order Value</div>
+             {/* Stats Grid - Mobile Responsive */}
+             <div className="grid grid-cols-2 gap-2 sm:gap-3">
+               <div className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-4 rounded-xl border border-success/20 flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]">
+                 <div className="text-lg sm:text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
+                 <div className="text-xs sm:text-sm text-success/80 font-medium mt-1">Total Order Value</div>
                </div>
                <button
                  onClick={handleOrdersClick}
-                 className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[100px]"
+                 className="bg-gradient-to-r from-primary/10 to-primary/5 p-2 sm:p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]"
                >
-                 <div className="text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                 <div className="text-sm text-primary/80 font-medium mt-1">Today's Order</div>
+                 <div className="text-lg sm:text-2xl font-bold text-primary">{totalOrdersToday}</div>
+                 <div className="text-xs sm:text-sm text-primary/80 font-medium mt-1">Today's Order</div>
                </button>
                <button
                  onClick={() => handleStatusClick("planned")}
-                 className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[100px] ${
+                 className={`p-2 sm:p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[80px] sm:min-h-[100px] ${
                    statusFilter === "planned" 
                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" 
                      : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"
                  }`}
                >
-                 <div className="text-2xl font-bold">{plannedVisitsCount}</div>
-                 <div className="text-sm font-medium opacity-80 mt-1">Planned Visits</div>
+                 <div className="text-lg sm:text-2xl font-bold">{plannedVisitsCount}</div>
+                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">Planned Visits</div>
                </button>
                <button
                  onClick={() => handleStatusClick("unproductive")}
-                 className={`p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[100px] ${
+                 className={`p-2 sm:p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[80px] sm:min-h-[100px] ${
                    statusFilter === "unproductive" 
                      ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" 
                      : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"
                  }`}
                >
-                 <div className="text-2xl font-bold">{unproductiveVisits}</div>
-                 <div className="text-sm font-medium opacity-80 mt-1">Unproductive</div>
+                 <div className="text-lg sm:text-2xl font-bold">{unproductiveVisits}</div>
+                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">Unproductive</div>
                </button>
              </div>
           </CardContent>
@@ -694,8 +696,8 @@ export const MyVisits = () => {
 
         {/* Enhanced Search Bar - Mobile Optimized */}
         <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-3 sm:p-4 flex justify-end">
-            <div className="w-full sm:w-64">
+          <CardContent className="p-2 sm:p-4">
+            <div className="w-full">
               <SearchInput
                 placeholder="🔍 Search visits"
                 value={searchTerm}
@@ -706,20 +708,20 @@ export const MyVisits = () => {
         </Card>
 
         {/* Visits List */}
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {filteredVisits.length === 0 ? (
             <Card className="shadow-card">
-              <CardContent className="p-8 text-center">
-                <CalendarIcon size={48} className="mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-semibold text-muted-foreground mb-2">No visits found</h3>
-                <p className="text-sm text-muted-foreground">
+              <CardContent className="p-4 sm:p-8 text-center">
+                <CalendarIcon size={32} className="sm:w-12 sm:h-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+                <h3 className="font-semibold text-muted-foreground mb-2 text-sm sm:text-base">No visits found</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
                   Try adjusting your search or create a new visit
                 </p>
                 <Button 
-                  className="mt-4"
+                  className="mt-2 sm:mt-4 text-xs sm:text-sm h-8 sm:h-auto"
                   onClick={() => setIsCreateVisitModalOpen(true)}
                 >
-                  <Plus size={16} className="mr-2" />
+                  <Plus size={14} className="mr-1 sm:mr-2" />
                   Create New Visit
                 </Button>
               </CardContent>
@@ -750,32 +752,32 @@ export const MyVisits = () => {
 
         {/* Orders Dialog */}
         <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+              <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
                 Orders Placed Today
               </DialogTitle>
             </DialogHeader>
             
-            <div className="mt-4">
+            <div className="mt-3 sm:mt-4">
               {ordersData.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No orders placed today</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-muted-foreground text-sm sm:text-base">No orders placed today</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {ordersData.map((order, index) => (
                     <Card key={order.id} className="border border-border/40">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
+                      <CardHeader className="pb-2 sm:pb-3">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                           <div>
-                            <h4 className="font-semibold">Order #{index + 1}</h4>
-                            <p className="text-sm text-muted-foreground">
+                            <h4 className="font-semibold text-sm sm:text-base">Order #{index + 1}</h4>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
                               {order.retailer_name} • {format(new Date(order.created_at), 'hh:mm a')}
                             </p>
                           </div>
-                          <Badge variant="secondary" className="bg-success/10 text-success">
+                          <Badge variant="secondary" className="bg-success/10 text-success text-xs sm:text-sm">
                             ₹{Number(order.total_amount).toLocaleString()}
                           </Badge>
                         </div>
@@ -783,27 +785,29 @@ export const MyVisits = () => {
                       <CardContent>
                         {order.order_items && order.order_items.length > 0 && (
                           <div className="space-y-2">
-                            <p className="text-sm font-medium text-muted-foreground">Items:</p>
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Product</TableHead>
-                                  <TableHead>Quantity</TableHead>
-                                  <TableHead>Rate</TableHead>
-                                  <TableHead>Total</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {order.order_items.map((item: any) => (
-                                  <TableRow key={item.id}>
-                                    <TableCell>{item.product_name}</TableCell>
-                                    <TableCell>{item.quantity} {item.unit}</TableCell>
-                                    <TableCell>₹{Number(item.rate).toLocaleString()}</TableCell>
-                                    <TableCell>₹{Number(item.total).toLocaleString()}</TableCell>
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">Items:</p>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="text-xs sm:text-sm">Product</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">Quantity</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">Rate</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">Total</TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {order.order_items.map((item: any) => (
+                                    <TableRow key={item.id}>
+                                      <TableCell className="text-xs sm:text-sm">{item.product_name}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm">{item.quantity} {item.unit}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm">₹{Number(item.rate).toLocaleString()}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm">₹{Number(item.total).toLocaleString()}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
                           </div>
                         )}
                       </CardContent>
