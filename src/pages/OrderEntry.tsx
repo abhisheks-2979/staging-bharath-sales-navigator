@@ -1154,7 +1154,7 @@ const filteredProducts = selectedCategory === "All"
                     <ShoppingCart size={16} />
                     {cart.length > 0 && (
                       <Badge 
-                        className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive text-destructive-foreground rounded-full border-0"
+                        className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] bg-destructive text-destructive-foreground rounded-full border-0"
                       >
                         {cart.length}
                       </Badge>
