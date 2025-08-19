@@ -6,9 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit, Plus, Search } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Edit, Plus, Search, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface BeatAllowance {
   id: string;
@@ -36,6 +40,7 @@ interface Beat {
 const BeatAllowanceManagement = () => {
   const [allowances, setAllowances] = useState<BeatAllowance[]>([]);
   const [beats, setBeats] = useState<Beat[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -179,10 +184,17 @@ const BeatAllowanceManagement = () => {
     setIsDialogOpen(true);
   };
 
-  const filteredAllowances = allowances.filter(allowance =>
-    allowance.beat_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    allowance.user_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAllowances = allowances.filter(allowance => {
+    const matchesSearch = allowance.beat_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      allowance.user_name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!selectedDate) return matchesSearch;
+    
+    const allowanceDate = new Date(allowance.created_at).toDateString();
+    const filterDate = selectedDate.toDateString();
+    
+    return matchesSearch && allowanceDate === filterDate;
+  });
 
   if (loading) {
     return (
@@ -269,14 +281,52 @@ const BeatAllowanceManagement = () => {
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <Input
-                placeholder="Search by beat name or user..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 text-sm"
-              />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center space-x-2 flex-1">
+                <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Input
+                  placeholder="Search by beat name or user..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1 text-sm"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[200px] justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {selectedDate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedDate(undefined)}
+                    className="px-3"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Mobile Cards View */}
