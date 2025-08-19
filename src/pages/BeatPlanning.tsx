@@ -204,11 +204,20 @@ export const BeatPlanning = () => {
   };
 
   const createExpenseRecords = async (selectedBeatIds: string[], dateString: string) => {
-    if (!user) return;
+    if (!user) {
+      console.error('No user found when creating expense records');
+      return;
+    }
     
     try {
       console.log('Creating expense records for date:', dateString);
       console.log('Selected beat IDs:', selectedBeatIds);
+      console.log('User ID:', user.id);
+      
+      if (selectedBeatIds.length === 0) {
+        console.log('No beats selected, skipping expense creation');
+        return;
+      }
       
       // Delete existing expense records for this date
       const { error: deleteError } = await supabase
@@ -220,6 +229,8 @@ export const BeatPlanning = () => {
 
       if (deleteError) {
         console.error('Delete error:', deleteError);
+      } else {
+        console.log('Successfully deleted existing expense records for date:', dateString);
       }
 
       // Create expense records for each planned beat
@@ -239,19 +250,28 @@ export const BeatPlanning = () => {
 
       console.log('Expense data to insert:', expenseData);
 
+      if (expenseData.length === 0) {
+        console.log('No expense data to insert');
+        return;
+      }
+
       const { error, data } = await supabase
         .from('beat_allowances')
         .insert(expenseData);
 
       if (error) {
         console.error('Insert error:', error);
+        console.error('Insert error details:', JSON.stringify(error, null, 2));
         throw error;
       }
       
       console.log('Successfully created expense records:', data);
+      
+      // Show success message
+      toast.success(`Created expense records for ${selectedBeatIds.length} beat(s)`);
     } catch (error) {
       console.error('Error creating expense records:', error);
-      // Don't show error to user as this is background operation
+      toast.error('Failed to create expense records. Please check the console for details.');
     }
   };
 
