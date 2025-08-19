@@ -50,6 +50,7 @@ import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
+import ExpenseManagement from "./pages/ExpenseManagement";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
 
@@ -100,6 +101,11 @@ const App = () => (
           <Route path="/territories-distributors" element={
             <ProtectedRoute>
               <TerritoriesAndDistributors />
+            </ProtectedRoute>
+          } />
+          <Route path="/expense-management" element={
+            <ProtectedRoute>
+              <ExpenseManagement />
             </ProtectedRoute>
           } />
             <Route path="/visit-planner" element={
