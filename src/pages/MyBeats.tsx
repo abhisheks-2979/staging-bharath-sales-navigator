@@ -25,6 +25,7 @@ interface Beat {
   created_at: string;
   category?: string;
   priority?: string;
+  travel_allowance?: number;
 }
 
 interface Retailer {
@@ -56,6 +57,7 @@ export const MyBeats = () => {
   const [selectedRetailers, setSelectedRetailers] = useState<Set<string>>(new Set());
   const [selectedAnalyticsRetailer, setSelectedAnalyticsRetailer] = useState<Retailer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [travelAllowance, setTravelAllowance] = useState("");
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -146,6 +148,12 @@ export const MyBeats = () => {
         .select('beat_id, beat_name, created_at, beat_data')
         .eq('user_id', user.id);
 
+      // Get beat allowances for travel expenses
+      const { data: beatAllowancesData, error: allowancesError } = await supabase
+        .from('beat_allowances')
+        .select('beat_id, travel_allowance')
+        .eq('user_id', user.id);
+
       if (beatPlansError) {
         console.error('Error fetching beat plans:', beatPlansError);
       }
@@ -158,6 +166,12 @@ export const MyBeats = () => {
           created_at: plan.created_at,
           beat_data: plan.beat_data
         });
+      });
+
+      // Create a map of beat_id to travel allowance
+      const beatAllowancesMap = new Map<string, number>();
+      (beatAllowancesData || []).forEach((allowance: any) => {
+        beatAllowancesMap.set(allowance.beat_id, allowance.travel_allowance);
       });
 
       console.log('Raw retailers data:', retailersData);
@@ -193,6 +207,7 @@ export const MyBeats = () => {
             retailer_count: 0,
             category: category,
             created_at: planInfo?.created_at || item.created_at,
+            travel_allowance: beatAllowancesMap.get(beatId) || 0,
             retailers: []
           });
         }
@@ -351,9 +366,28 @@ export const MyBeats = () => {
 
       if (error) throw error;
 
+      // Create beat allowance record if travel allowance is specified
+      if (travelAllowance && parseFloat(travelAllowance) > 0) {
+        const { error: allowanceError } = await supabase
+          .from('beat_allowances')
+          .insert({
+            user_id: user.id,
+            beat_id: beatId,
+            beat_name: beatName.trim(),
+            daily_allowance: 0,
+            travel_allowance: parseFloat(travelAllowance)
+          });
+
+        if (allowanceError) {
+          console.error('Error creating beat allowance:', allowanceError);
+          toast.error('Beat created but failed to save travel allowance');
+        }
+      }
+
       toast.success(`Beat "${beatName}" created successfully with ${selectedRetailers.size} retailers`);
       setIsCreateBeatOpen(false);
       setBeatName("");
+      setTravelAllowance("");
       setSelectedRetailers(new Set());
       
       // Reload data
@@ -362,6 +396,55 @@ export const MyBeats = () => {
     } catch (error) {
       console.error('Error creating beat:', error);
       toast.error('Failed to create beat');
+    }
+  };
+
+  const handleDeleteBeat = async (beatId: string, beatName: string) => {
+    if (!confirm(`Are you sure you want to delete the beat "${beatName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    if (!user) return;
+
+    try {
+      // Update retailers to remove beat assignment
+      const { error: retailerError } = await supabase
+        .from('retailers')
+        .update({ 
+          beat_id: 'unassigned',
+          beat_name: null
+        })
+        .eq('beat_id', beatId)
+        .eq('user_id', user.id);
+
+      if (retailerError) throw retailerError;
+
+      // Delete beat plan if exists
+      const { error: planError } = await supabase
+        .from('beat_plans')
+        .delete()
+        .eq('beat_id', beatId)
+        .eq('user_id', user.id);
+
+      if (planError) console.error('Error deleting beat plan:', planError);
+
+      // Delete beat allowance if exists
+      const { error: allowanceError } = await supabase
+        .from('beat_allowances')
+        .delete()
+        .eq('beat_id', beatId)
+        .eq('user_id', user.id);
+
+      if (allowanceError) console.error('Error deleting beat allowance:', allowanceError);
+
+      toast.success(`Beat "${beatName}" deleted successfully`);
+      
+      // Reload data
+      loadBeats();
+      loadAllRetailers();
+    } catch (error) {
+      console.error('Error deleting beat:', error);
+      toast.error('Failed to delete beat');
     }
   };
 
@@ -546,12 +629,12 @@ export const MyBeats = () => {
                          </div>
                          <div className="text-xs text-muted-foreground">Avg Revenue</div>
                        </div>
-                       <div>
-                         <div className="text-lg font-bold text-blue-600">
-                           ₹{(Math.random() * 500000 + 200000).toFixed(0)}
-                         </div>
-                         <div className="text-xs text-muted-foreground">6M Sales</div>
-                       </div>
+                        <div>
+                          <div className="text-lg font-bold text-blue-600">
+                            ₹{beat.travel_allowance || 0}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Travel Allowance</div>
+                        </div>
                      </div>
                      
                      {/* Additional Info */}
@@ -562,18 +645,26 @@ export const MyBeats = () => {
                        </div>
                      </div>
                     
-                    {/* Beat Actions */}
-                    <div className="flex flex-col gap-2 pt-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="w-full flex items-center justify-center gap-2"
-                        onClick={() => navigate(`/beat/${beat.id}`)}
-                      >
-                        <BarChart className="h-4 w-4" />
-                        View Beat Details
-                      </Button>
-                    </div>
+                     {/* Beat Actions */}
+                     <div className="flex gap-2 pt-2">
+                       <Button 
+                         size="sm" 
+                         variant="outline" 
+                         className="flex-1 flex items-center justify-center gap-2"
+                         onClick={() => navigate(`/beat/${beat.id}`)}
+                       >
+                         <BarChart className="h-4 w-4" />
+                         View Details
+                       </Button>
+                       <Button 
+                         size="sm" 
+                         variant="destructive" 
+                         className="flex items-center justify-center gap-2"
+                         onClick={() => handleDeleteBeat(beat.id, beat.name)}
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                     </div>
                     
                     {/* Creation Date */}
                     <div className="text-xs text-muted-foreground pt-2 border-t">
@@ -597,14 +688,26 @@ export const MyBeats = () => {
             </DialogHeader>
             
             <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-              <div className="space-y-2">
-                <Label htmlFor="beatName">Beat Name</Label>
-                <Input
-                  id="beatName"
-                  placeholder="Enter beat name"
-                  value={beatName}
-                  onChange={(e) => setBeatName(e.target.value)}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="beatName">Beat Name</Label>
+                  <Input
+                    id="beatName"
+                    placeholder="Enter beat name"
+                    value={beatName}
+                    onChange={(e) => setBeatName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="travelAllowance">Travel Allowance (₹)</Label>
+                  <Input
+                    id="travelAllowance"
+                    type="number"
+                    placeholder="Enter travel allowance"
+                    value={travelAllowance}
+                    onChange={(e) => setTravelAllowance(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
