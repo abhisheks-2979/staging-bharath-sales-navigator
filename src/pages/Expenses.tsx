@@ -201,7 +201,7 @@ const Expenses = () => {
               <Tabs defaultValue="allowances" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 h-auto mb-4">
                   <TabsTrigger value="allowances" className="text-xs sm:text-sm py-2 px-2 sm:px-4">
-                    Beat Allowances
+                    Expenses
                   </TabsTrigger>
                   <TabsTrigger value="productivity" className="text-xs sm:text-sm py-2 px-2 sm:px-4">
                     Productivity Tracking

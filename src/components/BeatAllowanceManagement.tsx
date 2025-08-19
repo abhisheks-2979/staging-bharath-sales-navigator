@@ -78,7 +78,7 @@ const BeatAllowanceManagement = () => {
       console.error('Error fetching allowances:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch beat allowances",
+        description: "Failed to fetch expenses",
         variant: "destructive",
       });
     }
@@ -294,7 +294,7 @@ const BeatAllowanceManagement = () => {
             <div className="block sm:hidden space-y-3">
               {filteredAllowances.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No beat allowances found
+                  No expenses found
                 </div>
               ) : (
                 filteredAllowances.map((allowance) => (
@@ -351,7 +351,7 @@ const BeatAllowanceManagement = () => {
                   {filteredAllowances.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
-                        No beat allowances found
+                        No expenses found
                       </TableCell>
                     </TableRow>
                   ) : (
