@@ -207,32 +207,48 @@ export const BeatPlanning = () => {
     if (!user) return;
     
     try {
+      console.log('Creating expense records for date:', dateString);
+      console.log('Selected beat IDs:', selectedBeatIds);
+      
       // Delete existing expense records for this date
-      await supabase
+      const { error: deleteError } = await supabase
         .from('beat_allowances')
         .delete()
         .eq('user_id', user.id)
-        .like('created_at', `${dateString}%`);
+        .gte('created_at', `${dateString}T00:00:00.000Z`)
+        .lt('created_at', `${dateString}T23:59:59.999Z`);
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+      }
 
       // Create expense records for each planned beat
       const expenseData = selectedBeatIds.map(beatId => {
         const beat = beats.find(b => b.id === beatId);
+        console.log(`Beat ${beatId} found:`, beat);
         return {
           user_id: user.id,
           beat_id: beatId,
           beat_name: beat?.name || beatId,
           daily_allowance: 0, // Will be updated manually by user
           travel_allowance: 0, // Will be updated manually by user
-          created_at: new Date(dateString).toISOString(),
+          created_at: `${dateString}T12:00:00.000Z`, // Set to noon of the selected date
           updated_at: new Date().toISOString()
         };
       });
 
-      const { error } = await supabase
+      console.log('Expense data to insert:', expenseData);
+
+      const { error, data } = await supabase
         .from('beat_allowances')
         .insert(expenseData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
+      }
+      
+      console.log('Successfully created expense records:', data);
     } catch (error) {
       console.error('Error creating expense records:', error);
       // Don't show error to user as this is background operation
