@@ -192,10 +192,16 @@ const BeatAllowanceManagement = () => {
     
     if (!selectedDate) return matchesSearch;
     
-    const allowanceDate = new Date(allowance.created_at).toDateString();
-    const filterDate = selectedDate.toDateString();
+    // Use the created_at date from the expense record for filtering
+    const expenseCreatedDate = new Date(allowance.created_at);
+    const filterDate = selectedDate;
     
-    return matchesSearch && allowanceDate === filterDate;
+    // Compare dates by year, month, and day only
+    const expenseMatch = expenseCreatedDate.getFullYear() === filterDate.getFullYear() &&
+                        expenseCreatedDate.getMonth() === filterDate.getMonth() &&
+                        expenseCreatedDate.getDate() === filterDate.getDate();
+    
+    return matchesSearch && expenseMatch;
   });
 
   if (loading) {

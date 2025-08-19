@@ -243,7 +243,7 @@ export const BeatPlanning = () => {
           beat_name: beat?.name || beatId,
           daily_allowance: 0, // Will be updated manually by user
           travel_allowance: 0, // Will be updated manually by user
-          created_at: `${dateString}T12:00:00.000Z`, // Set to noon of the selected date
+          created_at: `${dateString}T12:00:00.000Z`, // Use the correct date for expense records
           updated_at: new Date().toISOString()
         };
       });
