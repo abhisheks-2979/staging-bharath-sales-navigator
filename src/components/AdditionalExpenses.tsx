@@ -37,6 +37,8 @@ const AdditionalExpenses = () => {
   const [loading, setLoading] = useState(false);
   const [totalAmount, setTotalAmount] = useState(0);
 
+  console.log('AdditionalExpenses component rendering', { user, userProfile });
+
   const initialExpense: AdditionalExpense = {
     category: '',
     amount: 0,
