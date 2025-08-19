@@ -287,7 +287,12 @@ export const BeatPlanning = () => {
 
     setIsLoading(true);
     try {
-      const dateString = selectedDate.toISOString().split('T')[0];
+      // Format date correctly to avoid timezone issues
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      console.log('Submitting plan for date:', dateString, 'from selectedDate:', selectedDate);
       // Delete existing plans for this date
       await supabase
         .from('beat_plans')

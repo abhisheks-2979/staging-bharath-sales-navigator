@@ -109,6 +109,8 @@ const BeatAllowanceManagement = () => {
   };
 
   useEffect(() => {
+    // Set default date to today
+    setSelectedDate(new Date());
     Promise.all([fetchAllowances(), fetchBeats()]).finally(() => setLoading(false));
   }, []);
 
