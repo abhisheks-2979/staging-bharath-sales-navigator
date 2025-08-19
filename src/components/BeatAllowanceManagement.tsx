@@ -193,22 +193,7 @@ const BeatAllowanceManagement = () => {
       <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-            <CardTitle className="text-lg sm:text-xl">Beat Allowance Management</CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  onClick={() => {
-                    setEditingAllowance(null);
-                    setFormData({ beat_id: '', daily_allowance: '', travel_allowance: '' });
-                  }}
-                  className="w-full sm:w-auto"
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Add Beat Allowance</span>
-                  <span className="sm:hidden">Add Allowance</span>
-                </Button>
-              </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-lg sm:text-xl">{editingAllowance ? 'Edit' : 'Add'} Beat Allowance</DialogTitle>
