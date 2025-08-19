@@ -149,6 +149,39 @@ export type Database = {
         }
         Relationships: []
       }
+      beat_allowances: {
+        Row: {
+          beat_id: string
+          beat_name: string
+          created_at: string
+          daily_allowance: number
+          id: string
+          travel_allowance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          beat_id: string
+          beat_name: string
+          created_at?: string
+          daily_allowance?: number
+          id?: string
+          travel_allowance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          beat_id?: string
+          beat_name?: string
+          created_at?: string
+          daily_allowance?: number
+          id?: string
+          travel_allowance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       beat_plans: {
         Row: {
           beat_data: Json

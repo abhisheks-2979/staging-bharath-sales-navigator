@@ -44,24 +44,31 @@ const BeatAllowanceManagement = () => {
 
   const fetchAllowances = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('beat_allowances')
-        .select(`
-          *,
-          profiles!inner(full_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedData = data?.map(item => ({
+      const userIds = (data as any[] | null)?.map((i: any) => i.user_id) || [];
+      let nameMap: Record<string, string> = {};
+      if (userIds.length) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        nameMap = Object.fromEntries((profilesData as any[] | null)?.map((p: any) => [p.id, p.full_name]) || []);
+      }
+
+      const formattedData = (data as any[] | null)?.map((item: any) => ({
         id: item.id,
         beat_id: item.beat_id,
         beat_name: item.beat_name,
         daily_allowance: item.daily_allowance,
         travel_allowance: item.travel_allowance,
         user_id: item.user_id,
-        user_name: item.profiles.full_name,
+        user_name: nameMap[item.user_id] || '-',
         created_at: item.created_at,
         updated_at: item.updated_at
       })) || [];
@@ -119,7 +126,7 @@ const BeatAllowanceManagement = () => {
       };
 
       if (editingAllowance) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('beat_allowances')
           .update(allowanceData)
           .eq('id', editingAllowance.id);
@@ -131,7 +138,7 @@ const BeatAllowanceManagement = () => {
           description: "Beat allowance updated successfully",
         });
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('beat_allowances')
           .insert([allowanceData]);
 

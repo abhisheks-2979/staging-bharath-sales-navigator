@@ -67,60 +67,68 @@ const ProductivityTracking = () => {
           startDate = today;
       }
 
-      // Fetch orders with user and beat information
+      // Fetch orders in date range
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select(`
-          *,
-          visits!inner(
-            user_id,
-            retailer_id,
-            retailers!inner(beat_name)
-          )
-        `)
+        .select('user_id,total_amount,created_at')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', today.toISOString());
 
       if (ordersError) throw ordersError;
 
-      // Fetch beat allowances
-      const { data: allowancesData, error: allowancesError } = await supabase
+      // Fetch allowances (per user)
+      const { data: allowancesData, error: allowancesError } = await (supabase as any)
         .from('beat_allowances')
-        .select(`
-          *,
-          profiles!inner(full_name)
-        `);
+        .select('*');
 
       if (allowancesError) throw allowancesError;
+
+      // Fetch profiles for user names
+      const userIds = Array.from(new Set((ordersData || []).map((o: any) => o.user_id)));
+      let nameMap: Record<string, string> = {};
+      if (userIds.length) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        nameMap = Object.fromEntries((profilesData as any[] | null)?.map((p: any) => [p.id, p.full_name]) || []);
+      }
+
+      // Build allowance map per user (use max daily+travel per user)
+      const allowanceByUser = new Map<string, number>();
+      (allowancesData as any[] | null)?.forEach((a: any) => {
+        const total = (a.daily_allowance || 0) + (a.travel_allowance || 0);
+        const prev = allowanceByUser.get(a.user_id) || 0;
+        if (total > prev) allowanceByUser.set(a.user_id, total);
+      });
 
       // Group data by user and date
       const groupedData = new Map<string, ProductivityData>();
 
-      ordersData?.forEach(order => {
-        const userId = order.visits.user_id;
-        const beatName = order.visits.retailers.beat_name;
+      (ordersData as any[] | null)?.forEach((order: any) => {
+        const userId = order.user_id as string;
         const date = format(new Date(order.created_at), 'yyyy-MM-dd');
         const key = `${userId}_${date}`;
 
         if (!groupedData.has(key)) {
-          const allowance = allowancesData?.find(a => a.user_id === userId);
+          const totalAllowance = allowanceByUser.get(userId) || 0;
           groupedData.set(key, {
             user_id: userId,
-            user_name: allowance?.profiles?.full_name || 'Unknown User',
-            beat_name: beatName,
+            user_name: nameMap[userId] || 'Unknown User',
+            beat_name: '-',
             date: date,
             orders_count: 0,
             total_order_value: 0,
-            daily_allowance: allowance?.daily_allowance || 0,
-            travel_allowance: allowance?.travel_allowance || 0,
-            total_allowance: (allowance?.daily_allowance || 0) + (allowance?.travel_allowance || 0),
+            daily_allowance: 0,
+            travel_allowance: 0,
+            total_allowance: totalAllowance,
             productivity_ratio: 0
           });
         }
 
         const existing = groupedData.get(key)!;
         existing.orders_count += 1;
-        existing.total_order_value += order.total_amount;
+        existing.total_order_value += Number(order.total_amount || 0);
         existing.productivity_ratio = existing.total_allowance > 0 
           ? existing.total_order_value / existing.total_allowance 
           : 0;
