@@ -680,14 +680,26 @@ const filteredProducts = selectedCategory === "All"
     });
     
     // Check if only stock is updated without any quantity
+    // First check if ANY quantity exists across all products/variants
+    const hasAnyQuantity = Object.values(quantities).some(qty => (qty || 0) > 0);
+    
     if (quantity <= 0 && stockQuantity > 0) {
-      // Save stock data only and auto-select "Over Stocked"
+      // Save stock data only
       saveStockData(displayProduct.id, stockQuantity, displayProduct.name);
-      toast({
-        title: "Over Stocked - Auto Selected",
-        description: `Stock quantity saved for ${displayProduct.name}. Over Stocked reason auto-selected.`
-      });
-      handleAutoSelectOverStocked();
+      
+      // Only auto-select "Over Stocked" if NO quantities are entered anywhere
+      if (!hasAnyQuantity) {
+        toast({
+          title: "Over Stocked - Auto Selected",
+          description: `Stock quantity saved for ${displayProduct.name}. Over Stocked reason auto-selected.`
+        });
+        handleAutoSelectOverStocked();
+      } else {
+        toast({
+          title: "Stock Updated",
+          description: `Stock quantity saved for ${displayProduct.name}.`
+        });
+      }
       return;
     }
     
@@ -1693,12 +1705,22 @@ const filteredProducts = selectedCategory === "All"
                                   description: `${product.name}: ${totalQtyForProduct} item(s) added to cart`
                                 });
                               } else if (stockOnlyItems.length > 0) {
-                                toast({
-                                  title: "Over Stocked - Auto Selected",
-                                  description: `Stock quantities saved for ${stockOnlyItems.length} item(s) of ${product.name}. Over Stocked reason auto-selected.`
-                                });
-                                // Auto-select "Over Stocked" option
-                                handleAutoSelectOverStocked();
+                                // Check if ANY quantity exists across all products/variants
+                                const hasAnyQuantity = Object.values(quantities).some(qty => (qty || 0) > 0);
+                                
+                                if (!hasAnyQuantity) {
+                                  toast({
+                                    title: "Over Stocked - Auto Selected",
+                                    description: `Stock quantities saved for ${stockOnlyItems.length} item(s) of ${product.name}. Over Stocked reason auto-selected.`
+                                  });
+                                  // Auto-select "Over Stocked" option
+                                  handleAutoSelectOverStocked();
+                                } else {
+                                  toast({
+                                    title: "Stock Updated",
+                                    description: `Stock quantities saved for ${stockOnlyItems.length} item(s) of ${product.name}.`
+                                  });
+                                }
                               }
                             } else {
                               // Handle single products without variants
