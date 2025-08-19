@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import BeatAllowanceManagement from "@/components/BeatAllowanceManagement";
 import ProductivityTracking from "@/components/ProductivityTracking";
+import AdditionalExpenses from "@/components/AdditionalExpenses";
 
 const Expenses = () => {
   const navigate = useNavigate();
@@ -154,6 +155,11 @@ const Expenses = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Additional Expenses */}
+              <div className="mb-6">
+                <AdditionalExpenses />
+              </div>
 
               {/* Recent Expenses */}
               <Card className="shadow-lg">
