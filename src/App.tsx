@@ -200,7 +200,7 @@ const App = () => (
             } />
             <Route path="/expenses" element={
               <ProtectedRoute>
-                <Expenses />
+                <ExpenseManagement />
               </ProtectedRoute>
             } />
             <Route path="/leaderboard" element={
