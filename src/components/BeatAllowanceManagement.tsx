@@ -89,6 +89,7 @@ const BeatAllowanceManagement = () => {
       const { data, error } = await supabase
         .from('beat_plans')
         .select('beat_id, beat_name, user_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
         .order('beat_name');
 
       if (error) throw error;
