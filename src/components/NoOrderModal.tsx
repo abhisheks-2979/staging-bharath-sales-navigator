@@ -71,19 +71,21 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
             return (
                 <Card 
                 key={reason.value}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                  selectedReason === reason.value ? 'ring-2 ring-primary' : ''
-                }`}
-                onClick={() => handleReasonSelect(reason.value)}
+                className={`transition-all duration-200 ${
+                  reason.value === "over-stocked" 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'cursor-pointer hover:shadow-md'
+                } ${selectedReason === reason.value ? 'ring-2 ring-primary' : ''}`}
+                onClick={reason.value === "over-stocked" ? undefined : () => handleReasonSelect(reason.value)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <IconComponent className={`size-5 ${reason.color}`} />
+                    <IconComponent className={`size-5 ${reason.color} ${reason.value === "over-stocked" ? 'opacity-50' : ''}`} />
                     <div className="flex-1">
-                      <h4 className="font-medium text-card-foreground">{reason.label}</h4>
-                      <p className="text-sm text-muted-foreground">{reason.description}</p>
+                      <h4 className={`font-medium text-card-foreground ${reason.value === "over-stocked" ? 'opacity-50' : ''}`}>{reason.label}</h4>
+                      <p className={`text-sm text-muted-foreground ${reason.value === "over-stocked" ? 'opacity-50' : ''}`}>{reason.description}</p>
                       {reason.value === "over-stocked" && (
-                        <p className="text-xs text-primary mt-1 font-medium">
+                        <p className="text-xs text-primary mt-1 font-medium opacity-75">
                           Update stock quantities in Order Entry page - this option will auto-select
                         </p>
                       )}
