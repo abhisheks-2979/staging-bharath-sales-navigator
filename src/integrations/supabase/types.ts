@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      additional_expenses: {
+        Row: {
+          amount: number
+          bill_url: string | null
+          category: string
+          created_at: string
+          custom_category: string | null
+          description: string | null
+          expense_date: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          bill_url?: string | null
+          category: string
+          created_at?: string
+          custom_category?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          bill_url?: string | null
+          category?: string
+          created_at?: string
+          custom_category?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       analytics_likes: {
         Row: {
           created_at: string
