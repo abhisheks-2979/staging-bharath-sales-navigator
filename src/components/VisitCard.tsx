@@ -541,6 +541,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   };
 
   const handleNoOrderClick = () => {
+    if (!isCheckedIn && isTodaysVisit) {
+      toast({ 
+        title: 'Check-in Required', 
+        description: 'Please check in first to mark no order.',
+        variant: 'destructive' 
+      });
+      return;
+    }
     if (isNoOrderMarked) {
       // Show unproductive result or navigate to results
       toast({
@@ -720,9 +728,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${(isNoOrderMarked || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
-              disabled={isNoOrderMarked || !isCheckedIn || !isTodaysVisit}
               onClick={async () => {
-                if (isNoOrderMarked || !isCheckedIn) return;
+                if (!isCheckedIn && isTodaysVisit) {
+                  toast({ 
+                    title: 'Check-in Required', 
+                    description: 'Please check in first to place an order.',
+                    variant: 'destructive' 
+                  });
+                  return;
+                }
+                if (isNoOrderMarked || !isCheckedIn || !isTodaysVisit) return;
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
