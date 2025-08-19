@@ -203,6 +203,42 @@ export const BeatPlanning = () => {
     }));
   };
 
+  const createExpenseRecords = async (selectedBeatIds: string[], dateString: string) => {
+    if (!user) return;
+    
+    try {
+      // Delete existing expense records for this date
+      await supabase
+        .from('beat_allowances')
+        .delete()
+        .eq('user_id', user.id)
+        .like('created_at', `${dateString}%`);
+
+      // Create expense records for each planned beat
+      const expenseData = selectedBeatIds.map(beatId => {
+        const beat = beats.find(b => b.id === beatId);
+        return {
+          user_id: user.id,
+          beat_id: beatId,
+          beat_name: beat?.name || beatId,
+          daily_allowance: 0, // Will be updated manually by user
+          travel_allowance: 0, // Will be updated manually by user
+          created_at: new Date(dateString).toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      });
+
+      const { error } = await supabase
+        .from('beat_allowances')
+        .insert(expenseData);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating expense records:', error);
+      // Don't show error to user as this is background operation
+    }
+  };
+
   const handleSubmitPlan = async () => {
     if (!user || !selectedDate) return;
     
@@ -242,6 +278,9 @@ export const BeatPlanning = () => {
         .insert(planData);
 
       if (error) throw error;
+
+      // Automatically create/update expense records for planned beats
+      await createExpenseRecords(selectedBeatIds, dateString);
 
       toast.success(`Successfully planned ${selectedBeatIds.length} beat(s) for ${format(selectedDate, 'MMMM d, yyyy')}`);
     } catch (error) {

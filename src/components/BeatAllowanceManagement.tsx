@@ -20,6 +20,11 @@ interface BeatAllowance {
   user_name: string;
   created_at: string;
   updated_at: string;
+  date?: string;
+  additional_expenses?: number;
+  total_expenses?: number;
+  todays_order?: number;
+  productivity?: number;
 }
 
 interface Beat {
@@ -44,22 +49,16 @@ const BeatAllowanceManagement = () => {
 
   const fetchAllowances = async () => {
     try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
       const { data, error } = await (supabase as any)
         .from('beat_allowances')
         .select('*')
+        .eq('user_id', user.data.user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const userIds = (data as any[] | null)?.map((i: any) => i.user_id) || [];
-      let nameMap: Record<string, string> = {};
-      if (userIds.length) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
-        nameMap = Object.fromEntries((profilesData as any[] | null)?.map((p: any) => [p.id, p.full_name]) || []);
-      }
 
       const formattedData = (data as any[] | null)?.map((item: any) => ({
         id: item.id,
@@ -68,9 +67,14 @@ const BeatAllowanceManagement = () => {
         daily_allowance: item.daily_allowance,
         travel_allowance: item.travel_allowance,
         user_id: item.user_id,
-        user_name: nameMap[item.user_id] || '-',
+        user_name: '-', // Not needed for user's own expenses
         created_at: item.created_at,
-        updated_at: item.updated_at
+        updated_at: item.updated_at,
+        date: new Date(item.created_at).toLocaleDateString(),
+        additional_expenses: 0, // Placeholder for future implementation
+        total_expenses: item.daily_allowance + item.travel_allowance,
+        todays_order: 0, // Placeholder for future implementation
+        productivity: 0 // Placeholder for future implementation
       })) || [];
 
       setAllowances(formattedData);
