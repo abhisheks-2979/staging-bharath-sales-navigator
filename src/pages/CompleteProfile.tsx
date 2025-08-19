@@ -13,7 +13,6 @@ interface InvitationData {
   email: string;
   full_name: string;
   phone_number: string;
-  manager_id: string;
   expires_at: string;
 }
 
@@ -54,42 +53,24 @@ const CompleteProfile = () => {
 
   const validateInvitation = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_invitations')
-        .select('*')
-        .eq('invitation_token', invitationToken)
-        .eq('status', 'pending')
-        .single();
+      const { data, error } = await supabase.functions.invoke('validate-invitation', {
+        body: { invitation_token: invitationToken }
+      });
 
-      if (error || !data) {
-        toast({
-          title: "Invalid Invitation",
-          description: "This invitation link is invalid or has expired.",
-          variant: "destructive"
-        });
+      if (error || !data || !data.valid) {
+        const reason = (data && data.reason) || 'invalid';
+        const message = reason === 'expired'
+          ? 'This invitation has expired. Please contact HR for a new invitation.'
+          : 'This invitation link is invalid or has been used.';
+        toast({ title: 'Invalid Invitation', description: message, variant: 'destructive' });
         navigate('/auth');
         return;
       }
 
-      // Check if invitation is expired
-      if (new Date(data.expires_at) < new Date()) {
-        toast({
-          title: "Invitation Expired",
-          description: "This invitation has expired. Please contact HR for a new invitation.",
-          variant: "destructive"
-        });
-        navigate('/auth');
-        return;
-      }
-
-      setInvitation(data);
+      setInvitation(data.invitation);
     } catch (error) {
       console.error('Error validating invitation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to validate invitation.",
-        variant: "destructive"
-      });
+      toast({ title: 'Error', description: 'Failed to validate invitation.', variant: 'destructive' });
       navigate('/auth');
     } finally {
       setValidatingToken(false);
