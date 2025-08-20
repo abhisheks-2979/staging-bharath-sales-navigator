@@ -190,6 +190,8 @@ export type Database = {
       }
       beat_allowances: {
         Row: {
+          average_km: number | null
+          average_time_minutes: number | null
           beat_id: string
           beat_name: string
           created_at: string
@@ -200,6 +202,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          average_km?: number | null
+          average_time_minutes?: number | null
           beat_id: string
           beat_name: string
           created_at?: string
@@ -210,6 +214,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          average_km?: number | null
+          average_time_minutes?: number | null
           beat_id?: string
           beat_name?: string
           created_at?: string

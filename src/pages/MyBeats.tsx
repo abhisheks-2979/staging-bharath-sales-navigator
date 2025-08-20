@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2 } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Layout } from "@/components/Layout";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
+import { EditBeatModal } from "@/components/EditBeatModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -26,6 +27,8 @@ interface Beat {
   category?: string;
   priority?: string;
   travel_allowance?: number;
+  average_km?: number;
+  average_time_minutes?: number;
 }
 
 interface Retailer {
@@ -58,6 +61,10 @@ export const MyBeats = () => {
   const [selectedAnalyticsRetailer, setSelectedAnalyticsRetailer] = useState<Retailer | null>(null);
   const [loading, setLoading] = useState(true);
   const [travelAllowance, setTravelAllowance] = useState("");
+  const [averageKm, setAverageKm] = useState("");
+  const [averageTimeMinutes, setAverageTimeMinutes] = useState("");
+  const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
+  const [isEditBeatOpen, setIsEditBeatOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -148,10 +155,10 @@ export const MyBeats = () => {
         .select('beat_id, beat_name, created_at, beat_data')
         .eq('user_id', user.id);
 
-      // Get beat allowances for travel expenses
+      // Get beat allowances for travel expenses and new fields
       const { data: beatAllowancesData, error: allowancesError } = await supabase
         .from('beat_allowances')
-        .select('beat_id, travel_allowance')
+        .select('beat_id, travel_allowance, average_km, average_time_minutes')
         .eq('user_id', user.id);
 
       if (beatPlansError) {
@@ -168,10 +175,14 @@ export const MyBeats = () => {
         });
       });
 
-      // Create a map of beat_id to travel allowance
-      const beatAllowancesMap = new Map<string, number>();
+      // Create a map of beat_id to beat allowance data
+      const beatAllowancesMap = new Map<string, any>();
       (beatAllowancesData || []).forEach((allowance: any) => {
-        beatAllowancesMap.set(allowance.beat_id, allowance.travel_allowance);
+        beatAllowancesMap.set(allowance.beat_id, {
+          travel_allowance: allowance.travel_allowance,
+          average_km: allowance.average_km,
+          average_time_minutes: allowance.average_time_minutes
+        });
       });
 
       console.log('Raw retailers data:', retailersData);
@@ -201,13 +212,16 @@ export const MyBeats = () => {
         }
         
         if (!beatMap.has(beatId)) {
+          const allowanceData = beatAllowancesMap.get(beatId) || {};
           beatMap.set(beatId, {
             id: beatId,
             name: beatName,
             retailer_count: 0,
             category: category,
             created_at: planInfo?.created_at || item.created_at,
-            travel_allowance: beatAllowancesMap.get(beatId) || 0,
+            travel_allowance: allowanceData.travel_allowance || 0,
+            average_km: allowanceData.average_km || 0,
+            average_time_minutes: allowanceData.average_time_minutes || 0,
             retailers: []
           });
         }
@@ -320,6 +334,8 @@ export const MyBeats = () => {
     loadRetailersForCreateBeat();
     setIsCreateBeatOpen(true);
     setBeatName("");
+    setAverageKm("");
+    setAverageTimeMinutes("");
   };
 
   const handleRetailerSelection = (retailerId: string) => {
@@ -366,28 +382,30 @@ export const MyBeats = () => {
 
       if (error) throw error;
 
-      // Create beat allowance record if travel allowance is specified
-      if (travelAllowance && parseFloat(travelAllowance) > 0) {
-        const { error: allowanceError } = await supabase
-          .from('beat_allowances')
-          .insert({
-            user_id: user.id,
-            beat_id: beatId,
-            beat_name: beatName.trim(),
-            daily_allowance: 0,
-            travel_allowance: parseFloat(travelAllowance)
-          });
+      // Create beat allowance record with all fields
+      const { error: allowanceError } = await supabase
+        .from('beat_allowances')
+        .insert({
+          user_id: user.id,
+          beat_id: beatId,
+          beat_name: beatName.trim(),
+          daily_allowance: 0,
+          travel_allowance: parseFloat(travelAllowance) || 0,
+          average_km: parseFloat(averageKm) || 0,
+          average_time_minutes: parseInt(averageTimeMinutes) || 0
+        });
 
-        if (allowanceError) {
-          console.error('Error creating beat allowance:', allowanceError);
-          toast.error('Beat created but failed to save travel allowance');
-        }
+      if (allowanceError) {
+        console.error('Error creating beat allowance:', allowanceError);
+        toast.error('Beat created but failed to save beat details');
       }
 
       toast.success(`Beat "${beatName}" created successfully with ${selectedRetailers.size} retailers`);
       setIsCreateBeatOpen(false);
       setBeatName("");
       setTravelAllowance("");
+      setAverageKm("");
+      setAverageTimeMinutes("");
       setSelectedRetailers(new Set());
       
       // Reload data
@@ -450,6 +468,28 @@ export const MyBeats = () => {
 
   const handleAddBeats = () => {
     navigate('/add-beat');
+  };
+
+  const handleEditBeat = (beat: Beat) => {
+    setEditingBeat(beat);
+    setIsEditBeatOpen(true);
+  };
+
+  const handleEditBeatClose = () => {
+    setEditingBeat(null);
+    setIsEditBeatOpen(false);
+  };
+
+  const handleBeatUpdated = () => {
+    loadBeats();
+    loadAllRetailers();
+  };
+
+  const formatTime = (minutes: number) => {
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
   const filteredRetailers = retailers.filter(retailer =>
@@ -614,57 +654,75 @@ export const MyBeats = () => {
                      </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                     {/* Beat Stats */}
-                     <div className="grid grid-cols-3 gap-3 text-center">
-                       <div>
-                         <div className="flex items-center justify-center mb-1">
-                           <Users size={16} className="text-primary mr-1" />
-                         </div>
-                         <div className="text-lg font-bold text-primary">{beat.retailer_count}</div>
-                         <div className="text-xs text-muted-foreground">Retailers</div>
-                       </div>
-                       <div>
-                         <div className="text-lg font-bold text-green-600">
-                           ₹{(Math.random() * 15000 + 5000).toFixed(0)}
-                         </div>
-                         <div className="text-xs text-muted-foreground">Avg Revenue</div>
-                       </div>
+                      {/* Beat Stats */}
+                      <div className="grid grid-cols-3 gap-3 text-center">
                         <div>
-                          <div className="text-lg font-bold text-blue-600">
-                            ₹{beat.travel_allowance || 0}
+                          <div className="flex items-center justify-center mb-1">
+                            <Users size={16} className="text-primary mr-1" />
                           </div>
-                          <div className="text-xs text-muted-foreground">Travel Allowance</div>
+                          <div className="text-lg font-bold text-primary">{beat.retailer_count}</div>
+                          <div className="text-xs text-muted-foreground">Retailers</div>
                         </div>
-                     </div>
+                        <div>
+                          <div className="text-lg font-bold text-green-600">
+                            {beat.average_km ? `${beat.average_km} km` : 'N/A'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Avg Distance</div>
+                        </div>
+                         <div>
+                           <div className="text-lg font-bold text-blue-600">
+                             {beat.average_time_minutes ? formatTime(beat.average_time_minutes) : 'N/A'}
+                           </div>
+                           <div className="text-xs text-muted-foreground">Avg Time</div>
+                         </div>
+                      </div>
+                      
+                      {/* Travel Allowance */}
+                      {beat.travel_allowance > 0 && (
+                        <div className="flex items-center justify-center gap-2 text-sm bg-muted/30 rounded-lg p-2">
+                          <Truck className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Travel Allowance:</span>
+                          <span className="font-semibold">₹{beat.travel_allowance}</span>
+                        </div>
+                      )}
+                      
+                      {/* Additional Info */}
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Last visited: {beat.last_visited ? new Date(beat.last_visited).toLocaleDateString() : 'Never'}</span>
+                        </div>
+                      </div>
                      
-                     {/* Additional Info */}
-                     <div className="text-sm text-muted-foreground space-y-1">
-                       <div className="flex items-center gap-2">
-                         <Calendar className="h-4 w-4" />
-                         <span>Last visited: {beat.last_visited ? new Date(beat.last_visited).toLocaleDateString() : 'Never'}</span>
-                       </div>
-                     </div>
-                    
-                     {/* Beat Actions */}
-                     <div className="flex gap-2 pt-2">
-                       <Button 
-                         size="sm" 
-                         variant="outline" 
-                         className="flex-1 flex items-center justify-center gap-2"
-                         onClick={() => navigate(`/beat/${beat.id}`)}
-                       >
-                         <BarChart className="h-4 w-4" />
-                         View Details
-                       </Button>
-                       <Button 
-                         size="sm" 
-                         variant="destructive" 
-                         className="flex items-center justify-center gap-2"
-                         onClick={() => handleDeleteBeat(beat.id, beat.name)}
-                       >
-                         <Trash2 className="h-4 w-4" />
-                       </Button>
-                     </div>
+                      {/* Beat Actions */}
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1 flex items-center justify-center gap-2"
+                          onClick={() => handleEditBeat(beat)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex-1 flex items-center justify-center gap-2"
+                          onClick={() => navigate(`/beat/${beat.id}`)}
+                        >
+                          <BarChart className="h-4 w-4" />
+                          Details
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="destructive" 
+                          className="flex items-center justify-center gap-2"
+                          onClick={() => handleDeleteBeat(beat.id, beat.name)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     
                     {/* Creation Date */}
                     <div className="text-xs text-muted-foreground pt-2 border-t">
@@ -706,6 +764,36 @@ export const MyBeats = () => {
                     placeholder="Enter travel allowance"
                     value={travelAllowance}
                     onChange={(e) => setTravelAllowance(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="averageKm" className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Beat Average KM
+                  </Label>
+                  <Input
+                    id="averageKm"
+                    type="number"
+                    step="0.1"
+                    placeholder="Enter average distance"
+                    value={averageKm}
+                    onChange={(e) => setAverageKm(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="averageTimeMinutes" className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Average Time (minutes)
+                  </Label>
+                  <Input
+                    id="averageTimeMinutes"
+                    type="number"
+                    placeholder="Enter average time in minutes"
+                    value={averageTimeMinutes}
+                    onChange={(e) => setAverageTimeMinutes(e.target.value)}
                   />
                 </div>
               </div>
@@ -824,6 +912,14 @@ export const MyBeats = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Beat Modal */}
+        <EditBeatModal
+          isOpen={isEditBeatOpen}
+          onClose={handleEditBeatClose}
+          beat={editingBeat}
+          onBeatUpdated={handleBeatUpdated}
+        />
 
         {/* Retailer Analytics Modal */}
         {selectedAnalyticsRetailer && (
