@@ -51,6 +51,7 @@ import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import ExpenseManagement from "./pages/ExpenseManagement";
+import AdminExpenseManagement from "./pages/AdminExpenseManagement";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
 
@@ -106,6 +107,11 @@ const App = () => (
           <Route path="/expense-management" element={
             <ProtectedRoute>
               <ExpenseManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin-expense-management" element={
+            <ProtectedRoute>
+              <AdminExpenseManagement />
             </ProtectedRoute>
           } />
             <Route path="/visit-planner" element={
