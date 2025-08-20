@@ -26,11 +26,6 @@ interface ExpenseRow {
   order_value: number;
 }
 
-interface TAData {
-  date: string;
-  beat_name: string;
-  ta: number;
-}
 
 interface DAData {
   days_attended: number;
@@ -55,7 +50,6 @@ const BeatAllowanceManagement = () => {
   const [filterType, setFilterType] = useState<'day' | 'week' | 'month' | 'date-range'>('day');
   const [loading, setLoading] = useState(true);
   const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
-  const [taData, setTAData] = useState<TAData[]>([]);
   const [daData, setDAData] = useState<DAData | null>(null);
   const [additionalExpenseData, setAdditionalExpenseData] = useState<AdditionalExpenseData[]>([]);
   const [selectedTotalExpenses, setSelectedTotalExpenses] = useState<ExpenseRow | null>(null);
@@ -159,7 +153,6 @@ const BeatAllowanceManagement = () => {
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
         const orderValue = orderMap.get(key) || 0;
         
-        const ta = allowance?.travel_allowance || 0;
         const da = allowance?.daily_allowance || 0;
         
         rows.push({
@@ -167,10 +160,10 @@ const BeatAllowanceManagement = () => {
           date: plan.plan_date,
           beat_name: plan.beat_name,
           beat_id: plan.beat_id,
-          ta: ta,
+          ta: 0, // Keep for interface compatibility but don't use
           da: da,
           additional_expenses: additionalExpenses,
-          total_expenses: ta + da + additionalExpenses,
+          total_expenses: da + additionalExpenses,
           order_value: orderValue
         });
       });
@@ -186,30 +179,6 @@ const BeatAllowanceManagement = () => {
     }
   };
 
-  const fetchTAData = async () => {
-    try {
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) return;
-
-      const { data: allowanceData, error } = await supabase
-        .from('beat_allowances')
-        .select('created_at, beat_name, travel_allowance')
-        .eq('user_id', user.data.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const taData: TAData[] = allowanceData?.map((item: any) => ({
-        date: item.created_at.split('T')[0],
-        beat_name: item.beat_name,
-        ta: item.travel_allowance
-      })) || [];
-
-      setTAData(taData);
-    } catch (error) {
-      console.error('Error fetching TA data:', error);
-    }
-  };
 
   const fetchDAData = async () => {
     try {
@@ -280,7 +249,6 @@ const BeatAllowanceManagement = () => {
     const initializeData = async () => {
       await Promise.all([
         fetchExpenseData(),
-        fetchTAData(),
         fetchDAData(),
         fetchAdditionalExpenseData()
       ]);
@@ -510,51 +478,13 @@ const BeatAllowanceManagement = () => {
               </Table>
             </div>
 
-            {/* Tabs for TA, DA, Additional Expenses */}
-            <Tabs defaultValue="ta" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="ta">TA</TabsTrigger>
+            {/* Tabs for DA, Additional Expenses */}
+            <Tabs defaultValue="da" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="da">DA</TabsTrigger>
                 <TabsTrigger value="additional">Additional Expenses</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="ta" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Travel Allowance (TA)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Beat Name</TableHead>
-                            <TableHead className="text-right">TA Amount</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {taData.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
-                                No TA records found
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            taData.map((item, index) => (
-                              <TableRow key={index}>
-                                <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
-                                <TableCell>{item.beat_name}</TableCell>
-                                <TableCell className="text-right">₹{item.ta}</TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
               <TabsContent value="da" className="space-y-4">
                 <Card>
@@ -675,10 +605,6 @@ const BeatAllowanceManagement = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Travel Allowance (TA):</span>
-                  <span>₹{selectedTotalExpenses.ta}</span>
-                </div>
                 <div className="flex justify-between">
                   <span>Daily Allowance (DA):</span>
                   <span>₹{selectedTotalExpenses.da}</span>
