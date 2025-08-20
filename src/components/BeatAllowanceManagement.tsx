@@ -153,6 +153,7 @@ const BeatAllowanceManagement = () => {
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
         const orderValue = orderMap.get(key) || 0;
         
+        const ta = allowance?.travel_allowance || 0;
         const da = allowance?.daily_allowance || 0;
         
         rows.push({
@@ -160,10 +161,10 @@ const BeatAllowanceManagement = () => {
           date: plan.plan_date,
           beat_name: plan.beat_name,
           beat_id: plan.beat_id,
-          ta: 0, // Keep for interface compatibility but don't use
+          ta: ta, // Keep for breakdown dialog
           da: da,
           additional_expenses: additionalExpenses,
-          total_expenses: da + additionalExpenses,
+          total_expenses: ta + da + additionalExpenses,
           order_value: orderValue
         });
       });
@@ -605,6 +606,10 @@ const BeatAllowanceManagement = () => {
                 </div>
               </div>
               <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Travel Allowance (TA):</span>
+                  <span>₹{selectedTotalExpenses.ta}</span>
+                </div>
                 <div className="flex justify-between">
                   <span>Daily Allowance (DA):</span>
                   <span>₹{selectedTotalExpenses.da}</span>
