@@ -22,16 +22,14 @@ interface ExpenseRow {
   ta: number;
   da: number;
   additional_expenses: number;
-  total_expenses: number;
   order_value: number;
 }
 
-
-interface DAData {
-  days_attended: number;
-  leave_days: number;
-  da_per_day: number;
-  monthly_da: number;
+interface DARecord {
+  date: string;
+  da_amount: number;
+  attendance_time: string;
+  work_duration: string;
 }
 
 interface AdditionalExpenseData {
@@ -50,9 +48,9 @@ const BeatAllowanceManagement = () => {
   const [filterType, setFilterType] = useState<'day' | 'week' | 'month' | 'date-range'>('day');
   const [loading, setLoading] = useState(true);
   const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
-  const [daData, setDAData] = useState<DAData | null>(null);
+  const [daRecords, setDARecords] = useState<DARecord[]>([]);
   const [additionalExpenseData, setAdditionalExpenseData] = useState<AdditionalExpenseData[]>([]);
-  const [selectedTotalExpenses, setSelectedTotalExpenses] = useState<ExpenseRow | null>(null);
+  const [activeTab, setActiveTab] = useState<'expenses' | 'da' | 'additional'>('expenses');
   const { toast } = useToast();
 
   const fetchExpenseData = async () => {
@@ -161,10 +159,9 @@ const BeatAllowanceManagement = () => {
           date: plan.plan_date,
           beat_name: plan.beat_name,
           beat_id: plan.beat_id,
-          ta: ta, // Keep for breakdown dialog
+          ta: ta,
           da: da,
           additional_expenses: additionalExpenses,
-          total_expenses: ta + da + additionalExpenses,
           order_value: orderValue
         });
       });
@@ -186,34 +183,58 @@ const BeatAllowanceManagement = () => {
       const user = await supabase.auth.getUser();
       if (!user.data.user) return;
 
-      // Fetch attendance data to calculate days attended and leave days
+      // Fetch user's DA per day from employees table
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('daily_da_allowance')
+        .eq('user_id', user.data.user.id)
+        .single();
+
+      if (employeeError) throw employeeError;
+
+      const daPerDay = employeeData?.daily_da_allowance || 0;
+
+      // Fetch attendance data with check-in/check-out times
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
-        .select('date, status')
-        .eq('user_id', user.data.user.id);
+        .select('date, check_in_time, check_out_time, status')
+        .eq('user_id', user.data.user.id)
+        .order('date', { ascending: false });
 
       if (attendanceError) throw attendanceError;
 
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      const attendanceThisMonth = attendanceData?.filter((record: any) => {
-        const recordDate = new Date(record.date);
-        return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+      // Create DA records
+      const records: DARecord[] = attendanceData?.map((record: any) => {
+        const daAmount = record.status === 'present' ? daPerDay : 0;
+        
+        let attendanceTime = 'Absent';
+        let workDuration = '0 hours';
+        
+        if (record.check_in_time && record.check_out_time) {
+          const checkIn = new Date(record.check_in_time);
+          const checkOut = new Date(record.check_out_time);
+          
+          attendanceTime = `${checkIn.getHours().toString().padStart(2, '0')}:${checkIn.getMinutes().toString().padStart(2, '0')} - ${checkOut.getHours().toString().padStart(2, '0')}:${checkOut.getMinutes().toString().padStart(2, '0')}`;
+          
+          const durationMs = checkOut.getTime() - checkIn.getTime();
+          const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+          const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+          workDuration = `${durationHours}h ${durationMinutes}m`;
+        } else if (record.check_in_time) {
+          const checkIn = new Date(record.check_in_time);
+          attendanceTime = `${checkIn.getHours().toString().padStart(2, '0')}:${checkIn.getMinutes().toString().padStart(2, '0')} - --:--`;
+          workDuration = 'Ongoing';
+        }
+
+        return {
+          date: record.date,
+          da_amount: daAmount,
+          attendance_time: attendanceTime,
+          work_duration: workDuration
+        };
       }) || [];
 
-      const daysAttended = attendanceThisMonth.filter((record: any) => record.status === 'present').length;
-      const leaveDays = attendanceThisMonth.filter((record: any) => record.status === 'absent').length;
-      
-      const daPerDay = 500; // Default DA per day
-      const monthlyDA = daPerDay * daysAttended;
-
-      setDAData({
-        days_attended: daysAttended,
-        leave_days: leaveDays,
-        da_per_day: daPerDay,
-        monthly_da: monthlyDA
-      });
+      setDARecords(records);
     } catch (error) {
       console.error('Error fetching DA data:', error);
     }
@@ -264,10 +285,6 @@ const BeatAllowanceManagement = () => {
       fetchExpenseData();
     }
   }, [filterType, selectedDate, dateRangeStart, dateRangeEnd]);
-
-  const handleTotalExpensesClick = (row: ExpenseRow) => {
-    setSelectedTotalExpenses(row);
-  };
 
   const handleAdditionalExpensesClick = () => {
     setIsAdditionalExpensesOpen(true);
@@ -329,7 +346,7 @@ const BeatAllowanceManagement = () => {
       <Card>
         <CardHeader className="pb-3 sm:pb-6 px-3 sm:px-6">
           <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 xs:gap-3">
-            <CardTitle className="text-lg sm:text-xl">My Expenses</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Expense Details</CardTitle>
             <Button
               onClick={handleAdditionalExpensesClick}
               variant="default"
@@ -434,141 +451,135 @@ const BeatAllowanceManagement = () => {
               )}
             </div>
 
-            {/* 4-Column Structure */}
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
-                    <TableHead className="text-xs sm:text-sm whitespace-nowrap">Beat</TableHead>
-                    <TableHead 
-                      className="text-right text-xs sm:text-sm cursor-pointer hover:bg-muted/50 whitespace-nowrap"
-                    >
-                      Total Expenses
-                    </TableHead>
-                    <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Order Value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredExpenseRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
-                        No expense records found for the selected criteria
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredExpenseRows.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
-                          {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                        </TableCell>
-                        <TableCell className="font-medium text-xs sm:text-sm">{row.beat_name}</TableCell>
-                        <TableCell 
-                          className="text-right font-bold cursor-pointer hover:bg-muted/50 hover:text-primary text-xs sm:text-sm whitespace-nowrap"
-                          onClick={() => handleTotalExpensesClick(row)}
-                        >
-                          ₹{row.total_expenses.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
-                          ₹{row.order_value.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Tabs for DA, Additional Expenses */}
-            <Tabs defaultValue="da" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 h-8 sm:h-10">
+            {/* Main Tabs */}
+            <Tabs value={activeTab} onValueChange={(value: 'expenses' | 'da' | 'additional') => setActiveTab(value)} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 h-8 sm:h-10">
+                <TabsTrigger value="expenses" className="text-xs sm:text-sm">My Expenses</TabsTrigger>
                 <TabsTrigger value="da" className="text-xs sm:text-sm">DA</TabsTrigger>
                 <TabsTrigger value="additional" className="text-xs sm:text-sm">Additional Expenses</TabsTrigger>
               </TabsList>
-              
+
+              <TabsContent value="expenses" className="space-y-4">
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Beat</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">TA Amount</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Order Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredExpenseRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
+                            No expense records found for the selected criteria
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredExpenseRows.map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                              {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                            </TableCell>
+                            <TableCell className="font-medium text-xs sm:text-sm">{row.beat_name}</TableCell>
+                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                              ₹{row.ta.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                              ₹{row.order_value.toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
 
               <TabsContent value="da" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Daily Allowance (DA)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {daData ? (
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-                        <div className="p-2 sm:p-4 border rounded-lg text-center">
-                          <div className="text-lg sm:text-2xl font-bold text-green-600">{daData.days_attended}</div>
-                          <div className="text-xs sm:text-sm text-muted-foreground">Days Attended</div>
-                        </div>
-                        <div className="p-2 sm:p-4 border rounded-lg text-center">
-                          <div className="text-lg sm:text-2xl font-bold text-red-600">{daData.leave_days}</div>
-                          <div className="text-xs sm:text-sm text-muted-foreground">Leave Days</div>
-                        </div>
-                        <div className="p-2 sm:p-4 border rounded-lg text-center">
-                          <div className="text-lg sm:text-2xl font-bold text-blue-600">₹{daData.da_per_day}</div>
-                          <div className="text-xs sm:text-sm text-muted-foreground">DA / Day</div>
-                        </div>
-                        <div className="p-2 sm:p-4 border rounded-lg text-center">
-                          <div className="text-lg sm:text-2xl font-bold text-primary">₹{daData.monthly_da}</div>
-                          <div className="text-xs sm:text-sm text-muted-foreground">Monthly DA</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        No DA data available
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">DA Amount</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Attendance Time</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Work Duration</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {daRecords.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
+                            No DA records found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        daRecords.map((record, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                              {new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                            </TableCell>
+                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                              ₹{record.da_amount.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                              {record.attendance_time}
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                              {record.work_duration}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </TabsContent>
 
               <TabsContent value="additional" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Additional Expenses</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
-                            <TableHead className="text-xs sm:text-sm whitespace-nowrap">Type</TableHead>
-                            <TableHead className="text-xs sm:text-sm">Details</TableHead>
-                            <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Value</TableHead>
-                            <TableHead className="text-center text-xs sm:text-sm whitespace-nowrap">Bill</TableHead>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Type</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Details</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Value</TableHead>
+                        <TableHead className="text-center text-xs sm:text-sm whitespace-nowrap">Bill</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {additionalExpenseData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
+                            No additional expenses found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        additionalExpenseData.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                              {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm">{item.expense_type}</TableCell>
+                            <TableCell className="text-xs sm:text-sm max-w-[100px] truncate">{item.details}</TableCell>
+                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">₹{item.value}</TableCell>
+                            <TableCell className="text-center">
+                              {item.bill_attached ? (
+                                <span className="text-green-600 text-sm">✓</span>
+                              ) : (
+                                <span className="text-red-600 text-sm">✗</span>
+                              )}
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {additionalExpenseData.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
-                                No additional expenses found
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            additionalExpenseData.map((item, index) => (
-                              <TableRow key={index}>
-                                <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                                  {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                </TableCell>
-                                <TableCell className="text-xs sm:text-sm">{item.expense_type}</TableCell>
-                                <TableCell className="text-xs sm:text-sm max-w-[100px] truncate">{item.details}</TableCell>
-                                <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">₹{item.value}</TableCell>
-                                <TableCell className="text-center">
-                                  {item.bill_attached ? (
-                                    <span className="text-green-600 text-sm">✓</span>
-                                  ) : (
-                                    <span className="text-red-600 text-sm">✗</span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -588,47 +599,6 @@ const BeatAllowanceManagement = () => {
               setIsAdditionalExpensesOpen(false);
             }}
           />
-        </DialogContent>
-      </Dialog>
-
-      {/* Total Expenses Breakdown Dialog */}
-      <Dialog open={!!selectedTotalExpenses} onOpenChange={() => setSelectedTotalExpenses(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Expense Breakdown</DialogTitle>
-          </DialogHeader>
-          {selectedTotalExpenses && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <strong>Date:</strong> {new Date(selectedTotalExpenses.date).toLocaleDateString()}
-                </div>
-                <div>
-                  <strong>Beat:</strong> {selectedTotalExpenses.beat_name}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Travel Allowance (TA):</span>
-                  <span>₹{selectedTotalExpenses.ta}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Daily Allowance (DA):</span>
-                  <span>₹{selectedTotalExpenses.da}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Additional Expenses:</span>
-                  <span>₹{selectedTotalExpenses.additional_expenses}</span>
-                </div>
-                <div className="border-t pt-2">
-                  <div className="flex justify-between font-bold">
-                    <span>Total Expenses:</span>
-                    <span>₹{selectedTotalExpenses.total_expenses}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>
