@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import BeatAllowanceManagement from '@/components/BeatAllowanceManagement';
+import ExpenseSummaryBoxes from '@/components/ExpenseSummaryBoxes';
 
 const ExpenseManagement = () => {
   const { userRole, loading } = useAuth();
@@ -38,6 +39,7 @@ const ExpenseManagement = () => {
           </div>
         </div>
 
+        <ExpenseSummaryBoxes />
         <BeatAllowanceManagement />
       </div>
     </div>
