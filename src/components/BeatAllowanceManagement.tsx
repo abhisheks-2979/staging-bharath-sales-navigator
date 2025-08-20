@@ -171,10 +171,81 @@ const BeatAllowanceManagement = () => {
     }
   };
 
+  // Auto-sync function to create beat allowances from journey plans
+  const autoSyncFromJourneyPlans = async () => {
+    try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
+      // Get today's date for auto-sync
+      const today = new Date();
+      const dateString = today.toISOString().split('T')[0];
+
+      // Check if there are beat plans for today that don't have allowances
+      const { data: beatPlans, error: beatPlansError } = await supabase
+        .from('beat_plans')
+        .select('beat_id, beat_name')
+        .eq('user_id', user.data.user.id)
+        .eq('plan_date', dateString);
+
+      if (beatPlansError) throw beatPlansError;
+
+      if (beatPlans && beatPlans.length > 0) {
+        // Check existing allowances for today
+        const { data: existingAllowances, error: allowancesError } = await supabase
+          .from('beat_allowances')
+          .select('beat_id')
+          .eq('user_id', user.data.user.id)
+          .gte('created_at', `${dateString}T00:00:00.000Z`)
+          .lt('created_at', `${dateString}T23:59:59.999Z`);
+
+        if (allowancesError) throw allowancesError;
+
+        const existingBeatIds = new Set(existingAllowances?.map(a => a.beat_id) || []);
+        
+        // Create allowances for beats that don't have them yet
+        const newAllowances = beatPlans
+          .filter(plan => !existingBeatIds.has(plan.beat_id))
+          .map(plan => ({
+            user_id: user.data.user.id,
+            beat_id: plan.beat_id,
+            beat_name: plan.beat_name,
+            daily_allowance: 500, // Default daily allowance
+            travel_allowance: 200, // Default travel allowance
+            created_at: `${dateString}T12:00:00.000Z`,
+            updated_at: new Date().toISOString()
+          }));
+
+        if (newAllowances.length > 0) {
+          const { error: insertError } = await supabase
+            .from('beat_allowances')
+            .insert(newAllowances);
+
+          if (insertError) throw insertError;
+
+          toast({
+            title: "Auto-synced",
+            description: `Created allowances for ${newAllowances.length} planned beat(s)`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-syncing from journey plans:', error);
+    }
+  };
+
   useEffect(() => {
     // Set default date to today
     setSelectedDate(new Date());
-    Promise.all([fetchAllowances(), fetchBeats()]).finally(() => setLoading(false));
+    const initializeData = async () => {
+      await Promise.all([fetchAllowances(), fetchBeats()]);
+      // Auto-sync from journey plans after initial load
+      await autoSyncFromJourneyPlans();
+      // Refresh allowances to show auto-synced data
+      await fetchAllowances();
+      setLoading(false);
+    };
+    initializeData();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

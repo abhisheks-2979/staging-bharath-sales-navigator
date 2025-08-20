@@ -241,8 +241,8 @@ export const BeatPlanning = () => {
           user_id: user.id,
           beat_id: beatId,
           beat_name: beat?.name || beatId,
-          daily_allowance: 0, // Will be updated manually by user
-          travel_allowance: 0, // Will be updated manually by user
+          daily_allowance: 500, // Default daily allowance
+          travel_allowance: 200, // Default travel allowance
           created_at: `${dateString}T12:00:00.000Z`, // Use the correct date for expense records
           updated_at: new Date().toISOString()
         };
