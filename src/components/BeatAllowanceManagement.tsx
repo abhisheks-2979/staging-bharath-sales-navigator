@@ -478,20 +478,33 @@ const BeatAllowanceManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredExpenseRows.map((row) => (
-                          <TableRow key={row.id}>
-                            <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
-                              {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                        <>
+                          {filteredExpenseRows.map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                                {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                              </TableCell>
+                              <TableCell className="font-medium text-xs sm:text-sm">{row.beat_name}</TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                                ₹{row.ta.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                                ₹{row.order_value.toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {/* Total Row */}
+                          <TableRow className="border-t-2 bg-muted/30">
+                            <TableCell className="font-bold text-xs sm:text-sm">Total</TableCell>
+                            <TableCell></TableCell>
+                            <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
+                              ₹{filteredExpenseRows.reduce((sum, row) => sum + row.ta, 0).toLocaleString()}
                             </TableCell>
-                            <TableCell className="font-medium text-xs sm:text-sm">{row.beat_name}</TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
-                              ₹{row.ta.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
-                              ₹{row.order_value.toLocaleString()}
+                            <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
+                              ₹{filteredExpenseRows.reduce((sum, row) => sum + row.order_value, 0).toLocaleString()}
                             </TableCell>
                           </TableRow>
-                        ))
+                        </>
                       )}
                     </TableBody>
                   </Table>
@@ -517,22 +530,33 @@ const BeatAllowanceManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        daRecords.map((record, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
-                              {new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                        <>
+                          {daRecords.map((record, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                                {new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                              </TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                                ₹{record.da_amount.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                                {record.attendance_time}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                                {record.work_duration}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {/* Total Row */}
+                          <TableRow className="border-t-2 bg-muted/30">
+                            <TableCell className="font-bold text-xs sm:text-sm">Total</TableCell>
+                            <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
+                              ₹{daRecords.reduce((sum, record) => sum + record.da_amount, 0).toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
-                              ₹{record.da_amount.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                              {record.attendance_time}
-                            </TableCell>
-                            <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                              {record.work_duration}
-                            </TableCell>
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
                           </TableRow>
-                        ))
+                        </>
                       )}
                     </TableBody>
                   </Table>
@@ -547,7 +571,7 @@ const BeatAllowanceManagement = () => {
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Type</TableHead>
                         <TableHead className="text-xs sm:text-sm">Details</TableHead>
-                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Value</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Add on expense</TableHead>
                         <TableHead className="text-center text-xs sm:text-sm whitespace-nowrap">Bill</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -559,23 +583,35 @@ const BeatAllowanceManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        additionalExpenseData.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                              {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                        <>
+                          {additionalExpenseData.map((item, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                                {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm">{item.expense_type}</TableCell>
+                              <TableCell className="text-xs sm:text-sm max-w-[100px] truncate">{item.details}</TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">₹{item.value}</TableCell>
+                              <TableCell className="text-center">
+                                {item.bill_attached ? (
+                                  <span className="text-green-600 text-sm">✓</span>
+                                ) : (
+                                  <span className="text-red-600 text-sm">✗</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {/* Total Row */}
+                          <TableRow className="border-t-2 bg-muted/30">
+                            <TableCell className="font-bold text-xs sm:text-sm">Total</TableCell>
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
+                            <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
+                              ₹{additionalExpenseData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
                             </TableCell>
-                            <TableCell className="text-xs sm:text-sm">{item.expense_type}</TableCell>
-                            <TableCell className="text-xs sm:text-sm max-w-[100px] truncate">{item.details}</TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">₹{item.value}</TableCell>
-                            <TableCell className="text-center">
-                              {item.bill_attached ? (
-                                <span className="text-green-600 text-sm">✓</span>
-                              ) : (
-                                <span className="text-red-600 text-sm">✗</span>
-                              )}
-                            </TableCell>
+                            <TableCell></TableCell>
                           </TableRow>
-                        ))
+                        </>
                       )}
                     </TableBody>
                   </Table>

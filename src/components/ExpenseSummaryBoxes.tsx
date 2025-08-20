@@ -66,13 +66,34 @@ const ExpenseSummaryBoxes = () => {
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
 
-      // Fetch beat allowances (DA/TA)
+      // Fetch DA data from attendance
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('daily_da_allowance')
+        .eq('user_id', user.data.user.id)
+        .single();
+
+      const daPerDay = employeeData?.daily_da_allowance || 0;
+
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('date, status')
+        .eq('user_id', user.data.user.id)
+        .gte('date', format(startDate, 'yyyy-MM-dd'))
+        .lte('date', format(endDate, 'yyyy-MM-dd'));
+
+      // Fetch TA data from beat allowances
+      const { data: beatPlans } = await supabase
+        .from('beat_plans')
+        .select('plan_date, beat_id, beat_name')
+        .eq('user_id', user.data.user.id)
+        .gte('plan_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('plan_date', format(endDate, 'yyyy-MM-dd'));
+
       const { data: allowanceData } = await supabase
         .from('beat_allowances')
-        .select('daily_allowance, travel_allowance, created_at')
-        .eq('user_id', user.data.user.id)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
+        .select('*')
+        .eq('user_id', user.data.user.id);
 
       // Fetch additional expenses
       const { data: expensesData } = await supabase
@@ -90,9 +111,25 @@ const ExpenseSummaryBoxes = () => {
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
 
-      // Calculate totals
-      const da = allowanceData?.reduce((sum, item) => sum + (parseFloat(item.daily_allowance?.toString() || '0')), 0) || 0;
-      const ta = allowanceData?.reduce((sum, item) => sum + (parseFloat(item.travel_allowance?.toString() || '0')), 0) || 0;
+      // Calculate DA from attendance
+      const da = attendanceData?.reduce((sum, record) => {
+        return sum + (record.status === 'present' ? daPerDay : 0);
+      }, 0) || 0;
+
+      // Calculate TA from beat allowances
+      const allowanceMap = new Map();
+      allowanceData?.forEach((allowance: any) => {
+        const date = allowance.created_at.split('T')[0];
+        const key = `${allowance.beat_id}-${date}`;
+        allowanceMap.set(key, allowance);
+      });
+
+      const ta = beatPlans?.reduce((sum, plan) => {
+        const key = `${plan.beat_id}-${plan.plan_date}`;
+        const allowance = allowanceMap.get(key);
+        return sum + (allowance?.travel_allowance || 0);
+      }, 0) || 0;
+
       const additionalExpenses = expensesData?.reduce((sum, item) => sum + (parseFloat(item.amount?.toString() || '0')), 0) || 0;
       const totalOrder = ordersData?.reduce((sum, item) => sum + (parseFloat(item.total_amount?.toString() || '0')), 0) || 0;
       const totalExpense = da + ta + additionalExpenses;
