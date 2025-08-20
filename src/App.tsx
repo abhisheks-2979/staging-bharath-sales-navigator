@@ -33,7 +33,7 @@ import { AddSuperStockist } from "./pages/AddSuperStockist";
 import { AddBeat } from "./pages/AddBeat";
 import AddRecords from "./pages/AddRecords";
 import Attendance from "./pages/Attendance";
-import Expenses from "./pages/Expenses";
+
 import Leaderboard from "./pages/Leaderboard";
 import Performance from "./pages/Performance";
 import SalesCoach from "./pages/SalesCoach";
