@@ -28,7 +28,7 @@ const ExpenseManagement = () => {
         {/* Header */}
         <div className="flex items-center gap-2 sm:gap-4">
           <Button 
-            onClick={() => navigate('/expenses')} 
+            onClick={() => navigate('/')} 
             variant="ghost" 
             size="sm"
             className="p-1.5 sm:p-2"
