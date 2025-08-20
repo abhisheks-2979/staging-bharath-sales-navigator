@@ -20,9 +20,7 @@ const ExpenseManagement = () => {
     );
   }
 
-  if (userRole !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Expense management is now accessible to all authenticated users
 
   return (
     <div className="min-h-screen bg-gradient-subtle p-2 sm:p-4">
@@ -30,7 +28,7 @@ const ExpenseManagement = () => {
         {/* Header */}
         <div className="flex items-center gap-2 sm:gap-4">
           <Button 
-            onClick={() => navigate('/admin-controls')} 
+            onClick={() => navigate('/expenses')} 
             variant="ghost" 
             size="sm"
             className="p-1.5 sm:p-2"

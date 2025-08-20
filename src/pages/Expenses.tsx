@@ -73,17 +73,15 @@ const Expenses = () => {
                   <Plus size={16} className="mr-1" />
                   Add Expense
                 </Button>
-                {userRole === 'admin' && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate('/expense-management')}
-                    className="bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
-                  >
-                    <Settings size={16} className="mr-1" />
-                    Manage
-                  </Button>
-                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate('/expense-management')}
+                  className="bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"
+                >
+                  <Settings size={16} className="mr-1" />
+                  Manage
+                </Button>
               </div>
             </div>
 
