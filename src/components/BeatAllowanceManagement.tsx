@@ -89,16 +89,31 @@ const BeatAllowanceManagement = () => {
       // Fetch visits to get retailer information for orders
       const { data: visitsData, error: visitsError } = await supabase
         .from('visits')
-        .select('id, retailer_id, retailers(beat_id)')
+        .select('id, retailer_id')
         .eq('user_id', user.data.user.id);
 
       if (visitsError) throw visitsError;
 
+      // Fetch retailers to get beat_id information
+      const { data: retailersData, error: retailersError } = await supabase
+        .from('retailers')
+        .select('id, beat_id')
+        .eq('user_id', user.data.user.id);
+
+      if (retailersError) throw retailersError;
+
+      // Create a map of retailer_id to beat_id
+      const retailerToBeatMap = new Map();
+      retailersData?.forEach((retailer: any) => {
+        retailerToBeatMap.set(retailer.id, retailer.beat_id);
+      });
+
       // Create a map of visit_id to beat_id
       const visitToBeatMap = new Map();
       visitsData?.forEach((visit: any) => {
-        if (visit.retailers?.beat_id) {
-          visitToBeatMap.set(visit.id, visit.retailers.beat_id);
+        const beatId = retailerToBeatMap.get(visit.retailer_id);
+        if (beatId) {
+          visitToBeatMap.set(visit.id, beatId);
         }
       });
 
