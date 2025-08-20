@@ -327,26 +327,26 @@ const BeatAllowanceManagement = () => {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="pb-3 sm:pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-            <CardTitle>My Expenses</CardTitle>
+        <CardHeader className="pb-3 sm:pb-6 px-3 sm:px-6">
+          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 xs:gap-3">
+            <CardTitle className="text-lg sm:text-xl">My Expenses</CardTitle>
             <Button
               onClick={handleAdditionalExpensesClick}
               variant="default"
               size="sm"
-              className="flex items-center gap-2"
+              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 h-auto"
             >
-              <Plus className="h-4 w-4" />
-              Additional Expenses
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Additional </span>Expenses
             </Button>
           </div>
         </CardHeader>
         <CardContent className="px-3 sm:px-6">
           <div className="space-y-4">
             {/* Filter Controls */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3">
               <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full xs:w-[100px] sm:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -363,12 +363,12 @@ const BeatAllowanceManagement = () => {
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-[200px] justify-start text-left font-normal",
+                        "w-full xs:w-[160px] sm:w-[200px] justify-start text-left font-normal text-xs sm:text-sm",
                         !selectedDate && "text-muted-foreground"
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, filterType === 'month' ? "MMMM yyyy" : filterType === 'week' ? `'Week of' MMM dd, yyyy` : "PPP") : <span>Pick a date</span>}
+                      <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      {selectedDate ? format(selectedDate, filterType === 'month' ? "MMM yyyy" : filterType === 'week' ? `MMM dd` : "MMM dd, yyyy") : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -382,17 +382,17 @@ const BeatAllowanceManagement = () => {
                   </PopoverContent>
                 </Popover>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-[140px] justify-start text-left font-normal",
+                          "w-full xs:w-[120px] sm:w-[140px] justify-start text-left font-normal text-xs sm:text-sm",
                           !dateRangeStart && "text-muted-foreground"
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         {dateRangeStart ? format(dateRangeStart, "MMM dd") : <span>Start</span>}
                       </Button>
                     </PopoverTrigger>
@@ -412,11 +412,11 @@ const BeatAllowanceManagement = () => {
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-[140px] justify-start text-left font-normal",
+                          "w-full xs:w-[120px] sm:w-[140px] justify-start text-left font-normal text-xs sm:text-sm",
                           !dateRangeEnd && "text-muted-foreground"
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : <span>End</span>}
                       </Button>
                     </PopoverTrigger>
@@ -435,41 +435,41 @@ const BeatAllowanceManagement = () => {
             </div>
 
             {/* 4-Column Structure */}
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Beat</TableHead>
+                    <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
+                    <TableHead className="text-xs sm:text-sm whitespace-nowrap">Beat</TableHead>
                     <TableHead 
-                      className="text-right cursor-pointer hover:bg-muted/50"
+                      className="text-right text-xs sm:text-sm cursor-pointer hover:bg-muted/50 whitespace-nowrap"
                     >
                       Total Expenses
                     </TableHead>
-                    <TableHead className="text-right">Order for the Day</TableHead>
+                    <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Order Value</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredExpenseRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
                         No expense records found for the selected criteria
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredExpenseRows.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="font-medium">
-                          {new Date(row.date).toLocaleDateString()}
+                        <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+                          {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                         </TableCell>
-                        <TableCell className="font-medium">{row.beat_name}</TableCell>
+                        <TableCell className="font-medium text-xs sm:text-sm">{row.beat_name}</TableCell>
                         <TableCell 
-                          className="text-right font-bold cursor-pointer hover:bg-muted/50 hover:text-primary"
+                          className="text-right font-bold cursor-pointer hover:bg-muted/50 hover:text-primary text-xs sm:text-sm whitespace-nowrap"
                           onClick={() => handleTotalExpensesClick(row)}
                         >
                           ₹{row.total_expenses.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
                           ₹{row.order_value.toLocaleString()}
                         </TableCell>
                       </TableRow>
@@ -481,9 +481,9 @@ const BeatAllowanceManagement = () => {
 
             {/* Tabs for DA, Additional Expenses */}
             <Tabs defaultValue="da" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="da">DA</TabsTrigger>
-                <TabsTrigger value="additional">Additional Expenses</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 h-8 sm:h-10">
+                <TabsTrigger value="da" className="text-xs sm:text-sm">DA</TabsTrigger>
+                <TabsTrigger value="additional" className="text-xs sm:text-sm">Additional Expenses</TabsTrigger>
               </TabsList>
               
 
@@ -494,22 +494,22 @@ const BeatAllowanceManagement = () => {
                   </CardHeader>
                   <CardContent>
                     {daData ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="p-4 border rounded-lg text-center">
-                          <div className="text-2xl font-bold text-green-600">{daData.days_attended}</div>
-                          <div className="text-sm text-muted-foreground">Days Attended</div>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+                        <div className="p-2 sm:p-4 border rounded-lg text-center">
+                          <div className="text-lg sm:text-2xl font-bold text-green-600">{daData.days_attended}</div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">Days Attended</div>
                         </div>
-                        <div className="p-4 border rounded-lg text-center">
-                          <div className="text-2xl font-bold text-red-600">{daData.leave_days}</div>
-                          <div className="text-sm text-muted-foreground">Leave Days</div>
+                        <div className="p-2 sm:p-4 border rounded-lg text-center">
+                          <div className="text-lg sm:text-2xl font-bold text-red-600">{daData.leave_days}</div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">Leave Days</div>
                         </div>
-                        <div className="p-4 border rounded-lg text-center">
-                          <div className="text-2xl font-bold text-blue-600">₹{daData.da_per_day}</div>
-                          <div className="text-sm text-muted-foreground">DA / Day</div>
+                        <div className="p-2 sm:p-4 border rounded-lg text-center">
+                          <div className="text-lg sm:text-2xl font-bold text-blue-600">₹{daData.da_per_day}</div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">DA / Day</div>
                         </div>
-                        <div className="p-4 border rounded-lg text-center">
-                          <div className="text-2xl font-bold text-primary">₹{daData.monthly_da}</div>
-                          <div className="text-sm text-muted-foreground">Monthly DA</div>
+                        <div className="p-2 sm:p-4 border rounded-lg text-center">
+                          <div className="text-lg sm:text-2xl font-bold text-primary">₹{daData.monthly_da}</div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">Monthly DA</div>
                         </div>
                       </div>
                     ) : (
@@ -527,36 +527,38 @@ const BeatAllowanceManagement = () => {
                     <CardTitle>Additional Expenses</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="rounded-md border">
+                    <div className="rounded-md border overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Expense Type</TableHead>
-                            <TableHead>Details</TableHead>
-                            <TableHead className="text-right">Value</TableHead>
-                            <TableHead className="text-center">Bill Attached</TableHead>
+                            <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
+                            <TableHead className="text-xs sm:text-sm whitespace-nowrap">Type</TableHead>
+                            <TableHead className="text-xs sm:text-sm">Details</TableHead>
+                            <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Value</TableHead>
+                            <TableHead className="text-center text-xs sm:text-sm whitespace-nowrap">Bill</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {additionalExpenseData.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
                                 No additional expenses found
                               </TableCell>
                             </TableRow>
                           ) : (
                             additionalExpenseData.map((item, index) => (
                               <TableRow key={index}>
-                                <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
-                                <TableCell>{item.expense_type}</TableCell>
-                                <TableCell>{item.details}</TableCell>
-                                <TableCell className="text-right">₹{item.value}</TableCell>
+                                <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                                  {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                </TableCell>
+                                <TableCell className="text-xs sm:text-sm">{item.expense_type}</TableCell>
+                                <TableCell className="text-xs sm:text-sm max-w-[100px] truncate">{item.details}</TableCell>
+                                <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">₹{item.value}</TableCell>
                                 <TableCell className="text-center">
                                   {item.bill_attached ? (
-                                    <span className="text-green-600">✓</span>
+                                    <span className="text-green-600 text-sm">✓</span>
                                   ) : (
-                                    <span className="text-red-600">✗</span>
+                                    <span className="text-red-600 text-sm">✗</span>
                                   )}
                                 </TableCell>
                               </TableRow>
