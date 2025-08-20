@@ -1,79 +1,89 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Plus, Search, CalendarIcon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import AdditionalExpenses from '@/components/AdditionalExpenses';
 
-interface BeatAllowance {
+interface ExpenseRow {
   id: string;
-  beat_id: string;
+  date: string;
   beat_name: string;
-  daily_allowance: number;
-  travel_allowance: number;
-  user_id: string;
-  user_name: string;
-  created_at: string;
-  updated_at: string;
-  date?: string;
-  additional_expenses?: number;
-  total_expenses?: number;
-  todays_order?: number;
-  productivity?: number;
+  beat_id: string;
+  ta: number;
+  da: number;
+  additional_expenses: number;
+  total_expenses: number;
+  order_value: number;
 }
 
-interface Beat {
-  beat_id: string;
+interface TAData {
+  date: string;
   beat_name: string;
-  user_id: string;
+  ta: number;
+}
+
+interface DAData {
+  days_attended: number;
+  leave_days: number;
+  da_per_day: number;
+  monthly_da: number;
+}
+
+interface AdditionalExpenseData {
+  date: string;
+  expense_type: string;
+  details: string;
+  value: number;
+  bill_attached: boolean;
 }
 
 const BeatAllowanceManagement = () => {
-  const [allowances, setAllowances] = useState<BeatAllowance[]>([]);
-  const [beats, setBeats] = useState<Beat[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRangeStart, setDateRangeStart] = useState<Date>();
   const [dateRangeEnd, setDateRangeEnd] = useState<Date>();
   const [filterType, setFilterType] = useState<'day' | 'week' | 'month' | 'date-range'>('day');
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
-  const [selectedBeatForExpenses, setSelectedBeatForExpenses] = useState<string>('');
-  const [selectedDateForExpenses, setSelectedDateForExpenses] = useState<string>('');
-  const [editingAllowance, setEditingAllowance] = useState<BeatAllowance | null>(null);
-  const [formData, setFormData] = useState({
-    beat_id: '',
-    daily_allowance: '',
-    travel_allowance: ''
-  });
+  const [taData, setTAData] = useState<TAData[]>([]);
+  const [daData, setDAData] = useState<DAData | null>(null);
+  const [additionalExpenseData, setAdditionalExpenseData] = useState<AdditionalExpenseData[]>([]);
+  const [selectedTotalExpenses, setSelectedTotalExpenses] = useState<ExpenseRow | null>(null);
   const { toast } = useToast();
 
-  const fetchAllowances = async () => {
+  const fetchExpenseData = async () => {
     try {
       const user = await supabase.auth.getUser();
       if (!user.data.user) return;
 
-      // Fetch beat allowances
-      const { data: allowanceData, error: allowanceError } = await (supabase as any)
+      // Fetch beat plans (journey plans) to get dates and beats
+      const { data: beatPlans, error: beatPlansError } = await supabase
+        .from('beat_plans')
+        .select('plan_date, beat_id, beat_name')
+        .eq('user_id', user.data.user.id)
+        .order('plan_date', { ascending: false });
+
+      if (beatPlansError) throw beatPlansError;
+
+      // Fetch beat allowances (TA/DA)
+      const { data: allowanceData, error: allowanceError } = await supabase
         .from('beat_allowances')
         .select('*')
-        .eq('user_id', user.data.user.id)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.data.user.id);
 
       if (allowanceError) throw allowanceError;
 
-      // Fetch additional expenses and group by beat and date
+      // Fetch additional expenses
       const { data: expensesData, error: expensesError } = await supabase
         .from('additional_expenses')
         .select('*')
@@ -81,46 +91,38 @@ const BeatAllowanceManagement = () => {
 
       if (expensesError) throw expensesError;
 
-      // Fetch all orders to calculate today's order value for each beat/date
+      // Fetch orders with visit data to get order values
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('total_amount, created_at, visit_id')
+        .select('total_amount, visit_id, created_at')
         .eq('user_id', user.data.user.id);
 
       if (ordersError) throw ordersError;
 
-      // Fetch visits to get retailer information for orders
+      // Fetch visits to link orders to beats
       const { data: visitsData, error: visitsError } = await supabase
         .from('visits')
-        .select('id, retailer_id')
+        .select('id, planned_date, retailer_id')
         .eq('user_id', user.data.user.id);
 
       if (visitsError) throw visitsError;
 
-      // Fetch retailers to get beat_id information
+      // Fetch retailers to get beat info
       const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
-        .select('id, beat_id')
+        .select('id, beat_id, beat_name')
         .eq('user_id', user.data.user.id);
 
       if (retailersError) throw retailersError;
 
-      // Create a map of retailer_id to beat_id
-      const retailerToBeatMap = new Map();
-      retailersData?.forEach((retailer: any) => {
-        retailerToBeatMap.set(retailer.id, retailer.beat_id);
+      // Create maps for easier data lookup
+      const allowanceMap = new Map();
+      allowanceData?.forEach((allowance: any) => {
+        const date = allowance.created_at.split('T')[0];
+        const key = `${allowance.beat_id}-${date}`;
+        allowanceMap.set(key, allowance);
       });
 
-      // Create a map of visit_id to beat_id
-      const visitToBeatMap = new Map();
-      visitsData?.forEach((visit: any) => {
-        const beatId = retailerToBeatMap.get(visit.retailer_id);
-        if (beatId) {
-          visitToBeatMap.set(visit.id, beatId);
-        }
-      });
-
-      // Create a map of additional expenses by date
       const expensesMap = new Map();
       expensesData?.forEach((expense: any) => {
         const key = `${expense.expense_date}`;
@@ -128,235 +130,190 @@ const BeatAllowanceManagement = () => {
         expensesMap.set(key, current + parseFloat(expense.amount));
       });
 
-      // Create a map of order values by beat and date
-      const ordersMap = new Map();
+      // Create retailer to beat map
+      const retailerToBeatMap = new Map();
+      retailersData?.forEach((retailer: any) => {
+        retailerToBeatMap.set(retailer.id, { beat_id: retailer.beat_id, beat_name: retailer.beat_name });
+      });
+
+      const orderMap = new Map();
       ordersData?.forEach((order: any) => {
-        const orderDate = order.created_at.split('T')[0]; // Get date part only
-        const beatId = visitToBeatMap.get(order.visit_id);
-        if (beatId) {
-          const key = `${beatId}-${orderDate}`;
-          const current = ordersMap.get(key) || 0;
-          ordersMap.set(key, current + parseFloat(order.total_amount || 0));
+        const visit = visitsData?.find((v: any) => v.id === order.visit_id);
+        if (visit) {
+          const retailerInfo = retailerToBeatMap.get(visit.retailer_id);
+          if (retailerInfo) {
+            const date = visit.planned_date;
+            const beatId = retailerInfo.beat_id;
+            const key = `${beatId}-${date}`;
+            const current = orderMap.get(key) || 0;
+            orderMap.set(key, current + parseFloat(order.total_amount || 0));
+          }
         }
       });
 
-      const formattedData = (allowanceData as any[] | null)?.map((item: any) => {
-        const expenseDate = item.created_at.split('T')[0]; // Get date part only
-        const additionalExpenses = expensesMap.get(expenseDate) || 0;
-        const todaysOrderValue = ordersMap.get(`${item.beat_id}-${expenseDate}`) || 0;
+      // Create expense rows from beat plans
+      const rows: ExpenseRow[] = [];
+      beatPlans?.forEach((plan: any) => {
+        const key = `${plan.beat_id}-${plan.plan_date}`;
+        const allowance = allowanceMap.get(key);
+        const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
+        const orderValue = orderMap.get(key) || 0;
         
-        return {
-          id: item.id,
-          beat_id: item.beat_id,
-          beat_name: item.beat_name,
-          daily_allowance: item.daily_allowance,
-          travel_allowance: item.travel_allowance,
-          user_id: item.user_id,
-          user_name: '-', // Not needed for user's own expenses
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          date: new Date(item.created_at).toLocaleDateString(),
+        const ta = allowance?.travel_allowance || 0;
+        const da = allowance?.daily_allowance || 0;
+        
+        rows.push({
+          id: plan.plan_date + '-' + plan.beat_id,
+          date: plan.plan_date,
+          beat_name: plan.beat_name,
+          beat_id: plan.beat_id,
+          ta: ta,
+          da: da,
           additional_expenses: additionalExpenses,
-          total_expenses: item.daily_allowance + item.travel_allowance + additionalExpenses,
-          todays_order: todaysOrderValue,
-          productivity: todaysOrderValue > 0 ? ((todaysOrderValue / (item.daily_allowance + item.travel_allowance + additionalExpenses)) * 100) : 0
-        };
-      }) || [];
+          total_expenses: ta + da + additionalExpenses,
+          order_value: orderValue
+        });
+      });
 
-      setAllowances(formattedData);
+      setExpenseRows(rows);
     } catch (error) {
-      console.error('Error fetching allowances:', error);
+      console.error('Error fetching expense data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch expenses",
+        description: "Failed to fetch expenses data",
         variant: "destructive",
       });
     }
   };
 
-  const fetchBeats = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('beat_plans')
-        .select('beat_id, beat_name, user_id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .order('beat_name');
-
-      if (error) throw error;
-      setBeats(data || []);
-    } catch (error) {
-      console.error('Error fetching beats:', error);
-    }
-  };
-
-  // Auto-sync function to create beat allowances from journey plans
-  const autoSyncFromJourneyPlans = async () => {
+  const fetchTAData = async () => {
     try {
       const user = await supabase.auth.getUser();
       if (!user.data.user) return;
 
-      // Get today's date for auto-sync
-      const today = new Date();
-      const dateString = today.toISOString().split('T')[0];
-
-      // Check if there are beat plans for today that don't have allowances
-      const { data: beatPlans, error: beatPlansError } = await supabase
-        .from('beat_plans')
-        .select('beat_id, beat_name')
+      const { data: allowanceData, error } = await supabase
+        .from('beat_allowances')
+        .select('created_at, beat_name, travel_allowance')
         .eq('user_id', user.data.user.id)
-        .eq('plan_date', dateString);
+        .order('created_at', { ascending: false });
 
-      if (beatPlansError) throw beatPlansError;
+      if (error) throw error;
 
-      if (beatPlans && beatPlans.length > 0) {
-        // Check existing allowances for today
-        const { data: existingAllowances, error: allowancesError } = await supabase
-          .from('beat_allowances')
-          .select('beat_id')
-          .eq('user_id', user.data.user.id)
-          .gte('created_at', `${dateString}T00:00:00.000Z`)
-          .lt('created_at', `${dateString}T23:59:59.999Z`);
+      const taData: TAData[] = allowanceData?.map((item: any) => ({
+        date: item.created_at.split('T')[0],
+        beat_name: item.beat_name,
+        ta: item.travel_allowance
+      })) || [];
 
-        if (allowancesError) throw allowancesError;
-
-        const existingBeatIds = new Set(existingAllowances?.map(a => a.beat_id) || []);
-        
-        // Create allowances for beats that don't have them yet
-        const newAllowances = beatPlans
-          .filter(plan => !existingBeatIds.has(plan.beat_id))
-          .map(plan => ({
-            user_id: user.data.user.id,
-            beat_id: plan.beat_id,
-            beat_name: plan.beat_name,
-            daily_allowance: 500, // Default daily allowance
-            travel_allowance: 200, // Default travel allowance
-            created_at: `${dateString}T12:00:00.000Z`,
-            updated_at: new Date().toISOString()
-          }));
-
-        if (newAllowances.length > 0) {
-          const { error: insertError } = await supabase
-            .from('beat_allowances')
-            .insert(newAllowances);
-
-          if (insertError) throw insertError;
-
-          toast({
-            title: "Auto-synced",
-            description: `Created allowances for ${newAllowances.length} planned beat(s)`,
-          });
-        }
-      }
+      setTAData(taData);
     } catch (error) {
-      console.error('Error auto-syncing from journey plans:', error);
+      console.error('Error fetching TA data:', error);
+    }
+  };
+
+  const fetchDAData = async () => {
+    try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
+      // Fetch attendance data to calculate days attended and leave days
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('date, status')
+        .eq('user_id', user.data.user.id);
+
+      if (attendanceError) throw attendanceError;
+
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const attendanceThisMonth = attendanceData?.filter((record: any) => {
+        const recordDate = new Date(record.date);
+        return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+      }) || [];
+
+      const daysAttended = attendanceThisMonth.filter((record: any) => record.status === 'present').length;
+      const leaveDays = attendanceThisMonth.filter((record: any) => record.status === 'absent').length;
+      
+      const daPerDay = 500; // Default DA per day
+      const monthlyDA = daPerDay * daysAttended;
+
+      setDAData({
+        days_attended: daysAttended,
+        leave_days: leaveDays,
+        da_per_day: daPerDay,
+        monthly_da: monthlyDA
+      });
+    } catch (error) {
+      console.error('Error fetching DA data:', error);
+    }
+  };
+
+  const fetchAdditionalExpenseData = async () => {
+    try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
+      const { data: expensesData, error } = await supabase
+        .from('additional_expenses')
+        .select('expense_date, category, custom_category, description, amount, bill_url')
+        .eq('user_id', user.data.user.id)
+        .order('expense_date', { ascending: false });
+
+      if (error) throw error;
+
+      const additionalExpenses: AdditionalExpenseData[] = expensesData?.map((item: any) => ({
+        date: item.expense_date,
+        expense_type: item.category === 'Other' ? item.custom_category : item.category,
+        details: item.description || '',
+        value: item.amount,
+        bill_attached: !!item.bill_url
+      })) || [];
+
+      setAdditionalExpenseData(additionalExpenses);
+    } catch (error) {
+      console.error('Error fetching additional expense data:', error);
     }
   };
 
   useEffect(() => {
-    // Set default date to today
-    setSelectedDate(new Date());
     const initializeData = async () => {
-      await Promise.all([fetchAllowances(), fetchBeats()]);
-      // Auto-sync from journey plans after initial load
-      await autoSyncFromJourneyPlans();
-      // Refresh allowances to show auto-synced data
-      await fetchAllowances();
+      await Promise.all([
+        fetchExpenseData(),
+        fetchTAData(),
+        fetchDAData(),
+        fetchAdditionalExpenseData()
+      ]);
       setLoading(false);
     };
     initializeData();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.beat_id || !formData.daily_allowance || !formData.travel_allowance) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
+  // Auto-refresh data when filter changes
+  useEffect(() => {
+    if (!loading) {
+      fetchExpenseData();
     }
+  }, [filterType, selectedDate, dateRangeStart, dateRangeEnd]);
 
-    try {
-      const selectedBeat = beats.find(b => b.beat_id === formData.beat_id);
-      
-      const allowanceData = {
-        beat_id: formData.beat_id,
-        beat_name: selectedBeat?.beat_name || '',
-        user_id: selectedBeat?.user_id || '',
-        daily_allowance: parseFloat(formData.daily_allowance),
-        travel_allowance: parseFloat(formData.travel_allowance)
-      };
-
-      if (editingAllowance) {
-        const { error } = await (supabase as any)
-          .from('beat_allowances')
-          .update(allowanceData)
-          .eq('id', editingAllowance.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: "Beat allowance updated successfully",
-        });
-      } else {
-        const { error } = await (supabase as any)
-          .from('beat_allowances')
-          .insert([allowanceData]);
-
-        if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: "Beat allowance created successfully",
-        });
-      }
-
-      setIsDialogOpen(false);
-      setEditingAllowance(null);
-      setFormData({ beat_id: '', daily_allowance: '', travel_allowance: '' });
-      fetchAllowances();
-    } catch (error) {
-      console.error('Error saving allowance:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save beat allowance",
-        variant: "destructive",
-      });
-    }
+  const handleTotalExpensesClick = (row: ExpenseRow) => {
+    setSelectedTotalExpenses(row);
   };
 
-  const handleEdit = (allowance: BeatAllowance) => {
-    setEditingAllowance(allowance);
-    setFormData({
-      beat_id: allowance.beat_id,
-      daily_allowance: allowance.daily_allowance.toString(),
-      travel_allowance: allowance.travel_allowance.toString()
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleAdditionalExpensesClick = (beatId: string, date: string) => {
-    setSelectedBeatForExpenses(beatId);
-    setSelectedDateForExpenses(date);
+  const handleAdditionalExpensesClick = () => {
     setIsAdditionalExpensesOpen(true);
   };
 
-  const filteredAllowances = allowances.filter(allowance => {
-    const matchesSearch = allowance.beat_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      allowance.user_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const expenseCreatedDate = new Date(allowance.created_at);
+  const filteredExpenseRows = expenseRows.filter(row => {
+    const rowDate = new Date(row.date);
     let dateMatch = true;
 
     switch (filterType) {
       case 'day':
         if (selectedDate) {
-          dateMatch = expenseCreatedDate.getFullYear() === selectedDate.getFullYear() &&
-                     expenseCreatedDate.getMonth() === selectedDate.getMonth() &&
-                     expenseCreatedDate.getDate() === selectedDate.getDate();
+          dateMatch = rowDate.getFullYear() === selectedDate.getFullYear() &&
+                     rowDate.getMonth() === selectedDate.getMonth() &&
+                     rowDate.getDate() === selectedDate.getDate();
         }
         break;
       case 'week':
@@ -367,13 +324,13 @@ const BeatAllowanceManagement = () => {
           const weekEnd = new Date(weekStart);
           weekEnd.setDate(weekStart.getDate() + 6);
           weekEnd.setHours(23, 59, 59, 999);
-          dateMatch = expenseCreatedDate >= weekStart && expenseCreatedDate <= weekEnd;
+          dateMatch = rowDate >= weekStart && rowDate <= weekEnd;
         }
         break;
       case 'month':
         if (selectedDate) {
-          dateMatch = expenseCreatedDate.getFullYear() === selectedDate.getFullYear() &&
-                     expenseCreatedDate.getMonth() === selectedDate.getMonth();
+          dateMatch = rowDate.getFullYear() === selectedDate.getFullYear() &&
+                     rowDate.getMonth() === selectedDate.getMonth();
         }
         break;
       case 'date-range':
@@ -382,12 +339,12 @@ const BeatAllowanceManagement = () => {
           rangeStart.setHours(0, 0, 0, 0);
           const rangeEnd = new Date(dateRangeEnd);
           rangeEnd.setHours(23, 59, 59, 999);
-          dateMatch = expenseCreatedDate >= rangeStart && expenseCreatedDate <= rangeEnd;
+          dateMatch = rowDate >= rangeStart && rowDate <= rangeEnd;
         }
         break;
     }
     
-    return matchesSearch && dateMatch;
+    return dateMatch;
   });
 
   if (loading) {
@@ -400,322 +357,345 @@ const BeatAllowanceManagement = () => {
 
   return (
     <div className="space-y-6">
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <Card>
-          <CardHeader className="pb-3 sm:pb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-            </div>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6">
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex items-center space-x-2 flex-1">
-                  <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <Input
-                    placeholder="Search by beat name or user..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-1 text-sm"
-                  />
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">Day</SelectItem>
-                      <SelectItem value="week">Week</SelectItem>
-                      <SelectItem value="month">Month</SelectItem>
-                      <SelectItem value="date-range">Date Range</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {filterType !== 'date-range' ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[200px] justify-start text-left font-normal",
-                            !selectedDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, filterType === 'month' ? "MMMM yyyy" : filterType === 'week' ? `'Week of' MMM dd, yyyy` : "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-[140px] justify-start text-left font-normal",
-                              !dateRangeStart && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRangeStart ? format(dateRangeStart, "MMM dd") : "Start date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={dateRangeStart}
-                            onSelect={setDateRangeStart}
-                            initialFocus
-                            className="pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <span className="text-muted-foreground">to</span>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-[140px] justify-start text-left font-normal",
-                              !dateRangeEnd && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : "End date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={dateRangeEnd}
-                            onSelect={setDateRangeEnd}
-                            initialFocus
-                            className="pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  )}
-                  
-                  <DialogTrigger asChild>
-                    <Button className="flex-shrink-0">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Allowance
-                    </Button>
-                  </DialogTrigger>
-                </div>
-              </div>
-
-              {/* Mobile Cards View */}
-              <div className="block sm:hidden space-y-3">
-                {filteredAllowances.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    No expenses found
-                  </div>
-                ) : (
-                  filteredAllowances.map((allowance) => (
-                    <Card key={allowance.id} className="p-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium text-sm">{allowance.beat_name}</h3>
-                            <p className="text-xs text-muted-foreground">{new Date(allowance.created_at).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-muted-foreground">DA:</span>
-                            <span className="ml-1 font-medium">₹{allowance.daily_allowance.toFixed(2)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">TA:</span>
-                            <span className="ml-1 font-medium">₹{allowance.travel_allowance.toFixed(2)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Additional:</span>
-                             <div className="flex items-center gap-1">
-                               <span className="font-medium">₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
-                               <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Plus size={12} />
-                              </Button>
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Total:</span>
-                            <span className="ml-1 font-medium">₹{allowance.daily_allowance + allowance.travel_allowance}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Today's Order:</span>
-                            <span className="ml-1 font-medium">₹{(allowance.todays_order || 0).toFixed(2)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Productivity:</span>
-                            <span className="ml-1 font-medium">{(allowance.productivity || 0).toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-
-              {/* Desktop Table View */}
-              <div className="hidden sm:block rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs md:text-sm">Date</TableHead>
-                      <TableHead className="text-xs md:text-sm">Beat Name</TableHead>
-                      <TableHead className="text-xs md:text-sm">DA</TableHead>
-                      <TableHead className="text-xs md:text-sm">TA</TableHead>
-                      <TableHead className="text-xs md:text-sm">Additional Expenses</TableHead>
-                      <TableHead className="text-xs md:text-sm">Total Expenses</TableHead>
-                      <TableHead className="text-xs md:text-sm">Today's Order</TableHead>
-                      <TableHead className="text-xs md:text-sm">Productivity</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAllowances.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                          No expenses found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredAllowances.map((allowance) => (
-                        <TableRow key={allowance.id}>
-                          <TableCell className="text-xs md:text-sm">{new Date(allowance.created_at).toLocaleDateString()}</TableCell>
-                          <TableCell className="font-medium text-xs md:text-sm">{allowance.beat_name}</TableCell>
-                          <TableCell className="text-xs md:text-sm">₹{allowance.daily_allowance.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs md:text-sm">
-                            <div className="flex items-center gap-2">
-                              <span>₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Plus size={12} />
-                              </Button>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs md:text-sm">₹{(allowance.total_expenses || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-xs md:text-sm">₹{(allowance.todays_order || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-xs md:text-sm">{(allowance.productivity || 0).toFixed(1)}%</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dialog Content for Add/Edit Allowance */}
-        <DialogContent className="sm:max-w-[425px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">{editingAllowance ? 'Edit' : 'Add'} Beat Allowance</DialogTitle>
-            <DialogDescription className="text-sm sm:text-base">
-              Set daily and travel allowances for specific beats.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="beat_id">Beat</Label>
-              <Select
-                value={formData.beat_id}
-                onValueChange={(value) => setFormData({ ...formData, beat_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a beat" />
+      <Card>
+        <CardHeader className="pb-3 sm:pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <CardTitle>My Expenses</CardTitle>
+            <Button
+              onClick={handleAdditionalExpensesClick}
+              variant="default"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Additional Expenses
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6">
+          <div className="space-y-4">
+            {/* Filter Controls */}
+            <div className="flex items-center gap-2">
+              <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {beats.map((beat) => (
-                    <SelectItem key={beat.beat_id} value={beat.beat_id}>
-                      {beat.beat_name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="day">Day</SelectItem>
+                  <SelectItem value="week">Week</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                  <SelectItem value="date-range">Date Range</SelectItem>
                 </SelectContent>
               </Select>
+
+              {filterType !== 'date-range' ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[200px] justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, filterType === 'month' ? "MMMM yyyy" : filterType === 'week' ? `'Week of' MMM dd, yyyy` : "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[140px] justify-start text-left font-normal",
+                          !dateRangeStart && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRangeStart ? format(dateRangeStart, "MMM dd") : <span>Start</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateRangeStart}
+                        onSelect={setDateRangeStart}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[140px] justify-start text-left font-normal",
+                          !dateRangeEnd && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : <span>End</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateRangeEnd}
+                        onSelect={setDateRangeEnd}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="daily_allowance">Daily Allowance (₹)</Label>
-              <Input
-                id="daily_allowance"
-                type="number"
-                step="0.01"
-                value={formData.daily_allowance}
-                onChange={(e) => setFormData({ ...formData, daily_allowance: e.target.value })}
-                placeholder="Enter daily allowance"
-              />
+
+            {/* 4-Column Structure */}
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Beat</TableHead>
+                    <TableHead 
+                      className="text-right cursor-pointer hover:bg-muted/50"
+                    >
+                      Total Expenses
+                    </TableHead>
+                    <TableHead className="text-right">Order for the Day</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenseRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                        No expense records found for the selected criteria
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredExpenseRows.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium">
+                          {new Date(row.date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="font-medium">{row.beat_name}</TableCell>
+                        <TableCell 
+                          className="text-right font-bold cursor-pointer hover:bg-muted/50 hover:text-primary"
+                          onClick={() => handleTotalExpensesClick(row)}
+                        >
+                          ₹{row.total_expenses.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          ₹{row.order_value.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="travel_allowance">Travel Allowance (₹)</Label>
-              <Input
-                id="travel_allowance"
-                type="number"
-                step="0.01"
-                value={formData.travel_allowance}
-                onChange={(e) => setFormData({ ...formData, travel_allowance: e.target.value })}
-                placeholder="Enter travel allowance"
-              />
-            </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsDialogOpen(false)}
-                className="w-full sm:w-auto order-2 sm:order-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit"
-                className="w-full sm:w-auto order-1 sm:order-2"
-              >
-                {editingAllowance ? 'Update' : 'Create'} Allowance
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+
+            {/* Tabs for TA, DA, Additional Expenses */}
+            <Tabs defaultValue="ta" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="ta">TA</TabsTrigger>
+                <TabsTrigger value="da">DA</TabsTrigger>
+                <TabsTrigger value="additional">Additional Expenses</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="ta" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Travel Allowance (TA)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Beat Name</TableHead>
+                            <TableHead className="text-right">TA Amount</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {taData.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                                No TA records found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            taData.map((item, index) => (
+                              <TableRow key={index}>
+                                <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
+                                <TableCell>{item.beat_name}</TableCell>
+                                <TableCell className="text-right">₹{item.ta}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="da" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Daily Allowance (DA)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {daData ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-4 border rounded-lg text-center">
+                          <div className="text-2xl font-bold text-green-600">{daData.days_attended}</div>
+                          <div className="text-sm text-muted-foreground">Days Attended</div>
+                        </div>
+                        <div className="p-4 border rounded-lg text-center">
+                          <div className="text-2xl font-bold text-red-600">{daData.leave_days}</div>
+                          <div className="text-sm text-muted-foreground">Leave Days</div>
+                        </div>
+                        <div className="p-4 border rounded-lg text-center">
+                          <div className="text-2xl font-bold text-blue-600">₹{daData.da_per_day}</div>
+                          <div className="text-sm text-muted-foreground">DA / Day</div>
+                        </div>
+                        <div className="p-4 border rounded-lg text-center">
+                          <div className="text-2xl font-bold text-primary">₹{daData.monthly_da}</div>
+                          <div className="text-sm text-muted-foreground">Monthly DA</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No DA data available
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="additional" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Additional Expenses</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Expense Type</TableHead>
+                            <TableHead>Details</TableHead>
+                            <TableHead className="text-right">Value</TableHead>
+                            <TableHead className="text-center">Bill Attached</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {additionalExpenseData.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                                No additional expenses found
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            additionalExpenseData.map((item, index) => (
+                              <TableRow key={index}>
+                                <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
+                                <TableCell>{item.expense_type}</TableCell>
+                                <TableCell>{item.details}</TableCell>
+                                <TableCell className="text-right">₹{item.value}</TableCell>
+                                <TableCell className="text-center">
+                                  {item.bill_attached ? (
+                                    <span className="text-green-600">✓</span>
+                                  ) : (
+                                    <span className="text-red-600">✗</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Additional Expenses Dialog */}
       <Dialog open={isAdditionalExpensesOpen} onOpenChange={setIsAdditionalExpensesOpen}>
-        <DialogContent className="sm:max-w-[800px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">Additional Expenses</DialogTitle>
-            <DialogDescription className="text-sm sm:text-base">
-              Add additional expenses for the selected beat and date.
-            </DialogDescription>
+            <DialogTitle>Additional Expenses</DialogTitle>
           </DialogHeader>
-          <div className="mt-4">
-            <AdditionalExpenses 
-              beatId={selectedBeatForExpenses}
-              beatName={allowances.find(a => a.beat_id === selectedBeatForExpenses)?.beat_name}
-              expenseDate={selectedDateForExpenses.split('T')[0]}
-              onExpensesUpdated={fetchAllowances}
-            />
-          </div>
+          <AdditionalExpenses
+            onExpensesUpdated={() => {
+              fetchExpenseData();
+              fetchAdditionalExpenseData();
+              setIsAdditionalExpensesOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Total Expenses Breakdown Dialog */}
+      <Dialog open={!!selectedTotalExpenses} onOpenChange={() => setSelectedTotalExpenses(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Expense Breakdown</DialogTitle>
+          </DialogHeader>
+          {selectedTotalExpenses && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <strong>Date:</strong> {new Date(selectedTotalExpenses.date).toLocaleDateString()}
+                </div>
+                <div>
+                  <strong>Beat:</strong> {selectedTotalExpenses.beat_name}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Travel Allowance (TA):</span>
+                  <span>₹{selectedTotalExpenses.ta}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Daily Allowance (DA):</span>
+                  <span>₹{selectedTotalExpenses.da}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Additional Expenses:</span>
+                  <span>₹{selectedTotalExpenses.additional_expenses}</span>
+                </div>
+                <div className="border-t pt-2">
+                  <div className="flex justify-between font-bold">
+                    <span>Total Expenses:</span>
+                    <span>₹{selectedTotalExpenses.total_expenses}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
