@@ -400,302 +400,304 @@ const BeatAllowanceManagement = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3 sm:pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogContent className="sm:max-w-[425px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-lg sm:text-xl">{editingAllowance ? 'Edit' : 'Add'} Beat Allowance</DialogTitle>
-                  <DialogDescription className="text-sm sm:text-base">
-                    Set daily and travel allowances for specific beats.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="beat_id">Beat</Label>
-                    <Select
-                      value={formData.beat_id}
-                      onValueChange={(value) => setFormData({ ...formData, beat_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a beat" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {beats.map((beat) => (
-                          <SelectItem key={beat.beat_id} value={beat.beat_id}>
-                            {beat.beat_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="daily_allowance">Daily Allowance (₹)</Label>
-                    <Input
-                      id="daily_allowance"
-                      type="number"
-                      step="0.01"
-                      value={formData.daily_allowance}
-                      onChange={(e) => setFormData({ ...formData, daily_allowance: e.target.value })}
-                      placeholder="Enter daily allowance"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="travel_allowance">Travel Allowance (₹)</Label>
-                    <Input
-                      id="travel_allowance"
-                      type="number"
-                      step="0.01"
-                      value={formData.travel_allowance}
-                      onChange={(e) => setFormData({ ...formData, travel_allowance: e.target.value })}
-                      placeholder="Enter travel allowance"
-                    />
-                  </div>
-                  <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setIsDialogOpen(false)}
-                      className="w-full sm:w-auto order-2 sm:order-1"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit"
-                      className="w-full sm:w-auto order-1 sm:order-2"
-                    >
-                      {editingAllowance ? 'Update' : 'Create'} Allowance
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent className="px-3 sm:px-6">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex items-center space-x-2 flex-1">
-                <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <Input
-                  placeholder="Search by beat name or user..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1 text-sm"
-                />
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="day">Day</SelectItem>
-                    <SelectItem value="week">Week</SelectItem>
-                    <SelectItem value="month">Month</SelectItem>
-                    <SelectItem value="date-range">Date Range</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {filterType !== 'date-range' ? (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-[200px] justify-start text-left font-normal",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, filterType === 'month' ? "MMMM yyyy" : filterType === 'week' ? `'Week of' MMM dd, yyyy` : "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[140px] justify-start text-left font-normal",
-                            !dateRangeStart && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateRangeStart ? format(dateRangeStart, "MMM dd") : "Start date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={dateRangeStart}
-                          onSelect={setDateRangeStart}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <span className="text-muted-foreground">to</span>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-[140px] justify-start text-left font-normal",
-                            !dateRangeEnd && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : "End date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={dateRangeEnd}
-                          onSelect={setDateRangeEnd}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                )}
-                
-                <DialogTrigger asChild>
-                  <Button className="flex-shrink-0">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Allowance
-                  </Button>
-                </DialogTrigger>
-              </div>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Card>
+          <CardHeader className="pb-3 sm:pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
             </div>
-
-            {/* Mobile Cards View */}
-            <div className="block sm:hidden space-y-3">
-              {filteredAllowances.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  No expenses found
+          </CardHeader>
+          <CardContent className="px-3 sm:px-6">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex items-center space-x-2 flex-1">
+                  <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    placeholder="Search by beat name or user..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1 text-sm"
+                  />
                 </div>
-              ) : (
-                filteredAllowances.map((allowance) => (
-                  <Card key={allowance.id} className="p-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-sm">{allowance.beat_name}</h3>
-                          <p className="text-xs text-muted-foreground">{new Date(allowance.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-muted-foreground">DA:</span>
-                          <span className="ml-1 font-medium">₹{allowance.daily_allowance.toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">TA:</span>
-                          <span className="ml-1 font-medium">₹{allowance.travel_allowance.toFixed(2)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Additional:</span>
-                           <div className="flex items-center gap-1">
-                             <span className="font-medium">₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
-                             <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Plus size={12} />
-                            </Button>
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Total:</span>
-                          <span className="ml-1 font-medium">₹{allowance.daily_allowance + allowance.travel_allowance}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Today's Order:</span>
-                          <span className="ml-1 font-medium">₹{(allowance.todays_order || 0).toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Productivity:</span>
-                          <span className="ml-1 font-medium">{(allowance.productivity || 0).toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
+                
+                <div className="flex items-center gap-2">
+                  <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">Day</SelectItem>
+                      <SelectItem value="week">Week</SelectItem>
+                      <SelectItem value="month">Month</SelectItem>
+                      <SelectItem value="date-range">Date Range</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-            {/* Desktop Table View */}
-            <div className="hidden sm:block rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs md:text-sm">Date</TableHead>
-                    <TableHead className="text-xs md:text-sm">Beat Name</TableHead>
-                    <TableHead className="text-xs md:text-sm">DA</TableHead>
-                    <TableHead className="text-xs md:text-sm">TA</TableHead>
-                    <TableHead className="text-xs md:text-sm">Additional Expenses</TableHead>
-                    <TableHead className="text-xs md:text-sm">Total Expenses</TableHead>
-                    <TableHead className="text-xs md:text-sm">Today's Order</TableHead>
-                    <TableHead className="text-xs md:text-sm">Productivity</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAllowances.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
-                        No expenses found
-                      </TableCell>
-                    </TableRow>
+                  {filterType !== 'date-range' ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[200px] justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, filterType === 'month' ? "MMMM yyyy" : filterType === 'week' ? `'Week of' MMM dd, yyyy` : "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   ) : (
-                    filteredAllowances.map((allowance) => (
-                      <TableRow key={allowance.id}>
-                        <TableCell className="text-xs md:text-sm">{new Date(allowance.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="font-medium text-xs md:text-sm">{allowance.beat_name}</TableCell>
-                        <TableCell className="text-xs md:text-sm">₹{allowance.daily_allowance.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">
-                          <div className="flex items-center gap-2">
-                            <span>₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Plus size={12} />
-                            </Button>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs md:text-sm">₹{(allowance.total_expenses || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">₹{(allowance.todays_order || 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-xs md:text-sm">{(allowance.productivity || 0).toFixed(1)}%</TableCell>
-                      </TableRow>
-                    ))
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[140px] justify-start text-left font-normal",
+                              !dateRangeStart && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRangeStart ? format(dateRangeStart, "MMM dd") : "Start date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={dateRangeStart}
+                            onSelect={setDateRangeStart}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-muted-foreground">to</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-[140px] justify-start text-left font-normal",
+                              !dateRangeEnd && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : "End date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={dateRangeEnd}
+                            onSelect={setDateRangeEnd}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   )}
-                </TableBody>
-              </Table>
+                  
+                  <DialogTrigger asChild>
+                    <Button className="flex-shrink-0">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Allowance
+                    </Button>
+                  </DialogTrigger>
+                </div>
+              </div>
+
+              {/* Mobile Cards View */}
+              <div className="block sm:hidden space-y-3">
+                {filteredAllowances.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No expenses found
+                  </div>
+                ) : (
+                  filteredAllowances.map((allowance) => (
+                    <Card key={allowance.id} className="p-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium text-sm">{allowance.beat_name}</h3>
+                            <p className="text-xs text-muted-foreground">{new Date(allowance.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-muted-foreground">DA:</span>
+                            <span className="ml-1 font-medium">₹{allowance.daily_allowance.toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">TA:</span>
+                            <span className="ml-1 font-medium">₹{allowance.travel_allowance.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Additional:</span>
+                             <div className="flex items-center gap-1">
+                               <span className="font-medium">₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
+                               <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Plus size={12} />
+                              </Button>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Total:</span>
+                            <span className="ml-1 font-medium">₹{allowance.daily_allowance + allowance.travel_allowance}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Today's Order:</span>
+                            <span className="ml-1 font-medium">₹{(allowance.todays_order || 0).toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Productivity:</span>
+                            <span className="ml-1 font-medium">{(allowance.productivity || 0).toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs md:text-sm">Date</TableHead>
+                      <TableHead className="text-xs md:text-sm">Beat Name</TableHead>
+                      <TableHead className="text-xs md:text-sm">DA</TableHead>
+                      <TableHead className="text-xs md:text-sm">TA</TableHead>
+                      <TableHead className="text-xs md:text-sm">Additional Expenses</TableHead>
+                      <TableHead className="text-xs md:text-sm">Total Expenses</TableHead>
+                      <TableHead className="text-xs md:text-sm">Today's Order</TableHead>
+                      <TableHead className="text-xs md:text-sm">Productivity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAllowances.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                          No expenses found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredAllowances.map((allowance) => (
+                        <TableRow key={allowance.id}>
+                          <TableCell className="text-xs md:text-sm">{new Date(allowance.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell className="font-medium text-xs md:text-sm">{allowance.beat_name}</TableCell>
+                          <TableCell className="text-xs md:text-sm">₹{allowance.daily_allowance.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs md:text-sm">₹{allowance.travel_allowance.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs md:text-sm">
+                            <div className="flex items-center gap-2">
+                              <span>₹{(allowance.additional_expenses || 0).toFixed(2)}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAdditionalExpensesClick(allowance.beat_id, allowance.created_at)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Plus size={12} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs md:text-sm">₹{(allowance.total_expenses || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-xs md:text-sm">₹{(allowance.todays_order || 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-xs md:text-sm">{(allowance.productivity || 0).toFixed(1)}%</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Dialog Content for Add/Edit Allowance */}
+        <DialogContent className="sm:max-w-[425px] mx-2 sm:mx-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">{editingAllowance ? 'Edit' : 'Add'} Beat Allowance</DialogTitle>
+            <DialogDescription className="text-sm sm:text-base">
+              Set daily and travel allowances for specific beats.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="beat_id">Beat</Label>
+              <Select
+                value={formData.beat_id}
+                onValueChange={(value) => setFormData({ ...formData, beat_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a beat" />
+                </SelectTrigger>
+                <SelectContent>
+                  {beats.map((beat) => (
+                    <SelectItem key={beat.beat_id} value={beat.beat_id}>
+                      {beat.beat_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="daily_allowance">Daily Allowance (₹)</Label>
+              <Input
+                id="daily_allowance"
+                type="number"
+                step="0.01"
+                value={formData.daily_allowance}
+                onChange={(e) => setFormData({ ...formData, daily_allowance: e.target.value })}
+                placeholder="Enter daily allowance"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="travel_allowance">Travel Allowance (₹)</Label>
+              <Input
+                id="travel_allowance"
+                type="number"
+                step="0.01"
+                value={formData.travel_allowance}
+                onChange={(e) => setFormData({ ...formData, travel_allowance: e.target.value })}
+                placeholder="Enter travel allowance"
+              />
+            </div>
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                className="w-full sm:w-auto order-1 sm:order-2"
+              >
+                {editingAllowance ? 'Update' : 'Create'} Allowance
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Additional Expenses Dialog */}
       <Dialog open={isAdditionalExpensesOpen} onOpenChange={setIsAdditionalExpensesOpen}>
