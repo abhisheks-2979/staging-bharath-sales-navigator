@@ -42,6 +42,9 @@ const BeatAllowanceManagement = () => {
   const [allowances, setAllowances] = useState<BeatAllowance[]>([]);
   const [beats, setBeats] = useState<Beat[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>();
+  const [dateRangeStart, setDateRangeStart] = useState<Date>();
+  const [dateRangeEnd, setDateRangeEnd] = useState<Date>();
+  const [filterType, setFilterType] = useState<'day' | 'week' | 'month' | 'date-range'>('day');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -345,18 +348,46 @@ const BeatAllowanceManagement = () => {
     const matchesSearch = allowance.beat_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       allowance.user_name.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (!selectedDate) return matchesSearch;
-    
-    // Use the created_at date from the expense record for filtering
     const expenseCreatedDate = new Date(allowance.created_at);
-    const filterDate = selectedDate;
+    let dateMatch = true;
+
+    switch (filterType) {
+      case 'day':
+        if (selectedDate) {
+          dateMatch = expenseCreatedDate.getFullYear() === selectedDate.getFullYear() &&
+                     expenseCreatedDate.getMonth() === selectedDate.getMonth() &&
+                     expenseCreatedDate.getDate() === selectedDate.getDate();
+        }
+        break;
+      case 'week':
+        if (selectedDate) {
+          const weekStart = new Date(selectedDate);
+          weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
+          dateMatch = expenseCreatedDate >= weekStart && expenseCreatedDate <= weekEnd;
+        }
+        break;
+      case 'month':
+        if (selectedDate) {
+          dateMatch = expenseCreatedDate.getFullYear() === selectedDate.getFullYear() &&
+                     expenseCreatedDate.getMonth() === selectedDate.getMonth();
+        }
+        break;
+      case 'date-range':
+        if (dateRangeStart && dateRangeEnd) {
+          const rangeStart = new Date(dateRangeStart);
+          rangeStart.setHours(0, 0, 0, 0);
+          const rangeEnd = new Date(dateRangeEnd);
+          rangeEnd.setHours(23, 59, 59, 999);
+          dateMatch = expenseCreatedDate >= rangeStart && expenseCreatedDate <= rangeEnd;
+        }
+        break;
+    }
     
-    // Compare dates by year, month, and day only
-    const expenseMatch = expenseCreatedDate.getFullYear() === filterDate.getFullYear() &&
-                        expenseCreatedDate.getMonth() === filterDate.getMonth() &&
-                        expenseCreatedDate.getDate() === filterDate.getDate();
-    
-    return matchesSearch && expenseMatch;
+    return matchesSearch && dateMatch;
   });
 
   if (loading) {
@@ -456,39 +487,100 @@ const BeatAllowanceManagement = () => {
               </div>
               
               <div className="flex items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-[200px] justify-start text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-                {selectedDate && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedDate(undefined)}
-                    className="px-3"
-                  >
-                    Clear
-                  </Button>
+                <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Day</SelectItem>
+                    <SelectItem value="week">Week</SelectItem>
+                    <SelectItem value="month">Month</SelectItem>
+                    <SelectItem value="date-range">Date Range</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {filterType !== 'date-range' ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[200px] justify-start text-left font-normal",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, filterType === 'month' ? "MMMM yyyy" : filterType === 'week' ? `'Week of' MMM dd, yyyy` : "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[140px] justify-start text-left font-normal",
+                            !dateRangeStart && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRangeStart ? format(dateRangeStart, "MMM dd") : "Start date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateRangeStart}
+                          onSelect={setDateRangeStart}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <span className="text-muted-foreground">to</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[140px] justify-start text-left font-normal",
+                            !dateRangeEnd && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : "End date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateRangeEnd}
+                          onSelect={setDateRangeEnd}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 )}
+                
+                <DialogTrigger asChild>
+                  <Button className="flex-shrink-0">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Allowance
+                  </Button>
+                </DialogTrigger>
               </div>
             </div>
 
