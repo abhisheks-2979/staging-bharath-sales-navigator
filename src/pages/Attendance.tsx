@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User } from "lucide-react";
+import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User, Edit2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,7 @@ const Attendance = () => {
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
   const [locationStored, setLocationStored] = useState(false);
   const [photoStored, setPhotoStored] = useState(false);
+  const [editingApplication, setEditingApplication] = useState(null);
 
   const stats = {
     totalDays: 20,
@@ -672,6 +673,54 @@ const Attendance = () => {
     }
   };
 
+  const updateLeaveApplication = async () => {
+    if (!editingApplication || !leaveForm.leaveTypeId || !leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsApplyingLeave(true);
+
+    try {
+      const { error } = await supabase
+        .from('leave_applications')
+        .update({
+          leave_type_id: leaveForm.leaveTypeId,
+          start_date: leaveForm.startDate,
+          end_date: leaveForm.endDate,
+          reason: leaveForm.reason
+        })
+        .eq('id', editingApplication.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Leave application updated successfully!",
+      });
+
+      setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '', dayType: 'full_day' });
+      setEditingApplication(null);
+      
+      // Refresh data
+      await fetchLeaveApplications();
+      await fetchLeaveBalance();
+    } catch (error) {
+      console.error('Error updating leave application:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update leave application. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsApplyingLeave(false);
+    }
+  };
+
   const getSelectedDateAttendance = () => {
     if (!selectedDate) return null;
     const selectedDateStr = selectedDate.toISOString().split('T')[0];
@@ -828,10 +877,12 @@ const Attendance = () => {
                       Apply Leave
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Apply for Leave</DialogTitle>
-                    </DialogHeader>
+                   <DialogContent>
+                     <DialogHeader>
+                       <DialogTitle>
+                         {editingApplication ? 'Edit Leave Application' : 'Apply for Leave'}
+                       </DialogTitle>
+                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="leaveType">Leave Type</Label>
@@ -917,12 +968,25 @@ const Attendance = () => {
                       </div>
                       
                       <Button 
-                        onClick={applyLeave} 
+                        onClick={editingApplication ? updateLeaveApplication : applyLeave} 
                         disabled={isApplyingLeave}
                         className="w-full"
                       >
-                        {isApplyingLeave ? 'Submitting...' : 'Submit Application'}
+                        {isApplyingLeave ? 'Submitting...' : editingApplication ? 'Update Application' : 'Submit Application'}
                       </Button>
+                      
+                      {editingApplication && (
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            setEditingApplication(null);
+                            setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '', dayType: 'full_day' });
+                          }}
+                          className="w-full"
+                        >
+                          Cancel Edit
+                        </Button>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -1028,14 +1092,33 @@ const Attendance = () => {
                                   <span className="font-medium">Reason:</span> {application.reason}
                                 </p>
                               </div>
-                              <div className="text-right ml-4">
-                                <p className="text-xs text-gray-500">Applied on</p>
-                                <p className="text-sm font-medium text-gray-700">
-                                  {new Date(application.created_at).toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric' 
-                                  })}
-                                </p>
+                              <div className="flex items-center gap-3 ml-4">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingApplication(application);
+                                    setLeaveForm({
+                                      leaveTypeId: application.leave_type_id,
+                                      startDate: application.start_date,
+                                      endDate: application.end_date,
+                                      reason: application.reason,
+                                      dayType: 'full_day' // Default for existing applications
+                                    });
+                                  }}
+                                  className="text-orange-600 hover:text-orange-700 hover:bg-orange-100"
+                                >
+                                  <Edit2 size={16} />
+                                </Button>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Applied on</p>
+                                  <p className="text-sm font-medium text-gray-700">
+                                    {new Date(application.created_at).toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric' 
+                                    })}
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
