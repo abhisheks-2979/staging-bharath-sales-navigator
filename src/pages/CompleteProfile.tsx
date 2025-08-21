@@ -10,9 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, CheckCircle } from 'lucide-react';
 
 interface InvitationData {
-  email: string;
-  full_name: string;
-  phone_number: string;
   expires_at: string;
 }
 
@@ -67,7 +64,7 @@ const CompleteProfile = () => {
         return;
       }
 
-      setInvitation(data.invitation);
+      setInvitation({ expires_at: data.expires_at });
     } catch (error) {
       console.error('Error validating invitation:', error);
       toast({ title: 'Error', description: 'Failed to validate invitation.', variant: 'destructive' });
@@ -167,7 +164,7 @@ const CompleteProfile = () => {
           <User className="w-12 h-12 mx-auto mb-4 text-primary" />
           <h1 className="text-3xl font-bold text-foreground">Complete Your Profile</h1>
           <p className="text-muted-foreground mt-2">
-            Welcome {invitation.full_name}! Please complete your profile setup.
+            Welcome! Please complete your profile setup.
           </p>
         </div>
 
@@ -182,14 +179,6 @@ const CompleteProfile = () => {
                 <h3 className="font-medium">Account Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={invitation.email} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Full Name</Label>
-                    <Input value={invitation.full_name} disabled />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="username">Username *</Label>
                     <Input
                       id="username"
@@ -197,10 +186,6 @@ const CompleteProfile = () => {
                       onChange={(e) => handleInputChange('username', e.target.value)}
                       required
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Phone Number</Label>
-                    <Input value={invitation.phone_number || 'Not provided'} disabled />
                   </div>
                 </div>
               </div>

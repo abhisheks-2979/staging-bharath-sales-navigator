@@ -28,11 +28,11 @@ serve(async (req) => {
     )
 
     // Look up invitation by token with minimal fields
-    const { data, error } = await supabaseAdmin
-      .from('user_invitations')
-      .select('email, full_name, phone_number, expires_at, status')
-      .eq('invitation_token', invitation_token)
-      .maybeSingle()
+      const { data, error } = await supabaseAdmin
+        .from('user_invitations')
+        .select('expires_at, status')
+        .eq('invitation_token', invitation_token)
+        .maybeSingle()
 
     if (error || !data) {
       return new Response(
@@ -58,12 +58,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         valid: true,
-        invitation: {
-          email: data.email,
-          full_name: data.full_name,
-          phone_number: data.phone_number ?? null,
-          expires_at: data.expires_at
-        }
+        expires_at: data.expires_at
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
