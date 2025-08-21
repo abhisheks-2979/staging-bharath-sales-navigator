@@ -679,24 +679,24 @@ const Attendance = () => {
               >
                 <ArrowLeft size={20} />
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                  <Calendar size={28} />
-                  Attendance
-                </h1>
-                <p className="text-primary-foreground/80 text-sm">Track your daily attendance and working hours</p>
-              </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                <Calendar size={24} />
+                Attendance
+              </h1>
+              <p className="text-primary-foreground/80 text-xs md:text-sm">Track your daily attendance and working hours</p>
+            </div>
             </div>
 
             {/* Quick Stats */}
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.attendance}%</div>
-                <div className="text-sm text-primary-foreground/80">This Month</div>
+                <div className="text-2xl md:text-3xl font-bold">{stats.attendance}%</div>
+                <div className="text-xs md:text-sm text-primary-foreground/80">This Month</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
-                <div className="text-sm text-primary-foreground/80">Present Days</div>
+                <div className="text-2xl md:text-3xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
+                <div className="text-xs md:text-sm text-primary-foreground/80">Present Days</div>
               </div>
             </div>
           </div>
@@ -713,10 +713,10 @@ const Attendance = () => {
                 setDetailsType('present');
               }}
             >
-              <CardContent className="p-4 text-center">
-                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-green-600">{stats.presentDays}</div>
-                <div className="text-xs text-green-700">Present Days</div>
+              <CardContent className="p-3 md:p-4 text-center">
+                <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600 mx-auto mb-2" />
+                <div className="text-xl md:text-2xl font-bold text-green-600">{stats.presentDays}</div>
+                <div className="text-xs md:text-sm text-green-700">Present Days</div>
               </CardContent>
             </Card>
             <Card 
@@ -726,10 +726,10 @@ const Attendance = () => {
                 setDetailsType('absent');
               }}
             >
-              <CardContent className="p-4 text-center">
-                <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-red-600">{stats.absentDays}</div>
-                <div className="text-xs text-red-700">Absent Days</div>
+              <CardContent className="p-3 md:p-4 text-center">
+                <XCircle className="h-6 w-6 md:h-8 md:w-8 text-red-600 mx-auto mb-2" />
+                <div className="text-xl md:text-2xl font-bold text-red-600">{stats.absentDays}</div>
+                <div className="text-xs md:text-sm text-red-700">Absent Days</div>
               </CardContent>
             </Card>
           </div>
@@ -737,15 +737,15 @@ const Attendance = () => {
           {/* Mark Attendance Section */}
           <Card className="mb-6 bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-600">
-                <Clock size={20} />
+              <CardTitle className="flex items-center gap-2 text-blue-600 text-base md:text-lg">
+                <Clock size={18} />
                 Mark Attendance
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {location && (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <MapPin size={16} />
+                <div className="flex items-center gap-2 text-xs md:text-sm text-green-600">
+                  <MapPin size={14} />
                   Location captured: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
                 </div>
               )}
@@ -757,7 +757,7 @@ const Attendance = () => {
                     alt="Captured" 
                     className="w-32 h-32 object-cover rounded-lg mx-auto mb-2"
                   />
-                  <p className="text-sm text-green-600">Photo captured ✓</p>
+                  <p className="text-xs md:text-sm text-green-600">Photo captured ✓</p>
                 </div>
               ) : (
                 <Button 
@@ -791,18 +791,18 @@ const Attendance = () => {
                 <Button 
                   onClick={() => markAttendance('check_in')} 
                   disabled={isMarkingAttendance || !location || !capturedPhoto}
-                  className="w-full"
+                  className="w-full text-sm md:text-base"
                 >
-                  <Clock size={16} className="mr-2" />
+                  <Clock size={14} className="mr-2" />
                   Check In
                 </Button>
                 <Button 
                   onClick={() => markAttendance('check_out')} 
                   disabled={isMarkingAttendance || !location || !capturedPhoto}
                   variant="outline"
-                  className="w-full"
+                  className="w-full text-sm md:text-base"
                 >
-                  <Clock size={16} className="mr-2" />
+                  <Clock size={14} className="mr-2" />
                   Check Out
                 </Button>
               </div>
@@ -812,15 +812,15 @@ const Attendance = () => {
           {/* Leave Management */}
           <Card className="mb-6 bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center justify-between text-purple-600">
+              <CardTitle className="flex items-center justify-between text-purple-600 text-base md:text-lg">
                 <div className="flex items-center gap-2">
-                  <FileText size={20} />
+                  <FileText size={18} />
                   Leave Management
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus size={16} className="mr-2" />
+                    <Button size="sm" className="text-xs md:text-sm">
+                      <Plus size={14} className="mr-2" />
                       Apply Leave
                     </Button>
                   </DialogTrigger>
@@ -901,7 +901,7 @@ const Attendance = () => {
                   <User size={20} className="text-blue-600" />
                   <h4 className="font-semibold text-blue-800">Employee Information</h4>
                 </div>
-                <div className="text-sm text-blue-700">
+                <div className="text-xs md:text-sm text-blue-700">
                   <p><span className="font-medium">Name:</span> {userProfile?.full_name || 'Not available'}</p>
                   <p><span className="font-medium">Username:</span> {userProfile?.username || 'Not available'}</p>
                   <p><span className="font-medium">Phone:</span> {userProfile?.phone_number || 'Not available'}</p>
@@ -910,7 +910,7 @@ const Attendance = () => {
 
               {/* Leave Type Sections */}
               <div className="space-y-4">
-                <h4 className="font-semibold text-purple-800 mb-4">Leave Balance Overview</h4>
+                <h4 className="font-semibold text-purple-800 mb-4 text-sm md:text-base">Leave Balance Overview</h4>
                 
                 {/* Show details only when a leave type is selected OR show all except LWP details */}
                 {leaveTypes.map((leaveType) => {
@@ -920,15 +920,15 @@ const Attendance = () => {
                   
                   return (
                     <div key={leaveType.id} className="p-4 bg-white rounded-lg border border-purple-200 shadow-sm">
-                      <h5 className="font-medium text-purple-700 mb-3">{leaveType.name}</h5>
+                      <h5 className="font-medium text-purple-700 mb-3 text-sm md:text-base">{leaveType.name}</h5>
                       
                       {isLeaveWithoutPay ? (
                         // For Leave Without Pay, only show Booked option
                         <div className="flex justify-center">
-                          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
-                            <div className="text-xs text-blue-700 font-medium">Booked</div>
-                          </div>
+                            <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.booked}</div>
+                              <div className="text-xs md:text-sm text-blue-700 font-medium">Booked</div>
+                            </div>
                         </div>
                       ) : (
                         // For other leave types, show full details only if not selected or if selected show all
@@ -936,18 +936,18 @@ const Attendance = () => {
                           {(isSelected || !selectedLeaveType) && (
                             <>
                               <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                                <div className="text-2xl font-bold text-green-600">{stats.available}</div>
-                                <div className="text-xs text-green-700 font-medium">Available</div>
+                                <div className="text-xl md:text-2xl font-bold text-green-600">{stats.available}</div>
+                                <div className="text-xs md:text-sm text-green-700 font-medium">Available</div>
                               </div>
                               <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                                <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
-                                <div className="text-xs text-orange-700 font-medium">Pending</div>
+                                <div className="text-xl md:text-2xl font-bold text-orange-600">{stats.pending}</div>
+                                <div className="text-xs md:text-sm text-orange-700 font-medium">Pending</div>
                               </div>
                             </>
                           )}
                           <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="text-2xl font-bold text-blue-600">{stats.booked}</div>
-                            <div className="text-xs text-blue-700 font-medium">Booked</div>
+                            <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.booked}</div>
+                            <div className="text-xs md:text-sm text-blue-700 font-medium">Booked</div>
                           </div>
                         </div>
                       )}
@@ -1053,12 +1053,12 @@ const Attendance = () => {
                       });
                       
                       return (
-                        <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                          <h5 className="font-semibold text-green-800 mb-4">Attendance for {todayStr}</h5>
-                          <div className="grid grid-cols-2 gap-6">
+                        <div className="text-center p-3 md:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                          <h5 className="font-semibold text-green-800 mb-3 md:mb-4 text-sm md:text-base">Attendance for {todayStr}</h5>
+                          <div className="grid grid-cols-2 gap-4 md:gap-6">
                             <div className="text-center">
-                              <p className="text-sm text-muted-foreground mb-1">Check In</p>
-                              <div className="text-2xl font-bold text-green-600">
+                              <p className="text-xs md:text-sm text-muted-foreground mb-1">Check In</p>
+                              <div className="text-lg md:text-2xl font-bold text-green-600">
                                 {todaysAttendance?.check_in_time ? 
                                   new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
                                     hour: '2-digit', 
@@ -1069,8 +1069,8 @@ const Attendance = () => {
                               </div>
                             </div>
                             <div className="text-center">
-                              <p className="text-sm text-muted-foreground mb-1">Check Out</p>
-                              <div className="text-2xl font-bold text-blue-600">
+                              <p className="text-xs md:text-sm text-muted-foreground mb-1">Check Out</p>
+                              <div className="text-lg md:text-2xl font-bold text-blue-600">
                                 {todaysAttendance?.check_out_time ? 
                                   new Date(todaysAttendance.check_out_time).toLocaleTimeString('en-US', { 
                                     hour: '2-digit', 
