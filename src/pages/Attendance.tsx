@@ -44,7 +44,8 @@ const Attendance = () => {
     leaveTypeId: '',
     startDate: '',
     endDate: '',
-    reason: ''
+    reason: '',
+    dayType: 'full_day' // Add day type selection
   });
 
   const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
@@ -654,7 +655,7 @@ const Attendance = () => {
         description: "Leave application submitted successfully!",
       });
 
-      setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '' });
+      setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '', dayType: 'full_day' });
       
       // Refresh data to update leave statistics
       await fetchLeaveApplications();
@@ -853,6 +854,36 @@ const Attendance = () => {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div>
+                        <Label>Select leave type:</Label>
+                        <div className="flex gap-4 mt-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              id="full_day"
+                              name="dayType"
+                              value="full_day"
+                              checked={leaveForm.dayType === 'full_day'}
+                              onChange={(e) => setLeaveForm(prev => ({ ...prev, dayType: e.target.value }))}
+                              className="text-primary focus:ring-primary"
+                            />
+                            <Label htmlFor="full_day" className="text-sm font-normal cursor-pointer">Full Day</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              id="half_day"
+                              name="dayType"
+                              value="half_day"
+                              checked={leaveForm.dayType === 'half_day'}
+                              onChange={(e) => setLeaveForm(prev => ({ ...prev, dayType: e.target.value }))}
+                              className="text-primary focus:ring-primary"
+                            />
+                            <Label htmlFor="half_day" className="text-sm font-normal cursor-pointer">Half Day</Label>
+                          </div>
+                        </div>
+                      </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -961,6 +992,57 @@ const Attendance = () => {
                     </div>
                   );
                 })}
+
+                {/* Pending Leave Applications */}
+                {leaveApplications.filter(app => app.status === 'pending').length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-orange-700 mb-4 text-sm md:text-base">Pending Leave Applications</h4>
+                    <div className="space-y-3">
+                      {leaveApplications
+                        .filter(app => app.status === 'pending')
+                        .map((application) => (
+                          <div key={application.id} className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200 shadow-sm">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+                                    {application.leave_types?.name || 'Unknown Leave Type'}
+                                  </Badge>
+                                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                                    Pending
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-1">
+                                  <span className="font-medium">Dates:</span> {' '}
+                                  {new Date(application.start_date).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  })} - {' '}
+                                  {new Date(application.end_date).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  })}
+                                </p>
+                                <p className="text-sm text-gray-700">
+                                  <span className="font-medium">Reason:</span> {application.reason}
+                                </p>
+                              </div>
+                              <div className="text-right ml-4">
+                                <p className="text-xs text-gray-500">Applied on</p>
+                                <p className="text-sm font-medium text-gray-700">
+                                  {new Date(application.created_at).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
