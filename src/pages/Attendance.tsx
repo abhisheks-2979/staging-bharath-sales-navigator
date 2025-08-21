@@ -763,6 +763,33 @@ const Attendance = () => {
     }
   };
 
+  const deleteLeaveApplication = async (applicationId) => {
+    try {
+      const { error } = await supabase
+        .from('leave_applications')
+        .delete()
+        .eq('id', applicationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Leave application deleted successfully!",
+      });
+      
+      // Refresh data
+      await fetchLeaveApplications();
+      await fetchLeaveBalance();
+    } catch (error) {
+      console.error('Error deleting leave application:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete leave application. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getSelectedDateAttendance = () => {
     if (!selectedDate) return null;
     const selectedDateStr = selectedDate.toISOString().split('T')[0];
@@ -1162,84 +1189,148 @@ const Attendance = () => {
                     </Dialog>
                   </div>
 
-                  {/* Leave Balance Cards */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {leaveTypes.map((type) => {
-                      const stats = getLeaveStatistics(type.id);
-                      return (
-                        <div key={type.id} className="bg-white p-3 rounded-lg border">
-                          <h4 className="font-medium text-gray-800 text-sm">{type.name}</h4>
-                          <div className="mt-2 space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Available:</span>
-                              <span className="font-medium text-green-600">{stats.available}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Booked:</span>
-                              <span className="font-medium text-blue-600">{stats.booked}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Pending:</span>
-                              <span className="font-medium text-orange-600">{stats.pending}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Pending Leave Applications */}
+                  {/* Leave Records Table */}
                   <div className="bg-white rounded-lg border">
                     <div className="p-4 border-b">
-                      <h3 className="font-semibold text-gray-800">Pending Leave Applications</h3>
+                      <h3 className="font-semibold text-gray-800">Leave Records</h3>
+                      <p className="text-xs text-gray-600 mt-1">View and manage your leave applications</p>
                     </div>
-                    <div className="space-y-3 p-4">
-                      {leaveApplications.filter(app => app.status === 'pending').length > 0 ? (
-                        leaveApplications.filter(app => app.status === 'pending').map((application) => (
-                          <div key={application.id} className="border rounded-lg p-3 bg-yellow-50">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Applied Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Leave Type</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Start Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">End Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Reason</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {leaveApplications.length > 0 ? (
+                            leaveApplications.map((application) => (
+                              <tr key={application.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-gray-800">
+                                  {new Date(application.applied_date || application.created_at).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2">
                                   <Badge variant="secondary" className="text-xs">
-                                    {application.leave_types?.name}
+                                    {application.leave_types?.name || 'Unknown'}
                                   </Badge>
-                                  <Badge variant="outline" className="text-xs text-orange-600">
-                                    Pending
-                                  </Badge>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setEditingApplication(application);
-                                      setLeaveForm({
-                                        leaveTypeId: application.leave_type_id,
-                                        startDate: application.start_date,
-                                        endDate: application.end_date,
-                                        reason: application.reason,
-                                        dayType: 'full_day'
-                                      });
-                                    }}
-                                    className="h-6 w-6 p-0"
+                                </td>
+                                <td className="px-3 py-2 text-gray-800">
+                                  {new Date(application.start_date).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2 text-gray-800">
+                                  {new Date(application.end_date).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 max-w-32 truncate" title={application.reason}>
+                                  {application.reason}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <Badge 
+                                    variant={
+                                      application.status === 'approved' ? 'default' : 
+                                      application.status === 'rejected' ? 'destructive' : 
+                                      'secondary'
+                                    }
+                                    className={`text-xs ${
+                                      application.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                      application.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                      'bg-yellow-100 text-yellow-800'
+                                    }`}
                                   >
-                                    <Edit2 size={12} />
-                                  </Button>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  <div>📅 {new Date(application.start_date).toLocaleDateString('en-GB')} - {new Date(application.end_date).toLocaleDateString('en-GB')}</div>
-                                  <div>📝 {application.reason}</div>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Applied on: {new Date(application.applied_date || application.created_at).toLocaleDateString('en-GB')}
+                                    {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                                  </Badge>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="text-xs p-1 h-6 w-6">
+                                          <User size={12} />
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-md">
+                                        <DialogHeader>
+                                          <DialogTitle>Leave Application Details</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-3">
+                                          <div>
+                                            <Label className="text-xs font-medium text-gray-600">Leave Type</Label>
+                                            <p className="text-sm">{application.leave_types?.name}</p>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                              <Label className="text-xs font-medium text-gray-600">Start Date</Label>
+                                              <p className="text-sm">{new Date(application.start_date).toLocaleDateString('en-GB')}</p>
+                                            </div>
+                                            <div>
+                                              <Label className="text-xs font-medium text-gray-600">End Date</Label>
+                                              <p className="text-sm">{new Date(application.end_date).toLocaleDateString('en-GB')}</p>
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs font-medium text-gray-600">Reason</Label>
+                                            <p className="text-sm">{application.reason}</p>
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs font-medium text-gray-600">Status</Label>
+                                            <p className="text-sm capitalize">{application.status}</p>
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs font-medium text-gray-600">Applied Date</Label>
+                                            <p className="text-sm">{new Date(application.applied_date || application.created_at).toLocaleDateString('en-GB')}</p>
+                                          </div>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                    
+                                    {application.status === 'pending' && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setEditingApplication(application);
+                                          setLeaveForm({
+                                            leaveTypeId: application.leave_type_id,
+                                            startDate: application.start_date,
+                                            endDate: application.end_date,
+                                            reason: application.reason,
+                                            dayType: 'full_day'
+                                          });
+                                        }}
+                                        className="text-xs p-1 h-6 w-6"
+                                      >
+                                        <Edit2 size={12} />
+                                      </Button>
+                                    )}
+                                    
+                                    {application.status === 'pending' && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => deleteLeaveApplication(application.id)}
+                                        className="text-xs p-1 h-6 w-6 text-red-600 hover:text-red-800"
+                                      >
+                                        <XCircle size={12} />
+                                      </Button>
+                                    )}
                                   </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center text-gray-500 py-4">
-                          No pending leave applications
-                        </div>
-                      )}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+                                No leave applications found
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </TabsContent>
