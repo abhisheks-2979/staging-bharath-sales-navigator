@@ -1049,17 +1049,48 @@ const Attendance = () => {
                           </div>
                         </div>
 
-                        {/* Current Present Value */}
-                        <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                          <h5 className="font-semibold text-green-800 mb-2">Current Present Days</h5>
-                          <div className="text-3xl font-bold text-green-600">{stats.presentDays}</div>
-                          <p className="text-sm text-green-700">out of {stats.totalDays} working days this month</p>
-                          <div className="mt-2">
-                            <Badge className="bg-green-600 text-white">
-                              {stats.attendance}% Attendance
-                            </Badge>
-                          </div>
-                        </div>
+                        {/* Today's Attendance */}
+                        {(() => {
+                          const today = new Date();
+                          const todayStr = today.toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            month: 'long', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          });
+                          
+                          return (
+                            <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                              <h5 className="font-semibold text-green-800 mb-4">Attendance for {todayStr}</h5>
+                              <div className="grid grid-cols-2 gap-6">
+                                <div className="text-center">
+                                  <p className="text-sm text-muted-foreground mb-1">Check In</p>
+                                  <div className="text-2xl font-bold text-green-600">
+                                    {todaysAttendance?.check_in_time ? 
+                                      new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                      }) : 
+                                      '--'
+                                    }
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm text-muted-foreground mb-1">Check Out</p>
+                                  <div className="text-2xl font-bold text-blue-600">
+                                    {todaysAttendance?.check_out_time ? 
+                                      new Date(todaysAttendance.check_out_time).toLocaleTimeString('en-US', { 
+                                        hour: '2-digit', 
+                                        minute: '2-digit' 
+                                      }) : 
+                                      '--'
+                                    }
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </TabsContent>
                     
