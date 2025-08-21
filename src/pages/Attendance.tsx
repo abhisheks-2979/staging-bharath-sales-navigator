@@ -50,6 +50,8 @@ const Attendance = () => {
   const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
   const [detailsType, setDetailsType] = useState('present');
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
+  const [locationStored, setLocationStored] = useState(false);
+  const [photoStored, setPhotoStored] = useState(false);
 
   const stats = {
     totalDays: 20,
@@ -441,6 +443,21 @@ const Attendance = () => {
   };
 
   const markAttendance = async (type = 'check_in') => {
+    // Reset success indicators
+    setLocationStored(false);
+    setPhotoStored(false);
+    
+    // Get current location
+    if (!location) {
+      getCurrentLocation();
+    }
+    
+    // Start camera for photo capture
+    if (!capturedPhoto) {
+      await startCamera();
+      return;
+    }
+
     if (!location) {
       toast({
         title: "Location Required",
@@ -452,7 +469,7 @@ const Attendance = () => {
 
     if (!capturedPhoto) {
       toast({
-        title: "Photo Required",
+        title: "Photo Required", 
         description: "Please capture a photo to mark attendance.",
         variant: "destructive"
       });
@@ -555,6 +572,10 @@ const Attendance = () => {
         if (updateError) throw updateError;
       }
 
+      // Show success indicators
+      setLocationStored(true);
+      setPhotoStored(true);
+      
       toast({
         title: "Success",
         description: `${type === 'check_in' ? 'Check-in' : 'Check-out'} marked successfully!`,
@@ -573,6 +594,11 @@ const Attendance = () => {
       });
     } finally {
       setIsMarkingAttendance(false);
+      // Reset success indicators after 3 seconds
+      setTimeout(() => {
+        setLocationStored(false);
+        setPhotoStored(false);
+      }, 3000);
     }
   };
 
@@ -689,14 +715,18 @@ const Attendance = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-2 md:gap-4">
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold">{stats.attendance}%</div>
+                <div className="text-xl md:text-2xl font-bold">{stats.attendance}%</div>
                 <div className="text-xs md:text-sm text-primary-foreground/80">This Month</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl md:text-3xl font-bold">{stats.presentDays}/{stats.totalDays}</div>
+                <div className="text-xl md:text-2xl font-bold">{stats.presentDays}</div>
                 <div className="text-xs md:text-sm text-primary-foreground/80">Present Days</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl md:text-2xl font-bold">{stats.absentDays}</div>
+                <div className="text-xs md:text-sm text-primary-foreground/80">Absent Days</div>
               </div>
             </div>
           </div>
@@ -704,35 +734,6 @@ const Attendance = () => {
 
         {/* Content */}
         <div className="p-4 -mt-4 relative z-10">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card 
-              className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-              onClick={() => {
-                setShowAttendanceDetails(true);
-                setDetailsType('present');
-              }}
-            >
-              <CardContent className="p-3 md:p-4 text-center">
-                <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600 mx-auto mb-2" />
-                <div className="text-xl md:text-2xl font-bold text-green-600">{stats.presentDays}</div>
-                <div className="text-xs md:text-sm text-green-700">Present Days</div>
-              </CardContent>
-            </Card>
-            <Card 
-              className="bg-gradient-to-r from-red-500/10 to-red-600/10 border-red-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-              onClick={() => {
-                setShowAttendanceDetails(true);
-                setDetailsType('absent');
-              }}
-            >
-              <CardContent className="p-3 md:p-4 text-center">
-                <XCircle className="h-6 w-6 md:h-8 md:w-8 text-red-600 mx-auto mb-2" />
-                <div className="text-xl md:text-2xl font-bold text-red-600">{stats.absentDays}</div>
-                <div className="text-xs md:text-sm text-red-700">Absent Days</div>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Mark Attendance Section */}
           <Card className="mb-6 bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
@@ -743,33 +744,23 @@ const Attendance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {location && (
-                <div className="flex items-center gap-2 text-xs md:text-sm text-green-600">
-                  <MapPin size={14} />
-                  Location captured: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs md:text-sm">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={14} />
+                    <span>Location captured</span>
+                  </div>
+                  {locationStored && <span className="text-green-600">✅</span>}
                 </div>
-              )}
-              
-              {capturedPhoto ? (
-                <div className="text-center">
-                  <img 
-                    src={URL.createObjectURL(capturedPhoto)} 
-                    alt="Captured" 
-                    className="w-32 h-32 object-cover rounded-lg mx-auto mb-2"
-                  />
-                  <p className="text-xs md:text-sm text-green-600">Photo captured ✓</p>
+                
+                <div className="flex items-center justify-between text-xs md:text-sm">
+                  <div className="flex items-center gap-2">
+                    <Camera size={14} />
+                    <span>Photo captured & uploaded</span>
+                  </div>
+                  {photoStored && <span className="text-green-600">✅</span>}
                 </div>
-              ) : (
-                <Button 
-                  onClick={startCamera} 
-                  variant="outline" 
-                  className="w-full"
-                  disabled={showCamera}
-                >
-                  <Camera size={16} className="mr-2" />
-                  {showCamera ? 'Camera Active' : 'Capture Photo'}
-                </Button>
-              )}
+              </div>
 
               {showCamera && (
                 <div className="text-center space-y-4">
@@ -790,7 +781,7 @@ const Attendance = () => {
               <div className="grid grid-cols-2 gap-4">
                 <Button 
                   onClick={() => markAttendance('check_in')} 
-                  disabled={isMarkingAttendance || !location || !capturedPhoto}
+                  disabled={isMarkingAttendance}
                   className="w-full text-sm md:text-base"
                 >
                   <Clock size={14} className="mr-2" />
@@ -798,7 +789,7 @@ const Attendance = () => {
                 </Button>
                 <Button 
                   onClick={() => markAttendance('check_out')} 
-                  disabled={isMarkingAttendance || !location || !capturedPhoto}
+                  disabled={isMarkingAttendance}
                   variant="outline"
                   className="w-full text-sm md:text-base"
                 >
