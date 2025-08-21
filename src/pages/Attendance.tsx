@@ -985,195 +985,107 @@ const Attendance = () => {
                 </TabsList>
                 
                 <TabsContent value="present" className="space-y-4">
-                  <Tabs defaultValue="calendar" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="calendar">Attendance Calendar</TabsTrigger>
-                      <TabsTrigger value="details">Attendance Details</TabsTrigger>
-                    </TabsList>
+                  {/* Visual Attendance Calendar */}
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h4 className="font-semibold text-emerald-600 mb-2">Attendance Calendar</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Visual representation of your attendance - Green for present, Red for absent
+                      </p>
+                    </div>
                     
-                    <TabsContent value="calendar" className="space-y-4">
-                      {/* Visual Attendance Calendar */}
-                      <div className="space-y-4">
-                        <div className="text-center">
-                          <h4 className="font-semibold text-emerald-600 mb-2">Attendance Calendar</h4>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Visual representation of your attendance - Green for present, Red for absent
-                          </p>
-                        </div>
-                        
-                        <div className="flex justify-center">
-                          <CalendarComponent
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={setSelectedDate}
-                            className="rounded-md border pointer-events-auto"
-                            modifiers={{
-                              present: (date) => {
-                                const dateStr = date.toISOString().split('T')[0];
-                                return presentDates.has(dateStr);
-                              },
-                              absent: (date) => {
-                                const dateStr = date.toISOString().split('T')[0];
-                                return absentDates.has(dateStr);
-                              }
-                            }}
-                            modifiersStyles={{
-                              present: {
-                                backgroundColor: 'hsl(142 76% 36%)',
-                                color: 'white',
-                                fontWeight: 'bold'
-                              },
-                              absent: {
-                                backgroundColor: 'hsl(0 84% 60%)',
-                                color: 'white',
-                                fontWeight: 'bold'
-                              }
-                            }}
-                            disabled={(date) => date > new Date()}
-                          />
-                        </div>
-                        
-                        {/* Legend */}
-                        <div className="flex justify-center gap-6">
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-green-600 rounded"></div>
-                            <span className="text-sm text-green-700 font-medium">Present</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-red-500 rounded"></div>
-                            <span className="text-sm text-red-700 font-medium">Absent</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-gray-200 rounded border"></div>
-                            <span className="text-sm text-gray-600 font-medium">No Data</span>
-                          </div>
-                        </div>
+                    <div className="flex justify-center">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border pointer-events-auto"
+                        modifiers={{
+                          present: (date) => {
+                            const dateStr = date.toISOString().split('T')[0];
+                            return presentDates.has(dateStr);
+                          },
+                          absent: (date) => {
+                            const dateStr = date.toISOString().split('T')[0];
+                            return absentDates.has(dateStr);
+                          }
+                        }}
+                        modifiersStyles={{
+                          present: {
+                            backgroundColor: 'hsl(142 76% 36%)',
+                            color: 'white',
+                            fontWeight: 'bold'
+                          },
+                          absent: {
+                            backgroundColor: 'hsl(0 84% 60%)',
+                            color: 'white',
+                            fontWeight: 'bold'
+                          }
+                        }}
+                        disabled={(date) => date > new Date()}
+                      />
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="flex justify-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-green-600 rounded"></div>
+                        <span className="text-sm text-green-700 font-medium">Present</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-red-500 rounded"></div>
+                        <span className="text-sm text-red-700 font-medium">Absent</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-200 rounded border"></div>
+                        <span className="text-sm text-gray-600 font-medium">No Data</span>
+                      </div>
+                    </div>
 
-                        {/* Today's Attendance */}
-                        {(() => {
-                          const today = new Date();
-                          const todayStr = today.toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            month: 'long', 
-                            day: 'numeric', 
-                            year: 'numeric' 
-                          });
-                          
-                          return (
-                            <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                              <h5 className="font-semibold text-green-800 mb-4">Attendance for {todayStr}</h5>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="text-center">
-                                  <p className="text-sm text-muted-foreground mb-1">Check In</p>
-                                  <div className="text-2xl font-bold text-green-600">
-                                    {todaysAttendance?.check_in_time ? 
-                                      new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
-                                        hour: '2-digit', 
-                                        minute: '2-digit' 
-                                      }) : 
-                                      '--'
-                                    }
-                                  </div>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-sm text-muted-foreground mb-1">Check Out</p>
-                                  <div className="text-2xl font-bold text-blue-600">
-                                    {todaysAttendance?.check_out_time ? 
-                                      new Date(todaysAttendance.check_out_time).toLocaleTimeString('en-US', { 
-                                        hour: '2-digit', 
-                                        minute: '2-digit' 
-                                      }) : 
-                                      '--'
-                                    }
-                                  </div>
-                                </div>
+                    {/* Today's Attendance */}
+                    {(() => {
+                      const today = new Date();
+                      const todayStr = today.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        month: 'long', 
+                        day: 'numeric', 
+                        year: 'numeric' 
+                      });
+                      
+                      return (
+                        <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                          <h5 className="font-semibold text-green-800 mb-4">Attendance for {todayStr}</h5>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="text-center">
+                              <p className="text-sm text-muted-foreground mb-1">Check In</p>
+                              <div className="text-2xl font-bold text-green-600">
+                                {todaysAttendance?.check_in_time ? 
+                                  new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  }) : 
+                                  '--'
+                                }
                               </div>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="details" className="space-y-4">
-                      {/* Today's Attendance */}
-                      {(() => {
-                        const todayData = getTodayAttendanceData();
-                        return (
-                          <div className="p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200">
-                            <h4 className="font-semibold text-blue-800 mb-3">Today's Attendance</h4>
-                            {todayData ? (
-                              <div className="grid grid-cols-3 gap-4 text-center">
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Check In</p>
-                                  <p className="font-medium text-green-600">{todayData.checkIn}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Check Out</p>
-                                  <p className="font-medium text-blue-600">{todayData.checkOut}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-muted-foreground">Total Hours</p>
-                                  <p className="font-medium text-purple-600">{todayData.totalHours}</p>
-                                </div>
+                            <div className="text-center">
+                              <p className="text-sm text-muted-foreground mb-1">Check Out</p>
+                              <div className="text-2xl font-bold text-blue-600">
+                                {todaysAttendance?.check_out_time ? 
+                                  new Date(todaysAttendance.check_out_time).toLocaleTimeString('en-US', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  }) : 
+                                  '--'
+                                }
                               </div>
-                            ) : (
-                              <p className="text-sm text-muted-foreground text-center">No attendance recorded for today</p>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {/* Date Selection */}
-                      <div className="space-y-4">
-                        <h4 className="font-semibold">Select Date to View Attendance</h4>
-                        <div className="flex justify-center">
-                          <CalendarComponent
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={setSelectedDate}
-                            className="rounded-md border pointer-events-auto"
-                          />
-                        </div>
-                        
-                        {/* Selected Date Attendance */}
-                        {(() => {
-                          const selectedDateAttendance = getSelectedDateAttendance();
-                          return (
-                             <div className="p-4 bg-muted/20 rounded-lg">
-                               <h5 className="font-medium mb-3">
-                                 Attendance for {selectedDate ? selectedDate.toLocaleDateString('en-US', { 
-                                   weekday: 'long', 
-                                   year: 'numeric', 
-                                   month: 'long', 
-                                   day: 'numeric' 
-                                 }) : 'Selected Date'}
-                               </h5>
-                              {selectedDateAttendance ? (
-                                <div className="grid grid-cols-3 gap-4 text-center">
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Check In</p>
-                                    <p className="font-medium text-green-600">{selectedDateAttendance.checkIn}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Check Out</p>
-                                    <p className="font-medium text-blue-600">{selectedDateAttendance.checkOut}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-muted-foreground">Total Hours</p>
-                                    <p className="font-medium text-purple-600">{selectedDateAttendance.totalHours}</p>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground text-center">No attendance recorded for this date</p>
-                              )}
                             </div>
-                          );
-                        })()}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </TabsContent>
-                
                 
                 <TabsContent value="absent" className="space-y-4">
                   <div className="space-y-3">
