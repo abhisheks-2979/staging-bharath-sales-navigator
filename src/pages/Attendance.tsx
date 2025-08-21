@@ -848,6 +848,7 @@ const Attendance = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Quick Action Buttons */}
               {showCamera && (
                 <div className="text-center space-y-4 bg-black/5 p-4 rounded-lg">
                   <h3 className="text-sm font-medium">Take your selfie for attendance</h3>
@@ -935,279 +936,329 @@ const Attendance = () => {
                   ✅ Attendance marked. Have a productive day!
                 </div>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Leave Management */}
-          <Card className="mb-6 bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between text-purple-600 text-base md:text-lg">
-                <div className="flex items-center gap-2">
-                  <FileText size={18} />
-                  Leave Management
-                </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="text-xs md:text-sm">
-                      <Plus size={14} className="mr-2" />
-                      Apply Leave
-                    </Button>
-                  </DialogTrigger>
-                   <DialogContent>
-                     <DialogHeader>
-                       <DialogTitle>
-                         {editingApplication ? 'Edit Leave Application' : 'Apply for Leave'}
-                       </DialogTitle>
-                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="leaveType">Leave Type</Label>
-                        <Select 
-                          value={leaveForm.leaveTypeId} 
-                          onValueChange={(value) => {
-                            setLeaveForm(prev => ({ ...prev, leaveTypeId: value }));
-                            setSelectedLeaveType(value);
-                          }}
-                        >
-                          <SelectTrigger className="bg-background border-input z-50">
-                            <SelectValue placeholder="Select leave type" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border-input shadow-lg z-50">
-                            {leaveTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id} className="hover:bg-muted">
-                                {type.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+              {/* Tabs Section */}
+              <Tabs defaultValue="attendance" className="w-full mt-6">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="attendance">My Attendance</TabsTrigger>
+                  <TabsTrigger value="leave">Leave</TabsTrigger>
+                  <TabsTrigger value="holiday">Holiday</TabsTrigger>
+                </TabsList>
 
-                      <div>
-                        <Label>Select leave type:</Label>
-                        <div className="flex gap-4 mt-2">
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="radio"
-                              id="full_day"
-                              name="dayType"
-                              value="full_day"
-                              checked={leaveForm.dayType === 'full_day'}
-                              onChange={(e) => setLeaveForm(prev => ({ ...prev, dayType: e.target.value }))}
-                              className="text-primary focus:ring-primary"
-                            />
-                            <Label htmlFor="full_day" className="text-sm font-normal cursor-pointer">Full Day</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="radio"
-                              id="half_day"
-                              name="dayType"
-                              value="half_day"
-                              checked={leaveForm.dayType === 'half_day'}
-                              onChange={(e) => setLeaveForm(prev => ({ ...prev, dayType: e.target.value }))}
-                              className="text-primary focus:ring-primary"
-                            />
-                            <Label htmlFor="half_day" className="text-sm font-normal cursor-pointer">Half Day</Label>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={leaveForm.startDate}
-                            onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={leaveForm.endDate}
-                            onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="reason">Reason</Label>
-                        <Textarea
-                          id="reason"
-                          placeholder="Please provide a reason for your leave..."
-                          value={leaveForm.reason}
-                          onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
-                        />
-                      </div>
-                      
-                      <Button 
-                        onClick={editingApplication ? updateLeaveApplication : applyLeave} 
-                        disabled={isApplyingLeave}
-                        className="w-full"
-                      >
-                        {isApplyingLeave ? 'Submitting...' : editingApplication ? 'Update Application' : 'Submit Application'}
-                      </Button>
-                      
-                      {editingApplication && (
-                        <Button 
-                          variant="outline"
-                          onClick={() => {
-                            setEditingApplication(null);
-                            setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '', dayType: 'full_day' });
-                          }}
-                          className="w-full"
-                        >
-                          Cancel Edit
-                        </Button>
-                      )}
+                {/* My Attendance Tab */}
+                <TabsContent value="attendance" className="space-y-4">
+                  <div className="bg-white rounded-lg border">
+                    <div className="p-4 border-b">
+                      <h3 className="font-semibold text-gray-800">Attendance Records</h3>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* User Info Section */}
-              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-3 mb-2">
-                  <User size={20} className="text-blue-600" />
-                  <h4 className="font-semibold text-blue-800">Employee Information</h4>
-                </div>
-                <div className="text-xs md:text-sm text-blue-700">
-                  <p><span className="font-medium">Name:</span> {userProfile?.full_name || 'Not available'}</p>
-                  <p><span className="font-medium">Username:</span> {userProfile?.username || 'Not available'}</p>
-                  <p><span className="font-medium">Phone:</span> {userProfile?.phone_number || 'Not available'}</p>
-                </div>
-              </div>
-
-              {/* Leave Type Sections */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-purple-800 mb-4 text-sm md:text-base">Leave Balance Overview</h4>
-                
-                {/* Show details only when a leave type is selected OR show all except LWP details */}
-                {leaveTypes.map((leaveType) => {
-                  const stats = getLeaveStatistics(leaveType.id);
-                  const isLeaveWithoutPay = leaveType.name === 'Leave Without Pay';
-                  const isSelected = selectedLeaveType === leaveType.id;
-                  
-                  return (
-                    <div key={leaveType.id} className="p-4 bg-white rounded-lg border border-purple-200 shadow-sm">
-                      <h5 className="font-medium text-purple-700 mb-3 text-sm md:text-base">{leaveType.name}</h5>
-                      
-                      {isLeaveWithoutPay ? (
-                        // For Leave Without Pay, only show Booked option
-                        <div className="flex justify-center">
-                            <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                              <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.booked}</div>
-                              <div className="text-xs md:text-sm text-blue-700 font-medium">Booked</div>
-                            </div>
-                        </div>
-                      ) : (
-                        // For other leave types, show full details only if not selected or if selected show all
-                        <div className={`grid ${isSelected || !selectedLeaveType ? 'grid-cols-3' : 'grid-cols-1'} gap-4`}>
-                          {(isSelected || !selectedLeaveType) && (
-                            <>
-                              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                                <div className="text-xl md:text-2xl font-bold text-green-600">{stats.available}</div>
-                                <div className="text-xs md:text-sm text-green-700 font-medium">Available</div>
-                              </div>
-                              <div className="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
-                                <div className="text-xl md:text-2xl font-bold text-orange-600">{stats.pending}</div>
-                                <div className="text-xs md:text-sm text-orange-700 font-medium">Pending</div>
-                              </div>
-                            </>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Check In</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Check Out</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {attendanceData.length > 0 ? (
+                            attendanceData.map((record, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-gray-800">
+                                  {new Date(record.date).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600">
+                                  {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="space-y-1">
+                                    <div className="text-gray-800 font-medium">{record.checkIn}</div>
+                                    <div className="text-gray-500 text-xs truncate max-w-20">{record.location}</div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="space-y-1">
+                                    <div className="text-gray-800 font-medium">{record.checkOut}</div>
+                                    <div className="text-gray-500 text-xs truncate max-w-20">{record.location}</div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    {record.totalHours}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <Button variant="ghost" size="sm" className="text-xs">
+                                    Details
+                                  </Button>
+                                  {record.checkIn === '-' || record.checkOut === '-' ? (
+                                    <Button variant="ghost" size="sm" className="text-xs text-orange-600 ml-1">
+                                      Regularize
+                                    </Button>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="px-3 py-8 text-center text-gray-500">
+                                No attendance records found
+                              </td>
+                            </tr>
                           )}
-                          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <div className="text-xl md:text-2xl font-bold text-blue-600">{stats.booked}</div>
-                            <div className="text-xs md:text-sm text-blue-700 font-medium">Booked</div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {leaveType.description && (
-                        <p className="text-xs text-muted-foreground mt-2">{leaveType.description}</p>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Pending Leave Applications */}
-                {leaveApplications.filter(app => app.status === 'pending').length > 0 && (
-                  <div className="mt-6">
-                    <h4 className="font-semibold text-orange-700 mb-4 text-sm md:text-base">Pending Leave Applications</h4>
-                    <div className="space-y-3">
-                      {leaveApplications
-                        .filter(app => app.status === 'pending')
-                        .map((application) => (
-                          <div key={application.id} className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200 shadow-sm">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge className="bg-orange-100 text-orange-700 border-orange-300">
-                                    {application.leave_types?.name || 'Unknown Leave Type'}
-                                  </Badge>
-                                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
-                                    Pending
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-gray-700 mb-1">
-                                  <span className="font-medium">Dates:</span> {' '}
-                                  {new Date(application.start_date).toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric' 
-                                  })} - {' '}
-                                  {new Date(application.end_date).toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric', 
-                                    year: 'numeric' 
-                                  })}
-                                </p>
-                                <p className="text-sm text-gray-700">
-                                  <span className="font-medium">Reason:</span> {application.reason}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-3 ml-4">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingApplication(application);
-                                    setLeaveForm({
-                                      leaveTypeId: application.leave_type_id,
-                                      startDate: application.start_date,
-                                      endDate: application.end_date,
-                                      reason: application.reason,
-                                      dayType: 'full_day' // Default for existing applications
-                                    });
-                                  }}
-                                  className="text-orange-600 hover:text-orange-700 hover:bg-orange-100"
-                                >
-                                  <Edit2 size={16} />
-                                </Button>
-                                <div className="text-right">
-                                  <p className="text-xs text-gray-500">Applied on</p>
-                                  <p className="text-sm font-medium text-gray-700">
-                                    {new Date(application.created_at).toLocaleDateString('en-US', { 
-                                      month: 'short', 
-                                      day: 'numeric' 
-                                    })}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                )}
-              </div>
+                </TabsContent>
+
+                {/* Leave Tab */}
+                <TabsContent value="leave" className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-800">Leave Management</h3>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="text-xs">
+                          <Plus size={14} className="mr-1" />
+                          Apply Leave
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>
+                            {editingApplication ? 'Edit Leave Application' : 'Apply for Leave'}
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="leaveType">Leave Type</Label>
+                            <Select 
+                              value={leaveForm.leaveTypeId} 
+                              onValueChange={(value) => {
+                                setLeaveForm(prev => ({ ...prev, leaveTypeId: value }));
+                                setSelectedLeaveType(value);
+                              }}
+                            >
+                              <SelectTrigger className="bg-background border-input">
+                                <SelectValue placeholder="Select leave type" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background border-input shadow-lg z-50">
+                                {leaveTypes.map((type) => {
+                                  const stats = getLeaveStatistics(type.id);
+                                  return (
+                                    <SelectItem 
+                                      key={type.id} 
+                                      value={type.id} 
+                                      className="hover:bg-muted"
+                                      disabled={stats.available === 0}
+                                    >
+                                      <div className="flex justify-between items-center w-full">
+                                        <span>{type.name}</span>
+                                        <span className={`text-xs ml-2 ${stats.available === 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                          {stats.available === 0 ? 'No balance' : `${stats.available} days`}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                            {selectedLeaveType && (
+                              <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
+                                <div className="font-medium text-blue-800">Leave Balance:</div>
+                                <div className="text-blue-600">
+                                  Available: {getLeaveStatistics(selectedLeaveType).available} days
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <Label>Select leave type:</Label>
+                            <div className="flex gap-4 mt-2">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="radio"
+                                  id="full_day"
+                                  name="dayType"
+                                  value="full_day"
+                                  checked={leaveForm.dayType === 'full_day'}
+                                  onChange={(e) => setLeaveForm(prev => ({ ...prev, dayType: e.target.value }))}
+                                  className="text-primary focus:ring-primary"
+                                />
+                                <Label htmlFor="full_day" className="text-sm font-normal cursor-pointer">Full Day</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="radio"
+                                  id="half_day"
+                                  name="dayType"
+                                  value="half_day"
+                                  checked={leaveForm.dayType === 'half_day'}
+                                  onChange={(e) => setLeaveForm(prev => ({ ...prev, dayType: e.target.value }))}
+                                  className="text-primary focus:ring-primary"
+                                />
+                                <Label htmlFor="half_day" className="text-sm font-normal cursor-pointer">Half Day</Label>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="startDate">Start Date</Label>
+                              <Input
+                                id="startDate"
+                                type="date"
+                                value={leaveForm.startDate}
+                                onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="endDate">End Date</Label>
+                              <Input
+                                id="endDate"
+                                type="date"
+                                value={leaveForm.endDate}
+                                onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="reason">Reason</Label>
+                            <Textarea
+                              id="reason"
+                              placeholder="Enter reason for leave"
+                              value={leaveForm.reason}
+                              onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
+                              rows={3}
+                            />
+                          </div>
+                          
+                          <div className="flex justify-end space-x-2">
+                            {editingApplication && (
+                              <Button 
+                                variant="outline" 
+                                onClick={() => {
+                                  setEditingApplication(null);
+                                  setLeaveForm({ leaveTypeId: '', startDate: '', endDate: '', reason: '', dayType: 'full_day' });
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                            <Button 
+                              onClick={editingApplication ? updateLeaveApplication : applyLeave} 
+                              disabled={isApplyingLeave}
+                            >
+                              {isApplyingLeave ? 'Submitting...' : editingApplication ? 'Update' : 'Apply'}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  {/* Leave Balance Cards */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {leaveTypes.map((type) => {
+                      const stats = getLeaveStatistics(type.id);
+                      return (
+                        <div key={type.id} className="bg-white p-3 rounded-lg border">
+                          <h4 className="font-medium text-gray-800 text-sm">{type.name}</h4>
+                          <div className="mt-2 space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Available:</span>
+                              <span className="font-medium text-green-600">{stats.available}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Booked:</span>
+                              <span className="font-medium text-blue-600">{stats.booked}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Pending:</span>
+                              <span className="font-medium text-orange-600">{stats.pending}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pending Leave Applications */}
+                  <div className="bg-white rounded-lg border">
+                    <div className="p-4 border-b">
+                      <h3 className="font-semibold text-gray-800">Pending Leave Applications</h3>
+                    </div>
+                    <div className="space-y-3 p-4">
+                      {leaveApplications.filter(app => app.status === 'pending').length > 0 ? (
+                        leaveApplications.filter(app => app.status === 'pending').map((application) => (
+                          <div key={application.id} className="border rounded-lg p-3 bg-yellow-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {application.leave_types?.name}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs text-orange-600">
+                                    Pending
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingApplication(application);
+                                      setLeaveForm({
+                                        leaveTypeId: application.leave_type_id,
+                                        startDate: application.start_date,
+                                        endDate: application.end_date,
+                                        reason: application.reason,
+                                        dayType: 'full_day'
+                                      });
+                                    }}
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    <Edit2 size={12} />
+                                  </Button>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  <div>📅 {new Date(application.start_date).toLocaleDateString('en-GB')} - {new Date(application.end_date).toLocaleDateString('en-GB')}</div>
+                                  <div>📝 {application.reason}</div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Applied on: {new Date(application.applied_date || application.created_at).toLocaleDateString('en-GB')}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-gray-500 py-4">
+                          No pending leave applications
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Holiday Tab */}
+                <TabsContent value="holiday" className="space-y-4">
+                  <div className="bg-white rounded-lg border">
+                    <div className="p-4 border-b">
+                      <h3 className="font-semibold text-gray-800">Official Holidays</h3>
+                      <p className="text-xs text-gray-600 mt-1">Company declared holidays for the year</p>
+                    </div>
+                    <div className="p-4">
+                      <HolidayList />
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
-
-          {/* Holiday List Section */}
-          <HolidayList />
 
           {/* Attendance Details Modal */}
           <Dialog open={showAttendanceDetails} onOpenChange={setShowAttendanceDetails}>
