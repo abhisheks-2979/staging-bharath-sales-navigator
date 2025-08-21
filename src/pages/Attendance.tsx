@@ -720,11 +720,23 @@ const Attendance = () => {
                 <div className="text-xl md:text-2xl font-bold">{stats.attendance}%</div>
                 <div className="text-xs md:text-sm text-primary-foreground/80">This Month</div>
               </div>
-              <div className="text-center">
+              <div 
+                className="text-center cursor-pointer hover:bg-white/10 rounded-lg p-2 transition-colors"
+                onClick={() => {
+                  setShowAttendanceDetails(true);
+                  setDetailsType('present');
+                }}
+              >
                 <div className="text-xl md:text-2xl font-bold">{stats.presentDays}</div>
                 <div className="text-xs md:text-sm text-primary-foreground/80">Present Days</div>
               </div>
-              <div className="text-center">
+              <div 
+                className="text-center cursor-pointer hover:bg-white/10 rounded-lg p-2 transition-colors"
+                onClick={() => {
+                  setShowAttendanceDetails(true);
+                  setDetailsType('absent');
+                }}
+              >
                 <div className="text-xl md:text-2xl font-bold">{stats.absentDays}</div>
                 <div className="text-xs md:text-sm text-primary-foreground/80">Absent Days</div>
               </div>
