@@ -449,12 +449,41 @@ const Attendance = () => {
     setLocationStored(false);
     setPhotoStored(false);
     
+    // Check if already marked for the day
+    const today = new Date().toISOString().split('T')[0];
+    if (type === 'check_in' && todaysAttendance?.check_in_time) {
+      toast({
+        title: "Already Checked In",
+        description: "You have already marked your attendance for today.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (type === 'check_out' && todaysAttendance?.check_out_time) {
+      toast({
+        title: "Already Checked Out", 
+        description: "You have already checked out for today.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (type === 'check_out' && !todaysAttendance?.check_in_time) {
+      toast({
+        title: "Check In First",
+        description: "Please check in first before checking out.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Get current location
     if (!location) {
       getCurrentLocation();
     }
     
-    // Start camera for photo capture
+    // Start camera for photo capture (camera only, no gallery)
     if (!capturedPhoto) {
       await startCamera();
       return;
@@ -501,7 +530,6 @@ const Attendance = () => {
 
       const photoUrl = `attendance-photos/${photoFileName}`;
       const currentTime = new Date().toISOString();
-      const today = new Date().toISOString().split('T')[0];
 
       if (type === 'check_in') {
         // Check if attendance record exists for today
@@ -578,10 +606,24 @@ const Attendance = () => {
       setLocationStored(true);
       setPhotoStored(true);
       
-      toast({
-        title: "Success",
-        description: `${type === 'check_in' ? 'Check-in' : 'Check-out'} marked successfully!`,
-      });
+      // Success message as specified
+      if (type === 'check_out') {
+        toast({
+          title: "✅ Attendance marked. Have a productive day!",
+          description: `Check-out completed successfully at ${new Date(currentTime).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}`,
+        });
+      } else {
+        toast({
+          title: "Day Started Successfully!",
+          description: `Check-in completed at ${new Date(currentTime).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}`,
+        });
+      }
 
       setCapturedPhoto(null);
       await fetchAttendanceData();
@@ -797,68 +839,102 @@ const Attendance = () => {
         {/* Content */}
         <div className="p-4 -mt-4 relative z-10">
 
-          {/* Mark Attendance Section */}
+          {/* Mark Attendance Module */}
           <Card className="mb-6 bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-600 text-base md:text-lg">
                 <Clock size={18} />
-                Mark Attendance
+                Mark Attendance Module
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs md:text-sm">
-                  <div className="flex items-center gap-2">
-                    <MapPin size={14} />
-                    <span>Location captured</span>
-                  </div>
-                  {locationStored && <span className="text-green-600">✅</span>}
-                </div>
-                
-                <div className="flex items-center justify-between text-xs md:text-sm">
-                  <div className="flex items-center gap-2">
-                    <Camera size={14} />
-                    <span>Photo captured & uploaded</span>
-                  </div>
-                  {photoStored && <span className="text-green-600">✅</span>}
-                </div>
-              </div>
-
               {showCamera && (
-                <div className="text-center space-y-4">
+                <div className="text-center space-y-4 bg-black/5 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium">Take your selfie for attendance</h3>
                   <video 
                     ref={videoRef} 
                     autoPlay 
                     playsInline 
-                    className="w-full max-w-xs rounded-lg mx-auto"
+                    className="w-full max-w-xs rounded-lg mx-auto border-2 border-primary/20"
                   />
-                  <Button onClick={capturePhoto} className="w-full">
-                    Take Photo
+                  <Button onClick={capturePhoto} className="w-full max-w-xs">
+                    <Camera size={16} className="mr-2" />
+                    Capture Photo
                   </Button>
                 </div>
               )}
 
               <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Check In Button */}
+              <div className="space-y-2">
                 <Button 
                   onClick={() => markAttendance('check_in')} 
-                  disabled={isMarkingAttendance}
-                  className="w-full text-sm md:text-base"
+                  disabled={isMarkingAttendance || (todaysAttendance?.check_in_time)}
+                  className={`w-full text-sm md:text-base py-6 ${
+                    todaysAttendance?.check_in_time 
+                      ? 'bg-green-600 hover:bg-green-600' 
+                      : 'bg-gray-400 hover:bg-gray-500'
+                  }`}
                 >
-                  <Clock size={14} className="mr-2" />
-                  Check In
+                  <Clock size={16} className="mr-2" />
+                  {todaysAttendance?.check_in_time ? 'Day Started ✓' : 'Start My Day'}
                 </Button>
+                {todaysAttendance?.check_in_time && (
+                  <p className="text-xs text-green-600 text-center">
+                    ✅ Checked in at {new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </p>
+                )}
+              </div>
+
+              {/* Check Out Button */}
+              <div className="space-y-2">
                 <Button 
                   onClick={() => markAttendance('check_out')} 
-                  disabled={isMarkingAttendance}
-                  variant="outline"
-                  className="w-full text-sm md:text-base"
+                  disabled={isMarkingAttendance || !todaysAttendance?.check_in_time || todaysAttendance?.check_out_time}
+                  className={`w-full text-sm md:text-base py-6 ${
+                    todaysAttendance?.check_out_time 
+                      ? 'bg-green-600 hover:bg-green-600' 
+                      : 'bg-gray-400 hover:bg-gray-500'
+                  }`}
                 >
-                  <Clock size={14} className="mr-2" />
-                  Check Out
+                  <Clock size={16} className="mr-2" />
+                  {todaysAttendance?.check_out_time ? 'Day Ended ✓' : 'End My Day'}
                 </Button>
+                {todaysAttendance?.check_out_time && (
+                  <div className="text-xs text-green-600 text-center space-y-1">
+                    <p>✅ Checked out at {new Date(todaysAttendance.check_out_time).toLocaleTimeString('en-US', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}</p>
+                    {todaysAttendance.total_hours && (
+                      <p>🕒 Total Hours: {todaysAttendance.total_hours.toFixed(1)} hrs</p>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Status Messages */}
+              {!todaysAttendance?.check_in_time && (
+                <div className="text-center text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  📱 Tap "Start My Day" to mark your attendance with selfie and location
+                </div>
+              )}
+              
+              {todaysAttendance?.check_in_time && !todaysAttendance?.check_out_time && (
+                <div className="text-center text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                  ⏰ Don't forget to "End My Day" when you finish work
+                </div>
+              )}
+
+              {todaysAttendance?.check_in_time && todaysAttendance?.check_out_time && (
+                <div className="text-center text-sm text-green-600 bg-green-50 p-3 rounded-lg">
+                  ✅ Attendance marked. Have a productive day!
+                </div>
+              )}
             </CardContent>
           </Card>
 
