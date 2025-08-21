@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User, Edit2 } from "lucide-react";
+import { Calendar, Clock, MapPin, ArrowLeft, CheckCircle, XCircle, CalendarDays, Camera, Plus, FileText, User, Edit2, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,14 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useFaceMatching, type FaceMatchResult } from "@/hooks/useFaceMatching";
 import HolidayList from "@/components/HolidayList";
 
 const Attendance = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const { compareImages, getMatchStatusIcon, getMatchStatusText } = useFaceMatching();
   const [attendanceData, setAttendanceData] = useState([]);
   const [todaysAttendance, setTodaysAttendance] = useState(null);
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -54,6 +56,7 @@ const Attendance = () => {
   const [locationStored, setLocationStored] = useState(false);
   const [photoStored, setPhotoStored] = useState(false);
   const [editingApplication, setEditingApplication] = useState(null);
+  const [faceMatchResults, setFaceMatchResults] = useState({});
 
   const stats = {
     totalDays: 20,
@@ -71,6 +74,7 @@ const Attendance = () => {
     fetchLeaveBalance();
     fetchLeaveApplications();
     getCurrentLocation();
+    performFaceMatching();
   }, []);
 
   const getCurrentLocation = () => {
@@ -91,6 +95,46 @@ const Attendance = () => {
           });
         }
       );
+    }
+  };
+
+  const performFaceMatching = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's baseline photo
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('photo_url')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!employeeData?.photo_url) return;
+
+      // Get attendance records with photos
+      const { data: attendanceRecords } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .not('check_in_photo_url', 'is', null)
+        .order('date', { ascending: false })
+        .limit(10);
+
+      if (!attendanceRecords) return;
+
+      // Perform face matching for each record
+      const matchResults = {};
+      for (const record of attendanceRecords) {
+        if (record.check_in_photo_url) {
+          const result = await compareImages(employeeData.photo_url, record.check_in_photo_url);
+          matchResults[record.id] = result;
+        }
+      }
+
+      setFaceMatchResults(matchResults);
+    } catch (error) {
+      console.error('Error performing face matching:', error);
     }
   };
 
@@ -1012,6 +1056,7 @@ const Attendance = () => {
                             <th className="px-3 py-2 text-left font-medium text-gray-600">Day Start</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600">Day End</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Face Match</th>
                             <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
                           </tr>
                         </thead>
@@ -1037,13 +1082,31 @@ const Attendance = () => {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
+                                  {faceMatchResults[record.id] ? (
+                                    <div className="flex items-center justify-center gap-1">
+                                      <span className="text-lg">
+                                        {getMatchStatusIcon(faceMatchResults[record.id])}
+                                      </span>
+                                      <span className={`text-xs ${
+                                        faceMatchResults[record.id].color === 'green' ? 'text-green-600' :
+                                        faceMatchResults[record.id].color === 'amber' ? 'text-amber-600' :
+                                        'text-red-600'
+                                      }`}>
+                                        {getMatchStatusText(faceMatchResults[record.id]).split(' ')[0]}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">No data</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-center">
                                   <Dialog>
                                     <DialogTrigger asChild>
                                       <Button variant="ghost" size="sm" className="text-xs">
                                         Details
                                       </Button>
                                     </DialogTrigger>
-                                    <AttendanceDetailModal record={record} />
+                                    <AttendanceDetailModal record={record} faceMatchResult={faceMatchResults[record.id]} />
                                   </Dialog>
                                   {record.checkIn === '-' || record.checkOut === '-' ? (
                                     <Dialog>
@@ -1060,7 +1123,7 @@ const Attendance = () => {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan={6} className="px-3 py-8 text-center text-gray-500">
+                              <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
                                 No attendance records found
                               </td>
                             </tr>
@@ -1546,7 +1609,32 @@ const Attendance = () => {
 };
 
 // Attendance Detail Modal Component
-const AttendanceDetailModal = ({ record }) => {
+const AttendanceDetailModal = ({ record, faceMatchResult }) => {
+  const [employeePhoto, setEmployeePhoto] = useState(null);
+  const { userProfile } = useAuth();
+
+  useEffect(() => {
+    fetchEmployeePhoto();
+  }, []);
+
+  const fetchEmployeePhoto = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('photo_url')
+        .eq('user_id', user.id)
+        .single();
+
+      if (employeeData?.photo_url) {
+        setEmployeePhoto(employeeData.photo_url);
+      }
+    } catch (error) {
+      console.error('Error fetching employee photo:', error);
+    }
+  };
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
@@ -1584,9 +1672,69 @@ const AttendanceDetailModal = ({ record }) => {
         </div>
 
         <div className="border-t pt-3">
+          <Label className="font-semibold">Face Verification:</Label>
+          {faceMatchResult ? (
+            <div className="mt-2 p-3 rounded-lg border">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">Match Status:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">
+                    {faceMatchResult.status === 'match' ? '✅' : 
+                     faceMatchResult.status === 'partial' ? '⚠️' : '❌'}
+                  </span>
+                  <span className={`text-sm font-medium ${
+                    faceMatchResult.color === 'green' ? 'text-green-600' :
+                    faceMatchResult.color === 'amber' ? 'text-amber-600' :
+                    'text-red-600'
+                  }`}>
+                    {faceMatchResult.status === 'match' ? 'Verified' :
+                     faceMatchResult.status === 'partial' ? 'Partial Match' : 
+                     'No Match'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-gray-600">
+                Confidence: {Math.round(faceMatchResult.confidence)}%
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-gray-500 p-2 bg-gray-50 rounded">
+              Face verification not available
+            </div>
+          )}
+        </div>
+
+        <div className="border-t pt-3">
           <Label className="font-semibold">Photos:</Label>
-          <div className="mt-2 text-xs text-gray-500">
-            <p>Check-in and check-out photos will be displayed here</p>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">Baseline Photo:</Label>
+              {employeePhoto ? (
+                <img 
+                  src={employeePhoto} 
+                  alt="Employee baseline" 
+                  className="w-full h-24 object-cover rounded border mt-1"
+                />
+              ) : (
+                <div className="w-full h-24 bg-gray-100 rounded border mt-1 flex items-center justify-center text-xs text-gray-400">
+                  No baseline photo
+                </div>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">Attendance Photo:</Label>
+              {record.checkInPhoto ? (
+                <img 
+                  src={record.checkInPhoto} 
+                  alt="Check-in photo" 
+                  className="w-full h-24 object-cover rounded border mt-1"
+                />
+              ) : (
+                <div className="w-full h-24 bg-gray-100 rounded border mt-1 flex items-center justify-center text-xs text-gray-400">
+                  No photo taken
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
