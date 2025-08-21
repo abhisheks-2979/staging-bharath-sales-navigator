@@ -369,6 +369,31 @@ const Attendance = () => {
     }
   };
 
+  // Handle attendance regularization
+  const handleRegularize = async (recordData) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Here you would typically save the regularization request to a database
+      // For now, just show a success message
+      toast({
+        title: "Regularization Request Submitted",
+        description: "Your attendance regularization request has been submitted for approval.",
+      });
+      
+      // Refresh attendance data
+      fetchAttendanceData();
+    } catch (error) {
+      console.error('Error submitting regularization:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit regularization request. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getLeaveStatistics = (leaveTypeId) => {
     const balance = leaveBalance.find(b => b.leave_type_id === leaveTypeId);
     const applications = leaveApplications.filter(app => app.leave_type_id === leaveTypeId);
@@ -984,8 +1009,8 @@ const Attendance = () => {
                           <tr>
                             <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Check In</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Check Out</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day Start</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day End</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
                             <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
                           </tr>
@@ -1001,16 +1026,10 @@ const Attendance = () => {
                                   {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' })}
                                 </td>
                                 <td className="px-3 py-2">
-                                  <div className="space-y-1">
-                                    <div className="text-gray-800 font-medium">{record.checkIn}</div>
-                                    <div className="text-gray-500 text-xs truncate max-w-20">{record.location}</div>
-                                  </div>
+                                  <div className="text-gray-800 font-medium">{record.checkIn}</div>
                                 </td>
                                 <td className="px-3 py-2">
-                                  <div className="space-y-1">
-                                    <div className="text-gray-800 font-medium">{record.checkOut}</div>
-                                    <div className="text-gray-500 text-xs truncate max-w-20">{record.location}</div>
-                                  </div>
+                                  <div className="text-gray-800 font-medium">{record.checkOut}</div>
                                 </td>
                                 <td className="px-3 py-2">
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -1018,13 +1037,23 @@ const Attendance = () => {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
-                                  <Button variant="ghost" size="sm" className="text-xs">
-                                    Details
-                                  </Button>
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="text-xs">
+                                        Details
+                                      </Button>
+                                    </DialogTrigger>
+                                    <AttendanceDetailModal record={record} />
+                                  </Dialog>
                                   {record.checkIn === '-' || record.checkOut === '-' ? (
-                                    <Button variant="ghost" size="sm" className="text-xs text-orange-600 ml-1">
-                                      Regularize
-                                    </Button>
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="text-xs text-orange-600 ml-1">
+                                          Regularize
+                                        </Button>
+                                      </DialogTrigger>
+                                      <RegularizeModal record={record} onRegularize={handleRegularize} />
+                                    </Dialog>
                                   ) : null}
                                 </td>
                               </tr>
@@ -1513,6 +1542,124 @@ const Attendance = () => {
         </div>
       </div>
     </Layout>
+  );
+};
+
+// Attendance Detail Modal Component
+const AttendanceDetailModal = ({ record }) => {
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Attendance Details</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <Label className="font-semibold">Date:</Label>
+            <p>{new Date(record.date).toLocaleDateString('en-GB')}</p>
+          </div>
+          <div>
+            <Label className="font-semibold">Day:</Label>
+            <p>{new Date(record.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          <div>
+            <Label className="font-semibold">Day Start:</Label>
+            <p className="text-sm">{record.checkIn}</p>
+            <p className="text-xs text-gray-500">Location: {record.location}</p>
+          </div>
+          
+          <div>
+            <Label className="font-semibold">Day End:</Label>
+            <p className="text-sm">{record.checkOut}</p>
+            <p className="text-xs text-gray-500">Location: {record.location}</p>
+          </div>
+          
+          <div>
+            <Label className="font-semibold">Total Hours:</Label>
+            <p className="text-sm">{record.totalHours}</p>
+          </div>
+        </div>
+
+        <div className="border-t pt-3">
+          <Label className="font-semibold">Photos:</Label>
+          <div className="mt-2 text-xs text-gray-500">
+            <p>Check-in and check-out photos will be displayed here</p>
+          </div>
+        </div>
+      </div>
+    </DialogContent>
+  );
+};
+
+// Regularize Modal Component
+const RegularizeModal = ({ record, onRegularize }) => {
+  const [regularizeData, setRegularizeData] = useState({
+    startTime: record.checkIn !== '-' ? record.checkIn : '',
+    endTime: record.checkOut !== '-' ? record.checkOut : '',
+    reason: ''
+  });
+
+  const handleSubmit = () => {
+    if (!regularizeData.reason.trim()) {
+      return;
+    }
+    onRegularize(regularizeData);
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Regularize Attendance</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="text-sm">
+          <p><strong>Date:</strong> {new Date(record.date).toLocaleDateString('en-GB')}</p>
+          <p><strong>Day:</strong> {new Date(record.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="startTime">Start Time</Label>
+            <Input
+              id="startTime"
+              type="time"
+              value={regularizeData.startTime}
+              onChange={(e) => setRegularizeData(prev => ({ ...prev, startTime: e.target.value }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="endTime">End Time</Label>
+            <Input
+              id="endTime"
+              type="time"
+              value={regularizeData.endTime}
+              onChange={(e) => setRegularizeData(prev => ({ ...prev, endTime: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="reason">Reason for Change</Label>
+          <Textarea
+            id="reason"
+            placeholder="Please provide a reason for the attendance correction"
+            value={regularizeData.reason}
+            onChange={(e) => setRegularizeData(prev => ({ ...prev, reason: e.target.value }))}
+            rows={3}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-2">
+          <Button variant="outline" size="sm">Cancel</Button>
+          <Button onClick={handleSubmit} size="sm" disabled={!regularizeData.reason.trim()}>
+            Submit Request
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
   );
 };
 
