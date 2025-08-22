@@ -1014,7 +1014,15 @@ const Attendance = () => {
 
               <div className="space-y-2">
                 <Button 
-                  onClick={() => markAttendance('check_in')} 
+                  onClick={() => {
+                    if (!todaysAttendance?.check_in_time) {
+                      toast({
+                        title: "🌟 Have a productive day!",
+                        description: "Let's make today amazing! Starting your attendance now...",
+                      });
+                    }
+                    markAttendance('check_in');
+                  }} 
                   disabled={isMarkingAttendance || (todaysAttendance?.check_in_time)}
                   className={`w-full text-sm md:text-base py-6 ${
                     todaysAttendance?.check_in_time 
@@ -1026,12 +1034,19 @@ const Attendance = () => {
                   {todaysAttendance?.check_in_time ? 'Day Started ✓' : 'Start My Day'}
                 </Button>
                 {todaysAttendance?.check_in_time && (
-                  <p className="text-xs text-green-600 text-center">
-                    ✅ Checked in at {new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
+                  <div className="text-xs text-green-600 text-center space-y-1">
+                    <p>✅ Checked in at {new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
                       hour: '2-digit', 
                       minute: '2-digit' 
-                    })}
-                  </p>
+                    })}</p>
+                    {todaysAttendance.check_in_location && (
+                      <p className="text-gray-600">
+                        📍 {todaysAttendance.check_in_address ? 
+                          todaysAttendance.check_in_address.split(',')[0] : 
+                          'Location'} ({todaysAttendance.check_in_location.latitude?.toFixed(4)}, {todaysAttendance.check_in_location.longitude?.toFixed(4)})
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1199,8 +1214,115 @@ const Attendance = () => {
                 </TabsContent>
 
 
-                <TabsContent value="leave">
-                  <div className="p-4">Leave management content here...</div>
+                <TabsContent value="leave" className="space-y-4">
+                  {/* Leave Statistics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {leaveTypes.map(leaveType => {
+                      const stats = getLeaveStatistics(leaveType.id);
+                      return (
+                        <div key={leaveType.id} className="space-y-2">
+                          <div className="bg-white rounded-lg border p-4">
+                            <h4 className="font-medium text-sm text-gray-700 mb-3">{leaveType.name}</h4>
+                            <div className="space-y-2">
+                              <div 
+                                className="flex justify-between items-center p-2 bg-green-50 rounded cursor-pointer hover:bg-green-100"
+                                onClick={() => {/* Will add modal later */}}
+                              >
+                                <span className="text-xs text-green-700">Balance</span>
+                                <span className="text-sm font-semibold text-green-800">{stats.available}</span>
+                              </div>
+                              <div 
+                                className="flex justify-between items-center p-2 bg-yellow-50 rounded cursor-pointer hover:bg-yellow-100"
+                                onClick={() => {/* Will add modal later */}}
+                              >
+                                <span className="text-xs text-yellow-700">Pending</span>
+                                <span className="text-sm font-semibold text-yellow-800">{stats.pending}</span>
+                              </div>
+                              <div 
+                                className="flex justify-between items-center p-2 bg-blue-50 rounded cursor-pointer hover:bg-blue-100"
+                                onClick={() => {/* Will add modal later */}}
+                              >
+                                <span className="text-xs text-blue-700">Booked</span>
+                                <span className="text-sm font-semibold text-blue-800">{stats.booked}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Apply Leave Form */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Apply for Leave</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="leaveType">Leave Type</Label>
+                          <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select leave type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {leaveTypes.map(type => (
+                                <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="dayType">Day Type</Label>
+                          <Select value={leaveForm.dayType} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, dayType: value }))}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="full_day">Full Day</SelectItem>
+                              <SelectItem value="half_day">Half Day</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="startDate">Start Date</Label>
+                          <Input
+                            id="startDate"
+                            type="date"
+                            value={leaveForm.startDate}
+                            onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="endDate">End Date</Label>
+                          <Input
+                            id="endDate"
+                            type="date"
+                            value={leaveForm.endDate}
+                            onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="reason">Reason</Label>
+                        <Textarea
+                          id="reason"
+                          placeholder="Reason for leave"
+                          value={leaveForm.reason}
+                          onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
+                          rows={3}
+                        />
+                      </div>
+                      
+                      <Button onClick={applyLeave} disabled={isApplyingLeave} className="w-full">
+                        {isApplyingLeave ? 'Submitting...' : 'Submit Leave Application'}
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="holiday">
@@ -1286,22 +1408,6 @@ const Attendance = () => {
             </div>
           </DialogContent>
         </Dialog>
-
-        {selectedAttendanceDate && (
-          <Dialog open={!!selectedAttendanceDate} onOpenChange={() => setSelectedAttendanceDate(null)}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Attendance Details</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <p><strong>Date:</strong> {new Date(selectedAttendanceDate.date).toLocaleDateString('en-GB')}</p>
-                <p><strong>Check In:</strong> {selectedAttendanceDate.record.checkIn}</p>
-                <p><strong>Check Out:</strong> {selectedAttendanceDate.record.checkOut}</p>
-                <p><strong>Total Hours:</strong> {selectedAttendanceDate.record.totalHours}</p>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
     </Layout>
   );
