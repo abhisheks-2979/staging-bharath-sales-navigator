@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
@@ -44,9 +45,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const navigate = useNavigate();
   const [showNoOrderModal, setShowNoOrderModal] = useState(false);
   const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
-  const [showCompetitionModal, setShowCompetitionModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [showBrandingModal, setShowBrandingModal] = useState(false);
+  const [feedbackActiveTab, setFeedbackActiveTab] = useState("menu");
   const [showStockCycleModal, setShowStockCycleModal] = useState(false);
   const [showStockCycleTable, setShowStockCycleTable] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
@@ -582,23 +582,6 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     onViewDetails(visitId);
   };
 
-  const handleOpenBranding = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({ title: 'Login required', description: 'Please sign in to create branding requests.', variant: 'destructive' });
-        return;
-      }
-      const today = new Date().toISOString().split('T')[0];
-      const retailerId = visit.retailerId || visit.id;
-      const visitId = await ensureVisit(user.id, retailerId, today);
-      setCurrentVisitId(visitId);
-      setShowBrandingModal(true);
-    } catch (err: any) {
-      console.error('Open branding modal error', err);
-      toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
-    }
-  };
 
   const loadLastOrder = async () => {
     try {
@@ -797,38 +780,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           </div>
 
           {/* Second row - Feedback actions */}
-          <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
-              onClick={() => setShowCompetitionModal(true)}
-              title="Competition Insights"
-            >
-              <Users size={12} className="sm:size-3.5" />
-              <span className="text-xs">Competition</span>
-            </Button>
-            
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Button 
               variant="outline" 
               size="sm"
               className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
               onClick={() => setShowFeedbackModal(true)}
-              title="Retailer Feedback"
+              title="Feedback - Branding, Retailer Feedback & Competition Insights"
             >
               <MessageSquare size={12} className="sm:size-3.5" />
               <span className="text-xs">Feedback</span>
-            </Button>
-
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
-              onClick={handleOpenBranding}
-              title="Branding Request"
-            >
-              <Paintbrush size={12} className="sm:size-3.5" />
-              <span className="text-xs">Branding</span>
             </Button>
 
             <Button 
@@ -841,6 +802,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <Package size={12} className="sm:size-3.5" />
               <span className="text-xs">Stock Cycle</span>
             </Button>
+            
+            <div></div>
           </div>
 
           {(visit.hasOrder || hasOrderToday) && (
@@ -943,29 +906,85 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           currentReason={noOrderReason}
         />
 
-        <CompetitionInsightModal
-          isOpen={showCompetitionModal}
-          onClose={() => setShowCompetitionModal(false)}
-          visitId={currentVisitId || visit.id}
-          retailerId={(visit.retailerId || visit.id) as string}
-          retailerName={visit.retailerName}
-        />
+        {/* Unified Feedback Modal with Tabs */}
+        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && (
+          <RetailerFeedbackModal
+            isOpen={true}
+            onClose={() => setShowFeedbackModal(false)}
+            visitId={currentVisitId || visit.id}
+            retailerId={(visit.retailerId || visit.id) as string}
+            retailerName={visit.retailerName}
+          />
+        )}
 
-        <RetailerFeedbackModal
-          isOpen={showFeedbackModal}
-          onClose={() => setShowFeedbackModal(false)}
-          visitId={currentVisitId || visit.id}
-          retailerId={(visit.retailerId || visit.id) as string}
-          retailerName={visit.retailerName}
-        />
+        {showFeedbackModal && feedbackActiveTab === "competition" && (
+          <CompetitionInsightModal
+            isOpen={true}
+            onClose={() => setShowFeedbackModal(false)}
+            visitId={currentVisitId || visit.id}
+            retailerId={(visit.retailerId || visit.id) as string}
+            retailerName={visit.retailerName}
+          />
+        )}
 
-        <BrandingRequestModal
-          isOpen={showBrandingModal}
-          onClose={() => setShowBrandingModal(false)}
-          defaultVisitId={currentVisitId}
-          defaultRetailerId={(visit.retailerId || visit.id) as string}
-          defaultPincode={null}
-        />
+        {showFeedbackModal && feedbackActiveTab === "branding" && (
+          <BrandingRequestModal
+            isOpen={true}
+            onClose={() => setShowFeedbackModal(false)}
+            defaultVisitId={currentVisitId}
+            defaultRetailerId={(visit.retailerId || visit.id) as string}
+            defaultPincode={null}
+          />
+        )}
+
+        {/* Tab Selector Modal */}
+        <Dialog open={showFeedbackModal && !['retailer-feedback', 'competition', 'branding'].includes(feedbackActiveTab)} onOpenChange={(open) => {
+          if (!open) setShowFeedbackModal(false);
+        }}>
+          <DialogContent className="max-w-[95vw] sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold">Feedback Options</DialogTitle>
+              <p className="text-sm text-muted-foreground">{visit.retailerName}</p>
+            </DialogHeader>
+            <div className="grid gap-3 py-4">
+              <Button
+                variant="outline"
+                className="h-16 flex flex-col items-center gap-2"
+                onClick={() => setFeedbackActiveTab("retailer-feedback")}
+              >
+                <MessageSquare size={24} />
+                <div className="text-center">
+                  <div className="font-medium">Retailer Feedback</div>
+                  <div className="text-xs text-muted-foreground">Share feedback about the retailer</div>
+                </div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="h-16 flex flex-col items-center gap-2"
+                onClick={() => setFeedbackActiveTab("competition")}
+              >
+                <Users size={24} />
+                <div className="text-center">
+                  <div className="font-medium">Competition Insight</div>
+                  <div className="text-xs text-muted-foreground">Record competitor information</div>
+                </div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="h-16 flex flex-col items-center gap-2"
+                onClick={() => setFeedbackActiveTab("branding")}
+              >
+                <Paintbrush size={24} />
+                <div className="text-center">
+                  <div className="font-medium">Branding Request</div>
+                  <div className="text-xs text-muted-foreground">Request branding materials</div>
+                </div>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <StockCycleModal
           isOpen={showStockCycleModal}
