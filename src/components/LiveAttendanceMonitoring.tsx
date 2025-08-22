@@ -382,20 +382,49 @@ const LiveAttendanceMonitoring = () => {
                 </Button>
               </div>
             </div>
-            <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-2">
-              {filteredUsers.map((user) => (
-                <div key={user.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={user.id}
-                    checked={selectedUsers.includes(user.id)}
-                    onCheckedChange={(checked) => handleUserSelection(user.id, checked as boolean)}
-                  />
-                  <Label htmlFor={user.id} className="flex-1 cursor-pointer">
-                    {user.full_name} ({user.username})
-                  </Label>
+            <Select onValueChange={(value) => handleUserSelection(value, true)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select users to monitor..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {filteredUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id} className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => {}}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span>{user.full_name} ({user.username})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Show selected users */}
+            {selectedUsers.length > 0 && (
+              <div className="mt-2 p-2 bg-gray-50 rounded">
+                <div className="text-xs text-gray-600 mb-1">Selected users:</div>
+                <div className="flex flex-wrap gap-1">
+                  {selectedUsers.map(userId => {
+                    const user = users.find(u => u.id === userId);
+                    return user ? (
+                      <div key={userId} className="flex items-center gap-1 bg-white px-2 py-1 rounded text-xs">
+                        <span>{user.full_name}</span>
+                        <button 
+                          onClick={() => handleUserSelection(userId, false)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ) : null;
+                  })}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Export Button */}

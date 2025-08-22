@@ -1042,8 +1042,8 @@ const Attendance = () => {
                     {todaysAttendance.check_in_location && (
                       <p className="text-gray-600">
                         📍 {todaysAttendance.check_in_address ? 
-                          todaysAttendance.check_in_address.split(',')[0] : 
-                          'Location'} ({todaysAttendance.check_in_location.latitude?.toFixed(4)}, {todaysAttendance.check_in_location.longitude?.toFixed(4)})
+                          `${todaysAttendance.check_in_address.split(',')[0]} (${todaysAttendance.check_in_location.latitude?.toFixed(4)}, ${todaysAttendance.check_in_location.longitude?.toFixed(4)})` : 
+                          `Location (${todaysAttendance.check_in_location.latitude?.toFixed(4)}, ${todaysAttendance.check_in_location.longitude?.toFixed(4)})`}
                       </p>
                     )}
                   </div>
@@ -1252,77 +1252,73 @@ const Attendance = () => {
                     })}
                   </div>
 
-                  {/* Apply Leave Form */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Apply for Leave</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="leaveType">Leave Type</Label>
-                          <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select leave type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {leaveTypes.map(type => (
-                                <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                  {/* Apply Leave Button */}
+                  <div className="flex justify-end mb-4">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Apply for Leave
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Apply for Leave</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="leaveType">Leave Type</Label>
+                            <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select leave type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {leaveTypes.map(type => (
+                                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="startDate">Start Date</Label>
+                              <Input
+                                id="startDate"
+                                type="date"
+                                value={leaveForm.startDate}
+                                onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="endDate">End Date</Label>
+                              <Input
+                                id="endDate"
+                                type="date"
+                                value={leaveForm.endDate}
+                                onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="reason">Reason</Label>
+                            <Textarea
+                              id="reason"
+                              placeholder="Reason for leave"
+                              value={leaveForm.reason}
+                              onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
+                              rows={3}
+                            />
+                          </div>
+                          
+                          <Button onClick={applyLeave} disabled={isApplyingLeave} className="w-full">
+                            {isApplyingLeave ? 'Submitting...' : 'Submit Leave Application'}
+                          </Button>
                         </div>
-                        <div>
-                          <Label htmlFor="dayType">Day Type</Label>
-                          <Select value={leaveForm.dayType} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, dayType: value }))}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="full_day">Full Day</SelectItem>
-                              <SelectItem value="half_day">Half Day</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={leaveForm.startDate}
-                            onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={leaveForm.endDate}
-                            onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="reason">Reason</Label>
-                        <Textarea
-                          id="reason"
-                          placeholder="Reason for leave"
-                          value={leaveForm.reason}
-                          onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
-                          rows={3}
-                        />
-                      </div>
-                      
-                      <Button onClick={applyLeave} disabled={isApplyingLeave} className="w-full">
-                        {isApplyingLeave ? 'Submitting...' : 'Submit Leave Application'}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="holiday">
@@ -1360,8 +1356,27 @@ const Attendance = () => {
 
               {regularizeData.selectedDate && (
                 <>
+                  {/* Show Current Times */}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <Label className="text-sm font-medium text-gray-700">Current Recorded Times:</Label>
+                    <div className="grid grid-cols-2 gap-3 mt-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Day Start: </span>
+                        <span className="font-medium">
+                          {attendanceData.find(record => record.date === regularizeData.selectedDate)?.checkIn || 'Not recorded'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Day End: </span>
+                        <span className="font-medium">
+                          {attendanceData.find(record => record.date === regularizeData.selectedDate)?.checkOut || 'Not recorded'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
-                    <Label>Correction Timings</Label>
+                    <Label>New Correction Timings</Label>
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div>
                         <Label htmlFor="newCheckIn">Check In</Label>
