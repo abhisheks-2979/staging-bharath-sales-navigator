@@ -1054,7 +1054,7 @@ const Attendance = () => {
                    className={`w-full text-sm md:text-base py-6 ${
                      todaysAttendance?.check_in_time 
                        ? 'bg-green-600 hover:bg-green-600' 
-                       : 'bg-gray-400 hover:bg-gray-500'
+                       : 'bg-primary hover:bg-primary/90'
                    }`}
                  >
                    <Clock size={16} className="mr-2" />
@@ -1131,16 +1131,37 @@ const Attendance = () => {
                 <TabsContent value="attendance" className="space-y-4">
                   <div className="bg-white rounded-lg border">
                     <div className="p-4 border-b">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <div>
-                          <h3 className="font-semibold text-gray-800">Attendance Records</h3>
-                          <p className="text-xs text-gray-600 mt-1">Click on date to view details</p>
-                        </div>
-                        <Button size="sm" onClick={openRegularizeModal} className="text-xs">
-                          <Edit2 size={14} className="mr-1" />
-                          Regularization
-                        </Button>
-                      </div>
+                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                         <div>
+                           <h3 className="font-semibold text-gray-800">Attendance Records</h3>
+                           <p className="text-xs text-gray-600 mt-1">Click on date to view details</p>
+                         </div>
+                         <div className="flex gap-2">
+                           <Button size="sm" onClick={openRegularizeModal} className="text-xs">
+                             <Edit2 size={14} className="mr-1" />
+                             Regularization
+                           </Button>
+                           <Button 
+                             size="sm" 
+                             variant="outline" 
+                             className="text-xs"
+                             onClick={() => {
+                               const pendingRequests = regularizationRequests.filter(req => req.status === 'pending');
+                               if (pendingRequests.length > 0) {
+                                 navigate('/attendance-management');
+                               } else {
+                                 toast({
+                                   title: "No Pending Requests",
+                                   description: "You have no pending regularization requests.",
+                                 });
+                               }
+                             }}
+                           >
+                             <Shield size={14} className="mr-1" />
+                             Pending Regularization ({regularizationRequests.filter(req => req.status === 'pending').length})
+                           </Button>
+                         </div>
+                       </div>
                       
                       <div className="mt-4 flex flex-wrap gap-3 items-center">
                         <div className="flex items-center gap-2">
@@ -1188,7 +1209,6 @@ const Attendance = () => {
                              <th className="px-3 py-2 text-left font-medium text-gray-600">Day End</th>
                              <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
                              <th className="px-3 py-2 text-center font-medium text-gray-600">Face Match</th>
-                             <th className="px-3 py-2 text-center font-medium text-gray-600">Regularization</th>
                            </tr>
                          </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -1225,7 +1245,7 @@ const Attendance = () => {
                                     {record.totalHours}
                                   </span>
                                 </td>
-                                 <td className="px-3 py-2 text-center">
+                                  <td className="px-3 py-2 text-center">
                                    {faceMatchResults[record.id] ? (
                                      <div className="flex items-center justify-center gap-1">
                                        <span className="text-lg">
@@ -1236,29 +1256,11 @@ const Attendance = () => {
                                      <span className="text-xs text-gray-400">No data</span>
                                    )}
                                  </td>
-                                 <td className="px-3 py-2 text-center">
-                                   {record.regularizationStatus === 'approved' && (
-                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                       ✅ Approved
-                                     </span>
-                                   )}
-                                   {record.regularizationStatus === 'pending' && (
-                                     <button 
-                                       onClick={() => navigate('/attendance-management')}
-                                       className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer"
-                                     >
-                                       ⏳ Pending Regularization
-                                     </button>
-                                   )}
-                                   {!record.regularizationStatus && (
-                                     <span className="text-xs text-gray-400">-</span>
-                                   )}
-                                 </td>
                               </tr>
                             ))
                            ) : (
                               <tr>
-                                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+                                <td colSpan={6} className="px-3 py-8 text-center text-gray-500">
                                   No attendance records found
                                 </td>
                               </tr>
@@ -1311,40 +1313,48 @@ const Attendance = () => {
                             <DialogHeader>
                               <DialogTitle>{editingApplication ? 'Edit Leave Application' : 'Apply for Leave'}</DialogTitle>
                             </DialogHeader>
-                            <div className="space-y-4">
-                               <div>
-                                 <Label htmlFor="leaveType">Leave Type</Label>
-                                 <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
-                                   <SelectTrigger>
-                                     <SelectValue placeholder="Select leave type" />
-                                   </SelectTrigger>
-                                   <SelectContent>
-                                     {leaveTypes.map(type => (
-                                       <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                                     ))}
-                                   </SelectContent>
-                                 </Select>
-                                 {leaveForm.leaveTypeId && (
-                                   <div className="mt-2 text-sm text-gray-600">
-                                     Available: {getLeaveStatistics(leaveForm.leaveTypeId).available} days
-                                   </div>
-                                 )}
-                               </div>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label htmlFor="leaveType">Leave Type</Label>
+                                  <Select value={leaveForm.leaveTypeId} onValueChange={(value) => {
+                                    setLeaveForm(prev => ({ ...prev, leaveTypeId: value }));
+                                    setSelectedLeaveType(value);
+                                  }}>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select leave type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {leaveTypes.map(type => {
+                                        const stats = getLeaveStatistics(type.id);
+                                        return (
+                                          <SelectItem key={type.id} value={type.id}>
+                                            {type.name} (Available: {stats.available} days)
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectContent>
+                                  </Select>
+                                  {selectedLeaveType && (
+                                    <div className="text-xs text-gray-600 mt-1">
+                                      Available balance: {getLeaveStatistics(selectedLeaveType).available} days
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <Label htmlFor="dayType">Leave Duration</Label>
+                                  <Select value={leaveForm.dayType} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, dayType: value }))}>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="full_day">Full Day</SelectItem>
+                                      <SelectItem value="half_day">Half Day</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                                
-                               <div>
-                                 <Label htmlFor="dayType">Leave Duration</Label>
-                                 <Select value={leaveForm.dayType} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, dayType: value }))}>
-                                   <SelectTrigger>
-                                     <SelectValue placeholder="Select duration" />
-                                   </SelectTrigger>
-                                   <SelectContent>
-                                     <SelectItem value="full_day">Full Day</SelectItem>
-                                     <SelectItem value="half_day">Half Day</SelectItem>
-                                   </SelectContent>
-                                 </Select>
-                               </div>
-                              
-                              <div className="grid grid-cols-2 gap-4">
+                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <Label htmlFor="startDate">Start Date</Label>
                                   <Input

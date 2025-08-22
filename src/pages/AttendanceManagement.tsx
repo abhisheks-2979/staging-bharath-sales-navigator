@@ -42,6 +42,8 @@ interface LeaveApplication {
   reason: string;
   status: string;
   applied_date: string;
+  approved_date?: string;
+  approved_by?: string;
   leave_types?: {
     name: string;
   } | null;
@@ -531,60 +533,126 @@ const AttendanceManagement = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Leave Type</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
-                      <TableHead>Days</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {leaveApplications.map((application) => {
-                      const startDate = new Date(application.start_date);
-                      const endDate = new Date(application.end_date);
-                      const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                      
-                      return (
-                        <TableRow key={application.id}>
-                          <TableCell className="font-medium">
-                            {application.profiles?.full_name || 'Unknown User'}
-                          </TableCell>
-                          <TableCell>{application.leave_types?.name}</TableCell>
-                          <TableCell>{format(startDate, 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>{format(endDate, 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>{days} day{days !== 1 ? 's' : ''}</TableCell>
-                          <TableCell className="max-w-xs truncate">{application.reason}</TableCell>
-                          <TableCell>{getStatusBadge(application.status)}</TableCell>
-                          <TableCell>
-                            {application.status === 'pending' && (
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleLeaveAction(application.id, 'approved')}
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleLeaveAction(application.id, 'rejected', 'Rejected by admin')}
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
+                <Tabs defaultValue="pending" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="pending">Pending</TabsTrigger>
+                    <TabsTrigger value="approved">Approved</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="pending">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Employee</TableHead>
+                          <TableHead>Leave Type</TableHead>
+                          <TableHead>Start Date</TableHead>
+                          <TableHead>End Date</TableHead>
+                          <TableHead>Days</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {leaveApplications.filter(app => app.status === 'pending').map((application) => {
+                          const startDate = new Date(application.start_date);
+                          const endDate = new Date(application.end_date);
+                          const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                          
+                          return (
+                            <TableRow key={application.id}>
+                              <TableCell className="font-medium">
+                                {application.profiles?.full_name || 'Unknown User'}
+                              </TableCell>
+                              <TableCell>{application.leave_types?.name}</TableCell>
+                              <TableCell>{format(startDate, 'MMM dd, yyyy')}</TableCell>
+                              <TableCell>{format(endDate, 'MMM dd, yyyy')}</TableCell>
+                              <TableCell>{days} day{days !== 1 ? 's' : ''}</TableCell>
+                              <TableCell className="max-w-xs truncate">{application.reason}</TableCell>
+                              <TableCell>{getStatusBadge(application.status)}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleLeaveAction(application.id, 'approved')}
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleLeaveAction(application.id, 'rejected', 'Rejected by admin')}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {leaveApplications.filter(app => app.status === 'pending').length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                              No pending leave applications
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TabsContent>
+                  
+                  <TabsContent value="approved">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Employee</TableHead>
+                          <TableHead>Leave Type</TableHead>
+                          <TableHead>Start Date</TableHead>
+                          <TableHead>End Date</TableHead>
+                          <TableHead>Days</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Approved Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {leaveApplications.filter(app => app.status === 'approved').map((application) => {
+                          const startDate = new Date(application.start_date);
+                          const endDate = new Date(application.end_date);
+                          const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                          
+                          return (
+                            <TableRow key={application.id}>
+                              <TableCell className="font-medium">
+                                {application.profiles?.full_name || 'Unknown User'}
+                              </TableCell>
+                              <TableCell>{application.leave_types?.name}</TableCell>
+                              <TableCell>{format(startDate, 'MMM dd, yyyy')}</TableCell>
+                              <TableCell>{format(endDate, 'MMM dd, yyyy')}</TableCell>
+                              <TableCell>{days} day{days !== 1 ? 's' : ''}</TableCell>
+                              <TableCell className="max-w-xs truncate">{application.reason}</TableCell>
+                              <TableCell>
+                                <Badge className="bg-green-100 text-green-800">
+                                  Approved
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {application.approved_date ? format(new Date(application.approved_date), 'MMM dd, yyyy') : '--'}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {leaveApplications.filter(app => app.status === 'approved').length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                              No approved leave applications
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </TabsContent>

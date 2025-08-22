@@ -163,13 +163,20 @@ const LiveAttendanceMonitoring = () => {
       );
     }
 
-    // Filter by single date
-    if (dateFilter) {
-      filtered = filtered.filter(record => record.date === dateFilter);
-    }
-
-    // Filter by date range
-    if (startDateFilter && endDateFilter) {
+    // Filter by date period
+    const today = new Date();
+    if (dateFilter === 'day') {
+      const todayStr = format(today, 'yyyy-MM-dd');
+      filtered = filtered.filter(record => record.date === todayStr);
+    } else if (dateFilter === 'week') {
+      const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+      const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+      filtered = filtered.filter(record => record.date >= weekStartStr);
+    } else if (dateFilter === 'month') {
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+      filtered = filtered.filter(record => record.date >= monthStartStr);
+    } else if (dateFilter === 'range' && startDateFilter && endDateFilter) {
       filtered = filtered.filter(record => 
         record.date >= startDateFilter && record.date <= endDateFilter
       );
@@ -351,58 +358,69 @@ const LiveAttendanceMonitoring = () => {
           </div>
 
           {/* Date Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label>Single Date</Label>
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => {
-                  setDateFilter(e.target.value);
-                  if (e.target.value) {
-                    setStartDateFilter('');
-                    setEndDateFilter('');
-                  }
-                }}
-              />
+              <Label>View Period</Label>
+              <Select value={dateFilter} onValueChange={(value) => {
+                setDateFilter(value);
+                if (value !== 'range') {
+                  setStartDateFilter('');
+                  setEndDateFilter('');
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="range">Date Range</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={startDateFilter}
-                onChange={(e) => {
-                  setStartDateFilter(e.target.value);
-                  if (e.target.value) setDateFilter('');
-                }}
-              />
-            </div>
-            <div>
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={endDateFilter}
-                onChange={(e) => {
-                  setEndDateFilter(e.target.value);
-                  if (e.target.value) setDateFilter('');
-                }}
-              />
-            </div>
+            {dateFilter === 'range' && (
+              <>
+                <div>
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={startDateFilter}
+                    onChange={(e) => setStartDateFilter(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>End Date</Label>
+                  <Input
+                    type="date"
+                    value={endDateFilter}
+                    onChange={(e) => setEndDateFilter(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* User Selection */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label>Select Users ({selectedUsers.length} selected)</Label>
-              <div className="space-x-2">
-                <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                  Select All
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleClearSelection}>
-                  Clear
-                </Button>
-              </div>
-            </div>
+                        <div className="flex items-center justify-between mb-2">
+                          <Label>Select Users ({selectedUsers.length} selected)</Label>
+                          <div className="space-x-2">
+                            <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                              Select All
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={handleClearSelection}>
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="mb-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                          <div className="font-medium mb-1">Available periods:</div>
+                          <div>• Today - Shows today's attendance for all users</div>
+                          <div>• This Week - Shows last 7 days of attendance</div>
+                          <div>• This Month - Shows current month's attendance</div>
+                          <div>• Date Range - Custom date range selection</div>
+                        </div>
             <Select onValueChange={(value) => handleUserSelection(value, true)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select users to monitor..." />
