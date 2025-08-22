@@ -107,17 +107,38 @@ const LiveAttendanceMonitoring = () => {
   const fetchAttendanceData = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+
+      // 1) Fetch raw attendance records
+      const { data: attendance, error: attendanceError } = await supabase
         .from('attendance')
-        .select(`
-          *,
-          profiles:user_id (full_name, username)
-        `)
+        .select('*')
         .gte('date', format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'))
         .order('date', { ascending: false });
 
-      if (error) throw error;
-      setAttendanceData((data as any) || []);
+      if (attendanceError) throw attendanceError;
+
+      // 2) Fetch related profiles separately (avoid PostgREST FK embedding errors)
+      const userIds = Array.from(new Set((attendance || []).map((r) => r.user_id)));
+      let profilesById: Record<string, { full_name: string; username: string }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+        if (profilesError) throw profilesError;
+        profilesById = (profiles || []).reduce((acc, p) => {
+          acc[p.id] = { full_name: p.full_name, username: p.username };
+          return acc;
+        }, {} as Record<string, { full_name: string; username: string }>);
+      }
+
+      // 3) Enrich attendance with profile info
+      const enriched = (attendance || []).map((r) => ({
+        ...r,
+        profiles: profilesById[r.user_id] || null,
+      }));
+
+      setAttendanceData(enriched as any);
     } catch (error) {
       console.error('Error fetching attendance data:', error);
       toast.error('Failed to fetch attendance data');
