@@ -1039,26 +1039,27 @@ const Attendance = () => {
               <canvas ref={canvasRef} style={{ display: 'none' }} />
 
               <div className="space-y-2">
-                <Button 
-                  onClick={() => {
-                    if (!todaysAttendance?.check_in_time) {
-                      toast({
-                        title: "🌟 Have a productive day!",
-                        description: "Let's make today amazing! Starting your attendance now...",
-                      });
-                    }
-                    markAttendance('check_in');
-                  }} 
-                  disabled={isMarkingAttendance || (todaysAttendance?.check_in_time)}
-                  className={`w-full text-sm md:text-base py-6 ${
-                    todaysAttendance?.check_in_time 
-                      ? 'bg-green-600 hover:bg-green-600' 
-                      : 'bg-gray-400 hover:bg-gray-500'
-                  }`}
-                >
-                  <Clock size={16} className="mr-2" />
-                  {todaysAttendance?.check_in_time ? 'Day Started ✓' : 'Start My Day'}
-                </Button>
+                 <Button 
+                   onClick={() => {
+                     if (todaysAttendance?.check_in_time) {
+                       toast({
+                         title: "✅ Attendance marked. Have a productive day!",
+                         description: "Your attendance has been already marked for today.",
+                       });
+                       return;
+                     }
+                     markAttendance('check_in');
+                   }} 
+                   disabled={isMarkingAttendance}
+                   className={`w-full text-sm md:text-base py-6 ${
+                     todaysAttendance?.check_in_time 
+                       ? 'bg-green-600 hover:bg-green-600' 
+                       : 'bg-gray-400 hover:bg-gray-500'
+                   }`}
+                 >
+                   <Clock size={16} className="mr-2" />
+                   {todaysAttendance?.check_in_time ? 'Day Started ✓' : 'Start My Day'}
+                 </Button>
                 {todaysAttendance?.check_in_time && (
                   <div className="text-xs text-green-600 text-center space-y-1">
                     <p>✅ Checked in at {new Date(todaysAttendance.check_in_time).toLocaleTimeString('en-US', { 
@@ -1179,7 +1180,7 @@ const Attendance = () => {
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
-                         <thead className="bg-gray-50">
+                        <thead className="bg-gray-50">
                            <tr>
                              <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
                              <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
@@ -1187,7 +1188,7 @@ const Attendance = () => {
                              <th className="px-3 py-2 text-left font-medium text-gray-600">Day End</th>
                              <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
                              <th className="px-3 py-2 text-center font-medium text-gray-600">Face Match</th>
-                             <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                             <th className="px-3 py-2 text-center font-medium text-gray-600">Regularization</th>
                            </tr>
                          </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -1242,9 +1243,12 @@ const Attendance = () => {
                                      </span>
                                    )}
                                    {record.regularizationStatus === 'pending' && (
-                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                       ⏳ Pending
-                                     </span>
+                                     <button 
+                                       onClick={() => navigate('/attendance-management')}
+                                       className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer"
+                                     >
+                                       ⏳ Pending Regularization
+                                     </button>
                                    )}
                                    {!record.regularizationStatus && (
                                      <span className="text-xs text-gray-400">-</span>
@@ -1252,13 +1256,13 @@ const Attendance = () => {
                                  </td>
                               </tr>
                             ))
-                          ) : (
-                             <tr>
-                               <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
-                                 No attendance records found
-                               </td>
-                             </tr>
-                          )}
+                           ) : (
+                              <tr>
+                                <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+                                  No attendance records found
+                                </td>
+                              </tr>
+                           )}
                         </tbody>
                       </table>
                     </div>
@@ -1308,19 +1312,37 @@ const Attendance = () => {
                               <DialogTitle>{editingApplication ? 'Edit Leave Application' : 'Apply for Leave'}</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4">
-                              <div>
-                                <Label htmlFor="leaveType">Leave Type</Label>
-                                <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select leave type" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {leaveTypes.map(type => (
-                                      <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                               <div>
+                                 <Label htmlFor="leaveType">Leave Type</Label>
+                                 <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Select leave type" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     {leaveTypes.map(type => (
+                                       <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                                     ))}
+                                   </SelectContent>
+                                 </Select>
+                                 {leaveForm.leaveTypeId && (
+                                   <div className="mt-2 text-sm text-gray-600">
+                                     Available: {getLeaveStatistics(leaveForm.leaveTypeId).available} days
+                                   </div>
+                                 )}
+                               </div>
+                               
+                               <div>
+                                 <Label htmlFor="dayType">Leave Duration</Label>
+                                 <Select value={leaveForm.dayType} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, dayType: value }))}>
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Select duration" />
+                                   </SelectTrigger>
+                                   <SelectContent>
+                                     <SelectItem value="full_day">Full Day</SelectItem>
+                                     <SelectItem value="half_day">Half Day</SelectItem>
+                                   </SelectContent>
+                                 </Select>
+                               </div>
                               
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
