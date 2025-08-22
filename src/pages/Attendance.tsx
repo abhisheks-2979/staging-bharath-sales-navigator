@@ -67,6 +67,7 @@ const Attendance = () => {
   const [photoStored, setPhotoStored] = useState(false);
   const [editingApplication, setEditingApplication] = useState(null);
   const [faceMatchResults, setFaceMatchResults] = useState({});
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
   const stats = {
     totalDays: 20,
@@ -1266,109 +1267,198 @@ const Attendance = () => {
 
 
                 <TabsContent value="leave" className="space-y-4">
-                  {/* Leave Statistics */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {leaveTypes.map(leaveType => {
-                      const stats = getLeaveStatistics(leaveType.id);
-                      return (
-                        <div key={leaveType.id} className="space-y-2">
-                          <div className="bg-white rounded-lg border p-4">
-                            <h4 className="font-medium text-sm text-gray-700 mb-3">{leaveType.name}</h4>
-                            <div className="space-y-2">
-                              <div 
-                                className="flex justify-between items-center p-2 bg-green-50 rounded cursor-pointer hover:bg-green-100"
-                                onClick={() => {/* Will add modal later */}}
-                              >
-                                <span className="text-xs text-green-700">Balance</span>
-                                <span className="text-sm font-semibold text-green-800">{stats.available}</span>
-                              </div>
-                              <div 
-                                className="flex justify-between items-center p-2 bg-yellow-50 rounded cursor-pointer hover:bg-yellow-100"
-                                onClick={() => {/* Will add modal later */}}
-                              >
-                                <span className="text-xs text-yellow-700">Pending</span>
-                                <span className="text-sm font-semibold text-yellow-800">{stats.pending}</span>
-                              </div>
-                              <div 
-                                className="flex justify-between items-center p-2 bg-blue-50 rounded cursor-pointer hover:bg-blue-100"
-                                onClick={() => {/* Will add modal later */}}
-                              >
-                                <span className="text-xs text-blue-700">Booked</span>
-                                <span className="text-sm font-semibold text-blue-800">{stats.booked}</span>
-                              </div>
-                            </div>
-                          </div>
+                  <div className="bg-white rounded-lg border">
+                    <div className="p-4 border-b">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800">Leave Applications</h3>
+                          <p className="text-xs text-gray-600 mt-1">Manage your leave requests</p>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Apply Leave Button */}
-                  <div className="flex justify-end mb-4">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Apply for Leave
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Apply for Leave</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="leaveType">Leave Type</Label>
-                            <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select leave type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {leaveTypes.map(type => (
-                                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="startDate">Start Date</Label>
-                              <Input
-                                id="startDate"
-                                type="date"
-                                value={leaveForm.startDate}
-                                onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
-                              />
+                        <Dialog open={showLeaveDialog || !!editingApplication} onOpenChange={(open) => {
+                          if (!open) {
+                            setShowLeaveDialog(false);
+                            setEditingApplication(null);
+                            setLeaveForm({
+                              leaveTypeId: '',
+                              startDate: '',
+                              endDate: '',
+                              reason: '',
+                              dayType: 'full_day'
+                            });
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" className="text-xs" onClick={() => {
+                              setShowLeaveDialog(true);
+                              setEditingApplication(null);
+                              setLeaveForm({
+                                leaveTypeId: '',
+                                startDate: '',
+                                endDate: '',
+                                reason: '',
+                                dayType: 'full_day'
+                              });
+                            }}>
+                              <Plus size={14} className="mr-1" />
+                              Apply Leave
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>{editingApplication ? 'Edit Leave Application' : 'Apply for Leave'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label htmlFor="leaveType">Leave Type</Label>
+                                <Select value={leaveForm.leaveTypeId} onValueChange={(value) => setLeaveForm(prev => ({ ...prev, leaveTypeId: value }))}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select leave type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {leaveTypes.map(type => (
+                                      <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="startDate">Start Date</Label>
+                                  <Input
+                                    id="startDate"
+                                    type="date"
+                                    value={leaveForm.startDate}
+                                    onChange={(e) => setLeaveForm(prev => ({ ...prev, startDate: e.target.value }))}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="endDate">End Date</Label>
+                                  <Input
+                                    id="endDate"
+                                    type="date"
+                                    value={leaveForm.endDate}
+                                    onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <Label htmlFor="reason">Reason</Label>
+                                <Textarea
+                                  id="reason"
+                                  placeholder="Reason for leave"
+                                  value={leaveForm.reason}
+                                  onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
+                                  rows={3}
+                                />
+                              </div>
+                              
+                              <Button 
+                                onClick={editingApplication ? updateLeaveApplication : applyLeave} 
+                                disabled={isApplyingLeave} 
+                                className="w-full"
+                              >
+                                {isApplyingLeave ? 'Submitting...' : (editingApplication ? 'Update Application' : 'Submit Application')}
+                              </Button>
                             </div>
-                            <div>
-                              <Label htmlFor="endDate">End Date</Label>
-                              <Input
-                                id="endDate"
-                                type="date"
-                                value={leaveForm.endDate}
-                                onChange={(e) => setLeaveForm(prev => ({ ...prev, endDate: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="reason">Reason</Label>
-                            <Textarea
-                              id="reason"
-                              placeholder="Reason for leave"
-                              value={leaveForm.reason}
-                              onChange={(e) => setLeaveForm(prev => ({ ...prev, reason: e.target.value }))}
-                              rows={3}
-                            />
-                          </div>
-                          
-                          <Button onClick={applyLeave} disabled={isApplyingLeave} className="w-full">
-                            {isApplyingLeave ? 'Submitting...' : 'Submit Leave Application'}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Leave Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Leave Type</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Start Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">End Date</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Reason</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {leaveApplications.length > 0 ? (
+                            leaveApplications.map((application) => (
+                              <tr key={application.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-gray-800 font-medium">
+                                  {new Date(application.applied_date || application.created_at).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600">
+                                  {application.leave_types?.name || 'N/A'}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600">
+                                  {new Date(application.start_date).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600">
+                                  {new Date(application.end_date).toLocaleDateString('en-GB')}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={application.reason}>
+                                  {application.reason}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {application.status === 'approved' && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      ✅ Approved
+                                    </span>
+                                  )}
+                                  {application.status === 'pending' && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      ⏳ Pending
+                                    </span>
+                                  )}
+                                  {application.status === 'rejected' && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      ❌ Rejected
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                     <Button
+                                       size="sm"
+                                       variant="ghost"
+                                       className="h-6 w-6 p-0"
+                                       onClick={() => {
+                                         setEditingApplication(application);
+                                         setShowLeaveDialog(true);
+                                         setLeaveForm({
+                                           leaveTypeId: application.leave_type_id,
+                                           startDate: application.start_date,
+                                           endDate: application.end_date,
+                                           reason: application.reason,
+                                           dayType: 'full_day'
+                                         });
+                                       }}
+                                       disabled={application.status !== 'pending'}
+                                     >
+                                       <Edit2 size={12} />
+                                     </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 text-red-600 hover:text-red-800"
+                                      onClick={() => deleteLeaveApplication(application.id)}
+                                      disabled={application.status !== 'pending'}
+                                    >
+                                      <XCircle size={12} />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+                                No leave applications found
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </TabsContent>
 
