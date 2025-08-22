@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Check, X, Clock, User, UserCheck } from 'lucide-react';
+import { Check, X, Clock, User, UserCheck, Calendar, Users, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import LiveAttendanceMonitoring from '@/components/LiveAttendanceMonitoring';
 
@@ -205,61 +205,69 @@ const AttendanceManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Attendance Management</h1>
+        <p className="text-muted-foreground">
+          Monitor attendance, manage leaves, and configure holidays
+        </p>
+      </div>
+
       {/* Navigation Tabs */}
       <div className="flex space-x-4 border-b">
         <button
           onClick={() => setActiveTab('live')}
-          className={`py-2 px-4 border-b-2 transition-colors ${
+          className={`py-2 px-4 border-b-2 transition-colors flex items-center ${
             activeTab === 'live'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <User className="inline-block w-4 h-4 mr-2" />
+          <User className="w-4 h-4 mr-2" />
           Live Attendance
         </button>
         <button
           onClick={() => setActiveTab('leave')}
-          className={`py-2 px-4 border-b-2 transition-colors ${
+          className={`py-2 px-4 border-b-2 transition-colors flex items-center ${
             activeTab === 'leave'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <Clock className="inline-block w-4 h-4 mr-2" />
+          <Calendar className="w-4 h-4 mr-2" />
           Leave Management
         </button>
         <button
           onClick={() => setActiveTab('regularization')}
-          className={`py-2 px-4 border-b-2 transition-colors ${
+          className={`py-2 px-4 border-b-2 transition-colors flex items-center ${
             activeTab === 'regularization'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <UserCheck className="inline-block w-4 h-4 mr-2" />
+          <Users className="w-4 h-4 mr-2" />
           Pending Regularization
         </button>
         <button
           onClick={() => setActiveTab('leave-balances')}
-          className={`py-2 px-4 border-b-2 transition-colors ${
+          className={`py-2 px-4 border-b-2 transition-colors flex items-center ${
             activeTab === 'leave-balances'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <Check className="inline-block w-4 h-4 mr-2" />
+          <ClipboardList className="w-4 h-4 mr-2" />
           Leave Balances
         </button>
         <button
           onClick={() => setActiveTab('holidays')}
-          className={`py-2 px-4 border-b-2 transition-colors ${
+          className={`py-2 px-4 border-b-2 transition-colors flex items-center ${
             activeTab === 'holidays'
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <Clock className="inline-block w-4 h-4 mr-2" />
+          <Calendar className="w-4 h-4 mr-2" />
           Holidays
         </button>
       </div>
