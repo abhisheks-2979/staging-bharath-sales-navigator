@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -108,37 +109,67 @@ const LiveAttendanceMonitoring = () => {
     try {
       setIsLoading(true);
 
-      // 1) Fetch raw attendance records
+      // Fetch all attendance records with profiles
       const { data: attendance, error: attendanceError } = await supabase
         .from('attendance')
-        .select('*')
+        .select(`
+          *,
+          profiles!inner (
+            full_name,
+            username
+          )
+        `)
         .gte('date', format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'))
         .order('date', { ascending: false });
 
       if (attendanceError) throw attendanceError;
 
-      // 2) Fetch related profiles separately (avoid PostgREST FK embedding errors)
-      const userIds = Array.from(new Set((attendance || []).map((r) => r.user_id)));
-      let profilesById: Record<string, { full_name: string; username: string }> = {};
-      if (userIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, username')
-          .in('id', userIds);
-        if (profilesError) throw profilesError;
-        profilesById = (profiles || []).reduce((acc, p) => {
-          acc[p.id] = { full_name: p.full_name, username: p.username };
-          return acc;
-        }, {} as Record<string, { full_name: string; username: string }>);
+      // Get all users and create attendance records for today if they don't exist
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const { data: allUsers } = await supabase
+        .from('profiles')
+        .select('id, full_name, username');
+
+      if (allUsers) {
+        const attendanceDataWithAbsent: AttendanceData[] = [];
+        
+        // Add existing attendance records
+        attendance?.forEach(record => {
+          attendanceDataWithAbsent.push({
+            ...record,
+            profiles: record.profiles
+          });
+        });
+
+        // Check for users without attendance today and mark them as absent
+        const todaysAttendance = attendance?.filter(a => a.date === today) || [];
+        const usersWithAttendanceToday = todaysAttendance.map(a => a.user_id);
+        
+        allUsers.forEach(user => {
+          if (!usersWithAttendanceToday.includes(user.id)) {
+            // Create absent record for today
+            attendanceDataWithAbsent.push({
+              id: `absent-${user.id}-${today}`,
+              user_id: user.id,
+              date: today,
+              check_in_time: null,
+              check_out_time: null,
+              total_hours: null,
+              status: 'absent',
+              check_in_location: null,
+              check_out_location: null,
+              check_in_address: null,
+              check_out_address: null,
+              profiles: {
+                full_name: user.full_name,
+                username: user.username
+              }
+            });
+          }
+        });
+        
+        setAttendanceData(attendanceDataWithAbsent);
       }
-
-      // 3) Enrich attendance with profile info
-      const enriched = (attendance || []).map((r) => ({
-        ...r,
-        profiles: profilesById[r.user_id] || null,
-      }));
-
-      setAttendanceData(enriched as any);
     } catch (error) {
       console.error('Error fetching attendance data:', error);
       toast.error('Failed to fetch attendance data');
@@ -403,24 +434,18 @@ const LiveAttendanceMonitoring = () => {
 
           {/* User Selection */}
           <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label>Select Users ({selectedUsers.length} selected)</Label>
-                          <div className="space-x-2">
-                            <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                              Select All
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={handleClearSelection}>
-                              Clear
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="mb-4 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                          <div className="font-medium mb-1">Available periods:</div>
-                          <div>• Today - Shows today's attendance for all users</div>
-                          <div>• This Week - Shows last 7 days of attendance</div>
-                          <div>• This Month - Shows current month's attendance</div>
-                          <div>• Date Range - Custom date range selection</div>
-                        </div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>Select Users ({selectedUsers.length} selected)</Label>
+              <div className="space-x-2">
+                <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                  Select All
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleClearSelection}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+            
             <Select onValueChange={(value) => handleUserSelection(value, true)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select users to monitor..." />
