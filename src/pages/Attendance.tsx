@@ -371,10 +371,7 @@ const Attendance = () => {
 
       const { data: applications, error: leaveError } = await supabase
         .from('leave_applications')
-        .select(`
-          *,
-          leave_types:leave_type_id (name)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .eq('status', 'approved')
         .gte('start_date', startDate);
@@ -384,11 +381,26 @@ const Attendance = () => {
         return;
       }
 
+      // Fetch leave types for the applications
+      let enrichedApplications: any[] = applications || [];
+      if (applications && applications.length > 0) {
+        const leaveTypeIds = [...new Set(applications.map(app => app.leave_type_id))];
+        const { data: leaveTypesData } = await supabase
+          .from('leave_types')
+          .select('id, name')
+          .in('id', leaveTypeIds);
+
+        enrichedApplications = applications.map(app => ({
+          ...app,
+          leave_types: leaveTypesData?.find(type => type.id === app.leave_type_id) || { name: 'Unknown' }
+        }));
+      }
+
       const attendedDates = new Set(attendanceRecords?.map(record => record.date) || []);
       const leaveDates = new Set();
       const leaveDetails = new Map();
       
-      applications?.forEach(app => {
+      enrichedApplications?.forEach(app => {
         const appStartDate = new Date(app.start_date);
         const appEndDate = new Date(app.end_date);
         
@@ -496,10 +508,7 @@ const Attendance = () => {
 
       const { data: applications, error } = await supabase
         .from('leave_applications')
-        .select(`
-          *,
-          leave_types:leave_type_id (name)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .gte('start_date', `${new Date().getFullYear()}-01-01`)
         .order('created_at', { ascending: false });
@@ -509,7 +518,22 @@ const Attendance = () => {
         return;
       }
 
-      setLeaveApplications(applications || []);
+      // Fetch leave types for the applications
+      let enrichedApplications = applications || [];
+      if (applications && applications.length > 0) {
+        const leaveTypeIds = [...new Set(applications.map(app => app.leave_type_id))];
+        const { data: leaveTypesData } = await supabase
+          .from('leave_types')
+          .select('id, name')
+          .in('id', leaveTypeIds);
+
+        enrichedApplications = applications.map(app => ({
+          ...app,
+          leave_types: leaveTypesData?.find(type => type.id === app.leave_type_id) || null
+        }));
+      }
+
+      setLeaveApplications(enrichedApplications);
     } catch (error) {
       console.error('Error fetching leave applications:', error);
     }

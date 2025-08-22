@@ -150,17 +150,35 @@ const AttendanceManagement = () => {
 
   const fetchAttendanceRecords = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch attendance records
+      const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
-        .select(`
-          *,
-          profiles:user_id (full_name, username)
-        `)
+        .select('*')
         .gte('date', format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'))
         .order('date', { ascending: false });
 
-      if (error) throw error;
-      setAttendanceRecords((data as any) || []);
+      if (attendanceError) throw attendanceError;
+
+      // Then fetch user profiles for the attendance records
+      if (attendanceData && attendanceData.length > 0) {
+        const userIds = [...new Set(attendanceData.map(record => record.user_id))];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine attendance data with profile data
+        const enrichedAttendanceData = attendanceData.map(record => ({
+          ...record,
+          profiles: profilesData?.find(profile => profile.id === record.user_id) || null
+        }));
+
+        setAttendanceRecords(enrichedAttendanceData);
+      } else {
+        setAttendanceRecords([]);
+      }
     } catch (error) {
       console.error('Error fetching attendance records:', error);
       toast.error('Failed to fetch attendance records');
@@ -169,18 +187,45 @@ const AttendanceManagement = () => {
 
   const fetchLeaveApplications = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch leave applications
+      const { data: leaveData, error: leaveError } = await supabase
         .from('leave_applications')
-        .select(`
-          *,
-          leave_types:leave_type_id (name),
-          profiles:user_id (full_name, username)
-        `)
+        .select('*')
         .gte('start_date', `${new Date().getFullYear()}-01-01`)
         .order('applied_date', { ascending: false });
 
-      if (error) throw error;
-      setLeaveApplications((data as any) || []);
+      if (leaveError) throw leaveError;
+
+      if (leaveData && leaveData.length > 0) {
+        // Fetch leave types
+        const leaveTypeIds = [...new Set(leaveData.map(app => app.leave_type_id))];
+        const { data: leaveTypesData, error: leaveTypesError } = await supabase
+          .from('leave_types')
+          .select('id, name')
+          .in('id', leaveTypeIds);
+
+        if (leaveTypesError) throw leaveTypesError;
+
+        // Fetch user profiles
+        const userIds = [...new Set(leaveData.map(app => app.user_id))];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine data
+        const enrichedLeaveData = leaveData.map(app => ({
+          ...app,
+          leave_types: leaveTypesData?.find(type => type.id === app.leave_type_id) || null,
+          profiles: profilesData?.find(profile => profile.id === app.user_id) || null
+        }));
+
+        setLeaveApplications(enrichedLeaveData);
+      } else {
+        setLeaveApplications([]);
+      }
     } catch (error) {
       console.error('Error fetching leave applications:', error);
       toast.error('Failed to fetch leave applications');
@@ -189,18 +234,45 @@ const AttendanceManagement = () => {
 
   const fetchLeaveBalances = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch leave balances
+      const { data: balanceData, error: balanceError } = await supabase
         .from('leave_balance')
-        .select(`
-          *,
-          leave_types:leave_type_id (name),
-          profiles:user_id (full_name, username)
-        `)
+        .select('*')
         .eq('year', new Date().getFullYear())
         .order('user_id');
 
-      if (error) throw error;
-      setLeaveBalances((data as any) || []);
+      if (balanceError) throw balanceError;
+
+      if (balanceData && balanceData.length > 0) {
+        // Fetch leave types
+        const leaveTypeIds = [...new Set(balanceData.map(balance => balance.leave_type_id))];
+        const { data: leaveTypesData, error: leaveTypesError } = await supabase
+          .from('leave_types')
+          .select('id, name')
+          .in('id', leaveTypeIds);
+
+        if (leaveTypesError) throw leaveTypesError;
+
+        // Fetch user profiles
+        const userIds = [...new Set(balanceData.map(balance => balance.user_id))];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine data
+        const enrichedBalanceData = balanceData.map(balance => ({
+          ...balance,
+          leave_types: leaveTypesData?.find(type => type.id === balance.leave_type_id) || null,
+          profiles: profilesData?.find(profile => profile.id === balance.user_id) || null
+        }));
+
+        setLeaveBalances(enrichedBalanceData);
+      } else {
+        setLeaveBalances([]);
+      }
     } catch (error) {
       console.error('Error fetching leave balances:', error);
       toast.error('Failed to fetch leave balances');
@@ -209,17 +281,34 @@ const AttendanceManagement = () => {
 
   const fetchRegularizationRequests = async () => {
     try {
-      const { data, error } = await supabase
+      // First fetch regularization requests
+      const { data: requestData, error: requestError } = await supabase
         .from('regularization_requests')
-        .select(`
-          *,
-          profiles:user_id (full_name, username)
-        `)
-        .eq('status', 'pending')
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setRegularizationRequests((data as any) || []);
+      if (requestError) throw requestError;
+
+      if (requestData && requestData.length > 0) {
+        // Fetch user profiles
+        const userIds = [...new Set(requestData.map(req => req.user_id))];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine data
+        const enrichedRequestData = requestData.map(req => ({
+          ...req,
+          profiles: profilesData?.find(profile => profile.id === req.user_id) || null
+        }));
+
+        setRegularizationRequests(enrichedRequestData);
+      } else {
+        setRegularizationRequests([]);
+      }
     } catch (error) {
       console.error('Error fetching regularization requests:', error);
       toast.error('Failed to fetch regularization requests');
@@ -300,6 +389,15 @@ const AttendanceManagement = () => {
       const request = regularizationRequests.find(r => r.id === requestId);
       if (!request) return;
 
+      // Calculate total hours if both times are provided
+      let totalHours = null;
+      if (request.requested_check_in_time && request.requested_check_out_time) {
+        const checkIn = new Date(request.requested_check_in_time);
+        const checkOut = new Date(request.requested_check_out_time);
+        const diffInMs = checkOut.getTime() - checkIn.getTime();
+        totalHours = diffInMs / (1000 * 60 * 60); // Convert to hours
+      }
+
       // Update the attendance record with new times
       const { error: attendanceError } = await supabase
         .from('attendance')
@@ -308,7 +406,10 @@ const AttendanceManagement = () => {
           date: request.attendance_date,
           check_in_time: request.requested_check_in_time,
           check_out_time: request.requested_check_out_time,
-          status: 'present'
+          total_hours: totalHours,
+          status: 'present',
+          notes: `Regularized on ${new Date().toLocaleDateString()}`,
+          updated_at: new Date().toISOString()
         });
 
       if (attendanceError) throw attendanceError;
@@ -331,6 +432,28 @@ const AttendanceManagement = () => {
     } catch (error) {
       console.error('Error approving regularization:', error);
       toast.error('Failed to approve regularization request');
+    }
+  };
+
+  const rejectRegularization = async (requestId: string, rejectionReason: string) => {
+    try {
+      const { error } = await supabase
+        .from('regularization_requests')
+        .update({
+          status: 'rejected',
+          rejection_reason: rejectionReason,
+          approved_by: (await supabase.auth.getUser()).data.user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast.success('Regularization request rejected');
+      fetchRegularizationRequests();
+    } catch (error) {
+      console.error('Error rejecting regularization:', error);
+      toast.error('Failed to reject regularization request');
     }
   };
 
