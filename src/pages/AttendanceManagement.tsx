@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Edit, User, Calendar, UserCheck } from 'lucide-react';
+import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Edit, User, Calendar, UserCheck, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import HolidayManagement from '@/components/HolidayManagement';
 
@@ -73,6 +73,7 @@ const AttendanceManagement = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveApplications, setLeaveApplications] = useState<LeaveApplication[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<UserLeaveBalance[]>([]);
+  const [regularizationRequests, setRegularizationRequests] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedUserData, setSelectedUserData] = useState<any>(null);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -84,6 +85,7 @@ const AttendanceManagement = () => {
       fetchAttendanceRecords();
       fetchLeaveApplications();
       fetchLeaveBalances();
+      fetchRegularizationRequests();
       
       // Set up real-time subscriptions
       const attendanceChannel = supabase
@@ -112,9 +114,23 @@ const AttendanceManagement = () => {
         )
         .subscribe();
 
+      const regularizationChannel = supabase
+        .channel('regularization-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'regularization_requests'
+          },
+          () => fetchRegularizationRequests()
+        )
+        .subscribe();
+
       return () => {
         supabase.removeChannel(attendanceChannel);
         supabase.removeChannel(leaveChannel);
+        supabase.removeChannel(regularizationChannel);
       };
     }
   }, [userRole]);
@@ -190,6 +206,25 @@ const AttendanceManagement = () => {
     }
   };
 
+  const fetchRegularizationRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('regularization_requests')
+        .select(`
+          *,
+          profiles:user_id (full_name, username)
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRegularizationRequests((data as any) || []);
+    } catch (error) {
+      console.error('Error fetching regularization requests:', error);
+      toast.error('Failed to fetch regularization requests');
+    }
+  };
+
   const handleLeaveAction = async (applicationId: string, action: 'approved' | 'rejected', rejectionReason?: string) => {
     try {
       const updateData: any = { status: action };
@@ -259,6 +294,45 @@ const AttendanceManagement = () => {
     }
   };
 
+  const approveRegularization = async (requestId: string) => {
+    try {
+      const request = regularizationRequests.find(r => r.id === requestId);
+      if (!request) return;
+
+      // Update the attendance record with new times
+      const { error: attendanceError } = await supabase
+        .from('attendance')
+        .upsert({
+          user_id: request.user_id,
+          date: request.attendance_date,
+          check_in_time: request.requested_check_in_time,
+          check_out_time: request.requested_check_out_time,
+          status: 'present'
+        });
+
+      if (attendanceError) throw attendanceError;
+
+      // Update regularization request status
+      const { error: requestError } = await supabase
+        .from('regularization_requests')
+        .update({
+          status: 'approved',
+          approved_by: (await supabase.auth.getUser()).data.user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', requestId);
+
+      if (requestError) throw requestError;
+
+      toast.success('Regularization request approved successfully!');
+      fetchRegularizationRequests();
+      fetchAttendanceRecords();
+    } catch (error) {
+      console.error('Error approving regularization:', error);
+      toast.error('Failed to approve regularization request');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       present: { color: 'bg-green-100 text-green-800', label: 'Present' },
@@ -297,7 +371,7 @@ const AttendanceManagement = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="attendance" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
               Live Attendance
@@ -305,6 +379,10 @@ const AttendanceManagement = () => {
             <TabsTrigger value="leaves" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Leave Management
+            </TabsTrigger>
+            <TabsTrigger value="regularization" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Pending Regularization
             </TabsTrigger>
             <TabsTrigger value="balances" className="flex items-center gap-2">
               <Edit className="h-4 w-4" />
@@ -462,6 +540,86 @@ const AttendanceManagement = () => {
                     })}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="regularization">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Regularization Requests</CardTitle>
+                <CardDescription>
+                  Review and approve employee attendance regularization requests
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Current Times</TableHead>
+                      <TableHead>Requested Times</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {regularizationRequests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell className="font-medium">
+                          {request.profiles?.full_name || 'Unknown User'}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(request.attendance_date), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>In: {request.current_check_in_time ? 
+                              format(new Date(request.current_check_in_time), 'HH:mm') 
+                              : '--'}</div>
+                            <div>Out: {request.current_check_out_time ? 
+                              format(new Date(request.current_check_out_time), 'HH:mm') 
+                              : '--'}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium text-blue-600">
+                            <div>In: {request.requested_check_in_time ? 
+                              format(new Date(request.requested_check_in_time), 'HH:mm') 
+                              : '--'}</div>
+                            <div>Out: {request.requested_check_out_time ? 
+                              format(new Date(request.requested_check_out_time), 'HH:mm') 
+                              : '--'}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {request.reason}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(request.status)}
+                        </TableCell>
+                        <TableCell>
+                          {request.status === 'pending' && (
+                            <Button
+                              size="sm"
+                              onClick={() => approveRegularization(request.id)}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Approve
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {regularizationRequests.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No pending regularization requests
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

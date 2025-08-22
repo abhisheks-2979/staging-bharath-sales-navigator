@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useFaceMatching, type FaceMatchResult } from "@/hooks/useFaceMatching";
 import HolidayList from "@/components/HolidayList";
+import { AttendanceDetailModal } from "@/components/AttendanceDetailModal";
 
 const Attendance = () => {
   const navigate = useNavigate();
@@ -241,49 +242,6 @@ const Attendance = () => {
     }
   };
 
-  const approveRegularization = async (requestId) => {
-    try {
-      const request = regularizationRequests.find(r => r.id === requestId);
-      if (!request) return;
-
-      const { error: attendanceError } = await supabase
-        .from('attendance')
-        .upsert({
-          user_id: request.user_id,
-          date: request.attendance_date,
-          check_in_time: request.requested_check_in_time,
-          check_out_time: request.requested_check_out_time,
-          status: 'present'
-        });
-
-      if (attendanceError) throw attendanceError;
-
-      const { error: requestError } = await supabase
-        .from('regularization_requests')
-        .update({
-          status: 'approved',
-          approved_at: new Date().toISOString()
-        })
-        .eq('id', requestId);
-
-      if (requestError) throw requestError;
-
-      toast({
-        title: "Success",
-        description: "Regularization request approved successfully!",
-      });
-
-      fetchRegularizationRequests();
-      fetchAttendanceData();
-    } catch (error) {
-      console.error('Error approving regularization:', error);
-      toast({
-        title: "Error",
-        description: "Failed to approve regularization request.",
-        variant: "destructive"
-      });
-    }
-  };
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -1122,9 +1080,8 @@ const Attendance = () => {
               )}
 
               <Tabs defaultValue="attendance" className="w-full mt-6">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="attendance">My Attendance</TabsTrigger>
-                  <TabsTrigger value="regularization">Pending Regularization</TabsTrigger>
                   <TabsTrigger value="leave">Leave</TabsTrigger>
                   <TabsTrigger value="holiday">Holiday</TabsTrigger>
                 </TabsList>
@@ -1241,56 +1198,6 @@ const Attendance = () => {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="regularization" className="space-y-4">
-                  <div className="bg-white rounded-lg border">
-                    <div className="p-4 border-b">
-                      <h3 className="font-semibold text-gray-800">Pending Regularization Requests</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Requested Times</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Reason</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-600">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {regularizationRequests.map((request) => (
-                            <tr key={request.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-gray-800">
-                                {new Date(request.attendance_date).toLocaleDateString('en-GB')}
-                              </td>
-                              <td className="px-3 py-2 text-blue-600 font-medium">
-                                In: {request.requested_check_in_time ? 
-                                  new Date(request.requested_check_in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) 
-                                  : '-'} | 
-                                Out: {request.requested_check_out_time ? 
-                                  new Date(request.requested_check_out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) 
-                                  : '-'}
-                              </td>
-                              <td className="px-3 py-2 text-gray-600">{request.reason}</td>
-                              <td className="px-3 py-2 text-center">
-                                <Badge variant={request.status === 'approved' ? 'default' : 'secondary'}>
-                                  {request.status}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-2 text-center">
-                                {request.status === 'pending' && (
-                                  <Button size="sm" onClick={() => approveRegularization(request.id)}>
-                                    Approve
-                                  </Button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </TabsContent>
 
                 <TabsContent value="leave">
                   <div className="p-4">Leave management content here...</div>
@@ -1305,6 +1212,13 @@ const Attendance = () => {
             </CardContent>
           </Card>
         </div>
+
+        <AttendanceDetailModal
+          isOpen={!!selectedAttendanceDate}
+          onClose={() => setSelectedAttendanceDate(null)}
+          selectedDate={selectedAttendanceDate?.date || null}
+          record={selectedAttendanceDate?.record || null}
+        />
 
         <Dialog open={showRegularizeModal} onOpenChange={setShowRegularizeModal}>
           <DialogContent className="max-w-md">
