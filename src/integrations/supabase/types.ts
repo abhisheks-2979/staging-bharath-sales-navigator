@@ -997,6 +997,57 @@ export type Database = {
         }
         Relationships: []
       }
+      regularization_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attendance_date: string
+          created_at: string
+          current_check_in_time: string | null
+          current_check_out_time: string | null
+          id: string
+          reason: string
+          rejection_reason: string | null
+          requested_check_in_time: string | null
+          requested_check_out_time: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attendance_date: string
+          created_at?: string
+          current_check_in_time?: string | null
+          current_check_out_time?: string | null
+          id?: string
+          reason: string
+          rejection_reason?: string | null
+          requested_check_in_time?: string | null
+          requested_check_out_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attendance_date?: string
+          created_at?: string
+          current_check_in_time?: string | null
+          current_check_out_time?: string | null
+          id?: string
+          reason?: string
+          rejection_reason?: string | null
+          requested_check_in_time?: string | null
+          requested_check_out_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       retailer_feedback: {
         Row: {
           comments: string | null
