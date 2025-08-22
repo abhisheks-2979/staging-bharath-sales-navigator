@@ -215,7 +215,8 @@ const AttendanceManagement = () => {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Live Monitoring
+          <User className="inline-block w-4 h-4 mr-2" />
+          Live Attendance
         </button>
         <button
           onClick={() => setActiveTab('leave')}
@@ -225,6 +226,7 @@ const AttendanceManagement = () => {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
+          <Clock className="inline-block w-4 h-4 mr-2" />
           Leave Management
         </button>
         <button
@@ -235,7 +237,30 @@ const AttendanceManagement = () => {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Pending Regularization Requests
+          <UserCheck className="inline-block w-4 h-4 mr-2" />
+          Pending Regularization
+        </button>
+        <button
+          onClick={() => setActiveTab('leave-balances')}
+          className={`py-2 px-4 border-b-2 transition-colors ${
+            activeTab === 'leave-balances'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Check className="inline-block w-4 h-4 mr-2" />
+          Leave Balances
+        </button>
+        <button
+          onClick={() => setActiveTab('holidays')}
+          className={`py-2 px-4 border-b-2 transition-colors ${
+            activeTab === 'holidays'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Clock className="inline-block w-4 h-4 mr-2" />
+          Holidays
         </button>
       </div>
 
@@ -414,6 +439,38 @@ const AttendanceManagement = () => {
                 No pending regularization requests found.
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'leave-balances' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Leave Balances</CardTitle>
+            <CardDescription>
+              View employee leave balances and entitlements
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8 text-muted-foreground">
+              Leave balances functionality will be implemented here.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'holidays' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Holidays</CardTitle>
+            <CardDescription>
+              Manage company holidays and calendar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8 text-muted-foreground">
+              Holiday management functionality will be implemented here.
+            </div>
           </CardContent>
         </Card>
       )}
