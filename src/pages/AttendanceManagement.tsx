@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Check, X, Clock, User, UserCheck, Calendar, Users, ClipboardList } from 'lucide-react';
+import { Check, X, Clock, User, UserCheck, Calendar, Users, ClipboardList, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import LiveAttendanceMonitoring from '@/components/LiveAttendanceMonitoring';
 
 interface LeaveApplication {
@@ -205,6 +206,14 @@ const AttendanceManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Back Button */}
+      <div className="flex items-center space-x-4">
+        <Link to="/admin" className="flex items-center text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Admin Panel
+        </Link>
+      </div>
+
       {/* Page Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Attendance Management</h1>
