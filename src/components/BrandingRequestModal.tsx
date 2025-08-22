@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 interface BrandingRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onBack?: () => void;
   defaultVisitId?: string | null;
   defaultRetailerId?: string | null;
   defaultPincode?: string | null;
@@ -21,7 +23,7 @@ interface BrandingRequestModalProps {
 interface RetailerOption { id: string; name: string; address?: string | null }
 interface VendorOption { id: string; name: string; region_pincodes: string[]; is_approved: boolean }
 
-export const BrandingRequestModal = ({ isOpen, onClose, defaultVisitId, defaultRetailerId, defaultPincode, onCreated }: BrandingRequestModalProps) => {
+export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, defaultRetailerId, defaultPincode, onCreated }: BrandingRequestModalProps) => {
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [retailerId, setRetailerId] = useState<string | undefined>(defaultRetailerId || undefined);
@@ -122,7 +124,19 @@ export const BrandingRequestModal = ({ isOpen, onClose, defaultVisitId, defaultR
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Branding Request</DialogTitle>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="p-1 h-8 w-8"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <DialogTitle>Branding Request</DialogTitle>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">

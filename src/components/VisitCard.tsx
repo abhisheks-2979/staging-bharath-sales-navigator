@@ -911,6 +911,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           <RetailerFeedbackModal
             isOpen={true}
             onClose={() => setShowFeedbackModal(false)}
+            onBack={() => setFeedbackActiveTab("menu")}
             visitId={currentVisitId || visit.id}
             retailerId={(visit.retailerId || visit.id) as string}
             retailerName={visit.retailerName}
@@ -921,6 +922,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           <CompetitionInsightModal
             isOpen={true}
             onClose={() => setShowFeedbackModal(false)}
+            onBack={() => setFeedbackActiveTab("menu")}
             visitId={currentVisitId || visit.id}
             retailerId={(visit.retailerId || visit.id) as string}
             retailerName={visit.retailerName}
@@ -931,6 +933,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           <BrandingRequestModal
             isOpen={true}
             onClose={() => setShowFeedbackModal(false)}
+            onBack={() => setFeedbackActiveTab("menu")}
             defaultVisitId={currentVisitId}
             defaultRetailerId={(visit.retailerId || visit.id) as string}
             defaultPincode={null}

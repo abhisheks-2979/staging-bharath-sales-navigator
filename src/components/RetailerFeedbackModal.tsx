@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Star } from "lucide-react";
+import { Star, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface RetailerFeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onBack?: () => void;
   visitId: string;
   retailerId: string;
   retailerName: string;
@@ -18,6 +19,7 @@ interface RetailerFeedbackModalProps {
 export const RetailerFeedbackModal = ({ 
   isOpen, 
   onClose, 
+  onBack,
   visitId, 
   retailerId, 
   retailerName 
@@ -75,7 +77,19 @@ export const RetailerFeedbackModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Retailer Feedback</DialogTitle>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="p-1 h-8 w-8"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <DialogTitle>Retailer Feedback</DialogTitle>
+          </div>
           <p className="text-sm text-muted-foreground">{retailerName}</p>
         </DialogHeader>
         
