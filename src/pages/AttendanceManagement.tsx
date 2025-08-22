@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Edit, User, Calendar, UserCheck, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import HolidayManagement from '@/components/HolidayManagement';
+import LiveAttendanceMonitoring from '@/components/LiveAttendanceMonitoring';
 
 interface AttendanceRecord {
   id: string;
@@ -395,86 +396,7 @@ const AttendanceManagement = () => {
           </TabsList>
 
           <TabsContent value="attendance">
-            <Card>
-              <CardHeader>
-                <CardTitle>Live Attendance Monitoring</CardTitle>
-                <CardDescription>
-                  Real-time view of all user attendance with check-in/check-out times
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Check In</TableHead>
-                      <TableHead>Check Out</TableHead>
-                      <TableHead>Total Hours</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {attendanceRecords.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">
-                          {record.profiles?.full_name || 'Unknown User'}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(record.date), 'MMM dd, yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            {record.check_in_time 
-                              ? format(new Date(record.check_in_time), 'HH:mm')
-                              : '--'
-                            }
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            {record.check_out_time 
-                              ? format(new Date(record.check_out_time), 'HH:mm')
-                              : '--'
-                            }
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {record.total_hours ? `${record.total_hours.toFixed(1)}h` : '--'}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(record.status)}
-                        </TableCell>
-                        <TableCell>
-                          {record.check_in_location && 
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm">
-                                {record.check_in_location.latitude?.toFixed(4)}, 
-                                {record.check_in_location.longitude?.toFixed(4)}
-                              </span>
-                            </div>
-                          }
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openUserDialog(record.user_id)}
-                          >
-                            <User className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <LiveAttendanceMonitoring />
           </TabsContent>
 
           <TabsContent value="leaves">
