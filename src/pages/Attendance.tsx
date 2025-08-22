@@ -90,7 +90,7 @@ const Attendance = () => {
 
   useEffect(() => {
     fetchFilteredAttendanceData();
-  }, [attendanceFilter, dateRange]);
+  }, [attendanceFilter, dateRange, regularizationRequests]);
 
   const fetchRegularizationRequests = async () => {
     try {
@@ -232,6 +232,7 @@ const Attendance = () => {
 
       setShowRegularizeModal(false);
       fetchRegularizationRequests();
+      fetchFilteredAttendanceData(); // Refresh attendance data to show updated regularization status
     } catch (error) {
       console.error('Error submitting regularization:', error);
       toast({
@@ -1177,16 +1178,17 @@ const Attendance = () => {
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day Start</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Day End</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
-                            <th className="px-3 py-2 text-center font-medium text-gray-600">Face Match</th>
-                          </tr>
-                        </thead>
+                         <thead className="bg-gray-50">
+                           <tr>
+                             <th className="px-3 py-2 text-left font-medium text-gray-600">Date</th>
+                             <th className="px-3 py-2 text-left font-medium text-gray-600">Day</th>
+                             <th className="px-3 py-2 text-left font-medium text-gray-600">Day Start</th>
+                             <th className="px-3 py-2 text-left font-medium text-gray-600">Day End</th>
+                             <th className="px-3 py-2 text-left font-medium text-gray-600">Total Hours</th>
+                             <th className="px-3 py-2 text-center font-medium text-gray-600">Face Match</th>
+                             <th className="px-3 py-2 text-center font-medium text-gray-600">Status</th>
+                           </tr>
+                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {attendanceData.length > 0 ? (
                             attendanceData.map((record, index) => (
@@ -1200,36 +1202,61 @@ const Attendance = () => {
                                 <td className="px-3 py-2 text-gray-600">
                                   {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short' })}
                                 </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-gray-800 font-medium">{record.checkIn}</div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-gray-800 font-medium">{record.checkOut}</div>
-                                </td>
+                                 <td className="px-3 py-2">
+                                   <div className={`text-gray-800 font-medium ${record.isRegularized ? 'text-blue-600' : ''}`}>
+                                     {record.checkIn}
+                                     {record.isRegularized && (
+                                       <span className="ml-1 text-xs text-blue-500">(Regularized)</span>
+                                     )}
+                                   </div>
+                                 </td>
+                                 <td className="px-3 py-2">
+                                   <div className={`text-gray-800 font-medium ${record.isRegularized ? 'text-blue-600' : ''}`}>
+                                     {record.checkOut}
+                                     {record.isRegularized && (
+                                       <span className="ml-1 text-xs text-blue-500">(Regularized)</span>
+                                     )}
+                                   </div>
+                                 </td>
                                 <td className="px-3 py-2">
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     {record.totalHours}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-center">
-                                  {faceMatchResults[record.id] ? (
-                                    <div className="flex items-center justify-center gap-1">
-                                      <span className="text-lg">
-                                        {getMatchStatusIcon(faceMatchResults[record.id])}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-gray-400">No data</span>
-                                  )}
-                                </td>
+                                 <td className="px-3 py-2 text-center">
+                                   {faceMatchResults[record.id] ? (
+                                     <div className="flex items-center justify-center gap-1">
+                                       <span className="text-lg">
+                                         {getMatchStatusIcon(faceMatchResults[record.id])}
+                                       </span>
+                                     </div>
+                                   ) : (
+                                     <span className="text-xs text-gray-400">No data</span>
+                                   )}
+                                 </td>
+                                 <td className="px-3 py-2 text-center">
+                                   {record.regularizationStatus === 'approved' && (
+                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                       ✅ Approved
+                                     </span>
+                                   )}
+                                   {record.regularizationStatus === 'pending' && (
+                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                       ⏳ Pending
+                                     </span>
+                                   )}
+                                   {!record.regularizationStatus && (
+                                     <span className="text-xs text-gray-400">-</span>
+                                   )}
+                                 </td>
                               </tr>
                             ))
                           ) : (
-                            <tr>
-                              <td colSpan={6} className="px-3 py-8 text-center text-gray-500">
-                                No attendance records found
-                              </td>
-                            </tr>
+                             <tr>
+                               <td colSpan={7} className="px-3 py-8 text-center text-gray-500">
+                                 No attendance records found
+                               </td>
+                             </tr>
                           )}
                         </tbody>
                       </table>
