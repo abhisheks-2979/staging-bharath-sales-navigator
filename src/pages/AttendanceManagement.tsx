@@ -65,15 +65,33 @@ const AttendanceManagement = () => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('leave_applications')
-        .select(`
-          *,
-          profiles:user_id (full_name, username),
-          leave_types:leave_type_id (name)
-        `)
+        .select('*')
         .order('applied_date', { ascending: false });
 
       if (error) throw error;
-      setLeaveApplications(data || []);
+
+      // Fetch profiles and leave types separately
+      const userIds = [...new Set(data?.map(app => app.user_id) || [])];
+      const leaveTypeIds = [...new Set(data?.map(app => app.leave_type_id) || [])];
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .in('id', userIds);
+
+      const { data: leaveTypes } = await supabase
+        .from('leave_types')
+        .select('id, name')
+        .in('id', leaveTypeIds);
+
+      // Join the data manually
+      const enrichedData = data?.map(app => ({
+        ...app,
+        profiles: profiles?.find(p => p.id === app.user_id),
+        leave_types: leaveTypes?.find(lt => lt.id === app.leave_type_id)
+      })) || [];
+
+      setLeaveApplications(enrichedData);
     } catch (error) {
       console.error('Error fetching leave applications:', error);
       toast.error('Failed to fetch leave applications');
@@ -87,15 +105,26 @@ const AttendanceManagement = () => {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('regularization_requests')
-        .select(`
-          *,
-          profiles:user_id (full_name, username)
-        `)
+        .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRegularizationRequests(data || []);
+
+      // Fetch profiles separately
+      const userIds = [...new Set(data?.map(req => req.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .in('id', userIds);
+
+      // Join the data manually
+      const enrichedData = data?.map(req => ({
+        ...req,
+        profiles: profiles?.find(p => p.id === req.user_id)
+      })) || [];
+
+      setRegularizationRequests(enrichedData);
     } catch (error) {
       console.error('Error fetching regularization requests:', error);
       toast.error('Failed to fetch regularization requests');

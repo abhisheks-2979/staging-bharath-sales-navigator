@@ -109,23 +109,16 @@ const LiveAttendanceMonitoring = () => {
     try {
       setIsLoading(true);
 
-      // Fetch all attendance records with profiles
+      // Fetch all attendance records
       const { data: attendance, error: attendanceError } = await supabase
         .from('attendance')
-        .select(`
-          *,
-          profiles!inner (
-            full_name,
-            username
-          )
-        `)
+        .select('*')
         .gte('date', format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'))
         .order('date', { ascending: false });
 
       if (attendanceError) throw attendanceError;
 
-      // Get all users and create attendance records for today if they don't exist
-      const today = format(new Date(), 'yyyy-MM-dd');
+      // Get all users and their profiles
       const { data: allUsers } = await supabase
         .from('profiles')
         .select('id, full_name, username');
@@ -133,15 +126,20 @@ const LiveAttendanceMonitoring = () => {
       if (allUsers) {
         const attendanceDataWithAbsent: AttendanceData[] = [];
         
-        // Add existing attendance records
+        // Add existing attendance records with profile data
         attendance?.forEach(record => {
+          const profile = allUsers.find(user => user.id === record.user_id);
           attendanceDataWithAbsent.push({
             ...record,
-            profiles: record.profiles
+            profiles: profile ? {
+              full_name: profile.full_name,
+              username: profile.username
+            } : null
           });
         });
 
         // Check for users without attendance today and mark them as absent
+        const today = format(new Date(), 'yyyy-MM-dd');
         const todaysAttendance = attendance?.filter(a => a.date === today) || [];
         const usersWithAttendanceToday = todaysAttendance.map(a => a.user_id);
         
