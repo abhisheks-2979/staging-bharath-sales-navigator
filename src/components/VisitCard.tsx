@@ -63,18 +63,42 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [isCheckedOut, setIsCheckedOut] = useState(false);
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
+  const [distributorName, setDistributorName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
   
-  // Check if user has viewed analytics for this visit and check-in status
+  // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
     const checkStatus = async () => {
       try {
         const { data: user } = await supabase.auth.getUser();
         if (user.user) {
+          const visitRetailerId = visit.retailerId || visit.id;
+          
+          // Load distributor information - First try to get from distributor mapping
+          const { data: distributorMapping, error: mappingError } = await supabase
+            .from('distributor_retailer_mappings')
+            .select('distributor_id')
+            .eq('retailer_id', visitRetailerId)
+            .eq('user_id', user.user.id)
+            .maybeSingle();
+
+          if (!mappingError && distributorMapping?.distributor_id) {
+            // Try to get distributor from retailers table (distributors are stored as retailers with entity_type = 'distributor')
+            const { data: distributorData, error: distributorError } = await supabase
+              .from('retailers')
+              .select('name')
+              .eq('id', distributorMapping.distributor_id)
+              .eq('entity_type', 'distributor')
+              .maybeSingle();
+
+            if (!distributorError && distributorData) {
+              setDistributorName(distributorData.name);
+            }
+          }
           // Check analytics view
           const { data, error } = await supabase
             .from('analytics_views')
@@ -89,12 +113,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           // Check visit status for today
           const today = new Date().toISOString().split('T')[0];
-          const retailerId = visit.retailerId || visit.id;
           const { data: visitData } = await supabase
             .from('visits')
             .select('id, check_in_time, check_out_time, status')
             .eq('user_id', user.user.id)
-            .eq('retailer_id', retailerId)
+            .eq('retailer_id', visitRetailerId)
             .eq('planned_date', today)
             .maybeSingle();
 
@@ -122,7 +145,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             .from('orders')
             .select('id, total_amount')
             .eq('user_id', user.user.id)
-            .eq('retailer_id', retailerId)
+            .eq('retailer_id', visitRetailerId)
             .eq('status', 'confirmed')
             .gte('created_at', todayStart.toISOString())
             .lte('created_at', todayEnd.toISOString());
@@ -647,11 +670,21 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         {/* Header - Retailer info and status */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-card-foreground text-sm sm:text-base truncate">{visit.retailerName}</h3>
-            {visit.distributor && (
+            <h3 className="font-semibold text-card-foreground text-sm sm:text-base truncate">
+              <button
+                onClick={() => window.open(`/retailer/${visit.retailerId || visit.id}`, '_blank')}
+                className="text-left hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline"
+                title="View retailer details"
+              >
+                {visit.retailerName}
+              </button>
+            </h3>
+            {(distributorName || visit.distributor) && (
               <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
                 <Store size={12} className="sm:size-3.5 flex-shrink-0" />
-                <span className="truncate">{visit.distributor}</span>
+                <span className="truncate" title="Mapped Distributor">
+                  {distributorName || visit.distributor}
+                </span>
               </div>
             )}
           </div>

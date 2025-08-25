@@ -49,6 +49,7 @@ import BrandingRequests from "./pages/BrandingRequests";
 import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
+import { RetailerDetail } from "./pages/RetailerDetail";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import Operations from "./pages/Operations";
 import DistributorMaster from "./pages/DistributorMaster";
@@ -103,6 +104,7 @@ const App = () => (
               <AttendanceManagement />
             </ProtectedRoute>
           } />
+          <Route path="/retailer/:id" element={<RetailerDetail />} />
           <Route path="/territories-distributors" element={
             <ProtectedRoute>
               <TerritoriesAndDistributors />
