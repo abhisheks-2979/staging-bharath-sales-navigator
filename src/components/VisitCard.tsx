@@ -183,13 +183,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 .eq('planned_date', today)
                 .maybeSingle();
 
-              if (visitData?.check_in_time && visitData.status === 'in-progress') {
+              if (visitData?.check_in_time && (visitData.status === 'in-progress' || visitData.status === 'unproductive')) {
                 await supabase
                   .from('visits')
-                  .update({ status: 'productive' })
+                  .update({ status: 'productive', no_order_reason: null })
                   .eq('id', visitData.id);
               }
               setHasOrderToday(true);
+              setIsNoOrderMarked(false);
+              setNoOrderReason('');
             }
           }
         )
@@ -710,7 +712,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
-              } ${(isNoOrderMarked || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${(!isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={async () => {
                 if (!isCheckedIn && isTodaysVisit) {
                   toast({ 
@@ -720,7 +722,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   });
                   return;
                 }
-                if (isNoOrderMarked || !isCheckedIn || !isTodaysVisit) return;
+                if (!isCheckedIn || !isTodaysVisit) return;
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
@@ -737,7 +739,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
                 }
               }}
-              title={`${!isCheckedIn ? "Check in first to place order" : isNoOrderMarked ? "Disabled - No Order Marked" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
+              title={`${!isCheckedIn ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
             >
               <ShoppingCart size={12} className="sm:size-3.5" />
               <span className="text-xs">Order</span>
@@ -750,7 +752,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
               } ${(isNoOrderMarked || hasOrderToday || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleNoOrderClick}
-              disabled={isNoOrderMarked || hasOrderToday || !isCheckedIn || !isTodaysVisit}
+              disabled={hasOrderToday || !isCheckedIn || !isTodaysVisit}
               title={
                 !isCheckedIn
                   ? "Check in first to mark no order"
