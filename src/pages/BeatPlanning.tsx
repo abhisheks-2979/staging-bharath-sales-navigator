@@ -409,7 +409,7 @@ export const BeatPlanning = () => {
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  onClick={() => navigate('/visits')}
+                  onClick={() => navigate('/visits/retailers')}
                   className="text-primary-foreground hover:bg-primary-foreground/20"
                 >
                   <ArrowLeft size={18} className="sm:hidden" />

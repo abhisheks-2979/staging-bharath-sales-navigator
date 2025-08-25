@@ -63,7 +63,7 @@ export const Navbar = () => {
       <nav className="bg-gradient-primary text-primary-foreground shadow-lg relative z-50">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <NavLink to="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+            <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center relative">
                 <Home size={14} className="absolute opacity-30" />
                 <span className="text-xs font-bold relative z-10">KVP</span>
@@ -94,7 +94,7 @@ export const Navbar = () => {
               <div className="relative p-4 text-center">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <NavLink to="/" onClick={() => setIsOpen(false)}>
+                    <NavLink to="/dashboard" onClick={() => setIsOpen(false)}>
                       <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
                         <AvatarImage src="/placeholder.svg" alt="User" />
                         <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
