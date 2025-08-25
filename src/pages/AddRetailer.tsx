@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag } from "lucide-react";
+import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +24,7 @@ export const AddRetailer = () => {
     notes: "",
     parentType: "Distributor", // Default to Distributor
     parentName: "",
+    selectedDistributors: [] as string[], // Array for multiple distributors
     locationTag: "",
     retailType: "",
     potential: "",
@@ -47,14 +50,13 @@ export const AddRetailer = () => {
   const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store"];
   const potentials = ["High", "Medium", "Low"];
 
-  // Load distributors from retailers table
+  // Load distributors from vendors table (Distributor Management)
   const loadDistributors = async () => {
     if (!user) return;
     const { data, error } = await supabase
-      .from('retailers')
+      .from('vendors')
       .select('id, name')
-      .eq('user_id', user.id)
-      .eq('entity_type', 'distributor')
+      .eq('is_approved', true)
       .order('name');
     
     if (error) {
@@ -71,8 +73,31 @@ export const AddRetailer = () => {
     }
   }, [user]);
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | string[]) => {
     setRetailerData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDistributorToggle = (distributorId: string, distributorName: string) => {
+    setRetailerData(prev => {
+      const isSelected = prev.selectedDistributors.includes(distributorId);
+      if (isSelected) {
+        return {
+          ...prev,
+          selectedDistributors: prev.selectedDistributors.filter(id => id !== distributorId),
+          parentName: prev.selectedDistributors.length === 1 ? "" : prev.parentName
+        };
+      } else {
+        const newSelectedDistributors = [...prev.selectedDistributors, distributorId];
+        const distributorNames = newSelectedDistributors.map(id => 
+          distributors.find(d => d.id === id)?.name || ""
+        ).filter(Boolean);
+        return {
+          ...prev,
+          selectedDistributors: newSelectedDistributors,
+          parentName: distributorNames.join(", ")
+        };
+      }
+    });
   };
 
   const handlePhotoCapture = async () => {
@@ -490,16 +515,51 @@ export const AddRetailer = () => {
                 <div className="space-y-2">
                   <Label>Parent Name</Label>
                   {retailerData.parentType === "Distributor" ? (
-                    <Select value={retailerData.parentName} onValueChange={(value) => handleInputChange("parentName", value)}>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select distributor" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border z-50">
-                        {distributors.map((distributor) => (
-                          <SelectItem key={distributor.id} value={distributor.name}>{distributor.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-3">
+                      {/* Selected Distributors Display */}
+                      {retailerData.selectedDistributors.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {retailerData.selectedDistributors.map((distributorId) => {
+                            const distributor = distributors.find(d => d.id === distributorId);
+                            return distributor ? (
+                              <Badge key={distributorId} variant="secondary" className="flex items-center gap-1">
+                                {distributor.name}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                                  onClick={() => handleDistributorToggle(distributorId, distributor.name)}
+                                >
+                                  <X size={12} />
+                                </Button>
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* Distributor Selection */}
+                      <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                        <Label className="text-sm font-medium">Select Distributors:</Label>
+                        {distributors.length > 0 ? (
+                          distributors.map((distributor) => (
+                            <div key={distributor.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={distributor.id}
+                                checked={retailerData.selectedDistributors.includes(distributor.id)}
+                                onCheckedChange={() => handleDistributorToggle(distributor.id, distributor.name)}
+                              />
+                              <Label htmlFor={distributor.id} className="text-sm cursor-pointer">
+                                {distributor.name}
+                              </Label>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No distributors found. Please add distributors in Distributor Management first.</p>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <Input
                       placeholder="Enter parent name"
@@ -507,9 +567,6 @@ export const AddRetailer = () => {
                       onChange={(e) => handleInputChange("parentName", e.target.value)}
                       className="bg-background"
                     />
-                  )}
-                  {retailerData.parentType === "Distributor" && distributors.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No distributors found. Please add distributors first.</p>
                   )}
                 </div>
               </div>
