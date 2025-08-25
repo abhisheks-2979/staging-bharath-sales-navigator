@@ -53,7 +53,7 @@ import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import Operations from "./pages/Operations";
 import DistributorMaster from "./pages/DistributorMaster";
 import DistributorMapping from "./pages/DistributorMapping";
-import ExpenseManagement from "./pages/ExpenseManagement";
+
 import AdminExpenseManagement from "./pages/AdminExpenseManagement";
 import MyExpenses from "./pages/MyExpenses";
 import UserProfile from "./pages/UserProfile";
@@ -106,11 +106,6 @@ const App = () => (
           <Route path="/territories-distributors" element={
             <ProtectedRoute>
               <TerritoriesAndDistributors />
-            </ProtectedRoute>
-          } />
-          <Route path="/expense-management" element={
-            <ProtectedRoute>
-              <ExpenseManagement />
             </ProtectedRoute>
           } />
           <Route path="/admin-expense-management" element={
