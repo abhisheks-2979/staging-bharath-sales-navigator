@@ -14,7 +14,7 @@ import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
 import { StockCycleModal } from "./StockCycleModal";
-import { StockCycleTable } from "./StockCycleTable";
+import { AnalyticsModal } from "./AnalyticsModal";
 
 interface Visit {
   id: string;
@@ -48,7 +48,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackActiveTab, setFeedbackActiveTab] = useState("menu");
   const [showStockCycleModal, setShowStockCycleModal] = useState(false);
-  const [showStockCycleTable, setShowStockCycleTable] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
@@ -579,7 +579,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       console.log('Analytics view recording error:', error);
     }
     
-    onViewDetails(visitId);
+    setShowAnalyticsModal(true);
   };
 
 
@@ -791,18 +791,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <MessageSquare size={12} className="sm:size-3.5" />
               <span className="text-xs">Feedback</span>
             </Button>
-
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
-              onClick={() => setShowStockCycleTable(true)}
-              title="Stock Cycle"
-            >
-              <Package size={12} className="sm:size-3.5" />
-              <span className="text-xs">Stock Cycle</span>
-            </Button>
             
+            <div></div>
             <div></div>
           </div>
 
@@ -997,19 +987,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           retailerName={visit.retailerName}
         />
 
-        {/* Stock Cycle Table Dialog */}
-        <Dialog open={showStockCycleTable} onOpenChange={setShowStockCycleTable}>
-          <DialogContent className="w-[95%] max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold">Stock Cycle Tracking</DialogTitle>
-            </DialogHeader>
-            <StockCycleTable
-              retailerId={(visit.retailerId || visit.id) as string}
-              retailerName={visit.retailerName}
-              currentVisitId={currentVisitId || visit.id}
-            />
-          </DialogContent>
-        </Dialog>
+        {/* Analytics Modal */}
+        <AnalyticsModal
+          isOpen={showAnalyticsModal}
+          onClose={() => setShowAnalyticsModal(false)}
+          visitId={currentVisitId || visit.id}
+          retailerId={(visit.retailerId || visit.id) as string}
+          retailerName={visit.retailerName}
+          onViewDetails={onViewDetails}
+        />
       </CardContent>
     </Card>
   );
