@@ -55,6 +55,7 @@ import DistributorMaster from "./pages/DistributorMaster";
 import DistributorMapping from "./pages/DistributorMapping";
 import ExpenseManagement from "./pages/ExpenseManagement";
 import AdminExpenseManagement from "./pages/AdminExpenseManagement";
+import MyExpenses from "./pages/MyExpenses";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
 
@@ -224,7 +225,7 @@ const App = () => (
             } />
             <Route path="/expenses" element={
               <ProtectedRoute>
-                <ExpenseManagement />
+                <MyExpenses />
               </ProtectedRoute>
             } />
             <Route path="/leaderboard" element={
