@@ -394,6 +394,66 @@ export const MyRetailers = () => {
 
         <Card>
           <CardContent className="pt-6">
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {filtered.map(r => (
+                <Card key={r.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 
+                        className="font-semibold cursor-pointer hover:text-primary"
+                        onClick={() => openRetailerDetail(r)}
+                      >
+                        {r.name}
+                      </h3>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => openAddToVisit(r)} 
+                          className="h-8 w-8 p-0"
+                          title="Add to visit"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      {r.phone && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Phone:</span>
+                          <span>{r.phone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground">Address:</span>
+                        <span className="flex-1">{r.address}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Beat:</span>
+                        <span>{r.beat_id}</span>
+                      </div>
+                      {r.category && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Category:</span>
+                          <span>{r.category}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+              {filtered.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  {loading ? 'Loading...' : 'No retailers found'}
+                </div>
+              )}
+            </div>
+
             {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
               <Table>
