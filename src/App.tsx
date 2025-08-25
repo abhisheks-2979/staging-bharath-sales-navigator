@@ -54,6 +54,7 @@ import ExpenseManagement from "./pages/ExpenseManagement";
 import AdminExpenseManagement from "./pages/AdminExpenseManagement";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
+import Operations from "./pages/Operations";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,11 @@ const App = () => (
           <Route path="/admin-expense-management" element={
             <ProtectedRoute>
               <AdminExpenseManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/operations" element={
+            <ProtectedRoute>
+              <Operations />
             </ProtectedRoute>
           } />
             <Route path="/visit-planner" element={

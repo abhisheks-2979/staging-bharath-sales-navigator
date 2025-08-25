@@ -1,0 +1,869 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign } from 'lucide-react';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+
+interface CheckInOutData {
+  id: string;
+  user_name: string;
+  retailer_name: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  check_in_location: any;
+  check_out_location: any;
+  check_in_address: string | null;
+  check_out_address: string | null;
+  planned_date: string;
+}
+
+interface OrderData {
+  id: string;
+  user_name: string;
+  retailer_name: string;
+  created_at: string;
+  total_amount: number;
+  status: string;
+  items: any[];
+}
+
+interface StockData {
+  id: string;
+  user_name: string;
+  retailer_name: string;
+  created_at: string;
+  product_name: string;
+  stock_quantity: number;
+}
+
+const Operations = () => {
+  const { userRole, loading } = useAuth();
+  const navigate = useNavigate();
+  
+  const [activeTab, setActiveTab] = useState('checkins');
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [userFilter, setUserFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('today');
+  
+  // Data states
+  const [checkInData, setCheckInData] = useState<CheckInOutData[]>([]);
+  const [orderData, setOrderData] = useState<OrderData[]>([]);
+  const [stockData, setStockData] = useState<StockData[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  
+  // Loading states
+  const [loadingCheckins, setLoadingCheckins] = useState(false);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingStock, setLoadingStock] = useState(false);
+  
+  // Summary counters
+  const [todayStats, setTodayStats] = useState({
+    checkins: 0,
+    orders: 0,
+    stockUpdates: 0
+  });
+
+  // Fetch users for filter
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .order('full_name');
+      
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  // Fetch check-in/check-out data
+  const fetchCheckInData = async () => {
+    setLoadingCheckins(true);
+    try {
+      let query = supabase
+        .from('visits')
+        .select(`
+          id,
+          user_id,
+          retailer_id,
+          check_in_time,
+          check_out_time,
+          check_in_location,
+          check_out_location,
+          check_in_address,
+          check_out_address,
+          planned_date
+        `)
+        .not('check_in_time', 'is', null)
+        .order('check_in_time', { ascending: false });
+
+      if (userFilter !== 'all') {
+        query = query.eq('user_id', userFilter);
+      }
+
+      const { data: visitsData, error } = await query;
+      if (error) throw error;
+
+      // Get user and retailer data separately
+      const userIds = [...new Set(visitsData?.map(v => v.user_id) || [])];
+      const retailerIds = [...new Set(visitsData?.map(v => v.retailer_id) || [])];
+
+      const [{ data: usersData }, { data: retailersData }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, username').in('id', userIds),
+        supabase.from('retailers').select('id, name').in('id', retailerIds)
+      ]);
+
+      const formattedData = visitsData?.map(visit => {
+        const user = usersData?.find(u => u.id === visit.user_id);
+        const retailer = retailersData?.find(r => r.id === visit.retailer_id);
+        
+        return {
+          id: visit.id,
+          user_name: user?.full_name || user?.username || 'Unknown',
+          retailer_name: retailer?.name || 'Unknown',
+          check_in_time: visit.check_in_time,
+          check_out_time: visit.check_out_time,
+          check_in_location: visit.check_in_location,
+          check_out_location: visit.check_out_location,
+          check_in_address: visit.check_in_address,
+          check_out_address: visit.check_out_address,
+          planned_date: visit.planned_date
+        };
+      }) || [];
+
+      setCheckInData(formattedData);
+
+      // Calculate today's check-ins
+      const today = new Date().toISOString().split('T')[0];
+      const todayCheckins = formattedData.filter(item => 
+        item.check_in_time && item.check_in_time.startsWith(today)
+      ).length;
+      
+      setTodayStats(prev => ({ ...prev, checkins: todayCheckins }));
+    } catch (error) {
+      console.error('Error fetching check-in data:', error);
+      toast.error('Failed to fetch check-in data');
+    } finally {
+      setLoadingCheckins(false);
+    }
+  };
+
+  // Fetch order data
+  const fetchOrderData = async () => {
+    setLoadingOrders(true);
+    try {
+      let query = supabase
+        .from('orders')
+        .select(`
+          id,
+          user_id,
+          created_at,
+          total_amount,
+          status,
+          retailer_name,
+          order_items(product_name, quantity, rate, total)
+        `)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false });
+
+      if (userFilter !== 'all') {
+        query = query.eq('user_id', userFilter);
+      }
+
+      // Apply date filter
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      if (dateFilter === 'today') {
+        query = query.gte('created_at', startOfToday.toISOString());
+      } else if (dateFilter === 'week') {
+        const weekAgo = new Date(startOfToday);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('created_at', weekAgo.toISOString());
+      } else if (dateFilter === 'month') {
+        const monthAgo = new Date(startOfToday);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('created_at', monthAgo.toISOString());
+      }
+
+      const { data: ordersData, error } = await query;
+      if (error) throw error;
+
+      // Get user data separately
+      const userIds = [...new Set(ordersData?.map(o => o.user_id) || [])];
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .in('id', userIds);
+
+      const formattedData = ordersData?.map(order => {
+        const user = usersData?.find(u => u.id === order.user_id);
+        
+        return {
+          id: order.id,
+          user_name: user?.full_name || user?.username || 'Unknown',
+          retailer_name: order.retailer_name || 'Unknown',
+          created_at: order.created_at,
+          total_amount: order.total_amount,
+          status: order.status,
+          items: order.order_items || []
+        };
+      }) || [];
+
+      setOrderData(formattedData);
+
+      // Calculate today's orders
+      const todayOrders = formattedData.filter(item => 
+        item.created_at.startsWith(today.toISOString().split('T')[0])
+      ).length;
+      
+      setTodayStats(prev => ({ ...prev, orders: todayOrders }));
+    } catch (error) {
+      console.error('Error fetching order data:', error);
+      toast.error('Failed to fetch order data');
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  // Fetch stock data
+  const fetchStockData = async () => {
+    setLoadingStock(true);
+    try {
+      let query = supabase
+        .from('stock')
+        .select(`
+          id,
+          user_id,
+          retailer_id,
+          created_at,
+          product_name,
+          stock_quantity
+        `)
+        .order('created_at', { ascending: false });
+
+      if (userFilter !== 'all') {
+        query = query.eq('user_id', userFilter);
+      }
+
+      const { data: stockData, error } = await query;
+      if (error) throw error;
+
+      // Get user and retailer data separately
+      const userIds = [...new Set(stockData?.map(s => s.user_id) || [])];
+      const retailerIds = [...new Set(stockData?.map(s => s.retailer_id) || [])];
+
+      const [{ data: usersData }, { data: retailersData }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, username').in('id', userIds),
+        supabase.from('retailers').select('id, name').in('id', retailerIds)
+      ]);
+
+      const formattedData = stockData?.map(stock => {
+        const user = usersData?.find(u => u.id === stock.user_id);
+        const retailer = retailersData?.find(r => r.id === stock.retailer_id);
+        
+        return {
+          id: stock.id,
+          user_name: user?.full_name || user?.username || 'Unknown',
+          retailer_name: retailer?.name || 'Unknown',
+          created_at: stock.created_at,
+          product_name: stock.product_name,
+          stock_quantity: stock.stock_quantity
+        };
+      }) || [];
+
+      setStockData(formattedData);
+
+      // Calculate today's stock updates
+      const today = new Date().toISOString().split('T')[0];
+      const todayStock = formattedData.filter(item => 
+        item.created_at.startsWith(today)
+      ).length;
+      
+      setTodayStats(prev => ({ ...prev, stockUpdates: todayStock }));
+    } catch (error) {
+      console.error('Error fetching stock data:', error);
+      toast.error('Failed to fetch stock data');
+    } finally {
+      setLoadingStock(false);
+    }
+  };
+
+  // Filter data based on search term
+  const filterData = (data: any[], searchFields: string[]) => {
+    if (!searchTerm) return data;
+    return data.filter(item =>
+      searchFields.some(field =>
+        item[field]?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
+  };
+
+  // Export to CSV
+  const exportToCSV = (data: any[], filename: string) => {
+    if (data.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const headers = Object.keys(data[0]).join(',');
+    const csvContent = [
+      headers,
+      ...data.map(row => Object.values(row).map(val => `"${val}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchUsers();
+    fetchCheckInData();
+    fetchOrderData();
+    fetchStockData();
+  }, [userFilter, dateFilter]);
+
+  // Auto refresh
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      if (activeTab === 'checkins') fetchCheckInData();
+      if (activeTab === 'orders') fetchOrderData();
+      if (activeTab === 'stock') fetchStockData();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [activeTab, autoRefresh, userFilter, dateFilter]);
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const visitsChannel = supabase
+      .channel('visits-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visits' }, () => {
+        fetchCheckInData();
+      })
+      .subscribe();
+
+    const ordersChannel = supabase
+      .channel('orders-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchOrderData();
+      })
+      .subscribe();
+
+    const stockChannel = supabase
+      .channel('stock-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock' }, () => {
+        fetchStockData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(visitsChannel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(stockChannel);
+    };
+  }, [autoRefresh, userFilter, dateFilter]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (userRole !== 'admin') {
+    navigate('/dashboard');
+    return null;
+  }
+
+  const filteredCheckInData = filterData(checkInData, ['user_name', 'retailer_name']);
+  const filteredOrderData = filterData(orderData, ['user_name', 'retailer_name']);
+  const filteredStockData = filterData(stockData, ['user_name', 'retailer_name', 'product_name']);
+
+  return (
+    <div className="min-h-screen bg-gradient-subtle p-4">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => navigate('/admin-controls')} 
+              variant="ghost" 
+              size="sm"
+              className="p-2"
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Operations Dashboard</h1>
+              <p className="text-muted-foreground">Monitor real-time operations and data</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Auto-refresh</span>
+              <Switch 
+                checked={autoRefresh} 
+                onCheckedChange={setAutoRefresh}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Check-ins Today</CardTitle>
+              <Clock className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{todayStats.checkins}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Orders Today</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{todayStats.orders}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Stock Updates Today</CardTitle>
+              <Package className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{todayStats.stockUpdates}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Operations Monitor</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (activeTab === 'checkins') fetchCheckInData();
+                  if (activeTab === 'orders') fetchOrderData();
+                  if (activeTab === 'stock') fetchStockData();
+                }}
+              >
+                <RefreshCw size={16} className="mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="checkins">Check-in & Check-out</TabsTrigger>
+                <TabsTrigger value="orders">Order Data</TabsTrigger>
+                <TabsTrigger value="stock">Stock Data</TabsTrigger>
+              </TabsList>
+
+              {/* Filters */}
+              <div className="flex flex-wrap gap-4 mt-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <Search size={16} />
+                  <Input
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+                <Select value={userFilter} onValueChange={setUserFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select User" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || user.username}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {activeTab === 'orders' && (
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Date Range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (activeTab === 'checkins') exportToCSV(filteredCheckInData, 'checkin-data');
+                    if (activeTab === 'orders') exportToCSV(filteredOrderData, 'order-data');
+                    if (activeTab === 'stock') exportToCSV(filteredStockData, 'stock-data');
+                  }}
+                >
+                  <Download size={16} className="mr-2" />
+                  Export CSV
+                </Button>
+              </div>
+
+              {/* Check-in/Check-out Tab */}
+              <TabsContent value="checkins">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User Name</TableHead>
+                        <TableHead>Retailer Name</TableHead>
+                        <TableHead>Check-in Time</TableHead>
+                        <TableHead>Check-out Time</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingCheckins ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredCheckInData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No check-in data found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredCheckInData.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.user_name}</TableCell>
+                            <TableCell>{item.retailer_name}</TableCell>
+                            <TableCell>
+                              {item.check_in_time ? (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                    {format(new Date(item.check_in_time), 'MMM dd, HH:mm')}
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {item.check_out_time ? (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                  {format(new Date(item.check_out_time), 'MMM dd, HH:mm')}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                                  In Progress
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {item.check_in_location && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <MapPin size={12} />
+                                  GPS
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye size={16} />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle>Visit Details</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="text-sm font-medium">User</label>
+                                        <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Retailer</label>
+                                        <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Check-in Time</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {item.check_in_time ? format(new Date(item.check_in_time), 'PPpp') : '-'}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Check-out Time</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {item.check_out_time ? format(new Date(item.check_out_time), 'PPpp') : 'Still in progress'}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Check-in Address</label>
+                                        <p className="text-sm text-muted-foreground">{item.check_in_address || 'Not available'}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Check-out Address</label>
+                                        <p className="text-sm text-muted-foreground">{item.check_out_address || 'Not available'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+
+              {/* Orders Tab */}
+              <TabsContent value="orders">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User Name</TableHead>
+                        <TableHead>Retailer Name</TableHead>
+                        <TableHead>Order Date & Time</TableHead>
+                        <TableHead>Order Value</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingOrders ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredOrderData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No order data found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredOrderData.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.user_name}</TableCell>
+                            <TableCell>{item.retailer_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                {format(new Date(item.created_at), 'MMM dd, HH:mm')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">₹{item.total_amount.toLocaleString()}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{item.items.length} items</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye size={16} />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-3xl">
+                                  <DialogHeader>
+                                    <DialogTitle>Order Details</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="text-sm font-medium">User</label>
+                                        <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Retailer</label>
+                                        <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Order Date & Time</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {format(new Date(item.created_at), 'PPpp')}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Total Amount</label>
+                                        <p className="text-sm font-medium">₹{item.total_amount.toLocaleString()}</p>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium">Order Items</label>
+                                      <div className="mt-2 border rounded-md">
+                                        <Table>
+                                          <TableHeader>
+                                            <TableRow>
+                                              <TableHead>Product</TableHead>
+                                              <TableHead>Quantity</TableHead>
+                                              <TableHead>Rate</TableHead>
+                                              <TableHead>Total</TableHead>
+                                            </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                            {item.items.map((orderItem, index) => (
+                                              <TableRow key={index}>
+                                                <TableCell>{orderItem.product_name}</TableCell>
+                                                <TableCell>{orderItem.quantity}</TableCell>
+                                                <TableCell>₹{orderItem.rate}</TableCell>
+                                                <TableCell>₹{orderItem.total}</TableCell>
+                                              </TableRow>
+                                            ))}
+                                          </TableBody>
+                                        </Table>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+
+              {/* Stock Tab */}
+              <TabsContent value="stock">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User Name</TableHead>
+                        <TableHead>Retailer Name</TableHead>
+                        <TableHead>Update Date & Time</TableHead>
+                        <TableHead>Product Name</TableHead>
+                        <TableHead>Stock Quantity</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingStock ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredStockData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No stock data found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredStockData.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.user_name}</TableCell>
+                            <TableCell>{item.retailer_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                {format(new Date(item.created_at), 'MMM dd, HH:mm')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{item.product_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{item.stock_quantity} units</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye size={16} />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Stock Update Details</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="text-sm font-medium">User</label>
+                                        <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Retailer</label>
+                                        <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Update Date & Time</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {format(new Date(item.created_at), 'PPpp')}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Product Name</label>
+                                        <p className="text-sm text-muted-foreground">{item.product_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Stock Quantity</label>
+                                        <p className="text-sm font-medium">{item.stock_quantity} units</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default Operations;
