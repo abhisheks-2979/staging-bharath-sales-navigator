@@ -385,6 +385,74 @@ export type Database = {
         }
         Relationships: []
       }
+      distributor_item_mappings: {
+        Row: {
+          category_id: string | null
+          category_name: string | null
+          created_at: string
+          id: string
+          mapping_id: string
+          product_id: string | null
+          product_name: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          category_name?: string | null
+          created_at?: string
+          id?: string
+          mapping_id: string
+          product_id?: string | null
+          product_name?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          category_name?: string | null
+          created_at?: string
+          id?: string
+          mapping_id?: string
+          product_id?: string | null
+          product_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_item_mappings_mapping_id_fkey"
+            columns: ["mapping_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_retailer_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributor_retailer_mappings: {
+        Row: {
+          created_at: string
+          distributor_id: string
+          id: string
+          mapping_type: string
+          retailer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          distributor_id: string
+          id?: string
+          mapping_type?: string
+          retailer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          distributor_id?: string
+          id?: string
+          mapping_type?: string
+          retailer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       employee_documents: {
         Row: {
           content_type: string | null
@@ -724,6 +792,8 @@ export type Database = {
         Row: {
           created_at: string
           discount_amount: number | null
+          distributor_id: string | null
+          distributor_name: string | null
           id: string
           retailer_id: string | null
           retailer_name: string
@@ -737,6 +807,8 @@ export type Database = {
         Insert: {
           created_at?: string
           discount_amount?: number | null
+          distributor_id?: string | null
+          distributor_name?: string | null
           id?: string
           retailer_id?: string | null
           retailer_name: string
@@ -750,6 +822,8 @@ export type Database = {
         Update: {
           created_at?: string
           discount_amount?: number | null
+          distributor_id?: string | null
+          distributor_name?: string | null
           id?: string
           retailer_id?: string | null
           retailer_name?: string

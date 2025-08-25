@@ -50,11 +50,13 @@ import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
 import Vendors from "./pages/Vendors";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
+import Operations from "./pages/Operations";
+import DistributorMaster from "./pages/DistributorMaster";
+import DistributorMapping from "./pages/DistributorMapping";
 import ExpenseManagement from "./pages/ExpenseManagement";
 import AdminExpenseManagement from "./pages/AdminExpenseManagement";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
-import Operations from "./pages/Operations";
 
 const queryClient = new QueryClient();
 
@@ -118,6 +120,16 @@ const App = () => (
           <Route path="/operations" element={
             <ProtectedRoute>
               <Operations />
+            </ProtectedRoute>
+          } />
+          <Route path="/distributor-master" element={
+            <ProtectedRoute>
+              <DistributorMaster />
+            </ProtectedRoute>
+          } />
+          <Route path="/distributor-mapping" element={
+            <ProtectedRoute>
+              <DistributorMapping />
             </ProtectedRoute>
           } />
             <Route path="/visit-planner" element={

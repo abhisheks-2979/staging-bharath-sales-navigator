@@ -143,7 +143,7 @@ const Index = () => {
     { icon: Car, label: "My Visit", href: "/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Store, label: "All Retailers", href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
     { icon: Users, label: "My Beats", href: "/my-beats", color: "from-orange-500 to-orange-600" },
-    { icon: Briefcase, label: "Add Retailer", href: "/add-records", color: "from-red-500 to-red-600" },
+    { icon: Briefcase, label: "Distributor Mapping", href: "/add-records", color: "from-red-500 to-red-600" },
     { icon: Gift, label: "Check Schemes", href: "/schemes", color: "from-pink-500 to-pink-600" },
     { icon: CreditCard, label: "My Expenses", href: "/expenses", color: "from-indigo-500 to-indigo-600" },
     { icon: BarChart, label: "Performance Summary", href: "/performance", color: "from-cyan-500 to-cyan-600" },

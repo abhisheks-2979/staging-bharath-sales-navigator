@@ -10,9 +10,9 @@ const AddRecords = () => {
   const recordTypes = [
     {
       icon: Users,
-      title: "Add Retailer",
-      description: "Add new retail stores and shops",
-      href: "/add-retailer",
+      title: "Distributor Mapping",
+      description: "Map distributors to retailers for product supply",
+      href: "/my-retailers?action=mapping",
       color: "from-red-500 to-red-600",
       bgColor: "from-red-500/10 to-red-600/10",
       borderColor: "border-red-200"
@@ -54,8 +54,8 @@ const AddRecords = () => {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold">Add New Records</h1>
-                <p className="text-primary-foreground/80 text-sm">Choose the type of record to add</p>
+                <h1 className="text-2xl font-bold">Business Operations</h1>
+                <p className="text-primary-foreground/80 text-sm">Manage your business operations and partnerships</p>
               </div>
             </div>
           </div>
