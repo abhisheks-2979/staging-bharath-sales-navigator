@@ -693,8 +693,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         </div>
 
         <div className="space-y-2">
-          {/* First row - Check-in/Order actions */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          {/* First row - Check In, Order, No Order */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <Button 
               size="sm" 
               className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
@@ -764,7 +764,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <XCircle size={12} className="sm:size-3.5" />
               <span className="text-xs">No Order</span>
             </Button>
-            
+          </div>
+
+          {/* Second row - Analytics and Feedback */}
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
             <Button 
               variant="outline" 
               size="sm"
@@ -777,10 +780,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <BarChart3 size={12} className="sm:size-3.5" />
               <span className="text-xs">Analytics</span>
             </Button>
-          </div>
-
-          {/* Second row - Feedback actions */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            
             <Button 
               variant="outline" 
               size="sm"
@@ -791,9 +791,6 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <MessageSquare size={12} className="sm:size-3.5" />
               <span className="text-xs">Feedback</span>
             </Button>
-            
-            <div></div>
-            <div></div>
           </div>
 
           {(visit.hasOrder || hasOrderToday) && (

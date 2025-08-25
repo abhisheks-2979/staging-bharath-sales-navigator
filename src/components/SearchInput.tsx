@@ -16,7 +16,7 @@ export const SearchInput = ({ placeholder = "Search...", value, onChange }: Sear
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="pl-8 sm:pl-10 h-10 sm:h-12 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/20 focus:border-primary focus:ring-primary/30 text-sm sm:text-base font-medium placeholder:text-muted-foreground shadow-lg backdrop-blur-sm"
+        className="pl-8 sm:pl-10 h-10 sm:h-12 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 focus:border-primary focus:ring-primary/30 text-sm sm:text-base font-medium placeholder:text-muted-foreground shadow-lg backdrop-blur-sm"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent rounded-md pointer-events-none" />
     </div>

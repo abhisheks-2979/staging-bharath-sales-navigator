@@ -968,7 +968,7 @@ const Attendance = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/dashboard")}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
@@ -1108,6 +1108,17 @@ const Attendance = () => {
                   📱 Tap "Start My Day" to mark your attendance with selfie and location
                 </div>
               )}
+              
+              <div className="mt-4">
+                <Button 
+                  onClick={() => navigate('/visits/retailers')}
+                  variant="outline"
+                  className="w-full text-sm md:text-base py-3 border-primary/20 text-primary hover:bg-primary/10"
+                >
+                  <FileText size={16} className="mr-2" />
+                  Today's Plan
+                </Button>
+              </div>
               
               {todaysAttendance?.check_in_time && !todaysAttendance?.check_out_time && (
                 <div className="text-center text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
