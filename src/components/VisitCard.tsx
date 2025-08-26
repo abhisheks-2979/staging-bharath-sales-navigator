@@ -64,6 +64,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
   const [distributorName, setDistributorName] = useState<string>('');
+  const [hasStockRecords, setHasStockRecords] = useState(false);
+  const [stockRecordCount, setStockRecordCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   
@@ -98,6 +100,24 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             if (!distributorError && distributorData) {
               setDistributorName(distributorData.name);
             }
+          }
+
+          // Check if stock records exist for this retailer today
+          const stockCheckDate = new Date().toISOString().split('T')[0];
+          const { data: stockRecords, error: stockError } = await supabase
+            .from('stock')
+            .select('id, product_name')
+            .eq('user_id', user.user.id)
+            .eq('retailer_id', visitRetailerId)
+            .gte('created_at', `${stockCheckDate}T00:00:00.000Z`)
+            .lte('created_at', `${stockCheckDate}T23:59:59.999Z`);
+
+          if (!stockError && stockRecords && stockRecords.length > 0) {
+            setHasStockRecords(true);
+            setStockRecordCount(stockRecords.length);
+          } else {
+            setHasStockRecords(false);
+            setStockRecordCount(0);
           }
           // Check analytics view
           const { data, error } = await supabase
@@ -692,6 +712,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             <Badge className={`${getStatusColor(visit.status)} text-xs px-2 py-1`}>
               {getStatusText(visit.status)}
             </Badge>
+            {hasStockRecords && (
+              <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1" variant="secondary">
+                <Package size={12} className="mr-1" />
+                {stockRecordCount} Stock{stockRecordCount !== 1 ? 's' : ''}
+              </Badge>
+            )}
             <div className="text-xs text-muted-foreground">{visit.retailerCategory}</div>
             {actualOrderValue > 0 && hasOrderToday && visit.status !== 'unproductive' && (
               <Button
