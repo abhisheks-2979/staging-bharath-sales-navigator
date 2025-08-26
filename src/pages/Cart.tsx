@@ -72,87 +72,87 @@ export const Cart = () => {
     fetchSchemes();
   }, []);
 
-  const getItemScheme = (item: AnyCartItem) => {
-    // First check if item has pre-calculated scheme data
-    const active = item.schemes?.find(s => s.is_active);
-    if (active) {
-      return {
-        condition: active.condition_quantity ? Number(active.condition_quantity) : undefined,
-        discountPct: active.discount_percentage ? Number(active.discount_percentage) : undefined,
-      };
-    }
+const getItemScheme = (item: AnyCartItem) => {
+    try {
+      // First check if item has pre-calculated scheme data
+      const active = item.schemes?.find(s => s.is_active);
+      if (active) {
+        return {
+          condition: active.condition_quantity ? Number(active.condition_quantity) : undefined,
+          discountPct: active.discount_percentage ? Number(active.discount_percentage) : undefined,
+        };
+      }
 
-    // Then check from database schemes by matching product name and variant
-    const matchingScheme = allSchemes.find(scheme => {
-      const productName = scheme.products?.name;
-      const variantName = scheme.product_variants?.variant_name;
-      
-      // For exact matching, check if product name matches and variant matches
-      const nameMatches = productName && (
-        item.name.toLowerCase().includes(productName.toLowerCase()) ||
-        productName.toLowerCase().includes(item.name.toLowerCase())
-      );
-      
-      const variantMatches = !variantName || item.name.toLowerCase().includes(variantName.toLowerCase());
-      
-      // Debug logging
-      console.log('Checking scheme:', {
-        schemeName: scheme.name,
-        productName,
-        variantName,
-        itemName: item.name,
-        nameMatches,
-        variantMatches,
-        isActive: scheme.is_active,
-        condition: scheme.condition_quantity,
-        discount: scheme.discount_percentage
+      // Then check from database schemes by matching product name
+      const matchingScheme = allSchemes.find(scheme => {
+        if (!scheme || !scheme.is_active) return false;
+        
+        const productName = scheme.products?.name;
+        if (!productName || !item.name) return false;
+        
+        // Simple name matching to avoid complex logic
+        const nameMatches = item.name.toLowerCase().includes(productName.toLowerCase()) ||
+                           productName.toLowerCase().includes(item.name.toLowerCase());
+        
+        return nameMatches;
       });
-      
-      return nameMatches && variantMatches && scheme.is_active;
-    });
 
-    if (matchingScheme) {
-      console.log('Found matching scheme:', matchingScheme);
+      if (matchingScheme) {
+        return {
+          condition: matchingScheme.condition_quantity ? Number(matchingScheme.condition_quantity) : undefined,
+          discountPct: matchingScheme.discount_percentage ? Number(matchingScheme.discount_percentage) : undefined,
+        };
+      }
+
+      // Fallback to item's own scheme data
       return {
-        condition: matchingScheme.condition_quantity ? Number(matchingScheme.condition_quantity) : undefined,
-        discountPct: matchingScheme.discount_percentage ? Number(matchingScheme.discount_percentage) : undefined,
+        condition: item.schemeConditionQuantity ? Number(item.schemeConditionQuantity) : undefined,
+        discountPct: item.schemeDiscountPercentage ? Number(item.schemeDiscountPercentage) : undefined,
       };
+    } catch (error) {
+      console.error('Error in getItemScheme:', error);
+      return { condition: undefined, discountPct: undefined };
     }
-
-    // Fallback to item's own scheme data
-    const condition = item.schemeConditionQuantity;
-    const discountPct = item.schemeDiscountPercentage;
-    return {
-      condition: condition != null ? Number(condition) : undefined,
-      discountPct: discountPct != null ? Number(discountPct) : undefined,
-    };
   };
 
-const computeItemSubtotal = (item: AnyCartItem) => Number(item.rate) * Number(item.quantity);
+const computeItemSubtotal = (item: AnyCartItem) => {
+  try {
+    if (!item || !item.rate || !item.quantity) return 0;
+    return Number(item.rate) * Number(item.quantity);
+  } catch (error) {
+    console.error('Error computing subtotal:', error);
+    return 0;
+  }
+};
 
 const computeItemDiscount = (item: AnyCartItem) => {
-  // Always recalculate discount based on current quantity and schemes
-  const { condition, discountPct } = getItemScheme(item);
-  
-  console.log('Computing discount for:', {
-    itemName: item.name,
-    quantity: item.quantity,
-    condition,
-    discountPct,
-    meetsCondition: condition && Number(item.quantity) >= condition
-  });
-  
-  if (condition && discountPct && Number(item.quantity) >= condition) {
-    const discount = (computeItemSubtotal(item) * discountPct) / 100;
-    console.log('Applying discount:', discount);
-    return discount;
+  try {
+    if (!item || !item.quantity) return 0;
+    
+    const { condition, discountPct } = getItemScheme(item);
+    
+    if (condition && discountPct && Number(item.quantity) >= condition) {
+      const subtotal = computeItemSubtotal(item);
+      const discount = (subtotal * discountPct) / 100;
+      return Math.max(0, discount); // Ensure non-negative
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error computing discount:', error);
+    return 0;
   }
-  console.log('No discount applied');
-  return 0;
 };
+
 const computeItemTotal = (item: AnyCartItem) => {
-  // Always recalculate total based on current quantity and schemes
-  return computeItemSubtotal(item) - computeItemDiscount(item);
+  try {
+    if (!item) return 0;
+    const subtotal = computeItemSubtotal(item);
+    const discount = computeItemDiscount(item);
+    return Math.max(0, subtotal - discount); // Ensure non-negative
+  } catch (error) {
+    console.error('Error computing total:', error);
+    return 0;
+  }
 };
 
 
@@ -204,17 +204,24 @@ React.useEffect(() => {
     console.log('Cart Debug - Loading cart items:', { userId, retailerId, validRetailerId, activeStorageKey });
     try {
       const rawData = localStorage.getItem(activeStorageKey);
-      console.log('Found cart data:', rawData);
-      if (rawData) {
+      if (rawData && rawData !== 'undefined' && rawData !== 'null') {
         const parsedItems = JSON.parse(rawData);
-        console.log('Setting cart items:', parsedItems);
-        setCartItems(parsedItems);
+        // Validate parsed items are an array
+        if (Array.isArray(parsedItems)) {
+          console.log('Setting cart items:', parsedItems);
+          setCartItems(parsedItems);
+        } else {
+          console.warn('Cart data is not an array, resetting cart');
+          setCartItems([]);
+        }
       } else {
         console.log('No cart data found, cart will be empty');
         setCartItems([]);
       }
     } catch (error) {
       console.error('Error loading cart items:', error);
+      // Clear corrupted data
+      localStorage.removeItem(activeStorageKey);
       setCartItems([]);
     }
   };
@@ -294,9 +301,40 @@ React.useEffect(() => {
     }
   };
 
-  const getSubtotal = () => cartItems.reduce((sum, item) => sum + computeItemSubtotal(item), 0);
-  const getDiscount = () => cartItems.reduce((sum, item) => sum + computeItemDiscount(item), 0);
-  const getFinalTotal = () => getSubtotal() - getDiscount();
+  const getSubtotal = () => {
+    try {
+      return cartItems.reduce((sum, item) => {
+        if (!item) return sum;
+        return sum + computeItemSubtotal(item);
+      }, 0);
+    } catch (error) {
+      console.error('Error computing subtotal:', error);
+      return 0;
+    }
+  };
+  
+  const getDiscount = () => {
+    try {
+      return cartItems.reduce((sum, item) => {
+        if (!item) return sum;
+        return sum + computeItemDiscount(item);
+      }, 0);
+    } catch (error) {
+      console.error('Error computing discount:', error);
+      return 0;
+    }
+  };
+  
+  const getFinalTotal = () => {
+    try {
+      const subtotal = getSubtotal();
+      const discount = getDiscount();
+      return Math.max(0, subtotal - discount);
+    } catch (error) {
+      console.error('Error computing final total:', error);
+      return 0;
+    }
+  };
 
   // Check if the visit date allows order submission
   const canSubmitOrder = () => {

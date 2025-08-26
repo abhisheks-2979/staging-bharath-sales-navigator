@@ -243,33 +243,50 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       return;
     }
 
-    const cartItems = validRows.map(row => {
-      const baseProduct = {
-        ...row.product!,
-        rate: row.variant ? row.variant.price : row.product!.rate,
-        name: row.variant ? `${row.product!.name} - ${row.variant.variant_name}` : row.product!.name,
-        sku: row.variant ? row.variant.sku : row.product!.sku,
-        closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
-      };
+    try {
+      const cartItems = validRows.map(row => {
+        const baseProduct = {
+          ...row.product!,
+          rate: row.variant ? row.variant.price : row.product!.rate,
+          name: row.variant ? `${row.product!.name} - ${row.variant.variant_name}` : row.product!.name,
+          sku: row.variant ? row.variant.sku : row.product!.sku,
+          closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
+        };
+        
+        // Ensure all required fields are present and valid
+        return {
+          id: baseProduct.id || 'unknown',
+          name: baseProduct.name || 'Unknown Product',
+          category: baseProduct.category?.name || 'Uncategorized',
+          rate: Number(baseProduct.rate) || 0,
+          unit: baseProduct.unit || 'piece',
+          quantity: Number(row.quantity) || 0,
+          total: Number(row.total) || 0,
+          closingStock: Number(row.closingStock) || 0,
+          schemes: baseProduct.schemes || []
+        };
+      });
+
+      console.log('Adding items to cart:', cartItems);
+      onCartUpdate(cartItems);
       
-      return {
-        ...baseProduct,
-        quantity: row.quantity,
-        total: row.total
-      };
-    });
+      toast({
+        title: "Added to Cart",
+        description: `${validRows.length} items added to cart`
+      });
 
-    onCartUpdate(cartItems);
-    
-    toast({
-      title: "Added to Cart",
-      description: `${validRows.length} items added to cart`
-    });
-
-    // Reset form and clear saved data
-    const resetRows = [{ id: Date.now().toString(), productCode: "", quantity: 0, closingStock: 0, total: 0 }];
-    setOrderRows(resetRows);
-    localStorage.setItem(tableFormStorageKey, JSON.stringify(resetRows));
+      // Reset form and clear saved data
+      const resetRows = [{ id: Date.now().toString(), productCode: "", quantity: 0, closingStock: 0, total: 0 }];
+      setOrderRows(resetRows);
+      localStorage.setItem(tableFormStorageKey, JSON.stringify(resetRows));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add items to cart. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getTotalValue = () => {
