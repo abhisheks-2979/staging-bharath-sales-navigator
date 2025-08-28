@@ -367,7 +367,7 @@ useEffect(() => {
         supabase.from('products').select(`
           *,
           category:product_categories(name),
-          schemes:product_schemes(id, name, description, is_active, scheme_type, condition_quantity, quantity_condition_type, discount_percentage, discount_amount, free_quantity, variant_id, start_date, end_date, product_id),
+          schemes:product_schemes!product_schemes_product_id_fkey(id, name, description, is_active, scheme_type, condition_quantity, quantity_condition_type, discount_percentage, discount_amount, free_quantity, variant_id, start_date, end_date, product_id),
           variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
         `).eq('is_active', true).order('name')
       ]);

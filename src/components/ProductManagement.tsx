@@ -194,9 +194,9 @@ const [productForm, setProductForm] = useState({
       .from('product_schemes')
       .select(`
         *,
-        product:products(*),
+        product:products!product_schemes_product_id_fkey(*),
         category:product_categories(*),
-        free_product:products!free_product_id(*)
+        free_product:products!product_schemes_free_product_id_fkey(*)
       `)
       .order('name');
     
