@@ -20,9 +20,7 @@ const TerritoriesAndDistributors = () => {
     );
   }
 
-  if (userRole !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Allow all authenticated users to view territories
 
   return (
     <div className="min-h-screen bg-gradient-subtle p-4">
@@ -30,7 +28,7 @@ const TerritoriesAndDistributors = () => {
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button 
-            onClick={() => navigate('/admin-controls')} 
+            onClick={() => navigate('/dashboard')} 
             variant="ghost" 
             size="sm"
             className="p-2"
