@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3 } from 'lucide-react';
+import { SchemeFormFields } from './SchemeFormFields';
+import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 
 interface ProductCategory {
   id: string;
@@ -37,9 +39,10 @@ interface Product {
 
 interface ProductScheme {
   id: string;
-  product_id: string;
+  product_id?: string;
   product?: Product;
   variant_id?: string;
+  category_id?: string;
   name: string;
   description: string;
   scheme_type: string;
@@ -48,6 +51,19 @@ interface ProductScheme {
   discount_percentage: number;
   discount_amount: number;
   free_quantity: number;
+  buy_quantity: number;
+  free_product_id?: string;
+  bundle_product_ids: string[];
+  bundle_discount_amount: number;
+  bundle_discount_percentage: number;
+  tier_data: Array<{
+    min_qty: number;
+    max_qty: number;
+    discount_percentage: number;
+  }>;
+  is_first_order_only: boolean;
+  validity_days?: number;
+  min_order_value: number;
   is_active: boolean;
   start_date: string;
   end_date: string;
@@ -99,14 +115,24 @@ const [productForm, setProductForm] = useState({
     id: '',
     product_id: '',
     variant_id: '',
+    category_id: '',
     name: '',
     description: '',
-    scheme_type: 'discount',
+    scheme_type: 'percentage_discount',
     condition_quantity: 0,
     quantity_condition_type: 'more_than',
     discount_percentage: 0,
     discount_amount: 0,
     free_quantity: 0,
+    buy_quantity: 0,
+    free_product_id: '',
+    bundle_product_ids: [],
+    bundle_discount_amount: 0,
+    bundle_discount_percentage: 0,
+    tier_data: [],
+    is_first_order_only: false,
+    validity_days: null,
+    min_order_value: 0,
     is_active: true,
     start_date: '',
     end_date: ''
@@ -168,12 +194,14 @@ const [productForm, setProductForm] = useState({
       .from('product_schemes')
       .select(`
         *,
-        product:products(*)
+        product:products(*),
+        category:product_categories(*),
+        free_product:products!free_product_id(*)
       `)
       .order('name');
     
     if (error) throw error;
-    setSchemes(data || []);
+    setSchemes((data as any) || []);
   };
 
   const fetchVariants = async () => {
@@ -369,8 +397,9 @@ setProductForm({
         const { error } = await supabase
           .from('product_schemes')
           .update({
-            product_id: schemeForm.product_id,
+            product_id: schemeForm.product_id || null,
             variant_id: schemeForm.variant_id === 'all' ? null : schemeForm.variant_id,
+            category_id: schemeForm.category_id || null,
             name: schemeForm.name,
             description: schemeForm.description,
             scheme_type: schemeForm.scheme_type,
@@ -379,6 +408,15 @@ setProductForm({
             discount_percentage: schemeForm.discount_percentage,
             discount_amount: schemeForm.discount_amount,
             free_quantity: schemeForm.free_quantity,
+            buy_quantity: schemeForm.buy_quantity,
+            free_product_id: schemeForm.free_product_id || null,
+            bundle_product_ids: schemeForm.bundle_product_ids,
+            bundle_discount_amount: schemeForm.bundle_discount_amount,
+            bundle_discount_percentage: schemeForm.bundle_discount_percentage,
+            tier_data: schemeForm.tier_data,
+            is_first_order_only: schemeForm.is_first_order_only,
+            validity_days: schemeForm.validity_days,
+            min_order_value: schemeForm.min_order_value,
             is_active: schemeForm.is_active,
             start_date: schemeForm.start_date || null,
             end_date: schemeForm.end_date || null
@@ -391,8 +429,9 @@ setProductForm({
         const { error } = await supabase
           .from('product_schemes')
           .insert({
-            product_id: schemeForm.product_id,
+            product_id: schemeForm.product_id || null,
             variant_id: schemeForm.variant_id === 'all' ? null : schemeForm.variant_id,
+            category_id: schemeForm.category_id || null,
             name: schemeForm.name,
             description: schemeForm.description,
             scheme_type: schemeForm.scheme_type,
@@ -401,6 +440,15 @@ setProductForm({
             discount_percentage: schemeForm.discount_percentage,
             discount_amount: schemeForm.discount_amount,
             free_quantity: schemeForm.free_quantity,
+            buy_quantity: schemeForm.buy_quantity,
+            free_product_id: schemeForm.free_product_id || null,
+            bundle_product_ids: schemeForm.bundle_product_ids,
+            bundle_discount_amount: schemeForm.bundle_discount_amount,
+            bundle_discount_percentage: schemeForm.bundle_discount_percentage,
+            tier_data: schemeForm.tier_data,
+            is_first_order_only: schemeForm.is_first_order_only,
+            validity_days: schemeForm.validity_days,
+            min_order_value: schemeForm.min_order_value,
             is_active: schemeForm.is_active,
             start_date: schemeForm.start_date || null,
             end_date: schemeForm.end_date || null
@@ -415,14 +463,24 @@ setProductForm({
         id: '',
         product_id: '',
         variant_id: 'all',
+        category_id: '',
         name: '',
         description: '',
-        scheme_type: 'discount',
+        scheme_type: 'percentage_discount',
         condition_quantity: 0,
         quantity_condition_type: 'more_than',
         discount_percentage: 0,
         discount_amount: 0,
         free_quantity: 0,
+        buy_quantity: 0,
+        free_product_id: '',
+        bundle_product_ids: [],
+        bundle_discount_amount: 0,
+        bundle_discount_percentage: 0,
+        tier_data: [],
+        is_first_order_only: false,
+        validity_days: null,
+        min_order_value: 0,
         is_active: true,
         start_date: '',
         end_date: ''
@@ -876,22 +934,32 @@ setProductForm({
                 <h3 className="text-lg font-semibold">Product Schemes & Offers</h3>
                 <Dialog open={isSchemeDialogOpen} onOpenChange={setIsSchemeDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setSchemeForm({
-                      id: '',
-                      product_id: '',
-                      variant_id: 'all',
-                      name: '',
-                      description: '',
-                      scheme_type: 'discount',
-                      condition_quantity: 0,
-                      quantity_condition_type: 'more_than',
-                      discount_percentage: 0,
-                      discount_amount: 0,
-                      free_quantity: 0,
-                      is_active: true,
-                      start_date: '',
-                      end_date: ''
-                    })}>
+                  <Button onClick={() => setSchemeForm({
+                    id: '',
+                    product_id: '',
+                    variant_id: 'all',
+                    category_id: '',
+                    name: '',
+                    description: '',
+                    scheme_type: 'percentage_discount',
+                    condition_quantity: 0,
+                    quantity_condition_type: 'more_than',
+                    discount_percentage: 0,
+                    discount_amount: 0,
+                    free_quantity: 0,
+                    buy_quantity: 0,
+                    free_product_id: '',
+                    bundle_product_ids: [],
+                    bundle_discount_amount: 0,
+                    bundle_discount_percentage: 0,
+                    tier_data: [],
+                    is_first_order_only: false,
+                    validity_days: null,
+                    min_order_value: 0,
+                    is_active: true,
+                    start_date: '',
+                    end_date: ''
+                  })}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Scheme
                     </Button>
@@ -904,177 +972,12 @@ setProductForm({
                       </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="h-[60vh] pr-4">
-                      <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="product">Product</Label>
-                        <Select
-                          value={schemeForm.product_id}
-                          onValueChange={(value) => setSchemeForm({ ...schemeForm, product_id: value, variant_id: 'all' })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} ({product.sku})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {schemeForm.product_id && (
-                        <div>
-                          <Label htmlFor="variant">Variant (Optional)</Label>
-                          <Select
-                            value={schemeForm.variant_id}
-                            onValueChange={(value) => setSchemeForm({ ...schemeForm, variant_id: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select variant or leave empty for all variants" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Variants</SelectItem>
-                              {variants
-                                .filter(variant => variant.product_id === schemeForm.product_id)
-                                .map((variant) => (
-                                  <SelectItem key={variant.id} value={variant.id}>
-                                    {variant.variant_name} ({variant.sku})
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div>
-                        <Label htmlFor="schemeName">Scheme Name</Label>
-                        <Input
-                          id="schemeName"
-                          value={schemeForm.name}
-                          onChange={(e) => setSchemeForm({ ...schemeForm, name: e.target.value })}
-                          placeholder="Enter scheme name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="schemeDescription">Description</Label>
-                        <Textarea
-                          id="schemeDescription"
-                          value={schemeForm.description}
-                          onChange={(e) => setSchemeForm({ ...schemeForm, description: e.target.value })}
-                          placeholder="Enter scheme description"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="schemeType">Scheme Type</Label>
-                        <Select
-                          value={schemeForm.scheme_type}
-                          onValueChange={(value) => 
-                            setSchemeForm({ ...schemeForm, scheme_type: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="discount">Percentage Discount</SelectItem>
-                            <SelectItem value="buy_x_get_y">Buy X Get Y Free</SelectItem>
-                            <SelectItem value="percentage_off">Fixed Amount Off</SelectItem>
-                            <SelectItem value="volume_discount">Volume Discount</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="conditionQty">Quantity Threshold</Label>
-                        <Input
-                          id="conditionQty"
-                          type="number"
-                          value={schemeForm.condition_quantity}
-                          onChange={(e) => setSchemeForm({ ...schemeForm, condition_quantity: parseInt(e.target.value) || 0 })}
-                          placeholder="Quantity threshold"
-                        />
-                      </div>
-                      {(schemeForm.scheme_type === 'volume_discount' || schemeForm.scheme_type === 'buy_x_get_y') && (
-                        <div>
-                          <Label htmlFor="quantityConditionType">Quantity Condition</Label>
-                          <Select
-                            value={schemeForm.quantity_condition_type}
-                            onValueChange={(value) => setSchemeForm({ ...schemeForm, quantity_condition_type: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="more_than">More than</SelectItem>
-                              <SelectItem value="less_than">Less than</SelectItem>
-                              <SelectItem value="equal_to">Equal to</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      {(schemeForm.scheme_type === 'discount' || schemeForm.scheme_type === 'volume_discount') && (
-                        <div>
-                          <Label htmlFor="discountPercentage">Discount Percentage (%)</Label>
-                          <Input
-                            id="discountPercentage"
-                            type="number"
-                            value={schemeForm.discount_percentage}
-                            onChange={(e) => setSchemeForm({ ...schemeForm, discount_percentage: parseFloat(e.target.value) || 0 })}
-                            placeholder="Discount percentage"
-                          />
-                        </div>
-                      )}
-                      {schemeForm.scheme_type === 'percentage_off' && (
-                        <div>
-                          <Label htmlFor="discountAmount">Discount Amount (₹)</Label>
-                          <Input
-                            id="discountAmount"
-                            type="number"
-                            value={schemeForm.discount_amount}
-                            onChange={(e) => setSchemeForm({ ...schemeForm, discount_amount: parseFloat(e.target.value) || 0 })}
-                            placeholder="Fixed discount amount"
-                          />
-                        </div>
-                      )}
-                      {schemeForm.scheme_type === 'buy_x_get_y' && (
-                        <div>
-                          <Label htmlFor="freeQuantity">Free Quantity</Label>
-                          <Input
-                            id="freeQuantity"
-                            type="number"
-                            value={schemeForm.free_quantity}
-                            onChange={(e) => setSchemeForm({ ...schemeForm, free_quantity: parseInt(e.target.value) || 0 })}
-                            placeholder="Free quantity"
-                          />
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            id="startDate"
-                            type="date"
-                            value={schemeForm.start_date}
-                            onChange={(e) => setSchemeForm({ ...schemeForm, start_date: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={schemeForm.end_date}
-                            onChange={(e) => setSchemeForm({ ...schemeForm, end_date: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="schemeActive"
-                          checked={schemeForm.is_active}
-                          onCheckedChange={(checked) => setSchemeForm({ ...schemeForm, is_active: checked })}
-                        />
-                        <Label htmlFor="schemeActive">Active</Label>
-                      </div>
-                      </div>
+                      <SchemeFormFields 
+                        schemeForm={schemeForm} 
+                        setSchemeForm={setSchemeForm}
+                        products={products}
+                        categories={categories}
+                      />
                     </ScrollArea>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsSchemeDialogOpen(false)}>
@@ -1107,18 +1010,7 @@ setProductForm({
                         <TableCell>{scheme.product?.name}</TableCell>
                         <TableCell className="capitalize">{scheme.scheme_type.replace('_', ' ')}</TableCell>
                         <TableCell>
-                            <div className="text-sm">
-                              <p>Qty: {scheme.quantity_condition_type ? scheme.quantity_condition_type.replace('_', ' ') : 'min'} {scheme.condition_quantity}</p>
-                              {(scheme.scheme_type === 'discount' || scheme.scheme_type === 'volume_discount') && (
-                                <p>Discount: {scheme.discount_percentage}%</p>
-                              )}
-                              {scheme.scheme_type === 'percentage_off' && (
-                                <p>Discount: ₹{scheme.discount_amount}</p>
-                              )}
-                              {scheme.scheme_type === 'buy_x_get_y' && (
-                                <p>Free Qty: {scheme.free_quantity}</p>
-                              )}
-                            </div>
+                          <SchemeDetailsDisplay scheme={scheme} />
                         </TableCell>
                         <TableCell>
                           <Badge variant={scheme.is_active ? 'default' : 'secondary'}>
@@ -1133,8 +1025,9 @@ setProductForm({
                               onClick={() => {
                                 setSchemeForm({
                                   id: scheme.id,
-                                  product_id: scheme.product_id,
+                                  product_id: scheme.product_id || '',
                                   variant_id: scheme.variant_id || 'all',
+                                  category_id: scheme.category_id || '',
                                   name: scheme.name,
                                   description: scheme.description || '',
                                   scheme_type: scheme.scheme_type,
@@ -1143,6 +1036,15 @@ setProductForm({
                                   discount_percentage: scheme.discount_percentage,
                                   discount_amount: scheme.discount_amount,
                                   free_quantity: scheme.free_quantity,
+                                  buy_quantity: scheme.buy_quantity || 0,
+                                  free_product_id: scheme.free_product_id || '',
+                                  bundle_product_ids: scheme.bundle_product_ids || [],
+                                  bundle_discount_amount: scheme.bundle_discount_amount || 0,
+                                  bundle_discount_percentage: scheme.bundle_discount_percentage || 0,
+                                  tier_data: scheme.tier_data || [],
+                                  is_first_order_only: scheme.is_first_order_only || false,
+                                  validity_days: scheme.validity_days || null,
+                                  min_order_value: scheme.min_order_value || 0,
                                   is_active: scheme.is_active,
                                   start_date: scheme.start_date || '',
                                   end_date: scheme.end_date || ''

@@ -870,60 +870,104 @@ export type Database = {
       }
       product_schemes: {
         Row: {
+          bundle_discount_amount: number | null
+          bundle_discount_percentage: number | null
+          bundle_product_ids: string[] | null
+          buy_quantity: number | null
+          category_id: string | null
           condition_quantity: number | null
           created_at: string
           description: string | null
           discount_amount: number | null
           discount_percentage: number | null
           end_date: string | null
+          free_product_id: string | null
           free_quantity: number | null
           id: string
           is_active: boolean | null
+          is_first_order_only: boolean | null
+          min_order_value: number | null
           name: string
           product_id: string | null
           quantity_condition_type: string | null
           scheme_type: string
           start_date: string | null
+          tier_data: Json | null
           updated_at: string
+          validity_days: number | null
           variant_id: string | null
         }
         Insert: {
+          bundle_discount_amount?: number | null
+          bundle_discount_percentage?: number | null
+          bundle_product_ids?: string[] | null
+          buy_quantity?: number | null
+          category_id?: string | null
           condition_quantity?: number | null
           created_at?: string
           description?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
           end_date?: string | null
+          free_product_id?: string | null
           free_quantity?: number | null
           id?: string
           is_active?: boolean | null
+          is_first_order_only?: boolean | null
+          min_order_value?: number | null
           name: string
           product_id?: string | null
           quantity_condition_type?: string | null
           scheme_type?: string
           start_date?: string | null
+          tier_data?: Json | null
           updated_at?: string
+          validity_days?: number | null
           variant_id?: string | null
         }
         Update: {
+          bundle_discount_amount?: number | null
+          bundle_discount_percentage?: number | null
+          bundle_product_ids?: string[] | null
+          buy_quantity?: number | null
+          category_id?: string | null
           condition_quantity?: number | null
           created_at?: string
           description?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
           end_date?: string | null
+          free_product_id?: string | null
           free_quantity?: number | null
           id?: string
           is_active?: boolean | null
+          is_first_order_only?: boolean | null
+          min_order_value?: number | null
           name?: string
           product_id?: string | null
           quantity_condition_type?: string | null
           scheme_type?: string
           start_date?: string | null
+          tier_data?: Json | null
           updated_at?: string
+          validity_days?: number | null
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "product_schemes_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_schemes_free_product_id_fkey"
+            columns: ["free_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_schemes_product_id_fkey"
             columns: ["product_id"]
