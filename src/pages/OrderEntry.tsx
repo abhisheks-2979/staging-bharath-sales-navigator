@@ -360,6 +360,8 @@ useEffect(() => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log('🔄 OrderEntry: Starting to fetch products and categories...');
+      
       const [catRes, prodRes] = await Promise.all([
         supabase.from('product_categories').select('name').order('name'),
         supabase.from('products').select(`
@@ -370,11 +372,24 @@ useEffect(() => {
         `).eq('is_active', true).order('name')
       ]);
 
+      console.log('📊 Categories Response:', catRes);
+      console.log('🛍️ Products Response:', prodRes);
+
+      if (catRes.error) {
+        console.error('❌ Categories Error:', catRes.error);
+      }
+      
+      if (prodRes.error) {
+        console.error('❌ Products Error:', prodRes.error);
+      }
+
       setCategories(["All", ...((catRes.data || []).map((c: any) => c.name))]);
+      console.log('🏷️ Categories set:', ["All", ...((catRes.data || []).map((c: any) => c.name))]);
 
       const mapped: GridProduct[] = [];
       const allSchemes: any[] = [];
       
+      console.log('🔍 Processing products:', prodRes.data?.length || 0);
       (prodRes.data || []).forEach((p: any) => {
         const activeSchemes = (p.schemes || []).filter((s: any) => s.is_active && 
           (!s.start_date || new Date(s.start_date) <= new Date()) &&
@@ -402,13 +417,18 @@ useEffect(() => {
 
         mapped.push(baseProduct);
       });
+      
+      console.log('✅ Mapped products:', mapped.length, mapped);
       setProducts(mapped);
       setSchemes(allSchemes);
+      console.log('🏪 Products state updated with', mapped.length, 'products');
+      console.log('🎯 Schemes state updated with', allSchemes.length, 'schemes');
     } catch (error) {
-      console.error('Error loading products', error);
+      console.error('💥 Error loading products', error);
       toast({ title: 'Error', description: 'Failed to load products', variant: 'destructive' });
     } finally {
       setLoading(false);
+      console.log('✅ OrderEntry: Finished loading products');
     }
   };
   fetchData();
@@ -417,6 +437,8 @@ useEffect(() => {
 const filteredProducts = selectedCategory === "All" 
   ? products 
   : products.filter(product => product.category === selectedCategory);
+
+console.log('🔍 Filtered products for category', selectedCategory, ':', filteredProducts.length, filteredProducts);
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     console.log('Quantity changed:', { productId, quantity });
@@ -1284,7 +1306,21 @@ const filteredProducts = selectedCategory === "All"
         <div className="space-y-3">
           {/* Products Grid */}
           <div className="space-y-3">
-          {filteredProducts.map(product => {
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">Loading products...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">No products found</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {selectedCategory === "All" ? "No products available" : `No products in ${selectedCategory} category`}
+              </p>
+            </div>
+          ) : (
+          filteredProducts.map(product => {
             const displayProduct = getDisplayProduct(product);
             const savingsAmount = getSavingsAmount(product);
             
@@ -1800,9 +1836,9 @@ const filteredProducts = selectedCategory === "All"
                       </div>
                   </CardContent>
                </Card>
-             );
-           })}
-          </div>
+              );
+            }))}
+           </div>
 
         </div>
         </>
