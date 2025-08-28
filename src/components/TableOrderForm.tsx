@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, Gift } from "lucide-react";
+import { Trash2, Plus, Gift, Package } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
@@ -61,6 +61,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   ]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
 
   // Create storage key for table form persistence
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -124,25 +126,70 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      console.log('Fetching products for order entry...');
+      
+      // Fetch products with better error handling
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
-          *,
-          category:product_categories(name),
-          schemes:product_schemes(name, description, is_active, scheme_type, condition_quantity, discount_percentage),
-          variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
+          id,
+          sku,
+          name,
+          description,
+          rate,
+          unit,
+          closing_stock,
+          is_active,
+          category_id,
+          category:product_categories(name)
         `)
+        .eq('is_active', true)
+        .order('name');
+      
+      if (productsError) {
+        console.error('Error fetching products:', productsError);
+        throw productsError;
+      }
+
+      // Fetch schemes separately
+      const { data: schemesData, error: schemesError } = await supabase
+        .from('product_schemes')
+        .select('*')
         .eq('is_active', true);
       
-      if (error) throw error;
-      setProducts(data || []);
+      if (schemesError) {
+        console.error('Error fetching schemes:', schemesError);
+        // Don't throw, just log the error and continue without schemes
+      }
+
+      // Fetch variants separately
+      const { data: variantsData, error: variantsError } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('is_active', true);
+      
+      if (variantsError) {
+        console.error('Error fetching variants:', variantsError);
+        // Don't throw, just log the error and continue without variants
+      }
+
+      // Combine the data
+      const enrichedProducts = (productsData || []).map(product => ({
+        ...product,
+        schemes: (schemesData || []).filter(scheme => scheme.product_id === product.id),
+        variants: (variantsData || []).filter(variant => variant.product_id === product.id)
+      }));
+
+      console.log('Fetched products:', enrichedProducts.length);
+      setProducts(enrichedProducts);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('Error in fetchProducts:', error);
       toast({
         title: "Error",
-        description: "Failed to load products",
+        description: "Failed to load products. Please try again.",
         variant: "destructive"
       });
+      setProducts([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -309,6 +356,22 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+        <span className="ml-2">Loading products...</span>
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <div className="text-muted-foreground mb-4">
+          <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>No products available</p>
+          <p className="text-sm">Please contact admin to add products to the system</p>
+        </div>
+        <Button onClick={fetchProducts} variant="outline">
+          Retry Loading Products
+        </Button>
       </div>
     );
   }
@@ -318,7 +381,9 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Bulk Order Entry</CardTitle>
-          <p className="text-sm text-muted-foreground">Enter product SKUs directly for faster ordering</p>
+          <p className="text-sm text-muted-foreground">
+            Enter product SKUs directly for faster ordering ({products.length} products available)
+          </p>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
