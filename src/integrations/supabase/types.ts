@@ -453,6 +453,59 @@ export type Database = {
         }
         Relationships: []
       }
+      distributors: {
+        Row: {
+          address: string | null
+          contact_person: string
+          created_at: string
+          credit_limit: number | null
+          email: string | null
+          id: string
+          name: string
+          outstanding_amount: number | null
+          phone: string
+          status: string
+          territory_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_person: string
+          created_at?: string
+          credit_limit?: number | null
+          email?: string | null
+          id?: string
+          name: string
+          outstanding_amount?: number | null
+          phone: string
+          status?: string
+          territory_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_person?: string
+          created_at?: string
+          credit_limit?: number | null
+          email?: string | null
+          id?: string
+          name?: string
+          outstanding_amount?: number | null
+          phone?: string
+          status?: string
+          territory_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributors_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           content_type: string | null
@@ -1375,6 +1428,36 @@ export type Database = {
           user_id?: string
           visit_date?: string
           visit_id?: string | null
+        }
+        Relationships: []
+      }
+      territories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          pincode_ranges: string[] | null
+          region: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          pincode_ranges?: string[] | null
+          region: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          pincode_ranges?: string[] | null
+          region?: string
+          updated_at?: string
         }
         Relationships: []
       }

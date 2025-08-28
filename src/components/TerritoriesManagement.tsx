@@ -12,7 +12,6 @@ interface Territory {
   name: string;
   region: string;
   pincode_ranges: string[];
-  assigned_users: number;
   created_at: string;
 }
 
@@ -33,27 +32,20 @@ const TerritoriesManagement = () => {
 
   const loadTerritories = async () => {
     try {
-      // For now, we'll use mock data since territories table doesn't exist yet
-      // In a real implementation, you would fetch from Supabase
-      const mockTerritories: Territory[] = [
-        {
-          id: '1',
-          name: 'North Zone',
-          region: 'Delhi NCR',
-          pincode_ranges: ['110001-110096', '201001-201310'],
-          assigned_users: 5,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'South Zone',
-          region: 'Bangalore',
-          pincode_ranges: ['560001-560100'],
-          assigned_users: 3,
-          created_at: new Date().toISOString()
-        }
-      ];
-      setTerritories(mockTerritories);
+      const { data, error } = await supabase
+        .from('territories')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const normalized: Territory[] = (data || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        region: t.region,
+        pincode_ranges: t.pincode_ranges || [],
+        created_at: t.created_at,
+      }));
+      setTerritories(normalized);
     } catch (error) {
       console.error('Error loading territories:', error);
       toast({

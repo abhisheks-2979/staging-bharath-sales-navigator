@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Building2, Phone, Mail, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +25,7 @@ interface Distributor {
 
 const DistributorsManagement = () => {
   const [distributors, setDistributors] = useState<Distributor[]>([]);
+  const [territories, setTerritories] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newDistributor, setNewDistributor] = useState({
@@ -32,7 +34,7 @@ const DistributorsManagement = () => {
     phone: '',
     email: '',
     address: '',
-    territory: '',
+    territoryId: '',
     credit_limit: ''
   });
   const { toast } = useToast();
@@ -43,37 +45,37 @@ const DistributorsManagement = () => {
 
   const loadDistributors = async () => {
     try {
-      // For now, we'll use mock data since distributors table doesn't exist yet
-      // In a real implementation, you would fetch from Supabase
-      const mockDistributors: Distributor[] = [
-        {
-          id: '1',
-          name: 'Metro Distributors Pvt Ltd',
-          contact_person: 'Rajesh Kumar',
-          phone: '+91 9876543210',
-          email: 'rajesh@metrodist.com',
-          address: 'Plot 15, Industrial Area, Gurgaon',
-          territory: 'North Zone',
-          status: 'active',
-          credit_limit: 500000,
-          outstanding_amount: 125000,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'South India Supplies',
-          contact_person: 'Priya Sharma',
-          phone: '+91 9123456789',
-          email: 'priya@sisupplies.com',
-          address: '42, Commercial Street, Bangalore',
-          territory: 'South Zone',
-          status: 'active',
-          credit_limit: 300000,
-          outstanding_amount: 75000,
-          created_at: new Date().toISOString()
-        }
-      ];
-      setDistributors(mockDistributors);
+      // Load distributors from Supabase
+      const { data: distributorsData, error } = await supabase
+        .from('distributors')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      // Load territories to map names
+      const { data: territoriesData, error: terrErr } = await supabase
+        .from('territories')
+        .select('id,name');
+      if (terrErr) throw terrErr;
+
+      setTerritories((territoriesData || []) as any);
+      const territoryMap = new Map((territoriesData || []).map((t: any) => [t.id, t.name]));
+
+      const normalized: Distributor[] = (distributorsData || []).map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        contact_person: d.contact_person,
+        phone: d.phone,
+        email: d.email ?? '',
+        address: d.address ?? '',
+        territory: territoryMap.get(d.territory_id) || '',
+        status: (d.status as 'active' | 'inactive') ?? 'active',
+        credit_limit: Number(d.credit_limit || 0),
+        outstanding_amount: Number(d.outstanding_amount || 0),
+        created_at: d.created_at,
+      }));
+
+      setDistributors(normalized);
     } catch (error) {
       console.error('Error loading distributors:', error);
       toast({
@@ -97,38 +99,50 @@ const DistributorsManagement = () => {
     }
 
     try {
-      // For now, just add to local state
-      // In a real implementation, you would insert into Supabase
+      // Insert into Supabase
+      const { data, error } = await supabase
+        .from('distributors')
+        .insert({
+          name: newDistributor.name,
+          contact_person: newDistributor.contact_person,
+          phone: newDistributor.phone,
+          email: newDistributor.email || null,
+          address: newDistributor.address || null,
+          territory_id: newDistributor.territoryId || null,
+          credit_limit: Number(newDistributor.credit_limit || 0),
+          status: 'active'
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      const territoryName = territories.find(t => t.id === data?.territory_id)?.name || '';
       const distributor: Distributor = {
-        id: Date.now().toString(),
-        name: newDistributor.name,
-        contact_person: newDistributor.contact_person,
-        phone: newDistributor.phone,
-        email: newDistributor.email,
-        address: newDistributor.address,
-        territory: newDistributor.territory,
-        status: 'active',
-        credit_limit: parseFloat(newDistributor.credit_limit) || 0,
-        outstanding_amount: 0,
-        created_at: new Date().toISOString()
+        id: data.id,
+        name: data.name,
+        contact_person: data.contact_person,
+        phone: data.phone,
+        email: data.email ?? '',
+        address: data.address ?? '',
+        territory: territoryName,
+        status: (data.status as 'active' | 'inactive') ?? 'active',
+        credit_limit: Number(data.credit_limit || 0),
+        outstanding_amount: Number(data.outstanding_amount || 0),
+        created_at: data.created_at
       };
 
-      setDistributors([...distributors, distributor]);
+      setDistributors([distributor, ...distributors]);
       setNewDistributor({
         name: '',
         contact_person: '',
         phone: '',
         email: '',
         address: '',
-        territory: '',
+        territoryId: '',
         credit_limit: ''
       });
       setShowAddForm(false);
-      
-      toast({
-        title: "Success",
-        description: "Distributor added successfully",
-      });
+      toast({ title: "Success", description: "Distributor added successfully" });
     } catch (error) {
       console.error('Error adding distributor:', error);
       toast({
@@ -214,12 +228,19 @@ const DistributorsManagement = () => {
               </div>
               <div>
                 <Label htmlFor="territory">Territory</Label>
-                <Input
-                  id="territory"
-                  value={newDistributor.territory}
-                  onChange={(e) => setNewDistributor({ ...newDistributor, territory: e.target.value })}
-                  placeholder="e.g., North Zone"
-                />
+                <Select
+                  value={newDistributor.territoryId}
+                  onValueChange={(val) => setNewDistributor({ ...newDistributor, territoryId: val })}
+                >
+                  <SelectTrigger id="territory">
+                    <SelectValue placeholder="Select a territory" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {territories.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="credit_limit">Credit Limit (₹)</Label>
