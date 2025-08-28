@@ -4,7 +4,6 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/NetworkBadge";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   UserCheck, 
