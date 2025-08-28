@@ -76,6 +76,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   useEffect(() => {
     const checkStatus = async () => {
       try {
+        console.log('Checking status for visit:', visit.id, 'retailerId:', visit.retailerId);
         const { data: user } = await supabase.auth.getUser();
         if (user.user) {
           const visitRetailerId = visit.retailerId || visit.id;
@@ -141,9 +142,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             .eq('planned_date', today)
             .maybeSingle();
 
+          console.log('Visit data from DB:', visitData);
           if (visitData) {
-            setIsCheckedIn(!!visitData.check_in_time);
-            setIsCheckedOut(!!visitData.check_out_time);
+            const checkedIn = !!visitData.check_in_time;
+            const checkedOut = !!visitData.check_out_time;
+            console.log('Setting state - isCheckedIn:', checkedIn, 'isCheckedOut:', checkedOut);
+            setIsCheckedIn(checkedIn);
+            setIsCheckedOut(checkedOut);
+            setCurrentVisitId(visitData.id);
+            
             if (visitData.status === 'unproductive') {
               setIsNoOrderMarked(true);
               setPhase('completed');
@@ -153,6 +160,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             } else if (visitData.check_out_time || visitData.status === 'unproductive' || visitData.status === 'productive') {
               setPhase('completed');
             }
+          } else {
+            console.log('No visit data found, resetting states');
+            setIsCheckedIn(false);
+            setIsCheckedOut(false);
+            setCurrentVisitId(null);
           }
 
           // Check if there are any orders today for this retailer
@@ -194,6 +206,18 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     };
 
     checkStatus();
+    
+    // Listen for custom events to refresh status
+    const handleStatusChange = () => {
+      console.log('Received visitStatusChanged event, refreshing status...');
+      checkStatus();
+    };
+    
+    window.addEventListener('visitStatusChanged', handleStatusChange);
+    
+    return () => {
+      window.removeEventListener('visitStatusChanged', handleStatusChange);
+    };
   }, [visit.id, visit.retailerId]);
 
   // Set up real-time listener for orders to automatically update visit status
@@ -392,6 +416,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
   const handleCheckInOut = async (action: 'checkin' | 'checkout') => {
     try {
+      console.log(`Starting ${action} process...`);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({ title: 'Login required', description: 'Please sign in to record visits.', variant: 'destructive' });
@@ -400,15 +425,19 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
       const today = new Date().toISOString().split('T')[0];
       const retailerId = visit.retailerId || visit.id;
+      console.log(`Ensuring visit for retailer ${retailerId} on ${today}`);
       const visitId = await ensureVisit(user.id, retailerId, today);
+      console.log(`Visit ID: ${visitId}`);
 
       const pos = await getPosition();
       const current = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      console.log(`Current location: ${current.latitude}, ${current.longitude}`);
 
       let match: boolean | null = null;
       if (typeof visit.retailerLat === 'number' && typeof visit.retailerLng === 'number') {
         const dist = distanceMeters(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
         match = dist <= 150; // within 150 meters
+        console.log(`Location match: ${match} (distance: ${dist}m)`);
       }
 
       // Get reverse geocoding for address
@@ -424,8 +453,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       const timestamp = new Date().toISOString();
 
       if (action === 'checkin') {
+        console.log(`Performing check-in for visit ${visitId}`);
         // Update visits table
-        const { error } = await supabase
+        const { error, data: updatedVisit } = await supabase
           .from('visits')
           .update({
             check_in_time: timestamp,
@@ -434,8 +464,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             location_match_in: match,
             status: 'in-progress'
           })
-          .eq('id', visitId);
-        if (error) throw error;
+          .eq('id', visitId)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('Check-in update error:', error);
+          throw error;
+        }
+        console.log('Check-in successful, updated visit:', updatedVisit);
 
         // Update attendance table
         const { error: attendanceError } = await supabase
@@ -456,7 +493,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         setPhase('in-progress');
         setLocationMatchIn(match);
         setIsCheckedIn(true);
+        console.log('Local state updated - isCheckedIn:', true, 'phase:', 'in-progress');
         toast({ title: 'Checked in', description: match === false ? 'Location mismatch' : 'Location verified' });
+        
+        // Refresh the component state to ensure UI updates
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
+          detail: { visitId, status: 'in-progress', retailerId } 
+        }));
+        
         pendingPhotoActionRef.current = 'checkin';
         fileInputRef.current?.click();
 
