@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, MapPin, Users } from 'lucide-react';
+import { Plus, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import TerritoryDetailsModal from './TerritoryDetailsModal';
 
 interface Territory {
   id: string;
@@ -19,6 +20,7 @@ const TerritoriesManagement = () => {
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedTerritory, setSelectedTerritory] = useState<{ id: string; name: string } | null>(null);
   const [newTerritory, setNewTerritory] = useState({
     name: '',
     region: '',
@@ -69,18 +71,26 @@ const TerritoriesManagement = () => {
     }
 
     try {
-      // For now, just add to local state
-      // In a real implementation, you would insert into Supabase
+      const { data, error } = await supabase
+        .from('territories')
+        .insert({
+          name: newTerritory.name,
+          region: newTerritory.region,
+          pincode_ranges: newTerritory.pincode_ranges.split(',').map(s => s.trim())
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+
       const territory: Territory = {
-        id: Date.now().toString(),
-        name: newTerritory.name,
-        region: newTerritory.region,
-        pincode_ranges: newTerritory.pincode_ranges.split(',').map(s => s.trim()),
-        assigned_users: 0,
-        created_at: new Date().toISOString()
+        id: data.id,
+        name: data.name,
+        region: data.region,
+        pincode_ranges: data.pincode_ranges || [],
+        created_at: data.created_at
       };
 
-      setTerritories([...territories, territory]);
+      setTerritories([territory, ...territories]);
       setNewTerritory({ name: '', region: '', pincode_ranges: '' });
       setShowAddForm(false);
       
@@ -186,14 +196,24 @@ const TerritoriesManagement = () => {
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users size={16} />
-                <span>{territory.assigned_users} users assigned</span>
-              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedTerritory(territory)}
+                className="w-full mt-2"
+              >
+                View Details
+              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <TerritoryDetailsModal 
+        open={!!selectedTerritory}
+        onOpenChange={(open) => !open && setSelectedTerritory(null)}
+        territory={selectedTerritory}
+      />
     </div>
   );
 };
