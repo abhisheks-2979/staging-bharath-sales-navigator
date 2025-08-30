@@ -3,12 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Layout } from '@/components/Layout';
-import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus } from 'lucide-react';
+import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { format, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import HolidayList from '@/components/HolidayList';
+import LeaveApplicationModal from '@/components/LeaveApplicationModal';
+import MyLeaveApplications from '@/components/MyLeaveApplications';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -24,13 +28,15 @@ const Attendance = () => {
   const [isMarkingAttendance, setIsMarkingAttendance] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [location, setLocation] = useState(null);
+  const [dateFilter, setDateFilter] = useState('current-month');
+  const [leaveRefreshTrigger, setLeaveRefreshTrigger] = useState(0);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
   useEffect(() => {
     fetchAttendanceData();
     getCurrentLocation();
-  }, []);
+  }, [dateFilter]);
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -53,31 +59,59 @@ const Attendance = () => {
     }
   };
 
+  const getDateRange = () => {
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (dateFilter) {
+      case 'current-week':
+        startDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday start
+        endDate = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case 'last-month':
+        const lastMonth = subMonths(now, 1);
+        startDate = startOfMonth(lastMonth);
+        endDate = endOfMonth(lastMonth);
+        break;
+      case 'current-month':
+      default:
+        startDate = startOfMonth(now);
+        endDate = endOfMonth(now);
+        break;
+    }
+
+    return {
+      start: format(startDate, 'yyyy-MM-dd'),
+      end: format(endDate, 'yyyy-MM-dd')
+    };
+  };
+
   const fetchAttendanceData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-      const endDate = `${currentYear}-${String(currentMonth + 2).padStart(2, '0')}-01`;
+      const { start, end } = getDateRange();
 
-      // Fetch current month attendance
+      // Fetch attendance records for selected period
       const { data: attendanceRecords, error } = await supabase
         .from('attendance')
         .select('*')
         .eq('user_id', user.id)
-        .gte('date', startDate)
-        .lt('date', endDate)
+        .gte('date', start)
+        .lte('date', end)
         .order('date', { ascending: false });
 
       if (error) throw error;
 
       const presentDays = attendanceRecords?.filter(record => record.status === 'present').length || 0;
-      const totalWorkingDays = 20; // Assuming 20 working days per month
-      const absentDays = totalWorkingDays - presentDays;
-      const attendancePercentage = Math.round((presentDays / totalWorkingDays) * 100);
+      // Calculate working days based on filter
+      let totalWorkingDays = 20; // Default for month
+      if (dateFilter === 'current-week') {
+        totalWorkingDays = 5; // 5 working days in a week
+      }
+      const absentDays = Math.max(0, totalWorkingDays - presentDays);
+      const attendancePercentage = totalWorkingDays > 0 ? Math.round((presentDays / totalWorkingDays) * 100) : 0;
 
       setStats({
         totalDays: totalWorkingDays,
@@ -387,13 +421,26 @@ const Attendance = () => {
 
             <TabsContent value="attendance" className="space-y-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Recent Attendance</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="current-week">This Week</SelectItem>
+                        <SelectItem value="current-month">This Month</SelectItem>
+                        <SelectItem value="last-month">Last Month</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     {attendanceData.length > 0 ? (
-                      attendanceData.slice(0, 10).map((record) => (
+                      attendanceData.slice(0, 15).map((record) => (
                         <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             {record.status === 'present' ? (
@@ -402,10 +449,17 @@ const Attendance = () => {
                               <XCircle className="h-5 w-5 text-red-600" />
                             )}
                             <div>
-                              <div className="font-medium">{new Date(record.date).toLocaleDateString()}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatTime(record.check_in_time)} - {formatTime(record.check_out_time)}
+                              <div className="font-medium">
+                                {format(new Date(record.date), 'EEE, MMM dd, yyyy')}
                               </div>
+                              <div className="text-sm text-muted-foreground">
+                                In: {formatTime(record.check_in_time)} | Out: {formatTime(record.check_out_time)}
+                              </div>
+                              {record.total_hours && (
+                                <div className="text-xs text-blue-600">
+                                  Total: {record.total_hours.toFixed(1)} hours
+                                </div>
+                              )}
                             </div>
                           </div>
                           <Badge variant={record.status === 'present' ? 'default' : 'destructive'}>
@@ -415,7 +469,8 @@ const Attendance = () => {
                       ))
                     ) : (
                       <div className="text-center text-muted-foreground py-8">
-                        No attendance records found
+                        <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                        <p>No attendance records found for the selected period</p>
                       </div>
                     )}
                   </div>
@@ -424,20 +479,23 @@ const Attendance = () => {
             </TabsContent>
 
             <TabsContent value="leave">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Leave Management</CardTitle>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Apply Leave
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center text-muted-foreground py-8">
-                    No leave applications found
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Leave Management</CardTitle>
+                    <LeaveApplicationModal 
+                      onApplicationSubmitted={() => setLeaveRefreshTrigger(prev => prev + 1)}
+                    />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm text-muted-foreground">
+                      Apply for leave and track your applications below.
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <MyLeaveApplications refreshTrigger={leaveRefreshTrigger} />
+              </div>
             </TabsContent>
 
             <TabsContent value="holiday">

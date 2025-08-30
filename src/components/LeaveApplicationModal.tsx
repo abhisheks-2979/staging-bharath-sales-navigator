@@ -1,0 +1,252 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Plus } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+
+interface LeaveType {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+interface LeaveApplicationModalProps {
+  trigger?: React.ReactNode;
+  onApplicationSubmitted?: () => void;
+}
+
+const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({ 
+  trigger, 
+  onApplicationSubmitted 
+}) => {
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  
+  // Form state
+  const [leaveTypeId, setLeaveTypeId] = useState('');
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchLeaveTypes();
+    }
+  }, [isOpen]);
+
+  const fetchLeaveTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leave_types')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setLeaveTypes(data || []);
+    } catch (error) {
+      console.error('Error fetching leave types:', error);
+      toast.error('Failed to fetch leave types');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user || !leaveTypeId || !startDate || !endDate || !reason.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (endDate < startDate) {
+      toast.error('End date cannot be before start date');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from('leave_applications')
+        .insert({
+          user_id: user.id,
+          leave_type_id: leaveTypeId,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd'),
+          reason: reason.trim(),
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast.success('Leave application submitted successfully');
+      
+      // Reset form
+      setLeaveTypeId('');
+      setStartDate(undefined);
+      setEndDate(undefined);
+      setReason('');
+      setIsOpen(false);
+      
+      onApplicationSubmitted?.();
+    } catch (error) {
+      console.error('Error submitting leave application:', error);
+      toast.error('Failed to submit leave application');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const calculateLeaveDays = () => {
+    if (startDate && endDate) {
+      const timeDiff = endDate.getTime() - startDate.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+      return daysDiff;
+    }
+    return 0;
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Apply Leave
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Apply for Leave</DialogTitle>
+          <DialogDescription>
+            Submit a new leave application for approval
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="leaveType">Leave Type *</Label>
+            <Select value={leaveTypeId} onValueChange={setLeaveTypeId} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select leave type" />
+              </SelectTrigger>
+              <SelectContent>
+                {leaveTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Start Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "PPP") : "Pick start date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={setStartDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>End Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !endDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {endDate ? format(endDate, "PPP") : "Pick end date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={setEndDate}
+                    disabled={(date) => date < (startDate || new Date())}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {startDate && endDate && (
+            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Total Leave Days: <span className="font-semibold">{calculateLeaveDays()}</span>
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason *</Label>
+            <Textarea
+              id="reason"
+              placeholder="Please provide a reason for your leave..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              required
+              className="min-h-[100px]"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Submitting...' : 'Submit Application'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default LeaveApplicationModal;

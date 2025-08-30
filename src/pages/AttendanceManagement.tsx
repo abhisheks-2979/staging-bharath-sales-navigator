@@ -52,22 +52,46 @@ const AttendanceManagement = () => {
   const [leaveApplications, setLeaveApplications] = useState<LeaveApplication[]>([]);
   const [regularizationRequests, setRegularizationRequests] = useState<RegularizationRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [allUsers, setAllUsers] = useState<Array<{id: string, full_name: string}>>([]);
 
   useEffect(() => {
     if (activeTab === 'leave') {
       fetchLeaveApplications();
+      fetchUsers();
     } else if (activeTab === 'regularization') {
       fetchRegularizationRequests();
+      fetchUsers();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedUser]);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .order('full_name');
+
+      if (error) throw error;
+      setAllUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
   const fetchLeaveApplications = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('leave_applications')
-        .select('*')
-        .order('applied_date', { ascending: false });
+        .select('*');
+
+      if (selectedUser !== 'all') {
+        query = query.eq('user_id', selectedUser);
+      }
+
+      const { data, error } = await query.order('applied_date', { ascending: false });
 
       if (error) throw error;
 
@@ -104,11 +128,17 @@ const AttendanceManagement = () => {
   const fetchRegularizationRequests = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('regularization_requests')
         .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+        .eq('status', 'pending');
+
+      if (selectedUser !== 'all') {
+        query = query.eq('user_id', selectedUser);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -287,10 +317,29 @@ const AttendanceManagement = () => {
       {activeTab === 'leave' && (
         <Card>
           <CardHeader>
-            <CardTitle>Leave Applications Management</CardTitle>
-            <CardDescription>
-              Review and manage employee leave requests
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Leave Applications Management</CardTitle>
+                <CardDescription>
+                  Review and manage employee leave requests
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Filter by user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Employees</SelectItem>
+                    {allUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -375,10 +424,29 @@ const AttendanceManagement = () => {
       {activeTab === 'regularization' && (
         <Card>
           <CardHeader>
-            <CardTitle>Pending Regularization Requests</CardTitle>
-            <CardDescription>
-              Review and approve attendance regularization requests
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Pending Regularization Requests</CardTitle>
+                <CardDescription>
+                  Review and approve attendance regularization requests
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Filter by user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Employees</SelectItem>
+                    {allUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
