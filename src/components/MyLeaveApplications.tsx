@@ -42,6 +42,7 @@ const MyLeaveApplications: React.FC<MyLeaveApplicationsProps> = ({ refreshTrigge
 
     setIsLoading(true);
     try {
+      console.log('Fetching my leave applications for user:', user.id);
       const { data, error } = await supabase
         .from('leave_applications')
         .select(`
@@ -53,6 +54,7 @@ const MyLeaveApplications: React.FC<MyLeaveApplicationsProps> = ({ refreshTrigge
         .eq('user_id', user.id)
         .order('applied_date', { ascending: false });
 
+      console.log('Leave applications data:', data, 'error:', error);
       if (error) throw error;
       
       // Transform the data to match our interface

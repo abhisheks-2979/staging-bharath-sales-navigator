@@ -41,6 +41,7 @@ const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({
   const [reason, setReason] = useState('');
 
   useEffect(() => {
+    console.log('LeaveApplicationModal opened:', isOpen);
     if (isOpen) {
       fetchLeaveTypes();
     }
@@ -48,11 +49,13 @@ const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({
 
   const fetchLeaveTypes = async () => {
     try {
+      console.log('Fetching leave types...');
       const { data, error } = await supabase
         .from('leave_types')
         .select('*')
         .order('name');
 
+      console.log('Leave types data:', data, 'error:', error);
       if (error) throw error;
       setLeaveTypes(data || []);
     } catch (error) {
