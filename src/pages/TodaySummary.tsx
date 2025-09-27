@@ -23,6 +23,8 @@ export const TodaySummary = () => {
       day: 'numeric' 
     }),
     beat: "Loading...",
+    startTime: "Loading...",
+    endTime: "Loading...",
     plannedVisits: 0,
     completedVisits: 0,
     productiveVisits: 0,
@@ -104,11 +106,31 @@ export const TodaySummary = () => {
 
       // Process visits data
       const totalPlanned = visits?.length || 0;
-      const completedVisits = visits?.filter(v => v.status === 'completed') || [];
-      const productiveVisits = visits?.filter(v => v.status === 'completed' && todayOrders?.some(o => o.visit_id === v.id)) || [];
+      const completedVisits = visits?.filter(v => v.check_out_time !== null) || [];
+      const productiveVisits = visits?.filter(v => v.status === 'productive') || [];
       const pendingVisits = visits?.filter(v => v.status === 'planned') || [];
       const closedVisits = visits?.filter(v => v.status === 'store_closed') || [];
-      const unproductiveVisits = visits?.filter(v => v.status === 'completed' && !todayOrders?.some(o => o.visit_id === v.id)) || [];
+      const unproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
+
+      // Calculate first check-in and last check-out times
+      const allCheckInTimes = visits?.filter(v => v.check_in_time).map(v => new Date(v.check_in_time!)) || [];
+      const allCheckOutTimes = visits?.filter(v => v.check_out_time).map(v => new Date(v.check_out_time!)) || [];
+      
+      const firstCheckIn = allCheckInTimes.length > 0 
+        ? new Date(Math.min(...allCheckInTimes.map(t => t.getTime())))
+        : null;
+      const lastCheckOut = allCheckOutTimes.length > 0 
+        ? new Date(Math.max(...allCheckOutTimes.map(t => t.getTime())))
+        : null;
+
+      const formatTime = (date: Date | null) => {
+        if (!date) return "Not started";
+        return date.toLocaleTimeString('en-IN', { 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true 
+        });
+      };
 
       // Process orders data
       const totalOrderValue = todayOrders?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
@@ -124,6 +146,8 @@ export const TodaySummary = () => {
           day: 'numeric' 
         }),
         beat: beatPlan?.beat_name || "No beat planned",
+        startTime: formatTime(firstCheckIn),
+        endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
         plannedVisits: totalPlanned,
         completedVisits: completedVisits.length,
         productiveVisits: productiveVisits.length,
@@ -308,7 +332,7 @@ export const TodaySummary = () => {
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Start: 9:00 AM | End: 6:30 PM
+                Start: {summaryData.startTime} | End: {summaryData.endTime}
               </span>
             </div>
           </CardContent>
@@ -397,7 +421,7 @@ export const TodaySummary = () => {
                     <span className="text-sm">{item.count} visits</span>
                   </div>
                   <div className="text-sm font-medium">
-                    {Math.round((item.count / summaryData.plannedVisits) * 100)}%
+                    {summaryData.plannedVisits > 0 ? Math.round((item.count / summaryData.plannedVisits) * 100) : 0}%
                   </div>
                 </div>
               ))
