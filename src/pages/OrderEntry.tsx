@@ -362,56 +362,74 @@ useEffect(() => {
       setLoading(true);
       console.log('🔄 OrderEntry: Starting to fetch products and categories...');
       
-      const [catRes, prodRes] = await Promise.all([
-        supabase.from('product_categories').select('name').order('name'),
-        supabase.from('products').select(`
-          *,
-          category:product_categories(name),
-          schemes:product_schemes!product_schemes_product_id_fkey(id, name, description, is_active, scheme_type, condition_quantity, quantity_condition_type, discount_percentage, discount_amount, free_quantity, variant_id, start_date, end_date, product_id),
-          variants:product_variants(id, variant_name, sku, price, stock_quantity, discount_amount, discount_percentage, is_active)
-        `).eq('is_active', true).order('name')
-      ]);
+      // Fetch categories first
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('product_categories')
+        .select('name')
+        .order('name');
 
-      console.log('📊 Categories Response:', catRes);
-      console.log('🛍️ Products Response:', prodRes);
-
-      if (catRes.error) {
-        console.error('❌ Categories Error:', catRes.error);
-      }
-      
-      if (prodRes.error) {
-        console.error('❌ Products Error:', prodRes.error);
+      if (categoriesError) {
+        console.error('❌ Categories Error:', categoriesError);
       }
 
-      setCategories(["All", ...((catRes.data || []).map((c: any) => c.name))]);
-      console.log('🏷️ Categories set:', ["All", ...((catRes.data || []).map((c: any) => c.name))]);
+      // Fetch products with a simpler query
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (productsError) {
+        console.error('❌ Products Error:', productsError);
+        throw productsError;
+      }
+
+      // Fetch product categories separately
+      const { data: productCategoriesData } = await supabase
+        .from('product_categories')
+        .select('*');
+
+      // Fetch schemes separately  
+      const { data: schemesData } = await supabase
+        .from('product_schemes')
+        .select('*')
+        .eq('is_active', true);
+
+      console.log('📊 Categories Response:', categoriesData);
+      console.log('🛍️ Products Response:', productsData);
+      console.log('🎯 Schemes Response:', schemesData);
+
+      setCategories(["All", ...((categoriesData || []).map((c: any) => c.name))]);
+      console.log('🏷️ Categories set:', ["All", ...((categoriesData || []).map((c: any) => c.name))]);
 
       const mapped: GridProduct[] = [];
-      const allSchemes: any[] = [];
+      const allSchemes: any[] = schemesData || [];
       
-      console.log('🔍 Processing products:', prodRes.data?.length || 0);
-      (prodRes.data || []).forEach((p: any) => {
-        const activeSchemes = (p.schemes || []).filter((s: any) => s.is_active && 
+      console.log('🔍 Processing products:', productsData?.length || 0);
+      (productsData || []).forEach((p: any) => {
+        // Find category name
+        const categoryData = productCategoriesData?.find(cat => cat.id === p.category_id);
+        
+        // Find schemes for this product
+        const productSchemes = (schemesData || []).filter((s: any) => 
+          s.product_id === p.id && 
+          s.is_active && 
           (!s.start_date || new Date(s.start_date) <= new Date()) &&
           (!s.end_date || new Date(s.end_date) >= new Date())
         );
         
-        allSchemes.push(...activeSchemes);
-        
-        const activeVariants = (p.variants || []).filter((v: any) => v.is_active);
-        
         const baseProduct: GridProduct = {
           id: p.id,
           name: p.name,
-          category: p.category?.name || 'Uncategorized',
-          rate: p.rate,
-          unit: p.unit,
-          hasScheme: activeSchemes.length > 0,
-          schemeDetails: activeSchemes.length > 0 ? activeSchemes.map(s => 
+          category: categoryData?.name || 'Uncategorized',
+          rate: p.rate || 0,
+          unit: p.unit || 'piece',
+          hasScheme: productSchemes.length > 0,
+          schemeDetails: productSchemes.length > 0 ? productSchemes.map(s => 
             `${s.name}: ${getSchemeDescription(s)}`
           ).join('; ') : undefined,
-          closingStock: p.closing_stock,
-          variants: activeVariants,
+          closingStock: p.closing_stock || 0,
+          variants: [], // We'll add variant support later
           sku: p.sku
         };
 
