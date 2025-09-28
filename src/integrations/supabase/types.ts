@@ -460,9 +460,12 @@ export type Database = {
           created_at: string
           credit_limit: number | null
           email: string | null
+          gst_number: string | null
           id: string
           name: string
           outstanding_amount: number | null
+          parent_id: string | null
+          parent_type: string | null
           phone: string
           status: string
           territory_id: string | null
@@ -474,9 +477,12 @@ export type Database = {
           created_at?: string
           credit_limit?: number | null
           email?: string | null
+          gst_number?: string | null
           id?: string
           name: string
           outstanding_amount?: number | null
+          parent_id?: string | null
+          parent_type?: string | null
           phone: string
           status?: string
           territory_id?: string | null
@@ -488,15 +494,25 @@ export type Database = {
           created_at?: string
           credit_limit?: number | null
           email?: string | null
+          gst_number?: string | null
           id?: string
           name?: string
           outstanding_amount?: number | null
+          parent_id?: string | null
+          parent_type?: string | null
           phone?: string
           status?: string
           territory_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "distributors_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "distributors_territory_id_fkey"
             columns: ["territory_id"]
@@ -1563,6 +1579,7 @@ export type Database = {
       vendors: {
         Row: {
           city: string | null
+          competitors: string[] | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -1578,6 +1595,7 @@ export type Database = {
         }
         Insert: {
           city?: string | null
+          competitors?: string[] | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -1593,6 +1611,7 @@ export type Database = {
         }
         Update: {
           city?: string | null
+          competitors?: string[] | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null

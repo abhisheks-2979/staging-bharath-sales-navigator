@@ -8,9 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Plus, Building2, Package, Search, Edit, Trash2, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import DistributorList from '@/components/DistributorList';
+import SuperStockistList from '@/components/SuperStockistList';
 
 interface Retailer {
   id: string;
@@ -386,8 +389,8 @@ const DistributorMapping = () => {
             <ArrowLeft size={20} />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Distributor Mapping</h1>
-            <p className="text-muted-foreground">Manage distributors for {retailer.name}</p>
+            <h1 className="text-3xl font-bold text-foreground">Distributor Management</h1>
+            <p className="text-muted-foreground">Manage distributors and super stockists for {retailer.name}</p>
           </div>
         </div>
 
@@ -407,9 +410,19 @@ const DistributorMapping = () => {
           </CardContent>
         </Card>
 
-        {/* Actions Bar */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Assigned Distributors</h2>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="mapping" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="mapping">Retailer Mapping</TabsTrigger>
+            <TabsTrigger value="distributors">Distributors</TabsTrigger>
+            <TabsTrigger value="super-stockists">Super Stockists</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="mapping" className="space-y-6">
+
+            {/* Actions Bar */}
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Assigned Distributors</h2>
           
           <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
             <DialogTrigger asChild>
@@ -584,34 +597,44 @@ const DistributorMapping = () => {
                           </div>
                         </div>
                       )}
-                    </div>
+                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditModal(mapping)}
-                      >
-                        <Edit size={14} />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteMapping(mapping.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
+                     <div className="flex gap-2">
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={() => openEditModal(mapping)}
+                       >
+                         <Edit size={14} />
+                       </Button>
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={() => handleDeleteMapping(mapping.id)}
+                         className="text-destructive hover:text-destructive"
+                       >
+                         <Trash2 size={14} />
+                       </Button>
+                     </div>
+                   </div>
+                 </CardContent>
+               </Card>
+             ))
+           )}
+         </div>
+          </TabsContent>
+
+          <TabsContent value="distributors">
+            <DistributorList onDistributorAdded={loadData} />
+          </TabsContent>
+
+          <TabsContent value="super-stockists">
+            <SuperStockistList onSuperStockistAdded={loadData} />
+          </TabsContent>
+        </Tabs>
+       </div>
+     </div>
+   );
 };
 
 export default DistributorMapping;
