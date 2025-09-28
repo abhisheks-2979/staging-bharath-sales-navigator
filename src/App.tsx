@@ -65,20 +65,19 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <PWAInstallPrompt />
-        <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<RoleBasedAuthPage />} />
-          <Route path="/auth/complete-profile" element={<CompleteProfile />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Index />
-            </ProtectedRoute>
-          } />
+      <Toaster />
+      <Sonner />
+      <PWAInstallPrompt />
+      <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<RoleBasedAuthPage />} />
+        <Route path="/auth/complete-profile" element={<CompleteProfile />} />
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Index />
+          </ProtectedRoute>
+        } />
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
@@ -274,7 +273,6 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
