@@ -1695,6 +1695,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_invitation: {
+        Args: { _invitation_token: string }
+        Returns: boolean
+      }
       create_approval_workflow: {
         Args: { user_id_param: string }
         Returns: undefined
@@ -1721,6 +1725,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      owns_completed_invitation: {
+        Args: { _email: string; _user_id: string }
         Returns: boolean
       }
       send_notification: {
