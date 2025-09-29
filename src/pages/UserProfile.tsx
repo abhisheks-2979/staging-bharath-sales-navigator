@@ -131,8 +131,8 @@ const UserProfile = () => {
       if (profileData.phone_number !== user?.user_metadata?.phone_number || 
           profileData.recovery_email !== user?.user_metadata?.recovery_email) {
         const { data: success, error } = await supabase.rpc('update_security_info_secure', {
-          new_hint_question: userProfile?.hint_question || '',
-          new_hint_answer: userProfile?.hint_answer || '',
+          new_hint_question: '',
+          new_hint_answer: '',
           new_recovery_email: profileData.recovery_email,
           new_phone_number: profileData.phone_number
         });

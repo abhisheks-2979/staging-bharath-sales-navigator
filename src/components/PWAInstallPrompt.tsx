@@ -1,16 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, X, RefreshCw, Trash2 } from "lucide-react";
+import { Download, X, RefreshCw } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import { clearAllCaches, clearApiCache, checkForUpdates, forceRefresh } from "@/utils/cacheUtils";
+import { checkForUpdates, forceRefresh } from "@/utils/cacheUtils";
 
 export const PWAInstallPrompt = () => {
   const { isInstallable, installApp, canPrompt, handleDismiss } = usePWAInstall();
   const [isDismissed, setIsDismissed] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
-  const isDevelopment = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     // Check for updates on component mount
@@ -25,21 +23,6 @@ export const PWAInstallPrompt = () => {
   const handleLocalDismiss = () => {
     handleDismiss();
     setIsDismissed(true);
-  };
-
-  const handleClearCache = async () => {
-    setIsClearing(true);
-    try {
-      await clearApiCache();
-      // Force refresh after clearing cache
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
-    } catch (error) {
-      console.error('Error clearing cache:', error);
-    } finally {
-      setIsClearing(false);
-    }
   };
 
   const handleForceRefresh = () => {
@@ -84,36 +67,6 @@ export const PWAInstallPrompt = () => {
     );
   }
 
-  // Development cache clearing button
-  if (isDevelopment) {
-    return (
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleClearCache}
-          disabled={isClearing}
-          className="bg-background/95 backdrop-blur-sm"
-        >
-          {isClearing ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Trash2 className="h-4 w-4" />
-          )}
-          <span className="ml-2">Clear Cache</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleForceRefresh}
-          className="bg-background/95 backdrop-blur-sm"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span className="ml-2">Force Refresh</span>
-        </Button>
-      </div>
-    );
-  }
 
   if (!isInstallable || isDismissed) {
     return null;
