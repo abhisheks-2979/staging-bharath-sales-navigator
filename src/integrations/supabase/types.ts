@@ -1716,6 +1716,16 @@ export type Database = {
           username: string
         }[]
       }
+      get_limited_profiles_for_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          full_name: string
+          id: string
+          user_status: Database["public"]["Enums"]["user_status"]
+          username: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1726,6 +1736,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      hash_hint_answer: {
+        Args: { answer: string }
+        Returns: string
       }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
@@ -1758,6 +1772,10 @@ export type Database = {
         }[]
       }
       verify_hint_answer: {
+        Args: { submitted_answer: string; user_email: string }
+        Returns: boolean
+      }
+      verify_hint_answer_secure: {
         Args: { submitted_answer: string; user_email: string }
         Returns: boolean
       }
