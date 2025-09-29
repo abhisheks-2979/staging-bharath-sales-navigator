@@ -338,6 +338,13 @@ export type Database = {
             referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "branding_requests_assigned_vendor_id_fkey"
+            columns: ["assigned_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       competition_insights: {
@@ -1692,7 +1699,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vendors_public: {
+        Row: {
+          city: string | null
+          created_at: string | null
+          id: string | null
+          is_approved: boolean | null
+          name: string | null
+          region_pincodes: string[] | null
+          skills: string[] | null
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_approved?: boolean | null
+          name?: string | null
+          region_pincodes?: string[] | null
+          skills?: string[] | null
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_approved?: boolean | null
+          name?: string | null
+          region_pincodes?: string[] | null
+          skills?: string[] | null
+          state?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_access_invitation: {
@@ -1729,6 +1768,38 @@ export type Database = {
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_vendor_contact_info: {
+        Args: { vendor_id: string }
+        Returns: {
+          city: string
+          competitors: string[]
+          contact_email: string
+          contact_name: string
+          contact_phone: string
+          created_at: string
+          created_by: string
+          id: string
+          is_approved: boolean
+          name: string
+          region_pincodes: string[]
+          skills: string[]
+          state: string
+          updated_at: string
+        }[]
+      }
+      get_vendors_public_info: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          city: string
+          created_at: string
+          id: string
+          is_approved: boolean
+          name: string
+          region_pincodes: string[]
+          skills: string[]
+          state: string
+        }[]
       }
       has_role: {
         Args: {
