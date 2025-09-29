@@ -87,7 +87,16 @@ export const AdminDashboard = () => {
     try {
       setLoadingUsers(true);
       
-      // Call the edge function to get real user data with admin privileges
+      // Use secure function that only returns limited profile data for admins
+      const { data: limitedProfiles, error: profileError } = await supabase.rpc('get_limited_profiles_for_admin');
+      
+      if (profileError) {
+        console.error('Error fetching limited profiles:', profileError);
+        toast.error('Failed to fetch user profiles: ' + profileError.message);
+        return;
+      }
+
+      // Call the edge function to get user authentication data
       const { data, error } = await supabase.functions.invoke('admin-get-users');
       
       if (error) {
@@ -96,8 +105,25 @@ export const AdminDashboard = () => {
         return;
       }
 
-      console.log('Fetched users from edge function:', data?.users);
-      setUsers(data?.users || []);
+      // Merge limited profile data to ensure sensitive data is not exposed
+      if (data?.users && limitedProfiles) {
+        const secureUsers = data.users.map((user: any) => {
+          const limitedProfile = limitedProfiles.find((p: any) => p.id === user.id);
+          return {
+            ...user,
+            // Override with limited profile data to prevent sensitive data exposure
+            profile: limitedProfile || {
+              id: user.id,
+              username: 'Unknown',
+              full_name: 'Unknown User',
+              created_at: new Date().toISOString()
+            }
+          };
+        });
+        setUsers(secureUsers);
+      } else {
+        setUsers([]);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');

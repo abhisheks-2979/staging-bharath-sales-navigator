@@ -222,9 +222,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {
     try {
-      // First verify the hint answer
+      // Use the new secure hint verification function
       const { data: isValid, error: verifyError } = await supabase
-        .rpc('verify_hint_answer', {
+        .rpc('verify_hint_answer_secure', {
           user_email: email,
           submitted_answer: hintAnswer
         });

@@ -127,13 +127,27 @@ const UserProfile = () => {
 
     setLoading(true);
     try {
+      // For sensitive fields (phone, recovery email), use secure function
+      if (profileData.phone_number !== user?.user_metadata?.phone_number || 
+          profileData.recovery_email !== user?.user_metadata?.recovery_email) {
+        const { data: success, error } = await supabase.rpc('update_security_info_secure', {
+          new_hint_question: userProfile?.hint_question || '',
+          new_hint_answer: userProfile?.hint_answer || '',
+          new_recovery_email: profileData.recovery_email,
+          new_phone_number: profileData.phone_number
+        });
+
+        if (error || !success) {
+          throw new Error('Failed to update sensitive information');
+        }
+      }
+
+      // Update non-sensitive fields
       const { error } = await supabase
         .from('profiles')
         .update({
           username: profileData.username,
-          full_name: profileData.full_name,
-          phone_number: profileData.phone_number,
-          recovery_email: profileData.recovery_email
+          full_name: profileData.full_name
         })
         .eq('id', user.id);
 

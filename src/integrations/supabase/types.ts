@@ -1760,6 +1760,15 @@ export type Database = {
         Args: { new_hint_answer: string; new_hint_question: string }
         Returns: boolean
       }
+      update_security_info_secure: {
+        Args: {
+          new_hint_answer: string
+          new_hint_question: string
+          new_phone_number?: string
+          new_recovery_email?: string
+        }
+        Returns: boolean
+      }
       validate_invitation_token: {
         Args: { _token: string }
         Returns: {
