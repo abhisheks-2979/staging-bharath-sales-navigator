@@ -338,13 +338,6 @@ export type Database = {
             referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "branding_requests_assigned_vendor_id_fkey"
-            columns: ["assigned_vendor_id"]
-            isOneToOne: false
-            referencedRelation: "vendors_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       competition_insights: {
@@ -1699,39 +1692,7 @@ export type Database = {
       }
     }
     Views: {
-      vendors_public: {
-        Row: {
-          city: string | null
-          created_at: string | null
-          id: string | null
-          is_approved: boolean | null
-          name: string | null
-          region_pincodes: string[] | null
-          skills: string[] | null
-          state: string | null
-        }
-        Insert: {
-          city?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_approved?: boolean | null
-          name?: string | null
-          region_pincodes?: string[] | null
-          skills?: string[] | null
-          state?: string | null
-        }
-        Update: {
-          city?: string | null
-          created_at?: string | null
-          id?: string | null
-          is_approved?: boolean | null
-          name?: string | null
-          region_pincodes?: string[] | null
-          skills?: string[] | null
-          state?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       can_access_invitation: {
@@ -1763,6 +1724,19 @@ export type Database = {
           id: string
           user_status: Database["public"]["Enums"]["user_status"]
           username: string
+        }[]
+      }
+      get_public_vendors: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          city: string
+          created_at: string
+          id: string
+          is_approved: boolean
+          name: string
+          region_pincodes: string[]
+          skills: string[]
+          state: string
         }[]
       }
       get_user_role: {
