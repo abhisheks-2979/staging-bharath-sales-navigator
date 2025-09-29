@@ -679,10 +679,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoadingOrder(false); return; }
       const retailerId = (visit.retailerId || visit.id) as string;
-      const todayStart = new Date();
-      todayStart.setHours(0,0,0,0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23,59,59,999);
+      
+      // Use selectedDate if provided, otherwise use today's date
+      const targetDate = selectedDate ? new Date(selectedDate) : new Date();
+      const dayStart = new Date(targetDate);
+      dayStart.setHours(0,0,0,0);
+      const dayEnd = new Date(targetDate);
+      dayEnd.setHours(23,59,59,999);
 
       const { data: orders } = await supabase
         .from('orders')
@@ -690,8 +693,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         .eq('user_id', user.id)
         .eq('retailer_id', retailerId)
         .eq('status', 'confirmed')
-        .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString());
+        .gte('created_at', dayStart.toISOString())
+        .lte('created_at', dayEnd.toISOString());
 
       if ((orders || []).length > 0) {
         const orderIds = (orders || []).map(o => o.id);
@@ -775,7 +778,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                     await loadLastOrder();
                   }
                 }}
-                title="View today's order"
+                title={selectedDate ? `View order for ${new Date(selectedDate).toLocaleDateString()}` : "View today's order"}
               >
                 ₹{actualOrderValue.toLocaleString()}
               </Button>
@@ -901,7 +904,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           {(visit.hasOrder || hasOrderToday) && (
             <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Today's Order</span>
+                <span className="text-sm font-medium">
+                  {selectedDate 
+                    ? `${new Date(selectedDate).toDateString() === new Date().toDateString() ? "Today's" : new Date(selectedDate).toLocaleDateString()} Order`
+                    : "Today's Order"}
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
