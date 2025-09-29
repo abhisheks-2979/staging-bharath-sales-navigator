@@ -1746,6 +1746,17 @@ export type Database = {
         Args: { new_hint_answer: string; new_hint_question: string }
         Returns: boolean
       }
+      validate_invitation_token: {
+        Args: { _token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          manager_id: string
+          phone_number: string
+        }[]
+      }
       verify_hint_answer: {
         Args: { submitted_answer: string; user_email: string }
         Returns: boolean
