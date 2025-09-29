@@ -577,11 +577,33 @@ export const MyVisits = () => {
               </div>
             </div>
             
-            {/* Week Display */}
-            <div className="text-center mb-3 sm:mb-4">
-              <p className="text-primary-foreground/80 text-xs sm:text-sm">
-                Week of {format(selectedWeek, "MMM d, yyyy")}
-              </p>
+            {/* Week Display with Calendar Selector */}
+            <div className="flex justify-center mb-3 sm:mb-4">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 px-4 py-2"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    Week of {format(selectedWeek, "MMM d, yyyy")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <Calendar
+                    mode="single"
+                    selected={selectedWeek}
+                    onSelect={(date) => {
+                      if (date) {
+                        const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+                        setSelectedWeek(weekStart);
+                      }
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Weekly Calendar */}
