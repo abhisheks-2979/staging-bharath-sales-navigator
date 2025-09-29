@@ -530,33 +530,35 @@ export const MyVisits = () => {
           <CardContent className="space-y-3 sm:space-y-4">
             {/* Calendar Selector */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm w-full sm:w-auto",
-                        !calendarDate && "text-primary-foreground/50"
-                      )}
-                    >
-                      <CalendarDays className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="truncate">
-                        {calendarDate ? format(calendarDate, "MMM d, yyyy") : "Pick a date"}
-                      </span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={calendarDate}
-                      onSelect={handleCalendarSelect}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+               <div className="flex items-center gap-2 w-full sm:w-auto">
+                 <Popover>
+                   <PopoverTrigger asChild>
+                     <Button
+                       variant="outline"
+                       className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm w-full sm:w-auto"
+                     >
+                       <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                       <span className="truncate">
+                         {format(selectedWeek, "MMM d, yyyy")}
+                       </span>
+                     </Button>
+                   </PopoverTrigger>
+                   <PopoverContent className="w-auto p-0" align="start">
+                     <Calendar
+                       mode="single"
+                       selected={selectedWeek}
+                       onSelect={(date) => {
+                         if (date) {
+                           const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+                           setSelectedWeek(weekStart);
+                         }
+                       }}
+                       initialFocus
+                       className="pointer-events-auto"
+                     />
+                   </PopoverContent>
+                 </Popover>
+               </div>
               <div className="flex items-center gap-1 self-end sm:self-auto">
                 <Button
                   variant="outline"
@@ -577,36 +579,6 @@ export const MyVisits = () => {
               </div>
             </div>
             
-            {/* Week Display with Calendar Selector */}
-            <div className="flex justify-center mb-3 sm:mb-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 px-4 py-2"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    Week of {format(selectedWeek, "MMM d, yyyy")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="center">
-                  <Calendar
-                    mode="single"
-                    selected={selectedWeek}
-                    onSelect={(date) => {
-                      if (date) {
-                        const weekStart = startOfWeek(date, { weekStartsOn: 0 });
-                        setSelectedWeek(weekStart);
-                      }
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Weekly Calendar */}
             <div className="grid grid-cols-7 gap-1 sm:gap-2">
               {weekDays.map((dayInfo) => (
                 <button
