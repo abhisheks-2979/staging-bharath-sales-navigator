@@ -53,11 +53,7 @@ export const AddRetailer = () => {
   // Load distributors from vendors table (Distributor Management)
   const loadDistributors = async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from('vendors')
-      .select('id, name')
-      .eq('is_approved', true)
-      .order('name');
+    const { data, error } = await supabase.rpc('get_public_vendors');
     
     if (error) {
       console.error('Failed to load distributors:', error);

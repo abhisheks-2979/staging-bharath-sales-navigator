@@ -75,10 +75,7 @@ const SuperStockistList: React.FC<SuperStockistListProps> = ({ onSuperStockistAd
       setLoading(true);
 
       const [superStockistsRes, categoriesRes] = await Promise.all([
-        supabase
-          .from('vendors')
-          .select('*')
-          .order('created_at', { ascending: false }),
+        supabase.rpc('get_public_vendors'),
         supabase
           .from('product_categories')
           .select('id, name')
@@ -90,7 +87,7 @@ const SuperStockistList: React.FC<SuperStockistListProps> = ({ onSuperStockistAd
 
       setSuperStockists(superStockistsRes.data?.map(ss => ({
         ...ss,
-        competitors: ss.competitors || ss.skills || []
+        competitors: ss.skills || [] // Use skills as fallback since competitors field is not in secure function
       })) || []);
       setCategories(categoriesRes.data || []);
 

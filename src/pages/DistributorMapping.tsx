@@ -97,12 +97,8 @@ const DistributorMapping = () => {
       if (retailerError) throw retailerError;
       setRetailer(retailerData);
 
-      // Load distributors
-      const { data: distributorsData, error: distributorsError } = await supabase
-        .from('vendors')
-        .select('id, name, contact_name, skills, city, state')
-        .eq('is_approved', true)
-        .order('name');
+      // Load distributors - using secure function that excludes contact details
+      const { data: distributorsData, error: distributorsError } = await supabase.rpc('get_public_vendors');
 
       if (distributorsError) throw distributorsError;
       setDistributors(distributorsData || []);

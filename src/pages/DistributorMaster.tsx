@@ -79,10 +79,7 @@ const DistributorMaster = () => {
       setIsLoading(true);
 
       const [distributorsRes, categoriesRes] = await Promise.all([
-        supabase
-          .from('vendors')
-          .select('*')
-          .order('name'),
+        supabase.rpc('get_public_vendors'),
         supabase
           .from('product_categories')
           .select('id, name')

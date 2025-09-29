@@ -41,11 +41,35 @@ const Vendors = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('vendors')
-      .select('id, name, contact_name, contact_phone, contact_email, skills, region_pincodes, is_approved')
-      .order('name');
-    setVendors((data as any) || []);
+    try {
+      if (userRole === 'admin') {
+        // Admins can see full vendor data including contact information
+        const { data } = await supabase
+          .from('vendors')
+          .select('id, name, contact_name, contact_phone, contact_email, skills, region_pincodes, is_approved')
+          .order('name');
+        setVendors((data as any) || []);
+      } else {
+        // Regular users get non-sensitive vendor data only
+        const { data, error } = await supabase.rpc('get_public_vendors');
+        if (error) throw error;
+        // Transform the data to match the interface but with null contact info
+        const transformedData = (data || []).map(vendor => ({
+          ...vendor,
+          contact_name: null,
+          contact_phone: null,
+          contact_email: null
+        }));
+        setVendors(transformedData);
+      }
+    } catch (error) {
+      console.error('Error loading vendors:', error);
+      toast({ 
+        title: 'Load failed', 
+        description: 'Failed to load vendors', 
+        variant: 'destructive' 
+      });
+    }
     setLoading(false);
   };
 
@@ -105,35 +129,37 @@ const Vendors = () => {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Skills</TableHead>
-                  <TableHead>Pincodes</TableHead>
-                  <TableHead>Approved</TableHead>
-                </TableRow>
+                 <TableRow>
+                   <TableHead>Name</TableHead>
+                   {userRole === 'admin' && <TableHead>Contact</TableHead>}
+                   <TableHead>Skills</TableHead>
+                   <TableHead>Pincodes</TableHead>
+                   <TableHead>Approved</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
-                {!loading && vendors.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No vendors found</TableCell></TableRow>
-                )}
-                {vendors.map(v => (
-                  <TableRow key={v.id}>
-                    <TableCell className="font-medium">{v.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      <div>{v.contact_name || '-'}</div>
-                      <div>{v.contact_phone || v.contact_email || '-'}</div>
-                    </TableCell>
-                    <TableCell className="text-sm">{v.skills?.join(', ') || '-'}</TableCell>
-                    <TableCell className="text-sm">{v.region_pincodes?.join(', ') || '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Switch checked={v.is_approved} onCheckedChange={(val) => toggleApproval(v.id, val)} disabled={userRole !== 'admin'} />
-                        <span className="text-sm text-muted-foreground">{v.is_approved ? 'Yes' : 'No'}</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                 {!loading && vendors.length === 0 && (
+                   <TableRow><TableCell colSpan={userRole === 'admin' ? 5 : 4} className="text-center text-muted-foreground">No vendors found</TableCell></TableRow>
+                 )}
+                 {vendors.map(v => (
+                   <TableRow key={v.id}>
+                     <TableCell className="font-medium">{v.name}</TableCell>
+                     {userRole === 'admin' && (
+                       <TableCell className="text-sm text-muted-foreground">
+                         <div>{v.contact_name || '-'}</div>
+                         <div>{v.contact_phone || v.contact_email || '-'}</div>
+                       </TableCell>
+                     )}
+                     <TableCell className="text-sm">{v.skills?.join(', ') || '-'}</TableCell>
+                     <TableCell className="text-sm">{v.region_pincodes?.join(', ') || '-'}</TableCell>
+                     <TableCell>
+                       <div className="flex items-center gap-2">
+                         <Switch checked={v.is_approved} onCheckedChange={(val) => toggleApproval(v.id, val)} disabled={userRole !== 'admin'} />
+                         <span className="text-sm text-muted-foreground">{v.is_approved ? 'Yes' : 'No'}</span>
+                       </div>
+                     </TableCell>
+                   </TableRow>
+                 ))}
               </TableBody>
             </Table>
           </CardContent>

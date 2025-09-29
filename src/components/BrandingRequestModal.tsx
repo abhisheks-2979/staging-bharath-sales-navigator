@@ -64,22 +64,25 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
 
   useEffect(() => {
     const loadVendors = async () => {
-      if (!pincode) {
-        // Load a small set of approved vendors if no pincode yet
-        const { data } = await supabase
-          .from('vendors')
-          .select('id, name, region_pincodes, is_approved')
-          .eq('is_approved', true)
-          .limit(10);
-        setVendors((data as any) || []);
-        return;
+      try {
+        if (!pincode) {
+          // Load a small set of approved vendors if no pincode yet
+          const { data, error } = await supabase.rpc('get_public_vendors');
+          if (error) throw error;
+          setVendors((data as any) || []);
+          return;
+        }
+        // For pincode-based filtering, use the secure function and filter client-side
+        const { data, error } = await supabase.rpc('get_public_vendors');
+        if (error) throw error;
+        const filteredData = (data || []).filter(vendor => 
+          vendor.region_pincodes?.includes(pincode)
+        );
+        setVendors(filteredData as any);
+      } catch (error) {
+        console.error('Error loading vendors:', error);
+        setVendors([]);
       }
-      const { data } = await supabase
-        .from('vendors')
-        .select('id, name, region_pincodes, is_approved')
-        .eq('is_approved', true)
-        .contains('region_pincodes', [pincode]);
-      setVendors((data as any) || []);
     };
     loadVendors();
   }, [pincode]);
