@@ -464,40 +464,43 @@ const Attendance = () => {
                 <CardContent>
                   <div className="space-y-2">
                     {attendanceData.length > 0 ? (
-                      attendanceData.slice(0, 15).map((record) => (
-                        <div 
-                          key={record.id} 
-                          className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            const recordDate = format(new Date(record.date), 'yyyy-MM-dd');
-                            navigate(`/today-summary?date=${recordDate}`);
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            {record.status === 'present' ? (
-                              <CheckCircle className="h-5 w-5 text-green-600" />
-                            ) : (
-                              <XCircle className="h-5 w-5 text-red-600" />
-                            )}
-                            <div>
-                              <div className="font-medium">
-                                {format(new Date(record.date), 'EEE, MMM dd, yyyy')}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                In: {formatTime(record.check_in_time)} | Out: {formatTime(record.check_out_time)}
-                              </div>
-                              {record.total_hours && (
-                                <div className="text-xs text-blue-600">
-                                  Total: {record.total_hours.toFixed(1)} hours
-                                </div>
+                      attendanceData.slice(0, 15).map((record) => {
+                        const recordDate = format(new Date(record.date), 'yyyy-MM-dd');
+                        return (
+                          <div 
+                            key={record.id} 
+                            className="flex items-center justify-between p-3 border rounded-lg hover:shadow-md transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              {record.status === 'present' ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-600" />
                               )}
+                              <div>
+                                <div className="font-medium">
+                                  {format(new Date(record.date), 'EEE, MMM dd, yyyy')}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  In: {formatTime(record.check_in_time)} | Out: {formatTime(record.check_out_time)}
+                                </div>
+                                {record.total_hours && (
+                                  <div className="text-xs text-blue-600">
+                                    Total: {record.total_hours.toFixed(1)} hours
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                            <Badge 
+                              variant={record.status === 'present' ? 'default' : 'destructive'}
+                              className="cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => navigate(`/today-summary?date=${recordDate}`)}
+                            >
+                              {record.status === 'present' ? 'Productivity Report' : record.status}
+                            </Badge>
                           </div>
-                          <Badge variant={record.status === 'present' ? 'default' : 'destructive'}>
-                            {record.status === 'present' ? 'Productivity Report' : record.status}
-                          </Badge>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="text-center text-muted-foreground py-8">
                         <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
