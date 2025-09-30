@@ -446,7 +446,7 @@ const Attendance = () => {
             <TabsContent value="attendance" className="space-y-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Productivity Report</CardTitle>
+                  <CardTitle>Recent Attendance</CardTitle>
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -494,7 +494,7 @@ const Attendance = () => {
                             </div>
                           </div>
                           <Badge variant={record.status === 'present' ? 'default' : 'destructive'}>
-                            {record.status}
+                            {record.status === 'present' ? 'Productivity Report' : record.status}
                           </Badge>
                         </div>
                       ))
