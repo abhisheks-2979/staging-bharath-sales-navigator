@@ -3,7 +3,7 @@ import { ArrowLeft, Download, Share, FileText, Clock, MapPin, DollarSign } from 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,11 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  
+  // Get date from URL params or use today
+  const dateParam = searchParams.get('date');
+  const summaryDate = dateParam ? new Date(dateParam) : new Date();
   
   // Real data state
   const [summaryData, setSummaryData] = useState({
-    date: new Date().toLocaleDateString('en-IN', { 
+    date: summaryDate.toLocaleDateString('en-IN', { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
@@ -55,22 +60,22 @@ export const TodaySummary = () => {
 
   useEffect(() => {
     fetchTodaysData();
-  }, []);
+  }, [summaryDate]);
 
   const fetchTodaysData = async () => {
     try {
       setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
+      const targetDate = summaryDate.toISOString().split('T')[0];
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
 
-      // Fetch today's visits
+      // Fetch visits for target date
       const { data: visits } = await supabase
         .from('visits')
         .select('*')
         .eq('user_id', user.id)
-        .eq('planned_date', today);
+        .eq('planned_date', targetDate);
 
       // Fetch retailers for today's visits
       const retailerIds = visits?.map(v => v.retailer_id) || [];
@@ -79,7 +84,7 @@ export const TodaySummary = () => {
         .select('id, name, address')
         .in('id', retailerIds);
 
-      // Fetch today's orders
+      // Fetch orders for target date
       const { data: todayOrders } = await supabase
         .from('orders')
         .select(`
@@ -87,15 +92,15 @@ export const TodaySummary = () => {
           order_items(*)
         `)
         .eq('user_id', user.id)
-        .gte('created_at', `${today}T00:00:00`)
-        .lte('created_at', `${today}T23:59:59`);
+        .gte('created_at', `${targetDate}T00:00:00`)
+        .lte('created_at', `${targetDate}T23:59:59`);
 
-      // Fetch beat plan for today
+      // Fetch beat plan for target date
       const { data: beatPlan } = await supabase
         .from('beat_plans')
         .select('*')
         .eq('user_id', user.id)
-        .eq('plan_date', today)
+        .eq('plan_date', targetDate)
         .single();
 
       // Create retailer lookup map
@@ -139,7 +144,7 @@ export const TodaySummary = () => {
 
       // Update summary data
       setSummaryData({
-        date: new Date().toLocaleDateString('en-IN', { 
+        date: summaryDate.toLocaleDateString('en-IN', { 
           weekday: 'long', 
           year: 'numeric', 
           month: 'long', 

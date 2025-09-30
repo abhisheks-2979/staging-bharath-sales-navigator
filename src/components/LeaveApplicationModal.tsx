@@ -39,6 +39,7 @@ const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [reason, setReason] = useState('');
+  const [leaveDay, setLeaveDay] = useState<'full' | 'half'>('full');
 
   useEffect(() => {
     console.log('LeaveApplicationModal opened:', isOpen);
@@ -100,6 +101,7 @@ const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({
       setStartDate(undefined);
       setEndDate(undefined);
       setReason('');
+      setLeaveDay('full');
       setIsOpen(false);
       
       onApplicationSubmitted?.();
@@ -115,7 +117,7 @@ const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({
     if (startDate && endDate) {
       const timeDiff = endDate.getTime() - startDate.getTime();
       const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
-      return daysDiff;
+      return leaveDay === 'half' ? daysDiff * 0.5 : daysDiff;
     }
     return 0;
   };
@@ -153,6 +155,32 @@ const LeaveApplicationModal: React.FC<LeaveApplicationModalProps> = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Leave Duration *</Label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="full"
+                  checked={leaveDay === 'full'}
+                  onChange={(e) => setLeaveDay(e.target.value as 'full' | 'half')}
+                  className="w-4 h-4 text-primary"
+                />
+                <span>Full Day</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="half"
+                  checked={leaveDay === 'half'}
+                  onChange={(e) => setLeaveDay(e.target.value as 'full' | 'half')}
+                  className="w-4 h-4 text-primary"
+                />
+                <span>Half Day</span>
+              </label>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

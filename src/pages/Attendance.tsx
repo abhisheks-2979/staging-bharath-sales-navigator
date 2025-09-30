@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { format, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import HolidayList from '@/components/HolidayList';
 import LeaveApplicationModal from '@/components/LeaveApplicationModal';
 import MyLeaveApplications from '@/components/MyLeaveApplications';
@@ -17,6 +18,7 @@ import MyLeaveApplications from '@/components/MyLeaveApplications';
 const Attendance = () => {
   const { toast } = useToast();
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const [attendanceData, setAttendanceData] = useState([]);
   const [todaysAttendance, setTodaysAttendance] = useState(null);
   const [stats, setStats] = useState({
@@ -207,23 +209,53 @@ const Attendance = () => {
 
       if (uploadError) throw uploadError;
 
-      let attendanceData;
       if (type === 'check-in') {
-        attendanceData = {
-          user_id: user.id,
-          date: today,
-          check_in_time: timestamp,
-          check_in_location: `${location.latitude},${location.longitude}`,
-          check_in_photo_url: photoPath,
-          status: 'present'
-        };
+        // Mark attendance
+        const { error: attendanceError } = await supabase
+          .from('attendance')
+          .insert({
+            user_id: user.id,
+            date: today,
+            check_in_time: timestamp,
+            check_in_location: location,
+            check_in_address: `${location.latitude}, ${location.longitude}`,
+            check_in_photo_url: photoPath,
+            status: 'present'
+          });
+
+        if (attendanceError) throw attendanceError;
+
+        // Also check in to all planned visits for today
+        const { data: plannedVisits } = await supabase
+          .from('visits')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('planned_date', today)
+          .is('check_in_time', null);
+
+        if (plannedVisits && plannedVisits.length > 0) {
+          for (const visit of plannedVisits) {
+            await supabase
+              .from('visits')
+              .update({
+                check_in_time: timestamp,
+                check_in_location: location,
+                check_in_address: `${location.latitude}, ${location.longitude}`,
+                check_in_photo_url: photoPath,
+                location_match_in: true,
+                status: 'in-progress'
+              })
+              .eq('id', visit.id);
+          }
+        }
       } else {
         // Update existing record with check-out
         const { error: updateError } = await supabase
           .from('attendance')
           .update({
             check_out_time: timestamp,
-            check_out_location: `${location.latitude},${location.longitude}`,
+            check_out_location: location,
+            check_out_address: `${location.latitude}, ${location.longitude}`,
             check_out_photo_url: photoPath
           })
           .eq('user_id', user.id)
@@ -232,17 +264,9 @@ const Attendance = () => {
         if (updateError) throw updateError;
       }
 
-      if (type === 'check-in') {
-        const { error: insertError } = await supabase
-          .from('attendance')
-          .insert(attendanceData);
-
-        if (insertError) throw insertError;
-      }
-
       toast({
         title: "Success",
-        description: `${type === 'check-in' ? 'Check-in' : 'Check-out'} recorded successfully!`,
+        description: `${type === 'check-in' ? 'Check-in' : 'Check-out'} recorded successfully!${type === 'check-in' ? ' All planned visits marked as checked in.' : ''}`,
       });
 
       // Stop camera
@@ -422,7 +446,7 @@ const Attendance = () => {
             <TabsContent value="attendance" className="space-y-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Recent Attendance</CardTitle>
+                  <CardTitle>Productivity Report</CardTitle>
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -441,7 +465,14 @@ const Attendance = () => {
                   <div className="space-y-2">
                     {attendanceData.length > 0 ? (
                       attendanceData.slice(0, 15).map((record) => (
-                        <div key={record.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div 
+                          key={record.id} 
+                          className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            const recordDate = format(new Date(record.date), 'yyyy-MM-dd');
+                            navigate(`/today-summary?date=${recordDate}`);
+                          }}
+                        >
                           <div className="flex items-center gap-3">
                             {record.status === 'present' ? (
                               <CheckCircle className="h-5 w-5 text-green-600" />

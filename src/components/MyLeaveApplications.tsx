@@ -47,7 +47,7 @@ const MyLeaveApplications: React.FC<MyLeaveApplicationsProps> = ({ refreshTrigge
         .from('leave_applications')
         .select(`
           *,
-          leave_types (
+          leave_types!leave_applications_leave_type_id_fkey (
             name
           )
         `)
