@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
 import { StockCycleModal } from "./StockCycleModal";
 import { AnalyticsModal } from "./AnalyticsModal";
+import { StockDataModal } from "./StockDataModal";
 
 interface Visit {
   id: string;
@@ -50,6 +51,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showStockCycleModal, setShowStockCycleModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
+  const [showStockDataModal, setShowStockDataModal] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
   const [locationMatchOut, setLocationMatchOut] = useState<boolean | null>(null);
@@ -760,7 +762,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               {getStatusText(visit.status)}
             </Badge>
             {hasStockRecords && (
-              <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1" variant="secondary">
+              <Badge 
+                className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1 cursor-pointer transition-all" 
+                variant="secondary"
+                onClick={() => setShowStockDataModal(true)}
+              >
                 <Package size={12} className="mr-1" />
                 {stockRecordCount} Stock{stockRecordCount !== 1 ? 's' : ''}
               </Badge>
@@ -1104,6 +1110,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           retailerId={(visit.retailerId || visit.id) as string}
           retailerName={visit.retailerName}
           onViewDetails={onViewDetails}
+        />
+
+        {/* Stock Data Modal */}
+        <StockDataModal
+          isOpen={showStockDataModal}
+          onClose={() => setShowStockDataModal(false)}
+          retailerId={(visit.retailerId || visit.id) as string}
+          retailerName={visit.retailerName}
         />
       </CardContent>
     </Card>
