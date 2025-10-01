@@ -14,39 +14,70 @@ import { NetworkFirst, CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
-const RUNTIME_CACHE_VERSION = 'v2';
+// INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
+const RUNTIME_CACHE_VERSION = 'v3';
+const PRECACHE_VERSION = 'v3';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
 
 // Immediately activate updated service worker and allow manual skip-waiting
-self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('install', () => {
+  console.log('🔧 Installing service worker version:', RUNTIME_CACHE_VERSION);
+  self.skipWaiting();
+});
+
 self.addEventListener('message', (event) => {
   if (event.data && (event.data === 'SKIP_WAITING' || event.data.type === 'SKIP_WAITING')) {
     self.skipWaiting();
   }
+  
+  // Handle force clear request
+  if (event.data && event.data.type === 'CLEAR_ALL_CACHES') {
+    event.waitUntil(
+      caches.keys().then(names => {
+        console.log('🗑️ Force clearing all caches...');
+        return Promise.all(names.map(name => caches.delete(name)));
+      })
+    );
+  }
 });
-// Clear old caches on activation
+// AGGRESSIVE cache cleanup on activation
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          // Delete old cache versions and unversioned caches
-          if (
-            cacheName === 'api-cache' ||
-            cacheName === 'images-cache' ||
-            cacheName === 'dynamic-cache' ||
-            cacheName.startsWith('api-cache-') ||
-            cacheName.startsWith('images-cache-') ||
-            cacheName.startsWith('dynamic-cache-')
-          ) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+    (async () => {
+      const cacheNames = await caches.keys();
+      const currentCaches = [
+        `api-cache-${RUNTIME_CACHE_VERSION}`,
+        `images-cache-${RUNTIME_CACHE_VERSION}`,
+        `dynamic-cache-${RUNTIME_CACHE_VERSION}`,
+      ];
+      
+      // Delete ALL caches that don't match current version
+      const deletionPromises = cacheNames
+        .filter(name => {
+          // Keep only caches with current version
+          return !currentCaches.includes(name) && 
+                 !name.includes(`workbox-precache-${PRECACHE_VERSION}`);
         })
-      );
-    }).then(() => self.clients.claim())
+        .map(name => {
+          console.log('🗑️ Deleting old cache:', name);
+          return caches.delete(name);
+        });
+      
+      await Promise.all(deletionPromises);
+      
+      // Take control immediately
+      await self.clients.claim();
+      
+      // Notify all clients
+      const clients = await self.clients.matchAll();
+      clients.forEach(client => {
+        client.postMessage({ type: 'CACHE_UPDATED', version: RUNTIME_CACHE_VERSION });
+      });
+      
+      console.log('✅ Service worker activated with version:', RUNTIME_CACHE_VERSION);
+    })()
   );
 });
 

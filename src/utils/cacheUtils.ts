@@ -31,13 +31,16 @@ export const clearAllCaches = async (): Promise<void> => {
 export const clearApiCache = async (): Promise<void> => {
   try {
     if ('caches' in window) {
-      // Delete both old and versioned runtime caches
-      const runtimeCaches = [
-        'api-cache', 'images-cache', 'dynamic-cache',
-        'api-cache-v2', 'images-cache-v2', 'dynamic-cache-v2'
-      ];
-      await Promise.all(runtimeCaches.map((name) => caches.delete(name)));
-      console.log('API and runtime caches cleared');
+      // Delete ALL cache versions including v3
+      const allCaches = await caches.keys();
+      const apiCaches = allCaches.filter(name => 
+        name.includes('api-cache') || 
+        name.includes('images-cache') || 
+        name.includes('dynamic-cache') ||
+        name.includes('workbox')
+      );
+      await Promise.all(apiCaches.map(name => caches.delete(name)));
+      console.log('✅ All runtime caches cleared:', apiCaches);
     }
   } catch (error) {
     console.error('Error clearing API cache:', error);
