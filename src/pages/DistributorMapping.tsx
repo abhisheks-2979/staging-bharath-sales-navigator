@@ -111,13 +111,15 @@ const DistributorMapping = () => {
 
       if (mappingsError) throw mappingsError;
 
-      // Fetch distributors for the mappings
+      // Fetch distributors for the mappings using secure function
       if (mappingsData && mappingsData.length > 0) {
         const distributorIds = mappingsData.map(m => m.distributor_id);
-        const { data: distributorDetails } = await supabase
-          .from('vendors')
-          .select('id, name, contact_name, skills, city, state')
-          .in('id', distributorIds);
+        
+        // Use the public vendors function to get non-sensitive distributor info
+        const { data: allPublicVendors } = await supabase.rpc('get_public_vendors');
+        const distributorDetails = allPublicVendors?.filter(v => 
+          distributorIds.includes(v.id)
+        );
 
         // Fetch item mappings
         const mappingIds = mappingsData.map(m => m.id);
@@ -447,7 +449,7 @@ const DistributorMapping = () => {
                           <div>
                             <div className="font-medium">{distributor.name}</div>
                             <div className="text-xs text-muted-foreground">
-                              {distributor.contact_name} • {[distributor.city, distributor.state].filter(Boolean).join(', ')}
+                              {[distributor.city, distributor.state].filter(Boolean).join(', ') || 'Location not specified'}
                             </div>
                           </div>
                         </SelectItem>
