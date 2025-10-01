@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users } from "lucide-react";
-import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
+import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
 import { CreateNewVisitModal } from "@/components/CreateNewVisitModal";
+import { VisitFilters, FilterOptions } from "@/components/VisitFilters";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -136,10 +137,12 @@ export const MyVisits = () => {
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [filters, setFilters] = useState<FilterOptions>({});
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Current week start
   const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
   const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
+  const [retailerStats, setRetailerStats] = useState<Map<string, any>>(new Map());
   const [plannedDates, setPlannedDates] = useState<Set<string>>(new Set());
   const [currentBeatName, setCurrentBeatName] = useState("No beats planned");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
@@ -353,6 +356,46 @@ export const MyVisits = () => {
         totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
       });
 
+      // Get historical stats for all retailers
+      const { data: allOrders } = await supabase
+        .from('orders')
+        .select('retailer_id, total_amount, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'confirmed')
+        .in('retailer_id', Array.from(allRetailerIds));
+
+      const { data: allVisits } = await supabase
+        .from('visits')
+        .select('retailer_id, planned_date')
+        .eq('user_id', user.id)
+        .in('retailer_id', Array.from(allRetailerIds));
+
+      // Calculate stats per retailer
+      const statsMap = new Map();
+      allRetailerIds.forEach(retailerId => {
+        const retailerOrders = (allOrders || []).filter(o => o.retailer_id === retailerId);
+        const retailerVisits = (allVisits || []).filter(v => v.retailer_id === retailerId);
+        const totalSales = retailerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        const avgSales = retailerOrders.length > 0 ? totalSales / retailerOrders.length : 0;
+        const visitCount = retailerVisits.length;
+        
+        // Get last visit date
+        const retailer = retailerMap.get(retailerId);
+        const lastVisitDate = retailer?.last_visit_date;
+        const daysSinceLastVisit = lastVisitDate 
+          ? differenceInDays(new Date(), new Date(lastVisitDate))
+          : null;
+
+        statsMap.set(retailerId, {
+          avgSales,
+          visitCount,
+          daysSinceLastVisit,
+          totalSales
+        });
+      });
+
+      setRetailerStats(statsMap);
+
       // Transform retailers into visit format
       const transformedRetailers = Array.from(allRetailerIds)
         .map(retailerId => {
@@ -384,6 +427,7 @@ export const MyVisits = () => {
             address: retailer.address,
             phone: retailer.phone || '',
             retailerCategory: retailer.category || 'Category A',
+            priority: retailer.priority || 'medium',
             status,
             visitType,
             day: 'Today',
@@ -392,6 +436,7 @@ export const MyVisits = () => {
             orderValue: orderTotal,
             retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
             retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
+            lastVisitDate: retailer.last_visit_date,
           };
         })
         .filter(Boolean);
@@ -440,25 +485,98 @@ export const MyVisits = () => {
     setSelectedDate(targetDay.isoDate);
   };
 
+  // Extract unique categories and locations for filter options
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(retailers.map(r => r.retailerCategory).filter(Boolean)));
+  }, [retailers]);
+
+  const availableLocations = useMemo(() => {
+    return Array.from(new Set(
+      retailers.map(r => {
+        // Extract city/area from address
+        const addressParts = r.address?.split(',') || [];
+        return addressParts[addressParts.length - 2]?.trim() || addressParts[addressParts.length - 1]?.trim();
+      }).filter(Boolean)
+    ));
+  }, [retailers]);
+
   // Show visits for selected date based on planned beats
   const allVisits = retailers;
 
-  const filteredVisits = allVisits.filter(visit => {
-    const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.phone.includes(searchTerm);
-    
-    let matchesStatus = true;
-    if (statusFilter === 'planned') {
-      // Show both planned and in-progress visits
-      matchesStatus = visit.status === 'planned' || visit.status === 'in-progress';
-    } else if (statusFilter === 'unproductive') {
-      matchesStatus = visit.status === 'unproductive';
-    } else if (statusFilter) {
-      matchesStatus = visit.status === statusFilter;
-    }
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredVisits = useMemo(() => {
+    return allVisits.filter(visit => {
+      const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        visit.phone.includes(searchTerm);
+      
+      let matchesStatus = true;
+      if (statusFilter === 'planned') {
+        // Show both planned and in-progress visits
+        matchesStatus = visit.status === 'planned' || visit.status === 'in-progress';
+      } else if (statusFilter === 'unproductive') {
+        matchesStatus = visit.status === 'unproductive';
+      } else if (statusFilter) {
+        matchesStatus = visit.status === statusFilter;
+      }
+
+      // Apply advanced filters
+      if (filters.category && visit.retailerCategory !== filters.category) {
+        return false;
+      }
+
+      if (filters.priority && visit.priority !== filters.priority) {
+        return false;
+      }
+
+      // Last visit filter
+      if (filters.lastVisitDays) {
+        const stats = retailerStats.get(visit.retailerId);
+        if (filters.lastVisitDays === 'never') {
+          if (stats?.daysSinceLastVisit !== null) return false;
+        } else {
+          const days = parseInt(filters.lastVisitDays);
+          if (days === 90) {
+            // 90+ days
+            if (!stats?.daysSinceLastVisit || stats.daysSinceLastVisit < 90) return false;
+          } else {
+            if (!stats?.daysSinceLastVisit || stats.daysSinceLastVisit > days) return false;
+          }
+        }
+      }
+
+      // Average sales filter
+      if (filters.avgSalesRange) {
+        const stats = retailerStats.get(visit.retailerId);
+        const avgSales = stats?.avgSales || 0;
+        
+        switch (filters.avgSalesRange) {
+          case 'high':
+            if (avgSales < 20000) return false;
+            break;
+          case 'medium':
+            if (avgSales < 10000 || avgSales >= 20000) return false;
+            break;
+          case 'low':
+            if (avgSales < 5000 || avgSales >= 10000) return false;
+            break;
+          case 'very-low':
+            if (avgSales === 0 || avgSales >= 5000) return false;
+            break;
+          case 'zero':
+            if (avgSales > 0) return false;
+            break;
+        }
+      }
+
+      // Location filter
+      if (filters.location) {
+        const addressParts = visit.address?.split(',') || [];
+        const location = addressParts[addressParts.length - 2]?.trim() || addressParts[addressParts.length - 1]?.trim();
+        if (location !== filters.location) return false;
+      }
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [allVisits, searchTerm, statusFilter, filters, retailerStats]);
 
   const visitsForSelectedDate = retailers;
   
@@ -688,16 +806,22 @@ export const MyVisits = () => {
           </CardContent>
         </Card>
 
-        {/* Enhanced Search Bar - Mobile Optimized */}
+        {/* Enhanced Search and Filter Bar - Mobile Optimized */}
         <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-2 sm:p-4">
+          <CardContent className="p-2 sm:p-4 space-y-3">
             <div className="w-full">
               <SearchInput
-                placeholder="🔍 Search visits"
+                placeholder="🔍 Search by name or phone"
                 value={searchTerm}
                 onChange={setSearchTerm}
               />
             </div>
+            <VisitFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableCategories={availableCategories}
+              availableLocations={availableLocations}
+            />
           </CardContent>
         </Card>
 
