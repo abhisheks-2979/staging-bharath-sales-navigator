@@ -31,9 +31,13 @@ export const clearAllCaches = async (): Promise<void> => {
 export const clearApiCache = async (): Promise<void> => {
   try {
     if ('caches' in window) {
-      await caches.delete('api-cache');
-      await caches.delete('dynamic-cache');
-      console.log('API caches cleared');
+      // Delete both old and versioned runtime caches
+      const runtimeCaches = [
+        'api-cache', 'images-cache', 'dynamic-cache',
+        'api-cache-v2', 'images-cache-v2', 'dynamic-cache-v2'
+      ];
+      await Promise.all(runtimeCaches.map((name) => caches.delete(name)));
+      console.log('API and runtime caches cleared');
     }
   } catch (error) {
     console.error('Error clearing API cache:', error);
@@ -41,8 +45,25 @@ export const clearApiCache = async (): Promise<void> => {
 };
 
 export const forceRefresh = (): void => {
-  // Force a hard refresh to bypass all caches
-  window.location.reload();
+  // Try to activate the waiting service worker, then reload
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistration().then((registration) => {
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        const onControllerChange = () => {
+          window.location.reload();
+          navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+        };
+        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+        // Safety reload in case controllerchange doesn't fire
+        setTimeout(() => window.location.reload(), 3000);
+      } else {
+        window.location.reload();
+      }
+    });
+  } else {
+    window.location.reload();
+  }
 };
 
 // Check if app needs update

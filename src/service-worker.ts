@@ -13,25 +13,40 @@ import { registerRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
+// Version runtime caches to force fresh data after deploys
+const RUNTIME_CACHE_VERSION = 'v2';
+
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
 
+// Immediately activate updated service worker and allow manual skip-waiting
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data === 'SKIP_WAITING' || event.data.type === 'SKIP_WAITING')) {
+    self.skipWaiting();
+  }
+});
 // Clear old caches on activation
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          // Delete old cache versions
-          if (cacheName.includes('api-cache-') || 
-              cacheName.includes('images-cache-') || 
-              cacheName.includes('dynamic-cache-')) {
+          // Delete old cache versions and unversioned caches
+          if (
+            cacheName === 'api-cache' ||
+            cacheName === 'images-cache' ||
+            cacheName === 'dynamic-cache' ||
+            cacheName.startsWith('api-cache-') ||
+            cacheName.startsWith('images-cache-') ||
+            cacheName.startsWith('dynamic-cache-')
+          ) {
             console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -45,7 +60,7 @@ registerRoute(
 registerRoute(
   ({ url }) => url.hostname.endsWith('.supabase.co'),
   new NetworkFirst({
-    cacheName: 'api-cache',
+    cacheName: `api-cache-${RUNTIME_CACHE_VERSION}`,
     networkTimeoutSeconds: 5,
     plugins: [
       new ExpirationPlugin({
@@ -61,7 +76,7 @@ registerRoute(
 registerRoute(
   ({ request }) => request.destination === 'image',
   new NetworkFirst({
-    cacheName: 'images-cache',
+    cacheName: `images-cache-${RUNTIME_CACHE_VERSION}`,
     networkTimeoutSeconds: 10,
     plugins: [
       new ExpirationPlugin({
@@ -85,7 +100,7 @@ registerRoute(
     );
   },
   new NetworkFirst({
-    cacheName: 'dynamic-cache',
+    cacheName: `dynamic-cache-${RUNTIME_CACHE_VERSION}`,
     networkTimeoutSeconds: 5,
     plugins: [
       new ExpirationPlugin({
