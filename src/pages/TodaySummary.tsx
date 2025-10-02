@@ -144,15 +144,30 @@ export const TodaySummary = () => {
       const totalOrdersCount = todayOrders?.length || 0;
       const avgOrderValue = totalOrdersCount > 0 ? totalOrderValue / totalOrdersCount : 0;
 
-      // Calculate distance and travel time
+      // Calculate distance and time metrics
       let totalDistance = 0;
-      let totalTravelMinutes = 0;
+      let timeAtRetailers = 0;
+      
+      console.log('📊 Today\'s Summary Data:', {
+        totalVisits: visits?.length || 0,
+        completedVisits: completedVisits.length,
+        totalOrders: totalOrdersCount,
+        totalOrderValue
+      });
       
       if (visits && visits.length > 0) {
+        // Sort visits by check-in time to calculate distance in order
+        const sortedVisits = [...visits].sort((a, b) => {
+          if (!a.check_in_time) return 1;
+          if (!b.check_in_time) return -1;
+          return new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime();
+        });
+        
         // Calculate distance between consecutive visits
-        for (let i = 0; i < visits.length - 1; i++) {
-          const v1 = visits[i];
-          const v2 = visits[i + 1];
+        let distanceCalculated = 0;
+        for (let i = 0; i < sortedVisits.length - 1; i++) {
+          const v1 = sortedVisits[i];
+          const v2 = sortedVisits[i + 1];
           
           if (v1.check_in_location && v2.check_in_location && 
               typeof v1.check_in_location === 'object' && 
@@ -172,23 +187,29 @@ export const TodaySummary = () => {
                        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                        Math.sin(dLon/2) * Math.sin(dLon/2);
               const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              totalDistance += R * c;
+              const distance = R * c;
+              totalDistance += distance;
+              distanceCalculated++;
             }
           }
         }
         
+        console.log('🗺️ Distance calculated between', distanceCalculated, 'visit pairs');
+        
+        // Calculate time spent at retailers (check-in to check-out)
         completedVisits.forEach(visit => {
           if (visit.check_in_time && visit.check_out_time) {
             const checkIn = new Date(visit.check_in_time);
             const checkOut = new Date(visit.check_out_time);
-            totalTravelMinutes += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+            const minutesAtRetailer = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+            timeAtRetailers += minutesAtRetailer;
           }
         });
       }
       
-      const hours = Math.floor(totalTravelMinutes / 60);
-      const minutes = Math.round(totalTravelMinutes % 60);
-      const travelTimeStr = `${hours}h ${minutes}m`;
+      const hours = Math.floor(timeAtRetailers / 60);
+      const minutes = Math.round(timeAtRetailers % 60);
+      const timeAtRetailersStr = `${hours}h ${minutes}m`;
 
       // Update summary data
       setSummaryData({
@@ -209,8 +230,15 @@ export const TodaySummary = () => {
         avgOrderValue,
         visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
         orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0,
+        distanceCovered: totalDistance > 0 ? Math.round(totalDistance * 10) / 10 : 0,
+        travelTime: timeAtRetailersStr
+      });
+      
+      console.log('📈 Calculated Metrics:', {
         distanceCovered: Math.round(totalDistance * 10) / 10,
-        travelTime: travelTimeStr
+        timeAtRetailers: timeAtRetailersStr,
+        visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
+        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
       });
 
       // Update visit breakdown
@@ -580,10 +608,12 @@ export const TodaySummary = () => {
               </div>
               <div className="flex justify-between">
                 <span>Distance Covered:</span>
-                <span className="font-semibold">{summaryData.distanceCovered} km</span>
+                <span className="font-semibold">
+                  {summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No location data'}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span>Travel Time:</span>
+                <span>Time at Retailers:</span>
                 <span className="font-semibold">{summaryData.travelTime}</span>
               </div>
             </div>
