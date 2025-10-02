@@ -37,7 +37,9 @@ export const TodaySummary = () => {
     totalOrderValue: 0,
     avgOrderValue: 0,
     visitEfficiency: 0,
-    orderConversionRate: 0
+    orderConversionRate: 0,
+    distanceCovered: 0,
+    travelTime: "0h 0m"
   });
 
   const [visitBreakdown, setVisitBreakdown] = useState([
@@ -142,6 +144,52 @@ export const TodaySummary = () => {
       const totalOrdersCount = todayOrders?.length || 0;
       const avgOrderValue = totalOrdersCount > 0 ? totalOrderValue / totalOrdersCount : 0;
 
+      // Calculate distance and travel time
+      let totalDistance = 0;
+      let totalTravelMinutes = 0;
+      
+      if (visits && visits.length > 0) {
+        // Calculate distance between consecutive visits
+        for (let i = 0; i < visits.length - 1; i++) {
+          const v1 = visits[i];
+          const v2 = visits[i + 1];
+          
+          if (v1.check_in_location && v2.check_in_location && 
+              typeof v1.check_in_location === 'object' && 
+              typeof v2.check_in_location === 'object') {
+            const loc1 = v1.check_in_location as any;
+            const loc2 = v2.check_in_location as any;
+            const lat1 = loc1.latitude;
+            const lon1 = loc1.longitude;
+            const lat2 = loc2.latitude;
+            const lon2 = loc2.longitude;
+            
+            if (lat1 && lon1 && lat2 && lon2) {
+              const R = 6371;
+              const dLat = (lat2 - lat1) * Math.PI / 180;
+              const dLon = (lon2 - lon1) * Math.PI / 180;
+              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                       Math.sin(dLon/2) * Math.sin(dLon/2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              totalDistance += R * c;
+            }
+          }
+        }
+        
+        completedVisits.forEach(visit => {
+          if (visit.check_in_time && visit.check_out_time) {
+            const checkIn = new Date(visit.check_in_time);
+            const checkOut = new Date(visit.check_out_time);
+            totalTravelMinutes += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+          }
+        });
+      }
+      
+      const hours = Math.floor(totalTravelMinutes / 60);
+      const minutes = Math.round(totalTravelMinutes % 60);
+      const travelTimeStr = `${hours}h ${minutes}m`;
+
       // Update summary data
       setSummaryData({
         date: summaryDate.toLocaleDateString('en-IN', { 
@@ -160,7 +208,9 @@ export const TodaySummary = () => {
         totalOrderValue,
         avgOrderValue,
         visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
-        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
+        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0,
+        distanceCovered: Math.round(totalDistance * 10) / 10,
+        travelTime: travelTimeStr
       });
 
       // Update visit breakdown
@@ -174,10 +224,11 @@ export const TodaySummary = () => {
       // Process top retailers (based on order value)
       const retailerOrderMap = new Map();
       todayOrders?.forEach(order => {
+        const retailer = retailerMap.get(order.retailer_id);
         const existing = retailerOrderMap.get(order.retailer_name) || { value: 0, location: '' };
         retailerOrderMap.set(order.retailer_name, {
           value: existing.value + Number(order.total_amount || 0),
-          location: existing.location || 'Unknown'
+          location: retailer?.address || 'Location not available'
         });
       });
 
@@ -529,11 +580,11 @@ export const TodaySummary = () => {
               </div>
               <div className="flex justify-between">
                 <span>Distance Covered:</span>
-                <span className="font-semibold">47.2 km</span>
+                <span className="font-semibold">{summaryData.distanceCovered} km</span>
               </div>
               <div className="flex justify-between">
                 <span>Travel Time:</span>
-                <span className="font-semibold">2h 15m</span>
+                <span className="font-semibold">{summaryData.travelTime}</span>
               </div>
             </div>
           </CardContent>
