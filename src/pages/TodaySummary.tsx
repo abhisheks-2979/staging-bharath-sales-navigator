@@ -53,11 +53,12 @@ export const TodaySummary = () => {
   const [productSales, setProductSales] = useState<Array<{ name: string; quantity: number; revenue: number }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; items: number }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
+  const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; quantity: number; value: number; orders: number }>>([]);
 
   // Dialog state and data sources for details
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState<string>("");
-  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency">("orders");
+  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products">("orders");
   const [dialogFilter, setDialogFilter] = useState<string | null>(null);
 
   useEffect(() => {
@@ -295,6 +296,30 @@ export const TodaySummary = () => {
 
       setOrders(ordersData);
 
+      // Process product-grouped orders for Total Order Value dialog
+      const productOrderMap = new Map();
+      todayOrders?.forEach(order => {
+        order.order_items?.forEach((item: any) => {
+          const existing = productOrderMap.get(item.product_name) || { quantity: 0, value: 0, orderCount: 0 };
+          productOrderMap.set(item.product_name, {
+            quantity: existing.quantity + item.quantity,
+            value: existing.value + Number(item.total || 0),
+            orderCount: existing.orderCount + 1
+          });
+        });
+      });
+
+      const productGroupedData = Array.from(productOrderMap.entries())
+        .map(([product, data]) => ({ 
+          product, 
+          quantity: data.quantity, 
+          value: data.value,
+          orders: data.orderCount
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      setProductGroupedOrders(productGroupedData);
+
       // Process visits by status for dialog
       const visitsByStatusData = {
         Productive: productiveVisits.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown' })),
@@ -315,6 +340,13 @@ export const TodaySummary = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openProductsDialog = () => {
+    setDialogTitle("Orders by Product");
+    setDialogContentType("products");
+    setDialogFilter(null);
+    setDialogOpen(true);
   };
 
   const openOrdersDialog = (title: string) => {
@@ -431,7 +463,7 @@ export const TodaySummary = () => {
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
-                onClick={() => openOrdersDialog("Total Order Value - Orders")}
+                onClick={openProductsDialog}
                 className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition"
               >
                 <div className="text-2xl font-bold text-primary">
@@ -626,6 +658,40 @@ export const TodaySummary = () => {
               <DialogTitle>{dialogTitle}</DialogTitle>
             </DialogHeader>
             <ScrollArea className="max-h-[60vh] pr-2">
+              {dialogContentType === "products" && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Total: ₹{productGroupedOrders.reduce((sum, p) => sum + p.value, 0).toLocaleString()} • {productGroupedOrders.reduce((sum, p) => sum + p.quantity, 0)} units • {productGroupedOrders.length} products
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productGroupedOrders.length > 0 ? (
+                        productGroupedOrders.map((p, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{p.product}</TableCell>
+                            <TableCell className="text-right">{p.quantity}</TableCell>
+                            <TableCell className="text-right">₹{p.value.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No orders placed today
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
               {dialogContentType === "orders" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
