@@ -3,20 +3,22 @@ import { ArrowLeft, Download, Share, FileText, Clock, MapPin, CalendarIcon } fro
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom';
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   
   // Date filtering state
@@ -69,6 +71,19 @@ export const TodaySummary = () => {
   const [dialogTitle, setDialogTitle] = useState<string>("");
   const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products">("orders");
   const [dialogFilter, setDialogFilter] = useState<string | null>(null);
+
+  // Handle URL query parameter for date from Attendance page
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        const parsedDate = parse(dateParam, 'yyyy-MM-dd', new Date());
+        handleDateFilterChange('custom', parsedDate);
+      } catch (error) {
+        console.error('Error parsing date from URL:', error);
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchTodaysData();
@@ -516,41 +531,25 @@ export const TodaySummary = () => {
         <Card>
           <CardContent className="p-4">
             <div className="space-y-3">
-              {/* Quick Filters */}
-              <div className="grid grid-cols-4 gap-2">
-                <Button
-                  variant={filterType === 'today' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('today')}
-                  className="text-xs"
-                >
-                  Today
-                </Button>
-                <Button
-                  variant={filterType === 'week' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('week')}
-                  className="text-xs"
-                >
-                  This Week
-                </Button>
-                <Button
-                  variant={filterType === 'lastWeek' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('lastWeek')}
-                  className="text-xs"
-                >
-                  Last Week
-                </Button>
-                <Button
-                  variant={filterType === 'month' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('month')}
-                  className="text-xs"
-                >
-                  Month
-                </Button>
-              </div>
+              {/* Quick Filters Dropdown */}
+              <Select 
+                value={filterType === 'custom' ? 'custom' : filterType} 
+                onValueChange={(value: DateFilterType) => {
+                  if (value !== 'custom') {
+                    handleDateFilterChange(value);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="lastWeek">Last Week</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                </SelectContent>
+              </Select>
               
               {/* Custom Date Picker */}
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
