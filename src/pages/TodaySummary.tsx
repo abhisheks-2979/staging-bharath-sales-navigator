@@ -1,27 +1,36 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Download, Share, FileText, Clock, MapPin, DollarSign } from "lucide-react";
+import { ArrowLeft, Download, Share, FileText, Clock, MapPin, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
+import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth } from "date-fns";
+
+type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom';
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   
-  // Get date from URL params or use today
-  const dateParam = searchParams.get('date');
-  const summaryDate = dateParam ? new Date(dateParam) : new Date();
+  // Date filtering state
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: new Date(),
+    to: new Date()
+  });
+  const [filterType, setFilterType] = useState<DateFilterType>('today');
+  const [calendarOpen, setCalendarOpen] = useState(false);
   
   // Real data state
   const [summaryData, setSummaryData] = useState({
-    date: summaryDate.toLocaleDateString('en-IN', { 
+    date: selectedDate.toLocaleDateString('en-IN', { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
@@ -63,22 +72,88 @@ export const TodaySummary = () => {
 
   useEffect(() => {
     fetchTodaysData();
-  }, [summaryDate]);
+  }, [dateRange, filterType]);
+
+  const handleDateFilterChange = (type: DateFilterType, date?: Date) => {
+    setFilterType(type);
+    
+    const now = new Date();
+    
+    switch (type) {
+      case 'today':
+        setDateRange({ from: now, to: now });
+        setSelectedDate(now);
+        break;
+      case 'week':
+        setDateRange({ 
+          from: startOfWeek(now, { weekStartsOn: 1 }), 
+          to: endOfWeek(now, { weekStartsOn: 1 }) 
+        });
+        setSelectedDate(now);
+        break;
+      case 'lastWeek':
+        const lastWeek = subWeeks(now, 1);
+        setDateRange({ 
+          from: startOfWeek(lastWeek, { weekStartsOn: 1 }), 
+          to: endOfWeek(lastWeek, { weekStartsOn: 1 }) 
+        });
+        setSelectedDate(lastWeek);
+        break;
+      case 'month':
+        setDateRange({ 
+          from: startOfMonth(now), 
+          to: endOfMonth(now) 
+        });
+        setSelectedDate(now);
+        break;
+      case 'custom':
+        if (date) {
+          setDateRange({ from: date, to: date });
+          setSelectedDate(date);
+        }
+        break;
+    }
+  };
 
   const fetchTodaysData = async () => {
     try {
       setLoading(true);
-      const targetDate = summaryDate.toISOString().split('T')[0];
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) return;
 
-      // Fetch visits for target date
-      const { data: visits } = await supabase
+      // Determine date query based on filter type
+      let visitsQuery = supabase
         .from('visits')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('planned_date', targetDate);
+        .eq('user_id', user.id);
+
+      let ordersQuery = supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*)
+        `)
+        .eq('user_id', user.id);
+
+      if (filterType === 'today' || filterType === 'custom') {
+        const targetDate = dateRange.from.toISOString().split('T')[0];
+        visitsQuery = visitsQuery.eq('planned_date', targetDate);
+        ordersQuery = ordersQuery
+          .gte('created_at', `${targetDate}T00:00:00`)
+          .lte('created_at', `${targetDate}T23:59:59`);
+      } else {
+        // For week/lastWeek/month, use date range
+        const fromDate = dateRange.from.toISOString().split('T')[0];
+        const toDate = dateRange.to.toISOString().split('T')[0];
+        visitsQuery = visitsQuery.gte('planned_date', fromDate).lte('planned_date', toDate);
+        ordersQuery = ordersQuery
+          .gte('created_at', `${fromDate}T00:00:00`)
+          .lte('created_at', `${toDate}T23:59:59`);
+      }
+
+      // Execute queries
+      const { data: visits } = await visitsQuery;
 
       // Fetch retailers for today's visits
       const retailerIds = visits?.map(v => v.retailer_id) || [];
@@ -87,24 +162,26 @@ export const TodaySummary = () => {
         .select('id, name, address')
         .in('id', retailerIds);
 
-      // Fetch orders for target date
-      const { data: todayOrders } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(*)
-        `)
-        .eq('user_id', user.id)
-        .gte('created_at', `${targetDate}T00:00:00`)
-        .lte('created_at', `${targetDate}T23:59:59`);
+      // Execute order query
+      const { data: todayOrders } = await ordersQuery;
 
-      // Fetch beat plan for target date
-      const { data: beatPlan } = await supabase
+      // Fetch beat plans for the date range
+      let beatPlansQuery = supabase
         .from('beat_plans')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('plan_date', targetDate)
-        .single();
+        .eq('user_id', user.id);
+
+      if (filterType === 'today' || filterType === 'custom') {
+        const targetDate = dateRange.from.toISOString().split('T')[0];
+        beatPlansQuery = beatPlansQuery.eq('plan_date', targetDate);
+      } else {
+        const fromDate = dateRange.from.toISOString().split('T')[0];
+        const toDate = dateRange.to.toISOString().split('T')[0];
+        beatPlansQuery = beatPlansQuery.gte('plan_date', fromDate).lte('plan_date', toDate);
+      }
+
+      const { data: beatPlans } = await beatPlansQuery;
+      const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
 
       // Create retailer lookup map
       const retailerMap = new Map();
@@ -212,14 +289,24 @@ export const TodaySummary = () => {
       const minutes = Math.round(timeAtRetailers % 60);
       const timeAtRetailersStr = `${hours}h ${minutes}m`;
 
-      // Update summary data
+      // Update summary data with dynamic title
+      const getDateTitle = () => {
+        if (filterType === 'today') return 'Today';
+        if (filterType === 'week') return 'This Week';
+        if (filterType === 'lastWeek') return 'Last Week';
+        if (filterType === 'month') return 'This Month';
+        return format(selectedDate, 'dd MMM yyyy');
+      };
+
       setSummaryData({
-        date: summaryDate.toLocaleDateString('en-IN', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        }),
+        date: filterType === 'today' || filterType === 'custom' 
+          ? selectedDate.toLocaleDateString('en-IN', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })
+          : `${format(dateRange.from, 'dd MMM')} - ${format(dateRange.to, 'dd MMM yyyy')}`,
         beat: beatPlan?.beat_name || "No beat planned",
         startTime: formatTime(firstCheckIn),
         endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
@@ -411,12 +498,90 @@ export const TodaySummary = () => {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <CardTitle className="text-xl font-bold">Today's Summary</CardTitle>
+                <CardTitle className="text-xl font-bold">
+                  {filterType === 'today' ? "Today's Summary" : 
+                   filterType === 'week' ? "This Week's Summary" :
+                   filterType === 'lastWeek' ? "Last Week's Summary" :
+                   filterType === 'month' ? "Monthly Summary" :
+                   "Visit Summary"}
+                </CardTitle>
                 <p className="text-primary-foreground/80">{summaryData.date}</p>
               </div>
             </div>
             <FileText size={24} />
           </CardHeader>
+        </Card>
+
+        {/* Date Filter Controls */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {/* Quick Filters */}
+              <div className="grid grid-cols-4 gap-2">
+                <Button
+                  variant={filterType === 'today' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('today')}
+                  className="text-xs"
+                >
+                  Today
+                </Button>
+                <Button
+                  variant={filterType === 'week' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('week')}
+                  className="text-xs"
+                >
+                  This Week
+                </Button>
+                <Button
+                  variant={filterType === 'lastWeek' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('lastWeek')}
+                  className="text-xs"
+                >
+                  Last Week
+                </Button>
+                <Button
+                  variant={filterType === 'month' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('month')}
+                  className="text-xs"
+                >
+                  Month
+                </Button>
+              </div>
+              
+              {/* Custom Date Picker */}
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterType === 'custom' 
+                      ? format(selectedDate, 'PPP')
+                      : 'Select custom date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        handleDateFilterChange('custom', date);
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Action Buttons */}
