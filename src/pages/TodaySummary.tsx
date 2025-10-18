@@ -143,42 +143,46 @@ export const TodaySummary = () => {
         .select('*')
         .eq('user_id', user.id);
 
-      let ordersQuery = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items(*)
-        `)
-        .eq('user_id', user.id);
-
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = dateRange.from.toISOString().split('T')[0];
         visitsQuery = visitsQuery.eq('planned_date', targetDate);
-        ordersQuery = ordersQuery
-          .gte('created_at', `${targetDate}T00:00:00`)
-          .lte('created_at', `${targetDate}T23:59:59`);
       } else {
         // For week/lastWeek/month, use date range
         const fromDate = dateRange.from.toISOString().split('T')[0];
         const toDate = dateRange.to.toISOString().split('T')[0];
         visitsQuery = visitsQuery.gte('planned_date', fromDate).lte('planned_date', toDate);
-        ordersQuery = ordersQuery
-          .gte('created_at', `${fromDate}T00:00:00`)
-          .lte('created_at', `${toDate}T23:59:59`);
       }
 
-      // Execute queries
+      // Execute visits query first
       const { data: visits } = await visitsQuery;
+
+      // Get visit IDs to fetch associated orders
+      const visitIds = visits?.map(v => v.id) || [];
+      
+      // Fetch orders based on visit_ids (not created_at)
+      let todayOrders: any[] = [];
+      if (visitIds.length > 0) {
+        const { data } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items(*)
+          `)
+          .eq('user_id', user.id)
+          .in('visit_id', visitIds);
+        todayOrders = data || [];
+      }
 
       // Fetch retailers for today's visits
       const retailerIds = visits?.map(v => v.retailer_id) || [];
-      const { data: retailers } = await supabase
-        .from('retailers')
-        .select('id, name, address')
-        .in('id', retailerIds);
-
-      // Execute order query
-      const { data: todayOrders } = await ordersQuery;
+      let retailers: any[] = [];
+      if (retailerIds.length > 0) {
+        const { data } = await supabase
+          .from('retailers')
+          .select('id, name, address')
+          .in('id', retailerIds);
+        retailers = data || [];
+      }
 
       // Fetch beat plans for the date range
       let beatPlansQuery = supabase
