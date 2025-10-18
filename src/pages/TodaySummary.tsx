@@ -144,12 +144,12 @@ export const TodaySummary = () => {
         .eq('user_id', user.id);
 
       if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = dateRange.from.toISOString().split('T')[0];
+        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         visitsQuery = visitsQuery.eq('planned_date', targetDate);
       } else {
         // For week/lastWeek/month, use date range
-        const fromDate = dateRange.from.toISOString().split('T')[0];
-        const toDate = dateRange.to.toISOString().split('T')[0];
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
         visitsQuery = visitsQuery.gte('planned_date', fromDate).lte('planned_date', toDate);
       }
 
@@ -191,11 +191,11 @@ export const TodaySummary = () => {
         .eq('user_id', user.id);
 
       if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = dateRange.from.toISOString().split('T')[0];
+        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         beatPlansQuery = beatPlansQuery.eq('plan_date', targetDate);
       } else {
-        const fromDate = dateRange.from.toISOString().split('T')[0];
-        const toDate = dateRange.to.toISOString().split('T')[0];
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
         beatPlansQuery = beatPlansQuery.gte('plan_date', fromDate).lte('plan_date', toDate);
       }
 
