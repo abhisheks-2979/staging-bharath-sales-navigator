@@ -1,4 +1,4 @@
-import { BarChart3, PieChart, TrendingUp, ArrowLeft, Map, Users, Package, Calendar, Heart } from "lucide-react";
+import { BarChart3, PieChart, TrendingUp, ArrowLeft, Map, Users, Package, Calendar, Heart, RefreshCw, Info, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,10 +8,129 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineCh
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [hasLiked, setHasLiked] = useState(false);
+  const [kpiView, setKpiView] = useState<'daily' | 'monthly'>('monthly');
+  const [lastSynced, setLastSynced] = useState<Date>(new Date());
+  const [kpiData, setKpiData] = useState({
+    plannedCalls: 0,
+    productiveCalls: 0,
+    strikeRate: 0,
+    geoCode: 0,
+    deliveredVolume: 0,
+    targetVolume: 0,
+    deliveredRevenue: 0,
+    targetRevenue: 0,
+    avgOrderValue: 0,
+    newRetailers: 0
+  });
+  const [loading, setLoading] = useState(false);
+
+  // Fetch KPI data
+  const fetchKPIData = async () => {
+    setLoading(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const today = new Date();
+      let startDate, endDate;
+
+      if (kpiView === 'daily') {
+        startDate = format(today, 'yyyy-MM-dd');
+        endDate = startDate;
+      } else {
+        startDate = format(startOfMonth(today), 'yyyy-MM-dd');
+        endDate = format(endOfMonth(today), 'yyyy-MM-dd');
+      }
+
+      // Fetch visits data
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('*, retailers(*)')
+        .eq('user_id', user.user.id)
+        .gte('planned_date', startDate)
+        .lte('planned_date', endDate);
+
+      // Fetch orders data
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.user.id)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate + 'T23:59:59');
+
+      // Fetch retailers created in period
+      const { data: newRetailers } = await supabase
+        .from('retailers')
+        .select('id')
+        .eq('user_id', user.user.id)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate + 'T23:59:59');
+
+      const plannedCalls = visits?.length || 0;
+      const productiveCalls = visits?.filter(v => v.status === 'completed')?.length || 0;
+      const strikeRate = plannedCalls > 0 ? (productiveCalls / plannedCalls) * 100 : 0;
+      
+      // Calculate location match percentage (geocode accuracy)
+      const visitsWithLocation = visits?.filter(v => v.check_in_location) || [];
+      const matchedLocations = visitsWithLocation.filter(v => v.location_match_in === true) || [];
+      const geoCode = visitsWithLocation.length > 0 
+        ? (matchedLocations.length / visitsWithLocation.length) * 100 
+        : 0;
+
+      // Calculate order metrics
+      const totalRevenue = orders?.reduce((sum, order) => sum + Number(order.total_amount), 0) || 0;
+      const totalOrders = orders?.length || 0;
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      // Calculate volume (total quantity from order_items)
+      let totalVolume = 0;
+      if (orders && orders.length > 0) {
+        for (const order of orders) {
+          const { data: items } = await supabase
+            .from('order_items')
+            .select('quantity')
+            .eq('order_id', order.id);
+          totalVolume += items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+        }
+      }
+
+      setKpiData({
+        plannedCalls,
+        productiveCalls,
+        strikeRate: Math.round(strikeRate * 100) / 100,
+        geoCode: Math.round(geoCode * 100) / 100,
+        deliveredVolume: totalVolume,
+        targetVolume: plannedCalls * 50, // Assuming avg 50 units per visit
+        deliveredRevenue: totalRevenue,
+        targetRevenue: plannedCalls * 5000, // Assuming avg 5000 per visit
+        avgOrderValue: Math.round(avgOrderValue),
+        newRetailers: newRetailers?.length || 0
+      });
+      
+      setLastSynced(new Date());
+    } catch (error) {
+      console.error('Error fetching KPI data:', error);
+      toast({
+        title: "Error",
+        description: "Could not fetch KPI data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKPIData();
+  }, [kpiView]);
 
   // Check if user has already liked
   useEffect(() => {
@@ -179,13 +298,210 @@ const Analytics = () => {
 
         {/* Content */}
         <div className="p-4 -mt-4 relative z-10">
-          <Tabs defaultValue="market" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="kpi" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="kpi">KPI</TabsTrigger>
               <TabsTrigger value="market">Market</TabsTrigger>
               <TabsTrigger value="retailers">Retailers</TabsTrigger>
               <TabsTrigger value="orders">Orders</TabsTrigger>
               <TabsTrigger value="planning">Planning</TabsTrigger>
             </TabsList>
+
+            {/* KPI Dashboard */}
+            <TabsContent value="kpi" className="space-y-4">
+              {/* View Toggle and Refresh */}
+              <Card className="shadow-lg">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="view-toggle" className={kpiView === 'monthly' ? 'text-primary font-semibold' : 'text-muted-foreground'}>
+                          MONTHLY
+                        </Label>
+                        <Switch
+                          id="view-toggle"
+                          checked={kpiView === 'daily'}
+                          onCheckedChange={(checked) => setKpiView(checked ? 'daily' : 'monthly')}
+                        />
+                        <Label htmlFor="view-toggle" className={kpiView === 'daily' ? 'text-primary font-semibold' : 'text-muted-foreground'}>
+                          DAILY
+                        </Label>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={fetchKPIData}
+                      disabled={loading}
+                      className="text-primary"
+                    >
+                      <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                      <span className="ml-2">Refresh</span>
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-right">
+                    Last Synced at: {format(lastSynced, 'hh:mm a')}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Process Metrics */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity size={18} />
+                    Process
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.plannedCalls}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">Planned Calls</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.productiveCalls}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">Productive Calls</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.strikeRate}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">Strike Rate (%)</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.geoCode}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">GeoCode</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.avgOrderValue}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">Avg Order Value</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.newRetailers}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">New Retailers</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Delivered Volume */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base">Delivered Volume</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Target (Units): {kpiData.targetVolume.toLocaleString()}</span>
+                  </div>
+                  <Progress 
+                    value={kpiData.targetVolume > 0 ? (kpiData.deliveredVolume / kpiData.targetVolume) * 100 : 0} 
+                    className="h-3"
+                  />
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary">
+                      {kpiData.deliveredVolume.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Units Delivered</div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <div className="text-center flex-1">
+                      <div className="font-semibold">
+                        {kpiData.targetVolume > 0 
+                          ? ((kpiData.deliveredVolume / kpiData.targetVolume) * 100).toFixed(1) 
+                          : 0}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">Achievement</div>
+                    </div>
+                    <div className="text-center flex-1">
+                      <div className="font-semibold">
+                        {(kpiData.targetVolume - kpiData.deliveredVolume).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Gap</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Delivered Gross Revenue */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base">Delivered Gross Revenue</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Target GR: ₹{(kpiData.targetRevenue / 100000).toFixed(2)} Lac</span>
+                  </div>
+                  <Progress 
+                    value={kpiData.targetRevenue > 0 ? (kpiData.deliveredRevenue / kpiData.targetRevenue) * 100 : 0} 
+                    className="h-3"
+                  />
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary">
+                      ₹{(kpiData.deliveredRevenue / 100000).toFixed(2)} Lac
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Revenue Delivered</div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <div className="text-center flex-1">
+                      <div className="font-semibold">
+                        {kpiData.targetRevenue > 0 
+                          ? ((kpiData.deliveredRevenue / kpiData.targetRevenue) * 100).toFixed(1) 
+                          : 0}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">Achievement</div>
+                    </div>
+                    <div className="text-center flex-1">
+                      <div className="font-semibold">
+                        ₹{((kpiData.targetRevenue - kpiData.deliveredRevenue) / 100000).toFixed(2)} Lac
+                      </div>
+                      <div className="text-xs text-muted-foreground">Gap</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Execution Metrics */}
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base">Execution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{((kpiData.productiveCalls / (kpiData.plannedCalls || 1)) * 100).toFixed(2)}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">Call Productivity</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-center gap-1 mb-1">
+                        <span className="text-2xl font-bold">{kpiData.geoCode.toFixed(2)}</span>
+                        <Info size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="text-xs text-muted-foreground">Location Accuracy</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Market Analysis */}
             <TabsContent value="market" className="space-y-4">
