@@ -1,130 +1,317 @@
-import { BarChart3, PieChart, TrendingUp, ArrowLeft, Map, Users, Package, Calendar, Heart, RefreshCw, Info, Activity } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Layout } from "@/components/Layout";
-import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart as RechartsPieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
+} from "recharts";
+import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Layout } from "@/components/Layout";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [hasLiked, setHasLiked] = useState(false);
-  const [kpiView, setKpiView] = useState<'daily' | 'monthly'>('monthly');
-  const [lastSynced, setLastSynced] = useState<Date>(new Date());
+  const [kpiView, setKpiView] = useState<'monthly' | 'daily'>('monthly');
+  const [lastSynced, setLastSynced] = useState(new Date());
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'custom'>('week');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startOfWeek(new Date()),
+    to: endOfWeek(new Date())
+  });
   const [kpiData, setKpiData] = useState({
     plannedCalls: 0,
     productiveCalls: 0,
     strikeRate: 0,
     geoCode: 0,
     deliveredVolume: 0,
-    targetVolume: 0,
+    targetVolume: 10000,
     deliveredRevenue: 0,
-    targetRevenue: 0,
+    targetRevenue: 5000000,
     avgOrderValue: 0,
-    newRetailers: 0
+    newRetailers: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [weeklyProgress, setWeeklyProgress] = useState<any[]>([]);
+  const [productData, setProductData] = useState<any[]>([]);
+  const [topRetailers, setTopRetailers] = useState<any[]>([]);
+  const [bottomRetailers, setBottomRetailers] = useState<any[]>([]);
 
-  // Fetch KPI data
   const fetchKPIData = async () => {
     setLoading(true);
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      const today = new Date();
-      let startDate, endDate;
-
+      let startDate: Date;
+      let endDate = new Date();
+      
       if (kpiView === 'daily') {
-        startDate = format(today, 'yyyy-MM-dd');
-        endDate = startDate;
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
       } else {
-        startDate = format(startOfMonth(today), 'yyyy-MM-dd');
-        endDate = format(endOfMonth(today), 'yyyy-MM-dd');
+        startDate = new Date();
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
       }
 
-      // Fetch visits data
       const { data: visits } = await supabase
         .from('visits')
-        .select('*, retailers(*)')
-        .eq('user_id', user.user.id)
-        .gte('planned_date', startDate)
-        .lte('planned_date', endDate);
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('planned_date', format(startDate, 'yyyy-MM-dd'))
+        .lte('planned_date', format(endDate, 'yyyy-MM-dd'));
 
-      // Fetch orders data
       const { data: orders } = await supabase
         .from('orders')
-        .select('*')
-        .eq('user_id', user.user.id)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate + 'T23:59:59');
+        .select('*, order_items(*)')
+        .eq('user_id', user.id)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
 
-      // Fetch retailers created in period
       const { data: newRetailers } = await supabase
         .from('retailers')
         .select('id')
-        .eq('user_id', user.user.id)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate + 'T23:59:59');
+        .eq('user_id', user.id)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
 
       const plannedCalls = visits?.length || 0;
-      const productiveCalls = visits?.filter(v => v.status === 'completed')?.length || 0;
+      const completedVisits = visits?.filter(v => v.check_in_time && v.check_out_time) || [];
+      const productiveCalls = completedVisits.filter(v => 
+        orders?.some(o => o.visit_id === v.id)
+      ).length;
+      
       const strikeRate = plannedCalls > 0 ? (productiveCalls / plannedCalls) * 100 : 0;
       
-      // Calculate location match percentage (geocode accuracy)
-      const visitsWithLocation = visits?.filter(v => v.check_in_location) || [];
-      const matchedLocations = visitsWithLocation.filter(v => v.location_match_in === true) || [];
-      const geoCode = visitsWithLocation.length > 0 
-        ? (matchedLocations.length / visitsWithLocation.length) * 100 
-        : 0;
+      const visitsWithLocation = completedVisits.filter(v => v.location_match_in);
+      const geoCode = completedVisits.length > 0 ? (visitsWithLocation.length / completedVisits.length) * 100 : 0;
 
-      // Calculate order metrics
-      const totalRevenue = orders?.reduce((sum, order) => sum + Number(order.total_amount), 0) || 0;
-      const totalOrders = orders?.length || 0;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      let totalQuantity = 0;
+      let totalRevenue = 0;
+      
+      orders?.forEach(order => {
+        totalRevenue += Number(order.total_amount || 0);
+        order.order_items?.forEach((item: any) => {
+          totalQuantity += Number(item.quantity || 0);
+        });
+      });
 
-      // Calculate volume (total quantity from order_items)
-      let totalVolume = 0;
-      if (orders && orders.length > 0) {
-        for (const order of orders) {
-          const { data: items } = await supabase
-            .from('order_items')
-            .select('quantity')
-            .eq('order_id', order.id);
-          totalVolume += items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-        }
-      }
+      const avgOrderValue = orders && orders.length > 0 ? totalRevenue / orders.length : 0;
 
       setKpiData({
         plannedCalls,
         productiveCalls,
         strikeRate: Math.round(strikeRate * 100) / 100,
         geoCode: Math.round(geoCode * 100) / 100,
-        deliveredVolume: totalVolume,
-        targetVolume: plannedCalls * 50, // Assuming avg 50 units per visit
+        deliveredVolume: totalQuantity,
+        targetVolume: 10000,
         deliveredRevenue: totalRevenue,
-        targetRevenue: plannedCalls * 5000, // Assuming avg 5000 per visit
+        targetRevenue: 5000000,
         avgOrderValue: Math.round(avgOrderValue),
-        newRetailers: newRetailers?.length || 0
+        newRetailers: newRetailers?.length || 0,
       });
-      
+
       setLastSynced(new Date());
     } catch (error) {
       console.error('Error fetching KPI data:', error);
       toast({
         title: "Error",
-        description: "Could not fetch KPI data",
-        variant: "destructive"
+        description: "Failed to fetch analytics data",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWeeklyProgress = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('planned_date', format(dateRange.from, 'yyyy-MM-dd'))
+        .lte('planned_date', format(dateRange.to, 'yyyy-MM-dd'))
+        .order('planned_date', { ascending: true });
+
+      const retailerIds = visits?.map(v => v.retailer_id) || [];
+      const { data: retailers } = await supabase
+        .from('retailers')
+        .select('id, name, beat_name')
+        .in('id', retailerIds);
+
+      const visitIds = visits?.map(v => v.id) || [];
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('visit_id, total_amount')
+        .in('visit_id', visitIds);
+
+      const progressByDate: any = {};
+      
+      visits?.forEach(visit => {
+        const dateKey = visit.planned_date;
+        const retailer = retailers?.find(r => r.id === visit.retailer_id);
+        if (!progressByDate[dateKey]) {
+          progressByDate[dateKey] = {
+            date: dateKey,
+            day: format(new Date(dateKey), 'EEE'),
+            beatName: retailer?.beat_name || 'N/A',
+            plannedVisits: 0,
+            completedVisits: 0,
+            productiveVisits: 0,
+            orderValue: 0
+          };
+        }
+        
+        progressByDate[dateKey].plannedVisits += 1;
+        
+        if (visit.check_in_time && visit.check_out_time) {
+          progressByDate[dateKey].completedVisits += 1;
+          
+          const visitOrders = orders?.filter(o => o.visit_id === visit.id) || [];
+          if (visitOrders.length > 0) {
+            progressByDate[dateKey].productiveVisits += 1;
+            progressByDate[dateKey].orderValue += visitOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+          }
+        }
+      });
+
+      setWeeklyProgress(Object.values(progressByDate));
+    } catch (error) {
+      console.error('Error fetching weekly progress:', error);
+    }
+  };
+
+  const fetchProductData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('*, order_items(product_name, quantity, total), visits!inner(planned_date)')
+        .eq('user_id', user.id)
+        .gte('visits.planned_date', format(dateRange.from, 'yyyy-MM-dd'))
+        .lte('visits.planned_date', format(dateRange.to, 'yyyy-MM-dd'));
+
+      const productMap: any = {};
+      
+      orders?.forEach(order => {
+        order.order_items?.forEach((item: any) => {
+          if (!productMap[item.product_name]) {
+            productMap[item.product_name] = {
+              name: item.product_name,
+              quantity: 0,
+              revenue: 0
+            };
+          }
+          productMap[item.product_name].quantity += Number(item.quantity || 0);
+          productMap[item.product_name].revenue += Number(item.total || 0);
+        });
+      });
+
+      const productArray = Object.values(productMap).sort((a: any, b: any) => b.revenue - a.revenue);
+      setProductData(productArray);
+    } catch (error) {
+      console.error('Error fetching product data:', error);
+    }
+  };
+
+  const fetchRetailerRankings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('id, retailer_id')
+        .eq('user_id', user.id)
+        .gte('planned_date', format(dateRange.from, 'yyyy-MM-dd'))
+        .lte('planned_date', format(dateRange.to, 'yyyy-MM-dd'))
+        .not('check_in_time', 'is', null)
+        .not('check_out_time', 'is', null);
+
+      const retailerIds = [...new Set(visits?.map(v => v.retailer_id) || [])];
+      const { data: retailers } = await supabase
+        .from('retailers')
+        .select('id, name, address')
+        .in('id', retailerIds);
+
+      const visitIds = visits?.map(v => v.id) || [];
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('visit_id, retailer_id, total_amount')
+        .in('visit_id', visitIds);
+
+      const retailerMap: any = {};
+      
+      visits?.forEach(visit => {
+        const retailerId = visit.retailer_id;
+        const retailer = retailers?.find(r => r.id === retailerId);
+        if (!retailerMap[retailerId]) {
+          retailerMap[retailerId] = {
+            id: retailerId,
+            name: retailer?.name || 'Unknown',
+            address: retailer?.address || 'N/A',
+            productiveVisits: 0,
+            orderValue: 0
+          };
+        }
+        
+        const visitOrders = orders?.filter(o => o.visit_id === visit.id) || [];
+        if (visitOrders.length > 0) {
+          retailerMap[retailerId].productiveVisits += 1;
+          retailerMap[retailerId].orderValue += visitOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        }
+      });
+
+      const retailerArray = Object.values(retailerMap).filter((r: any) => r.productiveVisits > 0);
+      retailerArray.sort((a: any, b: any) => b.orderValue - a.orderValue);
+
+      setTopRetailers(retailerArray.slice(0, 10));
+      setBottomRetailers(retailerArray.slice(-10).reverse());
+    } catch (error) {
+      console.error('Error fetching retailer rankings:', error);
+    }
+  };
+
+  const handlePeriodChange = (period: 'week' | 'month' | 'quarter' | 'custom') => {
+    setSelectedPeriod(period);
+    
+    if (period !== 'custom') {
+      const now = new Date();
+      let from: Date, to: Date;
+      
+      switch (period) {
+        case 'week':
+          from = startOfWeek(now);
+          to = endOfWeek(now);
+          break;
+        case 'month':
+          from = startOfMonth(now);
+          to = endOfMonth(now);
+          break;
+        case 'quarter':
+          from = startOfQuarter(now);
+          to = endOfQuarter(now);
+          break;
+      }
+      
+      setDateRange({ from, to });
     }
   };
 
@@ -132,16 +319,21 @@ const Analytics = () => {
     fetchKPIData();
   }, [kpiView]);
 
-  // Check if user has already liked
+  useEffect(() => {
+    fetchWeeklyProgress();
+    fetchProductData();
+    fetchRetailerRankings();
+  }, [dateRange]);
+
   useEffect(() => {
     const checkLikeStatus = async () => {
       try {
-        const { data: user } = await supabase.auth.getUser();
-        if (user.user) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
           const { data, error } = await supabase
             .from('analytics_likes')
             .select('id')
-            .eq('user_id', user.user.id)
+            .eq('user_id', user.id)
             .eq('page_type', 'general_analytics')
             .single();
           
@@ -159,14 +351,13 @@ const Analytics = () => {
 
   const handleLike = async () => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (user.user) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
         if (hasLiked) {
-          // Remove like
           await supabase
             .from('analytics_likes')
             .delete()
-            .eq('user_id', user.user.id)
+            .eq('user_id', user.id)
             .eq('page_type', 'general_analytics');
           
           setHasLiked(false);
@@ -175,11 +366,10 @@ const Analytics = () => {
             description: "Thank you for your feedback!"
           });
         } else {
-          // Add like
           await supabase
             .from('analytics_likes')
             .insert({
-              user_id: user.user.id,
+              user_id: user.id,
               page_type: 'general_analytics'
             });
           
@@ -200,74 +390,26 @@ const Analytics = () => {
     }
   };
 
-  // Market Analysis Data
-  const marketData = [
-    { area: 'Bangalore North', potential: 85, penetration: 65, competitors: 8 },
-    { area: 'Bangalore South', potential: 92, penetration: 58, competitors: 12 },
-    { area: 'Bangalore East', potential: 78, penetration: 72, competitors: 6 },
-    { area: 'Bangalore West', potential: 88, penetration: 45, competitors: 10 },
-  ];
-
-  // Retailer Analysis Data
-  const retailerCategoryData = [
-    { name: 'Kirana Stores', value: 45, color: '#3b82f6' },
-    { name: 'Supermarkets', value: 25, color: '#10b981' },
-    { name: 'General Stores', value: 20, color: '#f59e0b' },
-    { name: 'Specialty', value: 10, color: '#ef4444' },
-  ];
-
-  const retailerPerformance = [
-    { category: 'A', count: 15, revenue: 450 },
-    { category: 'B', count: 28, revenue: 320 },
-    { category: 'C', count: 35, revenue: 180 },
-  ];
-
-  // Order Analysis Data
-  const orderTrends = [
-    { month: 'Sep', orders: 142, value: 285 },
-    { month: 'Oct', orders: 158, value: 315 },
-    { month: 'Nov', orders: 167, value: 340 },
-    { month: 'Dec', orders: 185, value: 380 },
-    { month: 'Jan', orders: 195, value: 420 },
-  ];
-
-  const productMix = [
-    { product: 'Beverages', sales: 35, growth: 12 },
-    { product: 'Snacks', sales: 28, growth: 8 },
-    { product: 'Personal Care', sales: 20, growth: 15 },
-    { product: 'Household', sales: 17, growth: -3 },
-  ];
-
-  // Planning Insights
-  const planningData = [
-    { metric: 'Territory Coverage', current: 75, target: 85, opportunity: 'High' },
-    { metric: 'Customer Frequency', current: 2.3, target: 3.0, opportunity: 'Medium' },
-    { metric: 'Average Order Size', current: 3500, target: 4000, opportunity: 'High' },
-    { metric: 'New Customer Acquisition', current: 8, target: 12, opportunity: 'Medium' },
-  ];
-
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-        {/* Header */}
         <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(-1)}
-                className="text-primary-foreground hover:bg-primary-foreground/20"
-              >
-                <ArrowLeft size={20} />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                  <BarChart3 size={28} />
-                  Analytics & Planning
-                </h1>
-                <p className="text-primary-foreground/80 text-sm">Analyze market data and plan strategically</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(-1)}
+                  className="text-primary-foreground hover:bg-primary-foreground/20"
+                >
+                  <ArrowLeft size={20} />
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold">Analytics & Insights</h1>
+                  <p className="text-primary-foreground/80 text-sm">Real-time business analytics</p>
+                </div>
               </div>
               <Button
                 variant="ghost"
@@ -276,40 +418,24 @@ const Analytics = () => {
                 className={`text-primary-foreground hover:bg-primary-foreground/20 ${
                   hasLiked ? "bg-primary-foreground/20" : ""
                 }`}
-                title={hasLiked ? "Remove like" : "Like this page"}
               >
                 <Heart size={20} className={hasLiked ? "fill-current" : ""} />
               </Button>
             </div>
-
-            {/* Quick Insights */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold">75%</div>
-                <div className="text-sm text-primary-foreground/80">Territory Coverage</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold">₹420K</div>
-                <div className="text-sm text-primary-foreground/80">Monthly Revenue</div>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-4 -mt-4 relative z-10">
           <Tabs defaultValue="kpi" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="kpi">KPI</TabsTrigger>
-              <TabsTrigger value="market">Market</TabsTrigger>
+              <TabsTrigger value="progress">Progress</TabsTrigger>
+              <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="retailers">Retailers</TabsTrigger>
-              <TabsTrigger value="orders">Orders</TabsTrigger>
-              <TabsTrigger value="planning">Planning</TabsTrigger>
             </TabsList>
 
             {/* KPI Dashboard */}
             <TabsContent value="kpi" className="space-y-4">
-              {/* View Toggle and Refresh */}
               <Card className="shadow-lg">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-4">
@@ -345,7 +471,6 @@ const Analytics = () => {
                 </CardContent>
               </Card>
 
-              {/* Process Metrics */}
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -378,7 +503,7 @@ const Analytics = () => {
                     </div>
                     <div className="text-center p-4 bg-muted/20 rounded-lg">
                       <div className="flex items-center justify-center gap-1 mb-1">
-                        <span className="text-2xl font-bold">{kpiData.geoCode}</span>
+                        <span className="text-2xl font-bold">{kpiData.geoCode.toFixed(2)}</span>
                         <Info size={14} className="text-muted-foreground" />
                       </div>
                       <div className="text-xs text-muted-foreground">GeoCode</div>
@@ -401,7 +526,6 @@ const Analytics = () => {
                 </CardContent>
               </Card>
 
-              {/* Delivered Volume */}
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-base">Delivered Volume</CardTitle>
@@ -439,7 +563,6 @@ const Analytics = () => {
                 </CardContent>
               </Card>
 
-              {/* Delivered Gross Revenue */}
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-base">Delivered Gross Revenue</CardTitle>
@@ -477,7 +600,6 @@ const Analytics = () => {
                 </CardContent>
               </Card>
 
-              {/* Execution Metrics */}
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-base">Execution</CardTitle>
@@ -503,247 +625,286 @@ const Analytics = () => {
               </Card>
             </TabsContent>
 
-            {/* Market Analysis */}
-            <TabsContent value="market" className="space-y-4">
+            {/* Progress Tab */}
+            <TabsContent value="progress" className="space-y-4">
               <Card className="shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Map size={20} />
-                    Market Penetration by Area
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Period Analysis</CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={selectedPeriod === 'week' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePeriodChange('week')}
+                      >
+                        Week
+                      </Button>
+                      <Button
+                        variant={selectedPeriod === 'month' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePeriodChange('month')}
+                      >
+                        Month
+                      </Button>
+                      <Button
+                        variant={selectedPeriod === 'quarter' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePeriodChange('quarter')}
+                      >
+                        Quarter
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={selectedPeriod === 'custom' ? 'default' : 'outline'}
+                            size="sm"
+                            className={cn("justify-start text-left font-normal")}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            Custom
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="range"
+                            selected={{ from: dateRange.from, to: dateRange.to }}
+                            onSelect={(range: any) => {
+                              if (range?.from && range?.to) {
+                                setSelectedPeriod('custom');
+                                setDateRange({ from: range.from, to: range.to });
+                              }
+                            }}
+                            numberOfMonths={2}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={marketData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="area" tick={{ fontSize: 12 }} />
-                        <YAxis />
-                        <Bar dataKey="potential" fill="#e2e8f0" name="Market Potential" />
-                        <Bar dataKey="penetration" fill="#3b82f6" name="Our Penetration" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 text-sm font-medium">Date</th>
+                          <th className="text-left p-2 text-sm font-medium">Day</th>
+                          <th className="text-left p-2 text-sm font-medium">Beat</th>
+                          <th className="text-right p-2 text-sm font-medium">Planned</th>
+                          <th className="text-right p-2 text-sm font-medium">Completed</th>
+                          <th className="text-right p-2 text-sm font-medium">Productive</th>
+                          <th className="text-right p-2 text-sm font-medium">Order Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {weeklyProgress.map((day: any, index: number) => (
+                          <tr key={index} className="border-b hover:bg-muted/50">
+                            <td className="p-2 text-sm">{format(new Date(day.date), 'MMM dd')}</td>
+                            <td className="p-2 text-sm">{day.day}</td>
+                            <td className="p-2 text-sm">{day.beatName}</td>
+                            <td className="p-2 text-sm text-right">{day.plannedVisits}</td>
+                            <td className="p-2 text-sm text-right">{day.completedVisits}</td>
+                            <td className="p-2 text-sm text-right text-primary font-semibold">{day.productiveVisits}</td>
+                            <td className="p-2 text-sm text-right font-semibold">₹{day.orderValue.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {weeklyProgress.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="p-4 text-center text-muted-foreground">
+                              No data available for selected period
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
 
-              <div className="grid grid-cols-2 gap-4">
-                {marketData.map((area, index) => (
-                  <Card key={index} className="shadow-lg">
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-sm mb-2">{area.area}</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span>Penetration</span>
-                          <span className="font-semibold">{area.penetration}%</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span>Competitors</span>
-                          <span className="font-semibold">{area.competitors}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Productivity Chart</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={weeklyProgress}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tickFormatter={(value) => format(new Date(value), 'MMM dd')} />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="plannedVisits" fill="#94a3b8" name="Planned" />
+                      <Bar dataKey="completedVisits" fill="#3b82f6" name="Completed" />
+                      <Bar dataKey="productiveVisits" fill="#10b981" name="Productive" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Order Value Trend</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={weeklyProgress}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tickFormatter={(value) => format(new Date(value), 'MMM dd')} />
+                      <YAxis />
+                      <Tooltip formatter={(value: any) => `₹${value.toLocaleString()}`} />
+                      <Area type="monotone" dataKey="orderValue" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="Order Value" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </TabsContent>
 
-            {/* Retailer Analysis */}
+            {/* Products Tab */}
+            <TabsContent value="products" className="space-y-4">
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Product-wise Business Analysis</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 text-sm font-medium">Product Name</th>
+                          <th className="text-right p-2 text-sm font-medium">Quantity Sold</th>
+                          <th className="text-right p-2 text-sm font-medium">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {productData.map((product: any, index: number) => (
+                          <tr key={index} className="border-b hover:bg-muted/50">
+                            <td className="p-2 text-sm">{product.name}</td>
+                            <td className="p-2 text-sm text-right">{product.quantity.toLocaleString()}</td>
+                            <td className="p-2 text-sm text-right font-semibold">₹{product.revenue.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {productData.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="p-4 text-center text-muted-foreground">
+                              No product data available for selected period
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Top Products by Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={productData.slice(0, 10)} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={150} />
+                      <Tooltip formatter={(value: any) => `₹${value.toLocaleString()}`} />
+                      <Bar dataKey="revenue" fill="#8b5cf6" name="Revenue" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Retailers Tab */}
             <TabsContent value="retailers" className="space-y-4">
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Users size={20} />
-                    Retailer Mix
+                    <TrendingUp className="text-green-500" />
+                    Top 10 Retailers
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Based on order value and productive visits
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex justify-center mb-4">
-                    <div className="h-48 w-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={retailerCategoryData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={40}
-                            outerRadius={80}
-                            dataKey="value"
-                          >
-                            {retailerCategoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {retailerCategoryData.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: item.color }}
-                          ></div>
-                          <span className="text-sm">{item.name}</span>
-                        </div>
-                        <span className="text-sm font-semibold">{item.value}%</span>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 text-sm font-medium">Rank</th>
+                          <th className="text-left p-2 text-sm font-medium">Retailer Name</th>
+                          <th className="text-left p-2 text-sm font-medium">Address</th>
+                          <th className="text-right p-2 text-sm font-medium">Productive Visits</th>
+                          <th className="text-right p-2 text-sm font-medium">Order Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topRetailers.map((retailer: any, index: number) => (
+                          <tr key={retailer.id} className="border-b hover:bg-muted/50">
+                            <td className="p-2 text-sm font-bold text-primary">{index + 1}</td>
+                            <td className="p-2 text-sm font-medium">{retailer.name}</td>
+                            <td className="p-2 text-sm text-muted-foreground">{retailer.address}</td>
+                            <td className="p-2 text-sm text-right">{retailer.productiveVisits}</td>
+                            <td className="p-2 text-sm text-right font-semibold text-green-600">₹{retailer.orderValue.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {topRetailers.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                              No data available for selected period
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle>Performance by Category</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {retailerPerformance.map((cat, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
-                        <div>
-                          <p className="font-semibold">Category {cat.category}</p>
-                          <p className="text-sm text-muted-foreground">{cat.count} retailers</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold">₹{cat.revenue}K</p>
-                          <p className="text-xs text-muted-foreground">avg revenue</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Order Analysis */}
-            <TabsContent value="orders" className="space-y-4">
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Package size={20} />
-                    Order Trends
+                    <TrendingDown className="text-orange-500" />
+                    Bottom 10 Retailers
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Retailers needing attention
+                  </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={orderTrends}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis yAxisId="left" />
-                        <YAxis yAxisId="right" orientation="right" />
-                        <Area 
-                          yAxisId="left"
-                          type="monotone" 
-                          dataKey="orders" 
-                          stroke="#3b82f6" 
-                          fill="#3b82f6" 
-                          fillOpacity={0.3}
-                        />
-                        <Line 
-                          yAxisId="right"
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="#10b981" 
-                          strokeWidth={3}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle>Product Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {productMix.map((product, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg">
-                        <div>
-                          <p className="font-semibold text-sm">{product.product}</p>
-                          <p className="text-xs text-muted-foreground">{product.sales}% of sales</p>
-                        </div>
-                        <div className={`text-right ${product.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          <p className="font-bold text-sm">
-                            {product.growth >= 0 ? '+' : ''}{product.growth}%
-                          </p>
-                          <p className="text-xs">growth</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Strategic Planning */}
-            <TabsContent value="planning" className="space-y-4">
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp size={20} />
-                    Performance vs Targets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {planningData.map((item, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">{item.metric}</span>
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            item.opportunity === 'High' ? 'bg-red-100 text-red-800' :
-                            item.opportunity === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {item.opportunity} Opportunity
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Current: {item.current}</span>
-                          <span>Target: {item.target}</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ 
-                              width: `${Math.min((item.current / item.target) * 100, 100)}%` 
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-purple-600">Strategic Recommendations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <span className="font-medium">•</span>
-                      <span className="text-sm">Focus on Bangalore West area for market expansion</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="font-medium">•</span>
-                      <span className="text-sm">Increase visit frequency to Category B retailers</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="font-medium">•</span>
-                      <span className="text-sm">Push Personal Care products for higher growth</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="font-medium">•</span>
-                      <span className="text-sm">Target 4 new customer acquisitions this month</span>
-                    </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2 text-sm font-medium">Retailer Name</th>
+                          <th className="text-left p-2 text-sm font-medium">Address</th>
+                          <th className="text-right p-2 text-sm font-medium">Productive Visits</th>
+                          <th className="text-right p-2 text-sm font-medium">Order Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bottomRetailers.map((retailer: any) => (
+                          <tr key={retailer.id} className="border-b hover:bg-muted/50">
+                            <td className="p-2 text-sm font-medium">{retailer.name}</td>
+                            <td className="p-2 text-sm text-muted-foreground">{retailer.address}</td>
+                            <td className="p-2 text-sm text-right">{retailer.productiveVisits}</td>
+                            <td className="p-2 text-sm text-right font-semibold text-orange-600">₹{retailer.orderValue.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {bottomRetailers.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                              No data available for selected period
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
