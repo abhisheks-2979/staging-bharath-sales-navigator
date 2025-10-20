@@ -44,7 +44,7 @@ export const Navbar = () => {
     { icon: BarChart, label: "Performance Summary", href: "/performance", color: "from-cyan-500 to-cyan-600" },
     { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
-    { icon: Target, label: "Analytics", href: "/beat-analytics", color: "from-violet-500 to-violet-600" },
+    { icon: Target, label: "Analytics", href: "/analytics", color: "from-violet-500 to-violet-600" },
   ];
 
   // Admin-only navigation items

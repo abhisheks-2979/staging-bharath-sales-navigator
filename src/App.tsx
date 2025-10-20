@@ -239,7 +239,7 @@ const App = () => (
                 <SalesCoach />
               </ProtectedRoute>
             } />
-            <Route path="/beat-analytics" element={
+            <Route path="/analytics" element={
               <ProtectedRoute>
                 <Analytics />
               </ProtectedRoute>
