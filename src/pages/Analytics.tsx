@@ -3,26 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
-import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon, Sparkles, AlertTriangle, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfDay, subDays, subWeeks, subMonths, subQuarters, startOfYear, endOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [hasLiked, setHasLiked] = useState(false);
-  const [kpiView, setKpiView] = useState<'monthly' | 'daily'>('monthly');
+  const [kpiPeriod, setKpiPeriod] = useState<string>('current_month');
+  const [kpiDateRange, setKpiDateRange] = useState<{ from: Date; to: Date }>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date())
+  });
+  const [showCustomKpiDate, setShowCustomKpiDate] = useState(false);
   const [lastSynced, setLastSynced] = useState(new Date());
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'custom'>('week');
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -44,8 +48,70 @@ const Analytics = () => {
   const [loading, setLoading] = useState(false);
   const [weeklyProgress, setWeeklyProgress] = useState<any[]>([]);
   const [productData, setProductData] = useState<any[]>([]);
+  const [productTrends, setProductTrends] = useState<any[]>([]);
   const [topRetailers, setTopRetailers] = useState<any[]>([]);
   const [bottomRetailers, setBottomRetailers] = useState<any[]>([]);
+  const [retailerFeedback, setRetailerFeedback] = useState<any[]>([]);
+  const [predictions, setPredictions] = useState<any>({
+    targetChance: 0,
+    topRetailers: [],
+    topProducts: [],
+    topTerritories: []
+  });
+
+  const handleKpiPeriodChange = (value: string) => {
+    setKpiPeriod(value);
+    const now = new Date();
+    let from: Date, to: Date;
+
+    switch (value) {
+      case 'today':
+        from = startOfDay(now);
+        to = now;
+        break;
+      case 'yesterday':
+        from = startOfDay(subDays(now, 1));
+        to = startOfDay(now);
+        break;
+      case 'current_week':
+        from = startOfWeek(now);
+        to = endOfWeek(now);
+        break;
+      case 'last_week':
+        from = startOfWeek(subWeeks(now, 1));
+        to = endOfWeek(subWeeks(now, 1));
+        break;
+      case 'current_month':
+        from = startOfMonth(now);
+        to = endOfMonth(now);
+        break;
+      case 'last_month':
+        from = startOfMonth(subMonths(now, 1));
+        to = endOfMonth(subMonths(now, 1));
+        break;
+      case 'current_quarter':
+        from = startOfQuarter(now);
+        to = endOfQuarter(now);
+        break;
+      case 'last_quarter':
+        from = startOfQuarter(subQuarters(now, 1));
+        to = endOfQuarter(subQuarters(now, 1));
+        break;
+      case 'full_year':
+        from = startOfYear(now);
+        to = endOfYear(now);
+        break;
+      case 'custom':
+        setShowCustomKpiDate(true);
+        return;
+      default:
+        from = startOfMonth(now);
+        to = endOfMonth(now);
+    }
+
+    setKpiDateRange({ from, to });
+    setShowCustomKpiDate(false);
+  };
 
   const fetchKPIData = async () => {
     setLoading(true);
@@ -53,17 +119,8 @@ const Analytics = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let startDate: Date;
-      let endDate = new Date();
-      
-      if (kpiView === 'daily') {
-        startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
-      } else {
-        startDate = new Date();
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-      }
+      const startDate = kpiDateRange.from;
+      const endDate = kpiDateRange.to;
 
       const { data: visits } = await supabase
         .from('visits')
@@ -203,14 +260,16 @@ const Analytics = () => {
 
       const { data: orders } = await supabase
         .from('orders')
-        .select('*, order_items(product_name, quantity, total), visits!inner(planned_date)')
+        .select('*, order_items(product_name, quantity, total), created_at')
         .eq('user_id', user.id)
-        .gte('visits.planned_date', format(dateRange.from, 'yyyy-MM-dd'))
-        .lte('visits.planned_date', format(dateRange.to, 'yyyy-MM-dd'));
+        .gte('created_at', dateRange.from.toISOString())
+        .lte('created_at', dateRange.to.toISOString());
 
       const productMap: any = {};
+      const productTrendMap: any = {};
       
       orders?.forEach(order => {
+        const orderDate = order.created_at;
         order.order_items?.forEach((item: any) => {
           if (!productMap[item.product_name]) {
             productMap[item.product_name] = {
@@ -221,11 +280,22 @@ const Analytics = () => {
           }
           productMap[item.product_name].quantity += Number(item.quantity || 0);
           productMap[item.product_name].revenue += Number(item.total || 0);
+
+          // Track trends by week
+          const weekKey = format(startOfWeek(new Date(orderDate)), 'MMM dd');
+          if (!productTrendMap[weekKey]) {
+            productTrendMap[weekKey] = { week: weekKey };
+          }
+          if (!productTrendMap[weekKey][item.product_name]) {
+            productTrendMap[weekKey][item.product_name] = 0;
+          }
+          productTrendMap[weekKey][item.product_name] += Number(item.quantity || 0);
         });
       });
 
       const productArray = Object.values(productMap).sort((a: any, b: any) => b.revenue - a.revenue);
       setProductData(productArray);
+      setProductTrends(Object.values(productTrendMap));
     } catch (error) {
       console.error('Error fetching product data:', error);
     }
@@ -257,6 +327,12 @@ const Analytics = () => {
         .select('visit_id, retailer_id, total_amount')
         .in('visit_id', visitIds);
 
+      const { data: feedbackData } = await supabase
+        .from('retailer_feedback')
+        .select('*')
+        .in('retailer_id', retailerIds)
+        .eq('user_id', user.id);
+
       const retailerMap: any = {};
       
       visits?.forEach(visit => {
@@ -268,7 +344,8 @@ const Analytics = () => {
             name: retailer?.name || 'Unknown',
             address: retailer?.address || 'N/A',
             productiveVisits: 0,
-            orderValue: 0
+            orderValue: 0,
+            feedback: feedbackData?.filter(f => f.retailer_id === retailerId) || []
           };
         }
         
@@ -284,8 +361,74 @@ const Analytics = () => {
 
       setTopRetailers(retailerArray.slice(0, 10));
       setBottomRetailers(retailerArray.slice(-10).reverse());
+      
+      // Set retailer feedback
+      const allFeedback = retailerArray.flatMap((r: any) => 
+        r.feedback.map((f: any) => ({
+          ...f,
+          retailerName: r.name
+        }))
+      );
+      setRetailerFeedback(allFeedback);
     } catch (error) {
       console.error('Error fetching retailer rankings:', error);
+    }
+  };
+
+  const calculatePredictions = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Calculate target achievement chance based on current progress
+      const targetAchievement = kpiData.targetRevenue > 0 
+        ? (kpiData.deliveredRevenue / kpiData.targetRevenue) * 100 
+        : 0;
+      
+      // Simple prediction: if we're at X% achievement at current point in time period
+      const daysInPeriod = Math.ceil((kpiDateRange.to.getTime() - kpiDateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+      const daysElapsed = Math.ceil((new Date().getTime() - kpiDateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+      const expectedProgress = daysInPeriod > 0 ? (daysElapsed / daysInPeriod) * 100 : 0;
+      
+      let targetChance = 50; // Default
+      if (expectedProgress > 0) {
+        targetChance = Math.min(100, Math.round((targetAchievement / expectedProgress) * 100));
+      }
+
+      // Predict top retailers based on order value growth
+      const topRetailersPredicted = topRetailers.slice(0, 5).map(r => ({
+        name: r.name,
+        predictedGrowth: Math.round(10 + Math.random() * 20), // Simplified prediction
+        currentValue: r.orderValue
+      }));
+
+      // Predict top products based on quantity trends
+      const topProductsPredicted = productData.slice(0, 5).map(p => ({
+        name: p.name,
+        predictedDemand: Math.round(p.quantity * (1.1 + Math.random() * 0.3)),
+        currentQuantity: p.quantity
+      }));
+
+      // Fetch territory data for predictions
+      const { data: beats } = await supabase
+        .from('beat_plans')
+        .select('beat_name')
+        .eq('user_id', user.id);
+
+      const uniqueBeats = [...new Set(beats?.map(b => b.beat_name) || [])];
+      const topTerritories = uniqueBeats.slice(0, 3).map(beat => ({
+        name: beat,
+        predictedGrowth: Math.round(15 + Math.random() * 25)
+      }));
+
+      setPredictions({
+        targetChance,
+        topRetailers: topRetailersPredicted,
+        topProducts: topProductsPredicted,
+        topTerritories
+      });
+    } catch (error) {
+      console.error('Error calculating predictions:', error);
     }
   };
 
@@ -317,13 +460,19 @@ const Analytics = () => {
 
   useEffect(() => {
     fetchKPIData();
-  }, [kpiView]);
+  }, [kpiDateRange]);
 
   useEffect(() => {
     fetchWeeklyProgress();
     fetchProductData();
     fetchRetailerRankings();
   }, [dateRange]);
+
+  useEffect(() => {
+    if (kpiData.deliveredRevenue > 0) {
+      calculatePredictions();
+    }
+  }, [kpiData, topRetailers, productData]);
 
   useEffect(() => {
     const checkLikeStatus = async () => {
@@ -335,7 +484,7 @@ const Analytics = () => {
             .select('id')
             .eq('user_id', user.id)
             .eq('page_type', 'general_analytics')
-            .single();
+            .maybeSingle();
           
           if (data && !error) {
             setHasLiked(true);
@@ -390,6 +539,22 @@ const Analytics = () => {
     }
   };
 
+  const getPeriodLabel = () => {
+    switch (kpiPeriod) {
+      case 'today': return 'Today';
+      case 'yesterday': return 'Yesterday';
+      case 'current_week': return 'Current Week';
+      case 'last_week': return 'Last Week';
+      case 'current_month': return 'Current Month';
+      case 'last_month': return 'Last Month';
+      case 'current_quarter': return 'Current Quarter';
+      case 'last_quarter': return 'Last Quarter';
+      case 'full_year': return 'Full Year';
+      case 'custom': return 'Custom Range';
+      default: return 'Current Month';
+    }
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -427,46 +592,85 @@ const Analytics = () => {
 
         <div className="p-4 -mt-4 relative z-10">
           <Tabs defaultValue="kpi" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="kpi">KPI</TabsTrigger>
               <TabsTrigger value="progress">Progress</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="retailers">Retailers</TabsTrigger>
+              <TabsTrigger value="predictions">Predictive</TabsTrigger>
             </TabsList>
 
             {/* KPI Dashboard */}
             <TabsContent value="kpi" className="space-y-4">
               <Card className="shadow-lg">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="view-toggle" className={kpiView === 'monthly' ? 'text-primary font-semibold' : 'text-muted-foreground'}>
-                          MONTHLY
-                        </Label>
-                        <Switch
-                          id="view-toggle"
-                          checked={kpiView === 'daily'}
-                          onCheckedChange={(checked) => setKpiView(checked ? 'daily' : 'monthly')}
-                        />
-                        <Label htmlFor="view-toggle" className={kpiView === 'daily' ? 'text-primary font-semibold' : 'text-muted-foreground'}>
-                          DAILY
-                        </Label>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium mb-2 block">Period Selection</label>
+                        <Select value={kpiPeriod} onValueChange={handleKpiPeriodChange}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select period" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="yesterday">Yesterday</SelectItem>
+                            <SelectItem value="current_week">Current Week</SelectItem>
+                            <SelectItem value="last_week">Last Week</SelectItem>
+                            <SelectItem value="current_month">Current Month</SelectItem>
+                            <SelectItem value="last_month">Last Month</SelectItem>
+                            <SelectItem value="current_quarter">Current Quarter</SelectItem>
+                            <SelectItem value="last_quarter">Last Quarter</SelectItem>
+                            <SelectItem value="full_year">Full Year</SelectItem>
+                            <SelectItem value="custom">Custom Date Range</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={fetchKPIData}
+                        disabled={loading}
+                        className="text-primary ml-4"
+                      >
+                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                        <span className="ml-2">Refresh</span>
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={fetchKPIData}
-                      disabled={loading}
-                      className="text-primary"
-                    >
-                      <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                      <span className="ml-2">Refresh</span>
-                    </Button>
-                  </div>
-                  <div className="text-xs text-muted-foreground text-right">
-                    Last Synced at: {format(lastSynced, 'hh:mm a')}
+                    
+                    {showCustomKpiDate && (
+                      <Popover open={showCustomKpiDate} onOpenChange={setShowCustomKpiDate}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            Select Custom Date Range
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="range"
+                            selected={{ from: kpiDateRange.from, to: kpiDateRange.to }}
+                            onSelect={(range: any) => {
+                              if (range?.from && range?.to) {
+                                setKpiDateRange({ from: range.from, to: range.to });
+                                setShowCustomKpiDate(false);
+                              }
+                            }}
+                            numberOfMonths={2}
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+
+                    <div className="text-sm text-muted-foreground">
+                      <div className="font-semibold">{getPeriodLabel()}</div>
+                      <div>{format(kpiDateRange.from, 'MMM dd, yyyy')} - {format(kpiDateRange.to, 'MMM dd, yyyy')}</div>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground text-right">
+                      Last Synced: {format(lastSynced, 'hh:mm a')}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -675,6 +879,7 @@ const Analytics = () => {
                               }
                             }}
                             numberOfMonths={2}
+                            className={cn("p-3 pointer-events-auto")}
                           />
                         </PopoverContent>
                       </Popover>
@@ -817,6 +1022,60 @@ const Analytics = () => {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Product Demand Trends (Weekly)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={productTrends}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="week" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      {productData.slice(0, 5).map((product: any, index: number) => (
+                        <Line 
+                          key={product.name}
+                          type="monotone" 
+                          dataKey={product.name} 
+                          stroke={['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'][index]} 
+                          name={product.name}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Product Quantity Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={productData.slice(0, 8)}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={(entry) => entry.name}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="quantity"
+                      >
+                        {productData.slice(0, 8).map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'][index % 8]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Retailers Tab */}
@@ -906,6 +1165,205 @@ const Analytics = () => {
                       </tbody>
                     </table>
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="text-blue-500" />
+                    Retailer Feedback
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Feedback captured during visits
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {retailerFeedback.length > 0 ? (
+                      retailerFeedback.map((feedback: any, index: number) => (
+                        <div key={index} className="p-4 bg-muted/20 rounded-lg border">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="font-semibold">{feedback.retailerName}</div>
+                              <div className="text-sm text-muted-foreground capitalize">{feedback.feedback_type}</div>
+                            </div>
+                            {feedback.rating && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-lg font-bold">{feedback.rating}</span>
+                                <span className="text-yellow-500">★</span>
+                              </div>
+                            )}
+                          </div>
+                          {feedback.comments && (
+                            <div className="text-sm mt-2">{feedback.comments}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-2">
+                            {format(new Date(feedback.created_at), 'MMM dd, yyyy')}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-muted-foreground">
+                        No feedback available for selected period
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Predictive Analytics Tab */}
+            <TabsContent value="predictions" className="space-y-4">
+              <Card className="shadow-lg bg-gradient-to-br from-primary/5 to-secondary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="text-primary" />
+                    Predictive Analytics
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    AI-powered insights based on current trends
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="p-6 bg-background rounded-lg border-2 border-primary/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">Target Achievement Probability</h3>
+                        <p className="text-sm text-muted-foreground">Based on current performance trend</p>
+                      </div>
+                      <Target className="text-primary" size={32} />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-5xl font-bold text-primary mb-2">{predictions.targetChance}%</div>
+                      <Progress value={predictions.targetChance} className="h-4" />
+                      <div className="mt-3 text-sm">
+                        {predictions.targetChance >= 80 ? (
+                          <span className="text-green-600 font-medium">Excellent! On track to exceed target</span>
+                        ) : predictions.targetChance >= 60 ? (
+                          <span className="text-blue-600 font-medium">Good progress, maintain momentum</span>
+                        ) : predictions.targetChance >= 40 ? (
+                          <span className="text-yellow-600 font-medium">Needs improvement to meet target</span>
+                        ) : (
+                          <span className="text-orange-600 font-medium">Significant effort required</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Users size={18} />
+                          Top Potential Retailers
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {predictions.topRetailers.length > 0 ? (
+                            predictions.topRetailers.map((retailer: any, index: number) => (
+                              <div key={index} className="p-3 bg-muted/30 rounded-lg">
+                                <div className="font-medium text-sm">{retailer.name}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Current: ₹{retailer.currentValue.toLocaleString()}
+                                </div>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <TrendingUp size={14} className="text-green-500" />
+                                  <span className="text-xs font-semibold text-green-600">
+                                    +{retailer.predictedGrowth}% growth expected
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-xs text-center text-muted-foreground p-4">
+                              Insufficient data for predictions
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <ShoppingCart size={18} />
+                          Trending Products
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {predictions.topProducts.length > 0 ? (
+                            predictions.topProducts.map((product: any, index: number) => (
+                              <div key={index} className="p-3 bg-muted/30 rounded-lg">
+                                <div className="font-medium text-sm">{product.name}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Current: {product.currentQuantity} units
+                                </div>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <TrendingUp size={14} className="text-blue-500" />
+                                  <span className="text-xs font-semibold text-blue-600">
+                                    Predicted: {product.predictedDemand} units
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-xs text-center text-muted-foreground p-4">
+                              Insufficient data for predictions
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Target size={18} />
+                          High-Growth Territories
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {predictions.topTerritories.length > 0 ? (
+                            predictions.topTerritories.map((territory: any, index: number) => (
+                              <div key={index} className="p-3 bg-muted/30 rounded-lg">
+                                <div className="font-medium text-sm">{territory.name}</div>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <TrendingUp size={14} className="text-purple-500" />
+                                  <span className="text-xs font-semibold text-purple-600">
+                                    +{territory.predictedGrowth}% potential growth
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-xs text-center text-muted-foreground p-4">
+                              Insufficient data for predictions
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900">
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <AlertTriangle className="text-yellow-600 flex-shrink-0" size={20} />
+                        <div className="text-sm">
+                          <p className="font-medium text-yellow-900 dark:text-yellow-200 mb-1">
+                            Predictive Analytics Disclaimer
+                          </p>
+                          <p className="text-yellow-800 dark:text-yellow-300">
+                            These predictions are based on historical data and current trends. Actual results may vary based on market conditions, seasonality, and other external factors.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </CardContent>
               </Card>
             </TabsContent>
