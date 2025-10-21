@@ -705,6 +705,7 @@ setProductForm({
                             <SelectContent>
                               <SelectItem value="piece">Piece</SelectItem>
                               <SelectItem value="kg">Kg</SelectItem>
+                              <SelectItem value="grams">Grams</SelectItem>
                               <SelectItem value="liter">Liter</SelectItem>
                               <SelectItem value="packet">Packet</SelectItem>
                               <SelectItem value="bottle">Bottle</SelectItem>
