@@ -280,6 +280,13 @@ export const MyVisits = () => {
     if (!user) return;
     
     try {
+      // Check if this is a future date
+      const selectedDateObj = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      selectedDateObj.setHours(0, 0, 0, 0);
+      const isFutureDate = selectedDateObj > today;
+      
       // Get all visits for the selected date
       const { data: visits, error: visitsError } = await supabase
         .from('visits')
@@ -311,6 +318,7 @@ export const MyVisits = () => {
 
       if (allRetailerIds.size === 0) {
         setRetailers([]);
+        setRetailerStats(new Map());
         return;
       }
 
@@ -335,64 +343,83 @@ export const MyVisits = () => {
         visitMap.set(visit.retailer_id, visit);
       });
 
-      // Get orders for today
-      const todayStart = new Date(date);
-      todayStart.setHours(0,0,0,0);
-      const todayEnd = new Date(date);
-      todayEnd.setHours(23,59,59,999);
-
-      const { data: ordersToday } = await supabase
-        .from('orders')
-        .select('id, retailer_id, total_amount, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'confirmed')
-        .in('retailer_id', Array.from(allRetailerIds))
-        .gte('created_at', todayStart.toISOString())
-        .lte('created_at', todayEnd.toISOString());
-
+      // Get orders ONLY for the selected date (not for future dates)
       const totalsByRetailer = new Map<string, number>();
-      (ordersToday || []).forEach(o => {
-        if (!o.retailer_id) return;
-        totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
-      });
+      
+      // Only fetch orders if it's not a future date
+      if (!isFutureDate) {
+        const dateStart = new Date(date);
+        dateStart.setHours(0,0,0,0);
+        const dateEnd = new Date(date);
+        dateEnd.setHours(23,59,59,999);
 
-      // Get historical stats for all retailers
-      const { data: allOrders } = await supabase
-        .from('orders')
-        .select('retailer_id, total_amount, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'confirmed')
-        .in('retailer_id', Array.from(allRetailerIds));
+        const { data: ordersForDate } = await supabase
+          .from('orders')
+          .select('id, retailer_id, total_amount, created_at')
+          .eq('user_id', user.id)
+          .eq('status', 'confirmed')
+          .in('retailer_id', Array.from(allRetailerIds))
+          .gte('created_at', dateStart.toISOString())
+          .lte('created_at', dateEnd.toISOString());
 
-      const { data: allVisits } = await supabase
-        .from('visits')
-        .select('retailer_id, planned_date')
-        .eq('user_id', user.id)
-        .in('retailer_id', Array.from(allRetailerIds));
-
-      // Calculate stats per retailer
-      const statsMap = new Map();
-      allRetailerIds.forEach(retailerId => {
-        const retailerOrders = (allOrders || []).filter(o => o.retailer_id === retailerId);
-        const retailerVisits = (allVisits || []).filter(v => v.retailer_id === retailerId);
-        const totalSales = retailerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-        const avgSales = retailerOrders.length > 0 ? totalSales / retailerOrders.length : 0;
-        const visitCount = retailerVisits.length;
-        
-        // Get last visit date
-        const retailer = retailerMap.get(retailerId);
-        const lastVisitDate = retailer?.last_visit_date;
-        const daysSinceLastVisit = lastVisitDate 
-          ? differenceInDays(new Date(), new Date(lastVisitDate))
-          : null;
-
-        statsMap.set(retailerId, {
-          avgSales,
-          visitCount,
-          daysSinceLastVisit,
-          totalSales
+        (ordersForDate || []).forEach(o => {
+          if (!o.retailer_id) return;
+          totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
         });
-      });
+      }
+
+      // Get historical stats for all retailers (only for past/current dates, not future)
+      const statsMap = new Map();
+      
+      if (!isFutureDate) {
+        const { data: allOrders } = await supabase
+          .from('orders')
+          .select('retailer_id, total_amount, created_at')
+          .eq('user_id', user.id)
+          .eq('status', 'confirmed')
+          .in('retailer_id', Array.from(allRetailerIds))
+          .lte('created_at', date + 'T23:59:59.999Z'); // Only orders up to selected date
+
+        const { data: allVisits } = await supabase
+          .from('visits')
+          .select('retailer_id, planned_date')
+          .eq('user_id', user.id)
+          .in('retailer_id', Array.from(allRetailerIds))
+          .lte('planned_date', date); // Only visits up to selected date
+
+        // Calculate stats per retailer
+        allRetailerIds.forEach(retailerId => {
+          const retailerOrders = (allOrders || []).filter(o => o.retailer_id === retailerId);
+          const retailerVisits = (allVisits || []).filter(v => v.retailer_id === retailerId);
+          const totalSales = retailerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+          const avgSales = retailerOrders.length > 0 ? totalSales / retailerOrders.length : 0;
+          const visitCount = retailerVisits.length;
+          
+          // Get last visit date
+          const retailer = retailerMap.get(retailerId);
+          const lastVisitDate = retailer?.last_visit_date;
+          const daysSinceLastVisit = lastVisitDate 
+            ? differenceInDays(new Date(date), new Date(lastVisitDate))
+            : null;
+
+          statsMap.set(retailerId, {
+            avgSales,
+            visitCount,
+            daysSinceLastVisit,
+            totalSales
+          });
+        });
+      } else {
+        // For future dates, initialize empty stats
+        allRetailerIds.forEach(retailerId => {
+          statsMap.set(retailerId, {
+            avgSales: 0,
+            visitCount: 0,
+            daysSinceLastVisit: null,
+            totalSales: 0
+          });
+        });
+      }
 
       setRetailerStats(statsMap);
 
@@ -403,7 +430,8 @@ export const MyVisits = () => {
           if (!retailer) return null;
 
           const visit = visitMap.get(retailerId);
-          const orderTotal = totalsByRetailer.get(retailerId) || 0;
+          // For future dates, orderTotal should always be 0
+          const orderTotal = isFutureDate ? 0 : (totalsByRetailer.get(retailerId) || 0);
           const hasOrder = orderTotal > 0;
           const hasCheckIn = visit?.check_in_time;
           
