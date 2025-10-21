@@ -1051,7 +1051,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
         
         items.push({
           id: product.id,
-          variantName: "Base Product",
+          variantName: product.name,
           selectedItem: product.name,
           quantity: baseQty,
           rate: product.rate,
@@ -1545,7 +1545,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                           
                           {/* Base Product Row */}
                           <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
-                            <div className="text-xs">Base Product</div>
+                            <div className="text-xs">{product.name}</div>
                             <div className="font-medium">₹{product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}</div>
                             <div>
                               <Input
