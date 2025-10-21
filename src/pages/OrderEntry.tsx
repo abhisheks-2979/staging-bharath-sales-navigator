@@ -932,6 +932,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
   };
 
   const handleBulkCartUpdate = (items: CartItem[]) => {
+    console.log('Bulk update from TableOrderForm:', items);
     // 1) Update cart by replacing quantities/totals for incoming items
     setCart(prev => {
       const newCart = [...prev];
@@ -955,6 +956,17 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
           updated[it.id] = it.quantity;
         } else {
           delete updated[it.id];
+        }
+      });
+      return updated;
+    });
+
+    // 3) Sync closing stock values as well
+    setClosingStocks(prev => {
+      const updated = { ...prev } as { [key: string]: number };
+      items.forEach(it => {
+        if (typeof (it as any).closingStock === 'number') {
+          updated[it.id] = Number((it as any).closingStock) || 0;
         }
       });
       return updated;
@@ -995,6 +1007,12 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
 
   // Calculate total value from selected quantities and variants with auto-calculation
   const getSelectionValue = () => {
+    // In table mode, rely on cart snapshot from TableOrderForm for immediate header updates
+    if (orderMode === "table") {
+      const cartTotal = cart.reduce((sum, item) => sum + (Number(item.total) || (Number(item.rate) * Number(item.quantity) || 0)), 0);
+      return Number(cartTotal) || 0;
+    }
+
     let total = 0;
     
     // Include all products regardless of category to match cart behavior
@@ -1062,6 +1080,30 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
 
   // Get current selection details for order summary
   const getSelectionDetails = () => {
+    // In table mode, derive directly from cart snapshot
+    if (orderMode === "table") {
+      const items = cart.map(ci => {
+        const baseId = ci.id.includes('_variant_') ? ci.id.split('_variant_')[0] : ci.id;
+        const product = products.find(p => p.id === baseId);
+        const savings = Math.max(0, (Number(ci.rate) * Number(ci.quantity)) - Number(ci.total || 0));
+        const appliedOffers: string[] = [];
+        if (savings > 0) appliedOffers.push(`Savings: ₹${savings.toFixed(2)}`);
+        return {
+          id: ci.id,
+          variantName: ci.name,
+          selectedItem: ci.name,
+          quantity: Number(ci.quantity) || 0,
+          rate: Number(ci.rate) || 0,
+          totalPrice: Number(ci.total) || (Number(ci.rate) * Number(ci.quantity) || 0),
+          savings,
+          appliedOffers,
+          unit: product?.unit || 'piece'
+        };
+      });
+      const totalSavings = items.reduce((s, it) => s + (Number(it.savings) || 0), 0);
+      return { items, totalSavings };
+    }
+
     const items: any[] = [];
     let totalSavings = 0;
     
@@ -1092,7 +1134,9 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
       // Check all variant quantities - only for variants of this specific product
       if (product.variants) {
         product.variants.forEach(variant => {
-          const variantQty = quantities[variant.id] || 0;
+          // FIX: use composite id for variant quantities
+          const variantCompositeId = `${product.id}_variant_${variant.id}`;
+          const variantQty = quantities[variantCompositeId] || 0;
           
           if (variantQty > 0) {
             const variantPrice = variant.discount_percentage > 0 
@@ -1109,7 +1153,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
             const { totalDiscount } = calculateSchemeDiscount(product.id, variant.id, variantQty, variantPrice);
             totalSavings += (variantSavings * variantQty) + totalDiscount;
             
-            const appliedOffers = [];
+            const appliedOffers = [] as string[];
             if (variantSavings > 0) {
               appliedOffers.push(`Variant discount: ₹${(variantSavings * variantQty).toFixed(2)}`);
             }
