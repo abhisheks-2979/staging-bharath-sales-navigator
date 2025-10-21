@@ -308,10 +308,14 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
     return updated;
   });
   
-  // Also update the addedItems set to show visual feedback
-  const newAddedItems = new Set(Object.keys(newQuantities).filter(id => newQuantities[id] > 0));
-  setAddedItems(newAddedItems);
-  console.log('Updated addedItems:', newAddedItems);
+  // Also update the addedItems set (by base product id) so the green state persists
+  const addedBaseIds = new Set<string>();
+  cartData.forEach(item => {
+    const baseId = item.id.includes('_variant_') ? item.id.split('_variant_')[0] : item.id;
+    if ((item.quantity || 0) > 0) addedBaseIds.add(baseId);
+  });
+  setAddedItems(prev => new Set([...prev, ...Array.from(addedBaseIds)]));
+  console.log('Updated addedItems (base product ids):', addedBaseIds);
 };
 
 useEffect(() => {
