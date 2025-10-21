@@ -1847,17 +1847,8 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                               addToCart(product);
                             }
                            
-                           // Mark item as added
-                           setAddedItems(prev => new Set([...prev, product.id]));
-                            
-                           // Reset after 3 seconds
-                           setTimeout(() => {
-                             setAddedItems(prev => {
-                               const newSet = new Set(prev);
-                               newSet.delete(product.id);
-                               return newSet;
-                             });
-                           }, 3000);
+                            // Mark item as added and keep it in the set (persistent state)
+                            setAddedItems(prev => new Set([...prev, product.id]));
                          }}
                          className={`w-full h-8 text-xs transition-all duration-300 ${
                            addedItems.has(product.id) 
