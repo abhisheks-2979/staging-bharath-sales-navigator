@@ -631,10 +631,14 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
             ? variant.price - variant.discount_amount
             : variant.price;
         
+        // Check if variant name is "Base variant" or "Base Variant" - if so, just use product name
+        const isBaseVariant = variant.variant_name.toLowerCase() === 'base variant';
+        const displayName = isBaseVariant ? product.name : `${product.name} - ${variant.variant_name}`;
+        
         return {
           ...product,
           id: `${product.id}_variant_${variant.id}`,
-          name: `${product.name} - ${variant.variant_name}`,
+          name: displayName,
           rate: variantPrice,
           closingStock: variant.stock_quantity,
           sku: variant.sku
