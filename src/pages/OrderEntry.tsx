@@ -395,9 +395,16 @@ useEffect(() => {
         .select('*')
         .eq('is_active', true);
 
+      // Fetch variants separately
+      const { data: variantsData } = await supabase
+        .from('product_variants')
+        .select('*')
+        .eq('is_active', true);
+
       console.log('📊 Categories Response:', categoriesData);
       console.log('🛍️ Products Response:', productsData);
       console.log('🎯 Schemes Response:', schemesData);
+      console.log('🎨 Variants Response:', variantsData);
 
       setCategories(["All", ...((categoriesData || []).map((c: any) => c.name))]);
       console.log('🏷️ Categories set:', ["All", ...((categoriesData || []).map((c: any) => c.name))]);
@@ -418,6 +425,11 @@ useEffect(() => {
           (!s.end_date || new Date(s.end_date) >= new Date())
         );
         
+        // Find variants for this product
+        const productVariants = (variantsData || []).filter((v: any) => 
+          v.product_id === p.id && v.is_active
+        );
+
         const baseProduct: GridProduct = {
           id: p.id,
           name: p.name,
@@ -429,7 +441,16 @@ useEffect(() => {
             `${s.name}: ${getSchemeDescription(s)}`
           ).join('; ') : undefined,
           closingStock: p.closing_stock || 0,
-          variants: [], // We'll add variant support later
+          variants: productVariants.map((v: any) => ({
+            id: v.id,
+            variant_name: v.variant_name,
+            sku: v.sku,
+            price: v.price,
+            stock_quantity: v.stock_quantity,
+            discount_percentage: v.discount_percentage,
+            discount_amount: v.discount_amount,
+            is_active: v.is_active
+          })),
           sku: p.sku
         };
 
@@ -449,7 +470,38 @@ useEffect(() => {
       console.log('✅ OrderEntry: Finished loading products');
     }
   };
+  
   fetchData();
+
+  // Set up real-time subscriptions for automatic updates
+  const channel = supabase
+    .channel('order-entry-changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'products' },
+      () => {
+        console.log('Product change detected, refreshing...');
+        fetchData();
+      }
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'product_schemes' },
+      () => {
+        console.log('Product scheme change detected, refreshing...');
+        fetchData();
+      }
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'product_variants' },
+      () => {
+        console.log('Product variant change detected, refreshing...');
+        fetchData();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }, []);
 
 const filteredProducts = selectedCategory === "All" 

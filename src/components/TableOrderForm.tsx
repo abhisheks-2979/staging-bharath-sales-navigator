@@ -116,6 +116,13 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           fetchProducts();
         }
       )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'product_variants' },
+        () => {
+          console.log('Product variant change detected, refreshing...');
+          fetchProducts();
+        }
+      )
       .subscribe();
 
     return () => {
