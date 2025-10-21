@@ -149,7 +149,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           console.log('Visit data from DB:', visitData);
           if (visitData) {
-            const checkedIn = !!(visitData as any).check_in_time;
+            const checkedIn = ((visitData as any).status === 'in-progress') || !!(visitData as any).check_in_time;
             const checkedOut = !!(visitData as any).check_out_time;
             const skippedCheckIn = !!(visitData as any).skip_check_in_reason;
             console.log('Setting state - isCheckedIn:', checkedIn, 'isCheckedOut:', checkedOut, 'skippedCheckIn:', skippedCheckIn);
@@ -988,15 +988,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-4">
-              <Button
-                onClick={() => handleCheckInOut('checkin')}
-                className={`w-full h-12 text-base font-medium ${
-                  isCheckedIn || !isTodaysVisit
-                    ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                    : 'bg-primary hover:bg-primary/90'
-                }`}
-                disabled={isCheckedIn || !isTodaysVisit}
-              >
+                <Button
+                  onClick={() => handleCheckInOut('checkin')}
+                  className={`w-full h-12 text-base font-medium ${
+                    isCheckedIn || !isTodaysVisit
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                      : 'bg-primary hover:bg-primary/90'
+                  }`}
+                  disabled={isCheckedIn || !isTodaysVisit}
+                >
                 <LogIn className="mr-2 h-5 w-5" />
                 {isCheckedIn ? 'Checked In' : 'Check In'}
               </Button>
@@ -1017,7 +1017,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               </Button>
               
               <div className="pt-2 border-t">
-                {!showReasonInput && !proceedWithoutCheckIn && (
+                {!showReasonInput && !proceedWithoutCheckIn && !isCheckedIn && (
                   <button
                     onClick={() => setShowReasonInput(true)}
                     className="w-full text-sm text-primary hover:underline text-center py-2"
@@ -1076,6 +1076,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                               
                               setProceedWithoutCheckIn(true);
                               setPhase('in-progress');
+                              setIsCheckedIn(true);
                               setShowLocationModal(false);
                               setShowReasonInput(false);
                               toast({
