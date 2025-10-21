@@ -35,6 +35,11 @@ interface AttendanceData {
     full_name: string;
     username: string;
   } | null;
+  first_visit_check_in?: string | null;
+  last_visit_check_in?: string | null;
+  first_visit_location?: any;
+  last_visit_location?: any;
+  active_market_hours?: number | null;
 }
 
 interface SummaryStats {
@@ -123,18 +128,57 @@ const LiveAttendanceMonitoring = () => {
         .from('profiles')
         .select('id, full_name, username');
 
+      // Fetch visits for all users in this period
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('user_id, planned_date, check_in_time, check_in_location')
+        .gte('planned_date', format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'))
+        .not('check_in_time', 'is', null)
+        .order('check_in_time', { ascending: true });
+
       if (allUsers) {
         const attendanceDataWithAbsent: AttendanceData[] = [];
         
-        // Add existing attendance records with profile data
+        // Add existing attendance records with profile data and visit data
         attendance?.forEach(record => {
           const profile = allUsers.find(user => user.id === record.user_id);
+          
+          // Find visits for this user on this date
+          const userVisitsToday = visits?.filter(v => 
+            v.user_id === record.user_id && v.planned_date === record.date
+          ) || [];
+          
+          // Calculate first/last check-in and active market hours
+          let firstVisitCheckIn = null;
+          let lastVisitCheckIn = null;
+          let firstVisitLocation = null;
+          let lastVisitLocation = null;
+          let activeMarketHours = null;
+          
+          if (userVisitsToday.length > 0) {
+            firstVisitCheckIn = userVisitsToday[0].check_in_time;
+            lastVisitCheckIn = userVisitsToday[userVisitsToday.length - 1].check_in_time;
+            firstVisitLocation = userVisitsToday[0].check_in_location;
+            lastVisitLocation = userVisitsToday[userVisitsToday.length - 1].check_in_location;
+            
+            if (firstVisitCheckIn && lastVisitCheckIn) {
+              const firstTime = new Date(firstVisitCheckIn).getTime();
+              const lastTime = new Date(lastVisitCheckIn).getTime();
+              activeMarketHours = (lastTime - firstTime) / (1000 * 60 * 60);
+            }
+          }
+          
           attendanceDataWithAbsent.push({
             ...record,
             profiles: profile ? {
               full_name: profile.full_name,
               username: profile.username
-            } : null
+            } : null,
+            first_visit_check_in: firstVisitCheckIn,
+            last_visit_check_in: lastVisitCheckIn,
+            first_visit_location: firstVisitLocation,
+            last_visit_location: lastVisitLocation,
+            active_market_hours: activeMarketHours
           });
         });
 
@@ -161,7 +205,12 @@ const LiveAttendanceMonitoring = () => {
               profiles: {
                 full_name: user.full_name,
                 username: user.username
-              }
+              },
+              first_visit_check_in: null,
+              last_visit_check_in: null,
+              first_visit_location: null,
+              last_visit_location: null,
+              active_market_hours: null
             });
           }
         });
@@ -256,10 +305,10 @@ const LiveAttendanceMonitoring = () => {
   const getStatusIcon = (record: AttendanceData) => {
     const isToday = record.date === format(new Date(), 'yyyy-MM-dd');
     if (isToday) {
-      if (record.check_in_time && !record.check_out_time) {
-        return <span className="text-green-500">🟢</span>; // Online
-      } else if (record.check_out_time) {
-        return <span className="text-red-500">🔴</span>; // Offline
+      if (record.first_visit_check_in && !record.last_visit_check_in) {
+        return <span className="text-green-500">🟢</span>; // Online (has first check-in)
+      } else if (record.last_visit_check_in) {
+        return <span className="text-red-500">🔴</span>; // Offline (has last check-in)
       }
     }
     return null;
@@ -293,17 +342,17 @@ const LiveAttendanceMonitoring = () => {
 
   const exportData = () => {
     // Create CSV content
-    const headers = ['Employee', 'Date', 'Check In', 'Check Out', 'Total Hours', 'Status', 'Location'];
+    const headers = ['Employee', 'Date', 'First Check In', 'Last Check In', 'Active Market Hours', 'Status', 'Location'];
     const csvContent = [
       headers.join(','),
       ...filteredData.map(record => [
         record.profiles?.full_name || 'Unknown',
         record.date,
-        record.check_in_time ? format(new Date(record.check_in_time), 'HH:mm') : '--',
-        record.check_out_time ? format(new Date(record.check_out_time), 'HH:mm') : '--',
-        record.total_hours ? `${record.total_hours.toFixed(1)}h` : '--',
+        record.first_visit_check_in ? format(new Date(record.first_visit_check_in), 'HH:mm') : '--',
+        record.last_visit_check_in ? format(new Date(record.last_visit_check_in), 'HH:mm') : '--',
+        record.active_market_hours ? `${record.active_market_hours.toFixed(1)}h` : '--',
         record.status,
-        formatLocation(record.check_in_location, record.check_in_address)
+        formatLocation(record.first_visit_location, record.check_in_address)
       ].join(','))
     ].join('\n');
 
@@ -514,18 +563,18 @@ const LiveAttendanceMonitoring = () => {
             </div>
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Check In</TableHead>
-                  <TableHead>Check Out</TableHead>
-                  <TableHead>Total Hours</TableHead>
-                  <TableHead>Attendance Status</TableHead>
-                  <TableHead>Location</TableHead>
-                </TableRow>
-              </TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>First Check In</TableHead>
+                    <TableHead>Last Check In</TableHead>
+                    <TableHead>Active Market Hours</TableHead>
+                    <TableHead>Attendance Status</TableHead>
+                    <TableHead>Location</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {filteredData.map((record) => (
                   <TableRow key={record.id}>
@@ -541,8 +590,8 @@ const LiveAttendanceMonitoring = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        {record.check_in_time 
-                          ? format(new Date(record.check_in_time), 'HH:mm')
+                        {record.first_visit_check_in 
+                          ? format(new Date(record.first_visit_check_in), 'HH:mm')
                           : '--'
                         }
                       </div>
@@ -550,14 +599,14 @@ const LiveAttendanceMonitoring = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        {record.check_out_time 
-                          ? format(new Date(record.check_out_time), 'HH:mm')
+                        {record.last_visit_check_in 
+                          ? format(new Date(record.last_visit_check_in), 'HH:mm')
                           : '--'
                         }
                       </div>
                     </TableCell>
                     <TableCell>
-                      {record.total_hours ? `${record.total_hours.toFixed(1)}h` : '--'}
+                      {record.active_market_hours ? `${record.active_market_hours.toFixed(1)}h` : '--'}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(record.status)}
@@ -566,7 +615,7 @@ const LiveAttendanceMonitoring = () => {
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm max-w-xs truncate">
-                          {formatLocation(record.check_in_location, record.check_in_address)}
+                          {formatLocation(record.first_visit_location, record.check_in_address)}
                         </span>
                       </div>
                     </TableCell>

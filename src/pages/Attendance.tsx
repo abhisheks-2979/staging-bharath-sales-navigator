@@ -21,6 +21,8 @@ const Attendance = () => {
   const navigate = useNavigate();
   const [attendanceData, setAttendanceData] = useState([]);
   const [todaysAttendance, setTodaysAttendance] = useState(null);
+  const [todaysVisits, setTodaysVisits] = useState([]);
+  const [activeMarketHours, setActiveMarketHours] = useState(null);
   const [stats, setStats] = useState({
     totalDays: 20,
     presentDays: 0,
@@ -37,6 +39,7 @@ const Attendance = () => {
 
   useEffect(() => {
     fetchAttendanceData();
+    fetchTodaysVisits();
     getCurrentLocation();
   }, [dateFilter]);
 
@@ -136,6 +139,40 @@ const Attendance = () => {
         description: "Failed to fetch attendance data",
         variant: "destructive"
       });
+    }
+  };
+
+  const fetchTodaysVisits = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // Fetch all visits for today with check-in times
+      const { data: visits, error } = await supabase
+        .from('visits')
+        .select('id, check_in_time, check_in_location, retailer_id')
+        .eq('user_id', user.id)
+        .eq('planned_date', today)
+        .not('check_in_time', 'is', null)
+        .order('check_in_time', { ascending: true });
+
+      if (error) throw error;
+
+      setTodaysVisits(visits || []);
+
+      // Calculate active market hours if we have visits
+      if (visits && visits.length > 0) {
+        const firstCheckIn = new Date(visits[0].check_in_time);
+        const lastCheckIn = new Date(visits[visits.length - 1].check_in_time);
+        const hoursWorked = (lastCheckIn.getTime() - firstCheckIn.getTime()) / (1000 * 60 * 60);
+        setActiveMarketHours(hoursWorked);
+      } else {
+        setActiveMarketHours(null);
+      }
+    } catch (error) {
+      console.error('Error fetching today\'s visits:', error);
     }
   };
 
@@ -340,97 +377,90 @@ const Attendance = () => {
             </div>
           </div>
 
-          {/* Mark Attendance Module */}
+          {/* Market Hours Module */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Mark Attendance
+                Today's Market Hours
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {showCamera && (
-                <div className="flex justify-center mb-4">
-                  <div className="relative">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="w-64 h-48 rounded-lg border"
-                    />
-                    <canvas ref={canvasRef} className="hidden" />
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {!todaysAttendance ? (
-                  <Button
-                    onClick={() => markAttendance('check-in')}
-                    disabled={isMarkingAttendance}
-                    className="bg-green-600 hover:bg-green-700 text-white p-6 h-auto"
-                  >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* First Check In */}
+                {todaysVisits.length > 0 ? (
+                  <div className="bg-green-100 dark:bg-green-900 p-4 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="text-center">
-                      <CheckCircle className="h-6 w-6 mx-auto mb-2" />
-                      <div className="font-semibold">Day Started ✓</div>
-                      {todaysAttendance?.check_in_time && (
-                        <div className="text-sm mt-1">
-                          ✅ Checked in at {formatTime(todaysAttendance.check_in_time)}
-                        </div>
-                      )}
-                    </div>
-                  </Button>
-                ) : (
-                  <div className="bg-green-100 dark:bg-green-900 p-6 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="text-center">
-                      <CheckCircle className="h-6 w-6 mx-auto mb-2 text-green-600" />
-                      <div className="font-semibold text-green-800 dark:text-green-200">Day Started ✓</div>
+                      <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
+                      <div className="font-semibold text-green-800 dark:text-green-200 text-sm">First Check In</div>
                       <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-                        ✅ Checked in at {formatTime(todaysAttendance.check_in_time)}
+                        {formatTime(todaysVisits[0].check_in_time)}
                       </div>
-                      {location && (
+                      {todaysVisits[0].check_in_location && (
                         <div className="text-xs text-green-500 mt-1 flex items-center justify-center gap-1">
                           <MapPin className="h-3 w-3" />
-                          {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                          {todaysVisits[0].check_in_location.latitude?.toFixed(4)}, {todaysVisits[0].check_in_location.longitude?.toFixed(4)}
                         </div>
                       )}
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border">
+                    <div className="text-center text-gray-500 dark:text-gray-400">
+                      <CheckCircle className="h-5 w-5 mx-auto mb-2" />
+                      <div className="font-semibold text-sm">First Check In</div>
+                      <div className="text-xs mt-1">No visits today</div>
+                    </div>
+                  </div>
                 )}
 
-                {todaysAttendance && !todaysAttendance.check_out_time ? (
-                  <Button
-                    onClick={() => markAttendance('check-out')}
-                    disabled={isMarkingAttendance}
-                    className="bg-orange-600 hover:bg-orange-700 text-white p-6 h-auto"
-                  >
-                    <div className="text-center">
-                      <Clock className="h-6 w-6 mx-auto mb-2" />
-                      <div className="font-semibold">Day Ended ✓</div>
+                {/* Active Market Hours */}
+                <div className={`p-4 rounded-lg border ${
+                  activeMarketHours !== null 
+                    ? 'bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-800' 
+                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                }`}>
+                  <div className="text-center">
+                    <Clock className={`h-5 w-5 mx-auto mb-2 ${activeMarketHours !== null ? 'text-blue-600' : 'text-gray-500'}`} />
+                    <div className={`font-semibold text-sm ${activeMarketHours !== null ? 'text-blue-800 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
+                      Active Market Hours
                     </div>
-                  </Button>
-                ) : todaysAttendance?.check_out_time ? (
-                  <div className="bg-green-100 dark:bg-green-900 p-6 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className={`text-sm mt-1 ${activeMarketHours !== null ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {activeMarketHours !== null ? `${activeMarketHours.toFixed(1)} hrs` : '--:--'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Last Check In */}
+                {todaysVisits.length > 0 ? (
+                  <div className="bg-orange-100 dark:bg-orange-900 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
                     <div className="text-center">
-                      <Clock className="h-6 w-6 mx-auto mb-2 text-green-600" />
-                      <div className="font-semibold text-green-800 dark:text-green-200">Day Ended ✓</div>
-                      <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-                        ✅ Checked out at {formatTime(todaysAttendance.check_out_time)}
+                      <Clock className="h-5 w-5 mx-auto mb-2 text-orange-600" />
+                      <div className="font-semibold text-orange-800 dark:text-orange-200 text-sm">Last Check In</div>
+                      <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                        {formatTime(todaysVisits[todaysVisits.length - 1].check_in_time)}
                       </div>
-                      <div className="text-xs text-green-500 mt-1">
-                        Total Hours: {todaysAttendance.total_hours ? `${todaysAttendance.total_hours.toFixed(1)} hrs` : '0.1 hrs'}
-                      </div>
+                      {todaysVisits[todaysVisits.length - 1].check_in_location && (
+                        <div className="text-xs text-orange-500 mt-1 flex items-center justify-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {todaysVisits[todaysVisits.length - 1].check_in_location.latitude?.toFixed(4)}, {todaysVisits[todaysVisits.length - 1].check_in_location.longitude?.toFixed(4)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg border">
+                  <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border">
                     <div className="text-center text-gray-500 dark:text-gray-400">
-                      <Clock className="h-6 w-6 mx-auto mb-2" />
-                      <div className="font-semibold">Check In First</div>
-                      <div className="text-sm">Mark your check-in to enable check-out</div>
+                      <Clock className="h-5 w-5 mx-auto mb-2" />
+                      <div className="font-semibold text-sm">Last Check In</div>
+                      <div className="text-xs mt-1">No visits today</div>
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="text-sm text-muted-foreground text-center mt-4">
+                Market hours are automatically tracked from your visit check-ins
               </div>
             </CardContent>
           </Card>
