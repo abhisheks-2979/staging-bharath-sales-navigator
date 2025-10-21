@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, Gift, Package } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -63,6 +66,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
+  const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
 
   // Create storage key for table form persistence
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -220,6 +224,59 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
     }
     
     return undefined;
+  };
+
+  // Create flattened list of products and variants for combobox
+  const getProductOptions = () => {
+    const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string }> = [];
+    
+    products.forEach(product => {
+      // Add base product
+      options.push({
+        value: product.id,
+        label: product.name,
+        product: product,
+        sku: product.sku
+      });
+      
+      // Add variants
+      if (product.variants) {
+        product.variants.forEach(variant => {
+          if (variant.is_active) {
+            options.push({
+              value: `${product.id}_variant_${variant.id}`,
+              label: `${product.name} - ${variant.variant_name}`,
+              product: product,
+              variant: variant,
+              sku: variant.sku
+            });
+          }
+        });
+      }
+    });
+    
+    return options;
+  };
+
+  const handleProductSelect = (rowId: string, value: string) => {
+    const option = getProductOptions().find(opt => opt.value === value);
+    if (option) {
+      setOrderRows(prev => prev.map(row => {
+        if (row.id === rowId) {
+          return {
+            ...row,
+            productCode: option.sku,
+            product: option.product,
+            variant: option.variant,
+            total: 0
+          };
+        }
+        return row;
+      }));
+      
+      // Close the combobox
+      setOpenComboboxes(prev => ({ ...prev, [rowId]: false }));
+    }
   };
 
   const addNewRow = () => {
@@ -392,8 +449,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="min-w-[200px]">Product</TableHead>
                   <TableHead className="w-20">SKU</TableHead>
-                  <TableHead className="min-w-32">Product</TableHead>
                   <TableHead className="w-16">Qty</TableHead>
                   <TableHead className="w-16">Stock</TableHead>
                   <TableHead className="w-20">Total</TableHead>
@@ -404,51 +461,78 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                 {orderRows.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="p-2">
-                      <Input
-                        placeholder="RICE001"
-                        value={row.productCode}
-                        onChange={(e) => updateRow(row.id, "productCode", e.target.value)}
-                        className="h-8 text-xs"
-                      />
+                      <Popover 
+                        open={openComboboxes[row.id]} 
+                        onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openComboboxes[row.id]}
+                            className="w-full justify-between h-8 text-xs font-normal"
+                          >
+                            {row.product ? (
+                              <span className="truncate">
+                                {row.variant ? `${row.product.name} - ${row.variant.variant_name}` : row.product.name}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Select product...</span>
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search products..." className="h-9" />
+                            <CommandList>
+                              <CommandEmpty>No product found.</CommandEmpty>
+                              <CommandGroup>
+                                {getProductOptions().map((option) => (
+                                  <CommandItem
+                                    key={option.value}
+                                    value={option.label}
+                                    onSelect={() => handleProductSelect(row.id, option.value)}
+                                    className="text-xs"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        row.product?.id === option.product.id && 
+                                        (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex-1">
+                                      <div className="font-medium">{option.label}</div>
+                                      <div className="text-[10px] text-muted-foreground">
+                                        SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     <TableCell className="p-2">
                       {row.product ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs font-medium">
-                              {row.variant ? `${row.product.name} - ${row.variant.variant_name}` : row.product.name}
-                            </span>
-                            {hasActiveSchemes(row.product) && (
-                              <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] px-1 py-0">
-                                <Gift size={8} className="mr-0.5" />
-                                Scheme
-                              </Badge>
-                            )}
-                          </div>
-                           <div className="text-[10px] text-muted-foreground">
-                            ₹{row.variant ? (row.variant.price % 1 === 0 ? row.variant.price.toString() : row.variant.price.toFixed(2)) : (row.product.rate % 1 === 0 ? row.product.rate.toString() : row.product.rate.toFixed(2))}/{row.product.unit}
-                            {row.variant && (row.variant.discount_percentage > 0 || row.variant.discount_amount > 0) && (
-                              <span className="text-green-600 ml-1">
-                                (Discounted: ₹{(() => {
-                                  const discountedPrice = row.variant.discount_percentage > 0 
-                                    ? (row.variant.price - (row.variant.price * row.variant.discount_percentage / 100))
-                                    : (row.variant.price - row.variant.discount_amount);
-                                  return discountedPrice % 1 === 0 ? discountedPrice.toString() : discountedPrice.toFixed(2);
-                                })()})
-                              </span>
-                            )}
-                          </div>
+                        <div className="space-y-0.5">
                           <div className="text-[10px] text-blue-600 font-mono">
-                            SKU: {row.variant ? row.variant.sku : row.product.sku}
+                            {row.variant ? row.variant.sku : row.product.sku}
                           </div>
                           {hasActiveSchemes(row.product) && (
-                            <div className="text-[10px] text-orange-600 bg-orange-50 p-1 rounded">
-                              {getActiveSchemeDetails(row.product)}
-                            </div>
+                            <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] px-1 py-0">
+                              <Gift size={7} className="mr-0.5" />
+                              Scheme
+                            </Badge>
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Enter SKU</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell className="p-2">
