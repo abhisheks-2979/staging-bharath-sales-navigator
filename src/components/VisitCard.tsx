@@ -141,7 +141,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           const today = new Date().toISOString().split('T')[0];
           const { data: visitData } = await supabase
             .from('visits')
-            .select('id, check_in_time, check_out_time, status')
+            .select('id, check_in_time, check_out_time, status, skip_check_in_reason')
             .eq('user_id', user.user.id)
             .eq('retailer_id', visitRetailerId)
             .eq('planned_date', today)
@@ -151,16 +151,21 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           if (visitData) {
             const checkedIn = !!visitData.check_in_time;
             const checkedOut = !!visitData.check_out_time;
-            console.log('Setting state - isCheckedIn:', checkedIn, 'isCheckedOut:', checkedOut);
+            const skippedCheckIn = !!visitData.skip_check_in_reason;
+            console.log('Setting state - isCheckedIn:', checkedIn, 'isCheckedOut:', checkedOut, 'skippedCheckIn:', skippedCheckIn);
             setIsCheckedIn(checkedIn);
             setIsCheckedOut(checkedOut);
+            setProceedWithoutCheckIn(skippedCheckIn);
+            if (skippedCheckIn) {
+              setSkipCheckInReason(visitData.skip_check_in_reason);
+            }
             setCurrentVisitId(visitData.id);
             
             if (visitData.status === 'unproductive') {
               setIsNoOrderMarked(true);
               setPhase('completed');
             }
-            if (visitData.check_in_time && !visitData.check_out_time && visitData.status === 'in-progress') {
+            if ((visitData.check_in_time || skippedCheckIn) && !visitData.check_out_time && visitData.status === 'in-progress') {
               setPhase('in-progress');
             } else if (visitData.check_out_time || visitData.status === 'unproductive' || visitData.status === 'productive') {
               setPhase('completed');
@@ -169,6 +174,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             console.log('No visit data found, resetting states');
             setIsCheckedIn(false);
             setIsCheckedOut(false);
+            setProceedWithoutCheckIn(false);
             setCurrentVisitId(null);
           }
 
@@ -319,7 +325,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     if (isCheckedOut) {
       return "bg-success text-success-foreground hover:bg-success/90";
     }
-    if (isCheckedIn) {
+    if (isCheckedIn || proceedWithoutCheckIn) {
       return "bg-warning text-warning-foreground hover:bg-warning/90";
     }
     // idle
@@ -332,6 +338,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     }
     if (phase === 'in-progress') {
       return (locationMatchIn ?? false) ? 'In Progress (Location match)' : 'In Progress (Location mismatch)';
+    }
+    if (proceedWithoutCheckIn) {
+      return 'Proceeding without Check-in';
     }
     return 'Check-In';
   };
@@ -642,7 +651,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     if (!isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
       toast({ 
         title: 'Check-in Required', 
-        description: 'Please check in first to mark no order.',
+        description: 'Please check in or proceed without check-in first.',
         variant: 'destructive' 
       });
       return;
@@ -1045,14 +1054,42 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                       <Button
                         size="sm"
                         className="flex-1"
-                        onClick={() => {
+                        onClick={async () => {
                           if (skipCheckInReason.trim()) {
-                            setProceedWithoutCheckIn(true);
-                            setShowLocationModal(false);
-                            toast({
-                              title: 'Proceeding without check-in',
-                              description: 'You can now access Order and No Order options.',
-                            });
+                            try {
+                              const { data: { user } } = await supabase.auth.getUser();
+                              if (user) {
+                                const today = new Date().toISOString().split('T')[0];
+                                const retailerId = visit.retailerId || visit.id;
+                                const visitId = await ensureVisit(user.id, retailerId, today);
+                                
+                                // Update visit with skip check-in reason and set to in-progress
+                                await supabase
+                                  .from('visits')
+                                  .update({ 
+                                    status: 'in-progress',
+                                    skip_check_in_reason: skipCheckInReason,
+                                    skip_check_in_time: new Date().toISOString()
+                                  })
+                                  .eq('id', visitId);
+                              }
+                              
+                              setProceedWithoutCheckIn(true);
+                              setPhase('in-progress');
+                              setShowLocationModal(false);
+                              setShowReasonInput(false);
+                              toast({
+                                title: 'Proceeding without check-in',
+                                description: 'You can now access Order and No Order options.',
+                              });
+                            } catch (err: any) {
+                              console.error('Skip check-in error:', err);
+                              toast({
+                                title: 'Error',
+                                description: 'Failed to record skip check-in reason.',
+                                variant: 'destructive'
+                              });
+                            }
                           } else {
                             toast({
                               title: 'Reason required',
