@@ -932,18 +932,32 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
   };
 
   const handleBulkCartUpdate = (items: CartItem[]) => {
+    // 1) Update cart by replacing quantities/totals for incoming items
     setCart(prev => {
       const newCart = [...prev];
       items.forEach(item => {
         const existingIndex = newCart.findIndex(cartItem => cartItem.id === item.id);
         if (existingIndex >= 0) {
-          newCart[existingIndex].quantity += item.quantity;
-          newCart[existingIndex].total += item.total;
-        } else {
+          newCart[existingIndex] = { ...newCart[existingIndex], quantity: item.quantity, total: item.total, closingStock: item.closingStock };
+        } else if (item.quantity > 0) {
           newCart.push(item);
         }
       });
-      return newCart;
+      // Also remove any items that now have zero quantity
+      return newCart.filter(ci => ci.quantity > 0);
+    });
+
+    // 2) Sync "Current" selection values immediately
+    setQuantities(prev => {
+      const updated = { ...prev };
+      items.forEach(it => {
+        if (it.quantity > 0) {
+          updated[it.id] = it.quantity;
+        } else {
+          delete updated[it.id];
+        }
+      });
+      return updated;
     });
   };
 
