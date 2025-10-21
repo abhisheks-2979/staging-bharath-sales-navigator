@@ -80,7 +80,17 @@ const [loading, setLoading] = useState(true);
 const [userId, setUserId] = useState<string | null>(null);
 const [loggedInUserName, setLoggedInUserName] = useState<string>("User");
 const [schemes, setSchemes] = useState<any[]>([]);
-const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
+  const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
+
+  // Auto-expand first product with variants when products are loaded
+  useEffect(() => {
+    if (products.length > 0 && Object.keys(expandedProducts).length === 0) {
+      const firstProductWithVariants = products.find(p => p.variants && p.variants.length > 0);
+      if (firstProductWithVariants) {
+        setExpandedProducts({ [firstProductWithVariants.id]: true });
+      }
+    }
+  }, [products]);
 const [showOrderSummary, setShowOrderSummary] = useState(false);
 const [currentProductName, setCurrentProductName] = useState<string>("Product");
 const [showSchemeModal, setShowSchemeModal] = useState(false);
