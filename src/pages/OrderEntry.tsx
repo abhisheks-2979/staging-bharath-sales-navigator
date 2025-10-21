@@ -86,14 +86,19 @@ const [schemes, setSchemes] = useState<any[]>([]);
   // Auto-expand first product with variants when products are loaded
   useEffect(() => {
     if (products.length > 0 && !hasAutoExpanded) {
-      const firstProductWithVariants = products.find(p => p.variants && p.variants.length > 0);
+      // Filter products based on selected category
+      const productsToCheck = selectedCategory === "All" 
+        ? products 
+        : products.filter(p => p.category === selectedCategory);
+      
+      const firstProductWithVariants = productsToCheck.find(p => p.variants && p.variants.length > 0);
       if (firstProductWithVariants) {
-        console.log('Auto-expanding first product:', firstProductWithVariants.name);
+        console.log('Auto-expanding first product with variants:', firstProductWithVariants.name);
         setExpandedProducts({ [firstProductWithVariants.id]: true });
         setHasAutoExpanded(true);
       }
     }
-  }, [products, hasAutoExpanded]);
+  }, [products, selectedCategory, hasAutoExpanded]);
 const [showOrderSummary, setShowOrderSummary] = useState(false);
 const [currentProductName, setCurrentProductName] = useState<string>("Product");
 const [showSchemeModal, setShowSchemeModal] = useState(false);
@@ -298,10 +303,8 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
     return updated;
   });
   
-  // Also update the addedItems set to show visual feedback
-  const newAddedItems = new Set(Object.keys(newQuantities).filter(id => newQuantities[id] > 0));
-  setAddedItems(newAddedItems);
-  console.log('Updated addedItems:', newAddedItems);
+  // Don't auto-mark items as "Added" - that state should only show temporarily after clicking the button
+  console.log('Synced quantities without updating addedItems state');
 };
 
 useEffect(() => {
