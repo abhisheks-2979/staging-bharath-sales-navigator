@@ -1644,6 +1644,8 @@ export type Database = {
           no_order_reason: string | null
           planned_date: string
           retailer_id: string
+          skip_check_in_reason: string | null
+          skip_check_in_time: string | null
           status: string
           updated_at: string
           user_id: string
@@ -1664,6 +1666,8 @@ export type Database = {
           no_order_reason?: string | null
           planned_date: string
           retailer_id: string
+          skip_check_in_reason?: string | null
+          skip_check_in_time?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -1684,6 +1688,8 @@ export type Database = {
           no_order_reason?: string | null
           planned_date?: string
           retailer_id?: string
+          skip_check_in_reason?: string | null
+          skip_check_in_time?: string | null
           status?: string
           updated_at?: string
           user_id?: string
