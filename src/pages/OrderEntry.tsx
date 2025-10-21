@@ -303,8 +303,10 @@ const syncQuantitiesFromCart = (cartData: CartItem[]) => {
     return updated;
   });
   
-  // Don't auto-mark items as "Added" - that state should only show temporarily after clicking the button
-  console.log('Synced quantities without updating addedItems state');
+  // Also update the addedItems set to show visual feedback
+  const newAddedItems = new Set(Object.keys(newQuantities).filter(id => newQuantities[id] > 0));
+  setAddedItems(newAddedItems);
+  console.log('Updated addedItems:', newAddedItems);
 };
 
 useEffect(() => {
