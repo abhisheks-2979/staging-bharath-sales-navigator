@@ -443,9 +443,11 @@ React.useEffect(() => {
       const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
       const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
       const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
+      const tableFormKey = activeStorageKey.replace('order_cart:', 'table_form:');
       localStorage.removeItem(quantityKey);
       localStorage.removeItem(variantKey);
       localStorage.removeItem(stockKey);
+      localStorage.removeItem(tableFormKey);
       setCartItems([]);
       navigate(`/visits/retailers`);
     } catch (error) {

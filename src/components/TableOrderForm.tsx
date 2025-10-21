@@ -326,13 +326,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       
       toast({
         title: "Added to Cart",
-        description: `${validRows.length} items added to cart`
+        description: `${validRows.length} items added to cart. Data will be cleared after order submission.`
       });
-
-      // Reset form and clear saved data
-      const resetRows = [{ id: Date.now().toString(), productCode: "", quantity: 0, closingStock: 0, total: 0 }];
-      setOrderRows(resetRows);
-      localStorage.setItem(tableFormStorageKey, JSON.stringify(resetRows));
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast({
