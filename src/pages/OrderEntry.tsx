@@ -83,6 +83,11 @@ const [schemes, setSchemes] = useState<any[]>([]);
   const [expandedProducts, setExpandedProducts] = useState<{[key: string]: boolean}>({});
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
 
+  // Reset auto-expand flag whenever category changes
+  useEffect(() => {
+    setHasAutoExpanded(false);
+  }, [selectedCategory]);
+
   // Auto-expand first product with variants when products are loaded
   useEffect(() => {
     if (products.length > 0 && !hasAutoExpanded) {
@@ -1249,17 +1254,19 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
     setCurrentProductName(productName);
   };
 
-  // Auto-expand logic for filtered products when category changes - DISABLED to keep variants collapsed by default
+  // Auto-expand logic for filtered products when category changes - preserve any already expanded items
   useEffect(() => {
-    // Keep all variant tables collapsed by default
-    // User can manually expand them by clicking on "Available Variants"
     if (filteredProducts.length > 0) {
-      const newExpandedProducts: {[key: string]: boolean} = {};
-      // Initialize all products as collapsed (false)
-      filteredProducts.forEach(product => {
-        newExpandedProducts[product.id] = false;
+      setExpandedProducts(prev => {
+        const newExpanded: { [key: string]: boolean } = { ...prev };
+        // Initialize keys for current list but don't collapse ones already opened
+        filteredProducts.forEach(product => {
+          if (newExpanded[product.id] === undefined) {
+            newExpanded[product.id] = false;
+          }
+        });
+        return newExpanded;
       });
-      setExpandedProducts(newExpandedProducts);
     }
   }, [selectedCategory, filteredProducts]);
 
