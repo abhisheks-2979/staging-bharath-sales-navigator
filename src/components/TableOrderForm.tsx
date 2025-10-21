@@ -317,29 +317,62 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       return base;
     };
 
-    setOrderRows(prev => prev.map(row => {
-      if (row.id === id) {
-        const updatedRow: OrderRow = { ...row, [field]: value } as OrderRow;
-        if (field === "productCode") {
-          const result = findProductByCode(value);
-          if (result) {
-            updatedRow.product = result.product;
-            updatedRow.variant = result.variant;
-            updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
-            updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity);
-          } else {
-            updatedRow.product = undefined;
-            updatedRow.variant = undefined;
-            updatedRow.closingStock = 0;
-            updatedRow.total = 0;
+    setOrderRows(prev => {
+      const updatedRows = prev.map(row => {
+        if (row.id === id) {
+          const updatedRow: OrderRow = { ...row, [field]: value } as OrderRow;
+          if (field === "productCode") {
+            const result = findProductByCode(value);
+            if (result) {
+              updatedRow.product = result.product;
+              updatedRow.variant = result.variant;
+              updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
+              updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity);
+            } else {
+              updatedRow.product = undefined;
+              updatedRow.variant = undefined;
+              updatedRow.closingStock = 0;
+              updatedRow.total = 0;
+            }
+          } else if (field === "quantity") {
+            updatedRow.total = computeTotal(row.product, row.variant, value);
           }
-        } else if (field === "quantity") {
-          updatedRow.total = computeTotal(row.product, row.variant, value);
+          return updatedRow;
         }
-        return updatedRow;
-      }
-      return row;
-    }));
+        return row;
+      });
+
+      // Auto-update cart whenever valid rows exist
+      setTimeout(() => {
+        const validRows = updatedRows.filter(row => row.product && row.quantity > 0);
+        if (validRows.length > 0) {
+          const cartItems = validRows.map(row => {
+            const baseProduct = {
+              ...row.product!,
+              rate: row.variant ? row.variant.price : row.product!.rate,
+              name: row.variant ? `${row.product!.name} - ${row.variant.variant_name}` : row.product!.name,
+              sku: row.variant ? row.variant.sku : row.product!.sku,
+              closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
+            };
+            
+            return {
+              id: baseProduct.id || 'unknown',
+              name: baseProduct.name || 'Unknown Product',
+              category: baseProduct.category?.name || 'Uncategorized',
+              rate: Number(baseProduct.rate) || 0,
+              unit: baseProduct.unit || 'piece',
+              quantity: Number(row.quantity) || 0,
+              total: Number(row.total) || 0,
+              closingStock: Number(row.closingStock) || 0,
+              schemes: baseProduct.schemes || []
+            };
+          });
+          onCartUpdate(cartItems);
+        }
+      }, 0);
+
+      return updatedRows;
+    });
   };
 
   const addToCart = () => {
