@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -74,6 +74,7 @@ export const OrderEntry = () => {
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
+  const [searchTerm, setSearchTerm] = useState("");
 const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
@@ -545,9 +546,22 @@ useEffect(() => {
   };
 }, []);
 
-const filteredProducts = selectedCategory === "All" 
-  ? products 
-  : products.filter(product => product.category === selectedCategory);
+  // Filter products by category and search term
+  const filteredProducts = products.filter(product => {
+    // Category filter
+    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+    
+    // Search filter - search in product name, SKU, and variant names
+    const matchesSearch = searchTerm.trim() === "" || 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.variants && product.variants.some(v => 
+        v.variant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      ));
+    
+    return matchesCategory && matchesSearch;
+  });
 
 console.log('🔍 Filtered products for category', selectedCategory, ':', filteredProducts.length, filteredProducts);
 
@@ -1396,6 +1410,37 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 Table
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Search Bar */}
+        <Card>
+          <CardContent className="p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+              <Input
+                type="text"
+                placeholder="Search by product name, SKU, or variant..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10"
+              />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                >
+                  <X size={14} />
+                </Button>
+              )}
+            </div>
+            {searchTerm && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Found {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
+              </p>
+            )}
           </CardContent>
         </Card>
 
