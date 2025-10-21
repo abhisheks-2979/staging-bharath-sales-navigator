@@ -49,7 +49,7 @@ const getWeekDays = (selectedWeekStart: Date) => {
 
 export const BeatPlanning = () => {
   const [selectedCategory] = useState<"all">("all");
-  const [selectedDay, setSelectedDay] = useState("Mon");
+  const [selectedDay, setSelectedDay] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedWeek, setSelectedWeek] = useState(new Date());
   const [plannedBeats, setPlannedBeats] = useState<{[key: string]: string[]}>({});
@@ -175,9 +175,12 @@ export const BeatPlanning = () => {
       if (error) throw error;
 
       const plannedBeatIds = data.map(plan => plan.beat_id);
+      // Use the correct day key based on the date being loaded
+      const loadedDate = new Date(date + 'T00:00:00');
+      const dayKey = loadedDate.toLocaleDateString('en-US', { weekday: 'short' });
       setPlannedBeats(prev => ({
         ...prev,
-        [selectedDay]: plannedBeatIds
+        [dayKey]: plannedBeatIds
       }));
     } catch (error) {
       console.error('Error loading beat plans:', error);
