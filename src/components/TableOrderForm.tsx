@@ -245,7 +245,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           if (variant.is_active) {
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: `${product.name} - ${variant.variant_name}`,
+              label: variant.variant_name,
               product: product,
               variant: variant,
               sku: variant.sku
