@@ -93,6 +93,20 @@ const handleAutoSelectOverStocked = async () => {
   if (!visitId) return;
   
   try {
+    // First check if there's already a confirmed order for this visit
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('visit_id', visitId)
+      .eq('status', 'confirmed');
+    
+    // If an order already exists, don't mark as unproductive
+    if (existingOrders && existingOrders.length > 0) {
+      console.log('Order already exists for this visit. Not marking as unproductive.');
+      return;
+    }
+    
+    // Only mark as unproductive if no order exists
     const { error } = await supabase
       .from('visits')
       .update({ 
