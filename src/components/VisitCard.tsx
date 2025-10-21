@@ -85,6 +85,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         const { data: user } = await supabase.auth.getUser();
         if (user.user) {
           const visitRetailerId = visit.retailerId || visit.id;
+          const targetDate = (selectedDate && selectedDate.length > 0) ? selectedDate : new Date().toISOString().split('T')[0];
           
           // Load distributor information - First try to get from distributor mapping
           const { data: distributorMapping, error: mappingError } = await supabase
@@ -109,7 +110,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           }
 
           // Check if stock records exist for this retailer today
-          const stockCheckDate = new Date().toISOString().split('T')[0];
+          const stockCheckDate = targetDate;
           const { data: stockRecords, error: stockError } = await supabase
             .from('stock')
             .select('id, product_name')
@@ -138,7 +139,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           }
 
           // Check visit status for today
-          const today = new Date().toISOString().split('T')[0];
+          const today = targetDate;
           const { data: visitData } = await supabase
             .from('visits')
             .select('id, check_in_time, check_out_time, status')
@@ -229,7 +230,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     return () => {
       window.removeEventListener('visitStatusChanged', handleStatusChange);
     };
-  }, [visit.id, visit.retailerId]);
+  }, [visit.id, visit.retailerId, selectedDate]);
 
   // Set up real-time listener for orders to automatically update visit status
   useEffect(() => {
@@ -250,7 +251,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           },
           async (payload) => {
             // When an order is placed, automatically mark visit as productive if checked in
-            const today = new Date().toISOString().split('T')[0];
+            const targetDate = (selectedDate && selectedDate.length > 0) ? selectedDate : new Date().toISOString().split('T')[0];
+            const createdAt: any = (payload as any)?.new?.created_at || (payload as any)?.created_at;
+            const createdDate = createdAt ? new Date(createdAt).toISOString().split('T')[0] : null;
+            if (createdDate !== targetDate) {
+              return;
+            }
             const { data: userData } = await supabase.auth.getUser();
             if (userData.user) {
               const { data: visitData } = await supabase
@@ -258,7 +264,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 .select('id, status, check_in_time')
                 .eq('user_id', userData.user.id)
                 .eq('retailer_id', retailerId)
-                .eq('planned_date', today)
+                .eq('planned_date', targetDate)
                 .maybeSingle();
 
               if (visitData?.check_in_time && (visitData.status === 'in-progress' || visitData.status === 'unproductive')) {
@@ -281,7 +287,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     };
 
     setupListener();
-  }, [visit.retailerId, visit.id]);
+  }, [visit.retailerId, visit.id, selectedDate]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
