@@ -70,6 +70,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [stockRecordCount, setStockRecordCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
+  const [proceedWithoutCheckIn, setProceedWithoutCheckIn] = useState(false);
+  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [skipCheckInReason, setSkipCheckInReason] = useState('');
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -636,7 +639,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   };
 
   const handleNoOrderClick = () => {
-    if (!isCheckedIn && isTodaysVisit) {
+    if (!isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
       toast({ 
         title: 'Check-in Required', 
         description: 'Please check in first to mark no order.',
@@ -828,9 +831,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
-              } ${(!isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${(!isCheckedIn && !proceedWithoutCheckIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={async () => {
-                if (!isCheckedIn && isTodaysVisit) {
+                if (!isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
                   toast({ 
                     title: 'Check-in Required', 
                     description: 'Please check in first to place an order.',
@@ -838,7 +841,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   });
                   return;
                 }
-                if (!isCheckedIn || !isTodaysVisit) return;
+                if ((!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) return;
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
@@ -855,7 +858,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
                 }
               }}
-              title={`${!isCheckedIn ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
+              title={`${(!isCheckedIn && !proceedWithoutCheckIn) ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
             >
               <ShoppingCart size={12} className="sm:size-3.5" />
               <span className="text-xs">Order</span>
@@ -866,11 +869,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
-              } ${(isNoOrderMarked || hasOrderToday || !isCheckedIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${(isNoOrderMarked || hasOrderToday || (!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={handleNoOrderClick}
-              disabled={hasOrderToday || !isCheckedIn || !isTodaysVisit}
+              disabled={hasOrderToday || (!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit}
               title={
-                !isCheckedIn
+                (!isCheckedIn && !proceedWithoutCheckIn)
                   ? "Check in first to mark no order"
                   : isNoOrderMarked 
                     ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` 
@@ -1003,6 +1006,75 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 <LogOut className="mr-2 h-5 w-5" />
                 {isCheckedOut ? 'Checked Out' : 'Check Out'}
               </Button>
+              
+              <div className="pt-2 border-t">
+                {!showReasonInput && !proceedWithoutCheckIn && (
+                  <button
+                    onClick={() => setShowReasonInput(true)}
+                    className="w-full text-sm text-primary hover:underline text-center py-2"
+                  >
+                    Click here to proceed without Check-in
+                  </button>
+                )}
+                
+                {showReasonInput && !proceedWithoutCheckIn && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">
+                        Reason for proceeding without check-in:
+                      </label>
+                      <textarea
+                        value={skipCheckInReason}
+                        onChange={(e) => setSkipCheckInReason(e.target.value)}
+                        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Enter your reason here..."
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowReasonInput(false);
+                          setSkipCheckInReason('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          if (skipCheckInReason.trim()) {
+                            setProceedWithoutCheckIn(true);
+                            setShowLocationModal(false);
+                            toast({
+                              title: 'Proceeding without check-in',
+                              description: 'You can now access Order and No Order options.',
+                            });
+                          } else {
+                            toast({
+                              title: 'Reason required',
+                              description: 'Please enter a reason to proceed.',
+                              variant: 'destructive'
+                            });
+                          }
+                        }}
+                        disabled={!skipCheckInReason.trim()}
+                      >
+                        Submit
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {proceedWithoutCheckIn && (
+                  <div className="text-sm text-center py-2 text-muted-foreground">
+                    Proceeding without check-in
+                  </div>
+                )}
+              </div>
             </div>
           </DialogContent>
         </Dialog>
