@@ -351,12 +351,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   });
 
   const ensureVisit = async (userId: string, retailerId: string, date: string) => {
+    // Get the most recent visit (in case of duplicates, use the latest one)
     const { data, error } = await supabase
       .from('visits')
       .select('id, status, check_in_time, location_match_in, location_match_out')
       .eq('user_id', userId)
       .eq('retailer_id', retailerId)
       .eq('planned_date', date)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -371,6 +374,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       return data.id;
     }
 
+    // Only insert if no visit exists
     const { data: inserted, error: insertError } = await supabase
       .from('visits')
       .insert({ user_id: userId, retailer_id: retailerId, planned_date: date })
