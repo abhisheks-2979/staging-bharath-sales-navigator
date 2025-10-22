@@ -15,6 +15,7 @@ import { AddRetailerToVisitModal } from "@/components/AddRetailerToVisitModal";
 import { MassEditBeatsModal } from "@/components/MassEditBeatsModal";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
+import { RetailerAnalytics } from "@/components/RetailerAnalytics";
 
 interface Retailer {
   id: string;
@@ -90,8 +91,10 @@ export const MyRetailers = () => {
   const [massEditModalOpen, setMassEditModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
+  const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [selectedRetailerForVisit, setSelectedRetailerForVisit] = useState<Retailer | null>(null);
   const [selectedRetailerForDetail, setSelectedRetailerForDetail] = useState<Retailer | null>(null);
+  const [selectedRetailerForAnalytics, setSelectedRetailerForAnalytics] = useState<Retailer | null>(null);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -183,6 +186,11 @@ export const MyRetailers = () => {
   const openRetailerDetail = (retailer: Retailer) => {
     setSelectedRetailerForDetail(retailer);
     setDetailModalOpen(true);
+  };
+
+  const openRetailerAnalytics = (retailer: Retailer) => {
+    setSelectedRetailerForAnalytics(retailer);
+    setAnalyticsModalOpen(true);
   };
 
   const openAddToVisit = (retailer: Retailer) => {
@@ -408,7 +416,7 @@ export const MyRetailers = () => {
                     <div className="flex items-center justify-between">
                       <h3 
                         className="font-semibold cursor-pointer hover:text-primary"
-                        onClick={() => openRetailerDetail(r)}
+                        onClick={() => openRetailerAnalytics(r)}
                       >
                         {r.name}
                       </h3>
@@ -484,8 +492,8 @@ export const MyRetailers = () => {
                       <TableRow key={r.id}>
                         <TableCell 
                           className="font-medium cursor-pointer hover:text-primary"
-                          onClick={() => openRetailerDetail(r)}
-                          title="Click to view details"
+                          onClick={() => openRetailerAnalytics(r)}
+                          title="Click to view analytics"
                         >
                           {r.name}
                         </TableCell>
@@ -575,6 +583,31 @@ export const MyRetailers = () => {
           onOpenChange={setBulkImportModalOpen}
           onSuccess={loadRetailers}
         />
+
+        {/* Retailer Analytics Modal */}
+        {selectedRetailerForAnalytics && analyticsModalOpen && (
+          <RetailerAnalytics
+            retailer={{
+              id: selectedRetailerForAnalytics.id,
+              name: selectedRetailerForAnalytics.name,
+              type: selectedRetailerForAnalytics.entity_type || 'retailer',
+              phone: selectedRetailerForAnalytics.phone || '',
+              address: selectedRetailerForAnalytics.address,
+              lastVisitDate: selectedRetailerForAnalytics.last_visit_date || undefined,
+              isSelected: false,
+              priority: selectedRetailerForAnalytics.priority as "high" | "medium" | "low" | undefined,
+              metrics: {
+                avgOrders3Months: selectedRetailerForAnalytics.order_value || 0,
+                avgOrderPerVisit: selectedRetailerForAnalytics.order_value || 0,
+                visitsIn3Months: 0
+              }
+            }}
+            onClose={() => {
+              setAnalyticsModalOpen(false);
+              setSelectedRetailerForAnalytics(null);
+            }}
+          />
+        )}
       </section>
     </Layout>
   );
