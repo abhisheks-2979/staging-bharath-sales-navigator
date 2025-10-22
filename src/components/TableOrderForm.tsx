@@ -228,7 +228,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
 
   // Create flattened list of products and variants for combobox
   const getProductOptions = () => {
-    const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string }> = [];
+    const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; type: 'product' | 'variant' }> = [];
     
     products.forEach(product => {
       // Add base product
@@ -236,10 +236,11 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         value: product.id,
         label: product.name,
         product: product,
-        sku: product.sku
+        sku: product.sku,
+        type: 'product'
       });
       
-      // Add variants
+      // Add variants as separate entries (without base product name)
       if (product.variants) {
         product.variants.forEach(variant => {
           if (variant.is_active) {
@@ -254,10 +255,11 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
             
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: `${product.name} - ${variantDisplayName}`,
+              label: variantDisplayName || variant.variant_name, // Show only variant name
               product: product,
               variant: variant,
-              sku: variant.sku
+              sku: variant.sku,
+              type: 'variant'
             });
           }
         });
@@ -516,15 +518,13 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             {row.product ? (
                               <span className="truncate">
                                 {row.variant ? (() => {
-                                  // Extract just the variant part by removing the base product name if it's included
+                                  // Extract just the variant part for display
                                   let variantDisplayName = row.variant.variant_name;
-                                  // If variant name starts with product name, remove it
                                   if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
                                     variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                    // Remove leading dash or hyphen if present
                                     variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
                                   }
-                                  return `${row.product.name} - ${variantDisplayName}`;
+                                  return variantDisplayName || row.variant.variant_name;
                                 })() : row.product.name}
                               </span>
                             ) : (
@@ -570,21 +570,21 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                       </Popover>
                     </TableCell>
                     <TableCell className="p-2">
-                      {row.product ? (
-                        <div className="space-y-0.5">
-                          <div className="text-[10px] text-blue-600 font-mono">
-                            {row.variant ? row.variant.sku : row.product.sku}
-                          </div>
-                          {hasActiveSchemes(row.product) && (
-                            <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] px-1 py-0">
-                              <Gift size={7} className="mr-0.5" />
-                              Scheme
-                            </Badge>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
+                      <div className="space-y-0.5">
+                        <Input
+                          type="text"
+                          placeholder="Enter SKU"
+                          value={row.productCode || ""}
+                          onChange={(e) => updateRow(row.id, "productCode", e.target.value)}
+                          className="h-8 text-xs font-mono"
+                        />
+                        {row.product && hasActiveSchemes(row.product) && (
+                          <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] px-1 py-0">
+                            <Gift size={7} className="mr-0.5" />
+                            Scheme
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="p-2">
                       <Input
