@@ -1,6 +1,6 @@
-import { Menu, X, LogOut, Home } from "lucide-react";
+import { Menu, X, LogOut, Home, ArrowLeft } from "lucide-react";
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/NetworkBadge";
@@ -30,6 +30,7 @@ import {
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { signOut, userProfile, userRole } = useAuth();
+  const navigate = useNavigate();
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
@@ -65,16 +66,26 @@ export const Navbar = () => {
       <nav className="bg-gradient-primary text-primary-foreground shadow-lg relative z-50">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center relative">
-                <Home size={14} className="absolute opacity-30" />
-                <span className="text-xs font-bold relative z-10">KVP</span>
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold">KVP Business Solutions</h1>
-                <p className="text-xs opacity-80">Field Sales App</p>
-              </div>
-            </NavLink>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+                title="Go back"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              
+              <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+                <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center relative">
+                  <Home size={14} className="absolute opacity-30" />
+                  <span className="text-xs font-bold relative z-10">KVP</span>
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold">KVP Business Solutions</h1>
+                  <p className="text-xs opacity-80">Field Sales App</p>
+                </div>
+              </NavLink>
+            </div>
             
             <button
               onClick={() => setIsOpen(!isOpen)}
