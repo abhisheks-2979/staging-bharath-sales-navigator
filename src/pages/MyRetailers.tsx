@@ -330,21 +330,24 @@ export const MyRetailers = () => {
       beat_id: newForm.beat_id || 'unassigned',
       status: 'active'
     };
-    const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();
+    const { data, error } = await supabase.from('retailers').insert(payload).select('*').maybeSingle();
     if (error) {
       toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
       return;
     }
-    toast({ title: 'Added', description: `${newForm.name} saved successfully.` });
+    toast({ title: 'Added', description: `${newForm.name} saved successfully. Fill in additional details now.` });
     setAddOpen(false);
     setNewForm({ name: '', phone: '', address: '', entity_type: 'retailer', beat_id: '' });
-    loadRetailers();
-    if (data?.id) {
-      // Open the newly created retailer for quick edits
-      const created = (retailers || []).find(r => r.id === data.id);
-      if (created) openEdit(created);
+    
+    // Open detail modal immediately with the newly created retailer data
+    if (data) {
+      setSelectedRetailerForDetail(data as Retailer);
+      setDetailModalOpen(true);
     }
-  }; 
+    
+    // Refresh the list
+    await loadRetailers();
+  };
 
   useEffect(() => {
     const state = location.state as any;
