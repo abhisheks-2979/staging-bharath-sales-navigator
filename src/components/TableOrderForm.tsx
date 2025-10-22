@@ -243,9 +243,18 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       if (product.variants) {
         product.variants.forEach(variant => {
           if (variant.is_active) {
+            // Extract just the variant part by removing the base product name if it's included
+            let variantDisplayName = variant.variant_name;
+            // If variant name starts with product name, remove it
+            if (variantDisplayName.toLowerCase().startsWith(product.name.toLowerCase())) {
+              variantDisplayName = variantDisplayName.substring(product.name.length).trim();
+              // Remove leading dash or hyphen if present
+              variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
+            }
+            
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: variant.variant_name,
+              label: `${product.name} - ${variantDisplayName}`,
               product: product,
               variant: variant,
               sku: variant.sku
@@ -506,7 +515,17 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           >
                             {row.product ? (
                               <span className="truncate">
-                                {row.variant ? `${row.product.name} - ${row.variant.variant_name}` : row.product.name}
+                                {row.variant ? (() => {
+                                  // Extract just the variant part by removing the base product name if it's included
+                                  let variantDisplayName = row.variant.variant_name;
+                                  // If variant name starts with product name, remove it
+                                  if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
+                                    variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
+                                    // Remove leading dash or hyphen if present
+                                    variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
+                                  }
+                                  return `${row.product.name} - ${variantDisplayName}`;
+                                })() : row.product.name}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">Select product...</span>
@@ -514,18 +533,18 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0" align="start">
-                          <Command>
+                        <PopoverContent className="w-[300px] p-0 bg-background z-50" align="start">
+                          <Command className="bg-background">
                             <CommandInput placeholder="Search products..." className="h-9" />
-                            <CommandList>
+                            <CommandList className="bg-background">
                               <CommandEmpty>No product found.</CommandEmpty>
-                              <CommandGroup>
+                              <CommandGroup className="bg-background">
                                 {getProductOptions().map((option) => (
                                   <CommandItem
                                     key={option.value}
                                     value={option.label}
                                     onSelect={() => handleProductSelect(row.id, option.value)}
-                                    className="text-xs"
+                                    className="text-xs bg-background hover:bg-accent"
                                   >
                                     <Check
                                       className={cn(
