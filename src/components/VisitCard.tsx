@@ -1142,7 +1142,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                                   .from('visits')
                                   .update({ 
                                     status: 'in-progress',
-                                    skip_check_in_reason: 'Phone Order',
+                                    skip_check_in_reason: 'phone-order',
                                     skip_check_in_time: new Date().toISOString()
                                   } as any)
                                   .eq('id', visitId);

@@ -26,6 +26,10 @@ interface CheckInOutData {
   check_in_address: string | null;
   check_out_address: string | null;
   planned_date: string;
+  skip_check_in_time?: string | null;
+  skip_check_in_reason?: string | null;
+  no_order_reason?: string | null;
+  status?: string;
 }
 
 interface OrderData {
@@ -106,10 +110,14 @@ const Operations = () => {
           check_out_location,
           check_in_address,
           check_out_address,
-          planned_date
+          planned_date,
+          skip_check_in_time,
+          skip_check_in_reason,
+          no_order_reason,
+          status
         `)
-        .not('check_in_time', 'is', null)
-        .order('check_in_time', { ascending: false });
+        .or('check_in_time.not.is.null,skip_check_in_time.not.is.null')
+        .order('check_in_time', { ascending: false, nullsFirst: false });
 
       if (userFilter !== 'all') {
         query = query.eq('user_id', userFilter);
@@ -141,16 +149,21 @@ const Operations = () => {
           check_out_location: visit.check_out_location,
           check_in_address: visit.check_in_address,
           check_out_address: visit.check_out_address,
-          planned_date: visit.planned_date
+          planned_date: visit.planned_date,
+          skip_check_in_time: visit.skip_check_in_time,
+          skip_check_in_reason: visit.skip_check_in_reason,
+          no_order_reason: visit.no_order_reason,
+          status: visit.status
         };
       }) || [];
 
       setCheckInData(formattedData);
 
-      // Calculate today's check-ins
+      // Calculate today's check-ins (including phone orders and skip check-ins)
       const today = new Date().toISOString().split('T')[0];
       const todayCheckins = formattedData.filter(item => 
-        item.check_in_time && item.check_in_time.startsWith(today)
+        (item.check_in_time && item.check_in_time.startsWith(today)) ||
+        (item.skip_check_in_time && item.skip_check_in_time.startsWith(today))
       ).length;
       
       setTodayStats(prev => ({ ...prev, checkins: todayCheckins }));
@@ -550,22 +563,23 @@ const Operations = () => {
                       <TableRow>
                         <TableHead>User Name</TableHead>
                         <TableHead>Retailer Name</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Check-in Time</TableHead>
                         <TableHead>Check-out Time</TableHead>
-                        <TableHead>Location</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loadingCheckins ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8">
+                          <TableCell colSpan={7} className="text-center py-8">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
                           </TableCell>
                         </TableRow>
                       ) : filteredCheckInData.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             No check-in data found
                           </TableCell>
                         </TableRow>
@@ -575,12 +589,27 @@ const Operations = () => {
                             <TableCell className="font-medium">{item.user_name}</TableCell>
                             <TableCell>{item.retailer_name}</TableCell>
                             <TableCell>
+                              {item.skip_check_in_time ? (
+                                <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
+                                  {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 'Other Reason'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                  Normal Visit
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
                               {item.check_in_time ? (
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                                     {format(new Date(item.check_in_time), 'MMM dd, HH:mm')}
                                   </Badge>
                                 </div>
+                              ) : item.skip_check_in_time ? (
+                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                  {format(new Date(item.skip_check_in_time), 'MMM dd, HH:mm')}
+                                </Badge>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
@@ -597,11 +626,18 @@ const Operations = () => {
                               )}
                             </TableCell>
                             <TableCell>
-                              {item.check_in_location && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                  <MapPin size={12} />
-                                  GPS
-                                </div>
+                              {item.status === 'unproductive' && item.no_order_reason ? (
+                                <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200">
+                                  Unproductive
+                                </Badge>
+                              ) : item.status === 'productive' ? (
+                                <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
+                                  Productive
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  {item.status || 'Pending'}
+                                </Badge>
                               )}
                             </TableCell>
                             <TableCell>
@@ -626,9 +662,40 @@ const Operations = () => {
                                         <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
                                       </div>
                                       <div>
+                                        <label className="text-sm font-medium">Visit Type</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {item.skip_check_in_time ? (
+                                            <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
+                                              {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 'Other Reason'}
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                              Normal Visit
+                                            </Badge>
+                                          )}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Status</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {item.status === 'unproductive' && item.no_order_reason ? (
+                                            <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200">
+                                              Unproductive
+                                            </Badge>
+                                          ) : item.status === 'productive' ? (
+                                            <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
+                                              Productive
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="secondary">{item.status || 'Pending'}</Badge>
+                                          )}
+                                        </p>
+                                      </div>
+                                      <div>
                                         <label className="text-sm font-medium">Check-in Time</label>
                                         <p className="text-sm text-muted-foreground">
-                                          {item.check_in_time ? format(new Date(item.check_in_time), 'PPpp') : '-'}
+                                          {item.check_in_time ? format(new Date(item.check_in_time), 'PPpp') : 
+                                           item.skip_check_in_time ? format(new Date(item.skip_check_in_time), 'PPpp') : '-'}
                                         </p>
                                       </div>
                                       <div>
@@ -637,14 +704,35 @@ const Operations = () => {
                                           {item.check_out_time ? format(new Date(item.check_out_time), 'PPpp') : 'Still in progress'}
                                         </p>
                                       </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Check-in Address</label>
-                                        <p className="text-sm text-muted-foreground">{item.check_in_address || 'Not available'}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Check-out Address</label>
-                                        <p className="text-sm text-muted-foreground">{item.check_out_address || 'Not available'}</p>
-                                      </div>
+                                      {item.check_in_address && (
+                                        <div>
+                                          <label className="text-sm font-medium">Check-in Address</label>
+                                          <p className="text-sm text-muted-foreground">{item.check_in_address}</p>
+                                        </div>
+                                      )}
+                                      {item.check_out_address && (
+                                        <div>
+                                          <label className="text-sm font-medium">Check-out Address</label>
+                                          <p className="text-sm text-muted-foreground">{item.check_out_address}</p>
+                                        </div>
+                                      )}
+                                      {item.skip_check_in_reason && (
+                                        <div className="col-span-2">
+                                          <label className="text-sm font-medium">Skip Check-in Reason</label>
+                                          <p className="text-sm text-muted-foreground">
+                                            {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 
+                                             item.skip_check_in_reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {item.no_order_reason && (
+                                        <div className="col-span-2">
+                                          <label className="text-sm font-medium">No Order Reason</label>
+                                          <p className="text-sm text-muted-foreground">
+                                            {item.no_order_reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </DialogContent>
