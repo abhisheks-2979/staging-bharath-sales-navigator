@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone } from "lucide-react";
+import { Phone, MapPin, Edit2, ExternalLink } from "lucide-react";
 
 interface Retailer {
   id: string;
@@ -27,6 +28,11 @@ interface Retailer {
   retail_type?: string | null;
   potential?: string | null;
   competitors?: string[] | null;
+  gst_number?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  photo_url?: string | null;
+  order_value?: number | null;
 }
 
 interface RetailerDetailModalProps {
@@ -71,6 +77,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           retail_type: formData.retail_type,
           potential: formData.potential,
           competitors: formData.competitors,
+          gst_number: formData.gst_number,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
         })
         .eq('id', formData.id)
         .eq('user_id', user.id);
@@ -130,130 +139,319 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
   if (!formData) return null;
 
+  const getGoogleMapsLink = () => {
+    if (formData.latitude && formData.longitude) {
+      return `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`;
+    }
+    return null;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Edit Retailer" : "Retailer Details"}
-          </DialogTitle>
+          <DialogTitle className="text-2xl">Retailer Overview</DialogTitle>
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Name</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              {isEditing ? (
-                <Input
-                  value={formData.phone || ''}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+          {/* Photo and Name Section */}
+          <div className="flex items-center gap-4 pb-4 border-b">
+            {formData.photo_url && (
+              <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-border flex-shrink-0">
+                <img 
+                  src={formData.photo_url} 
+                  alt={formData.name} 
+                  className="w-full h-full object-cover"
                 />
-              ) : formData.phone ? (
-                <a 
-                  href={`tel:${formData.phone.replace(/\s+/g, '')}`}
-                  className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-accent transition-colors cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.location.href = `tel:${formData.phone.replace(/\s+/g, '')}`;
-                  }}
-                >
-                  <Phone size={16} className="text-primary" />
-                  <span>{formData.phone}</span>
-                </a>
-              ) : (
-                <Input value="-" disabled />
+              </div>
+            )}
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold">{formData.name}</h3>
+              {formData.beat_id && (
+                <p className="text-sm text-muted-foreground">Beat: {formData.beat_id}</p>
               )}
             </div>
           </div>
 
-          <div>
-            <Label>Address</Label>
-            <Input
-              value={formData.address}
-              onChange={(e) => setFormData({...formData, address: e.target.value})}
-              disabled={!isEditing}
-            />
-          </div>
+          {/* Accordion Sections */}
+          <Accordion type="multiple" defaultValue={["owner", "outlet", "location"]} className="w-full">
+            {/* Owner Details */}
+            <AccordionItem value="owner">
+              <AccordionTrigger className="text-lg font-semibold">
+                Owner Details
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Owner's Number</Label>
+                    <div className="flex items-center justify-between group">
+                      {formData.phone ? (
+                        <a 
+                          href={`tel:${formData.phone.replace(/\s+/g, '')}`}
+                          className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone size={14} className="text-primary" />
+                          <span>{formData.phone}</span>
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                      {isEditing && (
+                        <Edit2 size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
+                      )}
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Category</Label>
-              <Input
-                value={formData.category || ''}
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label>Potential</Label>
-              <Select 
-                value={formData.potential || ''} 
-                onValueChange={(v) => setFormData({...formData, potential: v})}
-                disabled={!isEditing}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select potential" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Owner's Name</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.name}</span>
+                      )}
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Retail Type</Label>
-              <Input
-                value={formData.retail_type || ''}
-                onChange={(e) => setFormData({...formData, retail_type: e.target.value})}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select 
-                value={formData.status || ''} 
-                onValueChange={(v) => setFormData({...formData, status: v})}
-                disabled={!isEditing}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Last Order Date</Label>
+                    <div className="flex items-center justify-between group">
+                      <span className="text-sm">
+                        {formData.last_visit_date 
+                          ? new Date(formData.last_visit_date).toLocaleDateString() 
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
 
-          <div>
-            <Label>Notes</Label>
-            <Input
-              value={formData.notes || ''}
-              onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              disabled={!isEditing}
-            />
-          </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Last Order Value</Label>
+                    <div className="flex items-center justify-between group">
+                      <span className="text-sm">
+                        {formData.order_value ? `₹${formData.order_value.toFixed(2)}` : '-'}
+                      </span>
+                    </div>
+                  </div>
 
-          <div className="bg-muted/50 p-3 rounded-lg text-sm space-y-1">
-            <div><span className="font-medium">Beat:</span> {formData.beat_id}</div>
-            <div><span className="font-medium">Created:</span> {new Date(formData.created_at).toLocaleDateString()}</div>
-            {formData.last_visit_date && (
-              <div><span className="font-medium">Last Visit:</span> {new Date(formData.last_visit_date).toLocaleDateString()}</div>
-            )}
-          </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">GST Number</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.gst_number || ''}
+                          onChange={(e) => setFormData({...formData, gst_number: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter GST number"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.gst_number || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Outlet Details */}
+            <AccordionItem value="outlet">
+              <AccordionTrigger className="text-lg font-semibold">
+                Outlet Details
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Outlet Type</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.retail_type || ''}
+                          onChange={(e) => setFormData({...formData, retail_type: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter outlet type"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.retail_type || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Category</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.category || ''}
+                          onChange={(e) => setFormData({...formData, category: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter category"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.category || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Potential</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Select 
+                          value={formData.potential || ''} 
+                          onValueChange={(v) => setFormData({...formData, potential: v})}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select potential" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="low">Low</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-sm capitalize">{formData.potential || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Select 
+                          value={formData.status || ''} 
+                          onValueChange={(v) => setFormData({...formData, status: v})}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-sm capitalize">{formData.status || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Parent Type</Label>
+                    <div className="flex items-center justify-between group">
+                      <span className="text-sm">{formData.parent_type || '-'}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Parent Name</Label>
+                    <div className="flex items-center justify-between group">
+                      <span className="text-sm">{formData.parent_name || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Location Details */}
+            <AccordionItem value="location">
+              <AccordionTrigger className="text-lg font-semibold">
+                Location Details
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.address}
+                          onChange={(e) => setFormData({...formData, address: e.target.value})}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.address}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Location Tag</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.location_tag || ''}
+                          onChange={(e) => setFormData({...formData, location_tag: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter location tag"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.location_tag || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Latitude</Label>
+                      <div className="flex items-center justify-between group">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step="any"
+                            value={formData.latitude || ''}
+                            onChange={(e) => setFormData({...formData, latitude: e.target.value ? parseFloat(e.target.value) : null})}
+                            className="h-8 text-sm"
+                            placeholder="Enter latitude"
+                          />
+                        ) : (
+                          <span className="text-sm">{formData.latitude || '-'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Longitude</Label>
+                      <div className="flex items-center justify-between group">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step="any"
+                            value={formData.longitude || ''}
+                            onChange={(e) => setFormData({...formData, longitude: e.target.value ? parseFloat(e.target.value) : null})}
+                            className="h-8 text-sm"
+                            placeholder="Enter longitude"
+                          />
+                        ) : (
+                          <span className="text-sm">{formData.longitude || '-'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {getGoogleMapsLink() && (
+                    <div className="pt-2">
+                      <a
+                        href={getGoogleMapsLink()!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <MapPin size={16} />
+                        <span>View on Google Maps</span>
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
 
         <div className="flex justify-between pt-4 border-t">
@@ -276,7 +474,10 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               <>
                 <Button 
                   variant="outline" 
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setFormData({ ...retailer! });
+                  }}
                   disabled={loading}
                 >
                   Cancel
@@ -285,7 +486,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   onClick={handleSave}
                   disabled={loading}
                 >
-                  {loading ? "Saving..." : "Save"}
+                  {loading ? "Saving..." : "Save Changes"}
                 </Button>
               </>
             ) : (
