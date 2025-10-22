@@ -23,14 +23,26 @@ interface CreateNewVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   onVisitCreated?: () => void;
+  initialDate?: string; // ISO format date string (yyyy-MM-dd)
 }
 
-export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated }: CreateNewVisitModalProps) => {
+export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDate }: CreateNewVisitModalProps) => {
   const [selectedBeat, setSelectedBeat] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [availableBeats, setAvailableBeats] = useState<Beat[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
+
+  // Reset date when modal opens with initialDate
+  useEffect(() => {
+    if (isOpen) {
+      if (initialDate) {
+        setSelectedDate(new Date(initialDate));
+      } else {
+        setSelectedDate(new Date());
+      }
+    }
+  }, [isOpen, initialDate]);
 
   useEffect(() => {
     if (isOpen && user) {

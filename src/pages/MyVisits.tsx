@@ -888,6 +888,7 @@ export const MyVisits = () => {
         <CreateNewVisitModal
           isOpen={isCreateVisitModalOpen}
           onClose={() => setIsCreateVisitModalOpen(false)}
+          initialDate={selectedDate}
           onVisitCreated={() => {
             // Reload data after visit is created
             if (selectedDate) {
