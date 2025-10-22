@@ -1131,10 +1131,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                       });
                     }
                   }}
+                  variant={isCheckedIn || !isTodaysVisit ? "outline" : "default"}
                   className={`w-full h-12 text-base font-medium ${
                     isCheckedIn || !isTodaysVisit
                       ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                      : 'bg-secondary hover:bg-secondary/90'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
                   }`}
                   disabled={isCheckedIn || !isTodaysVisit}
                 >
