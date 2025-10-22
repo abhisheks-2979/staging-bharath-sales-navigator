@@ -14,6 +14,7 @@ import { Layout } from "@/components/Layout";
 import { AddRetailerToVisitModal } from "@/components/AddRetailerToVisitModal";
 import { MassEditBeatsModal } from "@/components/MassEditBeatsModal";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
+import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
 
 interface Retailer {
   id: string;
@@ -88,6 +89,7 @@ export const MyRetailers = () => {
   const [addToVisitModalOpen, setAddToVisitModalOpen] = useState(false);
   const [massEditModalOpen, setMassEditModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
   const [selectedRetailerForVisit, setSelectedRetailerForVisit] = useState<Retailer | null>(null);
   const [selectedRetailerForDetail, setSelectedRetailerForDetail] = useState<Retailer | null>(null);
 
@@ -329,6 +331,10 @@ export const MyRetailers = () => {
                 <Users size={16} />
                 Mass Edit Beats
               </Button>
+              <Button onClick={() => setBulkImportModalOpen(true)} variant="outline" size="sm" className="flex items-center gap-1">
+                <Plus size={16} />
+                Bulk Import
+              </Button>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -561,6 +567,13 @@ export const MyRetailers = () => {
             setDetailModalOpen(false);
             setSelectedRetailerForDetail(null);
           }}
+        />
+
+        {/* Bulk Import Modal */}
+        <BulkImportRetailersModal
+          open={bulkImportModalOpen}
+          onOpenChange={setBulkImportModalOpen}
+          onSuccess={loadRetailers}
         />
       </section>
     </Layout>
