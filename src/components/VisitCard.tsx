@@ -1076,6 +1076,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-4">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={() => handleCheckInOut('checkin')}
                   className={`w-full h-12 text-base font-medium ${
@@ -1085,9 +1086,62 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   }`}
                   disabled={isCheckedIn || !isTodaysVisit}
                 >
-                <LogIn className="mr-2 h-5 w-5" />
-                {isCheckedIn ? 'Checked In' : 'Check In'}
-              </Button>
+                  <LogIn className="mr-2 h-5 w-5" />
+                  {isCheckedIn ? 'Checked In' : 'Check In'}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (user) {
+                        const today = new Date().toISOString().split('T')[0];
+                        const retailerId = visit.retailerId || visit.id;
+                        
+                        // Auto check-out any previous in-progress visit before phone order
+                        await autoCheckOutPreviousVisit(user.id, retailerId, today);
+                        
+                        const visitId = await ensureVisit(user.id, retailerId, today);
+                        
+                        // Update visit with phone order reason and set to in-progress
+                        await supabase
+                          .from('visits')
+                          .update({ 
+                            status: 'in-progress',
+                            skip_check_in_reason: 'phone-order',
+                            skip_check_in_time: new Date().toISOString()
+                          } as any)
+                          .eq('id', visitId);
+                      }
+                      
+                      setProceedWithoutCheckIn(true);
+                      setPhase('in-progress');
+                      setIsCheckedIn(true);
+                      setShowLocationModal(false);
+                      setShowReasonInput(false);
+                      toast({
+                        title: 'Phone Order',
+                        description: 'You can now record order or no order.',
+                      });
+                    } catch (err: any) {
+                      console.error('Phone order error:', err);
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to proceed with phone order.',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                  className={`w-full h-12 text-base font-medium ${
+                    isCheckedIn || !isTodaysVisit
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                      : 'bg-secondary hover:bg-secondary/90'
+                  }`}
+                  disabled={isCheckedIn || !isTodaysVisit}
+                >
+                  <Phone className="mr-2 h-5 w-5" />
+                  Phone Order
+                </Button>
+              </div>
               <Button
                 onClick={() => handleCheckInOut('checkout')}
                 className={`w-full h-12 text-base font-medium ${
@@ -1116,33 +1170,51 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 
                 {showReasonInput && !proceedWithoutCheckIn && (
                   <div className="space-y-3">
-                    {!skipCheckInReason && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium mb-2 block">
-                          Select an option:
-                        </label>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={async () => {
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">
+                        Reason for proceeding without check-in:
+                      </label>
+                      <textarea
+                        value={skipCheckInReason}
+                        onChange={(e) => setSkipCheckInReason(e.target.value)}
+                        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Enter your reason here..."
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowReasonInput(false);
+                          setSkipCheckInReason('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={async () => {
+                          if (skipCheckInReason.trim()) {
                             try {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (user) {
                                 const today = new Date().toISOString().split('T')[0];
                                 const retailerId = visit.retailerId || visit.id;
                                 
-                                // Auto check-out any previous in-progress visit before phone order
+                                // Auto check-out any previous in-progress visit before proceeding
                                 await autoCheckOutPreviousVisit(user.id, retailerId, today);
                                 
                                 const visitId = await ensureVisit(user.id, retailerId, today);
                                 
-                                // Update visit with phone order reason and set to in-progress
+                                // Update visit with skip check-in reason and set to in-progress
                                 await supabase
                                   .from('visits')
                                   .update({ 
                                     status: 'in-progress',
-                                    skip_check_in_reason: 'phone-order',
+                                    skip_check_in_reason: skipCheckInReason,
                                     skip_check_in_time: new Date().toISOString()
                                   } as any)
                                   .eq('id', visitId);
@@ -1154,127 +1226,30 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                               setShowLocationModal(false);
                               setShowReasonInput(false);
                               toast({
-                                title: 'Phone Order',
-                                description: 'You can now record order or no order.',
+                                title: 'Proceeding without check-in',
+                                description: 'You can now access Order and No Order options.',
                               });
                             } catch (err: any) {
-                              console.error('Phone order error:', err);
+                              console.error('Skip check-in error:', err);
                               toast({
                                 title: 'Error',
-                                description: 'Failed to proceed with phone order.',
+                                description: 'Failed to record skip check-in reason.',
                                 variant: 'destructive'
                               });
                             }
-                          }}
-                        >
-                          Phone Order
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => setSkipCheckInReason('other')}
-                        >
-                          Other Reason
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => {
-                            setShowReasonInput(false);
-                            setSkipCheckInReason('');
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {skipCheckInReason === 'other' && (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">
-                            Reason for proceeding without check-in:
-                          </label>
-                          <textarea
-                            value={skipCheckInReason === 'other' ? '' : skipCheckInReason}
-                            onChange={(e) => setSkipCheckInReason(e.target.value)}
-                            className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="Enter your reason here..."
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => {
-                              setShowReasonInput(false);
-                              setSkipCheckInReason('');
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="flex-1"
-                            onClick={async () => {
-                              if (skipCheckInReason.trim() && skipCheckInReason !== 'other') {
-                                try {
-                                  const { data: { user } } = await supabase.auth.getUser();
-                                  if (user) {
-                                    const today = new Date().toISOString().split('T')[0];
-                                    const retailerId = visit.retailerId || visit.id;
-                                    
-                                    // Auto check-out any previous in-progress visit before proceeding
-                                    await autoCheckOutPreviousVisit(user.id, retailerId, today);
-                                    
-                                    const visitId = await ensureVisit(user.id, retailerId, today);
-                                    
-                                    // Update visit with skip check-in reason and set to in-progress
-                                    await supabase
-                                      .from('visits')
-                                      .update({ 
-                                        status: 'in-progress',
-                                        skip_check_in_reason: skipCheckInReason,
-                                        skip_check_in_time: new Date().toISOString()
-                                      } as any)
-                                      .eq('id', visitId);
-                                  }
-                                  
-                                  setProceedWithoutCheckIn(true);
-                                  setPhase('in-progress');
-                                  setIsCheckedIn(true);
-                                  setShowLocationModal(false);
-                                  setShowReasonInput(false);
-                                  toast({
-                                    title: 'Proceeding without check-in',
-                                    description: 'You can now access Order and No Order options.',
-                                  });
-                                } catch (err: any) {
-                                  console.error('Skip check-in error:', err);
-                                  toast({
-                                    title: 'Error',
-                                    description: 'Failed to record skip check-in reason.',
-                                    variant: 'destructive'
-                                  });
-                                }
-                              } else {
-                                toast({
-                                  title: 'Reason required',
-                                  description: 'Please enter a reason to proceed.',
-                                  variant: 'destructive'
-                                });
-                              }
-                            }}
-                            disabled={!skipCheckInReason.trim() || skipCheckInReason === 'other'}
-                          >
-                            Submit
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                          } else {
+                            toast({
+                              title: 'Reason required',
+                              description: 'Please enter a reason to proceed.',
+                              variant: 'destructive'
+                            });
+                          }
+                        }}
+                        disabled={!skipCheckInReason.trim()}
+                      >
+                        Submit
+                      </Button>
+                    </div>
                   </div>
                 )}
                 
