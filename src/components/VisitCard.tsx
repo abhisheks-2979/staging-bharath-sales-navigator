@@ -16,6 +16,7 @@ import BrandingRequestModal from "./BrandingRequestModal";
 import { StockCycleModal } from "./StockCycleModal";
 import { AnalyticsModal } from "./AnalyticsModal";
 import { StockDataModal } from "./StockDataModal";
+import { RetailerAnalytics } from "./RetailerAnalytics";
 
 interface Visit {
   id: string;
@@ -34,6 +35,8 @@ interface Visit {
   distributor?: string;
   retailerLat?: number;
   retailerLng?: number;
+  lastVisitDate?: string;
+  priority?: "high" | "medium" | "low";
 }
 
 interface VisitCardProps {
@@ -52,6 +55,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [hasViewedAnalytics, setHasViewedAnalytics] = useState(false);
   const [showStockDataModal, setShowStockDataModal] = useState(false);
+  const [showRetailerAnalytics, setShowRetailerAnalytics] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'in-progress' | 'completed'>(visit.status === 'in-progress' ? 'in-progress' : 'idle');
   const [locationMatchIn, setLocationMatchIn] = useState<boolean | null>(null);
   const [locationMatchOut, setLocationMatchOut] = useState<boolean | null>(null);
@@ -1380,6 +1384,29 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           retailerId={(visit.retailerId || visit.id) as string}
           retailerName={visit.retailerName}
         />
+
+        {/* Retailer Analytics Modal */}
+        {showRetailerAnalytics && (
+          <RetailerAnalytics
+            isOpen={showRetailerAnalytics}
+            retailer={{
+              id: visit.retailerId || visit.id,
+              name: visit.retailerName,
+              type: visit.retailerCategory,
+              phone: visit.phone,
+              address: visit.address,
+              lastVisitDate: visit.lastVisitDate,
+              isSelected: false,
+              priority: visit.priority,
+              metrics: {
+                avgOrders3Months: actualOrderValue,
+                avgOrderPerVisit: actualOrderValue,
+                visitsIn3Months: 1
+              }
+            }}
+            onClose={() => setShowRetailerAnalytics(false)}
+          />
+        )}
       </CardContent>
     </Card>
   );
