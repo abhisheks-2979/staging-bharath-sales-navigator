@@ -1294,6 +1294,7 @@ export type Database = {
           competitors: string[] | null
           created_at: string
           entity_type: string
+          gst_number: string | null
           id: string
           last_visit_date: string | null
           latitude: number | null
@@ -1321,6 +1322,7 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string
           entity_type?: string
+          gst_number?: string | null
           id?: string
           last_visit_date?: string | null
           latitude?: number | null
@@ -1348,6 +1350,7 @@ export type Database = {
           competitors?: string[] | null
           created_at?: string
           entity_type?: string
+          gst_number?: string | null
           id?: string
           last_visit_date?: string | null
           latitude?: number | null
@@ -1709,12 +1712,9 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: undefined
       }
-      get_authenticated_email: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_authenticated_email: { Args: never; Returns: string }
       get_basic_profiles_for_admin: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           full_name: string
@@ -1723,7 +1723,7 @@ export type Database = {
         }[]
       }
       get_limited_profiles_for_admin: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           full_name: string
@@ -1733,7 +1733,7 @@ export type Database = {
         }[]
       }
       get_public_vendors: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           city: string
           created_at: string
@@ -1769,7 +1769,7 @@ export type Database = {
         }[]
       }
       get_vendors_public_info: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           city: string
           created_at: string
@@ -1788,10 +1788,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      hash_hint_answer: {
-        Args: { answer: string }
-        Returns: string
-      }
+      hash_hint_answer: { Args: { answer: string }; Returns: string }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
         Returns: boolean
