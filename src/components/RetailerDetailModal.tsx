@@ -158,8 +158,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 />
               ) : formData.phone ? (
                 <a 
-                  href={`tel:${formData.phone}`}
-                  className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-accent transition-colors"
+                  href={`tel:${formData.phone.replace(/\s+/g, '')}`}
+                  className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `tel:${formData.phone.replace(/\s+/g, '')}`;
+                  }}
                 >
                   <Phone size={16} className="text-primary" />
                   <span>{formData.phone}</span>

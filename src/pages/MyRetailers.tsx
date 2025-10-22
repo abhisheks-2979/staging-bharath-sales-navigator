@@ -492,8 +492,12 @@ export const MyRetailers = () => {
                     <div className="space-y-2 text-sm">
                       {r.phone && (
                         <a 
-                          href={`tel:${r.phone}`}
-                          className="flex items-center gap-2 text-primary hover:underline"
+                          href={`tel:${r.phone.replace(/\s+/g, '')}`}
+                          className="flex items-center gap-2 text-primary hover:underline cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `tel:${r.phone.replace(/\s+/g, '')}`;
+                          }}
                         >
                           <Phone size={14} />
                           <span className="text-muted-foreground">Phone:</span>
@@ -569,8 +573,12 @@ export const MyRetailers = () => {
                         <TableCell>
                           {r.phone ? (
                             <a 
-                              href={`tel:${r.phone}`}
-                              className="flex items-center gap-1 text-primary hover:underline"
+                              href={`tel:${r.phone.replace(/\s+/g, '')}`}
+                              className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.location.href = `tel:${r.phone.replace(/\s+/g, '')}`;
+                              }}
                             >
                               <Phone size={14} />
                               {r.phone}
