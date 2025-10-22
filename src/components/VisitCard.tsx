@@ -968,9 +968,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             <Button 
               variant={isNoOrderMarked ? "default" : "outline"}
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
-                isNoOrderMarked ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""
-              } ${(isNoOrderMarked || hasOrderToday || (!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
+              className="hidden"
               onClick={handleNoOrderClick}
               disabled={hasOrderToday || (!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit}
               title={
@@ -993,9 +991,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             <Button 
               variant="outline" 
               size="sm"
-              className={`hidden p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
-                hasViewedAnalytics ? "bg-success text-success-foreground hover:bg-success/90" : ""
-              }`}
+              className="hidden"
               onClick={() => handleViewAnalytics(visit.id)}
               title="Analytics"
             >
