@@ -302,38 +302,6 @@ export const AddRetailer = () => {
                 />
               </div>
 
-              {/* Photo Attachment Section */}
-              <div className="space-y-2">
-                <Label>Retailer Photo</Label>
-                <div className="flex items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePhotoCapture}
-                    disabled={isUploadingPhoto}
-                    className="flex items-center gap-2"
-                  >
-                    <Camera size={16} />
-                    {isUploadingPhoto ? 'Uploading...' : 'Take Photo'}
-                  </Button>
-                  
-                  {(capturedPhotoPreview || retailerData.photo_url) && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-12 h-12 border rounded-lg overflow-hidden bg-muted">
-                        <img
-                          src={capturedPhotoPreview || retailerData.photo_url}
-                          alt="Retailer photo"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="text-sm text-muted-foreground">Photo captured</span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">Take a photo of the retailer store front for reference</p>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number *</Label>
                 <Input
@@ -480,6 +448,23 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="locationTag">Location Tag *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="locationTag"
+                    placeholder="e.g., Near City Hospital, Main Market"
+                    value={retailerData.locationTag}
+                    onChange={(e) => handleInputChange("locationTag", e.target.value)}
+                    className="bg-background"
+                  />
+                  <Button type="button" variant="outline" size="icon">
+                    <Tag size={16} />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">This will be used to verify visit authenticity</p>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Category</Label>
                 <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
                   <SelectTrigger className="bg-background">
@@ -509,53 +494,31 @@ export const AddRetailer = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Parent Name</Label>
+                  <Label>Select Distributor</Label>
                   {retailerData.parentType === "Distributor" ? (
-                    <div className="space-y-3">
-                      {/* Selected Distributors Display */}
-                      {retailerData.selectedDistributors.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {retailerData.selectedDistributors.map((distributorId) => {
-                            const distributor = distributors.find(d => d.id === distributorId);
-                            return distributor ? (
-                              <Badge key={distributorId} variant="secondary" className="flex items-center gap-1">
-                                {distributor.name}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                                  onClick={() => handleDistributorToggle(distributorId, distributor.name)}
-                                >
-                                  <X size={12} />
-                                </Button>
-                              </Badge>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
-                      
-                      {/* Distributor Selection */}
-                      <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-                        <Label className="text-sm font-medium">Select Distributors:</Label>
+                    <Select 
+                      value={retailerData.selectedDistributors[0] || ""} 
+                      onValueChange={(value) => {
+                        const distributor = distributors.find(d => d.id === value);
+                        handleInputChange("selectedDistributors", [value]);
+                        handleInputChange("parentName", distributor?.name || "");
+                      }}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select distributor" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border z-50">
                         {distributors.length > 0 ? (
                           distributors.map((distributor) => (
-                            <div key={distributor.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={distributor.id}
-                                checked={retailerData.selectedDistributors.includes(distributor.id)}
-                                onCheckedChange={() => handleDistributorToggle(distributor.id, distributor.name)}
-                              />
-                              <Label htmlFor={distributor.id} className="text-sm cursor-pointer">
-                                {distributor.name}
-                              </Label>
-                            </div>
+                            <SelectItem key={distributor.id} value={distributor.id}>
+                              {distributor.name}
+                            </SelectItem>
                           ))
                         ) : (
-                          <p className="text-xs text-muted-foreground">No distributors found. Please add distributors in Distributor Management first.</p>
+                          <SelectItem value="none" disabled>No distributors available</SelectItem>
                         )}
-                      </div>
-                    </div>
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input
                       placeholder="Enter parent name"
@@ -565,23 +528,6 @@ export const AddRetailer = () => {
                     />
                   )}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="locationTag">Location Tag *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="locationTag"
-                    placeholder="e.g., Near City Hospital, Main Market"
-                    value={retailerData.locationTag}
-                    onChange={(e) => handleInputChange("locationTag", e.target.value)}
-                    className="bg-background"
-                  />
-                  <Button type="button" variant="outline" size="icon">
-                    <Tag size={16} />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">This will be used to verify visit authenticity</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -636,31 +582,6 @@ export const AddRetailer = () => {
                     className="bg-background"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Phone Attachment</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Additional phone numbers (comma separated)"
-                    className="bg-background"
-                  />
-                  <Button type="button" variant="outline" size="icon">
-                    <Camera size={16} />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">You can also attach photos of business cards</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Input
-                  id="notes"
-                  placeholder="Any additional notes"
-                  value={retailerData.notes}
-                  onChange={(e) => handleInputChange("notes", e.target.value)}
-                  className="bg-background"
-                />
               </div>
             </CardContent>
           </Card>
