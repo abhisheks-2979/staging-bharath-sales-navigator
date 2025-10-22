@@ -993,7 +993,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             <Button 
               variant="outline" 
               size="sm"
-              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
+              className={`hidden p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasViewedAnalytics ? "bg-success text-success-foreground hover:bg-success/90" : ""
               }`}
               onClick={() => handleViewAnalytics(visit.id)}
