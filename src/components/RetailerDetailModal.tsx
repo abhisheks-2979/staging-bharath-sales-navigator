@@ -33,20 +33,21 @@ interface RetailerDetailModalProps {
   onClose: () => void;
   retailer: Retailer | null;
   onSuccess: () => void;
+  startInEditMode?: boolean;
 }
 
-export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess }: RetailerDetailModalProps) => {
+export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, startInEditMode = true }: RetailerDetailModalProps) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState<Retailer | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(startInEditMode);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (retailer) {
       setFormData({ ...retailer });
-      setIsEditing(false);
+      setIsEditing(startInEditMode);
     }
-  }, [retailer]);
+  }, [retailer, startInEditMode]);
 
   const handleSave = async () => {
     if (!formData || !user) return;
@@ -80,8 +81,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess }: Re
         description: "Changes saved successfully",
       });
 
-      setIsEditing(false);
       onSuccess();
+      onClose();
     } catch (error: any) {
       toast({
         title: "Failed to update",

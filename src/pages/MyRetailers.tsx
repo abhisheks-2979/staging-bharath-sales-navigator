@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
@@ -95,6 +96,7 @@ export const MyRetailers = () => {
   const [selectedRetailerForVisit, setSelectedRetailerForVisit] = useState<Retailer | null>(null);
   const [selectedRetailerForDetail, setSelectedRetailerForDetail] = useState<Retailer | null>(null);
   const [selectedRetailerForAnalytics, setSelectedRetailerForAnalytics] = useState<Retailer | null>(null);
+  const [selectedRetailerIds, setSelectedRetailerIds] = useState<string[]>([]);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -272,6 +274,45 @@ export const MyRetailers = () => {
     }
   };
 
+  const bulkDeleteRetailers = async () => {
+    if (selectedRetailerIds.length === 0) return;
+    
+    const count = selectedRetailerIds.length;
+    if (!window.confirm(`Delete ${count} retailer${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from("retailers")
+      .delete()
+      .in("id", selectedRetailerIds)
+      .eq("user_id", user?.id);
+    
+    if (error) {
+      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: `${count} retailer${count > 1 ? 's' : ''} removed.` });
+      setSelectedRetailerIds([]);
+      loadRetailers();
+    }
+    setLoading(false);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedRetailerIds.length === filtered.length) {
+      setSelectedRetailerIds([]);
+    } else {
+      setSelectedRetailerIds(filtered.map(r => r.id));
+    }
+  };
+
+  const toggleSelectRetailer = (retailerId: string) => {
+    setSelectedRetailerIds(prev => 
+      prev.includes(retailerId) 
+        ? prev.filter(id => id !== retailerId)
+        : [...prev, retailerId]
+    );
+  };
+
   const saveNewEntity = async () => {
     if (!user) return;
     if (!newForm.name || !newForm.phone || !newForm.address) {
@@ -343,6 +384,12 @@ export const MyRetailers = () => {
                 <Plus size={16} />
                 Bulk Import
               </Button>
+              {selectedRetailerIds.length > 0 && (
+                <Button onClick={bulkDeleteRetailers} variant="destructive" size="sm" className="flex items-center gap-1">
+                  <Trash2 size={16} />
+                  Delete Selected ({selectedRetailerIds.length})
+                </Button>
+              )}
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -414,12 +461,18 @@ export const MyRetailers = () => {
                 <Card key={r.id} className="p-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 
-                        className="font-semibold cursor-pointer hover:text-primary"
-                        onClick={() => openRetailerAnalytics(r)}
-                      >
-                        {r.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedRetailerIds.includes(r.id)}
+                          onCheckedChange={() => toggleSelectRetailer(r.id)}
+                        />
+                        <h3 
+                          className="font-semibold cursor-pointer hover:text-primary"
+                          onClick={() => openRetailerAnalytics(r)}
+                        >
+                          {r.name}
+                        </h3>
+                      </div>
                       <div className="flex items-center gap-1">
                         <Button 
                           size="sm" 
@@ -473,6 +526,12 @@ export const MyRetailers = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={filtered.length > 0 && selectedRetailerIds.length === filtered.length}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Phone Number</TableHead>
                     <TableHead>Address</TableHead>
@@ -490,6 +549,12 @@ export const MyRetailers = () => {
                     
                     return (
                       <TableRow key={r.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedRetailerIds.includes(r.id)}
+                            onCheckedChange={() => toggleSelectRetailer(r.id)}
+                          />
+                        </TableCell>
                         <TableCell 
                           className="font-medium cursor-pointer hover:text-primary"
                           onClick={() => openRetailerAnalytics(r)}
@@ -533,7 +598,7 @@ export const MyRetailers = () => {
                   })}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">{loading ? 'Loading...' : 'No retailers found'}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
