@@ -18,6 +18,7 @@ export const AddRetailer = () => {
   const { user } = useAuth();
   const [retailerData, setRetailerData] = useState({
     name: "",
+    gstNumber: "",
     phone: "",
     address: "",
     category: "",
@@ -194,6 +195,7 @@ export const AddRetailer = () => {
     const payload: any = {
       user_id: user.id,
       name: retailerData.name,
+      gst_number: retailerData.gstNumber || null,
       phone: retailerData.phone,
       address: retailerData.address,
       category: retailerData.category || null,
@@ -300,6 +302,49 @@ export const AddRetailer = () => {
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   className="bg-background"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gstNumber">GST Number</Label>
+                <Input
+                  id="gstNumber"
+                  placeholder="Enter GST number"
+                  value={retailerData.gstNumber}
+                  onChange={(e) => handleInputChange("gstNumber", e.target.value)}
+                  className="bg-background"
+                />
+              </div>
+
+              {/* Photo Attachment Section */}
+              <div className="space-y-2">
+                <Label>Retailer Photo</Label>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePhotoCapture}
+                    disabled={isUploadingPhoto}
+                    className="flex items-center gap-2"
+                  >
+                    <Camera size={16} />
+                    {isUploadingPhoto ? 'Uploading...' : 'Take Photo'}
+                  </Button>
+                  
+                  {(capturedPhotoPreview || retailerData.photo_url) && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-12 h-12 border rounded-lg overflow-hidden bg-muted">
+                        <img
+                          src={capturedPhotoPreview || retailerData.photo_url}
+                          alt="Retailer photo"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground">Photo captured</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Take a photo of the retailer store front for reference</p>
               </div>
 
               <div className="space-y-2">
