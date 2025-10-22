@@ -838,7 +838,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               title={getLocationBtnTitle()}
             >
               <MapPin size={12} className="sm:size-3.5" />
-              <span className="text-xs">Check-in</span>
+              <span className="text-xs">Check-In/Out</span>
             </Button>
             
             <Button 
