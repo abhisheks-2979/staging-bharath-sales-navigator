@@ -966,40 +966,6 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             </Button>
             
             <Button 
-              variant={isNoOrderMarked ? "default" : "outline"}
-              size="sm"
-              className="hidden"
-              onClick={handleNoOrderClick}
-              disabled={hasOrderToday || (!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit}
-              title={
-                (!isCheckedIn && !proceedWithoutCheckIn)
-                  ? "Check in first to mark no order"
-                  : isNoOrderMarked 
-                    ? `Unproductive (${noOrderReason.replace(/-/g, ' ')})` 
-                    : hasOrderToday 
-                      ? "Cannot mark no order - Order already placed today"
-                      : "Mark No Order"
-              }
-            >
-              <XCircle size={12} className="sm:size-3.5" />
-              <span className="text-xs">No Order</span>
-            </Button>
-          </div>
-
-          {/* Second row - Analytics and Feedback */}
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="hidden"
-              onClick={() => handleViewAnalytics(visit.id)}
-              title="Analytics"
-            >
-              <BarChart3 size={12} className="sm:size-3.5" />
-              <span className="text-xs">Analytics</span>
-            </Button>
-            
-            <Button 
               variant="outline" 
               size="sm"
               className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
