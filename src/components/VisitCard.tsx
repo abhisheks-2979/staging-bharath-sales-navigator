@@ -908,8 +908,19 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <span className="truncate">{visit.address}</span>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              <Phone size={12} className="sm:size-3.5" />
-              <span>{visit.phone}</span>
+              <a
+                href={`tel:${(visit.phone || '').replace(/\s+/g, '')}`}
+                className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const cleaned = (visit.phone || '').replace(/\s+/g, '');
+                  if (cleaned) window.location.href = `tel:${cleaned}`;
+                }}
+                title="Call"
+              >
+                <Phone size={12} className="sm:size-3.5" />
+                <span>{visit.phone}</span>
+              </a>
             </div>
           </div>
         </div>
