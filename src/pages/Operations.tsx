@@ -116,8 +116,7 @@ const Operations = () => {
           no_order_reason,
           status
         `)
-        .or('check_in_time.not.is.null,skip_check_in_time.not.is.null')
-        .order('check_in_time', { ascending: false, nullsFirst: false });
+        .or('check_in_time.not.is.null,skip_check_in_time.not.is.null');
 
       if (userFilter !== 'all') {
         query = query.eq('user_id', userFilter);
@@ -156,6 +155,18 @@ const Operations = () => {
           status: visit.status
         };
       }) || [];
+
+      // Sort by the most recent check-in or skip check-in time
+      formattedData.sort((a, b) => {
+        const timeA = a.check_in_time || a.skip_check_in_time;
+        const timeB = b.check_in_time || b.skip_check_in_time;
+        
+        if (!timeA && !timeB) return 0;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+        
+        return new Date(timeB).getTime() - new Date(timeA).getTime();
+      });
 
       setCheckInData(formattedData);
 
