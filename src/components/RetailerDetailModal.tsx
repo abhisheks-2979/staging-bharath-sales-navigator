@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { Phone } from "lucide-react";
 
 interface Retailer {
   id: string;
@@ -150,11 +151,22 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             </div>
             <div>
               <Label>Phone</Label>
-              <Input
-                value={formData.phone || ''}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                disabled={!isEditing}
-              />
+              {isEditing ? (
+                <Input
+                  value={formData.phone || ''}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                />
+              ) : formData.phone ? (
+                <a 
+                  href={`tel:${formData.phone}`}
+                  className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-accent transition-colors"
+                >
+                  <Phone size={16} className="text-primary" />
+                  <span>{formData.phone}</span>
+                </a>
+              ) : (
+                <Input value="-" disabled />
+              )}
             </div>
           </div>
 

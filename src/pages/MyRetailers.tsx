@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, Phone } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -491,10 +491,14 @@ export const MyRetailers = () => {
                     
                     <div className="space-y-2 text-sm">
                       {r.phone && (
-                        <div className="flex items-center gap-2">
+                        <a 
+                          href={`tel:${r.phone}`}
+                          className="flex items-center gap-2 text-primary hover:underline"
+                        >
+                          <Phone size={14} />
                           <span className="text-muted-foreground">Phone:</span>
                           <span>{r.phone}</span>
-                        </div>
+                        </a>
                       )}
                       <div className="flex items-start gap-2">
                         <span className="text-muted-foreground">Address:</span>
@@ -562,7 +566,17 @@ export const MyRetailers = () => {
                         >
                           {r.name}
                         </TableCell>
-                        <TableCell>{r.phone || '-'}</TableCell>
+                        <TableCell>
+                          {r.phone ? (
+                            <a 
+                              href={`tel:${r.phone}`}
+                              className="flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <Phone size={14} />
+                              {r.phone}
+                            </a>
+                          ) : '-'}
+                        </TableCell>
                         <TableCell 
                           className="max-w-[200px] cursor-pointer hover:text-primary"
                           onClick={() => setExpandedAddress(isAddressExpanded ? null : r.id)}
