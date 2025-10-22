@@ -1,4 +1,4 @@
-import { TrendingUp, Package, Gift, AlertTriangle } from "lucide-react";
+import { TrendingUp, Package, Gift } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -41,13 +41,6 @@ const mockAnalyticsData = {
     { name: "Buy 10 Get 2 Free", discount: "20%", status: "Active" },
     { name: "Festival Bonanza", discount: "12%", status: "Expired" }
   ],
-  notBuyingProducts: [
-    "Red Bull Energy Drink",
-    "Monster Energy",
-    "Tropicana Juice 1L",
-    "Real Juice 1L",
-    "Minute Maid 500ml"
-  ],
   potential: {
     category: "High Value",
     score: 85,
@@ -70,7 +63,7 @@ export const RetailerAnalytics = ({ retailer, onClose, isOpen }: RetailerAnalyti
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <TrendingUp size={16} />
               Overview
@@ -82,10 +75,6 @@ export const RetailerAnalytics = ({ retailer, onClose, isOpen }: RetailerAnalyti
             <TabsTrigger value="schemes" className="flex items-center gap-2">
               <Gift size={16} />
               Schemes
-            </TabsTrigger>
-            <TabsTrigger value="opportunities" className="flex items-center gap-2">
-              <AlertTriangle size={16} />
-              Opportunities
             </TabsTrigger>
           </TabsList>
 
@@ -210,25 +199,6 @@ export const RetailerAnalytics = ({ retailer, onClose, isOpen }: RetailerAnalyti
             </Card>
           </TabsContent>
 
-          <TabsContent value="opportunities" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  Opportunity Products (Not Purchasing)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {mockAnalyticsData.notBuyingProducts.map((product, index) => (
-                    <div key={index} className="p-2 bg-destructive/10 text-destructive rounded text-sm">
-                      {product}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>

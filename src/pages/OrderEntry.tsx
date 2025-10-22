@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -73,8 +73,9 @@ export const OrderEntry = () => {
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
-  const [orderMode, setOrderMode] = useState<"grid" | "table">("grid");
+  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order">("grid");
   const [searchTerm, setSearchTerm] = useState("");
+  const [noOrderReason, setNoOrderReason] = useState<string>("");
 const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
 const [loading, setLoading] = useState(true);
@@ -1467,6 +1468,15 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 <Table size={14} className="mr-1" />
                 Table
               </Button>
+              <Button
+                variant={orderMode === "no-order" ? "default" : "outline"}
+                onClick={() => setOrderMode("no-order")}
+                className="flex-1 h-8"
+                size="sm"
+              >
+                <XCircle size={14} className="mr-1" />
+                No Order
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1502,7 +1512,112 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
           </CardContent>
         </Card>
 
-        {orderMode === "grid" ? (
+        {orderMode === "no-order" ? (
+          <>
+            {/* No Order Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Select No Order Reason</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  {
+                    value: "over-stocked",
+                    label: "Over Stocked",
+                    description: "Retailer has sufficient inventory",
+                    icon: Package,
+                    color: "text-warning"
+                  },
+                  {
+                    value: "owner-not-available",
+                    label: "Owner Not Available",
+                    description: "Decision maker is not present",
+                    icon: UserX,
+                    color: "text-muted-foreground"
+                  },
+                  {
+                    value: "store-closed",
+                    label: "Store Closed",
+                    description: "Store is temporarily closed",
+                    icon: DoorClosed,
+                    color: "text-destructive"
+                  },
+                  {
+                    value: "permanently-closed",
+                    label: "Permanently Closed",
+                    description: "Store has shut down permanently",
+                    icon: XCircle,
+                    color: "text-destructive"
+                  }
+                ].map((reason) => {
+                  const IconComponent = reason.icon;
+                  return (
+                    <Card 
+                      key={reason.value}
+                      className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        noOrderReason === reason.value ? 'ring-2 ring-primary' : ''
+                      }`}
+                      onClick={async () => {
+                        if (reason.value === "over-stocked") {
+                          toast({
+                            title: "Information",
+                            description: "Update stock quantities in Grid/Table view - this option will auto-select",
+                            duration: 4000
+                          });
+                          return;
+                        }
+                        
+                        setNoOrderReason(reason.value);
+                        
+                        // Save no order reason to database
+                        if (visitId) {
+                          try {
+                            const { error } = await supabase
+                              .from('visits')
+                              .update({ 
+                                status: 'unproductive',
+                                no_order_reason: reason.value
+                              })
+                              .eq('id', visitId);
+                            
+                            if (error) throw error;
+                            
+                            toast({
+                              title: "No Order Marked",
+                              description: `Reason: ${reason.label}`,
+                            });
+                            
+                            // Navigate back after a short delay
+                            setTimeout(() => {
+                              navigate("/visits/retailers");
+                            }, 1000);
+                          } catch (error) {
+                            console.error('Error saving no order reason:', error);
+                            toast({
+                              title: "Error",
+                              description: "Failed to save no order reason",
+                              variant: "destructive"
+                            });
+                          }
+                        }
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <IconComponent className={`size-5 ${reason.color}`} />
+                          <div className="flex-1">
+                            <h4 className="font-medium text-card-foreground">{reason.label}</h4>
+                            <p className="text-sm text-muted-foreground">{reason.description}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </>
+        ) : orderMode === "grid" ? (
           <>
             {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
