@@ -416,7 +416,7 @@ export const MyRetailers = () => {
                         >
                           <Calendar className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
+                        <Button size="sm" variant="ghost" onClick={() => openRetailerDetail(r)} className="h-8 w-8 p-0">
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </div>
@@ -509,7 +509,7 @@ export const MyRetailers = () => {
                             >
                               <Calendar className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => openEdit(r)} className="h-8 w-8 p-0">
+                            <Button size="sm" variant="ghost" onClick={() => openRetailerDetail(r)} className="h-8 w-8 p-0">
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </div>
