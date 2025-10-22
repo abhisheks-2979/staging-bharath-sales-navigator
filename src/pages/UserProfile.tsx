@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, FileText, Bell, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
+import { BaselinePhotoManagement } from '@/components/BaselinePhotoManagement';
 
 interface EmployeeData {
   monthly_salary: number;
@@ -234,6 +235,10 @@ const UserProfile = () => {
           </TabsList>
 
           <TabsContent value="profile" className="space-y-6">
+            <div className="flex justify-center mb-6">
+              <BaselinePhotoManagement userId={user.id} userProfile={userProfile} />
+            </div>
+            
             <Card>
               <CardHeader>
                 <CardTitle>Personal Information</CardTitle>
