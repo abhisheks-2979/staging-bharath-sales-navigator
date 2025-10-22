@@ -585,8 +585,9 @@ export const MyRetailers = () => {
         />
 
         {/* Retailer Analytics Modal */}
-        {selectedRetailerForAnalytics && analyticsModalOpen && (
+        {selectedRetailerForAnalytics && (
           <RetailerAnalytics
+            isOpen={analyticsModalOpen}
             retailer={{
               id: selectedRetailerForAnalytics.id,
               name: selectedRetailerForAnalytics.name,

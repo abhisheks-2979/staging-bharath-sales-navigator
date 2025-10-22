@@ -924,6 +924,7 @@ export const MyBeats = () => {
         {/* Retailer Analytics Modal */}
         {selectedAnalyticsRetailer && (
           <RetailerAnalytics
+            isOpen={!!selectedAnalyticsRetailer}
             retailer={selectedAnalyticsRetailer}
             onClose={() => setSelectedAnalyticsRetailer(null)}
           />

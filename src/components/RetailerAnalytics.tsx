@@ -1,8 +1,10 @@
-import { X, TrendingUp, TrendingDown, Package, Gift, AlertTriangle } from "lucide-react";
+import { TrendingUp, Package, Gift, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
 
 interface Retailer {
   id: string;
@@ -23,6 +25,7 @@ interface Retailer {
 interface RetailerAnalyticsProps {
   retailer: Retailer;
   onClose: () => void;
+  isOpen: boolean;
 }
 
 const mockAnalyticsData = {
@@ -53,162 +56,181 @@ const mockAnalyticsData = {
   }
 };
 
-export const RetailerAnalytics = ({ retailer, onClose }: RetailerAnalyticsProps) => {
+export const RetailerAnalytics = ({ retailer, onClose, isOpen }: RetailerAnalyticsProps) => {
   const formatCurrency = (amount: number) => `₹${amount.toLocaleString()}`;
+  const [activeTab, setActiveTab] = useState("overview");
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-background rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-background border-b p-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Analytics Snapshot
-            </h2>
-            <p className="text-sm text-muted-foreground">{retailer.name}</p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X size={20} />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="w-[95%] max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">
+            Analytics - {retailer.name}
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="p-6 space-y-6">
-          {/* Performance Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Performance Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold text-primary">
-                    {formatCurrency(retailer.metrics.avgOrders3Months)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">3-Month Avg Orders</p>
-                </div>
-                <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold text-primary">
-                    {formatCurrency(retailer.metrics.avgOrderPerVisit)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Avg Order per Visit</p>
-                </div>
-                <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-2xl font-bold text-primary">{retailer.metrics.visitsIn3Months}</p>
-                  <p className="text-sm text-muted-foreground">Visits in 3 Months</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <TrendingUp size={16} />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package size={16} />
+              Products
+            </TabsTrigger>
+            <TabsTrigger value="schemes" className="flex items-center gap-2">
+              <Gift size={16} />
+              Schemes
+            </TabsTrigger>
+            <TabsTrigger value="opportunities" className="flex items-center gap-2">
+              <AlertTriangle size={16} />
+              Opportunities
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Top Products */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                Top Purchasing Products
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {mockAnalyticsData.topProducts.map((product, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded">
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground">{product.quantity} units</p>
-                    </div>
-                    <p className="font-semibold text-primary">{formatCurrency(product.revenue)}</p>
+          <TabsContent value="overview" className="mt-4 space-y-4">
+            {/* Performance Overview */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Performance Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(retailer.metrics.avgOrders3Months)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">3-Month Avg Orders</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(retailer.metrics.avgOrderPerVisit)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Avg Order per Visit</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">{retailer.metrics.visitsIn3Months}</p>
+                    <p className="text-sm text-muted-foreground">Visits in 3 Months</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Enrolled Schemes */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Gift className="h-5 w-5 text-primary" />
-                Enrolled Schemes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {mockAnalyticsData.enrolledSchemes.map((scheme, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded">
-                    <div>
-                      <p className="font-medium">{scheme.name}</p>
-                      <p className="text-sm text-muted-foreground">Discount: {scheme.discount}</p>
-                    </div>
-                    <Badge variant={scheme.status === "Active" ? "default" : "secondary"}>
-                      {scheme.status}
+            {/* Retailer Potential */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Retailer Potential
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Category:</span>
+                    <Badge className="bg-primary text-primary-foreground">
+                      {mockAnalyticsData.potential.category}
                     </Badge>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Products Not Buying */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-                Opportunity Products (Not Purchasing)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {mockAnalyticsData.notBuyingProducts.map((product, index) => (
-                  <div key={index} className="p-2 bg-destructive/10 text-destructive rounded text-sm">
-                    {product}
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Potential Score:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {mockAnalyticsData.potential.score}/100
+                    </span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Growth Trend:</span>
+                    <span className="text-lg font-semibold text-green-600">
+                      {mockAnalyticsData.potential.growth}
+                    </span>
+                  </div>
+                  <Separator />
+                  <div>
+                    <p className="font-medium mb-2">Recommendation:</p>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded">
+                      {mockAnalyticsData.potential.recommendation}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          {/* Retailer Potential */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Retailer Potential
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Category:</span>
-                  <Badge className="bg-primary text-primary-foreground">
-                    {mockAnalyticsData.potential.category}
-                  </Badge>
+          <TabsContent value="products" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  Top Purchasing Products
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {mockAnalyticsData.topProducts.map((product, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded">
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">{product.quantity} units</p>
+                      </div>
+                      <p className="font-semibold text-primary">{formatCurrency(product.revenue)}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Potential Score:</span>
-                  <span className="text-2xl font-bold text-primary">
-                    {mockAnalyticsData.potential.score}/100
-                  </span>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="schemes" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="h-5 w-5 text-primary" />
+                  Enrolled Schemes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {mockAnalyticsData.enrolledSchemes.map((scheme, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 bg-muted/30 rounded">
+                      <div>
+                        <p className="font-medium">{scheme.name}</p>
+                        <p className="text-sm text-muted-foreground">Discount: {scheme.discount}</p>
+                      </div>
+                      <Badge variant={scheme.status === "Active" ? "default" : "secondary"}>
+                        {scheme.status}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Growth Trend:</span>
-                  <span className="text-lg font-semibold text-green-600">
-                    {mockAnalyticsData.potential.growth}
-                  </span>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="opportunities" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  Opportunity Products (Not Purchasing)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {mockAnalyticsData.notBuyingProducts.map((product, index) => (
+                    <div key={index} className="p-2 bg-destructive/10 text-destructive rounded text-sm">
+                      {product}
+                    </div>
+                  ))}
                 </div>
-                <Separator />
-                <div>
-                  <p className="font-medium mb-2">Recommendation:</p>
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded">
-                    {mockAnalyticsData.potential.recommendation}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 };

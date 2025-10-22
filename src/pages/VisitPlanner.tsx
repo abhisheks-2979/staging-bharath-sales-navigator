@@ -303,6 +303,7 @@ export const VisitPlanner = () => {
         {/* Analytics Modal */}
         {selectedAnalyticsRetailer && (
           <RetailerAnalytics
+            isOpen={!!selectedAnalyticsRetailer}
             retailer={selectedAnalyticsRetailer}
             onClose={() => setSelectedAnalyticsRetailer(null)}
           />
