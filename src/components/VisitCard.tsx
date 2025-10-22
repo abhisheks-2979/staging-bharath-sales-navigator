@@ -268,14 +268,24 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 .maybeSingle();
 
               if (visitData?.check_in_time && (visitData.status === 'in-progress' || visitData.status === 'unproductive')) {
+                // Get order time for auto check-out
+                const orderTime = createdAt || new Date().toISOString();
+                
+                // Auto check-out the visit when order is placed
                 await supabase
                   .from('visits')
-                  .update({ status: 'productive', no_order_reason: null })
+                  .update({ 
+                    status: 'productive', 
+                    no_order_reason: null,
+                    check_out_time: orderTime
+                  })
                   .eq('id', visitData.id);
               }
               setHasOrderToday(true);
               setIsNoOrderMarked(false);
               setNoOrderReason('');
+              setIsCheckedOut(true);
+              setPhase('completed');
             }
           }
         )
@@ -438,6 +448,67 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     setShowLocationModal(true);
   };
 
+  const autoCheckOutPreviousVisit = async (userId: string, currentRetailerId: string, today: string) => {
+    try {
+      // Find any in-progress visit at a different retailer for today
+      const { data: inProgressVisits } = await supabase
+        .from('visits')
+        .select('id, retailer_id, check_in_time')
+        .eq('user_id', userId)
+        .eq('planned_date', today)
+        .eq('status', 'in-progress')
+        .neq('retailer_id', currentRetailerId);
+
+      if (inProgressVisits && inProgressVisits.length > 0) {
+        for (const prevVisit of inProgressVisits) {
+          console.log('Auto checking out previous visit:', prevVisit.id);
+          
+          // Get the last order for this visit to determine check-out time
+          const { data: lastOrder } = await supabase
+            .from('orders')
+            .select('created_at')
+            .eq('user_id', userId)
+            .eq('retailer_id', prevVisit.retailer_id)
+            .eq('status', 'confirmed')
+            .gte('created_at', `${today}T00:00:00.000Z`)
+            .lte('created_at', `${today}T23:59:59.999Z`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          // Use last order time or current time for checkout
+          const checkOutTime = lastOrder?.created_at || new Date().toISOString();
+          
+          // Check if there are any orders for this visit
+          const { data: ordersForVisit } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('retailer_id', prevVisit.retailer_id)
+            .eq('status', 'confirmed')
+            .gte('created_at', `${today}T00:00:00.000Z`)
+            .lte('created_at', `${today}T23:59:59.999Z`)
+            .limit(1);
+
+          const finalStatus = (ordersForVisit && ordersForVisit.length > 0) ? 'productive' : 'unproductive';
+
+          // Auto check-out the previous visit
+          await supabase
+            .from('visits')
+            .update({
+              check_out_time: checkOutTime,
+              status: finalStatus
+            })
+            .eq('id', prevVisit.id);
+
+          console.log(`Auto checked out visit ${prevVisit.id} at ${checkOutTime} with status ${finalStatus}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error auto checking out previous visit:', error);
+    }
+  };
+
   const handleCheckInOut = async (action: 'checkin' | 'checkout') => {
     try {
       console.log(`Starting ${action} process...`);
@@ -449,6 +520,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
       const today = new Date().toISOString().split('T')[0];
       const retailerId = visit.retailerId || visit.id;
+      
+      // Auto check-out any previous in-progress visit before checking in to a new store
+      if (action === 'checkin') {
+        await autoCheckOutPreviousVisit(user.id, retailerId, today);
+      }
+      
       console.log(`Ensuring visit for retailer ${retailerId} on ${today}`);
       const visitId = await ensureVisit(user.id, retailerId, today);
       console.log(`Visit ID: ${visitId}`);
@@ -617,12 +694,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         
         console.log('Updating visit status to unproductive for visitId:', visitId);
         
+        // Auto check-out when marking as no order
+        const checkOutTime = new Date().toISOString();
+        
         // Update visit status to unproductive and store the reason
         const { data, error } = await supabase
           .from('visits')
           .update({ 
             status: 'unproductive',
-            no_order_reason: reason
+            no_order_reason: reason,
+            check_out_time: checkOutTime
           })
           .eq('id', visitId)
           .select();
@@ -636,6 +717,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         
         // Update local state to reflect the change immediately
         setPhase('completed');
+        setIsCheckedOut(true);
         
         // Trigger a manual refresh of the parent component's data
         window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
@@ -1049,6 +1131,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                               if (user) {
                                 const today = new Date().toISOString().split('T')[0];
                                 const retailerId = visit.retailerId || visit.id;
+                                
+                                // Auto check-out any previous in-progress visit before phone order
+                                await autoCheckOutPreviousVisit(user.id, retailerId, today);
+                                
                                 const visitId = await ensureVisit(user.id, retailerId, today);
                                 
                                 // Update visit with phone order reason and set to in-progress
@@ -1140,6 +1226,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                                   if (user) {
                                     const today = new Date().toISOString().split('T')[0];
                                     const retailerId = visit.retailerId || visit.id;
+                                    
+                                    // Auto check-out any previous in-progress visit before proceeding
+                                    await autoCheckOutPreviousVisit(user.id, retailerId, today);
+                                    
                                     const visitId = await ensureVisit(user.id, retailerId, today);
                                     
                                     // Update visit with skip check-in reason and set to in-progress
