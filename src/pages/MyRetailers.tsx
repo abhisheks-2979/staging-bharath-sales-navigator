@@ -40,6 +40,8 @@ interface Retailer {
   potential?: string | null;
   competitors?: string[] | null;
   entity_type?: string | null;
+  gst_number?: string | null;
+  photo_url?: string | null;
 }
 
 export const MyRetailers = () => {
