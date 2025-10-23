@@ -87,17 +87,33 @@ self.addEventListener('activate', (event) => {
 // Fallback to index.html for SPA routes - serve from cache when offline
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  new NetworkFirst({
-    cacheName: `navigation-cache-${RUNTIME_CACHE_VERSION}`,
-    networkTimeoutSeconds: 3,
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
-        purgeOnQuotaError: true,
-      }),
-    ],
-  })
+  async ({ event }) => {
+    try {
+      // Try network first, fallback to cache
+      const networkResponse = await new NetworkFirst({
+        cacheName: `navigation-cache-${RUNTIME_CACHE_VERSION}`,
+        networkTimeoutSeconds: 3,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 50,
+            maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
+            purgeOnQuotaError: true,
+          }),
+        ],
+      }).handle({ event: event as any, request: (event as any).request });
+      if (networkResponse) return networkResponse;
+    } catch (e) {
+      // Ignore and try cache fallbacks
+    }
+
+    // Try cached app shell first
+    const cachedIndex = await caches.match('/index.html');
+    if (cachedIndex) return cachedIndex;
+
+    // Finally, show offline page if available
+    const offline = await caches.match('/offline.html');
+    return offline || Response.error();
+  }
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with short cache for fresh data

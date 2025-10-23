@@ -368,15 +368,24 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Address</Label>
                     <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.address}
-                          onChange={(e) => setFormData({...formData, address: e.target.value})}
-                          className="h-8 text-sm"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.address}</span>
-                      )}
+{isEditing ? (
+  <Input
+    value={formData.address}
+    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+    className="h-8 text-sm"
+  />
+) : (
+  <a
+    href={(getGoogleMapsLink() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address || '')}`)}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-sm text-primary hover:underline break-words"
+    onClick={(e) => e.stopPropagation()}
+    title="Open in Google Maps"
+  >
+    {formData.address}
+  </a>
+)}
                     </div>
                   </div>
 

@@ -223,10 +223,21 @@ export const RetailerDetail = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Address</label>
-                  <div className="flex items-start gap-2 mt-1">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <p className="text-sm">{retailer.address}</p>
-                  </div>
+<div className="flex items-start gap-2 mt-1">
+  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+  <a
+    href={(retailer.latitude && retailer.longitude)
+      ? `https://www.google.com/maps/search/?api=1&query=${retailer.latitude},${retailer.longitude}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(retailer.address || '')}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-sm text-primary hover:underline"
+    title="Open in Google Maps"
+    onClick={(e) => e.stopPropagation()}
+  >
+    {retailer.address}
+  </a>
+</div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Phone</label>
