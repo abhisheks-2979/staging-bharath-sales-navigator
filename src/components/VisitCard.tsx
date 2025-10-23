@@ -616,12 +616,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       const timestamp = new Date().toISOString();
       const today = timestamp.split('T')[0];
 
-      // Get current location
+      // Get current location with high accuracy
       const current = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
           (err) => reject(new Error(`GPS error: ${err.message}`)),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 } // Extended timeout for better accuracy
         );
       });
 

@@ -59,6 +59,11 @@ const Attendance = () => {
             description: "Could not get your location. Please enable GPS.",
             variant: "destructive"
           });
+        },
+        { 
+          enableHighAccuracy: true, // Use GPS for precise location
+          timeout: 30000, // Wait up to 30 seconds
+          maximumAge: 0 // Don't use cached location
         }
       );
     }
@@ -209,18 +214,34 @@ const Attendance = () => {
   };
 
   const markAttendance = async (type: 'check-in' | 'check-out') => {
-    if (!location) {
-      toast({
-        title: "Location Required",
-        description: "Please enable location services to mark attendance.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsMarkingAttendance(true);
     
     try {
+      // Get fresh high-accuracy location right before marking attendance
+      const freshLocation = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation not supported'));
+          return;
+        }
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            });
+          },
+          (error) => {
+            reject(error);
+          },
+          { 
+            enableHighAccuracy: true, // Force GPS usage
+            timeout: 30000,
+            maximumAge: 0 // Must be fresh location
+          }
+        );
+      });
+      
       await startCamera();
       
       // Give user time to position for photo
@@ -254,8 +275,8 @@ const Attendance = () => {
             user_id: user.id,
             date: today,
             check_in_time: timestamp,
-            check_in_location: location,
-            check_in_address: `${location.latitude}, ${location.longitude}`,
+            check_in_location: freshLocation,
+            check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
             check_in_photo_url: photoPath,
             status: 'present'
           });
@@ -276,8 +297,8 @@ const Attendance = () => {
               .from('visits')
               .update({
                 check_in_time: timestamp,
-                check_in_location: location,
-                check_in_address: `${location.latitude}, ${location.longitude}`,
+                check_in_location: freshLocation,
+                check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
                 check_in_photo_url: photoPath,
                 location_match_in: true,
                 status: 'in-progress'
@@ -291,8 +312,8 @@ const Attendance = () => {
           .from('attendance')
           .update({
             check_out_time: timestamp,
-            check_out_location: location,
-            check_out_address: `${location.latitude}, ${location.longitude}`,
+            check_out_location: freshLocation,
+            check_out_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
             check_out_photo_url: photoPath
           })
           .eq('user_id', user.id)

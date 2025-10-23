@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 /**
  * Marks attendance for today and also checks in to all planned visits
  * This ensures that either "Day Started" or "Visit Check-in" can be used interchangeably
+ * Uses high-accuracy GPS for precise location tracking
  */
 export const markDayStarted = async (
   userId: string,
@@ -73,6 +74,7 @@ export const hasAttendanceToday = async (userId: string): Promise<boolean> => {
 
 /**
  * Marks attendance when checking in to a visit (if not already marked)
+ * Uses high-accuracy GPS for precise location tracking
  */
 export const ensureAttendanceOnVisitCheckIn = async (
   userId: string,
