@@ -227,18 +227,6 @@ const Index = () => {
                 <div className="text-[10px] sm:text-xs text-orange-700 font-medium leading-tight">Revenue (This Month)</div>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/10 border-indigo-200 shadow-lg">
-              <CardContent className="p-2 sm:p-3 text-center">
-                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-indigo-600 mb-1">#3</div>
-                <div className="text-[10px] sm:text-xs text-indigo-700 font-medium leading-tight">Leader Rank (Current Month)</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border-emerald-200 shadow-lg">
-              <CardContent className="p-2 sm:p-3 text-center">
-                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 mb-1">124%</div>
-                <div className="text-[10px] sm:text-xs text-emerald-700 font-medium leading-tight">Achievement % (This Month)</div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Navigation Grid */}
