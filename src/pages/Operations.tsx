@@ -150,14 +150,24 @@ const Operations = () => {
           const { data: signedUrlData } = await supabase.storage
             .from('visit-photos')
             .createSignedUrl(visit.check_in_photo_url, 3600);
-          checkInPhotoUrl = signedUrlData?.signedUrl || null;
+          if (signedUrlData?.signedUrl) {
+            // Handle relative signed URLs
+            checkInPhotoUrl = signedUrlData.signedUrl.startsWith('http') 
+              ? signedUrlData.signedUrl 
+              : `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1${signedUrlData.signedUrl}`;
+          }
         }
 
         if (visit.check_out_photo_url) {
           const { data: signedUrlData } = await supabase.storage
             .from('visit-photos')
             .createSignedUrl(visit.check_out_photo_url, 3600);
-          checkOutPhotoUrl = signedUrlData?.signedUrl || null;
+          if (signedUrlData?.signedUrl) {
+            // Handle relative signed URLs
+            checkOutPhotoUrl = signedUrlData.signedUrl.startsWith('http')
+              ? signedUrlData.signedUrl
+              : `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1${signedUrlData.signedUrl}`;
+          }
         }
         
         return {
