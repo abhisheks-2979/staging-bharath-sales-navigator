@@ -429,131 +429,113 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       const file = e.target.files?.[0];
       e.target.value = '';
       const action = pendingPhotoActionRef.current;
-      const pending = pendingCheckDataRef.current;
-      if (!file || !currentVisitId || !action || !pending) {
+      
+      // If no file selected or cancelled, just clear pending refs
+      if (!file || !currentVisitId || !action) {
         pendingPhotoActionRef.current = null;
+        pendingCheckDataRef.current = null;
+        console.log('Photo selection cancelled or no file selected - check-in/out already saved');
         return;
       }
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        pendingPhotoActionRef.current = null;
+        pendingCheckDataRef.current = null;
+        return;
+      }
 
+      // Upload photo
       const path = `${user.id}/${currentVisitId}-${action}-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('visit-photos')
         .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
-      if (uploadError) throw uploadError;
-
-      if (action === 'checkin') {
-        const { timestamp, current, address, match } = pending;
-        const { error } = await supabase
-          .from('visits')
-          .update({
-            check_in_time: timestamp,
-            check_in_location: current,
-            check_in_address: address,
-            location_match_in: match,
-            status: 'in-progress',
-            check_in_photo_url: path
-          })
-          .eq('id', currentVisitId);
-        if (error) throw error;
-
-        const { error: attendanceError } = await supabase
-          .from('attendance')
-          .upsert({
-            user_id: user.id,
-            date: timestamp.split('T')[0],
-            check_in_time: timestamp,
-            check_in_location: pending.current,
-            check_in_address: pending.address,
-            status: 'present'
-          }, { onConflict: 'user_id,date' });
-        if (attendanceError) console.error('Attendance check-in error:', attendanceError);
-
-        setPhase('in-progress');
-        setLocationMatchIn(match);
-        setIsCheckedIn(true);
-        window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
-          detail: { visitId: currentVisitId, status: 'in-progress', retailerId: visit.retailerId || visit.id } 
-        }));
-        toast({ title: 'Checked in', description: match === false ? 'Location mismatch' : 'Location verified' });
-      } else {
-        const { timestamp, current, address, match } = pending;
-
-        const today = timestamp.split('T')[0];
-        const todayStart = new Date(today); todayStart.setHours(0,0,0,0);
-        const todayEnd = new Date(today); todayEnd.setHours(23,59,59,999);
-
-        const { data: ordersToday } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('retailer_id', visit.retailerId || visit.id)
-          .eq('status', 'confirmed')
-          .gte('created_at', todayStart.toISOString())
-          .lte('created_at', todayEnd.toISOString())
-          .limit(1);
-
-        const finalStatus = (ordersToday && ordersToday.length > 0) ? 'productive' : 'unproductive';
-
-        const { error } = await supabase
-          .from('visits')
-          .update({
-            check_out_time: timestamp,
-            check_out_location: current,
-            check_out_address: address,
-            location_match_out: match,
-            status: finalStatus,
-            check_out_photo_url: path
-          })
-          .eq('id', currentVisitId);
-        if (error) throw error;
-
-        const { data: attendanceData } = await supabase
-          .from('attendance')
-          .select('check_in_time')
-          .eq('user_id', user.id)
-          .eq('date', today)
-          .single();
-
-        if (attendanceData?.check_in_time) {
-          const checkInTime = new Date(attendanceData.check_in_time);
-          const checkOutTime = new Date(timestamp);
-          const totalHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-
-          const { error: attendanceError } = await supabase
-            .from('attendance')
-            .update({
-              check_out_time: timestamp,
-              check_out_location: current,
-              check_out_address: address,
-              total_hours: totalHours
-            })
-            .eq('user_id', user.id)
-            .eq('date', today);
-          if (attendanceError) console.error('Attendance check-out error:', attendanceError);
-        }
-
-        setPhase('completed');
-        setLocationMatchOut(match);
-        setIsCheckedOut(true);
-        toast({ title: 'Checked out', description: match === false ? 'Location mismatch' : 'Location verified' });
+      
+      if (uploadError) {
+        console.error('Photo upload error:', uploadError);
+        toast({ 
+          title: 'Photo upload failed', 
+          description: 'Photo could not be uploaded, but check-in/out was recorded.', 
+          variant: 'destructive' 
+        });
+        pendingPhotoActionRef.current = null;
+        pendingCheckDataRef.current = null;
+        return;
       }
 
-      setShowLocationModal(false);
-      toast({ title: 'Photo saved', description: 'Visit photo uploaded successfully.' });
+      // Update the visit/attendance record with photo URL only
+      if (action === 'checkin') {
+        const { error } = await supabase
+          .from('visits')
+          .update({ check_in_photo_url: path })
+          .eq('id', currentVisitId);
+        
+        if (error) {
+          console.error('Error updating check-in photo:', error);
+        }
+
+        // Try to update attendance photo too
+        const today = new Date().toISOString().split('T')[0];
+        await supabase
+          .from('attendance')
+          .update({ check_in_photo_url: path })
+          .eq('user_id', user.id)
+          .eq('date', today);
+
+        toast({ title: 'Photo uploaded', description: 'Check-in photo saved successfully.' });
+      } else {
+        const { error } = await supabase
+          .from('visits')
+          .update({ check_out_photo_url: path })
+          .eq('id', currentVisitId);
+        
+        if (error) {
+          console.error('Error updating check-out photo:', error);
+        }
+
+        // Try to update attendance photo too
+        const today = new Date().toISOString().split('T')[0];
+        await supabase
+          .from('attendance')
+          .update({ check_out_photo_url: path })
+          .eq('user_id', user.id)
+          .eq('date', today);
+
+        toast({ title: 'Photo uploaded', description: 'Check-out photo saved successfully.' });
+      }
 
       pendingPhotoActionRef.current = null;
       pendingCheckDataRef.current = null;
     } catch (err: any) {
-      console.error('Photo upload error', err);
-      toast({ title: 'Photo upload failed', description: err.message || 'Try again.', variant: 'destructive' });
+      console.error('Photo processing error', err);
+      toast({ 
+        title: 'Photo processing failed', 
+        description: 'Photo could not be processed, but check-in/out was recorded.', 
+        variant: 'destructive' 
+      });
+      pendingPhotoActionRef.current = null;
+      pendingCheckDataRef.current = null;
     }
   };
 
   const handleLocationClick = () => {
     setShowLocationModal(true);
+  };
+
+  // Helper function to calculate distance between two GPS coordinates
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
   };
 
   const autoCheckOutPreviousVisit = async (userId: string, currentRetailerId: string, today: string) => {
@@ -626,50 +608,165 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const retailerId = visit.retailerId || visit.id;
-
-      if (action === 'checkin') {
-        await autoCheckOutPreviousVisit(user.id, retailerId, today);
-      }
-
-      console.log(`Ensuring visit for retailer ${retailerId} on ${today}`);
-      const visitId = await ensureVisit(user.id, retailerId, today);
-      console.log(`Visit ID: ${visitId}`);
-      setCurrentVisitId(visitId);
-
-      const pos = await getPosition();
-      const current = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-      console.log(`Current location: ${current.latitude}, ${current.longitude}`);
-
-      let match: boolean | null = null;
-      if (typeof visit.retailerLat === 'number' && typeof visit.retailerLng === 'number') {
-        const dist = distanceMeters(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
-        match = dist <= 150; // within 150 meters
-        console.log(`Location match: ${match}`);
-      }
-
-      let address = '';
-      try {
-        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${current.latitude}&longitude=${current.longitude}&localityLanguage=en`);
-        const data = await response.json();
-        address = data.display_name || `${current.latitude}, ${current.longitude}`;
-      } catch {
-        address = `${current.latitude}, ${current.longitude}`;
+      if (!currentVisitId) {
+        toast({ title: 'Invalid visit', description: 'Visit ID not found.', variant: 'destructive' });
+        return;
       }
 
       const timestamp = new Date().toISOString();
+      const today = timestamp.split('T')[0];
 
-      // Store pending data and prompt for photo BEFORE marking check-in/out
-      pendingPhotoActionRef.current = action;
-      pendingCheckDataRef.current = { action, timestamp, current, address, match };
+      // Get current location
+      const current = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+          (err) => reject(new Error(`GPS error: ${err.message}`)),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
 
-      // Close modal and open camera/file picker
-      setShowLocationModal(false);
-      fileInputRef.current?.click();
+      const address = `${current.latitude.toFixed(6)}, ${current.longitude.toFixed(6)}`;
+      let match: boolean | null = null;
+      
+      if (visit.retailerLat && visit.retailerLng) {
+        const distance = calculateDistance(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
+        match = distance <= 100;
+      }
+
+      // SAVE CHECK-IN/OUT DATA IMMEDIATELY
+      if (action === 'checkin') {
+        // Auto check-out any previous in-progress visits
+        await autoCheckOutPreviousVisit(user.id, visit.retailerId || visit.id, today);
+
+        // Update visit with check-in data
+        const { error } = await supabase
+          .from('visits')
+          .update({
+            check_in_time: timestamp,
+            check_in_location: current,
+            check_in_address: address,
+            location_match_in: match,
+            status: 'in-progress'
+          })
+          .eq('id', currentVisitId);
+        
+        if (error) throw error;
+
+        // Update attendance record
+        const { error: attendanceError } = await supabase
+          .from('attendance')
+          .upsert({
+            user_id: user.id,
+            date: today,
+            check_in_time: timestamp,
+            check_in_location: current,
+            check_in_address: address,
+            status: 'present'
+          }, { onConflict: 'user_id,date' });
+        
+        if (attendanceError) console.error('Attendance check-in error:', attendanceError);
+
+        // Update UI state
+        setPhase('in-progress');
+        setLocationMatchIn(match);
+        setIsCheckedIn(true);
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
+          detail: { visitId: currentVisitId, status: 'in-progress', retailerId: visit.retailerId || visit.id } 
+        }));
+        
+        toast({ 
+          title: 'Checked in successfully', 
+          description: match === false ? 'Location mismatch detected' : 'Location verified' 
+        });
+
+        // Now prompt for photo (optional)
+        pendingPhotoActionRef.current = action;
+        pendingCheckDataRef.current = { action, timestamp, current, address, match };
+        setShowLocationModal(false);
+        fileInputRef.current?.click();
+
+      } else {
+        // Check-out process
+        const todayStart = new Date(today); todayStart.setHours(0,0,0,0);
+        const todayEnd = new Date(today); todayEnd.setHours(23,59,59,999);
+
+        const { data: ordersToday } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('retailer_id', visit.retailerId || visit.id)
+          .eq('status', 'confirmed')
+          .gte('created_at', todayStart.toISOString())
+          .lte('created_at', todayEnd.toISOString())
+          .limit(1);
+
+        const finalStatus = (ordersToday && ordersToday.length > 0) ? 'productive' : 'unproductive';
+
+        // Update visit with check-out data
+        const { error } = await supabase
+          .from('visits')
+          .update({
+            check_out_time: timestamp,
+            check_out_location: current,
+            check_out_address: address,
+            location_match_out: match,
+            status: finalStatus
+          })
+          .eq('id', currentVisitId);
+        
+        if (error) throw error;
+
+        // Update attendance with check-out
+        const { data: attendanceData } = await supabase
+          .from('attendance')
+          .select('check_in_time')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .single();
+
+        if (attendanceData?.check_in_time) {
+          const checkInTime = new Date(attendanceData.check_in_time);
+          const checkOutTime = new Date(timestamp);
+          const totalHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+          const { error: attendanceError } = await supabase
+            .from('attendance')
+            .update({
+              check_out_time: timestamp,
+              check_out_location: current,
+              check_out_address: address,
+              total_hours: totalHours
+            })
+            .eq('user_id', user.id)
+            .eq('date', today);
+          
+          if (attendanceError) console.error('Attendance check-out error:', attendanceError);
+        }
+
+        // Update UI state
+        setPhase('completed');
+        setLocationMatchOut(match);
+        setIsCheckedOut(true);
+        
+        toast({ 
+          title: 'Checked out successfully', 
+          description: match === false ? 'Location mismatch detected' : 'Visit completed' 
+        });
+
+        // Now prompt for photo (optional)
+        pendingPhotoActionRef.current = action;
+        pendingCheckDataRef.current = { action, timestamp, current, address, match };
+        setShowLocationModal(false);
+        fileInputRef.current?.click();
+      }
+
     } catch (err: any) {
       console.error('Check-in/out error', err);
-      toast({ title: 'Location/Permission error', description: err.message || 'Enable GPS and try again.', variant: 'destructive' });
+      toast({ 
+        title: 'Check-in/out failed', 
+        description: err.message || 'Enable GPS and try again.', 
+        variant: 'destructive' 
+      });
     }
   };
   const handleNoOrderReasonSelect = async (reason: string) => {
