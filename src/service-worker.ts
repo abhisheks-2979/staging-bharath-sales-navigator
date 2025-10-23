@@ -15,16 +15,13 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v6';
-const PRECACHE_VERSION = 'v6';
+const RUNTIME_CACHE_VERSION = 'v7';
+const PRECACHE_VERSION = 'v7';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Precache offline page
-precacheAndRoute([
-  { url: '/offline.html', revision: 'v6' }
-]);
+// No need to precache offline.html - we'll serve the app instead
 
 // Immediately activate updated service worker and allow manual skip-waiting
 self.addEventListener('install', () => {
@@ -56,6 +53,7 @@ self.addEventListener('activate', (event) => {
         `api-cache-${RUNTIME_CACHE_VERSION}`,
         `images-cache-${RUNTIME_CACHE_VERSION}`,
         `dynamic-cache-${RUNTIME_CACHE_VERSION}`,
+        `navigation-cache-${RUNTIME_CACHE_VERSION}`,
       ];
       
       // Delete ALL caches that don't match current version
@@ -86,19 +84,20 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fallback to index.html for SPA routes, or offline.html if offline
+// Fallback to index.html for SPA routes - serve from cache when offline
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  async (args) => {
-    try {
-      const handler = createHandlerBoundToURL('/index.html');
-      return await handler(args);
-    } catch (error) {
-      const cache = await caches.open(`workbox-precache-${PRECACHE_VERSION}`);
-      const offlinePage = await cache.match('/offline.html');
-      return offlinePage || new Response('Offline');
-    }
-  }
+  new NetworkFirst({
+    cacheName: `navigation-cache-${RUNTIME_CACHE_VERSION}`,
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
+        purgeOnQuotaError: true,
+      }),
+    ],
+  })
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with short cache for fresh data

@@ -149,17 +149,20 @@ export function useMasterDataCache() {
     }
   }, []);
 
-  // Auto-cache when coming online
+  // Auto-cache when coming online OR on first mount
   useEffect(() => {
+    // Check if we need to refresh cache (every 6 hours) or if never cached
+    const lastCached = localStorage.getItem('master_data_cached_at');
+    const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+    
     if (isOnline) {
-      // Check if we need to refresh cache (every 6 hours)
-      const lastCached = localStorage.getItem('master_data_cached_at');
-      const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
-      
       if (!lastCached || parseInt(lastCached) < sixHoursAgo) {
         console.log('Master data cache expired or missing, refreshing...');
         cacheAllMasterData();
       }
+    } else if (!lastCached) {
+      // If offline and never cached, show a warning
+      console.warn('⚠️ App is offline and no cached data available. Please connect online first.');
     }
   }, [isOnline, cacheAllMasterData]);
 
