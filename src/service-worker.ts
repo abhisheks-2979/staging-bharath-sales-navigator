@@ -15,8 +15,8 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v7';
-const PRECACHE_VERSION = 'v7';
+const RUNTIME_CACHE_VERSION = 'v8';
+const PRECACHE_VERSION = 'v8';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);

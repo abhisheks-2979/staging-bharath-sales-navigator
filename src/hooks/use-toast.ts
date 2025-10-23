@@ -142,6 +142,22 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
+  // Check if this is an error toast and we're offline
+  const isOffline = !navigator.onLine;
+  const isErrorToast = props.variant === 'destructive' || 
+                       props.title?.toString().toLowerCase().includes('error') ||
+                       props.description?.toString().toLowerCase().includes('failed');
+
+  // Suppress error toasts when offline
+  if (isOffline && isErrorToast) {
+    console.log('Offline mode: Suppressing error toast', props);
+    return {
+      id: id,
+      dismiss: () => {},
+      update: () => {},
+    };
+  }
+
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
