@@ -482,52 +482,142 @@ export const AddRetailer = () => {
                           });
                         }
                         
-                        // Use Google Maps Geocoding API for accurate address
+                        // Use Google Maps Geocoding/Places for more precise POI-first address
                         try {
-                          // Try Google Maps first (most accurate for Indian addresses)
                           const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-                          
+
+                          // Helper to compute distance in meters
+                          const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+                            const toRad = (v: number) => (v * Math.PI) / 180;
+                            const R = 6371000; // meters
+                            const dLat = toRad(lat2 - lat1);
+                            const dLon = toRad(lon2 - lon1);
+                            const a =
+                              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                            return R * c;
+                          };
+
                           if (googleApiKey && googleApiKey !== 'your_google_maps_api_key_here') {
-                            const googleResponse = await fetch(
-                              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${googleApiKey}&language=en`
-                            );
-                            
-                            if (googleResponse.ok) {
-                              const googleData = await googleResponse.json();
-                              
-                              if (googleData.status === 'OK' && googleData.results?.[0]) {
-                                const formattedAddress = googleData.results[0].formatted_address;
-                                
-                                handleInputChange("address", formattedAddress);
-                                
-                                toast({ 
-                                  title: "Address Found", 
-                                  description: "Location fetched from Google Maps",
-                                  duration: 2000
-                                });
-                                return;
+                            // 1) Reverse geocode prioritizing POIs/premise/street address
+                            const geocodeUrl =
+                              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}` +
+                              `&language=en&key=${googleApiKey}` +
+                              `&result_type=street_address|premise|point_of_interest|establishment|shopping_mall` +
+                              `&location_type=ROOFTOP|GEOMETRIC_CENTER`;
+
+                            // 2) Nearby places ordered by distance (to snap to closest POI like malls/stores)
+                            const nearbyUrl =
+                              `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}` +
+                              `&rankby=distance&type=establishment&key=${googleApiKey}`;
+
+                            const [geoRes, nearbyRes] = await Promise.all([
+                              fetch(geocodeUrl),
+                              fetch(nearbyUrl)
+                            ]);
+
+                            let bestGeocode: any | null = null;
+                            if (geoRes.ok) {
+                              const geoData = await geoRes.json();
+                              if (geoData.status === 'OK' && Array.isArray(geoData.results)) {
+                                const priority = [
+                                  'shopping_mall',
+                                  'premise',
+                                  'establishment',
+                                  'point_of_interest',
+                                  'street_address',
+                                  'route'
+                                ];
+                                const score = (types: string[] = []) => {
+                                  for (let i = 0; i < priority.length; i++) {
+                                    if (types.includes(priority[i])) return i;
+                                  }
+                                  return 999;
+                                };
+                                bestGeocode = geoData.results
+                                  .slice()
+                                  .sort((a: any, b: any) => score(a.types) - score(b.types))[0] || null;
                               }
                             }
+
+                            let bestPlace: any | null = null;
+                            if (nearbyRes.ok) {
+                              const nearbyData = await nearbyRes.json();
+                              if ((nearbyData.status === 'OK' || nearbyData.status === 'ZERO_RESULTS') && Array.isArray(nearbyData.results)) {
+                                const desiredPlaceTypes = new Set([
+                                  'shopping_mall',
+                                  'supermarket',
+                                  'department_store',
+                                  'grocery_or_supermarket',
+                                  'store',
+                                  'point_of_interest',
+                                  'establishment'
+                                ]);
+                                // Prefer closest place matching desired types and within ~300m
+                                for (const p of nearbyData.results) {
+                                  if (!Array.isArray(p.types)) continue;
+                                  const hasDesired = p.types.some((t: string) => desiredPlaceTypes.has(t));
+                                  if (!hasDesired) continue;
+                                  const plat = p.geometry?.location?.lat;
+                                  const plon = p.geometry?.location?.lng;
+                                  if (typeof plat === 'number' && typeof plon === 'number') {
+                                    const d = haversine(lat, lon, plat, plon);
+                                    if (d <= 350) { // within 350m of user
+                                      bestPlace = p;
+                                      break; // first match is the closest due to rankby=distance
+                                    }
+                                  }
+                                }
+                                // If nothing within 350m, still take the very first result as the nearest POI fallback
+                                if (!bestPlace && nearbyData.results[0]) bestPlace = nearbyData.results[0];
+                              }
+                            }
+
+                            // If we have a close POI (e.g., Bharath Mall), use its official name and address
+                            if (bestPlace?.place_id) {
+                              try {
+                                const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${bestPlace.place_id}&fields=name,formatted_address,geometry,types&key=${googleApiKey}`;
+                                const detRes = await fetch(detailsUrl);
+                                if (detRes.ok) {
+                                  const detData = await detRes.json();
+                                  if (detData.status === 'OK' && detData.result) {
+                                    const name = detData.result.name;
+                                    const addr = detData.result.formatted_address || bestGeocode?.formatted_address || bestPlace.vicinity;
+                                    const finalAddr = name && addr && !addr.startsWith(name) ? `${name}, ${addr}` : (addr || name);
+                                    if (finalAddr) {
+                                      handleInputChange('address', finalAddr);
+                                      toast({ title: 'Address Found', description: `📍 ${name || 'Nearby place'} selected`, duration: 2500 });
+                                      return;
+                                    }
+                                  }
+                                }
+                              } catch {}
+                              // Fallback to place vicinity/name if details failed
+                              const fallbackAddr = (bestPlace.name ? `${bestPlace.name}, ` : '') + (bestPlace.vicinity || bestGeocode?.formatted_address || `${lat}, ${lon}`);
+                              handleInputChange('address', fallbackAddr);
+                              toast({ title: 'Address Found', description: 'Nearest place selected', duration: 2500 });
+                              return;
+                            }
+
+                            // Otherwise, use the best geocode result (more precise than generic area)
+                            if (bestGeocode?.formatted_address) {
+                              handleInputChange('address', bestGeocode.formatted_address);
+                              toast({ title: 'Address Found', description: 'Location fetched from Google Maps', duration: 2000 });
+                              return;
+                            }
                           }
-                          
+
                           // Fallback to OpenStreetMap Nominatim
                           const response = await fetch(
                             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
-                            {
-                              headers: {
-                                'User-Agent': 'FieldSalesNavigator/1.0'
-                              }
-                            }
+                            { headers: { 'User-Agent': 'FieldSalesNavigator/1.0' } }
                           );
-                          
                           if (!response.ok) throw new Error('Geocoding service unavailable');
-                          
                           const data = await response.json();
-                          
-                          // Extract address components for Indian addresses
                           const address = data.address || {};
-                          const parts = [];
-                          
+                          const parts = [] as string[];
                           if (address.house_number) parts.push(address.house_number);
                           if (address.road || address.street) parts.push(address.road || address.street);
                           if (address.neighbourhood || address.suburb) parts.push(address.neighbourhood || address.suburb);
@@ -535,28 +625,12 @@ export const AddRetailer = () => {
                           if (address.state_district) parts.push(address.state_district);
                           if (address.state) parts.push(address.state);
                           if (address.postcode) parts.push(address.postcode);
-                         
-                          const formattedAddress = parts.length > 0 
-                            ? parts.join(', ') 
-                            : data.display_name || `${lat}, ${lon}`;
-                          
-                          handleInputChange("address", formattedAddress);
-                          
-                          toast({ 
-                            title: "✓ Address Found", 
-                            description: `Location fetched successfully`,
-                            duration: 2000
-                          });
+                          const formattedAddress = parts.length > 0 ? parts.join(', ') : data.display_name || `${lat}, ${lon}`;
+                          handleInputChange('address', formattedAddress);
+                          toast({ title: '✓ Address Found', description: 'Location fetched successfully', duration: 2000 });
                         } catch (geocodeError) {
                           console.error('Geocoding error:', geocodeError);
-                          
-                          // If geocoding fails, still keep the coordinates
-                          toast({ 
-                            title: "Address Not Found", 
-                            description: "Coordinates saved. Please enter address manually.",
-                            variant: "default",
-                            duration: 3000
-                          });
+                          toast({ title: 'Address Not Found', description: 'Coordinates saved. Please enter address manually.', variant: 'default', duration: 3000 });
                         }
                         
                       } catch (error: any) {
