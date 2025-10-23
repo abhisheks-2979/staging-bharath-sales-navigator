@@ -92,7 +92,7 @@ export const BeatPlanning = () => {
         retailerCountMap.set(beatId, { count: current.count + 1, priority });
       });
 
-      // Map beats data with retailer counts
+      // Map beats data with retailer counts - show ALL beats even if user has 0 retailers
       const beatsArr: Beat[] = (beatsData || []).map((beat: any) => {
         const retailerInfo = retailerCountMap.get(beat.beat_id) || { count: 0, priority: 'medium' };
         return {
@@ -104,6 +104,7 @@ export const BeatPlanning = () => {
         };
       });
       
+      // Show all beats, including those with 0 retailers (for new users)
       setBeats(beatsArr);
     } catch (e) {
       console.error('Error loading beats', e);
@@ -549,7 +550,7 @@ export const BeatPlanning = () => {
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold">{beat.name}</h3>
+                      <h3 className="font-semibold text-foreground">{beat.name}</h3>
                       <Badge className={getPriorityColor(beat.priority)}>
                         {beat.priority}
                       </Badge>
