@@ -233,8 +233,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
-      // Sign out from Supabase first
-      await supabase.auth.signOut();
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) {
+        console.error('Supabase signOut error:', error);
+      }
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -245,14 +248,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUserRole(null);
     setUserProfile(null);
     
-    // Clear all auth-related local storage
-    localStorage.removeItem('cached_user');
-    localStorage.removeItem('cached_role');
-    localStorage.removeItem('cached_profile');
+    // Clear all auth-related storage
+    localStorage.clear();
     sessionStorage.clear();
     
-    // Redirect to auth page
-    window.location.href = '/auth';
+    // Clear any Supabase-specific storage keys
+    const supabaseKeys = Object.keys(localStorage).filter(key => 
+      key.startsWith('sb-') || key.startsWith('supabase')
+    );
+    supabaseKeys.forEach(key => localStorage.removeItem(key));
+    
+    // Create a clean URL without any query parameters
+    const cleanUrl = `${window.location.origin}/auth`;
+    
+    // Force a hard redirect to clear any lingering state
+    window.location.replace(cleanUrl);
   };
 
   const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {

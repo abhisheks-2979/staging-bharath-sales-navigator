@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { SignInForm } from './SignInForm';
@@ -13,6 +13,14 @@ type AuthMode = 'signin' | 'signup' | 'forgot' | 'admin-signin' | 'user-signin';
 export const AuthPage = () => {
   const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('user-signin');
+
+  // Clear URL parameters on mount to prevent auto-login from tokens
+  useEffect(() => {
+    if (window.location.search) {
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
   if (loading) {
     return (
