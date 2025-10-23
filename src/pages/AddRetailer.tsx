@@ -383,10 +383,27 @@ export const AddRetailer = () => {
                         return;
                       }
                       
+                      // Check if location permission is granted
+                      try {
+                        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+                        
+                        if (permissionStatus.state === 'denied') {
+                          toast({ 
+                            title: "Location Permission Denied", 
+                            description: "Please enable location access in your device settings and reload the page",
+                            variant: "destructive",
+                            duration: 5000
+                          });
+                          return;
+                        }
+                      } catch (e) {
+                        console.log('Permission API not supported, will try direct geolocation');
+                      }
+                      
                       toast({ 
                         title: "Accessing Location", 
-                        description: "Please allow location access when prompted...",
-                        duration: 3000
+                        description: "Please enable GPS and allow location access...",
+                        duration: 4000
                       });
                       
                       try {
@@ -394,67 +411,126 @@ export const AddRetailer = () => {
                         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                           navigator.geolocation.getCurrentPosition(
                             resolve, 
-                            reject, 
+                            (error) => {
+                              console.error('Geolocation error:', error);
+                              reject(error);
+                            }, 
                             { 
-                              enableHighAccuracy: true, 
-                              timeout: 30000,
-                              maximumAge: 0 // Don't use cached location
+                              enableHighAccuracy: true, // Use GPS, not network location
+                              timeout: 45000, // Longer timeout for GPS lock
+                              maximumAge: 0 // Always get fresh location
                             }
                           );
                         });
                         
-                        // Get precise coordinates with 6 decimal places (~0.1 meter accuracy)
-                        const lat = Number(position.coords.latitude.toFixed(6));
-                        const lon = Number(position.coords.longitude.toFixed(6));
+                        // Get precise coordinates with 7 decimal places (~1 cm accuracy)
+                        const lat = Number(position.coords.latitude.toFixed(7));
+                        const lon = Number(position.coords.longitude.toFixed(7));
                         const accuracy = position.coords.accuracy;
                         
-                        console.log('GPS Location captured:', { lat, lon, accuracy: `${accuracy.toFixed(1)}m` });
-                        
-                        toast({ 
-                          title: "Location Captured", 
-                          description: `Accuracy: ${accuracy.toFixed(0)} meters. Fetching address...`,
-                          duration: 2000
+                        console.log('GPS Location captured:', { 
+                          latitude: lat, 
+                          longitude: lon, 
+                          accuracy: `${accuracy.toFixed(1)}m`,
+                          timestamp: new Date(position.timestamp).toISOString()
                         });
                         
-                        // Use reverse geocoding to get proper address
-                        const response = await fetch(
-                          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
-                          {
-                            headers: {
-                              'User-Agent': 'FieldSalesNavigator/1.0'
+                        // Update coordinates immediately
+                        handleInputChange("latitude", lat.toString());
+                        handleInputChange("longitude", lon.toString());
+                        
+                        if (accuracy > 100) {
+                          toast({ 
+                            title: "Low GPS Accuracy", 
+                            description: `Current accuracy: ${accuracy.toFixed(0)}m. Try moving to an open area for better signal.`,
+                            variant: "default",
+                            duration: 4000
+                          });
+                        } else {
+                          toast({ 
+                            title: "GPS Location Locked", 
+                            description: `High accuracy: ${accuracy.toFixed(0)}m. Fetching address from Google Maps...`,
+                            duration: 2000
+                          });
+                        }
+                        
+                        // Use Google Maps Geocoding API for accurate address
+                        try {
+                          // Try Google Maps first (most accurate for Indian addresses)
+                          const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+                          
+                          if (googleApiKey && googleApiKey !== 'your_google_maps_api_key_here') {
+                            const googleResponse = await fetch(
+                              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${googleApiKey}&language=en`
+                            );
+                            
+                            if (googleResponse.ok) {
+                              const googleData = await googleResponse.json();
+                              
+                              if (googleData.status === 'OK' && googleData.results?.[0]) {
+                                const formattedAddress = googleData.results[0].formatted_address;
+                                
+                                handleInputChange("address", formattedAddress);
+                                
+                                toast({ 
+                                  title: "Address Found", 
+                                  description: "Location fetched from Google Maps",
+                                  duration: 2000
+                                });
+                                return;
+                              }
                             }
                           }
-                        );
+                          
+                          // Fallback to OpenStreetMap Nominatim
+                          const response = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+                            {
+                              headers: {
+                                'User-Agent': 'FieldSalesNavigator/1.0'
+                              }
+                            }
+                          );
+                          
+                          if (!response.ok) throw new Error('Geocoding service unavailable');
+                          
+                          const data = await response.json();
+                          
+                          // Extract address components for Indian addresses
+                          const address = data.address || {};
+                          const parts = [];
+                          
+                          if (address.house_number) parts.push(address.house_number);
+                          if (address.road || address.street) parts.push(address.road || address.street);
+                          if (address.neighbourhood || address.suburb) parts.push(address.neighbourhood || address.suburb);
+                          if (address.city || address.town || address.village) parts.push(address.city || address.town || address.village);
+                          if (address.state_district) parts.push(address.state_district);
+                          if (address.state) parts.push(address.state);
+                          if (address.postcode) parts.push(address.postcode);
+                         
+                          const formattedAddress = parts.length > 0 
+                            ? parts.join(', ') 
+                            : data.display_name || `${lat}, ${lon}`;
+                          
+                          handleInputChange("address", formattedAddress);
+                          
+                          toast({ 
+                            title: "✓ Address Found", 
+                            description: `Location fetched successfully`,
+                            duration: 2000
+                          });
+                        } catch (geocodeError) {
+                          console.error('Geocoding error:', geocodeError);
+                          
+                          // If geocoding fails, still keep the coordinates
+                          toast({ 
+                            title: "Address Not Found", 
+                            description: "Coordinates saved. Please enter address manually.",
+                            variant: "default",
+                            duration: 3000
+                          });
+                        }
                         
-                        if (!response.ok) throw new Error('Geocoding service unavailable');
-                        
-                        const data = await response.json();
-                        
-                        // Extract address components for Indian addresses
-                        const address = data.address || {};
-                        const parts = [];
-                        
-                        if (address.house_number) parts.push(address.house_number);
-                        if (address.road || address.street) parts.push(address.road || address.street);
-                        if (address.neighbourhood || address.suburb) parts.push(address.neighbourhood || address.suburb);
-                        if (address.city || address.town || address.village) parts.push(address.city || address.town || address.village);
-                        if (address.state_district) parts.push(address.state_district);
-                        if (address.state) parts.push(address.state);
-                        if (address.postcode) parts.push(address.postcode);
-                        
-                        const formattedAddress = parts.length > 0 
-                          ? parts.join(', ') 
-                          : data.display_name || `${lat}, ${lon}`;
-                        
-                        handleInputChange("address", formattedAddress);
-                        handleInputChange("latitude", String(lat));
-                        handleInputChange("longitude", String(lon));
-                        
-                        toast({ 
-                          title: "✓ Location Updated Successfully", 
-                          description: `GPS Accuracy: ${accuracy.toFixed(0)}m | Coordinates: ${lat}, ${lon}`,
-                          duration: 4000
-                        });
                       } catch (error: any) {
                         console.error('GPS/Geocoding error:', error);
                         
