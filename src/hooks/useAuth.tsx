@@ -92,6 +92,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    // Load cached auth state for offline support
+    const loadCachedAuth = () => {
+      try {
+        const cachedUser = localStorage.getItem('cached_user');
+        const cachedRole = localStorage.getItem('cached_role');
+        const cachedProfile = localStorage.getItem('cached_profile');
+        
+        if (cachedUser) {
+          setUser(JSON.parse(cachedUser));
+          setUserRole(cachedRole as 'admin' | 'user' | null);
+          setUserProfile(cachedProfile ? JSON.parse(cachedProfile) : null);
+        }
+      } catch (error) {
+        console.error('Error loading cached auth:', error);
+      }
+    };
+
+    // Load cached auth immediately for offline support
+    loadCachedAuth();
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -99,13 +119,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Cache auth state for offline use
+        if (session?.user) {
+          localStorage.setItem('cached_user', JSON.stringify(session.user));
+        } else {
+          localStorage.removeItem('cached_user');
+          localStorage.removeItem('cached_role');
+          localStorage.removeItem('cached_profile');
+        }
+        
         // Defer Supabase calls with setTimeout
         if (session?.user) {
           setTimeout(async () => {
             const role = await fetchUserRole(session.user.id);
             setUserRole(role);
+            if (role) localStorage.setItem('cached_role', role);
+            
             const profile = await fetchUserProfile(session.user.id);
             setUserProfile(profile);
+            if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
           }, 0);
         } else {
           setUserRole(null);
@@ -122,10 +154,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        localStorage.setItem('cached_user', JSON.stringify(session.user));
+        
         const role = await fetchUserRole(session.user.id);
         setUserRole(role);
+        if (role) localStorage.setItem('cached_role', role);
+        
         const profile = await fetchUserProfile(session.user.id);
         setUserProfile(profile);
+        if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
       }
       
       setLoading(false);

@@ -1,6 +1,6 @@
 // IndexedDB setup for offline storage
 const DB_NAME = 'OfflineAppDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Object store names
 export const STORES = {
@@ -8,7 +8,11 @@ export const STORES = {
   VARIANTS: 'variants', 
   RETAILERS: 'retailers',
   VISITS: 'visits',
-  SYNC_QUEUE: 'syncQueue'
+  SYNC_QUEUE: 'syncQueue',
+  PRODUCTS: 'products',
+  BEATS: 'beats',
+  CATEGORIES: 'categories',
+  SCHEMES: 'schemes'
 } as const;
 
 class OfflineStorage {
@@ -54,6 +58,23 @@ class OfflineStorage {
           const syncStore = db.createObjectStore(STORES.SYNC_QUEUE, { keyPath: 'id', autoIncrement: true });
           syncStore.createIndex('action', 'action', { unique: false });
           syncStore.createIndex('timestamp', 'timestamp', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.PRODUCTS)) {
+          db.createObjectStore(STORES.PRODUCTS, { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.BEATS)) {
+          db.createObjectStore(STORES.BEATS, { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.CATEGORIES)) {
+          db.createObjectStore(STORES.CATEGORIES, { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.SCHEMES)) {
+          const schemesStore = db.createObjectStore(STORES.SCHEMES, { keyPath: 'id' });
+          schemesStore.createIndex('productId', 'productId', { unique: false });
         }
       };
     });

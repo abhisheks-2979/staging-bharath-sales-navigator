@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
+import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import Index from "./pages/Index";
 
 // Lazy load feature pages
@@ -63,9 +64,23 @@ import CompleteProfile from "./pages/CompleteProfile";
 
 const queryClient = new QueryClient();
 
+const MasterDataCacheInitializer = () => {
+  const { cacheAllMasterData, isOnline } = useMasterDataCache();
+  
+  useEffect(() => {
+    // Cache master data on app load when online
+    if (isOnline) {
+      cacheAllMasterData();
+    }
+  }, [isOnline, cacheAllMasterData]);
+  
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <MasterDataCacheInitializer />
       <Toaster />
       <Sonner />
       <PWAInstallPrompt />

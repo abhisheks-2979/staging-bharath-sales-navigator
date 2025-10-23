@@ -15,11 +15,16 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v5';
-const PRECACHE_VERSION = 'v5';
+const RUNTIME_CACHE_VERSION = 'v6';
+const PRECACHE_VERSION = 'v6';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
+
+// Precache offline page
+precacheAndRoute([
+  { url: '/offline.html', revision: 'v6' }
+]);
 
 // Immediately activate updated service worker and allow manual skip-waiting
 self.addEventListener('install', () => {
@@ -81,10 +86,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fallback to index.html for SPA routes
+// Fallback to index.html for SPA routes, or offline.html if offline
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  createHandlerBoundToURL('/index.html')
+  async (args) => {
+    try {
+      const handler = createHandlerBoundToURL('/index.html');
+      return await handler(args);
+    } catch (error) {
+      const cache = await caches.open(`workbox-precache-${PRECACHE_VERSION}`);
+      const offlinePage = await cache.match('/offline.html');
+      return offlinePage || new Response('Offline');
+    }
+  }
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with short cache for fresh data
