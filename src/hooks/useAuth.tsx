@@ -232,29 +232,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    // Clear local session state first (works offline)
+    try {
+      // Sign out from Supabase first
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+    
+    // Clear local session state
     setUser(null);
     setSession(null);
     setUserRole(null);
     setUserProfile(null);
     
-    // Clear any local storage
-    localStorage.removeItem("supabase.auth.token");
+    // Clear all auth-related local storage
+    localStorage.removeItem('cached_user');
+    localStorage.removeItem('cached_role');
+    localStorage.removeItem('cached_profile');
     sessionStorage.clear();
     
-    // Redirect immediately
+    // Redirect to auth page
     window.location.href = '/auth';
-    
-    // Try server logout when online (background operation)
-    try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (currentSession) {
-        await supabase.auth.signOut();
-      }
-    } catch (error) {
-      console.log('Server logout failed (offline or network error):', error);
-      // Ignore errors - user is already logged out locally
-    }
   };
 
   const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {
