@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/NetworkBadge";
+import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -97,12 +98,15 @@ export const Navbar = () => {
               </NavLink>
             </div>
             
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
-            >
-              {isOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            <div className="flex items-center gap-2">
+              <SyncStatusIndicator />
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+              >
+                {isOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -136,6 +140,7 @@ export const Navbar = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <SyncStatusIndicator />
                     <NetworkBadge />
                     <Button
                       variant="ghost"

@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useConnectivity } from './useConnectivity';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { toast } from '@/hooks/use-toast';
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
@@ -11,7 +12,13 @@ export function useOfflineSync() {
 
     try {
       const syncQueue = await offlineStorage.getSyncQueue();
+      
+      if (syncQueue.length === 0) return;
+      
       console.log(`Processing ${syncQueue.length} queued sync items`);
+
+      let successCount = 0;
+      let failCount = 0;
 
       for (const item of syncQueue) {
         try {
@@ -19,10 +26,28 @@ export function useOfflineSync() {
           await processSyncItem(item);
           // Remove from queue after successful sync
           await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+          successCount++;
         } catch (error) {
           console.error('Failed to sync item:', item, error);
+          failCount++;
           // Optionally implement retry logic here
         }
+      }
+
+      // Show summary toast
+      if (successCount > 0) {
+        toast({
+          title: "Sync Complete",
+          description: `${successCount} ${successCount === 1 ? 'item' : 'items'} synced successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
+        });
+      }
+      
+      if (failCount > 0 && successCount === 0) {
+        toast({
+          title: "Sync Failed",
+          description: `${failCount} ${failCount === 1 ? 'item' : 'items'} failed to sync`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error processing sync queue:', error);
@@ -74,10 +99,18 @@ export function useOfflineSync() {
         } catch (error) {
           // If server sync fails, add to sync queue
           await offlineStorage.addToSyncQueue(syncAction, data);
+          toast({
+            title: "Saved Offline",
+            description: "Changes will sync when online",
+          });
         }
       } else if (syncAction) {
         // If offline, add to sync queue
         await offlineStorage.addToSyncQueue(syncAction, data);
+        toast({
+          title: "Saved Offline",
+          description: "Changes queued for sync",
+        });
       }
     } catch (error) {
       console.error('Error saving with offline support:', error);
