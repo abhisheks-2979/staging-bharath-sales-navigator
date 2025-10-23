@@ -58,23 +58,101 @@ export function useOfflineSync() {
   const processSyncItem = async (item: any) => {
     const { action, data } = item;
     
+    // Import supabase client dynamically to avoid circular dependencies
+    const { supabase } = await import('@/integrations/supabase/client');
+    
     switch (action) {
       case 'CREATE_ORDER':
-        // Implement order creation API call
         console.log('Syncing order creation:', data);
-        // await createOrderAPI(data);
+        const { error: orderError } = await supabase
+          .from('orders')
+          .insert(data);
+        if (orderError) throw orderError;
         break;
         
       case 'UPDATE_ORDER':
-        // Implement order update API call
         console.log('Syncing order update:', data);
-        // await updateOrderAPI(data);
+        const { error: updateOrderError } = await supabase
+          .from('orders')
+          .update(data.updates)
+          .eq('id', data.id);
+        if (updateOrderError) throw updateOrderError;
         break;
         
       case 'CREATE_VISIT':
-        // Implement visit creation API call
-        console.log('Syncing visit creation:', data);
-        // await createVisitAPI(data);
+      case 'CHECK_IN':
+        console.log('Syncing visit/check-in:', data);
+        const { error: visitError } = await supabase
+          .from('visits')
+          .insert(data);
+        if (visitError) throw visitError;
+        break;
+        
+      case 'CHECK_OUT':
+        console.log('Syncing check-out:', data);
+        const { error: checkoutError } = await supabase
+          .from('visits')
+          .update({
+            check_out_time: data.check_out_time,
+            check_out_location: data.check_out_location,
+            check_out_photo_url: data.check_out_photo_url,
+            check_out_address: data.check_out_address,
+            location_match_out: data.location_match_out,
+            status: 'completed'
+          })
+          .eq('id', data.visit_id);
+        if (checkoutError) throw checkoutError;
+        break;
+        
+      case 'CREATE_STOCK':
+        console.log('Syncing stock creation:', data);
+        const { error: stockError } = await supabase
+          .from('stock')
+          .insert(data);
+        if (stockError) throw stockError;
+        break;
+        
+      case 'UPDATE_STOCK':
+        console.log('Syncing stock update:', data);
+        const { error: updateStockError } = await supabase
+          .from('stock')
+          .update(data.updates)
+          .eq('id', data.id);
+        if (updateStockError) throw updateStockError;
+        break;
+        
+      case 'CREATE_RETAILER':
+        console.log('Syncing retailer creation:', data);
+        const { error: retailerError } = await supabase
+          .from('retailers')
+          .insert(data);
+        if (retailerError) throw retailerError;
+        break;
+        
+      case 'UPDATE_RETAILER':
+        console.log('Syncing retailer update:', data);
+        const { error: updateRetailerError } = await supabase
+          .from('retailers')
+          .update(data.updates)
+          .eq('id', data.id);
+        if (updateRetailerError) throw updateRetailerError;
+        break;
+        
+      case 'CREATE_ATTENDANCE':
+        console.log('Syncing attendance check-in:', data);
+        const { error: attendanceError } = await supabase
+          .from('attendance')
+          .insert(data);
+        if (attendanceError) throw attendanceError;
+        break;
+        
+      case 'UPDATE_ATTENDANCE':
+        console.log('Syncing attendance check-out:', data);
+        const { error: updateAttendanceError } = await supabase
+          .from('attendance')
+          .update(data.updates)
+          .eq('id', data.id);
+        if (updateAttendanceError) throw updateAttendanceError;
         break;
         
       default:
