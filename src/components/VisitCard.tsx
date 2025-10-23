@@ -893,20 +893,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-1 flex-1 min-w-0">
               <MapPin size={12} className="sm:size-3.5 flex-shrink-0" />
-              {visit.retailerLat && visit.retailerLng ? (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${visit.retailerLat},${visit.retailerLng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate text-primary hover:underline cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                  title="Open in Google Maps"
-                >
-                  {visit.address}
-                </a>
-              ) : (
-                <span className="truncate">{visit.address}</span>
-              )}
+<a
+  href={`https://www.google.com/maps/search/?api=1&query=${(visit.retailerLat && visit.retailerLng) ? `${visit.retailerLat},${visit.retailerLng}` : encodeURIComponent(visit.address || '')}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="truncate text-primary hover:underline cursor-pointer"
+  onClick={(e) => e.stopPropagation()}
+  title="Open in Google Maps"
+>
+  {visit.address}
+</a>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <a
