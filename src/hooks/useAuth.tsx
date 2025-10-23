@@ -220,14 +220,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       const profile = await fetchUserProfile(data.user.id);
       setUserProfile(profile);
-      toast.success('Signed in successfully!');
-
-      // Redirect based on role
+      
+      // Show success message with navigation hint
       if (userRole === 'admin') {
-        window.location.href = '/admin';
+        toast.success('Signed in successfully as Admin! Click dashboard to continue.');
       } else {
-        window.location.href = '/dashboard';
+        toast.success('Signed in successfully! Click dashboard to continue.');
       }
+      
+      // Don't auto-redirect - let user navigate manually
     }
   };
 

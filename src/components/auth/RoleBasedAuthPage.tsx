@@ -13,7 +13,7 @@ type AuthMode = 'role-selection' | 'admin-signin' | 'user-signin' | 'signup' | '
 type UserType = 'admin' | 'user';
 
 export const RoleBasedAuthPage = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>('user-signin');
   const [selectedUserType, setSelectedUserType] = useState<UserType | null>('user');
 
@@ -25,8 +25,50 @@ export const RoleBasedAuthPage = () => {
     );
   }
 
+  // Don't auto-redirect - let user navigate manually
+  // Show success message with navigation options after login
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return (
+      <div 
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #90caf9 30%, #42a5f5 60%, #1976d2 100%)',
+          minHeight: '100vh'
+        }}
+      >
+        <Card className="w-full max-w-md shadow-2xl bg-white/95 backdrop-blur-sm border-white/20">
+          <CardHeader className="space-y-4 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold text-primary">Login Successful!</CardTitle>
+              <CardDescription className="text-base mt-2">
+                Welcome back! Click below to continue to your dashboard.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button 
+              onClick={() => window.location.href = userRole === 'admin' ? '/admin' : '/dashboard'}
+              className="w-full"
+              size="lg"
+            >
+              Go to {userRole === 'admin' ? 'Admin' : ''} Dashboard
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/'}
+              variant="outline"
+              className="w-full"
+            >
+              Go to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const handleRoleSelection = (role: UserType) => {
