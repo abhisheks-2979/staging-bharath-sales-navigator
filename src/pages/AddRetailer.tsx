@@ -407,20 +407,48 @@ export const AddRetailer = () => {
                       });
                       
                       try {
-                        // Request high-accuracy location with proper error handling
+                        // Request high-accuracy location with iterative refinement
                         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                          navigator.geolocation.getCurrentPosition(
-                            resolve, 
+                          let best: GeolocationPosition | null = null;
+                          const startedAt = Date.now();
+                          const targetAccuracy = 30; // meters
+                          const maxWait = 45000; // ms
+                          
+                          const watchId = navigator.geolocation.watchPosition(
+                            (pos) => {
+                              // Keep the most accurate reading so far
+                              if (!best || pos.coords.accuracy < best.coords.accuracy) {
+                                best = pos;
+                              }
+                              
+                              const ageMs = Date.now() - pos.timestamp;
+                              const goodEnough = pos.coords.accuracy <= targetAccuracy && ageMs < 30000;
+                              const timedOut = Date.now() - startedAt > maxWait;
+                              
+                              if (goodEnough || timedOut) {
+                                navigator.geolocation.clearWatch(watchId);
+                                resolve(best || pos);
+                              }
+                            },
                             (error) => {
+                              navigator.geolocation.clearWatch(watchId);
                               console.error('Geolocation error:', error);
                               reject(error);
-                            }, 
+                            },
                             { 
                               enableHighAccuracy: true, // Use GPS, not network location
-                              timeout: 45000, // Longer timeout for GPS lock
+                              timeout: maxWait, // Longer timeout for GPS lock
                               maximumAge: 0 // Always get fresh location
                             }
                           );
+                          
+                          // Absolute safety timeout
+                          setTimeout(() => {
+                            if (best) {
+                              navigator.geolocation.clearWatch(watchId);
+                              resolve(best);
+                            }
+                          }, maxWait + 1000);
                         });
                         
                         // Get precise coordinates with 7 decimal places (~1 cm accuracy)
