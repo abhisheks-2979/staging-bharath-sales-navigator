@@ -138,9 +138,27 @@ const Operations = () => {
         supabase.from('retailers').select('id, name').in('id', retailerIds)
       ]);
 
-      const formattedData = visitsData?.map(visit => {
+      const formattedData = await Promise.all(visitsData?.map(async (visit) => {
         const user = usersData?.find(u => u.id === visit.user_id);
         const retailer = retailersData?.find(r => r.id === visit.retailer_id);
+        
+        // Get signed URLs for photos if they exist
+        let checkInPhotoUrl = null;
+        let checkOutPhotoUrl = null;
+
+        if (visit.check_in_photo_url) {
+          const { data: signedUrlData } = await supabase.storage
+            .from('visit-photos')
+            .createSignedUrl(visit.check_in_photo_url, 3600);
+          checkInPhotoUrl = signedUrlData?.signedUrl || null;
+        }
+
+        if (visit.check_out_photo_url) {
+          const { data: signedUrlData } = await supabase.storage
+            .from('visit-photos')
+            .createSignedUrl(visit.check_out_photo_url, 3600);
+          checkOutPhotoUrl = signedUrlData?.signedUrl || null;
+        }
         
         return {
           id: visit.id,
@@ -152,15 +170,15 @@ const Operations = () => {
           check_out_location: visit.check_out_location,
           check_in_address: visit.check_in_address,
           check_out_address: visit.check_out_address,
-          check_in_photo_url: visit.check_in_photo_url,
-          check_out_photo_url: visit.check_out_photo_url,
+          check_in_photo_url: checkInPhotoUrl,
+          check_out_photo_url: checkOutPhotoUrl,
           planned_date: visit.planned_date,
           skip_check_in_time: visit.skip_check_in_time,
           skip_check_in_reason: visit.skip_check_in_reason,
           no_order_reason: visit.no_order_reason,
           status: visit.status
         };
-      }) || [];
+      }) || []);
 
       // Sort by the most recent check-in or skip check-in time
       formattedData.sort((a, b) => {
