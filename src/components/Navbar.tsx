@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/NetworkBadge";
+import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   UserCheck, 
@@ -31,6 +32,7 @@ export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { signOut, userProfile, userRole } = useAuth();
   const navigate = useNavigate();
+  const connectivityStatus = useConnectivity();
 
   const navigationItems = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
@@ -76,13 +78,21 @@ export const Navbar = () => {
               </button>
               
               <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center relative">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center relative transition-all duration-300 ${
+                  connectivityStatus === 'online' 
+                    ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                    : 'bg-primary-foreground/20'
+                }`}>
                   <Home size={14} className="absolute opacity-30" />
-                  <span className="text-xs font-bold relative z-10">KVP</span>
+                  <span className={`text-xs font-bold relative z-10 ${
+                    connectivityStatus === 'online' ? 'text-white' : ''
+                  }`}>KVP</span>
                 </div>
                 <div>
                   <h1 className="text-lg font-semibold">KVP Business Solutions</h1>
-                  <p className="text-xs opacity-80">Field Sales App</p>
+                  <p className="text-xs opacity-80">
+                    {connectivityStatus === 'online' ? 'Online' : connectivityStatus === 'offline' ? 'Offline' : 'Field Sales App'}
+                  </p>
                 </div>
               </NavLink>
             </div>
