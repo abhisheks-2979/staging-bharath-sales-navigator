@@ -375,47 +375,119 @@ export const AddRetailer = () => {
                     size="icon"
                     onClick={async () => {
                       if (!navigator.geolocation) {
-                        toast({ title: "GPS Not Available", description: "Your device doesn't support GPS", variant: "destructive" });
+                        toast({ 
+                          title: "GPS Not Available", 
+                          description: "Your device doesn't support location services", 
+                          variant: "destructive" 
+                        });
                         return;
                       }
                       
-                      toast({ title: "Getting Location", description: "Please wait while we fetch your address..." });
+                      toast({ 
+                        title: "Accessing Location", 
+                        description: "Please allow location access when prompted...",
+                        duration: 3000
+                      });
                       
                       try {
+                        // Request high-accuracy location with proper error handling
                         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 });
+                          navigator.geolocation.getCurrentPosition(
+                            resolve, 
+                            reject, 
+                            { 
+                              enableHighAccuracy: true, 
+                              timeout: 30000,
+                              maximumAge: 0 // Don't use cached location
+                            }
+                          );
                         });
                         
-                        const lat = position.coords.latitude;
-                        const lon = position.coords.longitude;
+                        // Get precise coordinates with 6 decimal places (~0.1 meter accuracy)
+                        const lat = Number(position.coords.latitude.toFixed(6));
+                        const lon = Number(position.coords.longitude.toFixed(6));
+                        const accuracy = position.coords.accuracy;
+                        
+                        console.log('GPS Location captured:', { lat, lon, accuracy: `${accuracy.toFixed(1)}m` });
+                        
+                        toast({ 
+                          title: "Location Captured", 
+                          description: `Accuracy: ${accuracy.toFixed(0)} meters. Fetching address...`,
+                          duration: 2000
+                        });
                         
                         // Use reverse geocoding to get proper address
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
+                        const response = await fetch(
+                          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+                          {
+                            headers: {
+                              'User-Agent': 'FieldSalesNavigator/1.0'
+                            }
+                          }
+                        );
                         
-                        if (!response.ok) throw new Error('Geocoding failed');
+                        if (!response.ok) throw new Error('Geocoding service unavailable');
                         
                         const data = await response.json();
                         
-                        // Extract address components
+                        // Extract address components for Indian addresses
                         const address = data.address || {};
                         const parts = [];
                         
                         if (address.house_number) parts.push(address.house_number);
-                        if (address.road) parts.push(address.road);
+                        if (address.road || address.street) parts.push(address.road || address.street);
                         if (address.neighbourhood || address.suburb) parts.push(address.neighbourhood || address.suburb);
                         if (address.city || address.town || address.village) parts.push(address.city || address.town || address.village);
+                        if (address.state_district) parts.push(address.state_district);
                         if (address.state) parts.push(address.state);
                         if (address.postcode) parts.push(address.postcode);
                         
-                        const formattedAddress = parts.length > 0 ? parts.join(', ') : data.display_name || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+                        const formattedAddress = parts.length > 0 
+                          ? parts.join(', ') 
+                          : data.display_name || `${lat}, ${lon}`;
                         
                         handleInputChange("address", formattedAddress);
-                        handleInputChange("latitude", lat.toFixed(6));
-                        handleInputChange("longitude", lon.toFixed(6));
-                        toast({ title: "Location Updated", description: "Address and coordinates automatically filled from GPS" });
-                      } catch (error) {
+                        handleInputChange("latitude", String(lat));
+                        handleInputChange("longitude", String(lon));
+                        
+                        toast({ 
+                          title: "✓ Location Updated Successfully", 
+                          description: `GPS Accuracy: ${accuracy.toFixed(0)}m | Coordinates: ${lat}, ${lon}`,
+                          duration: 4000
+                        });
+                      } catch (error: any) {
                         console.error('GPS/Geocoding error:', error);
-                        toast({ title: "GPS Error", description: "Could not get location. Please enable GPS or check internet connection.", variant: "destructive" });
+                        
+                        // Provide specific error messages
+                        if (error.code === 1) {
+                          toast({ 
+                            title: "Location Permission Denied", 
+                            description: "Please enable location access in your device settings: Settings → Privacy → Location Services",
+                            variant: "destructive",
+                            duration: 6000
+                          });
+                        } else if (error.code === 2) {
+                          toast({ 
+                            title: "Location Unavailable", 
+                            description: "GPS signal not available. Please ensure you're outdoors or near a window and try again.",
+                            variant: "destructive",
+                            duration: 5000
+                          });
+                        } else if (error.code === 3) {
+                          toast({ 
+                            title: "Location Timeout", 
+                            description: "GPS took too long to respond. Please try again in a few moments.",
+                            variant: "destructive",
+                            duration: 5000
+                          });
+                        } else {
+                          toast({ 
+                            title: "GPS Error", 
+                            description: "Could not get accurate location. Please check your GPS settings and internet connection.",
+                            variant: "destructive",
+                            duration: 5000
+                          });
+                        }
                       }
                     }}
                     className="mt-auto"
