@@ -25,6 +25,8 @@ interface CheckInOutData {
   check_out_location: any;
   check_in_address: string | null;
   check_out_address: string | null;
+  check_in_photo_url: string | null;
+  check_out_photo_url: string | null;
   planned_date: string;
   skip_check_in_time?: string | null;
   skip_check_in_reason?: string | null;
@@ -110,6 +112,8 @@ const Operations = () => {
           check_out_location,
           check_in_address,
           check_out_address,
+          check_in_photo_url,
+          check_out_photo_url,
           planned_date,
           skip_check_in_time,
           skip_check_in_reason,
@@ -148,6 +152,8 @@ const Operations = () => {
           check_out_location: visit.check_out_location,
           check_in_address: visit.check_in_address,
           check_out_address: visit.check_out_address,
+          check_in_photo_url: visit.check_in_photo_url,
+          check_out_photo_url: visit.check_out_photo_url,
           planned_date: visit.planned_date,
           skip_check_in_time: visit.skip_check_in_time,
           skip_check_in_reason: visit.skip_check_in_reason,
@@ -736,7 +742,7 @@ const Operations = () => {
                                           </p>
                                         </div>
                                       )}
-                                      {item.no_order_reason && (
+                                       {item.no_order_reason && (
                                         <div className="col-span-2">
                                           <label className="text-sm font-medium">No Order Reason</label>
                                           <p className="text-sm text-muted-foreground">
@@ -745,6 +751,33 @@ const Operations = () => {
                                         </div>
                                       )}
                                     </div>
+                                    {(item.check_in_photo_url || item.check_out_photo_url) && (
+                                      <div className="space-y-3 pt-4 border-t">
+                                        <label className="text-sm font-medium">Visit Photos</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          {item.check_in_photo_url && (
+                                            <div className="space-y-2">
+                                              <p className="text-xs text-muted-foreground">Check-in Photo</p>
+                                              <img 
+                                                src={item.check_in_photo_url} 
+                                                alt="Check-in" 
+                                                className="w-full h-48 object-cover rounded-lg border"
+                                              />
+                                            </div>
+                                          )}
+                                          {item.check_out_photo_url && (
+                                            <div className="space-y-2">
+                                              <p className="text-xs text-muted-foreground">Check-out Photo</p>
+                                              <img 
+                                                src={item.check_out_photo_url} 
+                                                alt="Check-out" 
+                                                className="w-full h-48 object-cover rounded-lg border"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 </DialogContent>
                               </Dialog>
