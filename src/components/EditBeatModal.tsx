@@ -124,7 +124,21 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
 
     setLoading(true);
     try {
-      // Update beat allowances
+      // Update the shared beats table
+      const { error: beatUpdateError } = await supabase
+        .from('beats')
+        .update({
+          beat_name: beatName.trim(),
+          travel_allowance: parseFloat(travelAllowance) || 0,
+          average_km: parseFloat(averageKm) || 0,
+          average_time_minutes: parseInt(averageTimeMinutes) || 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('beat_id', beat.id);
+
+      if (beatUpdateError) throw beatUpdateError;
+
+      // Update beat allowances for this user
       const { error: allowanceError } = await supabase
         .from('beat_allowances')
         .upsert({

@@ -65,51 +65,45 @@ export const BeatPlanning = () => {
   const loadBeats = async () => {
     if (!user) return;
     try {
-      // Get retailers with beat info
+      // Get all beats from the shared beats table
+      const { data: beatsData, error: beatsError } = await supabase
+        .from('beats')
+        .select('*')
+        .eq('is_active', true);
+
+      if (beatsError) throw beatsError;
+
+      // Get retailer counts for each beat for the current user
       const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
-        .select('beat_id, beat_name, priority')
+        .select('beat_id, priority')
         .eq('user_id', user.id);
 
       if (retailersError) throw retailersError;
 
-      // Get beat plans to get proper beat names
-      const { data: beatPlansData, error: beatPlansError } = await supabase
-        .from('beat_plans')
-        .select('beat_id, beat_name')
-        .eq('user_id', user.id);
-
-      if (beatPlansError) console.error('Error loading beat plans:', beatPlansError);
-
-      // Create a map of beat_id to beat_name from beat_plans
-      const beatNamesMap = new Map<string, string>();
-      (beatPlansData || []).forEach((plan: any) => {
-        if (plan.beat_name && plan.beat_name !== plan.beat_id) {
-          beatNamesMap.set(plan.beat_id, plan.beat_name);
-        }
-      });
-
-      const map = new Map<string, { count: number; priority: 'high' | 'medium' | 'low'; name: string }>();
+      // Count retailers per beat and determine priority
+      const retailerCountMap = new Map<string, { count: number; priority: 'high' | 'medium' | 'low' }>();
       (retailersData || []).forEach((r: any) => {
         const beatId = r.beat_id;
         if (!beatId || beatId === 'unassigned') return;
-        const current = map.get(beatId) || { count: 0, priority: 'medium', name: beatId };
+        const current = retailerCountMap.get(beatId) || { count: 0, priority: 'medium' };
         const pr = (r.priority as string | null)?.toLowerCase() as 'high' | 'medium' | 'low' | undefined;
         const priority = pr === 'high' ? 'high' : pr === 'low' ? (current.priority === 'high' ? 'high' : 'low') : current.priority;
-        
-        // Use beat name from beat_plans if available, otherwise use retailer beat_name, otherwise use beat_id
-        const beatName = beatNamesMap.get(beatId) || r.beat_name || beatId;
-        
-        map.set(beatId, { count: current.count + 1, priority, name: beatName });
+        retailerCountMap.set(beatId, { count: current.count + 1, priority });
       });
 
-      const beatsArr: Beat[] = Array.from(map.entries()).map(([id, info]) => ({
-        id,
-        name: info.name,
-        retailerCount: info.count,
-        category: 'all',
-        priority: info.priority,
-      }));
+      // Map beats data with retailer counts
+      const beatsArr: Beat[] = (beatsData || []).map((beat: any) => {
+        const retailerInfo = retailerCountMap.get(beat.beat_id) || { count: 0, priority: 'medium' };
+        return {
+          id: beat.beat_id,
+          name: beat.beat_name,
+          retailerCount: retailerInfo.count,
+          category: beat.category || 'all',
+          priority: retailerInfo.priority,
+        };
+      });
+      
       setBeats(beatsArr);
     } catch (e) {
       console.error('Error loading beats', e);

@@ -260,6 +260,48 @@ export type Database = {
         }
         Relationships: []
       }
+      beats: {
+        Row: {
+          average_km: number | null
+          average_time_minutes: number | null
+          beat_id: string
+          beat_name: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          travel_allowance: number | null
+          updated_at: string
+        }
+        Insert: {
+          average_km?: number | null
+          average_time_minutes?: number | null
+          beat_id: string
+          beat_name: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          travel_allowance?: number | null
+          updated_at?: string
+        }
+        Update: {
+          average_km?: number | null
+          average_time_minutes?: number | null
+          beat_id?: string
+          beat_name?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          travel_allowance?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branding_requests: {
         Row: {
           approved_at: string | null

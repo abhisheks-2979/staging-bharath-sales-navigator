@@ -135,10 +135,21 @@ export const MyBeats = () => {
     try {
       setLoading(true);
       
-      // Get retailers with beat info
+      // Get all beats from the shared beats table
+      const { data: beatsData, error: beatsError } = await supabase
+        .from('beats')
+        .select('*')
+        .eq('is_active', true);
+
+      if (beatsError) {
+        console.error('Error fetching beats:', beatsError);
+        throw beatsError;
+      }
+
+      // Get retailer counts for each beat for the current user
       const { data: retailersData, error: retailersError } = await supabase
         .from('retailers')
-        .select('beat_id, beat_name, category, created_at')
+        .select('beat_id')
         .eq('user_id', user.id)
         .not('beat_id', 'is', null)
         .neq('beat_id', '')
@@ -149,94 +160,32 @@ export const MyBeats = () => {
         throw retailersError;
       }
 
-      // Get beat plans to get proper beat names
-      const { data: beatPlansData, error: beatPlansError } = await supabase
-        .from('beat_plans')
-        .select('beat_id, beat_name, created_at, beat_data')
-        .eq('user_id', user.id);
-
-      // Get beat allowances for travel expenses and new fields
-      const { data: beatAllowancesData, error: allowancesError } = await supabase
-        .from('beat_allowances')
-        .select('beat_id, travel_allowance, average_km, average_time_minutes')
-        .eq('user_id', user.id);
-
-      if (beatPlansError) {
-        console.error('Error fetching beat plans:', beatPlansError);
-      }
-
-      // Create a map of beat_id to beat info from beat_plans
-      const beatPlansMap = new Map<string, any>();
-      (beatPlansData || []).forEach((plan: any) => {
-        beatPlansMap.set(plan.beat_id, {
-          name: plan.beat_name,
-          created_at: plan.created_at,
-          beat_data: plan.beat_data
-        });
-      });
-
-      // Create a map of beat_id to beat allowance data
-      const beatAllowancesMap = new Map<string, any>();
-      (beatAllowancesData || []).forEach((allowance: any) => {
-        beatAllowancesMap.set(allowance.beat_id, {
-          travel_allowance: allowance.travel_allowance,
-          average_km: allowance.average_km,
-          average_time_minutes: allowance.average_time_minutes
-        });
-      });
-
-      console.log('Raw retailers data:', retailersData);
-      console.log('Beat plans data:', beatPlansData);
-
-      // Group by beat_id and calculate counts
-      const beatMap = new Map<string, any>();
-      
+      // Count retailers per beat for this user
+      const retailerCountMap = new Map<string, number>();
       (retailersData || []).forEach((item) => {
         const beatId = item.beat_id;
-        const planInfo = beatPlansMap.get(beatId);
-        
-        // Use beat name from beat_plans if available, otherwise use retailer beat_name, otherwise use beat_id
-        const beatName = planInfo?.name || item.beat_name || beatId;
-        
-        // Get category from beat_data if available
-        let category = item.category || 'General';
-        if (planInfo?.beat_data) {
-          try {
-            const beatDataParsed = typeof planInfo.beat_data === 'string' 
-              ? JSON.parse(planInfo.beat_data) 
-              : planInfo.beat_data;
-            category = beatDataParsed.category || category;
-          } catch (e) {
-            console.log('Could not parse beat_data:', e);
-          }
-        }
-        
-        if (!beatMap.has(beatId)) {
-          const allowanceData = beatAllowancesMap.get(beatId) || {};
-          beatMap.set(beatId, {
-            id: beatId,
-            name: beatName,
-            retailer_count: 0,
-            category: category,
-            created_at: planInfo?.created_at || item.created_at,
-            travel_allowance: allowanceData.travel_allowance || 0,
-            average_km: allowanceData.average_km || 0,
-            average_time_minutes: allowanceData.average_time_minutes || 0,
-            retailers: []
-          });
-        }
-        
-        beatMap.get(beatId).retailer_count += 1;
+        retailerCountMap.set(beatId, (retailerCountMap.get(beatId) || 0) + 1);
       });
 
-      // Convert to array and add beat numbers
-      const beatsArray = Array.from(beatMap.values())
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((beat, index) => ({
-          ...beat,
+      console.log('Beats data:', beatsData);
+      console.log('Retailer counts:', Array.from(retailerCountMap.entries()));
+
+      // Map beats data with retailer counts
+      const beatsArray = (beatsData || [])
+        .map((beat: any, index) => ({
+          id: beat.beat_id,
+          name: beat.beat_name,
+          retailer_count: retailerCountMap.get(beat.beat_id) || 0,
+          total_retailers: retailerCountMap.get(beat.beat_id) || 0,
+          category: beat.category || 'General',
+          created_at: beat.created_at,
+          travel_allowance: beat.travel_allowance || 0,
+          average_km: beat.average_km || 0,
+          average_time_minutes: beat.average_time_minutes || 0,
           beat_number: index + 1,
-          total_retailers: beat.retailer_count
-        }));
+          retailers: []
+        }))
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       console.log('Processed beats array:', beatsArray);
       setBeats(beatsArray);
@@ -371,6 +320,22 @@ export const MyBeats = () => {
       // Generate unique beat ID
       const beatId = `beat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      // First, create the beat in the shared beats table
+      const { error: beatError } = await supabase
+        .from('beats')
+        .insert({
+          beat_id: beatId,
+          beat_name: beatName.trim(),
+          category: 'General',
+          travel_allowance: parseFloat(travelAllowance) || 0,
+          average_km: parseFloat(averageKm) || 0,
+          average_time_minutes: parseInt(averageTimeMinutes) || 0,
+          created_by: user.id,
+          is_active: true
+        });
+
+      if (beatError) throw beatError;
+
       // Update selected retailers with beat information
       const { error } = await supabase
         .from('retailers')
@@ -382,7 +347,7 @@ export const MyBeats = () => {
 
       if (error) throw error;
 
-      // Create beat allowance record with all fields
+      // Create beat allowance record for the current user
       const { error: allowanceError } = await supabase
         .from('beat_allowances')
         .insert({
@@ -437,7 +402,7 @@ export const MyBeats = () => {
 
       if (retailerError) throw retailerError;
 
-      // Delete beat plan if exists
+      // Delete beat plan if exists for this user
       const { error: planError } = await supabase
         .from('beat_plans')
         .delete()
@@ -446,7 +411,7 @@ export const MyBeats = () => {
 
       if (planError) console.error('Error deleting beat plan:', planError);
 
-      // Delete beat allowance if exists
+      // Delete beat allowance if exists for this user
       const { error: allowanceError } = await supabase
         .from('beat_allowances')
         .delete()
@@ -454,6 +419,14 @@ export const MyBeats = () => {
         .eq('user_id', user.id);
 
       if (allowanceError) console.error('Error deleting beat allowance:', allowanceError);
+
+      // Mark beat as inactive in shared beats table (soft delete)
+      const { error: beatError } = await supabase
+        .from('beats')
+        .update({ is_active: false })
+        .eq('beat_id', beatId);
+
+      if (beatError) console.error('Error marking beat as inactive:', beatError);
 
       toast.success(`Beat "${beatName}" deleted successfully`);
       
