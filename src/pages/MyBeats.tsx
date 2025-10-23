@@ -135,7 +135,7 @@ export const MyBeats = () => {
     try {
       setLoading(true);
       
-      // Get all beats from the shared beats table - visible to ALL users
+      // Get user's own beats
       const { data: beatsData, error: beatsError } = await supabase
         .from('beats')
         .select('*')
@@ -146,8 +146,6 @@ export const MyBeats = () => {
         console.error('Error fetching beats:', beatsError);
         throw beatsError;
       }
-
-      console.log('✅ All beats loaded (visible to all users):', beatsData?.length || 0, 'beats');
 
       // Get retailer counts for each beat for the current user
       const { data: retailersData, error: retailersError } = await supabase
