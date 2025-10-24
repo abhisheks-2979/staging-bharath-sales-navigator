@@ -165,15 +165,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           console.log('Visit data from DB:', visitData);
           if (visitData) {
-            const checkedIn = ((visitData as any).status === 'in-progress') || !!(visitData as any).check_in_time;
+            const skippedCheckIn = !!(visitData as any).skip_check_in_reason || !!(visitData as any).skip_check_in_time;
+            const checkedIn = ((visitData as any).status === 'in-progress') || !!(visitData as any).check_in_time || skippedCheckIn;
             const checkedOut = !!(visitData as any).check_out_time;
-            const skippedCheckIn = !!(visitData as any).skip_check_in_reason;
             console.log('Setting state - isCheckedIn:', checkedIn, 'isCheckedOut:', checkedOut, 'skippedCheckIn:', skippedCheckIn);
             setIsCheckedIn(checkedIn);
             setIsCheckedOut(checkedOut);
             setProceedWithoutCheckIn(skippedCheckIn);
             if (skippedCheckIn) {
-              setSkipCheckInReason((visitData as any).skip_check_in_reason);
+              setSkipCheckInReason((visitData as any).skip_check_in_reason || 'phone-order');
             }
             setCurrentVisitId((visitData as any).id);
             
@@ -411,12 +411,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
     if (data) {
       setCurrentVisitId(data.id);
-      if (data.check_in_time || (data as any).skip_check_in_time) setPhase('in-progress');
+      if (data.check_in_time || (data as any).skip_check_in_time) {
+        setPhase('in-progress');
+        setIsCheckedIn(true);
+      }
       if (data.location_match_in != null) setLocationMatchIn(data.location_match_in);
       if (data.location_match_out != null) setLocationMatchOut(data.location_match_out);
-      if ((data as any).skip_check_in_reason) {
+      if ((data as any).skip_check_in_reason || (data as any).skip_check_in_time) {
         setProceedWithoutCheckIn(true);
-        setSkipCheckInReason((data as any).skip_check_in_reason);
+        setSkipCheckInReason((data as any).skip_check_in_reason || 'phone-order');
+        setIsCheckedIn(true);
       }
       return data.id;
     }
@@ -1235,26 +1239,32 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                         
                         const visitId = await ensureVisit(user.id, retailerId, today);
                         
-                        // Update visit with phone order reason and set to in-progress
-                        await supabase
-                          .from('visits')
-                          .update({ 
-                            status: 'in-progress',
-                            skip_check_in_reason: 'phone-order',
-                            skip_check_in_time: new Date().toISOString()
-                          } as any)
-                          .eq('id', visitId);
-                      }
-                      
-                      setProceedWithoutCheckIn(true);
-                      setPhase('in-progress');
-                      setIsCheckedIn(true);
-                      setShowLocationModal(false);
-                      setShowReasonInput(false);
-                      toast({
-                        title: 'Phone Order',
-                        description: 'You can now record order or no order.',
-                      });
+                                // Update visit with phone order reason and set to in-progress
+                                await supabase
+                                  .from('visits')
+                                  .update({ 
+                                    status: 'in-progress',
+                                    skip_check_in_reason: 'phone-order',
+                                    skip_check_in_time: new Date().toISOString()
+                                  } as any)
+                                  .eq('id', visitId);
+                                
+                                // Dispatch event to notify parent components
+                                window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
+                                  detail: { visitId, status: 'in-progress', retailerId } 
+                                }));
+                              }
+                              
+                              setProceedWithoutCheckIn(true);
+                              setSkipCheckInReason('phone-order');
+                              setPhase('in-progress');
+                              setIsCheckedIn(true);
+                              setShowLocationModal(false);
+                              setShowReasonInput(false);
+                              toast({
+                                title: 'Phone Order',
+                                description: 'You can now record order or no order.',
+                              });
                     } catch (err: any) {
                       console.error('Phone order error:', err);
                       toast({
