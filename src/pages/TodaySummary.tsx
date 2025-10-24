@@ -478,6 +478,14 @@ export const TodaySummary = () => {
     setDialogOpen(true);
   };
 
+  const sanitizeText = (text: string): string => {
+    // Remove or replace non-ASCII characters that don't render well in PDFs
+    return text
+      .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+  };
+
   const handleDownloadPDF = () => {
     try {
       const doc = new jsPDF();
@@ -518,10 +526,10 @@ export const TodaySummary = () => {
       yPosition += 10;
       
       const metricsData = [
-        ['Total Order Value', `₹${summaryData.totalOrderValue.toLocaleString()}`],
+        ['Total Order Value', `Rs. ${summaryData.totalOrderValue.toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
         ['Visit Efficiency', `${summaryData.visitEfficiency}%`],
-        ['Avg Order Value', `₹${summaryData.avgOrderValue.toLocaleString()}`]
+        ['Avg Order Value', `Rs. ${summaryData.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`]
       ];
       
       autoTable(doc, {
@@ -575,9 +583,9 @@ export const TodaySummary = () => {
         
         const retailersData = topRetailers.map((retailer, index) => [
           `#${index + 1}`,
-          retailer.name,
-          retailer.location,
-          `₹${retailer.orderValue.toLocaleString()}`
+          sanitizeText(retailer.name) || 'Unknown Retailer',
+          sanitizeText(retailer.location) || 'Location not available',
+          `Rs. ${retailer.orderValue.toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
@@ -607,9 +615,9 @@ export const TodaySummary = () => {
         yPosition += 10;
         
         const productsData = productSales.map(p => [
-          p.name,
+          sanitizeText(p.name) || 'Unknown Product',
           p.quantity.toString(),
-          `₹${p.revenue.toLocaleString()}`
+          `Rs. ${p.revenue.toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
