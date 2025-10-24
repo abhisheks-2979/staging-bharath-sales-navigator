@@ -45,6 +45,8 @@ export const AddRetailer = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [capturedPhotoPreview, setCapturedPhotoPreview] = useState<string | null>(null);
   const [distributors, setDistributors] = useState<{id: string, name: string}[]>([]);
+  const [selectedBeat, setSelectedBeat] = useState<string>('');
+  const [beats, setBeats] = useState<{beat_id: string, beat_name: string}[]>([]);
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
@@ -64,9 +66,28 @@ export const AddRetailer = () => {
     }
   };
 
+  // Load beats from the beats table
+  const loadBeats = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('beats')
+      .select('beat_id, beat_name')
+      .eq('created_by', user.id)
+      .eq('is_active', true)
+      .order('beat_name');
+    
+    if (error) {
+      console.error('Failed to load beats:', error);
+      setBeats([]);
+    } else {
+      setBeats(data || []);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadDistributors();
+      loadBeats();
     }
   }, [user]);
 
@@ -258,8 +279,8 @@ export const AddRetailer = () => {
       });
       return;
     }
-    // Save with default unassigned beat
-    await performInsert('unassigned');
+    // Save with selected beat or default to unassigned
+    await performInsert(selectedBeat || 'unassigned');
   };
 
   return (
@@ -853,6 +874,28 @@ export const AddRetailer = () => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="beat">Assign to Beat *</Label>
+                <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select a beat" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {beats.length > 0 ? (
+                      beats.map((beat) => (
+                        <SelectItem key={beat.beat_id} value={beat.beat_id}>
+                          {beat.beat_name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>No beats available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
               </div>
 
               <div className="space-y-2 hidden">
