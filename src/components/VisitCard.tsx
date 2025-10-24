@@ -157,7 +157,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           const today = targetDate;
           const { data: visitData } = await supabase
             .from('visits')
-            .select('id, check_in_time, check_out_time, status')
+            .select('id, check_in_time, check_out_time, status, skip_check_in_reason, skip_check_in_time')
             .eq('user_id', user.user.id)
             .eq('retailer_id', visitRetailerId)
             .eq('planned_date', today)
@@ -397,7 +397,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     // Get the most recent visit (in case of duplicates, use the latest one)
     const { data, error } = await supabase
       .from('visits')
-      .select('id, status, check_in_time, location_match_in, location_match_out')
+      .select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time')
       .eq('user_id', userId)
       .eq('retailer_id', retailerId)
       .eq('planned_date', date)
@@ -411,9 +411,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
     if (data) {
       setCurrentVisitId(data.id);
-      if (data.check_in_time) setPhase('in-progress');
+      if (data.check_in_time || (data as any).skip_check_in_time) setPhase('in-progress');
       if (data.location_match_in != null) setLocationMatchIn(data.location_match_in);
       if (data.location_match_out != null) setLocationMatchOut(data.location_match_out);
+      if ((data as any).skip_check_in_reason) {
+        setProceedWithoutCheckIn(true);
+        setSkipCheckInReason((data as any).skip_check_in_reason);
+      }
       return data.id;
     }
 
@@ -1348,17 +1352,23 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                                     skip_check_in_time: new Date().toISOString()
                                   } as any)
                                   .eq('id', visitId);
-                              }
                               
-                              setProceedWithoutCheckIn(true);
-                              setPhase('in-progress');
-                              setIsCheckedIn(true);
-                              setShowLocationModal(false);
-                              setShowReasonInput(false);
-                              toast({
-                                title: 'Proceeding without check-in',
-                                description: 'You can now access Order and No Order options.',
-                              });
+                                setProceedWithoutCheckIn(true);
+                                setPhase('in-progress');
+                                setIsCheckedIn(true);
+                                setShowLocationModal(false);
+                                setShowReasonInput(false);
+                                
+                                // Dispatch event to notify parent components
+                                window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
+                                  detail: { visitId, status: 'in-progress', retailerId } 
+                                }));
+                                
+                                toast({
+                                  title: 'Proceeding without check-in',
+                                  description: 'You can now access Order and No Order options.',
+                                });
+                              }
                             } catch (err: any) {
                               console.error('Skip check-in error:', err);
                               toast({
