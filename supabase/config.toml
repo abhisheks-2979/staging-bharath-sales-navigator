@@ -2,3 +2,6 @@ project_id = "etabpbfokzhhfuybeieu"
 
 [functions.validate-invitation]
 verify_jwt = false
+
+[functions.scan-board]
+verify_jwt = false

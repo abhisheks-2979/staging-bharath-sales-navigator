@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X } from "lucide-react";
+import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,7 @@ export const AddRetailer = () => {
   const [distributors, setDistributors] = useState<{id: string, name: string}[]>([]);
   const [selectedBeat, setSelectedBeat] = useState<string>('');
   const [beats, setBeats] = useState<{beat_id: string, beat_name: string}[]>([]);
+  const [isScanningBoard, setIsScanningBoard] = useState(false);
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
@@ -192,6 +193,121 @@ export const AddRetailer = () => {
     }
   };
 
+  const handleScanBoard = async () => {
+    if (!user) {
+      toast({ title: 'Authentication Error', description: 'Please sign in to scan boards', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setIsScanningBoard(true);
+      
+      // Create file input for camera
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // Use rear camera
+      
+      input.onchange = async (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          setIsScanningBoard(false);
+          return;
+        }
+
+        try {
+          toast({ 
+            title: 'Scanning Board', 
+            description: 'Extracting information from image...',
+            duration: 3000
+          });
+
+          // Convert image to base64
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const base64Image = e.target?.result as string;
+
+            try {
+              // Call edge function to extract data
+              const { data, error } = await supabase.functions.invoke('scan-board', {
+                body: { imageBase64: base64Image }
+              });
+
+              if (error) {
+                throw error;
+              }
+
+              if (data.error) {
+                throw new Error(data.error);
+              }
+
+              // Auto-fill form fields with extracted data
+              if (data.name) {
+                handleInputChange('name', data.name);
+              }
+              if (data.address) {
+                handleInputChange('address', data.address);
+              }
+              if (data.phone) {
+                handleInputChange('phone', data.phone);
+              }
+
+              const fieldsFound = [];
+              if (data.name) fieldsFound.push('name');
+              if (data.address) fieldsFound.push('address');
+              if (data.phone) fieldsFound.push('phone');
+
+              if (fieldsFound.length > 0) {
+                toast({ 
+                  title: 'Board Scanned Successfully!', 
+                  description: `Auto-filled: ${fieldsFound.join(', ')}`,
+                  duration: 5000
+                });
+              } else {
+                toast({ 
+                  title: 'No Information Found', 
+                  description: 'Could not extract name, address, or phone from the image. Please try a clearer photo.',
+                  variant: 'destructive',
+                  duration: 5000
+                });
+              }
+            } catch (scanError) {
+              console.error('Scan error:', scanError);
+              toast({ 
+                title: 'Scan Failed', 
+                description: scanError instanceof Error ? scanError.message : 'Could not extract information from image', 
+                variant: 'destructive',
+                duration: 5000
+              });
+            } finally {
+              setIsScanningBoard(false);
+            }
+          };
+          
+          reader.readAsDataURL(file);
+        } catch (error) {
+          console.error('File read error:', error);
+          toast({ 
+            title: 'Error', 
+            description: 'Could not read image file', 
+            variant: 'destructive' 
+          });
+          setIsScanningBoard(false);
+        }
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('Camera access error:', error);
+      toast({ 
+        title: 'Camera Error', 
+        description: 'Could not access camera. Please check permissions.', 
+        variant: 'destructive' 
+      });
+      setIsScanningBoard(false);
+    }
+  };
+
   const loadExistingBeats = async () => {
     if (!user) return setExistingBeats([]);
     const { data, error } = await supabase
@@ -314,6 +430,29 @@ export const AddRetailer = () => {
               <CardTitle className="text-lg">Retailer Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Scan Board Section */}
+              <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-base font-semibold">Quick Scan</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Take a photo of the shop board to auto-fill details
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={handleScanBoard}
+                    disabled={isScanningBoard}
+                    className="flex items-center gap-2"
+                  >
+                    <ScanLine size={16} />
+                    {isScanningBoard ? 'Scanning...' : 'Scan Board'}
+                  </Button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Retailer Name *</Label>
                 <Input
