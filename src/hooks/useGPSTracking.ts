@@ -16,8 +16,18 @@ export const useGPSTracking = (userId: string | undefined, date: Date) => {
   const [positions, setPositions] = useState<GPSPosition[]>([]);
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const autoCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const startTracking = useCallback(() => {
+  // Check if current time is within working hours (9 AM - 7 PM IST)
+  const isWithinWorkingHours = useCallback(() => {
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const istTime = new Date(now.getTime() + istOffset);
+    const hours = istTime.getUTCHours();
+    return hours >= 9 && hours < 19; // 9 AM to 7 PM
+  }, []);
+
+  const startTracking = useCallback((isAutoStart = false) => {
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser');
       toast.error('GPS not supported');
@@ -26,6 +36,12 @@ export const useGPSTracking = (userId: string | undefined, date: Date) => {
 
     setIsTracking(true);
     setError(null);
+
+    if (isAutoStart) {
+      toast.success('🟢 GPS tracking started automatically (9 AM)', {
+        duration: 5000,
+      });
+    }
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       async (position) => {
@@ -70,13 +86,20 @@ export const useGPSTracking = (userId: string | undefined, date: Date) => {
     );
   }, [userId, date]);
 
-  const stopTracking = useCallback(() => {
+  const stopTracking = useCallback((isAutoStop = false) => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
     setIsTracking(false);
-    toast.success('GPS tracking stopped');
+    
+    if (isAutoStop) {
+      toast.success('🔴 GPS tracking stopped automatically (7 PM)', {
+        duration: 5000,
+      });
+    } else {
+      toast.success('GPS tracking stopped');
+    }
   }, []);
 
   const loadSavedTracking = useCallback(async () => {
@@ -113,10 +136,38 @@ export const useGPSTracking = (userId: string | undefined, date: Date) => {
     loadSavedTracking();
   }, [loadSavedTracking]);
 
+  // Auto-start/stop tracking based on working hours
+  useEffect(() => {
+    const checkAndToggleTracking = () => {
+      const withinHours = isWithinWorkingHours();
+      
+      if (withinHours && !isTracking) {
+        startTracking(true);
+      } else if (!withinHours && isTracking) {
+        stopTracking(true);
+      }
+    };
+
+    // Check immediately
+    checkAndToggleTracking();
+
+    // Check every minute
+    autoCheckIntervalRef.current = setInterval(checkAndToggleTracking, 60000);
+
+    return () => {
+      if (autoCheckIntervalRef.current) {
+        clearInterval(autoCheckIntervalRef.current);
+      }
+    };
+  }, [isTracking, isWithinWorkingHours, startTracking, stopTracking]);
+
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      if (autoCheckIntervalRef.current) {
+        clearInterval(autoCheckIntervalRef.current);
       }
     };
   }, []);
@@ -128,5 +179,6 @@ export const useGPSTracking = (userId: string | undefined, date: Date) => {
     startTracking,
     stopTracking,
     loadSavedTracking,
+    isWithinWorkingHours,
   };
 };

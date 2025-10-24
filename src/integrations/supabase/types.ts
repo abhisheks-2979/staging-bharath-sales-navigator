@@ -687,6 +687,33 @@ export type Database = {
         }
         Relationships: []
       }
+      gps_tracking_stops: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          reason: string
+          stopped_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          reason: string
+          stopped_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          reason?: string
+          stopped_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           created_at: string

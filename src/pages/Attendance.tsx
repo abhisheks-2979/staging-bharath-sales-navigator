@@ -42,12 +42,14 @@ const Attendance = () => {
   const [selectedDateForMap, setSelectedDateForMap] = useState<Date | null>(null);
   const [selectedDateVisits, setSelectedDateVisits] = useState([]);
   const [gpsPositionsByDate, setGpsPositionsByDate] = useState<Map<string, any[]>>(new Map());
+  const [showStopReasonDialog, setShowStopReasonDialog] = useState(false);
+  const [stopReason, setStopReason] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
   // GPS Tracking for today
   const today = new Date();
-  const { isTracking, positions, startTracking, stopTracking } = useGPSTracking(userProfile?.id, today);
+  const { isTracking, positions, startTracking, stopTracking, isWithinWorkingHours } = useGPSTracking(userProfile?.id, today);
 
   // Load GPS positions for a specific date
   const loadGPSPositionsForDate = async (date: string) => {
@@ -80,6 +82,39 @@ const Attendance = () => {
     } catch (error) {
       console.error('Error loading GPS positions:', error);
       return [];
+    }
+  };
+
+  const handleStopTracking = async () => {
+    // Check if stopping during working hours
+    if (isWithinWorkingHours()) {
+      setShowStopReasonDialog(true);
+    } else {
+      stopTracking();
+    }
+  };
+
+  const confirmStopTracking = async () => {
+    if (!stopReason) {
+      toast({ title: 'Please select a reason', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('gps_tracking_stops').insert({
+          user_id: user.id,
+          reason: stopReason,
+          date: format(new Date(), 'yyyy-MM-dd'),
+        });
+      }
+      stopTracking();
+      setShowStopReasonDialog(false);
+      setStopReason('');
+    } catch (error) {
+      console.error('Error saving stop reason:', error);
+      toast({ title: 'Failed to save stop reason', variant: 'destructive' });
     }
   };
 
@@ -499,7 +534,7 @@ const Attendance = () => {
             {/* GPS Tracking Button */}
             <div className="flex justify-center">
               <Button
-                onClick={isTracking ? stopTracking : startTracking}
+                onClick={() => isTracking ? handleStopTracking() : startTracking()}
                 variant={isTracking ? "destructive" : "default"}
                 className="gap-2"
               >
@@ -507,6 +542,37 @@ const Attendance = () => {
                 {isTracking ? 'Stop Tracking' : 'Track Today'}
               </Button>
             </div>
+
+            {/* Stop Reason Dialog */}
+            <Dialog open={showStopReasonDialog} onOpenChange={setShowStopReasonDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Why are you stopping tracking?</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    {['Leave', 'Battery draining out', "Don't want to be tracked", 'Others'].map((reason) => (
+                      <Button
+                        key={reason}
+                        variant={stopReason === reason ? "default" : "outline"}
+                        className="w-full justify-start"
+                        onClick={() => setStopReason(reason)}
+                      >
+                        {reason}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setShowStopReasonDialog(false)}>
+                      Cancel
+                    </Button>
+                    <Button className="flex-1" onClick={confirmStopTracking}>
+                      Confirm Stop
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Present/Absent Cards */}
             <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">

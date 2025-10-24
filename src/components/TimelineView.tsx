@@ -50,7 +50,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
   };
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 p-4 max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-primary mb-2">TIMELINE</h2>
@@ -79,56 +79,56 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
           <div key={visit.id} className="relative">
             {/* Travel Time Indicator */}
             {index > 0 && (
-              <div className="absolute right-4 top-0 text-sm text-muted-foreground">
+              <div className="absolute right-2 sm:right-4 top-0 text-xs sm:text-sm text-muted-foreground">
                 {travelTime}
               </div>
             )}
 
             {/* Visit Card */}
-            <div className="flex items-start gap-4">
-              <div className="flex flex-col items-center">
+            <div className="flex items-start gap-2 sm:gap-4 w-full">
+              <div className="flex flex-col items-center flex-shrink-0">
                 <div className="w-4 h-4 rounded-full bg-primary border-4 border-primary/20"></div>
                 {index < visits.length - 1 && (
                   <div className="w-0.5 h-32 bg-gradient-to-b from-primary to-primary/30"></div>
                 )}
               </div>
 
-              <Card className="flex-1 p-4 bg-card hover:shadow-md transition-shadow">
+              <Card className="flex-1 min-w-0 p-3 sm:p-4 bg-card hover:shadow-md transition-shadow">
                 {/* Visit Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-primary/10">OUTLET</Badge>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                    <Badge variant="outline" className="bg-primary/10 text-xs">OUTLET</Badge>
                     {visit.order_value && visit.order_value > 0 && (
-                      <Badge className="bg-green-500">ORDER PLACED</Badge>
+                      <Badge className="bg-green-500 text-xs">ORDER PLACED</Badge>
                     )}
                     {getStatusBadge(visit.status)}
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4" />
+                  <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                     {format(new Date(visit.check_in_time), 'hh:mm a')}
                   </div>
                 </div>
 
                 {/* Retailer Name */}
-                <h3 className="text-lg font-semibold mb-2">{visit.retailer_name}</h3>
+                <h3 className="text-base sm:text-lg font-semibold mb-2 break-words">{visit.retailer_name}</h3>
 
                 {/* Location */}
                 {visit.check_in_address && (
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground mb-3">
-                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span className="line-clamp-2">{visit.check_in_address}</span>
+                  <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground mb-3">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0" />
+                    <span className="line-clamp-2 break-words">{visit.check_in_address}</span>
                   </div>
                 )}
 
                 {/* Order Details */}
                 {visit.order_value && visit.order_value > 0 && (
-                  <Card className="p-3 bg-muted/50 border-none">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                  <Card className="p-2 sm:p-3 bg-muted/50 border-none">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <div className="flex items-center gap-1">
-                          <ShoppingCart className="w-4 h-4 text-primary" />
+                          <ShoppingCart className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
                           <div>
-                            <div className="text-2xl font-bold">
+                            <div className="text-lg sm:text-2xl font-bold">
                               {visit.order_value.toLocaleString('en-IN', {
                                 maximumFractionDigits: 2,
                               })}
@@ -140,9 +140,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
 
                       {visit.order_quantity && (
                         <div className="flex items-center gap-1">
-                          <Package className="w-4 h-4 text-primary" />
+                          <Package className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
                           <div>
-                            <div className="text-2xl font-bold">{visit.order_quantity}</div>
+                            <div className="text-lg sm:text-2xl font-bold">{visit.order_quantity}</div>
                             <div className="text-xs text-muted-foreground">QTY</div>
                           </div>
                         </div>
