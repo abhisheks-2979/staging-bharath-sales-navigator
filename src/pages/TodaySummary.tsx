@@ -13,6 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom';
 
@@ -477,10 +479,198 @@ export const TodaySummary = () => {
   };
 
   const handleDownloadPDF = () => {
-    toast({
-      title: "PDF Downloaded",
-      description: "Today's summary has been downloaded successfully",
-    });
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPosition = 20;
+
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(60, 60, 60);
+      doc.text(
+        filterType === 'today' ? "Today's Summary" : 
+        filterType === 'week' ? "This Week's Summary" :
+        filterType === 'lastWeek' ? "Last Week's Summary" :
+        filterType === 'month' ? "Monthly Summary" : "Visit Summary", 
+        pageWidth / 2, 
+        yPosition, 
+        { align: 'center' }
+      );
+      
+      yPosition += 10;
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text(summaryData.date, pageWidth / 2, yPosition, { align: 'center' });
+      
+      // Beat Information
+      yPosition += 15;
+      doc.setFontSize(12);
+      doc.setTextColor(40, 40, 40);
+      doc.text(`Beat: ${summaryData.beat}`, 14, yPosition);
+      yPosition += 7;
+      doc.text(`Start: ${summaryData.startTime} | End: ${summaryData.endTime}`, 14, yPosition);
+      
+      // Key Metrics Section
+      yPosition += 15;
+      doc.setFontSize(14);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Key Metrics", 14, yPosition);
+      yPosition += 10;
+      
+      const metricsData = [
+        ['Total Order Value', `₹${summaryData.totalOrderValue.toLocaleString()}`],
+        ['Orders Placed', summaryData.totalOrders.toString()],
+        ['Visit Efficiency', `${summaryData.visitEfficiency}%`],
+        ['Avg Order Value', `₹${summaryData.avgOrderValue.toLocaleString()}`]
+      ];
+      
+      autoTable(doc, {
+        startY: yPosition,
+        head: [['Metric', 'Value']],
+        body: metricsData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10 },
+        margin: { left: 14, right: 14 }
+      });
+      
+      yPosition = (doc as any).lastAutoTable.finalY + 15;
+      
+      // Visit Breakdown Section
+      doc.setFontSize(14);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Visit Breakdown", 14, yPosition);
+      yPosition += 10;
+      
+      const visitBreakdownData = visitBreakdown.map(item => [
+        item.status,
+        item.count.toString(),
+        `${summaryData.plannedVisits > 0 ? Math.round((item.count / summaryData.plannedVisits) * 100) : 0}%`
+      ]);
+      
+      autoTable(doc, {
+        startY: yPosition,
+        head: [['Status', 'Count', 'Percentage']],
+        body: visitBreakdownData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10 },
+        margin: { left: 14, right: 14 }
+      });
+      
+      yPosition = (doc as any).lastAutoTable.finalY + 15;
+      
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      // Top Performing Retailers
+      if (topRetailers.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(60, 60, 60);
+        doc.text("Top Performing Retailers", 14, yPosition);
+        yPosition += 10;
+        
+        const retailersData = topRetailers.map((retailer, index) => [
+          `#${index + 1}`,
+          retailer.name,
+          retailer.location,
+          `₹${retailer.orderValue.toLocaleString()}`
+        ]);
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Rank', 'Retailer', 'Location', 'Order Value']],
+          body: retailersData,
+          theme: 'grid',
+          headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 9 },
+          margin: { left: 14, right: 14 }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+      }
+      
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      // Product-wise Sales
+      if (productSales.length > 0) {
+        doc.setFontSize(14);
+        doc.setTextColor(60, 60, 60);
+        doc.text("Product-wise Sales", 14, yPosition);
+        yPosition += 10;
+        
+        const productsData = productSales.map(p => [
+          p.name,
+          p.quantity.toString(),
+          `₹${p.revenue.toLocaleString()}`
+        ]);
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Product', 'Quantity', 'Revenue']],
+          body: productsData,
+          theme: 'grid',
+          headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 9 },
+          margin: { left: 14, right: 14 }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+      }
+      
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      // Performance Summary
+      doc.setFontSize(14);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Performance Summary", 14, yPosition);
+      yPosition += 10;
+      
+      const performanceData = [
+        ['Planned Visits', summaryData.plannedVisits.toString()],
+        ['Completed Visits', summaryData.completedVisits.toString()],
+        ['Order Conversion Rate', `${summaryData.orderConversionRate}%`],
+        ['Distance Covered', summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No location data'],
+        ['Time at Retailers', summaryData.travelTime]
+      ];
+      
+      autoTable(doc, {
+        startY: yPosition,
+        head: [['Metric', 'Value']],
+        body: performanceData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 10 },
+        margin: { left: 14, right: 14 }
+      });
+      
+      // Save the PDF
+      const fileName = `Summary_${format(selectedDate, 'yyyy-MM-dd')}.pdf`;
+      doc.save(fileName);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: `${fileName} has been downloaded successfully`,
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleShare = () => {
