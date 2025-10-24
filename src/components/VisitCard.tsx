@@ -608,6 +608,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         return;
       }
 
+      // Check if geolocation is supported
+      if (!navigator.geolocation) {
+        toast({ 
+          title: 'Location not supported', 
+          description: 'Your device does not support location services.',
+          variant: 'destructive' 
+        });
+        return;
+      }
+
       const timestamp = new Date().toISOString();
       const today = timestamp.split('T')[0];
       const retailerId = visit.retailerId || visit.id;
@@ -616,14 +626,55 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       const visitId = await ensureVisit(user.id, retailerId, today);
       setCurrentVisitId(visitId);
 
-      // Get current location with high accuracy
-      const current = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
-          (err) => reject(new Error(`GPS error: ${err.message}`)),
-          { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 } // Extended timeout for better accuracy
-        );
-      });
+      // Get current location with better error handling
+      let current: { latitude: number; longitude: number };
+      try {
+        current = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            reject(new Error('Location request timed out. Please ensure location services are enabled.'));
+          }, 15000); // Reduced to 15 seconds
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              clearTimeout(timeoutId);
+              resolve({ 
+                latitude: position.coords.latitude, 
+                longitude: position.coords.longitude 
+              });
+            },
+            (error) => {
+              clearTimeout(timeoutId);
+              let errorMessage = 'Unable to get your location.';
+              
+              switch(error.code) {
+                case error.PERMISSION_DENIED:
+                  errorMessage = 'Location permission denied. Please enable location access in your device settings.';
+                  break;
+                case error.POSITION_UNAVAILABLE:
+                  errorMessage = 'Location information is unavailable. Please check your GPS settings.';
+                  break;
+                case error.TIMEOUT:
+                  errorMessage = 'Location request timed out. Please try again.';
+                  break;
+              }
+              
+              reject(new Error(errorMessage));
+            },
+            { 
+              enableHighAccuracy: true, 
+              timeout: 15000, 
+              maximumAge: 0 
+            }
+          );
+        });
+      } catch (locationError: any) {
+        toast({ 
+          title: 'Location Error', 
+          description: locationError.message || 'Failed to get location. Please enable location services.',
+          variant: 'destructive' 
+        });
+        return;
+      }
 
       const address = `${current.latitude.toFixed(6)}, ${current.longitude.toFixed(6)}`;
       let match: boolean | null = null;
@@ -762,9 +813,23 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
     } catch (err: any) {
       console.error('Check-in/out error', err);
+      
+      // Provide user-friendly error messages
+      let errorTitle = action === 'checkin' ? 'Check-in failed' : 'Check-out failed';
+      let errorDescription = err.message || 'An unexpected error occurred. Please try again.';
+      
+      // Handle specific error types
+      if (err.message?.includes('Location') || err.message?.includes('GPS')) {
+        errorDescription = err.message;
+      } else if (err.message?.includes('permission')) {
+        errorDescription = 'Please enable location and camera permissions in your device settings.';
+      } else if (err.message?.includes('timeout') || err.message?.includes('timed out')) {
+        errorDescription = 'Request timed out. Please check your GPS and internet connection, then try again.';
+      }
+      
       toast({ 
-        title: 'Check-in/out failed', 
-        description: err.message || 'Enable GPS and try again.', 
+        title: errorTitle, 
+        description: errorDescription,
         variant: 'destructive' 
       });
     }
@@ -1147,6 +1212,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-4">
+              {!isCheckedIn && isTodaysVisit && (
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-medium mb-1">📍 Location & Camera Required</p>
+                  <p className="text-xs">Please allow location and camera access when prompted for check-in.</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={() => handleCheckInOut('checkin')}
