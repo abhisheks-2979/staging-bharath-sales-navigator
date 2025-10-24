@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Navigation2, Clock } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -17,6 +17,10 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { useGPSTracking } from "@/hooks/useGPSTracking";
+import { JourneyMap } from "@/components/JourneyMap";
+import { TimelineView } from "@/components/TimelineView";
+import { toast } from "sonner";
 
 interface Visit {
   id: string;
@@ -149,8 +153,14 @@ export const MyVisits = () => {
   const [isCreateVisitModalOpen, setIsCreateVisitModalOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [ordersData, setOrdersData] = useState<any[]>([]);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [isTrackingMapOpen, setIsTrackingMapOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // GPS Tracking
+  const currentDate = selectedDate ? new Date(selectedDate) : new Date();
+  const { isTracking, positions, startTracking, stopTracking } = useGPSTracking(user?.id, currentDate);
 
   // Initialize selected day to today
   useEffect(() => {
@@ -748,7 +758,7 @@ export const MyVisits = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <Button 
                 variant="secondary" 
                 size="sm"
@@ -771,7 +781,7 @@ export const MyVisits = () => {
                 All Retailers
               </Button>
             </div>
-            <div className="grid grid-cols-1">
+            <div className="grid grid-cols-1 gap-2 mb-2">
               <Button 
                 variant="secondary" 
                 size="sm" 
@@ -780,6 +790,39 @@ export const MyVisits = () => {
               >
                 <FileText size={14} className="mr-1" />
                 Today's Summary
+              </Button>
+            </div>
+            
+            {/* New Tracking Features */}
+            <div className="grid grid-cols-2 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
+              <Button 
+                variant={isTracking ? "destructive" : "default"}
+                size="sm" 
+                className="text-xs sm:text-sm h-9 sm:h-auto"
+                onClick={isTracking ? stopTracking : startTracking}
+              >
+                <Navigation2 size={14} className="mr-1" />
+                {isTracking ? 'Stop Tracking' : 'Track Today'}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs sm:text-sm h-9 sm:h-auto"
+                onClick={() => setIsTimelineOpen(true)}
+              >
+                <Clock size={14} className="mr-1" />
+                Timeline View
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-xs sm:text-sm h-9 sm:h-auto"
+                onClick={() => navigate('/live-tracking')}
+              >
+                <MapPin size={14} className="mr-1" />
+                Live Tracking
               </Button>
             </div>
           </CardContent>
@@ -963,6 +1006,37 @@ export const MyVisits = () => {
                 </div>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Timeline View Dialog */}
+        <Dialog open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Today's Timeline View</DialogTitle>
+            </DialogHeader>
+            <TimelineView
+              visits={filteredVisits.map((v: any) => ({
+                id: v.id,
+                retailer_name: v.retailerName,
+                check_in_time: v.checkInTime || v.time || new Date().toISOString(),
+                check_out_time: v.checkOutTime,
+                check_in_address: v.address,
+                status: v.status,
+                order_value: v.orderValue,
+                order_quantity: v.orderQuantity,
+              }))}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Tracking Map Dialog */}
+        <Dialog open={isTrackingMapOpen} onOpenChange={setIsTrackingMapOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>GPS Journey Map</DialogTitle>
+            </DialogHeader>
+            <JourneyMap positions={positions} height="600px" />
           </DialogContent>
         </Dialog>
       </div>

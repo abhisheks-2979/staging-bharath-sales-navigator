@@ -648,6 +648,45 @@ export type Database = {
         }
         Relationships: []
       }
+      gps_tracking: {
+        Row: {
+          accuracy: number | null
+          created_at: string
+          date: string
+          heading: number | null
+          id: string
+          latitude: number
+          longitude: number
+          speed: number | null
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          created_at?: string
+          date?: string
+          heading?: number | null
+          id?: string
+          latitude: number
+          longitude: number
+          speed?: number | null
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          created_at?: string
+          date?: string
+          heading?: number | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          speed?: number | null
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           created_at: string

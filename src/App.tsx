@@ -56,6 +56,7 @@ import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import Operations from "./pages/Operations";
 import DistributorMaster from "./pages/DistributorMaster";
 import DistributorMapping from "./pages/DistributorMapping";
+import LiveTracking from "./pages/LiveTracking";
 
 import AdminExpenseManagement from "./pages/AdminExpenseManagement";
 import MyExpenses from "./pages/MyExpenses";
@@ -298,6 +299,11 @@ const App = () => (
             <Route path="/vendors" element={
               <ProtectedRoute>
                 <Vendors />
+              </ProtectedRoute>
+            } />
+            <Route path="/live-tracking" element={
+              <ProtectedRoute>
+                <LiveTracking />
               </ProtectedRoute>
             } />
             <Route path="/features/beat-planning" element={<Suspense fallback={<div>Loading...</div>}><BeatPlanningFeature /></Suspense>} />
