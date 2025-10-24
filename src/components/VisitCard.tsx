@@ -608,13 +608,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         return;
       }
 
-      if (!currentVisitId) {
-        toast({ title: 'Invalid visit', description: 'Visit ID not found.', variant: 'destructive' });
-        return;
-      }
-
       const timestamp = new Date().toISOString();
       const today = timestamp.split('T')[0];
+      const retailerId = visit.retailerId || visit.id;
+      
+      // Ensure visit exists and get visit ID
+      const visitId = await ensureVisit(user.id, retailerId, today);
+      setCurrentVisitId(visitId);
 
       // Get current location with high accuracy
       const current = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
@@ -636,7 +636,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       // SAVE CHECK-IN/OUT DATA IMMEDIATELY
       if (action === 'checkin') {
         // Auto check-out any previous in-progress visits
-        await autoCheckOutPreviousVisit(user.id, visit.retailerId || visit.id, today);
+        await autoCheckOutPreviousVisit(user.id, retailerId, today);
 
         // Update visit with check-in data
         const { error } = await supabase
@@ -648,7 +648,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             location_match_in: match,
             status: 'in-progress'
           })
-          .eq('id', currentVisitId);
+          .eq('id', visitId);
         
         if (error) throw error;
 
@@ -671,7 +671,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         setLocationMatchIn(match);
         setIsCheckedIn(true);
         window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
-          detail: { visitId: currentVisitId, status: 'in-progress', retailerId: visit.retailerId || visit.id } 
+          detail: { visitId: visitId, status: 'in-progress', retailerId: retailerId } 
         }));
         
         toast({ 
@@ -694,7 +694,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           .from('orders')
           .select('id')
           .eq('user_id', user.id)
-          .eq('retailer_id', visit.retailerId || visit.id)
+          .eq('retailer_id', retailerId)
           .eq('status', 'confirmed')
           .gte('created_at', todayStart.toISOString())
           .lte('created_at', todayEnd.toISOString())
@@ -712,7 +712,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             location_match_out: match,
             status: finalStatus
           })
-          .eq('id', currentVisitId);
+          .eq('id', visitId);
         
         if (error) throw error;
 
