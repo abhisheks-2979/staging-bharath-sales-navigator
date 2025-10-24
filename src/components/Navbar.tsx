@@ -40,6 +40,7 @@ export const Navbar = () => {
     { icon: Car, label: "My Visit", href: "/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Store, label: "All Retailers", href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
     { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
+    { icon: Route, label: "Live Tracking", href: "/live-tracking", color: "from-purple-500 to-purple-600" },
     { icon: Paintbrush, label: "Branding", href: "/branding-requests", color: "from-fuchsia-500 to-fuchsia-600" },
     { icon: Users, label: "My Beats", href: "/my-beats", color: "from-orange-500 to-orange-600" },
     { icon: Briefcase, label: "Distributor Mapping", href: "/add-records", color: "from-red-500 to-red-600" },

@@ -786,23 +786,21 @@ export const MyVisits = () => {
               </Button>
             </div>
             
-            {/* Timeline View Button */}
-            <div className="grid grid-cols-1 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
+            {/* Timeline View and Live Tracking Buttons */}
+            <div className="grid grid-cols-2 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
               <Button 
-                variant="outline" 
+                variant="secondary" 
                 size="sm" 
-                className="text-xs sm:text-sm h-9 sm:h-auto"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
                 onClick={() => setIsTimelineOpen(true)}
               >
                 <Clock size={14} className="mr-1" />
                 Timeline View
               </Button>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
               <Button 
-                variant="outline" 
+                variant="secondary" 
                 size="sm" 
-                className="text-xs sm:text-sm h-9 sm:h-auto"
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
                 onClick={() => navigate('/live-tracking')}
               >
                 <MapPin size={14} className="mr-1" />
