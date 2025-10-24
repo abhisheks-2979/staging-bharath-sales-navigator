@@ -48,6 +48,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [formData, setFormData] = useState<Retailer | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
   const [loading, setLoading] = useState(false);
+  const [beats, setBeats] = useState<{ beat_id: string; beat_name: string }[]>([]);
 
   useEffect(() => {
     if (retailer) {
@@ -56,11 +57,37 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     }
   }, [retailer, startInEditMode]);
 
+  useEffect(() => {
+    if (user && isOpen) {
+      loadBeats();
+    }
+  }, [user, isOpen]);
+
+  const loadBeats = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('beats')
+        .select('beat_id, beat_name')
+        .eq('created_by', user.id)
+        .eq('is_active', true)
+        .order('beat_name');
+      
+      if (error) throw error;
+      setBeats(data || []);
+    } catch (error: any) {
+      console.error('Error loading beats:', error);
+    }
+  };
+
   const handleSave = async () => {
     if (!formData || !user) return;
 
     setLoading(true);
     try {
+      const selectedBeat = beats.find(b => b.beat_id === formData.beat_id);
+      
       const { error } = await supabase
         .from('retailers')
         .update({
@@ -80,6 +107,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           gst_number: formData.gst_number,
           latitude: formData.latitude,
           longitude: formData.longitude,
+          beat_id: formData.beat_id,
+          beat_name: selectedBeat?.beat_name || formData.beat_id,
         })
         .eq('id', formData.id)
         .eq('user_id', user.id);
@@ -167,9 +196,31 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             )}
             <div className="flex-1">
               <h3 className="text-xl font-semibold">{formData.name}</h3>
-              {formData.beat_id && (
-                <p className="text-sm text-muted-foreground">Beat: {formData.beat_id}</p>
-              )}
+              <div className="space-y-1 mt-2">
+                <Label className="text-xs text-muted-foreground">Beat</Label>
+                {isEditing ? (
+                  <Select 
+                    value={formData.beat_id || ''} 
+                    onValueChange={(v) => setFormData({...formData, beat_id: v})}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Select beat" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {beats.map((beat) => (
+                        <SelectItem key={beat.beat_id} value={beat.beat_id}>
+                          {beat.beat_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {formData.beat_id || 'Unassigned'}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -185,7 +236,14 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Owner's Number</Label>
                     <div className="flex items-center justify-between group">
-                      {formData.phone ? (
+                      {isEditing ? (
+                        <Input
+                          value={formData.phone || ''}
+                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter phone number"
+                        />
+                      ) : formData.phone ? (
                         <a 
                           href={`tel:${formData.phone.replace(/\s+/g, '')}`}
                           className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
@@ -196,9 +254,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                         </a>
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                      {isEditing && (
-                        <Edit2 size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
                       )}
                     </div>
                   </div>
@@ -344,14 +399,32 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Parent Type</Label>
                     <div className="flex items-center justify-between group">
-                      <span className="text-sm">{formData.parent_type || '-'}</span>
+                      {isEditing ? (
+                        <Input
+                          value={formData.parent_type || ''}
+                          onChange={(e) => setFormData({...formData, parent_type: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter parent type"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.parent_type || '-'}</span>
+                      )}
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Parent Name</Label>
                     <div className="flex items-center justify-between group">
-                      <span className="text-sm">{formData.parent_name || '-'}</span>
+                      {isEditing ? (
+                        <Input
+                          value={formData.parent_name || ''}
+                          onChange={(e) => setFormData({...formData, parent_name: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter parent name"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.parent_name || '-'}</span>
+                      )}
                     </div>
                   </div>
                 </div>
