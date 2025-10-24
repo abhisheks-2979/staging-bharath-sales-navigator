@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Layout } from '@/components/Layout';
-import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter } from 'lucide-react';
+import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter, Navigation2, Route, CalendarDays, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,10 @@ import { useNavigate } from 'react-router-dom';
 import HolidayList from '@/components/HolidayList';
 import LeaveApplicationModal from '@/components/LeaveApplicationModal';
 import MyLeaveApplications from '@/components/MyLeaveApplications';
+import { useGPSTracking } from '@/hooks/useGPSTracking';
+import { JourneyMap } from '@/components/JourneyMap';
+import { TimelineView } from '@/components/TimelineView';
+import { cn } from '@/lib/utils';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -34,8 +39,49 @@ const Attendance = () => {
   const [location, setLocation] = useState(null);
   const [dateFilter, setDateFilter] = useState('current-month');
   const [leaveRefreshTrigger, setLeaveRefreshTrigger] = useState(0);
+  const [selectedDateForMap, setSelectedDateForMap] = useState<Date | null>(null);
+  const [selectedDateVisits, setSelectedDateVisits] = useState([]);
+  const [gpsPositionsByDate, setGpsPositionsByDate] = useState<Map<string, any[]>>(new Map());
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // GPS Tracking for today
+  const today = new Date();
+  const { isTracking, positions, startTracking, stopTracking } = useGPSTracking(userProfile?.id, today);
+
+  // Load GPS positions for a specific date
+  const loadGPSPositionsForDate = async (date: string) => {
+    if (gpsPositionsByDate.has(date)) return gpsPositionsByDate.get(date);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('gps_tracking')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('date', date)
+        .order('timestamp', { ascending: true });
+
+      if (error) throw error;
+
+      const positions = data?.map((d) => ({
+        latitude: parseFloat(d.latitude as unknown as string),
+        longitude: parseFloat(d.longitude as unknown as string),
+        accuracy: d.accuracy ? parseFloat(d.accuracy as unknown as string) : 0,
+        timestamp: new Date(d.timestamp),
+        speed: d.speed ? parseFloat(d.speed as unknown as string) : undefined,
+        heading: d.heading ? parseFloat(d.heading as unknown as string) : undefined,
+      })) || [];
+
+      setGpsPositionsByDate(new Map(gpsPositionsByDate.set(date, positions)));
+      return positions;
+    } catch (error) {
+      console.error('Error loading GPS positions:', error);
+      return [];
+    }
+  };
 
   useEffect(() => {
     fetchAttendanceData();
@@ -357,6 +403,78 @@ const Attendance = () => {
     });
   };
 
+  const fetchVisitsForDate = async (date: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // First get visits with basic info
+      const { data: visits, error: visitsError } = await supabase
+        .from('visits')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('planned_date', date)
+        .not('check_in_time', 'is', null)
+        .order('check_in_time', { ascending: true });
+
+      if (visitsError) throw visitsError;
+
+      if (!visits || visits.length === 0) {
+        setSelectedDateVisits([]);
+        return;
+      }
+
+      // Get retailer names
+      const retailerIds = visits.map(v => v.retailer_id).filter(Boolean);
+      const { data: retailers } = await supabase
+        .from('retailers')
+        .select('id, name')
+        .in('id', retailerIds);
+
+      const retailerMap = new Map(retailers?.map(r => [r.id, r.name]) || []);
+
+      // Get orders
+      const visitIds = visits.map(v => v.id);
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('visit_id, total_amount, id')
+        .in('visit_id', visitIds);
+
+      const orderMap = new Map(orders?.map(o => [o.visit_id, o]) || []);
+
+      // Get order items
+      const orderIds = orders?.map(o => o.id) || [];
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('order_id, quantity')
+        .in('order_id', orderIds);
+
+      const orderItemsMap = new Map<string, number>();
+      orderItems?.forEach(item => {
+        const current = orderItemsMap.get(item.order_id) || 0;
+        orderItemsMap.set(item.order_id, current + item.quantity);
+      });
+
+      const formattedVisits = visits.map(visit => {
+        const order = orderMap.get(visit.id);
+        return {
+          id: visit.id,
+          retailer_name: retailerMap.get(visit.retailer_id) || 'Unknown',
+          check_in_time: visit.check_in_time,
+          check_out_time: visit.check_out_time,
+          check_in_address: visit.check_in_address,
+          status: visit.status,
+          order_value: order?.total_amount || 0,
+          order_quantity: order ? (orderItemsMap.get(order.id) || 0) : 0
+        };
+      });
+
+      setSelectedDateVisits(formattedVisits);
+    } catch (error) {
+      console.error('Error fetching visits:', error);
+    }
+  };
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
@@ -376,6 +494,18 @@ const Attendance = () => {
                 <div className="text-3xl font-bold text-foreground">{stats.presentDays}/20</div>
                 <div className="text-sm text-muted-foreground">Present Days</div>
               </div>
+            </div>
+
+            {/* GPS Tracking Button */}
+            <div className="flex justify-center">
+              <Button
+                onClick={isTracking ? stopTracking : startTracking}
+                variant={isTracking ? "destructive" : "default"}
+                className="gap-2"
+              >
+                <Navigation2 className={cn("h-4 w-4", isTracking && "animate-pulse")} />
+                {isTracking ? 'Stop Tracking' : 'Track Today'}
+              </Button>
             </div>
 
             {/* Present/Absent Cards */}
@@ -520,35 +650,102 @@ const Attendance = () => {
                         return (
                           <div 
                             key={record.id} 
-                            className="flex items-center justify-between p-3 border rounded-lg hover:shadow-md transition-all group"
+                            className="flex flex-col gap-3 p-4 border rounded-lg hover:shadow-md transition-all"
                           >
-                            <div className="flex items-center gap-3">
-                              {record.status === 'present' ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
-                              ) : (
-                                <XCircle className="h-5 w-5 text-red-600" />
-                              )}
-                              <div>
-                                <div className="font-medium">
-                                  {format(new Date(record.date), 'EEE, MMM dd, yyyy')}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  In: {formatTime(record.check_in_time)} | Out: {formatTime(record.check_out_time)}
-                                </div>
-                                {record.total_hours && (
-                                  <div className="text-xs text-blue-600">
-                                    Total: {record.total_hours.toFixed(1)} hours
-                                  </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 flex-1">
+                                {record.status === 'present' ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-red-600" />
                                 )}
+                                <div>
+                                  <div className="font-medium">
+                                    {format(new Date(record.date), 'EEE, MMM dd, yyyy')}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    In: {formatTime(record.check_in_time)} | Out: {formatTime(record.check_out_time)}
+                                  </div>
+                                  {record.total_hours && (
+                                    <div className="text-xs text-blue-600">
+                                      Total: {record.total_hours.toFixed(1)} hours
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                            <Badge 
-                              variant={record.status === 'present' ? 'default' : 'destructive'}
-                              className="cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => navigate(`/today-summary?date=${recordDate}`)}
-                            >
-                              {record.status === 'present' ? 'Productivity Report' : record.status}
-                            </Badge>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap gap-2">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2"
+                                    onClick={async () => {
+                                      setSelectedDateForMap(new Date(record.date));
+                                      await loadGPSPositionsForDate(recordDate);
+                                    }}
+                                  >
+                                    <Route className="h-4 w-4" />
+                                    Travel Heat Map
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>
+                                      Journey Heat Map - {format(new Date(record.date), 'MMM dd, yyyy')}
+                                    </DialogTitle>
+                                  </DialogHeader>
+                                  <div className="mt-4">
+                                    <JourneyMap 
+                                      positions={gpsPositionsByDate.get(recordDate) || []} 
+                                      height="500px"
+                                    />
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2"
+                                    onClick={async () => {
+                                      await fetchVisitsForDate(recordDate);
+                                    }}
+                                  >
+                                    <CalendarDays className="h-4 w-4" />
+                                    Timeline View
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+                                  <DialogHeader>
+                                    <DialogTitle>
+                                      Day Timeline - {format(new Date(record.date), 'MMM dd, yyyy')}
+                                    </DialogTitle>
+                                  </DialogHeader>
+                                  <div className="mt-4">
+                                    <TimelineView 
+                                      visits={selectedDateVisits}
+                                      dayStart={formatTime(record.check_in_time)}
+                                    />
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+
+                              <Button
+                                size="sm"
+                                variant={record.status === 'present' ? 'default' : 'destructive'}
+                                className="gap-2"
+                                onClick={() => navigate(`/today-summary?date=${recordDate}`)}
+                              >
+                                <FileText className="h-4 w-4" />
+                                Productivity Report
+                              </Button>
+                            </div>
                           </div>
                         );
                       })

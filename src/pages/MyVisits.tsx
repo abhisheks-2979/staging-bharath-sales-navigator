@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Navigation2, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -17,8 +17,6 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { useGPSTracking } from "@/hooks/useGPSTracking";
-import { JourneyMap } from "@/components/JourneyMap";
 import { TimelineView } from "@/components/TimelineView";
 import { toast } from "sonner";
 
@@ -154,13 +152,8 @@ export const MyVisits = () => {
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [ordersData, setOrdersData] = useState<any[]>([]);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [isTrackingMapOpen, setIsTrackingMapOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  // GPS Tracking
-  const currentDate = selectedDate ? new Date(selectedDate) : new Date();
-  const { isTracking, positions, startTracking, stopTracking } = useGPSTracking(user?.id, currentDate);
 
   // Initialize selected day to today
   useEffect(() => {
@@ -793,17 +786,8 @@ export const MyVisits = () => {
               </Button>
             </div>
             
-            {/* New Tracking Features */}
-            <div className="grid grid-cols-2 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
-              <Button 
-                variant={isTracking ? "destructive" : "default"}
-                size="sm" 
-                className="text-xs sm:text-sm h-9 sm:h-auto"
-                onClick={isTracking ? stopTracking : startTracking}
-              >
-                <Navigation2 size={14} className="mr-1" />
-                {isTracking ? 'Stop Tracking' : 'Track Today'}
-              </Button>
+            {/* Timeline View Button */}
+            <div className="grid grid-cols-1 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -1027,16 +1011,6 @@ export const MyVisits = () => {
                 order_quantity: v.orderQuantity,
               }))}
             />
-          </DialogContent>
-        </Dialog>
-
-        {/* Tracking Map Dialog */}
-        <Dialog open={isTrackingMapOpen} onOpenChange={setIsTrackingMapOpen}>
-          <DialogContent className="max-w-6xl max-h-[90vh]">
-            <DialogHeader>
-              <DialogTitle>GPS Journey Map</DialogTitle>
-            </DialogHeader>
-            <JourneyMap positions={positions} height="600px" />
           </DialogContent>
         </Dialog>
       </div>
