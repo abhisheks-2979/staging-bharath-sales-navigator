@@ -338,12 +338,12 @@ React.useEffect(() => {
 
   const getCGST = () => {
     const amountAfterDiscount = getAmountAfterDiscount();
-    return (amountAfterDiscount * 5) / 100; // 5% CGST
+    return (amountAfterDiscount * 2.5) / 100; // 2.5% CGST
   };
 
   const getSGST = () => {
     const amountAfterDiscount = getAmountAfterDiscount();
-    return (amountAfterDiscount * 5) / 100; // 5% SGST
+    return (amountAfterDiscount * 2.5) / 100; // 2.5% SGST
   };
 
   const getFinalTotal = () => {
