@@ -325,11 +325,33 @@ React.useEffect(() => {
     }
   };
   
-  const getFinalTotal = () => {
+  const getAmountAfterDiscount = () => {
     try {
       const subtotal = getSubtotal();
       const discount = getDiscount();
       return Math.max(0, subtotal - discount);
+    } catch (error) {
+      console.error('Error computing amount after discount:', error);
+      return 0;
+    }
+  };
+
+  const getCGST = () => {
+    const amountAfterDiscount = getAmountAfterDiscount();
+    return (amountAfterDiscount * 5) / 100; // 5% CGST
+  };
+
+  const getSGST = () => {
+    const amountAfterDiscount = getAmountAfterDiscount();
+    return (amountAfterDiscount * 5) / 100; // 5% SGST
+  };
+
+  const getFinalTotal = () => {
+    try {
+      const amountAfterDiscount = getAmountAfterDiscount();
+      const cgst = getCGST();
+      const sgst = getSGST();
+      return Math.max(0, amountAfterDiscount + cgst + sgst);
     } catch (error) {
       console.error('Error computing final total:', error);
       return 0;
@@ -386,6 +408,8 @@ React.useEffect(() => {
 
       const subtotal = getSubtotal();
       const discountAmount = getDiscount();
+      const cgstAmount = getCGST();
+      const sgstAmount = getSGST();
       const totalAmount = getFinalTotal();
       // Prepare IDs
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
@@ -629,6 +653,17 @@ React.useEffect(() => {
                     </div>
                   </div>
                 )}
+
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>CGST (5%):</span>
+                    <span>₹{getCGST().toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>SGST (5%):</span>
+                    <span>₹{getSGST().toLocaleString()}</span>
+                  </div>
+                </div>
 
                 <div className="flex justify-between text-lg font-bold border-t pt-3">
                   <span>Total:</span>
