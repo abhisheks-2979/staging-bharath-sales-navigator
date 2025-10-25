@@ -50,6 +50,8 @@ import { MyRetailers } from "./pages/MyRetailers";
 import BrandingRequests from "./pages/BrandingRequests";
 import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
+import EmployeeOnboarding from "./pages/EmployeeOnboarding";
+import Employee360 from "./pages/Employee360";
 import Vendors from "./pages/Vendors";
 import { RetailerDetail } from "./pages/RetailerDetail";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
@@ -312,6 +314,9 @@ const App = () => (
             <Route path="/features/sales-analytics" element={<Suspense fallback={<div>Loading...</div>}><SalesAnalyticsFeature /></Suspense>} />
             <Route path="/features/performance-tracking" element={<Suspense fallback={<div>Loading...</div>}><PerformanceTrackingFeature /></Suspense>} />
             <Route path="/features/growth-analytics" element={<Suspense fallback={<div>Loading...</div>}><GrowthAnalyticsFeature /></Suspense>} />
+            <Route path="/onboarding" element={<ProtectedRoute><EmployeeOnboarding /></ProtectedRoute>} />
+            <Route path="/employee-profile" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
+            <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

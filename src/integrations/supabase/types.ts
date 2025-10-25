@@ -382,6 +382,36 @@ export type Database = {
           },
         ]
       }
+      competencies: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          level_definitions: Json | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_definitions?: Json | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_definitions?: Json | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       competition_insights: {
         Row: {
           action_required: boolean | null
@@ -564,6 +594,107 @@ export type Database = {
           },
         ]
       }
+      employee_badges: {
+        Row: {
+          badge_description: string | null
+          badge_icon: string | null
+          badge_name: string
+          badge_type: string
+          created_at: string
+          id: string
+          issued_at: string
+          issued_by: string | null
+          user_id: string
+        }
+        Insert: {
+          badge_description?: string | null
+          badge_icon?: string | null
+          badge_name: string
+          badge_type: string
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          user_id: string
+        }
+        Update: {
+          badge_description?: string | null
+          badge_icon?: string | null
+          badge_name?: string
+          badge_type?: string
+          created_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      employee_competencies: {
+        Row: {
+          assessed_at: string | null
+          assessed_by: string | null
+          competency_id: string
+          created_at: string
+          current_level: string
+          id: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assessed_at?: string | null
+          assessed_by?: string | null
+          competency_id: string
+          created_at?: string
+          current_level: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assessed_at?: string | null
+          assessed_by?: string | null
+          competency_id?: string
+          created_at?: string
+          current_level?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_competencies_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "competencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_connections: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       employee_documents: {
         Row: {
           content_type: string | null
@@ -597,51 +728,96 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_recommendations: {
+        Row: {
+          created_at: string
+          id: string
+          recommendation_text: string
+          recommender_id: string
+          relationship: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          recommendation_text: string
+          recommender_id: string
+          relationship?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          recommendation_text?: string
+          recommender_id?: string
+          relationship?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
+          aadhar_document_url: string | null
           address: string | null
           alternate_email: string | null
+          certifications: Json | null
           created_at: string
           daily_da_allowance: number
           date_of_exit: string | null
           date_of_joining: string | null
           education: string | null
+          education_background: Json | null
           emergency_contact_number: string | null
+          expertise_areas: string[] | null
           hq: string | null
           manager_id: string | null
           monthly_salary: number
+          pan_document_url: string | null
           photo_url: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          aadhar_document_url?: string | null
           address?: string | null
           alternate_email?: string | null
+          certifications?: Json | null
           created_at?: string
           daily_da_allowance?: number
           date_of_exit?: string | null
           date_of_joining?: string | null
           education?: string | null
+          education_background?: Json | null
           emergency_contact_number?: string | null
+          expertise_areas?: string[] | null
           hq?: string | null
           manager_id?: string | null
           monthly_salary?: number
+          pan_document_url?: string | null
           photo_url?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          aadhar_document_url?: string | null
           address?: string | null
           alternate_email?: string | null
+          certifications?: Json | null
           created_at?: string
           daily_da_allowance?: number
           date_of_exit?: string | null
           date_of_joining?: string | null
           education?: string | null
+          education_background?: Json | null
           emergency_contact_number?: string | null
+          expertise_areas?: string[] | null
           hq?: string | null
           manager_id?: string | null
           monthly_salary?: number
+          pan_document_url?: string | null
           photo_url?: string | null
           updated_at?: string
           user_id?: string
@@ -1269,45 +1445,107 @@ export type Database = {
       }
       profiles: {
         Row: {
+          anniversary_date: string | null
+          aspirations: string | null
           created_at: string
+          current_address: string | null
+          date_of_birth: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          facebook_url: string | null
           full_name: string
           hint_answer: string
           hint_question: string
           id: string
+          instagram_url: string | null
+          interests: string[] | null
           invitation_token: string | null
+          learning_goals: string[] | null
+          linkedin_url: string | null
+          onboarding_completed: boolean | null
+          onboarding_step: number | null
+          permanent_address: string | null
           phone_number: string | null
+          profile_picture_url: string | null
           recovery_email: string | null
+          role_id: string | null
+          territories_covered: string[] | null
           updated_at: string
           user_status: Database["public"]["Enums"]["user_status"] | null
           username: string
+          work_location: string | null
         }
         Insert: {
+          anniversary_date?: string | null
+          aspirations?: string | null
           created_at?: string
+          current_address?: string | null
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          facebook_url?: string | null
           full_name: string
           hint_answer: string
           hint_question: string
           id: string
+          instagram_url?: string | null
+          interests?: string[] | null
           invitation_token?: string | null
+          learning_goals?: string[] | null
+          linkedin_url?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          permanent_address?: string | null
           phone_number?: string | null
+          profile_picture_url?: string | null
           recovery_email?: string | null
+          role_id?: string | null
+          territories_covered?: string[] | null
           updated_at?: string
           user_status?: Database["public"]["Enums"]["user_status"] | null
           username: string
+          work_location?: string | null
         }
         Update: {
+          anniversary_date?: string | null
+          aspirations?: string | null
           created_at?: string
+          current_address?: string | null
+          date_of_birth?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          facebook_url?: string | null
           full_name?: string
           hint_answer?: string
           hint_question?: string
           id?: string
+          instagram_url?: string | null
+          interests?: string[] | null
           invitation_token?: string | null
+          learning_goals?: string[] | null
+          linkedin_url?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          permanent_address?: string | null
           phone_number?: string | null
+          profile_picture_url?: string | null
           recovery_email?: string | null
+          role_id?: string | null
+          territories_covered?: string[] | null
           updated_at?: string
           user_status?: Database["public"]["Enums"]["user_status"] | null
           username?: string
+          work_location?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "role_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       regularization_requests: {
         Row: {
@@ -1480,6 +1718,36 @@ export type Database = {
           status?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      role_definitions: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          required_competencies: Json | null
+          responsibilities: string[] | null
+          role_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          required_competencies?: Json | null
+          responsibilities?: string[] | null
+          role_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          required_competencies?: Json | null
+          responsibilities?: string[] | null
+          role_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
