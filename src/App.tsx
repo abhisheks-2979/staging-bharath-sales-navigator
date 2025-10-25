@@ -102,12 +102,13 @@ const MasterDataCacheInitializer = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <MasterDataCacheInitializer />
-      <Toaster />
-      <Sonner />
-      <PWAInstallPrompt />
-      <StatusBar />
-      <BrowserRouter>
+      <TooltipProvider>
+        <MasterDataCacheInitializer />
+        <Toaster />
+        <Sonner />
+        <PWAInstallPrompt />
+        <StatusBar />
+        <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<RoleBasedAuthPage />} />
@@ -320,6 +321,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
