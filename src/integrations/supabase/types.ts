@@ -1829,6 +1829,54 @@ export type Database = {
         }
         Relationships: []
       }
+      support_requests: {
+        Row: {
+          created_at: string
+          created_date: string
+          description: string | null
+          id: string
+          resolution_notes: string | null
+          resolved_by: string | null
+          resolved_date: string | null
+          status: string
+          subject: string
+          support_category: string
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_date?: string
+          description?: string | null
+          id?: string
+          resolution_notes?: string | null
+          resolved_by?: string | null
+          resolved_date?: string | null
+          status?: string
+          subject: string
+          support_category: string
+          target_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_date?: string
+          description?: string | null
+          id?: string
+          resolution_notes?: string | null
+          resolved_by?: string | null
+          resolved_date?: string | null
+          status?: string
+          subject?: string
+          support_category?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       territories: {
         Row: {
           created_at: string

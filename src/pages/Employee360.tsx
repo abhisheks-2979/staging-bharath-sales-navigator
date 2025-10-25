@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
+import { AddRecommendationModal } from "@/components/AddRecommendationModal";
+import { SupportRequestForm } from "@/components/SupportRequestForm";
 import {
   Award,
   Users,
@@ -26,6 +29,9 @@ import {
   UserPlus,
   UserMinus,
   Star,
+  MapPinned,
+  Building,
+  Home,
 } from "lucide-react";
 
 interface Profile {
@@ -78,6 +84,10 @@ interface Recommendation {
     full_name: string;
     profile_picture_url?: string;
   };
+  recipient?: {
+    full_name: string;
+    profile_picture_url?: string;
+  };
 }
 
 interface Competency {
@@ -98,11 +108,13 @@ export default function Employee360() {
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recommendationsGiven, setRecommendationsGiven] = useState<Recommendation[]>([]);
   const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showAddRecommendation, setShowAddRecommendation] = useState(false);
 
   const profileUserId = userId || user?.id;
 
@@ -149,7 +161,7 @@ export default function Employee360() {
 
       setBadges(badgesData || []);
 
-      // Load recommendations with recommender info
+      // Load recommendations received
       const { data: recsData } = await supabase
         .from("employee_recommendations")
         .select(`
@@ -160,6 +172,18 @@ export default function Employee360() {
         .order("created_at", { ascending: false });
 
       setRecommendations(recsData as any || []);
+
+      // Load recommendations given
+      const { data: recsGivenData } = await supabase
+        .from("employee_recommendations")
+        .select(`
+          *,
+          recipient:profiles!employee_recommendations_user_id_fkey(full_name, profile_picture_url)
+        `)
+        .eq("recommender_id", profileUserId)
+        .order("created_at", { ascending: false });
+
+      setRecommendationsGiven(recsGivenData as any || []);
 
       // Load competencies
       const { data: compData } = await supabase
@@ -291,10 +315,20 @@ export default function Employee360() {
       <div className="bg-gradient-primary text-white pt-20 pb-32">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <Avatar className="w-32 h-32 border-4 border-white shadow-elegant">
-              <AvatarImage src={profile.profile_picture_url} />
-              <AvatarFallback className="text-4xl">{profile.full_name.charAt(0)}</AvatarFallback>
-            </Avatar>
+            {profileUserId === user?.id ? (
+              <ProfilePictureUpload
+                userId={user.id}
+                currentPhotoUrl={profile.profile_picture_url}
+                fullName={profile.full_name}
+                onPhotoUpdate={(newUrl) => setProfile({ ...profile, profile_picture_url: newUrl })}
+                size="xl"
+              />
+            ) : (
+              <Avatar className="w-32 h-32 border-4 border-white shadow-elegant">
+                <AvatarImage src={profile.profile_picture_url} />
+                <AvatarFallback className="text-4xl">{profile.full_name.charAt(0)}</AvatarFallback>
+              </Avatar>
+            )}
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-4xl font-bold mb-2">{profile.full_name}</h1>
               <p className="text-xl opacity-90 mb-1">@{profile.username}</p>
@@ -351,6 +385,7 @@ export default function Employee360() {
             <TabsTrigger value="badges">Badges & Awards</TabsTrigger>
             <TabsTrigger value="competencies">Competencies</TabsTrigger>
             <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+            <TabsTrigger value="support">Support Requests</TabsTrigger>
           </TabsList>
 
           <TabsContent value="about" className="space-y-4">
@@ -462,6 +497,90 @@ export default function Employee360() {
                   </CardContent>
                 </Card>
 
+                {(profile.current_address || profile.permanent_address) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Address Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {profile.current_address && (
+                        <div>
+                          <div className="flex items-start gap-2 mb-1">
+                            <Home className="w-4 h-4 text-muted-foreground mt-1" />
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground">Current Address</p>
+                              <p className="text-sm">{profile.current_address}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {profile.permanent_address && (
+                        <div>
+                          <div className="flex items-start gap-2 mb-1">
+                            <MapPinned className="w-4 h-4 text-muted-foreground mt-1" />
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground">Permanent Address</p>
+                              <p className="text-sm">{profile.permanent_address}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {(profile.emergency_contact_name || profile.emergency_contact_phone) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Emergency Contact</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {profile.emergency_contact_name && (
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{profile.emergency_contact_name}</span>
+                        </div>
+                      )}
+                      {profile.emergency_contact_phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">{profile.emergency_contact_phone}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {employee?.education_background && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <GraduationCap className="w-5 h-5" />
+                        Education
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Array.isArray(employee.education_background) ? (
+                          employee.education_background.map((edu: any, idx: number) => (
+                            <div key={idx} className="border-b pb-3 last:border-0">
+                              <p className="font-semibold">{edu.degree || edu.qualification}</p>
+                              {edu.institution && (
+                                <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                              )}
+                              {edu.year && (
+                                <p className="text-xs text-muted-foreground">{edu.year}</p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm">{JSON.stringify(employee.education_background)}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {profile.territories_covered && profile.territories_covered.length > 0 && (
                   <Card>
                     <CardHeader>
@@ -568,17 +687,25 @@ export default function Employee360() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="recommendations">
+          <TabsContent value="recommendations" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5" />
-                  Recommendations
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5" />
+                    Recommendations Received
+                  </CardTitle>
+                  {profileUserId !== user?.id && (
+                    <Button onClick={() => setShowAddRecommendation(true)} size="sm">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add Recommendation
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {recommendations.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No recommendations yet</p>
+                  <p className="text-muted-foreground text-center py-8">No recommendations received yet</p>
                 ) : (
                   <div className="space-y-4">
                     {recommendations.map((rec) => (
@@ -613,9 +740,73 @@ export default function Employee360() {
                 )}
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="w-5 h-5" />
+                  Recommendations Given
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recommendationsGiven.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No recommendations given yet</p>
+                ) : (
+                  <div className="space-y-4">
+                    {recommendationsGiven.map((rec: any) => (
+                      <Card key={rec.id} className="bg-gradient-subtle">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={rec.recipient?.profile_picture_url} />
+                              <AvatarFallback>{rec.recipient?.full_name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-semibold">To: {rec.recipient?.full_name}</span>
+                                {rec.relationship && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {rec.relationship}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                {rec.recommendation_text}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(rec.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="support">
+            <Card>
+              <CardHeader>
+                <CardTitle>Support Requests</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SupportRequestForm userId={profileUserId!} />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      <AddRecommendationModal
+        isOpen={showAddRecommendation}
+        onClose={() => setShowAddRecommendation(false)}
+        targetUserId={profileUserId!}
+        currentUserId={user?.id!}
+        onSuccess={loadProfileData}
+      />
     </div>
   );
 }
