@@ -1,8 +1,10 @@
 import React from 'react';
-import { Clock, MapPin, ShoppingCart, Package } from 'lucide-react';
+import { Clock, MapPin, ShoppingCart, Package, Download } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
 
 interface Visit {
   id: string;
@@ -13,6 +15,7 @@ interface Visit {
   status: string;
   order_value?: number;
   order_quantity?: number;
+  no_order_reason?: string;
 }
 
 interface TimelineViewProps {
@@ -21,6 +24,11 @@ interface TimelineViewProps {
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '08:10 AM' }) => {
+  // Sort visits by check_in_time (earliest first)
+  const sortedVisits = [...visits].sort((a, b) => 
+    new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
+  );
+
   const calculateTimeDifference = (time1: string, time2?: string): string => {
     if (!time2) return '0 Min';
     
@@ -34,6 +42,109 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
     return `${hours}h ${mins}m`;
+  };
+
+  const formatNoOrderReason = (reason?: string): string => {
+    if (!reason) return 'No order placed';
+    return reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPosition = 20;
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TIMELINE REPORT', pageWidth / 2, yPosition, { align: 'center' });
+    
+    yPosition += 10;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), pageWidth / 2, yPosition, { align: 'center' });
+    
+    yPosition += 15;
+
+    // Day Start
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`DAY START: ${dayStart}`, 20, yPosition);
+    yPosition += 10;
+
+    // Visits
+    sortedVisits.forEach((visit, index) => {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      const travelTime = index > 0 
+        ? calculateTimeDifference(sortedVisits[index - 1].check_out_time || sortedVisits[index - 1].check_in_time, visit.check_in_time)
+        : '0 Min';
+      
+      const timeSpent = visit.check_out_time 
+        ? calculateTimeDifference(visit.check_in_time, visit.check_out_time)
+        : 'In Progress';
+
+      // Travel time
+      if (index > 0) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`Travel Time: ${travelTime}`, pageWidth - 20, yPosition, { align: 'right' });
+        yPosition += 6;
+      }
+
+      // Visit header
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${index + 1}. ${visit.retailer_name}`, 20, yPosition);
+      yPosition += 6;
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      
+      // Time
+      doc.text(`Check-in: ${format(new Date(visit.check_in_time), 'hh:mm a')}`, 25, yPosition);
+      yPosition += 5;
+      
+      doc.text(`Time Spent: ${timeSpent}`, 25, yPosition);
+      yPosition += 5;
+
+      // Address
+      if (visit.check_in_address) {
+        const addressLines = doc.splitTextToSize(visit.check_in_address, pageWidth - 50);
+        doc.text(addressLines, 25, yPosition);
+        yPosition += addressLines.length * 5;
+      }
+
+      // Order or reason
+      if (visit.order_value && visit.order_value > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Order Value: ₹${visit.order_value.toLocaleString('en-IN')}`, 25, yPosition);
+        if (visit.order_quantity) {
+          doc.text(`Qty: ${visit.order_quantity}`, 100, yPosition);
+        }
+      } else {
+        doc.setFont('helvetica', 'italic');
+        doc.text(`Reason: ${formatNoOrderReason(visit.no_order_reason)}`, 25, yPosition);
+      }
+      
+      yPosition += 10;
+    });
+
+    // Day End
+    if (sortedVisits.length > 0 && sortedVisits[sortedVisits.length - 1].check_out_time) {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`DAY END: ${format(new Date(sortedVisits[sortedVisits.length - 1].check_out_time!), 'hh:mm a')}`, 20, yPosition);
+    }
+
+    doc.save(`timeline-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -51,10 +162,19 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
 
   return (
     <div className="space-y-6 p-4 max-w-full overflow-x-hidden">
-      {/* Header */}
-      <div className="text-center mb-8">
+      {/* Header with Download Button */}
+      <div className="text-center mb-8 relative">
         <h2 className="text-2xl font-bold text-primary mb-2">TIMELINE</h2>
         <div className="h-1 w-24 bg-primary mx-auto"></div>
+        <Button
+          onClick={downloadPDF}
+          variant="outline"
+          size="sm"
+          className="absolute right-0 top-0"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download PDF
+        </Button>
       </div>
 
       {/* Day Start */}
@@ -70,9 +190,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
       </div>
 
       {/* Timeline Items */}
-      {visits.map((visit, index) => {
+      {sortedVisits.map((visit, index) => {
         const travelTime = index > 0 
-          ? calculateTimeDifference(visits[index - 1].check_out_time || visits[index - 1].check_in_time, visit.check_in_time)
+          ? calculateTimeDifference(sortedVisits[index - 1].check_out_time || sortedVisits[index - 1].check_in_time, visit.check_in_time)
+          : '0 Min';
+        
+        const timeSpent = visit.check_out_time 
+          ? calculateTimeDifference(visit.check_in_time, visit.check_out_time)
           : '0 Min';
         
         return (
@@ -88,7 +212,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
             <div className="flex items-start gap-2 sm:gap-4 w-full">
               <div className="flex flex-col items-center flex-shrink-0">
                 <div className="w-4 h-4 rounded-full bg-primary border-4 border-primary/20"></div>
-                {index < visits.length - 1 && (
+                {index < sortedVisits.length - 1 && (
                   <div className="w-0.5 h-32 bg-gradient-to-b from-primary to-primary/30"></div>
                 )}
               </div>
@@ -120,8 +244,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
                   </div>
                 )}
 
-                {/* Order Details */}
-                {visit.order_value && visit.order_value > 0 && (
+                {/* Time Spent */}
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-3">
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span>Time Spent: <strong>{timeSpent}</strong></span>
+                </div>
+
+                {/* Order Details or Unproductive Reason */}
+                {visit.order_value && visit.order_value > 0 ? (
                   <Card className="p-2 sm:p-3 bg-muted/50 border-none">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -149,6 +279,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
                       )}
                     </div>
                   </Card>
+                ) : (
+                  <Card className="p-2 sm:p-3 bg-muted/50 border-none">
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        <strong>Reason:</strong> {formatNoOrderReason(visit.no_order_reason)}
+                      </span>
+                    </div>
+                  </Card>
                 )}
               </Card>
             </div>
@@ -157,7 +295,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
       })}
 
       {/* Day End (if last visit has check out) */}
-      {visits.length > 0 && visits[visits.length - 1].check_out_time && (
+      {sortedVisits.length > 0 && sortedVisits[sortedVisits.length - 1].check_out_time && (
         <div className="flex items-start gap-4">
           <div className="flex flex-col items-center">
             <div className="w-4 h-4 rounded-full bg-red-500 border-4 border-red-200"></div>
@@ -165,7 +303,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
           <div className="flex-1 -mt-1">
             <div className="font-semibold text-lg">DAY END</div>
             <div className="text-muted-foreground">
-              {format(new Date(visits[visits.length - 1].check_out_time!), 'hh:mm a')}
+              {format(new Date(sortedVisits[sortedVisits.length - 1].check_out_time!), 'hh:mm a')}
             </div>
           </div>
         </div>

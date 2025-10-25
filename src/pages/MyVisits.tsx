@@ -468,6 +468,9 @@ export const MyVisits = () => {
             retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
             retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
             lastVisitDate: retailer.last_visit_date,
+            checkInTime: visit?.check_in_time,
+            checkOutTime: visit?.check_out_time,
+            noOrderReason: visit?.no_order_reason,
           };
         })
         .filter(Boolean);
@@ -998,16 +1001,19 @@ export const MyVisits = () => {
               <DialogTitle>Today's Timeline View</DialogTitle>
             </DialogHeader>
             <TimelineView
-              visits={filteredVisits.map((v: any) => ({
-                id: v.id,
-                retailer_name: v.retailerName,
-                check_in_time: v.checkInTime || v.time || new Date().toISOString(),
-                check_out_time: v.checkOutTime,
-                check_in_address: v.address,
-                status: v.status,
-                order_value: v.orderValue,
-                order_quantity: v.orderQuantity,
-              }))}
+              visits={filteredVisits
+                .filter((v: any) => v.checkInTime) // Only show visits that have check-in
+                .map((v: any) => ({
+                  id: v.id,
+                  retailer_name: v.retailerName,
+                  check_in_time: v.checkInTime,
+                  check_out_time: v.checkOutTime,
+                  check_in_address: v.address,
+                  status: v.status,
+                  order_value: v.orderValue,
+                  order_quantity: v.orderQuantity,
+                  no_order_reason: v.noOrderReason,
+                }))}
             />
           </DialogContent>
         </Dialog>
