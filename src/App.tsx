@@ -46,7 +46,7 @@ import AdminControls from "./pages/AdminControls";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import NotFound from "./pages/NotFound";
-import MyRetailers from "./pages/MyRetailers";
+import { MyRetailers } from "./pages/MyRetailers";
 import BrandingRequests from "./pages/BrandingRequests";
 import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
