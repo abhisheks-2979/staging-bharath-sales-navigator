@@ -54,7 +54,16 @@ const UserProfile = () => {
     username: '',
     full_name: '',
     phone_number: '',
-    recovery_email: ''
+    recovery_email: '',
+    current_address: '',
+    permanent_address: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    linkedin_url: '',
+    facebook_url: '',
+    instagram_url: '',
+    interests: [] as string[],
+    aspirations: ''
   });
 
   useEffect(() => {
@@ -63,7 +72,16 @@ const UserProfile = () => {
         username: userProfile.username || '',
         full_name: userProfile.full_name || '',
         phone_number: userProfile.phone_number || '',
-        recovery_email: userProfile.recovery_email || ''
+        recovery_email: userProfile.recovery_email || '',
+        current_address: (userProfile as any).current_address || '',
+        permanent_address: (userProfile as any).permanent_address || '',
+        emergency_contact_name: (userProfile as any).emergency_contact_name || '',
+        emergency_contact_phone: (userProfile as any).emergency_contact_phone || '',
+        linkedin_url: (userProfile as any).linkedin_url || '',
+        facebook_url: (userProfile as any).facebook_url || '',
+        instagram_url: (userProfile as any).instagram_url || '',
+        interests: (userProfile as any).interests || [],
+        aspirations: (userProfile as any).aspirations || ''
       });
       fetchEmployeeData();
       fetchApprovalStatus();
@@ -148,7 +166,16 @@ const UserProfile = () => {
         .from('profiles')
         .update({
           username: profileData.username,
-          full_name: profileData.full_name
+          full_name: profileData.full_name,
+          current_address: profileData.current_address,
+          permanent_address: profileData.permanent_address,
+          emergency_contact_name: profileData.emergency_contact_name,
+          emergency_contact_phone: profileData.emergency_contact_phone,
+          linkedin_url: profileData.linkedin_url,
+          facebook_url: profileData.facebook_url,
+          instagram_url: profileData.instagram_url,
+          interests: profileData.interests,
+          aspirations: profileData.aspirations
         })
         .eq('id', user.id);
 
@@ -276,6 +303,112 @@ const UserProfile = () => {
                       type="email"
                       value={profileData.recovery_email}
                       onChange={(e) => setProfileData(prev => ({ ...prev, recovery_email: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-medium mt-6">Address Information</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="current_address">Current Address</Label>
+                    <Textarea
+                      id="current_address"
+                      value={profileData.current_address}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, current_address: e.target.value }))}
+                      rows={3}
+                      placeholder="Enter your current residential address"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="permanent_address">Permanent Address</Label>
+                    <Textarea
+                      id="permanent_address"
+                      value={profileData.permanent_address}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, permanent_address: e.target.value }))}
+                      rows={3}
+                      placeholder="Enter your permanent address"
+                    />
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-medium mt-6">Emergency Contact</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="emergency_contact_name">Contact Name</Label>
+                    <Input
+                      id="emergency_contact_name"
+                      value={profileData.emergency_contact_name}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact_name: e.target.value }))}
+                      placeholder="Emergency contact person's name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emergency_contact_phone">Contact Phone</Label>
+                    <Input
+                      id="emergency_contact_phone"
+                      value={profileData.emergency_contact_phone}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact_phone: e.target.value }))}
+                      placeholder="Emergency contact phone number"
+                    />
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-medium mt-6">Social Media</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="linkedin_url">LinkedIn URL</Label>
+                    <Input
+                      id="linkedin_url"
+                      type="url"
+                      value={profileData.linkedin_url}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, linkedin_url: e.target.value }))}
+                      placeholder="https://linkedin.com/in/yourprofile"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="facebook_url">Facebook URL</Label>
+                    <Input
+                      id="facebook_url"
+                      type="url"
+                      value={profileData.facebook_url}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, facebook_url: e.target.value }))}
+                      placeholder="https://facebook.com/yourprofile"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram_url">Instagram URL</Label>
+                    <Input
+                      id="instagram_url"
+                      type="url"
+                      value={profileData.instagram_url}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, instagram_url: e.target.value }))}
+                      placeholder="https://instagram.com/yourprofile"
+                    />
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-medium mt-6">Personal Interests & Goals</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="aspirations">Career Aspirations</Label>
+                    <Textarea
+                      id="aspirations"
+                      value={profileData.aspirations}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, aspirations: e.target.value }))}
+                      rows={4}
+                      placeholder="Describe your career goals and aspirations"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="interests">Interests (comma-separated)</Label>
+                    <Input
+                      id="interests"
+                      value={profileData.interests.join(', ')}
+                      onChange={(e) => setProfileData(prev => ({ 
+                        ...prev, 
+                        interests: e.target.value.split(',').map(i => i.trim()).filter(i => i)
+                      }))}
+                      placeholder="e.g., Photography, Travel, Reading"
                     />
                   </div>
                 </div>
