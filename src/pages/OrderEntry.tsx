@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -13,6 +13,7 @@ import { TableOrderForm } from "@/components/TableOrderForm";
 import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
+import { ImageStockCapture } from "@/components/ImageStockCapture";
 
 interface Product {
   id: string;
@@ -111,7 +112,8 @@ const [currentProductName, setCurrentProductName] = useState<string>("Product");
 const [showSchemeModal, setShowSchemeModal] = useState(false);
 const [selectedProductForScheme, setSelectedProductForScheme] = useState<GridProduct | null>(null);
 const [filteredSchemes, setFilteredSchemes] = useState<any[]>([]);
-const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  const [showImageCapture, setShowImageCapture] = useState(false);
 
 // Function to auto-select "Over Stocked" option
 const handleAutoSelectOverStocked = async () => {
@@ -1469,6 +1471,16 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 Table
               </Button>
               <Button
+                variant="outline"
+                onClick={() => setShowImageCapture(true)}
+                className="flex-1 h-8"
+                size="sm"
+                title="AI Stock Capture"
+              >
+                <Camera size={14} className="mr-1" />
+                AI Stock
+              </Button>
+              <Button
                 variant={orderMode === "no-order" ? "default" : "outline"}
                 onClick={() => setOrderMode("no-order")}
                 className="flex-1 h-8"
@@ -2191,6 +2203,19 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
           onClose={() => setShowSchemeModal(false)}
           productName={selectedProductForScheme?.name || "Product"}
           schemes={filteredSchemes}
+        />
+
+        {/* Image Stock Capture Modal */}
+        <ImageStockCapture
+          isOpen={showImageCapture}
+          onClose={() => setShowImageCapture(false)}
+          onApprove={(stockCounts) => {
+            stockCounts.forEach(({ productId, count }) => {
+              setClosingStocks(prev => ({ ...prev, [productId]: count }));
+            });
+            setShowImageCapture(false);
+            toast({ title: 'Stock Updated', description: `Updated ${stockCounts.length} product(s)` });
+          }}
         />
       </div>
     </div>

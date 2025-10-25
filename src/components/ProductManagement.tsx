@@ -109,7 +109,8 @@ const [productForm, setProductForm] = useState({
   rate: 0,
   unit: 'piece',
   closing_stock: 0,
-  is_active: true
+  is_active: true,
+  sku_image_url: ''
 });
   const [schemeForm, setSchemeForm] = useState({
     id: '',
@@ -346,7 +347,8 @@ const [productForm, setProductForm] = useState({
             rate: productForm.rate,
             unit: productForm.unit,
             closing_stock: productForm.closing_stock,
-            is_active: productForm.is_active
+            is_active: productForm.is_active,
+            sku_image_url: productForm.sku_image_url || null
           })
           .eq('id', productForm.id);
         
@@ -364,7 +366,8 @@ const [productForm, setProductForm] = useState({
             rate: productForm.rate,
             unit: productForm.unit,
             closing_stock: productForm.closing_stock,
-            is_active: productForm.is_active
+            is_active: productForm.is_active,
+            sku_image_url: productForm.sku_image_url || null
           });
         
         if (error) throw error;
@@ -382,12 +385,40 @@ setProductForm({
   rate: 0,
   unit: 'piece',
   closing_stock: 0,
-  is_active: true
+  is_active: true,
+  sku_image_url: ''
 });
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
       toast.error('Failed to save product');
+    }
+  };
+
+  const handleSkuImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `product-skus/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('retailer-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('retailer-photos')
+        .getPublicUrl(filePath);
+
+      setProductForm(prev => ({ ...prev, sku_image_url: publicUrl }));
+      toast.success('SKU image uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading SKU image:', error);
+      toast.error('Failed to upload SKU image');
     }
   };
 
@@ -613,7 +644,8 @@ setProductForm({
   rate: 0,
   unit: 'piece',
   closing_stock: 0,
-  is_active: true
+  is_active: true,
+  sku_image_url: ''
 })}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
@@ -715,6 +747,24 @@ setProductForm({
                         </div>
                       </div>
                       <div>
+                        <Label htmlFor="sku-image">SKU Image (for AI stock counting)</Label>
+                        <div className="flex gap-2 items-center">
+                          {productForm.sku_image_url && (
+                            <img 
+                              src={productForm.sku_image_url} 
+                              alt="SKU" 
+                              className="w-16 h-16 object-cover rounded border"
+                            />
+                          )}
+                          <Input
+                            id="sku-image"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleSkuImageUpload}
+                          />
+                        </div>
+                      </div>
+                      <div>
                         <Label htmlFor="stock">Closing Stock</Label>
                         <Input
                           id="stock"
@@ -808,7 +858,8 @@ setProductForm({
   rate: product.rate,
   unit: product.unit,
   closing_stock: product.closing_stock,
-  is_active: product.is_active
+  is_active: product.is_active,
+  sku_image_url: (product as any).sku_image_url || ''
 });
                                 setIsProductDialogOpen(true);
                               }}

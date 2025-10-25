@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.scan-board]
 verify_jwt = false
+
+[functions.analyze-stock-images]
+verify_jwt = true

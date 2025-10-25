@@ -1223,6 +1223,7 @@ export type Database = {
           product_number: string | null
           rate: number
           sku: string
+          sku_image_url: string | null
           unit: string
           updated_at: string
         }
@@ -1237,6 +1238,7 @@ export type Database = {
           product_number?: string | null
           rate?: number
           sku: string
+          sku_image_url?: string | null
           unit?: string
           updated_at?: string
         }
@@ -1251,6 +1253,7 @@ export type Database = {
           product_number?: string | null
           rate?: number
           sku?: string
+          sku_image_url?: string | null
           unit?: string
           updated_at?: string
         }
