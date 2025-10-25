@@ -122,7 +122,7 @@ export const Navbar = () => {
               <div className="relative p-4 text-center">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <NavLink to="/dashboard" onClick={() => setIsOpen(false)}>
+                    <NavLink to="/employee-profile" onClick={() => setIsOpen(false)}>
                       <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
                         <AvatarImage src="/placeholder.svg" alt="User" />
                         <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
@@ -130,7 +130,10 @@ export const Navbar = () => {
                         </AvatarFallback>
                       </Avatar>
                     </NavLink>
-                    <div className="text-left">
+                    <div className="text-left cursor-pointer hover:opacity-80 transition-opacity" onClick={() => {
+                      navigate('/employee-profile');
+                      setIsOpen(false);
+                    }}>
                       <h1 className="text-2xl font-bold">{displayName}</h1>
                       {userRole === 'admin' && (
                         <div className="flex items-center gap-1 mt-1">
