@@ -307,22 +307,34 @@ export type Database = {
           approved_at: string | null
           assigned_vendor_id: string | null
           budget: number | null
+          contract_document_url: string | null
           created_at: string
           description: string | null
           due_date: string | null
           executed_at: string | null
           id: string
+          implementation_date: string | null
+          implementation_photo_urls: string[] | null
           manager_comments: string | null
           manager_id: string | null
+          measurement_photo_urls: string[] | null
+          order_impact_notes: string | null
           pincode: string | null
+          post_implementation_notes: string | null
           procurement_id: string | null
           requested_assets: string | null
+          retailer_feedback_on_branding: string | null
           retailer_id: string
           size: string | null
           status: Database["public"]["Enums"]["branding_status"]
           title: string | null
           updated_at: string
           user_id: string
+          vendor_budget: number | null
+          vendor_confirmation_status: string | null
+          vendor_due_date: string | null
+          vendor_feedback: string | null
+          vendor_rating: number | null
           verification_photo_url: string | null
           visit_id: string
         }
@@ -330,22 +342,34 @@ export type Database = {
           approved_at?: string | null
           assigned_vendor_id?: string | null
           budget?: number | null
+          contract_document_url?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
           executed_at?: string | null
           id?: string
+          implementation_date?: string | null
+          implementation_photo_urls?: string[] | null
           manager_comments?: string | null
           manager_id?: string | null
+          measurement_photo_urls?: string[] | null
+          order_impact_notes?: string | null
           pincode?: string | null
+          post_implementation_notes?: string | null
           procurement_id?: string | null
           requested_assets?: string | null
+          retailer_feedback_on_branding?: string | null
           retailer_id: string
           size?: string | null
           status?: Database["public"]["Enums"]["branding_status"]
           title?: string | null
           updated_at?: string
           user_id: string
+          vendor_budget?: number | null
+          vendor_confirmation_status?: string | null
+          vendor_due_date?: string | null
+          vendor_feedback?: string | null
+          vendor_rating?: number | null
           verification_photo_url?: string | null
           visit_id: string
         }
@@ -353,22 +377,34 @@ export type Database = {
           approved_at?: string | null
           assigned_vendor_id?: string | null
           budget?: number | null
+          contract_document_url?: string | null
           created_at?: string
           description?: string | null
           due_date?: string | null
           executed_at?: string | null
           id?: string
+          implementation_date?: string | null
+          implementation_photo_urls?: string[] | null
           manager_comments?: string | null
           manager_id?: string | null
+          measurement_photo_urls?: string[] | null
+          order_impact_notes?: string | null
           pincode?: string | null
+          post_implementation_notes?: string | null
           procurement_id?: string | null
           requested_assets?: string | null
+          retailer_feedback_on_branding?: string | null
           retailer_id?: string
           size?: string | null
           status?: Database["public"]["Enums"]["branding_status"]
           title?: string | null
           updated_at?: string
           user_id?: string
+          vendor_budget?: number | null
+          vendor_confirmation_status?: string | null
+          vendor_due_date?: string | null
+          vendor_feedback?: string | null
+          vendor_rating?: number | null
           verification_photo_url?: string | null
           visit_id?: string
         }

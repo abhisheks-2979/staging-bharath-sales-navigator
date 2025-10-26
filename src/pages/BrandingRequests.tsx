@@ -17,6 +17,13 @@ interface BrandingRequestRow {
   budget: number | null;
   assigned_vendor_id: string | null;
   created_at: string;
+  requested_assets: string | null;
+  due_date: string | null;
+  vendor_due_date: string | null;
+  vendor_budget: number | null;
+  vendor_confirmation_status: string | null;
+  vendor_rating: number | null;
+  implementation_date: string | null;
 }
 
 type BrandingStatus = 'submitted' | 'manager_approved' | 'manager_rejected' | 'assigned' | 'in_progress' | 'executed' | 'verified';
@@ -63,7 +70,7 @@ const BrandingRequests = () => {
 
     let query = supabase
       .from('branding_requests')
-      .select('id, title, status, pincode, budget, assigned_vendor_id, created_at')
+      .select('id, title, status, pincode, budget, assigned_vendor_id, created_at, requested_assets, due_date, vendor_due_date, vendor_budget, vendor_confirmation_status, vendor_rating, implementation_date')
       .order('created_at', { ascending: false });
 
     // RLS allows user to see own; admins can see all; we don't filter to keep it simple
@@ -112,27 +119,33 @@ const BrandingRequests = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Assets</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Pincode</TableHead>
+                  <TableHead>Due Date</TableHead>
                   <TableHead className="text-right">Budget</TableHead>
-                  <TableHead>Assigned Vendor</TableHead>
+                  <TableHead>Vendor Status</TableHead>
                   <TableHead className="text-right">Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {!loading && requests.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No requests found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No requests found</TableCell></TableRow>
                 )}
                 {requests.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.title || 'Branding Request'}</TableCell>
+                    <TableCell>{r.requested_assets || '-'}</TableCell>
                     <TableCell>
                       <Badge className={statusCls(r.status)}>{r.status.replace(/_/g, ' ')}</Badge>
                     </TableCell>
-                    <TableCell>{r.pincode || '-'}</TableCell>
+                    <TableCell>{r.due_date ? new Date(r.due_date).toLocaleDateString() : '-'}</TableCell>
                     <TableCell className="text-right">{r.budget ? `₹${r.budget.toLocaleString()}` : '-'}</TableCell>
-                    <TableCell>{r.assigned_vendor_id ? r.assigned_vendor_id.slice(0,8) + '…' : '-'}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{new Date(r.created_at).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {r.vendor_confirmation_status ? (
+                        <Badge variant="outline">{r.vendor_confirmation_status}</Badge>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}</TableBody>
             </Table>
