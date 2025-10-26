@@ -12,8 +12,7 @@ import { toast } from "sonner";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { AddRecommendationModal } from "@/components/AddRecommendationModal";
 import { SupportRequestForm } from "@/components/SupportRequestForm";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Navbar } from "@/components/Navbar";
+import { Layout } from "@/components/Layout";
 import {
   Award,
   Users,
@@ -34,7 +33,6 @@ import {
   MapPinned,
   Building,
   Home,
-  Menu,
 } from "lucide-react";
 
 interface Profile {
@@ -313,21 +311,7 @@ export default function Employee360() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      {/* Hamburger Menu */}
-      <div className="fixed top-4 left-4 z-50">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-            <Navbar />
-          </SheetContent>
-        </Sheet>
-      </div>
-
+    <Layout>
       {/* Hero Section */}
       <div className="bg-gradient-primary text-white pt-20 pb-32">
         <div className="max-w-7xl mx-auto px-4">
@@ -824,6 +808,6 @@ export default function Employee360() {
         currentUserId={user?.id!}
         onSuccess={loadProfileData}
       />
-    </div>
+    </Layout>
   );
 }
