@@ -76,14 +76,19 @@ export const ImageStockCapture: React.FC<ImageStockCaptureProps> = ({
 
     setIsAnalyzing(true);
     try {
-      // Fetch all products with SKU images
+      // Fetch all active products with SKU images from product management
+      // This ensures we always get the latest uploaded images
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select('id, name, sku, sku_image_url')
         .eq('is_active', true)
-        .not('sku_image_url', 'is', null);
+        .not('sku_image_url', 'is', null)
+        .order('updated_at', { ascending: false }); // Get latest updates first
 
-      if (productsError) throw productsError;
+      if (productsError) {
+        console.error('Error fetching products:', productsError);
+        throw productsError;
+      }
 
       if (!products || products.length === 0) {
         toast({
@@ -95,6 +100,13 @@ export const ImageStockCapture: React.FC<ImageStockCaptureProps> = ({
         return;
       }
 
+      console.log('Fetched products with images:', products.map(p => ({
+        name: p.name,
+        sku: p.sku,
+        hasImage: !!p.sku_image_url,
+        imageUrl: p.sku_image_url
+      })));
+
       const productSkuImages = products.map(p => ({
         id: p.id,
         name: p.name,
@@ -102,9 +114,9 @@ export const ImageStockCapture: React.FC<ImageStockCaptureProps> = ({
         imageUrl: p.sku_image_url,
       }));
 
-      console.log('Analyzing images with', productSkuImages.length, 'product references');
+      console.log('Starting analysis with', productSkuImages.length, 'product reference images');
 
-      // Call the edge function
+      // Call the edge function with captured shelf images and product reference images
       const { data, error } = await supabase.functions.invoke('analyze-stock-images', {
         body: {
           images: capturedImages,
@@ -112,7 +124,10 @@ export const ImageStockCapture: React.FC<ImageStockCaptureProps> = ({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
 
       console.log('Analysis result:', data);
 
