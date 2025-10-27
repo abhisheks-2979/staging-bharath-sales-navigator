@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2 } from 'lucide-react';
 import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 
@@ -89,6 +89,8 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Dialog states
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -395,31 +397,58 @@ setProductForm({
     }
   };
 
-  const handleSkuImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processProductPhoto = async (file: File) => {
+    setUploadingPhoto(true);
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `product-skus/${fileName}`;
+      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+      const filePath = `products/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('retailer-photos')
+        .from('product-photos')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('retailer-photos')
+        .from('product-photos')
         .getPublicUrl(filePath);
 
       setProductForm(prev => ({ ...prev, sku_image_url: publicUrl }));
-      toast.success('SKU image uploaded successfully');
+      toast.success('Product photo uploaded successfully');
     } catch (error) {
-      console.error('Error uploading SKU image:', error);
-      toast.error('Failed to upload SKU image');
+      console.error('Error uploading product photo:', error);
+      toast.error('Failed to upload product photo');
+    } finally {
+      setUploadingPhoto(false);
     }
+  };
+
+  const handleSkuImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processProductPhoto(file);
+  };
+
+  const handleCameraCapture = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await processProductPhoto(file);
+      }
+    };
+    input.click();
+    setShowPhotoOptions(false);
+  };
+
+  const handleGalleryUpload = () => {
+    const input = document.getElementById('sku-image') as HTMLInputElement;
+    input?.click();
+    setShowPhotoOptions(false);
   };
 
   const handleSchemeSubmit = async () => {
@@ -747,22 +776,68 @@ setProductForm({
                         </div>
                       </div>
                       <div>
-                        <Label htmlFor="sku-image">SKU Image (for AI stock counting)</Label>
-                        <div className="flex gap-2 items-center">
+                        <Label>Product Photo</Label>
+                        <div className="space-y-2">
                           {productForm.sku_image_url && (
-                            <img 
-                              src={productForm.sku_image_url} 
-                              alt="SKU" 
-                              className="w-16 h-16 object-cover rounded border"
-                            />
+                            <div className="relative w-32 h-32 mx-auto">
+                              <img 
+                                src={productForm.sku_image_url} 
+                                alt="Product" 
+                                className="w-full h-full object-cover rounded border"
+                              />
+                            </div>
                           )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowPhotoOptions(!showPhotoOptions)}
+                            className="w-full"
+                            disabled={uploadingPhoto}
+                          >
+                            <Camera className="h-4 w-4 mr-2" />
+                            {productForm.sku_image_url ? 'Change Photo' : 'Add Photo'}
+                          </Button>
+                          
+                          {showPhotoOptions && (
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={handleCameraCapture}
+                                className="flex-1"
+                              >
+                                <Camera className="h-4 w-4 mr-2" />
+                                Camera
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={handleGalleryUpload}
+                                className="flex-1"
+                              >
+                                Gallery
+                              </Button>
+                            </div>
+                          )}
+                          
                           <Input
                             id="sku-image"
                             type="file"
                             accept="image/*"
                             onChange={handleSkuImageUpload}
+                            className="hidden"
                           />
+                          
+                          {uploadingPhoto && (
+                            <div className="flex items-center gap-2 p-2 bg-muted rounded">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-sm text-muted-foreground">Uploading photo...</span>
+                            </div>
+                          )}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Capture or upload a product photo (used for AI stock counting)
+                        </p>
                       </div>
                       <div>
                         <Label htmlFor="stock">Closing Stock</Label>
@@ -800,6 +875,7 @@ setProductForm({
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Image</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Category</TableHead>
@@ -814,6 +890,19 @@ setProductForm({
                   <TableBody>
                     {filteredProducts.map((product) => (
                       <TableRow key={product.id}>
+                        <TableCell>
+                          {(product as any).sku_image_url ? (
+                            <img 
+                              src={(product as any).sku_image_url} 
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded border"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
+                              <Package className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono">{product.sku}</TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>{product.category?.name}</TableCell>
