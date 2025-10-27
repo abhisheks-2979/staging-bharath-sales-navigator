@@ -116,14 +116,14 @@ export default function GPSTrack() {
           </TabsList>
 
           {/* Current Location Tab */}
-          <TabsContent value="current" className="space-y-6">
+          <TabsContent value="current" className="space-y-6 mt-6">
             <Card className="p-6">
               <CurrentLocationMap height="600px" />
             </Card>
           </TabsContent>
 
           {/* Day Tracking Tab */}
-          <TabsContent value="day" className="space-y-6">
+          <TabsContent value="day" className="space-y-6 mt-6">
             {/* Filters */}
             <Card className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
