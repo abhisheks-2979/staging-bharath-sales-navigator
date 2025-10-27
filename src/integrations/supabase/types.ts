@@ -1180,10 +1180,13 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
+          credit_paid_amount: number | null
+          credit_pending_amount: number | null
           discount_amount: number | null
           distributor_id: string | null
           distributor_name: string | null
           id: string
+          is_credit_order: boolean | null
           retailer_id: string | null
           retailer_name: string
           status: string
@@ -1195,10 +1198,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          credit_paid_amount?: number | null
+          credit_pending_amount?: number | null
           discount_amount?: number | null
           distributor_id?: string | null
           distributor_name?: string | null
           id?: string
+          is_credit_order?: boolean | null
           retailer_id?: string | null
           retailer_name: string
           status?: string
@@ -1210,10 +1216,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          credit_paid_amount?: number | null
+          credit_pending_amount?: number | null
           discount_amount?: number | null
           distributor_id?: string | null
           distributor_name?: string | null
           id?: string
+          is_credit_order?: boolean | null
           retailer_id?: string | null
           retailer_name?: string
           status?: string
@@ -1690,6 +1699,7 @@ export type Database = {
           order_value: number | null
           parent_name: string | null
           parent_type: string | null
+          pending_amount: number | null
           phone: string | null
           photo_url: string | null
           potential: string | null
@@ -1718,6 +1728,7 @@ export type Database = {
           order_value?: number | null
           parent_name?: string | null
           parent_type?: string | null
+          pending_amount?: number | null
           phone?: string | null
           photo_url?: string | null
           potential?: string | null
@@ -1746,6 +1757,7 @@ export type Database = {
           order_value?: number | null
           parent_name?: string | null
           parent_type?: string | null
+          pending_amount?: number | null
           phone?: string | null
           photo_url?: string | null
           potential?: string | null

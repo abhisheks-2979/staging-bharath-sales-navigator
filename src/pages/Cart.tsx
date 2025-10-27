@@ -39,6 +39,11 @@ export const Cart = () => {
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
+  const [showCreditOptions, setShowCreditOptions] = React.useState(false);
+  const [isCreditOrder, setIsCreditOrder] = React.useState(false);
+  const [creditPendingAmount, setCreditPendingAmount] = React.useState<number>(0);
+  const [customPendingAmount, setCustomPendingAmount] = React.useState<string>("");
+  const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
   
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -70,7 +75,23 @@ export const Cart = () => {
     };
     
     fetchSchemes();
-  }, []);
+
+    // Fetch pending amount for this retailer
+    const fetchPendingAmount = async () => {
+      if (!validRetailerId) return;
+      const { data } = await supabase
+        .from('retailers')
+        .select('pending_amount')
+        .eq('id', validRetailerId)
+        .single();
+      
+      if (data?.pending_amount) {
+        setPendingAmountFromPrevious(Number(data.pending_amount));
+      }
+    };
+
+    fetchPendingAmount();
+  }, [validRetailerId]);
 
 const getItemScheme = (item: AnyCartItem) => {
     try {
@@ -373,7 +394,7 @@ React.useEffect(() => {
     return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
   };
 
-  const handleSubmitOrder = async () => {
+  const handleSubmitOrder = async (isCreditSubmit: boolean = false) => {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
@@ -415,6 +436,15 @@ React.useEffect(() => {
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
 
+      // Calculate credit amounts if it's a credit order
+      let creditPending = 0;
+      let creditPaid = totalAmount;
+
+      if (isCreditSubmit) {
+        creditPending = creditPendingAmount;
+        creditPaid = totalAmount - creditPending;
+      }
+
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -426,7 +456,10 @@ React.useEffect(() => {
           subtotal,
           discount_amount: discountAmount,
           total_amount: totalAmount,
-          status: 'confirmed'
+          status: 'confirmed',
+          is_credit_order: isCreditSubmit,
+          credit_pending_amount: creditPending,
+          credit_paid_amount: creditPaid
         })
         .select()
         .single();
@@ -451,14 +484,26 @@ React.useEffect(() => {
 
       if (itemsError) throw itemsError;
 
+      // Update retailer's pending amount if credit order
+      if (isCreditSubmit && validRetailerId) {
+        const newPendingAmount = pendingAmountFromPrevious + creditPending;
+        await supabase
+          .from('retailers')
+          .update({ pending_amount: newPendingAmount })
+          .eq('id', validRetailerId);
+      }
+
       // Mark visit as productive if available
       if (validVisitId) {
         await supabase.from('visits').update({ status: 'productive' }).eq('id', validVisitId);
       }
 
+      const orderType = isCreditSubmit ? "Credit Order" : "Order";
       toast({
-        title: "Order Submitted",
-        description: `Order for ${retailerName} submitted successfully!`
+        title: `${orderType} Submitted`,
+        description: isCreditSubmit 
+          ? `${orderType} for ${retailerName} submitted with ₹${creditPending.toLocaleString()} pending!`
+          : `Order for ${retailerName} submitted successfully!`
       });
       
       // Clear cart and all order entry form data
@@ -670,14 +715,79 @@ React.useEffect(() => {
                   <span>₹{getFinalTotal().toLocaleString()}</span>
                 </div>
 
+                {pendingAmountFromPrevious > 0 && (
+                  <div className="p-3 bg-warning/10 rounded-lg border border-warning/20">
+                    <p className="text-sm font-medium text-warning">Pending Amount from Previous: ₹{pendingAmountFromPrevious.toLocaleString()}</p>
+                  </div>
+                )}
+
                 <Button 
-                  onClick={handleSubmitOrder}
+                  onClick={() => handleSubmitOrder(false)}
                   className="w-full"
                   size="lg"
                   variant={canSubmitOrder() ? "default" : "outline"}
                 >
                   {getSubmitButtonText()}
                 </Button>
+
+                <Button 
+                  onClick={() => setShowCreditOptions(!showCreditOptions)}
+                  className="w-full"
+                  size="lg"
+                  variant="outline"
+                >
+                  Credit Order Submit
+                </Button>
+
+                {showCreditOptions && (
+                  <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium">Select Credit Option:</p>
+                    <div className="space-y-2">
+                      <Button
+                        onClick={() => {
+                          setCreditPendingAmount(getFinalTotal());
+                          setIsCreditOrder(true);
+                          handleSubmitOrder(true);
+                        }}
+                        className="w-full"
+                        variant="secondary"
+                      >
+                        Full Amount Pending (₹{getFinalTotal().toLocaleString()})
+                      </Button>
+                      
+                      <div className="space-y-2">
+                        <input
+                          type="number"
+                          placeholder="Enter custom pending amount"
+                          value={customPendingAmount}
+                          onChange={(e) => setCustomPendingAmount(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md"
+                        />
+                        <Button
+                          onClick={() => {
+                            const amount = parseFloat(customPendingAmount);
+                            if (isNaN(amount) || amount <= 0 || amount > getFinalTotal()) {
+                              toast({
+                                title: "Invalid Amount",
+                                description: "Please enter a valid amount between 0 and total",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            setCreditPendingAmount(amount);
+                            setIsCreditOrder(true);
+                            handleSubmitOrder(true);
+                          }}
+                          className="w-full"
+                          variant="secondary"
+                          disabled={!customPendingAmount}
+                        >
+                          Custom Pending Amount
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>

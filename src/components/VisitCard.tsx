@@ -72,6 +72,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [distributorName, setDistributorName] = useState<string>('');
   const [hasStockRecords, setHasStockRecords] = useState(false);
   const [stockRecordCount, setStockRecordCount] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   const pendingCheckDataRef = useRef<{
@@ -122,6 +123,19 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             if (!distributorError && distributorData) {
               setDistributorName(distributorData.name);
             }
+          }
+
+          // Fetch pending amount for this retailer
+          const { data: retailerData, error: retailerError } = await supabase
+            .from('retailers')
+            .select('pending_amount')
+            .eq('id', visitRetailerId)
+            .maybeSingle();
+
+          if (!retailerError && retailerData?.pending_amount) {
+            setPendingAmount(Number(retailerData.pending_amount));
+          } else {
+            setPendingAmount(0);
           }
 
           // Check if stock records exist for this retailer today
@@ -336,7 +350,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const getStatusText = (status: string) => {
     switch (status) {
       case "productive":
-        return "Productive";
+        // Show order value if available, otherwise just "Productive"
+        return actualOrderValue > 0 ? `₹${actualOrderValue.toLocaleString()}` : "Productive";
       case "in-progress":
         return "In Progress";
       case "planned":
@@ -1047,6 +1062,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
         {/* Contact info */}
         <div className="mb-4">
+          {pendingAmount > 0 && (
+            <div className="mb-3 p-2 bg-warning/10 border border-warning/30 rounded-md">
+              <p className="text-xs sm:text-sm font-medium text-warning flex items-center gap-1">
+                <span>⚠️</span>
+                Pending Amount: ₹{pendingAmount.toLocaleString()}
+              </p>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
             <div className="flex items-center gap-1 flex-1 min-w-0">
               <MapPin size={12} className="sm:size-3.5 flex-shrink-0" />
