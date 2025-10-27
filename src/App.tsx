@@ -45,6 +45,7 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import AdminControls from "./pages/AdminControls";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
+import FeedbackManagement from "./pages/FeedbackManagement";
 import NotFound from "./pages/NotFound";
 import { MyRetailers } from "./pages/MyRetailers";
 import BrandingRequests from "./pages/BrandingRequests";
@@ -141,6 +142,11 @@ const App = () => (
           <Route path="/attendance-management" element={
             <ProtectedRoute>
               <AttendanceManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/feedback-management" element={
+            <ProtectedRoute>
+              <FeedbackManagement />
             </ProtectedRoute>
           } />
           <Route path="/retailer/:id" element={<RetailerDetail />} />

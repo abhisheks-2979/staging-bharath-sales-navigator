@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CompetitionInsightModalProps {
   isOpen: boolean;
@@ -33,6 +34,66 @@ export const CompetitionInsightModal = ({
   const [impactLevel, setImpactLevel] = useState("");
   const [actionRequired, setActionRequired] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoFile(file);
+    setIsScanning(true);
+
+    try {
+      // Upload photo to Supabase storage
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('competition-photos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('competition-photos')
+        .getPublicUrl(fileName);
+
+      setPhotoUrl(publicUrl);
+
+      // Scan the photo using edge function
+      const { data: scanData, error: scanError } = await supabase.functions.invoke(
+        'scan-competition-photo',
+        { body: { imageUrl: publicUrl } }
+      );
+
+      if (scanError) throw scanError;
+
+      // Auto-fill form with extracted data
+      if (scanData.competitorName) setCompetitorName(scanData.competitorName);
+      if (scanData.productCategory) setProductCategory(scanData.productCategory);
+      if (scanData.insights) setDescription(scanData.insights);
+
+      toast({
+        title: "Photo Scanned",
+        description: "Competition information extracted successfully",
+      });
+    } catch (error) {
+      console.error('Error scanning photo:', error);
+      toast({
+        title: "Scan Failed",
+        description: "Failed to extract information from photo. Please fill manually.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +110,25 @@ export const CompetitionInsightModal = ({
     setIsSubmitting(true);
 
     try {
-      // For now, we'll use mock submission. Replace with actual Supabase call when types are updated
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('competition_insights')
+        .insert({
+          user_id: user.id,
+          retailer_id: retailerId,
+          visit_id: visitId,
+          competitor_name: competitorName,
+          product_category: productCategory || null,
+          insight_type: insightType,
+          description: description,
+          impact_level: impactLevel || null,
+          action_required: actionRequired,
+          photo_url: photoUrl || null
+        });
+
+      if (error) throw error;
       
       toast({
         title: "Competition Insight Recorded",
@@ -64,9 +142,12 @@ export const CompetitionInsightModal = ({
       setDescription("");
       setImpactLevel("");
       setActionRequired(false);
+      setPhotoFile(null);
+      setPhotoUrl("");
       
       onClose();
     } catch (error) {
+      console.error('Error recording insight:', error);
       toast({
         title: "Error",
         description: "Failed to record competition insight",
@@ -107,6 +188,29 @@ export const CompetitionInsightModal = ({
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="photo">Competition Photo</Label>
+            <div className="flex gap-2">
+              <Input
+                id="photo"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                disabled={isScanning}
+                className="flex-1"
+              />
+              {isScanning && (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Scanning...</span>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload a photo to auto-fill competitor details
+            </p>
+          </div>
+
           <div>
             <Label htmlFor="competitor">Competitor Name *</Label>
             <Input
