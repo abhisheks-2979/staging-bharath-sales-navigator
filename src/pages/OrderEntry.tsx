@@ -2260,10 +2260,25 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
               if (insertError) throw insertError;
 
               // Update local state for immediate UI feedback
+              // Map AI-detected product IDs to both base products AND all variant composite IDs
               const newClosingStocks: {[key: string]: number} = {};
+              
               stockCounts.forEach(({ productId, count }) => {
-                newClosingStocks[productId] = count;
+                // Find the product
+                const product = products.find(p => p.id === productId);
+                
+                if (product?.variants && product.variants.length > 0) {
+                  // Product has variants - update all variant composite IDs
+                  product.variants.forEach(variant => {
+                    const variantCompositeId = `${product.id}_variant_${variant.id}`;
+                    newClosingStocks[variantCompositeId] = count;
+                  });
+                } else {
+                  // No variants - update the base product ID
+                  newClosingStocks[productId] = count;
+                }
               });
+              
               setClosingStocks(prev => ({ ...prev, ...newClosingStocks }));
 
               // Also save to localStorage for persistence
@@ -2273,11 +2288,15 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
 
               toast({ 
                 title: 'Stock Updated Successfully', 
-                description: `Updated stock for ${stockCounts.length} product${stockCounts.length === 1 ? '' : 's'}. Check "Stock Qty" column.`,
+                description: `Updated stock for ${Object.keys(newClosingStocks).length} variant${Object.keys(newClosingStocks).length === 1 ? '' : 's'}. Check "Stock Qty" column.`,
                 duration: 5000
               });
               
               console.log('✅ Stock quantities updated:', newClosingStocks);
+              console.log('📦 Products matched:', stockCounts.map(sc => {
+                const p = products.find(pr => pr.id === sc.productId);
+                return `${p?.name || sc.productId} (${p?.variants?.length || 0} variants)`;
+              }));
             } catch (e: any) {
               console.error('Error saving stock records:', e);
               toast({ 
