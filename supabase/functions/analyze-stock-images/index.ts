@@ -25,33 +25,53 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    // Prepare the analysis prompt
-    const analysisPrompt = `You are analyzing images from a retail store shelf to count products.
+    // Prepare the analysis prompt with improved instructions
+    const analysisPrompt = `You are an expert retail shelf analyzer. Your task is to identify and count products on store shelves.
 
-Reference Product SKU Images:
-${productSkuImages.map((p: any, i: number) => `${i + 1}. Product: ${p.name} (SKU: ${p.sku})`).join('\n')}
+REFERENCE PRODUCT IMAGES PROVIDED:
+${productSkuImages.map((p: any, i: number) => `${i + 1}. Product: ${p.name} (SKU: ${p.sku}) - Look for this product's packaging, colors, logos, and text`).join('\n')}
 
-Task:
-1. Look at the shelf images provided
-2. Identify which products from the reference SKU images appear in the shelf images
-3. Count how many units of each product you can see
-4. Return ONLY a JSON array with this exact structure:
+ANALYSIS TASK:
+First, you will see ${productSkuImages.length} reference product images (one for each product above).
+Then, you will see the shelf photo(s) to analyze.
+
+YOUR JOB:
+1. Carefully examine each reference product image - memorize the packaging design, colors, brand logos, text, and shape
+2. Look at the shelf photo(s) and find ANY products that match the reference images
+3. Match products by:
+   - Packaging colors and design
+   - Brand logos and text visible on the package
+   - Package shape and size
+   - Product name or brand visible on the label
+4. Count how many units of each matched product you can see
+5. Be FLEXIBLE - products may be at different angles, lighting, or partially visible
+6. Include products even if you see them from the side, back, or at an angle
+7. If you see even a small part of a matching product, include it in the count
+
+CONFIDENCE GUIDELINES:
+- High confidence (0.8-1.0): Clear, full view of product matching reference
+- Medium confidence (0.5-0.7): Partial view or different angle but clear match
+- Low confidence (0.3-0.5): Small visible portion but identifiable by colors/logos
+- Include products with confidence as low as 0.3 if you see any matching visual elements
+
+OUTPUT FORMAT (CRITICAL):
+Return ONLY a JSON array with this EXACT structure, NO other text:
 [
   {
-    "productId": "uuid-here",
-    "productName": "Product Name",
-    "sku": "SKU-CODE",
-    "count": 5,
-    "confidence": 0.85
+    "productId": "paste-the-uuid-from-above",
+    "productName": "paste-the-product-name-from-above",
+    "sku": "paste-the-SKU-from-above",
+    "count": number_of_units_visible,
+    "confidence": decimal_between_0_and_1
   }
 ]
 
-Rules:
-- Only include products you can clearly identify
-- Count visible units only
-- If you're not confident about a product (confidence < 0.6), don't include it
-- Return empty array [] if no products are identified
-- Return ONLY the JSON array, no other text`;
+IMPORTANT RULES:
+- Be generous with matching - if packaging colors/logos look similar, include it
+- Count ALL visible units, even partially visible ones
+- If you see multiple rows/columns of the same product, count them all
+- Return empty array [] ONLY if you truly cannot find ANY matching products
+- Return ONLY the JSON array, absolutely NO explanatory text before or after`;
 
     // Prepare messages with images
     const messages: any[] = [
