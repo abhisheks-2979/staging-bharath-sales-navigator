@@ -142,7 +142,7 @@ const Index = () => {
   const navigationItems: NavigationItem[] = [
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: "My Visit", href: "/visits/retailers", color: "from-green-500 to-green-600" },
-    { icon: Navigation2, label: "Live Tracking", href: "/live-tracking", color: "from-purple-500 to-purple-600" },
+    { icon: Navigation2, label: "GPS Track", href: "/gps-track", color: "from-purple-500 to-purple-600" },
     { icon: Store, label: "All Retailers", href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
     { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
     { icon: Users, label: "My Beats", href: "/my-beats", color: "from-orange-500 to-orange-600" },

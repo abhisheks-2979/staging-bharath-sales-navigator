@@ -804,10 +804,10 @@ export const MyVisits = () => {
                 variant="secondary" 
                 size="sm" 
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
-                onClick={() => navigate('/live-tracking')}
+                onClick={() => navigate('/gps-track')}
               >
                 <MapPin size={14} className="mr-1" />
-                Live Tracking
+                GPS Track
               </Button>
             </div>
           </CardContent>
