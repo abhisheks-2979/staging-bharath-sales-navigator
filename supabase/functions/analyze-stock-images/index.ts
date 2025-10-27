@@ -101,7 +101,11 @@ IMPORTANT RULES:
       });
     }
 
-    console.log('Calling Lovable AI for vision analysis');
+    // Log the images being sent for debugging
+    console.log('Reference SKU images:', productSkuImages.map(p => ({ name: p.name, url: p.imageUrl })));
+    console.log('Shelf images to analyze:', images);
+    
+    console.log('Calling Lovable AI for vision analysis with gemini-2.5-pro');
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -109,10 +113,10 @@ IMPORTANT RULES:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages,
-        max_tokens: 2000,
-        temperature: 0.2,
+        max_tokens: 4000,
+        temperature: 0.1,
       }),
     });
 
