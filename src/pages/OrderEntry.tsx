@@ -2209,12 +2209,66 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
         <ImageStockCapture
           isOpen={showImageCapture}
           onClose={() => setShowImageCapture(false)}
-          onApprove={(stockCounts) => {
-            stockCounts.forEach(({ productId, count }) => {
-              setClosingStocks(prev => ({ ...prev, [productId]: count }));
-            });
-            setShowImageCapture(false);
-            toast({ title: 'Stock Updated', description: `Updated ${stockCounts.length} product(s)` });
+          onApprove={async (stockCounts) => {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                toast({ title: 'Not signed in', description: 'Please sign in and try again', variant: 'destructive' });
+                return;
+              }
+
+              const today = new Date().toISOString().split('T')[0];
+
+              const records = stockCounts.map(({ productId, count }) => {
+                let productName = 'Unknown Product';
+                let baseId = productId;
+                let variantId: string | null = null;
+
+                if (productId.includes('_variant_')) {
+                  const parts = productId.split('_variant_');
+                  baseId = parts[0];
+                  variantId = parts[1];
+                }
+
+                const baseProduct = products.find(p => p.id === baseId);
+                if (baseProduct) {
+                  if (variantId && baseProduct.variants?.length) {
+                    const v = baseProduct.variants.find(v => v.id === variantId);
+                    productName = v ? `${baseProduct.name} - ${v.variant_name}` : baseProduct.name;
+                  } else {
+                    productName = baseProduct.name;
+                  }
+                }
+
+                return {
+                  user_id: user.id,
+                  retailer_id: retailerId,
+                  visit_id: visitId,
+                  product_id: productId,
+                  product_name: productName,
+                  stock_quantity: count,
+                  ordered_quantity: 0,
+                  visit_date: today,
+                };
+              });
+
+              const { error } = await supabase
+                .from('stock_cycle_data')
+                .insert(records);
+
+              if (error) throw error;
+
+              stockCounts.forEach(({ productId, count }) => {
+                setClosingStocks(prev => ({ ...prev, [productId]: count }));
+              });
+
+              toast({ title: 'Stock Records Saved', description: `Saved ${stockCounts.length} stock entr${stockCounts.length === 1 ? 'y' : 'ies'}` });
+            } catch (e: any) {
+              console.error('Error saving stock records from ImageStockCapture:', e);
+              toast({ title: 'Failed to save stock', description: e?.message || 'Please try again', variant: 'destructive' });
+            } finally {
+              setShowImageCapture(false);
+            }
           }}
         />
       </div>
