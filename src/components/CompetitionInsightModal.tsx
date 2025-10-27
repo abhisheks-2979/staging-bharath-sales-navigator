@@ -37,11 +37,9 @@ export const CompetitionInsightModal = ({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [showCameraOptions, setShowCameraOptions] = useState(false);
 
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processPhoto = async (file: File) => {
     setPhotoFile(file);
     setIsScanning(true);
 
@@ -95,13 +93,40 @@ export const CompetitionInsightModal = ({
     }
   };
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processPhoto(file);
+  };
+
+  const handleCameraCapture = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await processPhoto(file);
+      }
+    };
+    input.click();
+    setShowCameraOptions(false);
+  };
+
+  const handleGalleryUpload = () => {
+    const input = document.getElementById('photo') as HTMLInputElement;
+    input?.click();
+    setShowCameraOptions(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!competitorName || !insightType || !description) {
+    if (!competitorName || !insightType || !description || !impactLevel) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (Competitor Name, Insight Type, Description, Impact Level)",
         variant: "destructive"
       });
       return;
@@ -190,24 +215,64 @@ export const CompetitionInsightModal = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="photo">Competition Photo</Label>
-            <div className="flex gap-2">
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCameraOptions(!showCameraOptions)}
+                className="w-full"
+                disabled={isScanning}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {photoFile ? 'Change Photo' : 'Add Photo'}
+              </Button>
+              
+              {showCameraOptions && (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleCameraCapture}
+                    className="flex-1"
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Camera
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleGalleryUpload}
+                    className="flex-1"
+                  >
+                    Gallery
+                  </Button>
+                </div>
+              )}
+              
               <Input
                 id="photo"
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoChange}
                 disabled={isScanning}
-                className="flex-1"
+                className="hidden"
               />
+              
               {isScanning && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 p-2 bg-muted rounded">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Scanning...</span>
+                  <span className="text-sm text-muted-foreground">Scanning photo...</span>
                 </div>
+              )}
+              
+              {photoFile && !isScanning && (
+                <p className="text-sm text-muted-foreground">
+                  Photo selected: {photoFile.name}
+                </p>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Upload a photo to auto-fill competitor details
+              Capture or upload a photo to auto-fill competitor details
             </p>
           </div>
 
@@ -249,8 +314,8 @@ export const CompetitionInsightModal = ({
           </div>
 
           <div>
-            <Label htmlFor="impact">Impact Level</Label>
-            <Select value={impactLevel} onValueChange={setImpactLevel}>
+            <Label htmlFor="impact">Impact Level *</Label>
+            <Select value={impactLevel} onValueChange={setImpactLevel} required>
               <SelectTrigger>
                 <SelectValue placeholder="Select impact level" />
               </SelectTrigger>

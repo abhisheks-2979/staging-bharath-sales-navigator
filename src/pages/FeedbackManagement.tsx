@@ -267,6 +267,7 @@ export default function FeedbackManagement() {
                       <TableHead>Type</TableHead>
                       <TableHead>Impact</TableHead>
                       <TableHead>Action Required</TableHead>
+                      <TableHead>Photo</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Date</TableHead>
                     </TableRow>
@@ -294,6 +295,20 @@ export default function FeedbackManagement() {
                             <Badge className="bg-red-500 text-white">Yes</Badge>
                           ) : (
                             <Badge variant="outline">No</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {insight.photo_url ? (
+                            <a 
+                              href={insight.photo_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-primary hover:underline"
+                            >
+                              View Photo
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">No Photo</span>
                           )}
                         </TableCell>
                         <TableCell className="max-w-md truncate">
