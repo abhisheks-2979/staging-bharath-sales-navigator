@@ -2252,20 +2252,39 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 };
               });
 
-              const { error } = await supabase
+              // Save to database
+              const { error: insertError } = await supabase
                 .from('stock_cycle_data')
                 .insert(records);
 
-              if (error) throw error;
+              if (insertError) throw insertError;
 
+              // Update local state for immediate UI feedback
+              const newClosingStocks: {[key: string]: number} = {};
               stockCounts.forEach(({ productId, count }) => {
-                setClosingStocks(prev => ({ ...prev, [productId]: count }));
+                newClosingStocks[productId] = count;
               });
+              setClosingStocks(prev => ({ ...prev, ...newClosingStocks }));
 
-              toast({ title: 'Stock Records Saved', description: `Saved ${stockCounts.length} stock entr${stockCounts.length === 1 ? 'y' : 'ies'}` });
+              // Also save to localStorage for persistence
+              const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
+              const existingStocks = JSON.parse(localStorage.getItem(stockKey) || '{}');
+              localStorage.setItem(stockKey, JSON.stringify({ ...existingStocks, ...newClosingStocks }));
+
+              toast({ 
+                title: 'Stock Updated Successfully', 
+                description: `Updated stock for ${stockCounts.length} product${stockCounts.length === 1 ? '' : 's'}. Check "Stock Qty" column.`,
+                duration: 5000
+              });
+              
+              console.log('✅ Stock quantities updated:', newClosingStocks);
             } catch (e: any) {
-              console.error('Error saving stock records from ImageStockCapture:', e);
-              toast({ title: 'Failed to save stock', description: e?.message || 'Please try again', variant: 'destructive' });
+              console.error('Error saving stock records:', e);
+              toast({ 
+                title: 'Failed to update stock', 
+                description: e?.message || 'Please try again', 
+                variant: 'destructive' 
+              });
             } finally {
               setShowImageCapture(false);
             }
