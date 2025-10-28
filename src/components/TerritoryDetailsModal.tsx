@@ -1,151 +1,120 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { Building2, Store, BarChart3 } from "lucide-react";
+import React, { useEffect, useState, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { DollarSign, ShoppingCart, Building, Navigation } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface TerritoryDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  territory: { id: string; name: string } | null;
-}
-
-interface DistributorRow {
-  id: string;
-  name: string;
-  contact_person?: string | null;
-}
-
-interface RetailerRow {
-  id: string;
-  name: string;
-  category?: string | null;
+  territory: any;
 }
 
 const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onOpenChange, territory }) => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [distributors, setDistributors] = useState<DistributorRow[]>([]);
-  const [retailers, setRetailers] = useState<RetailerRow[]>([]);
-  const title = useMemo(() => territory ? `Territory: ${territory.name}` : "Territory", [territory]);
+  const [distributors, setDistributors] = useState<any[]>([]);
+  const [retailers, setRetailers] = useState<any[]>([]);
+  const [pincodeSales, setPincodeSales] = useState<any[]>([]);
+  const [salesSummary, setSalesSummary] = useState({ totalSales: 0, totalOrders: 0, totalRetailers: 0 });
+
+  const modalTitle = useMemo(() => territory ? `${territory.name} - Territory Details` : 'Territory Details', [territory]);
 
   useEffect(() => {
-    if (!open || !territory?.id) return;
-    const load = async () => {
-      setLoading(true);
-      try {
-        // 1) Distributors in this territory
-        const { data: distData, error: distErr } = await supabase
-          .from('distributors')
-          .select('id,name,contact_person')
-          .eq('territory_id', territory.id);
-        if (distErr) throw distErr;
-        setDistributors((distData || []) as any);
+    if (open && territory) loadTerritoryData();
+  }, [open, territory]);
 
-        // 2) Retailers via distributor mapping table
-        const distributorIds = (distData || []).map((d: any) => d.id);
-        if (distributorIds.length === 0) {
-          setRetailers([]);
-          return;
-        }
-
-        const { data: maps, error: mapErr } = await supabase
-          .from('distributor_retailer_mappings')
-          .select('retailer_id')
-          .in('distributor_id', distributorIds);
-        if (mapErr) throw mapErr;
-
-        const retailerIds = Array.from(new Set((maps || []).map((m: any) => m.retailer_id)));
-        if (retailerIds.length === 0) {
-          setRetailers([]);
-          return;
-        }
-
-        const { data: retailersData, error: retErr } = await supabase
-          .from('retailers')
-          .select('id,name,category')
-          .in('id', retailerIds);
-        if (retErr) throw retErr;
-        setRetailers((retailersData || []) as any);
-      } catch (e: any) {
-        console.error(e);
-        toast({ title: 'Error', description: 'Failed to load related data', variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [open, territory?.id, toast]);
-
-  const handleAnalytics = () => {
+  const loadTerritoryData = async () => {
     if (!territory) return;
-    navigate(`/analytics?territory_id=${territory.id}`);
+    setLoading(true);
+    
+    const { data: distributorsData } = await supabase.from('distributors').select('id, name, contact_person').eq('territory_id', territory.id);
+    setDistributors(distributorsData || []);
+
+    const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address');
+    const matchingRetailers = retailersData?.filter(r => territory.pincode_ranges?.some(p => r.address?.includes(p))) || [];
+    setRetailers(matchingRetailers);
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    const retailerIds = matchingRetailers.map(r => r.id);
+    const { data: ordersData } = await supabase.from('orders').select('total_amount, retailer_id, retailers(address)').in('retailer_id', retailerIds).gte('created_at', startOfMonth.toISOString());
+
+    setSalesSummary({
+      totalSales: ordersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0,
+      totalOrders: ordersData?.length || 0,
+      totalRetailers: matchingRetailers.length,
+    });
+
+    const pincodeMap = new Map();
+    territory.pincode_ranges?.forEach(pincode => {
+      const pincodeOrders = ordersData?.filter(o => o.retailers?.address?.includes(pincode)) || [];
+      const pincodeRetailers = matchingRetailers.filter(r => r.address?.includes(pincode));
+      pincodeMap.set(pincode, {
+        sales: pincodeOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
+        orders: pincodeOrders.length,
+        retailers: pincodeRetailers.length,
+      });
+    });
+
+    setPincodeSales(Array.from(pincodeMap.entries()).map(([pincode, data]) => ({ pincode, ...data })));
+    setLoading(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95%] max-w-3xl">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{modalTitle}</DialogTitle>
+          <DialogDescription>Comprehensive territory details and sales data</DialogDescription>
         </DialogHeader>
 
-        <div className="flex justify-end mb-2">
-          <Button size="sm" variant="secondary" onClick={handleAnalytics} className="flex items-center gap-2">
-            <BarChart3 size={16} /> Analytics
-          </Button>
-        </div>
+        {loading ? <div className="flex items-center justify-center py-12">Loading...</div> : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-3 gap-4">
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total Sales</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">₹{salesSummary.totalSales.toFixed(2)}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total Orders</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{salesSummary.totalOrders}</div></CardContent></Card>
+              <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Total Retailers</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{salesSummary.totalRetailers}</div></CardContent></Card>
+            </div>
 
-        <Tabs defaultValue="distributors" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="distributors">Distributors</TabsTrigger>
-            <TabsTrigger value="retailers">Retailers</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="distributors" className="mt-4">
-            {loading ? (
-              <div className="py-8 text-center text-muted-foreground">Loading...</div>
-            ) : distributors.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">No distributors linked yet.</div>
-            ) : (
-              <ul className="space-y-2">
-                {distributors.map(d => (
-                  <li key={d.id} className="flex items-center justify-between rounded border p-3">
-                    <div className="flex items-center gap-2">
-                      <Building2 size={16} className="text-primary" />
-                      <span className="font-medium">{d.name}</span>
-                    </div>
-                    {d.contact_person && <Badge variant="outline">{d.contact_person}</Badge>}
-                  </li>
-                ))}
-              </ul>
+            {pincodeSales.length > 0 && (
+              <Card>
+                <CardHeader><CardTitle>Sales by PIN Code</CardTitle></CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>PIN Code</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Orders</TableHead><TableHead className="text-right">Retailers</TableHead></TableRow></TableHeader>
+                    <TableBody>{pincodeSales.map(d => <TableRow key={d.pincode}><TableCell><Badge>{d.pincode}</Badge></TableCell><TableCell className="text-right">₹{d.sales.toFixed(2)}</TableCell><TableCell className="text-right">{d.orders}</TableCell><TableCell className="text-right">{d.retailers}</TableCell></TableRow>)}</TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             )}
-          </TabsContent>
 
-          <TabsContent value="retailers" className="mt-4">
-            {loading ? (
-              <div className="py-8 text-center text-muted-foreground">Loading...</div>
-            ) : retailers.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">No retailers mapped yet.</div>
-            ) : (
-              <ul className="space-y-2">
-                {retailers.map(r => (
-                  <li key={r.id} className="flex items-center justify-between rounded border p-3">
-                    <div className="flex items-center gap-2">
-                      <Store size={16} className="text-primary" />
-                      <span className="font-medium">{r.name}</span>
-                    </div>
-                    {r.category && <Badge variant="secondary">{r.category}</Badge>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </TabsContent>
-        </Tabs>
+            <Tabs defaultValue="retailers">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="retailers">Retailers ({retailers.length})</TabsTrigger>
+                <TabsTrigger value="distributors">Distributors ({distributors.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="retailers">
+                <Card><CardContent className="pt-6">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Category</TableHead><TableHead>Address</TableHead></TableRow></TableHeader>
+                    <TableBody>{retailers.map(r => <TableRow key={r.id}><TableCell>{r.name}</TableCell><TableCell><Badge variant="outline">{r.category}</Badge></TableCell><TableCell className="text-sm truncate max-w-md">{r.address}</TableCell></TableRow>)}</TableBody>
+                  </Table>
+                </CardContent></Card>
+              </TabsContent>
+              <TabsContent value="distributors">
+                <Card><CardContent className="pt-6">
+                  {distributors.map(d => <div key={d.id} className="flex justify-between p-3 border rounded mb-2"><span className="font-medium">{d.name}</span><Badge variant="outline">{d.contact_person}</Badge></div>)}
+                </CardContent></Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

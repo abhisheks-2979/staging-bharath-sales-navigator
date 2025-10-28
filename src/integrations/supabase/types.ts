@@ -1927,6 +1927,7 @@ export type Database = {
       }
       territories: {
         Row: {
+          assigned_user_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -1934,8 +1935,10 @@ export type Database = {
           pincode_ranges: string[] | null
           region: string
           updated_at: string
+          zone: string | null
         }
         Insert: {
+          assigned_user_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1943,8 +1946,10 @@ export type Database = {
           pincode_ranges?: string[] | null
           region: string
           updated_at?: string
+          zone?: string | null
         }
         Update: {
+          assigned_user_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -1952,6 +1957,7 @@ export type Database = {
           pincode_ranges?: string[] | null
           region?: string
           updated_at?: string
+          zone?: string | null
         }
         Relationships: []
       }
@@ -2218,6 +2224,18 @@ export type Database = {
           region_pincodes: string[]
           skills: string[]
           state: string
+        }[]
+      }
+      get_territory_sales_summary: {
+        Args: {
+          end_date_param?: string
+          start_date_param?: string
+          territory_id_param: string
+        }
+        Returns: {
+          total_orders: number
+          total_retailers: number
+          total_sales: number
         }[]
       }
       get_user_role: {
