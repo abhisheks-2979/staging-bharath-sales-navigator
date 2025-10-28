@@ -25,7 +25,9 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [loading, setLoading] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [location, setLocation] = useState<{ lat: number; lng: number; accuracy?: number; timestamp?: Date } | null>(null);
 
   useEffect(() => {
@@ -133,39 +135,106 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
     }
   };
 
+  // Fetch location when user changes
   useEffect(() => {
     if (userId && mapRef.current) {
       fetchUserLocation();
     }
   }, [userId]);
 
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (autoRefresh && userId) {
+      // Fetch immediately
+      fetchUserLocation();
+      
+      // Set up interval for auto-refresh every 15 seconds
+      refreshIntervalRef.current = setInterval(() => {
+        fetchUserLocation();
+      }, 15000);
+    }
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [autoRefresh, userId]);
+
+  // Get time difference in a human-readable format
+  const getTimeDifference = (timestamp: Date) => {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - timestamp.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  };
+
+  // Check if location is fresh (within last 5 minutes)
+  const isLocationFresh = (timestamp: Date) => {
+    const now = new Date();
+    const diffInMinutes = (now.getTime() - timestamp.getTime()) / (1000 * 60);
+    return diffInMinutes < 5;
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Current Location</h3>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Live Location</h3>
+            {location?.timestamp && (
+              <span className={`text-xs px-2 py-1 rounded-full ${
+                isLocationFresh(location.timestamp) 
+                  ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
+                  : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+              }`}>
+                {isLocationFresh(location.timestamp) ? '● Live' : '⚠ Stale'}
+              </span>
+            )}
+          </div>
           {location && (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground mt-1">
               <p>Lat: {location.lat.toFixed(6)}, Lng: {location.lng.toFixed(6)}</p>
               {location.timestamp && (
-                <p>Last updated: {format(location.timestamp, 'PPp')}</p>
+                <p className="flex items-center gap-1">
+                  Updated: {getTimeDifference(location.timestamp)} 
+                  <span className="text-xs">({format(location.timestamp, 'p')})</span>
+                </p>
               )}
             </div>
           )}
         </div>
-        <Button onClick={fetchUserLocation} disabled={loading || !userId}>
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Fetching Location...
-            </>
-          ) : (
-            <>
-              <MapPin className="mr-2 h-4 w-4" />
-              Refresh Location
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="rounded"
+            />
+            Auto-refresh (15s)
+          </label>
+          <Button 
+            onClick={fetchUserLocation} 
+            disabled={loading || !userId}
+            size="sm"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              <>
+                <MapPin className="mr-2 h-4 w-4" />
+                Refresh Now
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div
@@ -177,7 +246,7 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
       {!location && !loading && (
         <div className="text-center p-8 text-muted-foreground">
           <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>{userId ? 'Click "Refresh Location" to see the latest position' : 'Select a user to view their location'}</p>
+          <p>{userId ? 'Fetching latest location...' : 'Select a user to view their location'}</p>
         </div>
       )}
     </div>
