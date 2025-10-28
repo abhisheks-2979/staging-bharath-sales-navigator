@@ -73,6 +73,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [hasStockRecords, setHasStockRecords] = useState(false);
   const [stockRecordCount, setStockRecordCount] = useState(0);
   const [pendingAmount, setPendingAmount] = useState<number>(0);
+  const [isCreditOrder, setIsCreditOrder] = useState(false);
+  const [creditPendingAmount, setCreditPendingAmount] = useState<number>(0);
+  const [creditPaidAmount, setCreditPaidAmount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   const pendingCheckDataRef = useRef<{
@@ -216,7 +219,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           const { data: ordersToday } = await supabase
             .from('orders')
-            .select('id, total_amount')
+            .select('id, total_amount, is_credit_order, credit_pending_amount, credit_paid_amount')
             .eq('user_id', user.user.id)
             .eq('retailer_id', visitRetailerId)
             .eq('status', 'confirmed')
@@ -229,6 +232,18 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
             setActualOrderValue(totalOrderValue);
             
+            // Check if any order is a credit order and get credit details
+            const creditOrder = ordersToday.find(order => order.is_credit_order);
+            if (creditOrder) {
+              setIsCreditOrder(true);
+              setCreditPendingAmount(Number(creditOrder.credit_pending_amount || 0));
+              setCreditPaidAmount(Number(creditOrder.credit_paid_amount || 0));
+            } else {
+              setIsCreditOrder(false);
+              setCreditPendingAmount(0);
+              setCreditPaidAmount(0);
+            }
+            
             // If an order exists and visit is checked in, automatically mark as productive
             if (visitData?.check_in_time && visitData.status === 'in-progress') {
               await supabase
@@ -239,6 +254,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           } else {
             setHasOrderToday(false);
             setActualOrderValue(0);
+            setIsCreditOrder(false);
+            setCreditPendingAmount(0);
+            setCreditPaidAmount(0);
           }
         }
       } catch (error) {
@@ -1188,6 +1206,25 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   {orderPreviewOpen ? 'Hide' : 'View'}
                 </Button>
               </div>
+              
+              {/* Credit Order Information */}
+              {isCreditOrder && (
+                <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Total Amount:</span>
+                    <span className="font-semibold">₹{actualOrderValue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-success">Paid Amount:</span>
+                    <span className="font-medium text-success">₹{creditPaidAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-warning">Credit Amount:</span>
+                    <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+              
               {orderPreviewOpen && (
                 <div className="mt-2 space-y-1">
                   {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
