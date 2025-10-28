@@ -228,21 +228,27 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           if (ordersToday && ordersToday.length > 0) {
             setHasOrderToday(true);
-            // Calculate the actual total of all orders today
-            const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+            // Calculate totals for today
+            const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0);
             setActualOrderValue(totalOrderValue);
-            
-            // Check if any order is a credit order and get credit details
-            const creditOrder = ordersToday.find(order => order.is_credit_order);
-            if (creditOrder) {
-              setIsCreditOrder(true);
-              setCreditPendingAmount(Number(creditOrder.credit_pending_amount || 0));
-              setCreditPaidAmount(Number(creditOrder.credit_paid_amount || 0));
-            } else {
-              setIsCreditOrder(false);
-              setCreditPendingAmount(0);
-              setCreditPaidAmount(0);
-            }
+
+            // Split cash vs credit orders and aggregate properly
+            const creditOrders = ordersToday.filter((o: any) => !!o.is_credit_order);
+            const cashOrders = ordersToday.filter((o: any) => !o.is_credit_order);
+
+            const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+            const paidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
+            const explicitCreditPending = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_pending_amount || 0), 0);
+            const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+
+            const computedPending = Math.max(creditOrdersTotal - paidFromCredit, 0);
+
+            const finalCreditPending = explicitCreditPending > 0 ? explicitCreditPending : computedPending;
+            const finalPaidAmount = paidFromCash + paidFromCredit;
+
+            setIsCreditOrder(creditOrders.length > 0);
+            setCreditPaidAmount(finalPaidAmount);
+            setCreditPendingAmount(finalCreditPending);
             
             // If an order exists and visit is checked in, automatically mark as productive
             if (visitData?.check_in_time && visitData.status === 'in-progress') {
