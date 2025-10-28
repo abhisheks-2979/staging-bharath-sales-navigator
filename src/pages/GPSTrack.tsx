@@ -30,6 +30,7 @@ export default function GPSTrack() {
   const { user } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [selectedMember, setSelectedMember] = useState<string>('');
+  const [currentLocationUser, setCurrentLocationUser] = useState<string>('');
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,6 +62,7 @@ export default function GPSTrack() {
       // Auto-select current user if available
       if (user?.id) {
         setSelectedMember(user.id);
+        setCurrentLocationUser(user.id);
       }
     }
   };
@@ -117,8 +119,32 @@ export default function GPSTrack() {
 
           {/* Current Location Tab */}
           <TabsContent value="current" className="space-y-6 mt-6">
+            {/* User Selector */}
             <Card className="p-6">
-              <CurrentLocationMap height="600px" />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Team Member</label>
+                <Select value={currentLocationUser} onValueChange={setCurrentLocationUser}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a team member">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        {teamMembers.find((m) => m.id === currentLocationUser)?.full_name || 'Select member'}
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <CurrentLocationMap height="600px" userId={currentLocationUser} />
             </Card>
           </TabsContent>
 
