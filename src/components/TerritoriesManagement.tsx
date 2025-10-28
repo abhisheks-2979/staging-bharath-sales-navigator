@@ -56,39 +56,90 @@ const TerritoriesManagement = () => {
   };
 
   const loadTerritories = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('territories')
       .select('*')
       .order('created_at', { ascending: false });
 
+    if (error) {
+      console.error('Error loading territories:', error);
+      toast.error('Failed to load territories');
+      setLoading(false);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      setTerritories([]);
+      setLoading(false);
+      return;
+    }
+
     const territoriesWithStats = await Promise.all(
-      (data || []).map(async (territory) => {
+      data.map(async (territory) => {
         let assigned_user_name = 'Unassigned';
         if (territory.assigned_user_id) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('full_name')
             .eq('id', territory.assigned_user_id)
-            .single();
+            .maybeSingle();
           assigned_user_name = profile?.full_name || 'Unassigned';
         }
 
-        const { count: retailersCount } = await supabase
-          .from('retailers')
-          .select('*', { count: 'exact', head: true });
+        // Get retailers that match any of the territory's PIN codes
+        let retailersCount = 0;
+        if (territory.pincode_ranges && territory.pincode_ranges.length > 0) {
+          const { data: retailers } = await supabase
+            .from('retailers')
+            .select('id, address');
+          
+          if (retailers) {
+            retailersCount = retailers.filter(r => {
+              const address = r.address || '';
+              return territory.pincode_ranges.some((pin: string) => 
+                address.includes(pin)
+              );
+            }).length;
+          }
+        }
 
+        // Get sales for this month
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
-        const { data: ordersData } = await supabase
-          .from('orders')
-          .select('total_amount')
-          .gte('created_at', startOfMonth.toISOString());
+        
+        // Get all orders and filter by retailers in this territory
+        const { data: allRetailers } = await supabase
+          .from('retailers')
+          .select('id, address');
+        
+        let territoryRetailerIds: string[] = [];
+        if (allRetailers && territory.pincode_ranges) {
+          territoryRetailerIds = allRetailers
+            .filter(r => {
+              const address = r.address || '';
+              return territory.pincode_ranges.some((pin: string) => 
+                address.includes(pin)
+              );
+            })
+            .map(r => r.id);
+        }
+
+        let total_sales = 0;
+        if (territoryRetailerIds.length > 0) {
+          const { data: ordersData } = await supabase
+            .from('orders')
+            .select('total_amount')
+            .in('retailer_id', territoryRetailerIds)
+            .gte('created_at', startOfMonth.toISOString());
+
+          total_sales = ordersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+        }
 
         return {
           ...territory,
           assigned_user_name,
-          total_retailers: retailersCount || 0,
-          total_sales: ordersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0,
+          total_retailers: retailersCount,
+          total_sales,
         };
       })
     );
@@ -101,6 +152,11 @@ const TerritoriesManagement = () => {
     e.preventDefault();
     const pincodeArray = pincodes.split(',').map(p => p.trim()).filter(p => p.length > 0);
 
+    if (pincodeArray.length === 0) {
+      toast.error('Please enter at least one PIN code');
+      return;
+    }
+
     const { error } = await supabase.from('territories').insert({
       name: territoryName,
       region,
@@ -110,11 +166,21 @@ const TerritoriesManagement = () => {
       description: description || null,
     });
 
-    if (!error) {
-      toast.success('Territory added successfully!');
-      setShowForm(false);
-      loadTerritories();
+    if (error) {
+      console.error('Error adding territory:', error);
+      toast.error('Failed to add territory');
+      return;
     }
+
+    toast.success('Territory added successfully!');
+    setTerritoryName('');
+    setRegion('');
+    setZone('');
+    setPincodes('');
+    setAssignedUserId('');
+    setDescription('');
+    setShowForm(false);
+    loadTerritories();
   };
 
   const filteredTerritories = territories.filter(t => {
@@ -156,7 +222,26 @@ const TerritoriesManagement = () => {
                     </Select>
                   </div>
                 </div>
-                <div><Label>PIN Codes *</Label><Input value={pincodes} onChange={(e) => setPincodes(e.target.value)} placeholder="110001, 110002" required /></div>
+                <div className="col-span-2">
+                  <Label>PIN Codes * (comma-separated)</Label>
+                  <Input 
+                    value={pincodes} 
+                    onChange={(e) => setPincodes(e.target.value)} 
+                    placeholder="e.g., 110001, 110002, 410210" 
+                    required 
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Retailers with addresses containing these PIN codes will be mapped to this territory
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <Label>Description</Label>
+                  <Input 
+                    value={description} 
+                    onChange={(e) => setDescription(e.target.value)} 
+                    placeholder="Optional territory description" 
+                  />
+                </div>
                 <div className="flex gap-2"><Button type="submit">Save</Button><Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button></div>
               </form>
             </CardContent>
@@ -166,7 +251,7 @@ const TerritoriesManagement = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <div><Label>Search</Label><Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
+              <div><Label>Search</Label><Input placeholder="Search territory..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
               <div><Label>Filter by User</Label>
                 <Select value={filterUser} onValueChange={setFilterUser}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -174,30 +259,63 @@ const TerritoriesManagement = () => {
                 </Select>
               </div>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Territory</TableHead>
-                  <TableHead>PIN Codes</TableHead>
-                  <TableHead>Assigned User</TableHead>
-                  <TableHead className="text-right">Retailers</TableHead>
-                  <TableHead className="text-right">Sales</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTerritories.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.name}</TableCell>
-                    <TableCell><div className="flex gap-1">{t.pincode_ranges?.slice(0, 2).map((p, i) => <Badge key={i} variant="secondary">{p}</Badge>)}</div></TableCell>
-                    <TableCell>{t.assigned_user_name}</TableCell>
-                    <TableCell className="text-right">{t.total_retailers}</TableCell>
-                    <TableCell className="text-right">₹{t.total_sales.toFixed(2)}</TableCell>
-                    <TableCell><Button size="sm" variant="ghost" onClick={() => { setSelectedTerritory(t); setDetailsModalOpen(true); }}>Details</Button></TableCell>
+            
+            {filteredTerritories.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  {territories.length === 0 ? 'No territories created yet. Click "Add Territory" to get started.' : 'No territories match your filters.'}
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Territory Name</TableHead>
+                    <TableHead>Region/Zone</TableHead>
+                    <TableHead>PIN Codes Covered</TableHead>
+                    <TableHead>Assigned Sales User</TableHead>
+                    <TableHead className="text-right">Total Retailers</TableHead>
+                    <TableHead className="text-right">Total Sales (Month)</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredTerritories.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-medium">{t.name}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm">{t.region}</span>
+                          {t.zone && <Badge variant="outline" className="w-fit">{t.zone}</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {t.pincode_ranges?.slice(0, 3).map((p, i) => (
+                            <Badge key={i} variant="secondary">{p}</Badge>
+                          ))}
+                          {t.pincode_ranges?.length > 3 && (
+                            <Badge variant="outline">+{t.pincode_ranges.length - 3} more</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{t.assigned_user_name}</TableCell>
+                      <TableCell className="text-right font-medium">{t.total_retailers}</TableCell>
+                      <TableCell className="text-right font-medium">₹{t.total_sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {format(new Date(t.updated_at), 'MMM dd, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost" onClick={() => { setSelectedTerritory(t); setDetailsModalOpen(true); }}>
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </TabsContent>
