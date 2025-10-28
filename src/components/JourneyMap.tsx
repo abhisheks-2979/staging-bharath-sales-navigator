@@ -58,35 +58,47 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, height = '500
       opacity: 0.7,
     }).addTo(mapRef.current);
 
-    // Add heatmap circles
-    const getHeatColor = (index: number, total: number) => {
-      const ratio = index / total;
-      if (ratio < 0.33) return '#3b82f6'; // blue
-      if (ratio < 0.66) return '#eab308'; // yellow
-      return '#ef4444'; // red
-    };
-
-    positions.forEach((pos, index) => {
-      L.circle([pos.latitude, pos.longitude], {
-        color: getHeatColor(index, positions.length),
-        fillColor: getHeatColor(index, positions.length),
-        fillOpacity: 0.2,
-        opacity: 0.5,
-        radius: pos.accuracy || 20,
-      }).addTo(mapRef.current!);
+    // Create custom red icon for destination
+    const redIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
     });
 
-    // Add start marker
+    // Create blue icon for waypoints
+    const blueIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    // Add start marker (green/default)
     L.marker([positions[0].latitude, positions[0].longitude])
       .addTo(mapRef.current)
       .bindPopup(`<strong>Start</strong><br/>${positions[0].timestamp.toLocaleTimeString()}`);
 
-    // Add end marker
+    // Add waypoint markers along the route (sample every 5-10 points to avoid clutter)
+    const waypointInterval = Math.max(1, Math.floor(positions.length / 10));
+    positions.forEach((pos, index) => {
+      if (index > 0 && index < positions.length - 1 && index % waypointInterval === 0) {
+        L.marker([pos.latitude, pos.longitude], { icon: blueIcon })
+          .addTo(mapRef.current!)
+          .bindPopup(`<strong>Waypoint</strong><br/>${pos.timestamp.toLocaleTimeString()}`);
+      }
+    });
+
+    // Add end marker with red icon
     if (positions.length > 1) {
       const lastPos = positions[positions.length - 1];
-      L.marker([lastPos.latitude, lastPos.longitude])
-        .addTo(mapRef.current)
-        .bindPopup(`<strong>Current/End</strong><br/>${lastPos.timestamp.toLocaleTimeString()}`);
+      L.marker([lastPos.latitude, lastPos.longitude], { icon: redIcon })
+        .addTo(mapRef.current!)
+        .bindPopup(`<strong>Destination</strong><br/>${lastPos.timestamp.toLocaleTimeString()}`);
     }
 
     // Fit bounds to show all positions
