@@ -394,7 +394,7 @@ React.useEffect(() => {
     return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
   };
 
-  const handleSubmitOrder = async (isCreditSubmit: boolean = false) => {
+  const handleSubmitOrder = async (isCreditSubmit: boolean = false, creditPendingOverride?: number) => {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
@@ -441,8 +441,9 @@ React.useEffect(() => {
       let creditPaid = totalAmount;
 
       if (isCreditSubmit) {
-        creditPending = creditPendingAmount;
-        creditPaid = totalAmount - creditPending;
+        const pending = typeof creditPendingOverride === 'number' ? creditPendingOverride : creditPendingAmount;
+        creditPending = pending;
+        creditPaid = totalAmount - pending;
       }
 
       // Create order
@@ -745,9 +746,10 @@ React.useEffect(() => {
                     <div className="space-y-2">
                       <Button
                         onClick={() => {
-                          setCreditPendingAmount(getFinalTotal());
+                          const amount = getFinalTotal();
+                          setCreditPendingAmount(amount);
                           setIsCreditOrder(true);
-                          handleSubmitOrder(true);
+                          handleSubmitOrder(true, amount);
                         }}
                         className="w-full"
                         variant="secondary"
@@ -776,7 +778,7 @@ React.useEffect(() => {
                             }
                             setCreditPendingAmount(amount);
                             setIsCreditOrder(true);
-                            handleSubmitOrder(true);
+                            handleSubmitOrder(true, amount);
                           }}
                           className="w-full"
                           variant="secondary"

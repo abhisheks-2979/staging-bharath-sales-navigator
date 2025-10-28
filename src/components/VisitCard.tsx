@@ -244,10 +244,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             const computedPending = Math.max(creditOrdersTotal - paidFromCredit, 0);
 
             const finalCreditPending = explicitCreditPending > 0 ? explicitCreditPending : computedPending;
-            const finalPaidAmount = paidFromCash + paidFromCredit;
+            // Only count payments made against credit, do not include cash orders in credit "Paid"
+            const finalCreditPaid = paidFromCredit;
 
             setIsCreditOrder(creditOrders.length > 0);
-            setCreditPaidAmount(finalPaidAmount);
+            setCreditPaidAmount(finalCreditPaid);
             setCreditPendingAmount(finalCreditPending);
             
             // If an order exists and visit is checked in, automatically mark as productive
