@@ -1,9 +1,12 @@
-import React from 'react';
-import { Clock, MapPin, ShoppingCart, Package, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, MapPin, ShoppingCart, Package, Download, CalendarIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 
 interface Visit {
@@ -21,9 +24,16 @@ interface Visit {
 interface TimelineViewProps {
   visits: Visit[];
   dayStart?: string;
+  selectedDate?: Date;
+  onDateChange?: (date: Date) => void;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '08:10 AM' }) => {
+export const TimelineView: React.FC<TimelineViewProps> = ({ 
+  visits, 
+  dayStart = '08:10 AM',
+  selectedDate = new Date(),
+  onDateChange 
+}) => {
   // Sort visits by check_in_time (earliest first)
   const sortedVisits = [...visits].sort((a, b) => 
     new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
@@ -162,19 +172,49 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ visits, dayStart = '
 
   return (
     <div className="space-y-6 p-4 max-w-full overflow-x-hidden">
-      {/* Header with Download Button */}
-      <div className="text-center mb-8 relative">
-        <h2 className="text-2xl font-bold text-primary mb-2">TIMELINE</h2>
-        <div className="h-1 w-24 bg-primary mx-auto"></div>
-        <Button
-          onClick={downloadPDF}
-          variant="outline"
-          size="sm"
-          className="absolute right-0 top-0"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Download PDF
-        </Button>
+      {/* Header with Date Picker and Download Button */}
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+        <div className="text-center sm:text-left flex-1">
+          <h2 className="text-2xl font-bold text-primary mb-2">TIMELINE</h2>
+          <div className="h-1 w-24 bg-primary mx-auto sm:mx-0"></div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Date Picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && onDateChange?.(date)}
+                initialFocus
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Download Button */}
+          <Button
+            onClick={downloadPDF}
+            variant="outline"
+            size="sm"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download PDF
+          </Button>
+        </div>
       </div>
 
       {/* Day Start */}

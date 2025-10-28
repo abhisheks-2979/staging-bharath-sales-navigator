@@ -152,6 +152,8 @@ export const MyVisits = () => {
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [ordersData, setOrdersData] = useState<any[]>([]);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelineDate, setTimelineDate] = useState<Date>(new Date());
+  const [timelineVisits, setTimelineVisits] = useState<any[]>([]);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -278,6 +280,103 @@ export const MyVisits = () => {
       console.error('Error loading beat plans:', error);
     }
   };
+
+  const loadTimelineVisits = async (date: Date) => {
+    if (!user) return;
+    
+    try {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      
+      // Get all visits for the selected date with check-in time
+      const { data: visits, error } = await supabase
+        .from('visits')
+        .select(`
+          id,
+          retailer_id,
+          check_in_time,
+          check_out_time,
+          check_in_address,
+          status,
+          no_order_reason
+        `)
+        .eq('user_id', user.id)
+        .eq('planned_date', dateStr)
+        .not('check_in_time', 'is', null)
+        .order('check_in_time', { ascending: true });
+
+      if (error) throw error;
+
+      // Get retailer details for these visits
+      const retailerIds = (visits || []).map(v => v.retailer_id);
+      
+      if (retailerIds.length === 0) {
+        setTimelineVisits([]);
+        return;
+      }
+
+      const { data: retailers, error: retailersError } = await supabase
+        .from('retailers')
+        .select('id, name')
+        .in('id', retailerIds);
+
+      if (retailersError) throw retailersError;
+
+      const retailerMap = new Map(retailers?.map(r => [r.id, r.name]));
+
+      // Get order details for these visits
+      const dateStart = new Date(dateStr);
+      dateStart.setHours(0, 0, 0, 0);
+      const dateEnd = new Date(dateStr);
+      dateEnd.setHours(23, 59, 59, 999);
+
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('retailer_id, total_amount, order_items(quantity)')
+        .eq('user_id', user.id)
+        .in('retailer_id', retailerIds)
+        .gte('created_at', dateStart.toISOString())
+        .lte('created_at', dateEnd.toISOString());
+
+      if (ordersError) throw ordersError;
+
+      // Create order map
+      const orderMap = new Map();
+      (orders || []).forEach(order => {
+        const existing = orderMap.get(order.retailer_id) || { value: 0, quantity: 0 };
+        existing.value += Number(order.total_amount || 0);
+        existing.quantity += order.order_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+        orderMap.set(order.retailer_id, existing);
+      });
+
+      // Transform visits to timeline format
+      const timelineData = (visits || []).map(visit => {
+        const order = orderMap.get(visit.retailer_id);
+        return {
+          id: visit.id,
+          retailer_name: retailerMap.get(visit.retailer_id) || 'Unknown',
+          check_in_time: visit.check_in_time,
+          check_out_time: visit.check_out_time,
+          check_in_address: visit.check_in_address,
+          status: visit.status,
+          order_value: order?.value || 0,
+          order_quantity: order?.quantity || 0,
+          no_order_reason: visit.no_order_reason
+        };
+      });
+
+      setTimelineVisits(timelineData);
+    } catch (error) {
+      console.error('Error loading timeline visits:', error);
+      toast.error('Failed to load timeline data');
+    }
+  };
+
+  // Load timeline visits when date changes
+  useEffect(() => {
+    if (isTimelineOpen && user) {
+      loadTimelineVisits(timelineDate);
+    }
+  }, [timelineDate, isTimelineOpen, user]);
 
   const loadAllVisitsForDate = async (date: string, beatPlans: any[]) => {
     if (!user) return;
@@ -795,7 +894,10 @@ export const MyVisits = () => {
                 variant="secondary" 
                 size="sm" 
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
-                onClick={() => setIsTimelineOpen(true)}
+                onClick={() => {
+                  setTimelineDate(selectedDate ? new Date(selectedDate) : new Date());
+                  setIsTimelineOpen(true);
+                }}
               >
                 <Clock size={14} className="mr-1" />
                 Timeline View
@@ -998,22 +1100,12 @@ export const MyVisits = () => {
         <Dialog open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Today's Timeline View</DialogTitle>
+              <DialogTitle>Timeline View</DialogTitle>
             </DialogHeader>
             <TimelineView
-              visits={filteredVisits
-                .filter((v: any) => v.checkInTime) // Only show visits that have check-in
-                .map((v: any) => ({
-                  id: v.id,
-                  retailer_name: v.retailerName,
-                  check_in_time: v.checkInTime,
-                  check_out_time: v.checkOutTime,
-                  check_in_address: v.address,
-                  status: v.status,
-                  order_value: v.orderValue,
-                  order_quantity: v.orderQuantity,
-                  no_order_reason: v.noOrderReason,
-                }))}
+              visits={timelineVisits}
+              selectedDate={timelineDate}
+              onDateChange={(date) => setTimelineDate(date)}
             />
           </DialogContent>
         </Dialog>
