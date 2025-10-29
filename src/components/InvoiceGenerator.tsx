@@ -156,9 +156,9 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       const tableData = order.order_items.map((item: InvoiceItem) => [
         item.product_name,
         item.quantity.toString(),
-        `₹${item.rate.toFixed(2)}`,
+        `Rs. ${item.rate.toFixed(2)}`,
         item.unit || "pcs",
-        `₹${item.total.toFixed(2)}`
+        `Rs. ${item.total.toFixed(2)}`
       ]);
 
       autoTable(doc, {
@@ -207,14 +207,14 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       
       // Subtotal
       doc.text("Subtotal:", totalsX, totalsY);
-      doc.text(`₹ ${subtotal.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      doc.text(`Rs. ${subtotal.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
       totalsY += 6;
 
       // Discount
       if (discount > 0) {
         doc.setTextColor(220, 38, 38); // Red for discount
         doc.text("Discount:", totalsX, totalsY);
-        doc.text(`- ₹ ${discount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`- Rs. ${discount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
         totalsY += 6;
       }
@@ -222,17 +222,17 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       // Amount after discount (if there was a discount)
       if (discount > 0) {
         doc.text("Amount after Discount:", totalsX, totalsY);
-        doc.text(`₹ ${amountAfterDiscount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`Rs. ${amountAfterDiscount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         totalsY += 6;
       }
 
       // Taxes
       doc.text("CGST (9%):", totalsX, totalsY);
-      doc.text(`₹ ${cgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      doc.text(`Rs. ${cgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
       totalsY += 6;
 
       doc.text("SGST (9%):", totalsX, totalsY);
-      doc.text(`₹ ${sgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      doc.text(`Rs. ${sgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
       totalsY += 8;
 
       // Draw line above total
@@ -244,7 +244,7 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       doc.setFont(undefined, "bold");
       doc.setFontSize(12);
       doc.text("Total Amount:", totalsX, totalsY);
-      doc.text(`₹ ${total.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      doc.text(`Rs. ${total.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
 
       // Payment status and previous pending cleared
       if (previousPendingCleared > 0) {
@@ -260,14 +260,14 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
         doc.setFont(undefined, "normal");
         doc.setTextColor(34, 197, 94); // Green color
         doc.text("Previous Pending Cleared:", totalsX, totalsY);
-        doc.text(`₹ ${previousPendingCleared.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`Rs. ${previousPendingCleared.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
         totalsY += 8;
         
         doc.setFont(undefined, "bold");
         doc.setFontSize(11);
         doc.text("Grand Total Paid:", totalsX, totalsY);
-        doc.text(`₹ ${(total + previousPendingCleared).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`Rs. ${(total + previousPendingCleared).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setFont(undefined, "normal");
       }
 
@@ -284,14 +284,14 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
         doc.setFont(undefined, "normal");
         doc.setTextColor(34, 197, 94); // Green
         doc.text("Paid Now:", totalsX, totalsY);
-        doc.text(`₹ ${(order.credit_paid_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`Rs. ${(order.credit_paid_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
         totalsY += 6;
         
         doc.setTextColor(220, 38, 38); // Red
         doc.setFont(undefined, "bold");
         doc.text("Pending Amount:", totalsX, totalsY);
-        doc.text(`₹ ${(order.credit_pending_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`Rs. ${(order.credit_pending_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
         doc.setFont(undefined, "normal");
       }
