@@ -21,6 +21,7 @@ export const CameraCapture = ({
 }: CameraCaptureProps) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,17 +78,34 @@ export const CameraCapture = ({
       const canvas = canvasRef.current;
       const video = videoRef.current;
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Ensure dimensions are set
+      const vw = video.videoWidth || 1280;
+      const vh = video.videoHeight || 720;
+      canvas.width = vw;
+      canvas.height = vh;
       
       const context = canvas.getContext('2d');
       if (context) {
-        context.drawImage(video, 0, 0);
+        context.drawImage(video, 0, 0, vw, vh);
         
-        canvas.toBlob((blob) => {
+        canvas.toBlob(async (blob) => {
           if (blob) {
+            setCapturedBlob(blob);
             const imageUrl = URL.createObjectURL(blob);
             setCapturedImage(imageUrl);
+          } else {
+            // Fallback via dataURL
+            try {
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+              const resp = await fetch(dataUrl);
+              const b = await resp.blob();
+              setCapturedBlob(b);
+              const imageUrl = URL.createObjectURL(b);
+              setCapturedImage(imageUrl);
+            } catch (e) {
+              console.error('Failed to capture photo:', e);
+              toast.error('Failed to capture photo. Please try again.');
+            }
           }
         }, 'image/jpeg', 0.95);
       }
@@ -95,26 +113,40 @@ export const CameraCapture = ({
   };
 
   const retake = () => {
-    setCapturedImage(null);
     if (capturedImage) {
       URL.revokeObjectURL(capturedImage);
     }
+    setCapturedImage(null);
+    setCapturedBlob(null);
   };
 
   const confirmCapture = () => {
+    if (capturedBlob) {
+      onCapture(capturedBlob);
+      handleClose();
+      return;
+    }
     if (canvasRef.current) {
       canvasRef.current.toBlob((blob) => {
         if (blob) {
           onCapture(blob);
           handleClose();
+        } else {
+          toast.error('Could not process image. Please retake.');
         }
       }, 'image/jpeg', 0.95);
+    } else {
+      toast.error('Camera not ready. Please try again.');
     }
   };
 
   const handleClose = () => {
     stopCamera();
+    if (capturedImage) {
+      URL.revokeObjectURL(capturedImage);
+    }
     setCapturedImage(null);
+    setCapturedBlob(null);
     onClose();
   };
 
