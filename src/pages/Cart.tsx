@@ -446,6 +446,9 @@ React.useEffect(() => {
         creditPaid = totalAmount - pending;
       }
 
+      // Track previous pending amount that will be cleared
+      const previousPendingCleared = isCreditSubmit ? 0 : pendingAmountFromPrevious;
+
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -460,7 +463,8 @@ React.useEffect(() => {
           status: 'confirmed',
           is_credit_order: isCreditSubmit,
           credit_pending_amount: creditPending,
-          credit_paid_amount: creditPaid
+          credit_paid_amount: creditPaid,
+          previous_pending_cleared: previousPendingCleared
         })
         .select()
         .single();

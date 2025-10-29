@@ -37,6 +37,8 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
         .eq("id", orderId)
         .single();
 
+      console.log('Order data for invoice:', order);
+
       if (orderError) throw orderError;
 
       // Fetch retailer details
@@ -190,6 +192,7 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       const cgst = amountAfterDiscount * 0.09;
       const sgst = amountAfterDiscount * 0.09;
       const total = order.total_amount || 0;
+      const previousPendingCleared = (order as any).previous_pending_cleared || 0;
 
       // Get final Y position after table
       const finalY = (doc as any).lastAutoTable.finalY + 10;
@@ -227,16 +230,31 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       doc.text("Total Amount:", totalsX, totalsY);
       doc.text(`₹${total.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
 
-      // Payment status
+      // Payment status and previous pending cleared
+      if (previousPendingCleared > 0) {
+        totalsY += 10;
+        doc.setFontSize(10);
+        doc.setFont(undefined, "normal");
+        doc.setTextColor(34, 197, 94); // Green color
+        doc.text("Previous Pending Cleared:", totalsX, totalsY);
+        doc.text(`₹${previousPendingCleared.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        totalsY += 7;
+        doc.setFont(undefined, "bold");
+        doc.text("Grand Total Paid:", totalsX, totalsY);
+        doc.text(`₹${(total + previousPendingCleared).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.setFont(undefined, "normal");
+      }
+
       if (order.is_credit_order) {
         totalsY += 10;
         doc.setFontSize(10);
         doc.setFont(undefined, "normal");
-        doc.text("Paid:", totalsX, totalsY);
+        doc.text("Paid Now:", totalsX, totalsY);
         doc.text(`₹${(order.credit_paid_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         totalsY += 7;
         doc.setTextColor(220, 38, 38);
-        doc.text("Pending:", totalsX, totalsY);
+        doc.text("Credit Amount:", totalsX, totalsY);
         doc.text(`₹${(order.credit_pending_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
       }

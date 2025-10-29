@@ -78,6 +78,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [isCreditOrder, setIsCreditOrder] = useState(false);
   const [creditPendingAmount, setCreditPendingAmount] = useState<number>(0);
   const [creditPaidAmount, setCreditPaidAmount] = useState<number>(0);
+  const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -223,7 +224,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           const { data: ordersToday } = await supabase
             .from('orders')
-            .select('id, total_amount, is_credit_order, credit_pending_amount, credit_paid_amount')
+            .select('id, total_amount, is_credit_order, credit_pending_amount, credit_paid_amount, previous_pending_cleared')
             .eq('user_id', user.user.id)
             .eq('retailer_id', visitRetailerId)
             .eq('status', 'confirmed')
@@ -238,6 +239,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             // Calculate totals for today
             const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0);
             setActualOrderValue(totalOrderValue);
+
+            // Calculate total previous pending cleared
+            const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
+            setPreviousPendingCleared(totalPendingCleared);
 
             // Split cash vs credit orders and aggregate properly
             const creditOrders = ordersToday.filter((o: any) => !!o.is_credit_order);
@@ -271,6 +276,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             setIsCreditOrder(false);
             setCreditPendingAmount(0);
             setCreditPaidAmount(0);
+            setPreviousPendingCleared(0);
           }
         }
       } catch (error) {
@@ -1246,6 +1252,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-warning">Credit Amount:</span>
                     <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Previous Pending Cleared */}
+              {previousPendingCleared > 0 && (
+                <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-md">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-success font-medium">✓ Previous Pending Cleared:</span>
+                    <span className="font-semibold text-success">₹{previousPendingCleared.toLocaleString()}</span>
                   </div>
                 </div>
               )}

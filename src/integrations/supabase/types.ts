@@ -1261,6 +1261,7 @@ export type Database = {
           distributor_name: string | null
           id: string
           is_credit_order: boolean | null
+          previous_pending_cleared: number | null
           retailer_id: string | null
           retailer_name: string
           status: string
@@ -1279,6 +1280,7 @@ export type Database = {
           distributor_name?: string | null
           id?: string
           is_credit_order?: boolean | null
+          previous_pending_cleared?: number | null
           retailer_id?: string | null
           retailer_name: string
           status?: string
@@ -1297,6 +1299,7 @@ export type Database = {
           distributor_name?: string | null
           id?: string
           is_credit_order?: boolean | null
+          previous_pending_cleared?: number | null
           retailer_id?: string | null
           retailer_name?: string
           status?: string
