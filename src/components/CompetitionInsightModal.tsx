@@ -44,7 +44,7 @@ export const CompetitionInsightModal = ({
     setIsScanning(true);
 
     try {
-      // Upload photo to Supabase storage
+      // Upload photo to Supabase storage first
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
@@ -57,55 +57,83 @@ export const CompetitionInsightModal = ({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get public URL for later storage
       const { data: { publicUrl } } = supabase.storage
         .from('competition-photos')
         .getPublicUrl(fileName);
 
       setPhotoUrl(publicUrl);
 
-      // Scan the photo using new edge function with duplicate detection
-      const { data: scanData, error: scanError } = await supabase.functions.invoke(
-        'scan-competition-insight',
-        { body: { imageUrl: publicUrl } }
-      );
+      // Convert image to base64 for AI scanning (like scan-board does)
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Image = e.target?.result as string;
 
-      if (scanError) throw scanError;
+        try {
+          // Scan the photo using edge function with duplicate detection
+          const { data: scanData, error: scanError } = await supabase.functions.invoke(
+            'scan-competition-insight',
+            { body: { imageBase64: base64Image } }
+          );
 
-      // Check if it's a duplicate
-      if (scanData.isDuplicate) {
+          if (scanError) throw scanError;
+
+          // Check if it's a duplicate
+          if (scanData.isDuplicate) {
+            toast({
+              title: "Duplicate Competitor Detected!",
+              description: scanData.message,
+              variant: "destructive"
+            });
+            
+            // Still auto-fill with the detected data but show warning
+            if (scanData.existingData) {
+              setCompetitorName(scanData.existingData.competitor_name);
+              setDescription(scanData.existingData.product_details || '');
+            }
+            setIsScanning(false);
+            return;
+          }
+
+          // Auto-fill form with extracted data
+          const extractedData = scanData.extractedData;
+          if (extractedData.competitor_name) setCompetitorName(extractedData.competitor_name);
+          if (extractedData.product_details) setDescription(extractedData.product_details);
+          if (extractedData.category) setProductCategory(extractedData.category);
+          
+          toast({
+            title: "Photo Scanned Successfully",
+            description: "Competition information extracted and auto-filled",
+          });
+          setIsScanning(false);
+        } catch (error) {
+          console.error('Error scanning photo:', error);
+          toast({
+            title: "Scan Failed",
+            description: "Failed to extract information from photo. Please fill manually.",
+            variant: "destructive"
+          });
+          setIsScanning(false);
+        }
+      };
+
+      reader.onerror = () => {
         toast({
-          title: "Duplicate Competitor Detected!",
-          description: scanData.message,
+          title: "Image Read Error",
+          description: "Failed to read image file. Please try again.",
           variant: "destructive"
         });
-        
-        // Still auto-fill with the detected data but show warning
-        if (scanData.existingData) {
-          setCompetitorName(scanData.existingData.competitor_name);
-          setDescription(scanData.existingData.product_details || '');
-        }
-        return;
-      }
+        setIsScanning(false);
+      };
 
-      // Auto-fill form with extracted data
-      const extractedData = scanData.extractedData;
-      if (extractedData.competitor_name) setCompetitorName(extractedData.competitor_name);
-      if (extractedData.product_details) setDescription(extractedData.product_details);
-      if (extractedData.category) setProductCategory(extractedData.category);
-      
-      toast({
-        title: "Photo Scanned Successfully",
-        description: "Competition information extracted and auto-filled",
-      });
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error scanning photo:', error);
+      console.error('Error uploading photo:', error);
       toast({
-        title: "Scan Failed",
-        description: "Failed to extract information from photo. Please fill manually.",
+        title: "Upload Failed",
+        description: "Failed to upload photo. Please try again.",
         variant: "destructive"
       });
-    } finally {
       setIsScanning(false);
     }
   };

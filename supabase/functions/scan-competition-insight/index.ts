@@ -22,16 +22,16 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    const { imageUrl } = await req.json();
+    const { imageBase64 } = await req.json();
     
-    if (!imageUrl) {
+    if (!imageBase64) {
       return new Response(
-        JSON.stringify({ error: 'Image URL is required' }),
+        JSON.stringify({ error: 'Image data is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Analyzing competition image:', imageUrl);
+    console.log('Analyzing competition image from base64');
 
     // Call Lovable AI to analyze the image
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -57,7 +57,7 @@ serve(async (req) => {
               {
                 type: "image_url",
                 image_url: {
-                  url: imageUrl
+                  url: imageBase64
                 }
               }
             ]
