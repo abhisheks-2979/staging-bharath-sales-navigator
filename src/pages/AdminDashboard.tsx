@@ -37,6 +37,7 @@ interface User {
     full_name: string;
     created_at: string;
     profile_picture_url?: string;
+    user_status?: string;
   };
 }
 

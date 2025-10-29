@@ -2302,6 +2302,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          profile_picture_url: string
           user_status: Database["public"]["Enums"]["user_status"]
           username: string
         }[]

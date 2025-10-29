@@ -84,22 +84,25 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
       console.log('Profile updated successfully');
       setProfileImageUrl(urlData.publicUrl);
       setUploadSuccess(true);
+      setShowCamera(false);
       toast.success('Profile picture uploaded successfully!');
       
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || 'Failed to upload profile picture');
+      setShowCamera(false);
     } finally {
       setIsUploading(false);
-      setShowCamera(false);
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!profileImageUrl) {
       toast.error('Please capture your profile picture before continuing');
       return;
     }
+    
+    console.log('Completing profile setup with image:', profileImageUrl);
     setNeedsProfileSetup(false);
     setIsOpen(false);
     onComplete();
@@ -117,8 +120,9 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open && profileImageUrl) {
-          handleComplete();
+        if (!open && !profileImageUrl) {
+          // Allow closing only if user wants to skip
+          handleSkip();
         }
       }}>
         <DialogContent className="sm:max-w-md">
