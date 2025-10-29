@@ -770,7 +770,7 @@ React.useEffect(() => {
                       <div className="flex justify-between pt-2 border-t font-semibold">
                         <span>Amount to Pay Now:</span>
                         <span className="text-success">
-                          ₹{(getFinalTotal() - (creditPendingAmount || 0)).toLocaleString()}
+                          ₹{((getFinalTotal() + pendingAmountFromPrevious) - (creditPendingAmount || 0)).toLocaleString()}
                         </span>
                       </div>
                       {creditPendingAmount > 0 && (
@@ -786,7 +786,7 @@ React.useEffect(() => {
                     <div className="space-y-2">
                       <Button
                         onClick={() => {
-                          const amount = getFinalTotal();
+                          const amount = getFinalTotal() + pendingAmountFromPrevious;
                           setCreditPendingAmount(amount);
                           setIsCreditOrder(true);
                           handleSubmitOrder(true, amount);
@@ -794,7 +794,7 @@ React.useEffect(() => {
                         className="w-full"
                         variant="secondary"
                       >
-                        Full Amount Pending (₹{getFinalTotal().toLocaleString()})
+                        Full Amount Pending (₹{(getFinalTotal() + pendingAmountFromPrevious).toLocaleString()})
                       </Button>
                       
                       <div className="space-y-2">
@@ -810,15 +810,16 @@ React.useEffect(() => {
                             }
                           }}
                           className="w-full px-3 py-2 border rounded-md"
-                          max={getFinalTotal()}
+                          max={getFinalTotal() + pendingAmountFromPrevious}
                         />
                         <Button
                           onClick={() => {
+                            const totalDue = getFinalTotal() + pendingAmountFromPrevious;
                             const amount = parseFloat(customPendingAmount);
-                            if (isNaN(amount) || amount <= 0 || amount > getFinalTotal()) {
+                            if (isNaN(amount) || amount <= 0 || amount > totalDue) {
                               toast({
                                 title: "Invalid Amount",
-                                description: "Please enter a valid amount between 0 and total",
+                                description: `Please enter a valid amount between 0 and ₹${totalDue.toLocaleString()}`,
                                 variant: "destructive"
                               });
                               return;
