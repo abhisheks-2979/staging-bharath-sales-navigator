@@ -504,42 +504,63 @@ export type Database = {
       competition_insights: {
         Row: {
           action_required: boolean | null
+          additional_notes: string | null
+          category: string | null
+          competitor_image_url: string
           competitor_name: string
           created_at: string
           description: string
           id: string
           impact_level: string | null
           insight_type: string
+          location_info: string | null
+          price_info: string | null
           product_category: string | null
+          product_details: string | null
           retailer_id: string
+          shelf_space: string | null
           updated_at: string
           user_id: string
           visit_id: string | null
         }
         Insert: {
           action_required?: boolean | null
+          additional_notes?: string | null
+          category?: string | null
+          competitor_image_url?: string
           competitor_name: string
           created_at?: string
           description: string
           id?: string
           impact_level?: string | null
           insight_type: string
+          location_info?: string | null
+          price_info?: string | null
           product_category?: string | null
+          product_details?: string | null
           retailer_id: string
+          shelf_space?: string | null
           updated_at?: string
           user_id: string
           visit_id?: string | null
         }
         Update: {
           action_required?: boolean | null
+          additional_notes?: string | null
+          category?: string | null
+          competitor_image_url?: string
           competitor_name?: string
           created_at?: string
           description?: string
           id?: string
           impact_level?: string | null
           insight_type?: string
+          location_info?: string | null
+          price_info?: string | null
           product_category?: string | null
+          product_details?: string | null
           retailer_id?: string
+          shelf_space?: string | null
           updated_at?: string
           user_id?: string
           visit_id?: string | null
@@ -2241,6 +2262,16 @@ export type Database = {
       can_access_invitation: {
         Args: { _invitation_token: string }
         Returns: boolean
+      }
+      check_duplicate_competitor: {
+        Args: { competitor_name_param: string }
+        Returns: {
+          competitor_id: string
+          competitor_image_url: string
+          competitor_name: string
+          is_duplicate: boolean
+          product_details: string
+        }[]
       }
       create_approval_workflow: {
         Args: { user_id_param: string }

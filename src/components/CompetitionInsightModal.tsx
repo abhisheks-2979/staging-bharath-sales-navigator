@@ -64,22 +64,39 @@ export const CompetitionInsightModal = ({
 
       setPhotoUrl(publicUrl);
 
-      // Scan the photo using edge function
+      // Scan the photo using new edge function with duplicate detection
       const { data: scanData, error: scanError } = await supabase.functions.invoke(
-        'scan-competition-photo',
+        'scan-competition-insight',
         { body: { imageUrl: publicUrl } }
       );
 
       if (scanError) throw scanError;
 
-      // Auto-fill form with extracted data
-      if (scanData.competitorName) setCompetitorName(scanData.competitorName);
-      if (scanData.productCategory) setProductCategory(scanData.productCategory);
-      if (scanData.insights) setDescription(scanData.insights);
+      // Check if it's a duplicate
+      if (scanData.isDuplicate) {
+        toast({
+          title: "Duplicate Competitor Detected!",
+          description: scanData.message,
+          variant: "destructive"
+        });
+        
+        // Still auto-fill with the detected data but show warning
+        if (scanData.existingData) {
+          setCompetitorName(scanData.existingData.competitor_name);
+          setDescription(scanData.existingData.product_details || '');
+        }
+        return;
+      }
 
+      // Auto-fill form with extracted data
+      const extractedData = scanData.extractedData;
+      if (extractedData.competitor_name) setCompetitorName(extractedData.competitor_name);
+      if (extractedData.product_details) setDescription(extractedData.product_details);
+      if (extractedData.category) setProductCategory(extractedData.category);
+      
       toast({
-        title: "Photo Scanned",
-        description: "Competition information extracted successfully",
+        title: "Photo Scanned Successfully",
+        description: "Competition information extracted and auto-filled",
       });
     } catch (error) {
       console.error('Error scanning photo:', error);
@@ -138,20 +155,37 @@ export const CompetitionInsightModal = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // Check for duplicates before inserting
+      const { data: duplicateCheck } = await supabase
+        .rpc('check_duplicate_competitor', { 
+          competitor_name_param: competitorName 
+        });
+
+      if (duplicateCheck && duplicateCheck.length > 0) {
+        toast({
+          title: "Duplicate Competitor",
+          description: `"${competitorName}" already exists in the system. No need to add it again.`,
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('competition_insights')
-        .insert({
+        .insert([{
           user_id: user.id,
           retailer_id: retailerId,
           visit_id: visitId,
           competitor_name: competitorName,
+          competitor_image_url: photoUrl || '',
+          product_details: description,
           product_category: productCategory || null,
           insight_type: insightType,
           description: description,
           impact_level: impactLevel || null,
-          action_required: actionRequired,
-          photo_url: photoUrl || null
-        });
+          action_required: actionRequired
+        }]);
 
       if (error) throw error;
       

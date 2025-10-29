@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.scan-competition-photo]
 verify_jwt = true
 
+[functions.scan-competition-insight]
+verify_jwt = true
+
 [functions.analyze-stock-images]
 verify_jwt = true
 

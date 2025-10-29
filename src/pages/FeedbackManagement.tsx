@@ -298,13 +298,14 @@ export default function FeedbackManagement() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {insight.photo_url ? (
+                          {insight.competitor_image_url ? (
                             <a 
-                              href={insight.photo_url} 
+                              href={insight.competitor_image_url} 
                               target="_blank" 
                               rel="noopener noreferrer" 
-                              className="text-primary hover:underline"
+                              className="text-primary hover:underline flex items-center gap-1"
                             >
+                              <Image className="h-4 w-4" />
                               View Photo
                             </a>
                           ) : (
