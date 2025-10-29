@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { X, Upload, Ruler } from "lucide-react";
+import { X, Upload, Ruler, Camera, Image as ImageIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface Point {
   x: number;
@@ -24,9 +25,12 @@ export const ImageMeasurement = ({ onMeasurementComplete, existingUrls = [] }: I
   const [knownLength, setKnownLength] = useState<string>("");
   const [measuredSize, setMeasuredSize] = useState<string>("");
   const [uploading, setUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (images.length > 0 && canvasRef.current && imageRef.current) {
@@ -103,11 +107,12 @@ export const ImageMeasurement = ({ onMeasurementComplete, existingUrls = [] }: I
     toast({ title: "Size calculated", description: `Measured size: ${size}` });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, autoScan = false) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setUploading(true);
+    setShowUploadOptions(false);
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
@@ -135,10 +140,54 @@ export const ImageMeasurement = ({ onMeasurementComplete, existingUrls = [] }: I
 
       setImages([...images, ...uploadedUrls]);
       toast({ title: "Photos uploaded", description: `${uploadedUrls.length} photo(s) added` });
+      
+      // Auto-scan the first uploaded image if requested
+      if (autoScan && uploadedUrls.length > 0) {
+        await scanWallImage(uploadedUrls[0]);
+      }
     } catch (error: any) {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const scanWallImage = async (imageUrl: string) => {
+    setScanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scan-wall-measurements', {
+        body: { imageUrl }
+      });
+
+      if (error) throw error;
+
+      if (data.confidence === 'low') {
+        toast({ 
+          title: "Low confidence scan", 
+          description: data.notes || "Unable to accurately measure wall. Try manual measurement.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Format the size description
+      const sizeText = data.sizeDescription || `${data.width} × ${data.height}`;
+      setMeasuredSize(sizeText);
+      onMeasurementComplete(sizeText, [...images, imageUrl]);
+      
+      toast({ 
+        title: "Wall scanned successfully", 
+        description: `Recommended size: ${sizeText}`,
+      });
+    } catch (error: any) {
+      console.error('Scan error:', error);
+      toast({ 
+        title: "Scan failed", 
+        description: error.message || "Could not analyze wall. Try manual measurement.",
+        variant: "destructive"
+      });
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -154,23 +203,87 @@ export const ImageMeasurement = ({ onMeasurementComplete, existingUrls = [] }: I
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="flex-1"
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          {uploading ? 'Uploading...' : 'Upload Measurement Photos'}
-        </Button>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowUploadOptions(!showUploadOptions)}
+            disabled={uploading || scanning}
+            className="flex-1"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Uploading...
+              </>
+            ) : scanning ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Scanning Wall...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Measurement Photos
+              </>
+            )}
+          </Button>
+          {images.length > 0 && !scanning && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => scanWallImage(images[currentImageIndex])}
+              disabled={uploading}
+            >
+              <Ruler className="h-4 w-4 mr-2" />
+              Scan Wall
+            </Button>
+          )}
+        </div>
+
+        {showUploadOptions && (
+          <Card className="p-3 space-y-2">
+            <Label className="text-sm">Choose upload method:</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Take Photo
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full"
+              >
+                <ImageIcon className="h-4 w-4 mr-2" />
+                From Gallery
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => handleFileUpload(e, true)}
+          className="hidden"
+        />
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
           multiple
-          onChange={handleFileUpload}
+          onChange={(e) => handleFileUpload(e, false)}
           className="hidden"
         />
       </div>
@@ -246,8 +359,16 @@ export const ImageMeasurement = ({ onMeasurementComplete, existingUrls = [] }: I
           </div>
 
           {measuredSize && (
-            <div className="p-3 bg-success/10 border border-success rounded text-sm">
-              <strong>Measured Size:</strong> {measuredSize}
+            <div className="p-3 bg-success/10 border border-success rounded">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <strong className="text-sm">Recommended Billboard Size:</strong>
+                    <Badge variant="outline" className="text-xs">AI Calculated</Badge>
+                  </div>
+                  <p className="text-sm">{measuredSize}</p>
+                </div>
+              </div>
             </div>
           )}
 

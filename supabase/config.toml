@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.analyze-stock-images]
 verify_jwt = true
+
+[functions.scan-wall-measurements]
+verify_jwt = true
