@@ -485,13 +485,22 @@ React.useEffect(() => {
 
       if (itemsError) throw itemsError;
 
-      // Update retailer's pending amount if credit order
-      if (isCreditSubmit && validRetailerId) {
-        const newPendingAmount = pendingAmountFromPrevious + creditPending;
-        await supabase
-          .from('retailers')
-          .update({ pending_amount: newPendingAmount })
-          .eq('id', validRetailerId);
+      // Update retailer's pending amount based on order type
+      if (validRetailerId) {
+        if (isCreditSubmit) {
+          // Credit order: Add new credit pending to existing pending amount
+          const newPendingAmount = pendingAmountFromPrevious + creditPending;
+          await supabase
+            .from('retailers')
+            .update({ pending_amount: newPendingAmount })
+            .eq('id', validRetailerId);
+        } else {
+          // Regular order: Clear all pending amounts (full payment made)
+          await supabase
+            .from('retailers')
+            .update({ pending_amount: 0 })
+            .eq('id', validRetailerId);
+        }
       }
 
       // Mark visit as productive if available
