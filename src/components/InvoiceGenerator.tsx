@@ -191,72 +191,109 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       const amountAfterDiscount = subtotal - discount;
       const cgst = amountAfterDiscount * 0.09;
       const sgst = amountAfterDiscount * 0.09;
-      const total = order.total_amount || 0;
+      const calculatedTotal = amountAfterDiscount + cgst + sgst;
+      const total = order.total_amount || calculatedTotal;
       const previousPendingCleared = (order as any).previous_pending_cleared || 0;
 
       // Get final Y position after table
       const finalY = (doc as any).lastAutoTable.finalY + 10;
 
-      // Totals section
-      const totalsX = pageWidth - 70;
+      // Totals section with better spacing
+      const totalsX = pageWidth - 75;
       let totalsY = finalY;
 
       doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      
+      // Subtotal
       doc.text("Subtotal:", totalsX, totalsY);
-      doc.text(`₹${subtotal.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
-      totalsY += 7;
+      doc.text(`₹ ${subtotal.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      totalsY += 6;
 
+      // Discount
       if (discount > 0) {
+        doc.setTextColor(220, 38, 38); // Red for discount
         doc.text("Discount:", totalsX, totalsY);
-        doc.text(`-₹${discount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
-        totalsY += 7;
+        doc.text(`- ₹ ${discount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        totalsY += 6;
       }
 
+      // Amount after discount (if there was a discount)
+      if (discount > 0) {
+        doc.text("Amount after Discount:", totalsX, totalsY);
+        doc.text(`₹ ${amountAfterDiscount.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        totalsY += 6;
+      }
+
+      // Taxes
       doc.text("CGST (9%):", totalsX, totalsY);
-      doc.text(`₹${cgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
-      totalsY += 7;
+      doc.text(`₹ ${cgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      totalsY += 6;
 
       doc.text("SGST (9%):", totalsX, totalsY);
-      doc.text(`₹${sgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
-      totalsY += 7;
+      doc.text(`₹ ${sgst.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      totalsY += 8;
 
       // Draw line above total
       doc.setLineWidth(0.5);
       doc.line(totalsX, totalsY, pageWidth - 14, totalsY);
       totalsY += 7;
 
+      // Total Amount
       doc.setFont(undefined, "bold");
       doc.setFontSize(12);
       doc.text("Total Amount:", totalsX, totalsY);
-      doc.text(`₹${total.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+      doc.text(`₹ ${total.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
 
       // Payment status and previous pending cleared
       if (previousPendingCleared > 0) {
         totalsY += 10;
+        
+        // Draw separator line
+        doc.setLineWidth(0.3);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(totalsX, totalsY, pageWidth - 14, totalsY);
+        totalsY += 7;
+        
         doc.setFontSize(10);
         doc.setFont(undefined, "normal");
         doc.setTextColor(34, 197, 94); // Green color
         doc.text("Previous Pending Cleared:", totalsX, totalsY);
-        doc.text(`₹${previousPendingCleared.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`₹ ${previousPendingCleared.toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
-        totalsY += 7;
+        totalsY += 8;
+        
         doc.setFont(undefined, "bold");
+        doc.setFontSize(11);
         doc.text("Grand Total Paid:", totalsX, totalsY);
-        doc.text(`₹${(total + previousPendingCleared).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`₹ ${(total + previousPendingCleared).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setFont(undefined, "normal");
       }
 
       if (order.is_credit_order) {
         totalsY += 10;
+        
+        // Draw separator line
+        doc.setLineWidth(0.3);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(totalsX, totalsY, pageWidth - 14, totalsY);
+        totalsY += 7;
+        
         doc.setFontSize(10);
         doc.setFont(undefined, "normal");
+        doc.setTextColor(34, 197, 94); // Green
         doc.text("Paid Now:", totalsX, totalsY);
-        doc.text(`₹${(order.credit_paid_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
-        totalsY += 7;
-        doc.setTextColor(220, 38, 38);
-        doc.text("Credit Amount:", totalsX, totalsY);
-        doc.text(`₹${(order.credit_pending_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.text(`₹ ${(order.credit_paid_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
         doc.setTextColor(0, 0, 0);
+        totalsY += 6;
+        
+        doc.setTextColor(220, 38, 38); // Red
+        doc.setFont(undefined, "bold");
+        doc.text("Pending Amount:", totalsX, totalsY);
+        doc.text(`₹ ${(order.credit_pending_amount || 0).toFixed(2)}`, pageWidth - 14, totalsY, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(undefined, "normal");
       }
 
       // Footer
