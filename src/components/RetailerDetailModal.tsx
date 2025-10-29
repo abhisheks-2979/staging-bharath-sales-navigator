@@ -536,47 +536,23 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           </Accordion>
         </div>
 
-        <div className="flex justify-between pt-4 border-t">
-          <div>
-            {isEditing && (
-              <Button 
-                variant="destructive" 
-                onClick={handleDelete}
-                disabled={loading}
-              >
-                Delete
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
-            {isEditing ? (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData({ ...retailer! });
-                  }}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSave}
-                  disabled={loading}
-                >
-                  {loading ? "Saving..." : "Save Changes"}
-                </Button>
-              </>
-            ) : (
-              <Button onClick={() => setIsEditing(true)}>
-                Edit
-              </Button>
-            )}
-          </div>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setFormData({ ...retailer! });
+              onClose();
+            }}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
