@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import { StockCycleModal } from "./StockCycleModal";
 import { AnalyticsModal } from "./AnalyticsModal";
 import { StockDataModal } from "./StockDataModal";
 import { RetailerAnalytics } from "./RetailerAnalytics";
+import { InvoiceGenerator } from "./InvoiceGenerator";
+import { PaymentMarkingModal } from "./PaymentMarkingModal";
 
 interface Visit {
   id: string;
@@ -76,6 +78,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [isCreditOrder, setIsCreditOrder] = useState(false);
   const [creditPendingAmount, setCreditPendingAmount] = useState<number>(0);
   const [creditPaidAmount, setCreditPaidAmount] = useState<number>(0);
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   const pendingCheckDataRef = useRef<{
@@ -224,10 +228,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             .eq('retailer_id', visitRetailerId)
             .eq('status', 'confirmed')
             .gte('created_at', todayStart.toISOString())
-            .lte('created_at', todayEnd.toISOString());
+            .lte('created_at', todayEnd.toISOString())
+            .order('created_at', { ascending: false });
 
           if (ordersToday && ordersToday.length > 0) {
             setHasOrderToday(true);
+            // Store the most recent order ID for invoice generation
+            setLastOrderId(ordersToday[0].id);
             // Calculate totals for today
             const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0);
             setActualOrderValue(totalOrderValue);
@@ -1088,11 +1095,22 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         {/* Contact info */}
         <div className="mb-4">
           {pendingAmount > 0 && (
-            <div className="mb-3 p-2 bg-warning/10 border border-warning/30 rounded-md">
-              <p className="text-xs sm:text-sm font-medium text-warning flex items-center gap-1">
-                <span>⚠️</span>
-                Pending Amount: ₹{pendingAmount.toLocaleString()}
-              </p>
+            <div className="mb-3 p-2 bg-warning/10 border border-warning/30 rounded-md space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs sm:text-sm font-medium text-warning flex items-center gap-1">
+                  <span>⚠️</span>
+                  Pending Amount: ₹{pendingAmount.toLocaleString()}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => setShowPaymentModal(true)}
+                >
+                  <DollarSign className="w-3 h-3" />
+                  Mark Payment
+                </Button>
+              </div>
             </div>
           )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
@@ -1251,6 +1269,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              
+              {/* Invoice Generation Button */}
+              {lastOrderId && (
+                <div className="mt-3 pt-2 border-t">
+                  <InvoiceGenerator orderId={lastOrderId} className="w-full" />
                 </div>
               )}
             </div>
@@ -1595,6 +1620,18 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           onClose={() => setShowStockDataModal(false)}
           retailerId={(visit.retailerId || visit.id) as string}
           retailerName={visit.retailerName}
+        />
+
+        {/* Payment Marking Modal */}
+        <PaymentMarkingModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          retailerId={(visit.retailerId || visit.id) as string}
+          currentPendingAmount={pendingAmount}
+          onPaymentMarked={() => {
+            // Refresh the visit data
+            window.dispatchEvent(new CustomEvent('visitStatusChanged'));
+          }}
         />
 
         {/* Retailer Analytics Modal */}

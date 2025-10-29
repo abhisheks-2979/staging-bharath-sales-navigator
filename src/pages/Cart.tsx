@@ -717,8 +717,19 @@ React.useEffect(() => {
                 </div>
 
                 {pendingAmountFromPrevious > 0 && (
-                  <div className="p-3 bg-warning/10 rounded-lg border border-warning/20">
-                    <p className="text-sm font-medium text-warning">Pending Amount from Previous: ₹{pendingAmountFromPrevious.toLocaleString()}</p>
+                  <div className="space-y-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Previous Pending:</span>
+                      <span className="font-semibold text-warning">₹{pendingAmountFromPrevious.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Current Order:</span>
+                      <span className="font-semibold">₹{getFinalTotal().toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-800">
+                      <span className="font-medium">Total Due:</span>
+                      <span className="font-bold">₹{(pendingAmountFromPrevious + getFinalTotal()).toLocaleString()}</span>
+                    </div>
                   </div>
                 )}
 
@@ -743,6 +754,35 @@ React.useEffect(() => {
                 {showCreditOptions && (
                   <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
                     <p className="text-sm font-medium">Select Credit Option:</p>
+                    
+                    {/* Show payment breakdown */}
+                    <div className="p-3 bg-background rounded-md space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Order Total:</span>
+                        <span className="font-medium">₹{getFinalTotal().toLocaleString()}</span>
+                      </div>
+                      {pendingAmountFromPrevious > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Previous Pending:</span>
+                          <span className="font-medium text-warning">₹{pendingAmountFromPrevious.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 border-t font-semibold">
+                        <span>Amount to Pay Now:</span>
+                        <span className="text-success">
+                          ₹{(getFinalTotal() - (creditPendingAmount || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                      {creditPendingAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span>Credit Amount:</span>
+                          <span className="font-medium text-warning">
+                            ₹{creditPendingAmount.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="space-y-2">
                       <Button
                         onClick={() => {
@@ -762,8 +802,15 @@ React.useEffect(() => {
                           type="number"
                           placeholder="Enter custom pending amount"
                           value={customPendingAmount}
-                          onChange={(e) => setCustomPendingAmount(e.target.value)}
+                          onChange={(e) => {
+                            setCustomPendingAmount(e.target.value);
+                            const amount = parseFloat(e.target.value);
+                            if (!isNaN(amount)) {
+                              setCreditPendingAmount(amount);
+                            }
+                          }}
                           className="w-full px-3 py-2 border rounded-md"
+                          max={getFinalTotal()}
                         />
                         <Button
                           onClick={() => {
@@ -784,7 +831,7 @@ React.useEffect(() => {
                           variant="secondary"
                           disabled={!customPendingAmount}
                         >
-                          Custom Pending Amount
+                          Submit with ₹{customPendingAmount ? parseFloat(customPendingAmount).toLocaleString() : '0'} Pending
                         </Button>
                       </div>
                     </div>
