@@ -48,6 +48,27 @@ const TerritoriesManagement = () => {
   useEffect(() => {
     loadTerritories();
     loadUsers();
+
+    // Set up real-time subscription for orders to update territory stats
+    const channel = supabase
+      .channel('territories-orders-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          console.log('Order change detected, refreshing territories:', payload);
+          loadTerritories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadUsers = async () => {

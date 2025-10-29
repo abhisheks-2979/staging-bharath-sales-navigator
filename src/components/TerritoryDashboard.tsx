@@ -53,6 +53,27 @@ const TerritoryDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
+
+    // Set up real-time subscription for orders
+    const channel = supabase
+      .channel('territory-dashboard-orders')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          console.log('Order change detected:', payload);
+          loadDashboardData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [dateRange]);
 
   const loadDashboardData = async () => {
