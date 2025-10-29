@@ -36,6 +36,9 @@ interface AssetLineItem {
   preferredVendor: string;
   vendorConfirmationStatus: string;
   vendorBudget: string;
+  currentStage: string;
+  approvedBudget: string;
+  pendingStatus: string;
 }
 
 export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, defaultRetailerId, defaultPincode, onCreated }: BrandingRequestModalProps) => {
@@ -61,7 +64,10 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     dueDate: '',
     preferredVendor: '',
     vendorConfirmationStatus: 'Pending',
-    vendorBudget: ''
+    vendorBudget: '',
+    currentStage: '',
+    approvedBudget: '',
+    pendingStatus: ''
   });
   
   // New fields
@@ -92,7 +98,10 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
       dueDate: '',
       preferredVendor: '',
       vendorConfirmationStatus: 'Pending',
-      vendorBudget: ''
+      vendorBudget: '',
+      currentStage: '',
+      approvedBudget: '',
+      pendingStatus: ''
     });
   }, [isOpen]);
 
@@ -234,7 +243,10 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
       dueDate: '',
       preferredVendor: '',
       vendorConfirmationStatus: 'Pending',
-      vendorBudget: ''
+      vendorBudget: '',
+      currentStage: '',
+      approvedBudget: '',
+      pendingStatus: ''
     });
   };
 
@@ -300,6 +312,9 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         preferred_vendor: item.preferredVendor || null,
         vendor_confirmation_status: item.vendorConfirmationStatus,
         vendor_budget: item.vendorBudget ? Number(item.vendorBudget) : null,
+        current_stage: item.currentStage || null,
+        approved_budget: item.approvedBudget ? Number(item.approvedBudget) : null,
+        pending_status: item.pendingStatus || null,
       }));
 
       const { error: itemsError } = await supabase.from('branding_request_items').insert(itemsPayload);
@@ -508,7 +523,10 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                               dueDate: '',
                               preferredVendor: '',
                               vendorConfirmationStatus: 'Pending',
-                              vendorBudget: ''
+                              vendorBudget: '',
+                              currentStage: '',
+                              approvedBudget: '',
+                              pendingStatus: ''
                             });
                           }}
                         >
@@ -574,13 +592,13 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                   <p>No assets added yet. Add assets in the Basic Info tab.</p>
                 </div>
               ) : (
-                assetLineItems.map((item) => {
+                assetLineItems.map((item, itemIndex) => {
                   const progress = getProgressForStatus(item.vendorConfirmationStatus);
                   const isRejected = item.vendorConfirmationStatus === 'Rejected';
                   
                   return (
                     <Card key={item.id}>
-                      <CardContent className="p-4 space-y-3">
+                      <CardContent className="p-4 space-y-4">
                         <div className="flex items-start justify-between">
                           <div>
                             <h4 className="font-semibold">{item.assetType}</h4>
@@ -604,19 +622,82 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                           />
                         </div>
 
-                        {item.dueDate && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Due Date:</span>
-                            <span>{new Date(item.dueDate).toLocaleDateString()}</span>
-                          </div>
-                        )}
+                        <Separator />
 
-                        {item.vendorBudget && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Budget:</span>
-                            <span className="font-medium">₹{Number(item.vendorBudget).toLocaleString()}</span>
+                        {/* Editable Status Fields */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-sm">Current Stage</Label>
+                            <Input
+                              value={item.currentStage}
+                              onChange={(e) => {
+                                const updated = [...assetLineItems];
+                                updated[itemIndex].currentStage = e.target.value;
+                                setAssetLineItems(updated);
+                              }}
+                              placeholder="e.g., Design approval, Installation"
+                              className="h-9"
+                            />
                           </div>
-                        )}
+
+                          <div className="space-y-1">
+                            <Label className="text-sm">Approved Budget (₹)</Label>
+                            <Input
+                              type="number"
+                              value={item.approvedBudget}
+                              onChange={(e) => {
+                                const updated = [...assetLineItems];
+                                updated[itemIndex].approvedBudget = e.target.value;
+                                setAssetLineItems(updated);
+                              }}
+                              placeholder="Final approved amount"
+                              className="h-9"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <Label className="text-sm">Pending Status</Label>
+                            <Textarea
+                              value={item.pendingStatus}
+                              onChange={(e) => {
+                                const updated = [...assetLineItems];
+                                updated[itemIndex].pendingStatus = e.target.value;
+                                setAssetLineItems(updated);
+                              }}
+                              placeholder="What's pending? (e.g., waiting for vendor confirmation, material procurement pending)"
+                              className="min-h-[60px]"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Display Summary */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t">
+                          {item.dueDate && (
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Due Date:</span>
+                              <span className="ml-2 font-medium">{new Date(item.dueDate).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {item.vendorBudget && (
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Vendor Budget:</span>
+                              <span className="ml-2 font-medium">₹{Number(item.vendorBudget).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {item.currentStage && (
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Stage:</span>
+                              <span className="ml-2 font-medium">{item.currentStage}</span>
+                            </div>
+                          )}
+                          {item.approvedBudget && (
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Approved:</span>
+                              <span className="ml-2 font-medium text-green-600">₹{Number(item.approvedBudget).toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   );

@@ -304,33 +304,42 @@ export type Database = {
       }
       branding_request_items: {
         Row: {
+          approved_budget: number | null
           asset_type: string
           branding_request_id: string | null
           created_at: string
+          current_stage: string | null
           due_date: string | null
           id: string
+          pending_status: string | null
           preferred_vendor: string | null
           updated_at: string
           vendor_budget: number | null
           vendor_confirmation_status: string | null
         }
         Insert: {
+          approved_budget?: number | null
           asset_type: string
           branding_request_id?: string | null
           created_at?: string
+          current_stage?: string | null
           due_date?: string | null
           id?: string
+          pending_status?: string | null
           preferred_vendor?: string | null
           updated_at?: string
           vendor_budget?: number | null
           vendor_confirmation_status?: string | null
         }
         Update: {
+          approved_budget?: number | null
           asset_type?: string
           branding_request_id?: string | null
           created_at?: string
+          current_stage?: string | null
           due_date?: string | null
           id?: string
+          pending_status?: string | null
           preferred_vendor?: string | null
           updated_at?: string
           vendor_budget?: number | null
