@@ -19,7 +19,7 @@ interface DetectedProduct {
 interface ImageStockCaptureProps {
   isOpen: boolean;
   onClose: () => void;
-  onApprove: (stockCounts: { productId: string; count: number }[]) => void;
+  onApprove: (stockCounts: { productId: string; productName: string; count: number }[]) => void;
 }
 
 export const ImageStockCapture: React.FC<ImageStockCaptureProps> = ({
@@ -164,6 +164,7 @@ export const ImageStockCapture: React.FC<ImageStockCaptureProps> = ({
       .filter(p => p.count > 0)
       .map(p => ({
         productId: p.productId,
+        productName: p.productName, // Include product name for better matching
         count: p.count,
       }));
 

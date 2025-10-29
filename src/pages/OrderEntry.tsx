@@ -2218,85 +2218,112 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
               }
 
               const today = new Date().toISOString().split('T')[0];
-
-              const records = stockCounts.map(({ productId, count }) => {
-                let productName = 'Unknown Product';
-                let baseId = productId;
-                let variantId: string | null = null;
-
-                if (productId.includes('_variant_')) {
-                  const parts = productId.split('_variant_');
-                  baseId = parts[0];
-                  variantId = parts[1];
-                }
-
-                const baseProduct = products.find(p => p.id === baseId);
-                if (baseProduct) {
-                  if (variantId && baseProduct.variants?.length) {
-                    const v = baseProduct.variants.find(v => v.id === variantId);
-                    productName = v ? `${baseProduct.name} - ${v.variant_name}` : baseProduct.name;
-                  } else {
-                    productName = baseProduct.name;
-                  }
-                }
-
-                return {
-                  user_id: user.id,
-                  retailer_id: retailerId,
-                  visit_id: visitId,
-                  product_id: productId,
-                  product_name: productName,
-                  stock_quantity: count,
-                  ordered_quantity: 0,
-                  visit_date: today,
-                };
-              });
-
-              // Save to database
-              const { error: insertError } = await supabase
-                .from('stock_cycle_data')
-                .insert(records);
-
-              if (insertError) throw insertError;
-
-              // Update local state for immediate UI feedback
-              // Map AI-detected product IDs to both base products AND all variant composite IDs
-              const newClosingStocks: {[key: string]: number} = {};
               
-              stockCounts.forEach(({ productId, count }) => {
-                // Find the product
-                const product = products.find(p => p.id === productId);
+              // Enhanced matching: Match detected products with local products by ID or name
+              const matchedStockUpdates: {[key: string]: number} = {};
+              const databaseRecords: any[] = [];
+              
+              console.log('🔍 Processing AI detected stock counts:', stockCounts);
+              console.log('📦 Available products:', products.map(p => ({ id: p.id, name: p.name, variants: p.variants?.length || 0 })));
+
+              stockCounts.forEach(({ productId, productName, count }) => {
+                // Try to find product by ID first
+                let matchedProduct = products.find(p => p.id === productId);
                 
-                if (product?.variants && product.variants.length > 0) {
-                  // Product has variants - update all variant composite IDs
-                  product.variants.forEach(variant => {
-                    const variantCompositeId = `${product.id}_variant_${variant.id}`;
-                    newClosingStocks[variantCompositeId] = count;
+                // If not found by ID, try to match by name (case-insensitive and partial match)
+                if (!matchedProduct && productName) {
+                  const searchName = productName.toLowerCase().trim();
+                  matchedProduct = products.find(p => {
+                    const pName = p.name.toLowerCase().trim();
+                    // Match if product name contains the detected name OR detected name contains product name
+                    return pName.includes(searchName) || searchName.includes(pName);
+                  });
+                  
+                  console.log(`🔎 Matching by name for "${productName}":`, matchedProduct?.name || 'No match');
+                }
+                
+                if (matchedProduct) {
+                  console.log(`✅ Matched product:`, { id: matchedProduct.id, name: matchedProduct.name, count });
+                  
+                  // Update stock for the matched product
+                  if (matchedProduct.variants && matchedProduct.variants.length > 0) {
+                    // Has variants - update all variants with the same stock count
+                    matchedProduct.variants.forEach(variant => {
+                      const variantCompositeId = `${matchedProduct.id}_variant_${variant.id}`;
+                      matchedStockUpdates[variantCompositeId] = count;
+                      console.log(`📝 Updated variant stock: ${variantCompositeId} = ${count}`);
+                    });
+                    
+                    // Also update base product stock
+                    matchedStockUpdates[matchedProduct.id] = count;
+                  } else {
+                    // No variants - update base product
+                    matchedStockUpdates[matchedProduct.id] = count;
+                    console.log(`📝 Updated base product stock: ${matchedProduct.id} = ${count}`);
+                  }
+                  
+                  // Create database record
+                  databaseRecords.push({
+                    user_id: user.id,
+                    retailer_id: retailerId,
+                    visit_id: visitId,
+                    product_id: matchedProduct.id,
+                    product_name: matchedProduct.name,
+                    stock_quantity: count,
+                    ordered_quantity: 0,
+                    visit_date: today,
                   });
                 } else {
-                  // No variants - update the base product ID
-                  newClosingStocks[productId] = count;
+                  console.warn(`⚠️ Could not match detected product: "${productName || productId}"`);
                 }
               });
               
-              setClosingStocks(prev => ({ ...prev, ...newClosingStocks }));
+              console.log('📊 Final stock updates to apply:', matchedStockUpdates);
+
+              // Save to database
+              if (databaseRecords.length > 0) {
+                const { error: insertError } = await supabase
+                  .from('stock_cycle_data')
+                  .insert(databaseRecords);
+
+                if (insertError) {
+                  console.error('Database insert error:', insertError);
+                  throw insertError;
+                }
+                console.log('✅ Saved to database:', databaseRecords.length, 'records');
+              }
+              
+              // Update local state for immediate UI feedback
+              setClosingStocks(prev => {
+                const updated = { ...prev, ...matchedStockUpdates };
+                console.log('📦 Updated closingStocks state:', updated);
+                return updated;
+              });
 
               // Also save to localStorage for persistence
               const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
               const existingStocks = JSON.parse(localStorage.getItem(stockKey) || '{}');
-              localStorage.setItem(stockKey, JSON.stringify({ ...existingStocks, ...newClosingStocks }));
+              const mergedStocks = { ...existingStocks, ...matchedStockUpdates };
+              localStorage.setItem(stockKey, JSON.stringify(mergedStocks));
+              console.log('💾 Saved to localStorage:', mergedStocks);
 
-              toast({ 
-                title: 'Stock Updated Successfully', 
-                description: `Updated stock for ${Object.keys(newClosingStocks).length} variant${Object.keys(newClosingStocks).length === 1 ? '' : 's'}. Check "Stock Qty" column.`,
-                duration: 5000
-              });
+              const matchedCount = Object.keys(matchedStockUpdates).length;
+              if (matchedCount > 0) {
+                toast({ 
+                  title: 'Stock Updated Successfully', 
+                  description: `Updated stock for ${matchedCount} item${matchedCount === 1 ? '' : 's'}. Check "Stock Qty" column in the order form.`,
+                  duration: 5000
+                });
+              } else {
+                toast({
+                  title: 'No Products Matched',
+                  description: 'Could not match detected products with available products. Please check product names.',
+                  variant: 'destructive',
+                  duration: 5000
+                });
+              }
               
-              console.log('✅ Stock quantities updated:', newClosingStocks);
-              console.log('📦 Products matched:', stockCounts.map(sc => {
-                const p = products.find(pr => pr.id === sc.productId);
-                return `${p?.name || sc.productId} (${p?.variants?.length || 0} variants)`;
-              }));
+              console.log('✅ Stock update complete. Matched products:', matchedCount);
             } catch (e: any) {
               console.error('Error saving stock records:', e);
               toast({ 
