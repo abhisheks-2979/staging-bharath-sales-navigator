@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => ({
           '**/*.map',
           '**/lovable-uploads/**/*',
         ],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
       manifest: {
         name: 'Bharath Sales Navigator',
