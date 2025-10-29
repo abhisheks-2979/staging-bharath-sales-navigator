@@ -302,6 +302,50 @@ export type Database = {
         }
         Relationships: []
       }
+      branding_request_items: {
+        Row: {
+          asset_type: string
+          branding_request_id: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          preferred_vendor: string | null
+          updated_at: string
+          vendor_budget: number | null
+          vendor_confirmation_status: string | null
+        }
+        Insert: {
+          asset_type: string
+          branding_request_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          preferred_vendor?: string | null
+          updated_at?: string
+          vendor_budget?: number | null
+          vendor_confirmation_status?: string | null
+        }
+        Update: {
+          asset_type?: string
+          branding_request_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          preferred_vendor?: string | null
+          updated_at?: string
+          vendor_budget?: number | null
+          vendor_confirmation_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_request_items_branding_request_id_fkey"
+            columns: ["branding_request_id"]
+            isOneToOne: false
+            referencedRelation: "branding_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branding_requests: {
         Row: {
           approved_at: string | null
