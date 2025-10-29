@@ -19,6 +19,7 @@ import { useGPSTracking } from '@/hooks/useGPSTracking';
 import { JourneyMap } from '@/components/JourneyMap';
 import { TimelineView } from '@/components/TimelineView';
 import { cn } from '@/lib/utils';
+import { useFaceMatching } from '@/hooks/useFaceMatching';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -46,6 +47,7 @@ const Attendance = () => {
   const [stopReason, setStopReason] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const { compareImages, getMatchStatusIcon, getMatchStatusText } = useFaceMatching();
 
   // GPS Tracking for today
   const today = new Date();
@@ -298,6 +300,26 @@ const Attendance = () => {
     setIsMarkingAttendance(true);
     
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Get user's profile picture for face verification
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('profile_picture_url')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.profile_picture_url) {
+        toast({
+          title: "Profile Picture Required",
+          description: "Please upload your profile picture first in your profile settings.",
+          variant: "destructive"
+        });
+        setIsMarkingAttendance(false);
+        return;
+      }
+
       // Get fresh high-accuracy location right before marking attendance
       const freshLocation = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
         if (!navigator.geolocation) {
@@ -334,22 +356,36 @@ const Attendance = () => {
         throw new Error('Failed to capture photo');
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
       const today = new Date().toISOString().split('T')[0];
       const timestamp = new Date().toISOString();
 
       // Upload photo
       const photoPath = `attendance/${user.id}/${today}_${type}_${Date.now()}.jpg`;
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('attendance-photos')
         .upload(photoPath, photoBlob as Blob);
 
       if (uploadError) throw uploadError;
 
+      // Get public URL for face matching
+      const { data: urlData } = supabase.storage
+        .from('attendance-photos')
+        .getPublicUrl(photoPath);
+
+      // Perform face matching
+      const faceMatchResult = await compareImages(profile.profile_picture_url, urlData.publicUrl);
+      
+      // Show face match result
+      toast({
+        title: `Face Verification: ${getMatchStatusText(faceMatchResult)}`,
+        description: faceMatchResult.status === 'match' 
+          ? 'Face verified successfully!' 
+          : 'Face verification confidence is low. Your manager will review.',
+        variant: faceMatchResult.status === 'match' ? 'default' : 'destructive',
+      });
+
       if (type === 'check-in') {
-        // Mark attendance
+        // Mark attendance with face verification result
         const { error: attendanceError } = await supabase
           .from('attendance')
           .insert({
@@ -359,7 +395,9 @@ const Attendance = () => {
             check_in_location: freshLocation,
             check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
             check_in_photo_url: photoPath,
-            status: 'present'
+            status: 'present',
+            face_verification_status: faceMatchResult.status,
+            face_match_confidence: faceMatchResult.confidence
           });
 
         if (attendanceError) throw attendanceError;

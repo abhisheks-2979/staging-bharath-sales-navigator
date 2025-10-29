@@ -28,6 +28,7 @@ import { useState, useEffect } from "react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 
 const motivationalQuotes = [
   "Success is not final, failure is not fatal: it is the courage to continue that counts.",
@@ -288,6 +289,15 @@ const Index = () => {
           </Card>
         </div>
       </div>
+
+      {/* Profile Setup Modal for First Login */}
+      {userProfile && (
+        <ProfileSetupModal
+          userId={userProfile.id}
+          fullName={userProfile.full_name || ''}
+          onComplete={() => {}}
+        />
+      )}
     </Layout>
   );
 };

@@ -129,19 +129,7 @@ const CreateUserForm = () => {
 
       const userId = data.user.id;
 
-      // Upload files if any
-      const photoFile = files.find(f => f.type === 'photo');
-      if (photoFile) {
-        const photoPath = await uploadFile(photoFile.file, userId, 'photo');
-        if (photoPath) {
-          await supabase
-            .from('employees')
-            .update({ photo_url: photoPath })
-            .eq('user_id', userId);
-        }
-      }
-
-      // Upload document files
+      // Upload document files (profile photo will be captured on first login)
       const docFiles = files.filter(f => f.type !== 'photo');
       for (const docFile of docFiles) {
         const filePath = await uploadFile(docFile.file, userId, docFile.type);
@@ -406,42 +394,11 @@ const CreateUserForm = () => {
           {/* File Uploads */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Documents & Photo</h3>
+            <p className="text-sm text-muted-foreground">
+              Note: User will capture profile photo via camera on first login
+            </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Photo Upload */}
-              <div className="space-y-2">
-                <Label>Profile Photo</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                  {files.find(f => f.type === 'photo') ? (
-                    <div className="space-y-2">
-                      <img 
-                        src={files.find(f => f.type === 'photo')?.preview} 
-                        alt="Profile" 
-                        className="w-20 h-20 object-cover rounded-full mx-auto"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile('photo')}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer">
-                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                      <span className="text-sm text-gray-600">Upload Photo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleFileUpload('photo')}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
               {/* Address Proof */}
               <div className="space-y-2">

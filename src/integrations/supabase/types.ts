@@ -143,6 +143,8 @@ export type Database = {
           check_out_time: string | null
           created_at: string
           date: string
+          face_match_confidence: number | null
+          face_verification_status: string | null
           id: string
           notes: string | null
           status: string
@@ -161,6 +163,8 @@ export type Database = {
           check_out_time?: string | null
           created_at?: string
           date?: string
+          face_match_confidence?: number | null
+          face_verification_status?: string | null
           id?: string
           notes?: string | null
           status?: string
@@ -179,6 +183,8 @@ export type Database = {
           check_out_time?: string | null
           created_at?: string
           date?: string
+          face_match_confidence?: number | null
+          face_verification_status?: string | null
           id?: string
           notes?: string | null
           status?: string

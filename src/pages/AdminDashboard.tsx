@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,6 +31,13 @@ interface User {
   created_at: string;
   last_sign_in_at?: string;
   email_confirmed_at?: string;
+  profile?: {
+    id: string;
+    username: string;
+    full_name: string;
+    created_at: string;
+    profile_picture_url?: string;
+  };
 }
 
 export const AdminDashboard = () => {
@@ -332,6 +340,7 @@ export const AdminDashboard = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Photo</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Username</TableHead>
                         <TableHead>Full Name</TableHead>
@@ -346,6 +355,12 @@ export const AdminDashboard = () => {
                     <TableBody>
                       {users.map((user) => (
                         <TableRow key={user.id}>
+                          <TableCell>
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={user.profile?.profile_picture_url} />
+                              <AvatarFallback>{user.profile?.full_name?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                          </TableCell>
                           <TableCell className="font-medium">{user.email}</TableCell>
                           <TableCell>{user.username}</TableCell>
                           <TableCell>{user.full_name}</TableCell>
