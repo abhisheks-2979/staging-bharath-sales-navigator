@@ -267,9 +267,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string, hintAnswer: string, newPassword: string) => {
     try {
-      // Use the new secure hint verification function
-      const { data: isValid, error: verifyError } = await supabase
-        .rpc('verify_hint_answer_secure', {
+      // Use the new rate-limited verification function
+      const { data: verifyResult, error: verifyError } = await supabase
+        .rpc('verify_hint_answer_with_rate_limit', {
           user_email: email,
           submitted_answer: hintAnswer
         });
@@ -279,8 +279,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: verifyError };
       }
 
-      if (!isValid) {
-        const error = new Error('Invalid security answer') as AuthError;
+      if (!verifyResult || verifyResult.length === 0) {
+        const error = new Error('Verification failed') as AuthError;
+        return { error };
+      }
+
+      const result = verifyResult[0];
+
+      // Check if account is locked
+      if (result.is_locked) {
+        const error = new Error('Account locked due to too many failed attempts. Please contact an administrator to unlock your account.') as AuthError;
+        return { error };
+      }
+
+      // Check if answer is valid
+      if (!result.is_valid) {
+        const remainingText = result.attempts_remaining > 0 
+          ? ` ${result.attempts_remaining} attempt(s) remaining before account lockout.`
+          : ' Account will be locked on next failed attempt.';
+        const error = new Error('Invalid security answer.' + remainingText) as AuthError;
         return { error };
       }
 

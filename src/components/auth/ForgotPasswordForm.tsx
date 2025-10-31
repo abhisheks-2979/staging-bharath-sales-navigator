@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { toast } from 'sonner';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -35,8 +36,15 @@ export const ForgotPasswordForm = () => {
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
-    await resetPassword(data.email, data.hintAnswer, data.newPassword);
+    const result = await resetPassword(data.email, data.hintAnswer, data.newPassword);
     setIsLoading(false);
+
+    if (result?.error) {
+      toast.error(result.error.message || 'Failed to reset password');
+    } else {
+      toast.success('Password reset successfully! You can now sign in with your new password.');
+      form.reset();
+    }
   };
 
   return (

@@ -1325,6 +1325,33 @@ export type Database = {
           },
         ]
       }
+      password_reset_attempts: {
+        Row: {
+          attempted_at: string
+          email: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          was_successful: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          email: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          was_successful?: boolean
+        }
+        Update: {
+          attempted_at?: string
+          email?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          was_successful?: boolean
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -2339,6 +2366,16 @@ export type Database = {
           username: string
         }[]
       }
+      get_password_reset_stats: {
+        Args: never
+        Returns: {
+          email: string
+          failed_attempts: number
+          is_locked: boolean
+          last_attempt: string
+          total_attempts: number
+        }[]
+      }
       get_public_vendors: {
         Args: never
         Returns: {
@@ -2419,6 +2456,7 @@ export type Database = {
         Returns: boolean
       }
       hash_hint_answer: { Args: { answer: string }; Returns: string }
+      is_account_locked: { Args: { user_email: string }; Returns: boolean }
       log_sensitive_access: {
         Args: { p_action: string; p_record_id: string; p_table_name: string }
         Returns: undefined
@@ -2438,6 +2476,7 @@ export type Database = {
         }
         Returns: string
       }
+      unlock_password_reset: { Args: { user_email: string }; Returns: boolean }
       update_security_info: {
         Args: { new_hint_answer: string; new_hint_question: string }
         Returns: boolean
@@ -2478,6 +2517,19 @@ export type Database = {
       verify_hint_answer_secure: {
         Args: { submitted_answer: string; user_email: string }
         Returns: boolean
+      }
+      verify_hint_answer_with_rate_limit: {
+        Args: {
+          submitted_answer: string
+          user_agent_str?: string
+          user_email: string
+          user_ip?: string
+        }
+        Returns: {
+          attempts_remaining: number
+          is_locked: boolean
+          is_valid: boolean
+        }[]
       }
     }
     Enums: {
