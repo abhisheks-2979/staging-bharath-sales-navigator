@@ -372,16 +372,43 @@ const Attendance = () => {
         .from('attendance-photos')
         .getPublicUrl(photoPath);
 
-      // Perform face matching
-      const faceMatchResult = await compareImages(profile.profile_picture_url, urlData.publicUrl);
+      // Perform SERVER-SIDE face matching for security
+      const { data: faceMatchResult, error: faceMatchError } = await supabase.functions.invoke(
+        'verify-face-match',
+        {
+          body: {
+            baselinePhotoUrl: profile.profile_picture_url,
+            attendancePhotoUrl: urlData.publicUrl
+          }
+        }
+      );
+
+      if (faceMatchError) {
+        console.error('Face verification error:', faceMatchError);
+        toast({
+          title: "Face Verification Failed",
+          description: "Unable to verify your identity. Please try again.",
+          variant: "destructive"
+        });
+        setIsMarkingAttendance(false);
+        return;
+      }
+
+      // Only allow attendance if face is verified
+      if (!faceMatchResult?.verified) {
+        toast({
+          title: "Face Verification Failed",
+          description: `Confidence: ${Math.round(faceMatchResult?.confidence || 0)}%. Your manager will be notified for review.`,
+          variant: "destructive"
+        });
+        setIsMarkingAttendance(false);
+        return;
+      }
       
-      // Show face match result
+      // Show success result
       toast({
-        title: `Face Verification: ${getMatchStatusText(faceMatchResult)}`,
-        description: faceMatchResult.status === 'match' 
-          ? 'Face verified successfully!' 
-          : 'Face verification confidence is low. Your manager will review.',
-        variant: faceMatchResult.status === 'match' ? 'default' : 'destructive',
+        title: `Face Verified (${Math.round(faceMatchResult.confidence)}%)`,
+        description: 'Identity confirmed successfully!',
       });
 
       if (type === 'check-in') {

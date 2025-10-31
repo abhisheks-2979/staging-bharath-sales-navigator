@@ -1,7 +1,7 @@
 project_id = "etabpbfokzhhfuybeieu"
 
 [functions.validate-invitation]
-verify_jwt = false
+verify_jwt = true
 
 [functions.scan-board]
 verify_jwt = false
@@ -16,4 +16,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.scan-wall-measurements]
+verify_jwt = true
+
+[functions.verify-face-match]
 verify_jwt = true

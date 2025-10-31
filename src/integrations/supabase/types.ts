@@ -1882,6 +1882,36 @@ export type Database = {
         }
         Relationships: []
       }
+      sensitive_data_access_log: {
+        Row: {
+          accessed_at: string
+          action: string
+          id: string
+          ip_address: string | null
+          record_id: string | null
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          accessed_at?: string
+          action: string
+          id?: string
+          ip_address?: string | null
+          record_id?: string | null
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          accessed_at?: string
+          action?: string
+          id?: string
+          ip_address?: string | null
+          record_id?: string | null
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stock: {
         Row: {
           created_at: string
@@ -2272,6 +2302,8 @@ export type Database = {
         Args: { _invitation_token: string }
         Returns: boolean
       }
+      can_view_employee: { Args: { _target_user_id: string }; Returns: boolean }
+      can_view_profile: { Args: { _target_user_id: string }; Returns: boolean }
       check_duplicate_competitor: {
         Args: { competitor_name_param: string }
         Returns: {
@@ -2318,6 +2350,17 @@ export type Database = {
           region_pincodes: string[]
           skills: string[]
           state: string
+        }[]
+      }
+      get_suspicious_access_attempts: {
+        Args: never
+        Returns: {
+          action: string
+          attempt_count: number
+          first_attempt: string
+          last_attempt: string
+          table_name: string
+          user_id: string
         }[]
       }
       get_territory_sales_summary: {
@@ -2376,6 +2419,10 @@ export type Database = {
         Returns: boolean
       }
       hash_hint_answer: { Args: { answer: string }; Returns: string }
+      log_sensitive_access: {
+        Args: { p_action: string; p_record_id: string; p_table_name: string }
+        Returns: undefined
+      }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
         Returns: boolean
