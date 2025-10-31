@@ -31,6 +31,8 @@ interface AttendanceData {
   check_out_location: any;
   check_in_address: string | null;
   check_out_address: string | null;
+  face_match_confidence?: number | null;
+  face_verification_status?: string | null;
   profiles?: {
     full_name: string;
     username: string;
@@ -330,6 +332,31 @@ const LiveAttendanceMonitoring = () => {
     );
   };
 
+  const getFaceMatchBadge = (confidence: number | null | undefined) => {
+    if (!confidence) return <span className="text-muted-foreground">--</span>;
+
+    const percentage = Math.round(confidence);
+    let colorClass = '';
+    let icon = '';
+
+    if (confidence >= 70) {
+      colorClass = 'bg-green-100 text-green-800 border-green-300';
+      icon = '✓';
+    } else if (confidence >= 40) {
+      colorClass = 'bg-amber-100 text-amber-800 border-amber-300';
+      icon = '⚠';
+    } else {
+      colorClass = 'bg-red-100 text-red-800 border-red-300';
+      icon = '✗';
+    }
+
+    return (
+      <Badge className={`${colorClass} border`}>
+        {icon} {percentage}%
+      </Badge>
+    );
+  };
+
   const formatLocation = (location: any, address: string | null) => {
     if (!location) return '--';
     
@@ -571,6 +598,7 @@ const LiveAttendanceMonitoring = () => {
                     <TableHead>First Check In</TableHead>
                     <TableHead>Last Check In</TableHead>
                     <TableHead>Active Market Hours</TableHead>
+                    <TableHead>Face Match</TableHead>
                     <TableHead>Attendance Status</TableHead>
                     <TableHead>Location</TableHead>
                   </TableRow>
@@ -607,6 +635,9 @@ const LiveAttendanceMonitoring = () => {
                     </TableCell>
                     <TableCell>
                       {record.active_market_hours ? `${record.active_market_hours.toFixed(1)}h` : '--'}
+                    </TableCell>
+                    <TableCell>
+                      {getFaceMatchBadge(record.face_match_confidence)}
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(record.status)}

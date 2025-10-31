@@ -45,15 +45,14 @@ export const AttendanceDetailModal = ({ isOpen, onClose, selectedDate, record }:
 
   const performFaceMatch = async () => {
     try {
-      if (!baselinePhoto || !record?.rawRecord?.check_in_photo_url) return;
+      // Use actual face match data from the database
+      if (!record?.rawRecord?.face_match_confidence) {
+        setFaceMatchResult(null);
+        return;
+      }
 
-      const { data: attendancePhotoData } = supabase.storage
-        .from('attendance-photos')
-        .getPublicUrl(record.rawRecord.check_in_photo_url);
-
-      // Simulated face matching result
-      const confidence = Math.random() * 100;
-      const status = confidence > 70 ? 'match' : confidence > 50 ? 'partial' : 'nomatch';
+      const confidence = record.rawRecord.face_match_confidence;
+      const status = confidence >= 70 ? 'match' : confidence >= 40 ? 'partial' : 'nomatch';
       const color = status === 'match' ? 'green' : status === 'partial' ? 'amber' : 'red';
 
       setFaceMatchResult({ status, confidence, color });
