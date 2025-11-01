@@ -156,6 +156,7 @@ export const MyVisits = () => {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [timelineDate, setTimelineDate] = useState<Date>(new Date());
   const [timelineVisits, setTimelineVisits] = useState<any[]>([]);
+  const [timelineDayStart, setTimelineDayStart] = useState<string>('08:00 AM');
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -300,7 +301,21 @@ export const MyVisits = () => {
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Get all visits for the selected date with check-in time
+      // Get attendance data for day start time
+      const { data: attendance } = await supabase
+        .from('attendance')
+        .select('check_in_time')
+        .eq('user_id', user.id)
+        .eq('date', dateStr)
+        .maybeSingle();
+      
+      if (attendance?.check_in_time) {
+        setTimelineDayStart(format(new Date(attendance.check_in_time), 'hh:mm a'));
+      } else {
+        setTimelineDayStart('Not checked in');
+      }
+      
+      // Get ALL visits for the selected date (both checked in and not)
       const { data: visits, error } = await supabase
         .from('visits')
         .select(`
@@ -310,12 +325,11 @@ export const MyVisits = () => {
           check_out_time,
           check_in_address,
           status,
-          no_order_reason
+          no_order_reason,
+          skip_check_in_time
         `)
         .eq('user_id', user.id)
-        .eq('planned_date', dateStr)
-        .not('check_in_time', 'is', null)
-        .order('check_in_time', { ascending: true });
+        .eq('planned_date', dateStr);
 
       if (error) throw error;
 
@@ -329,12 +343,12 @@ export const MyVisits = () => {
 
       const { data: retailers, error: retailersError } = await supabase
         .from('retailers')
-        .select('id, name')
+        .select('id, name, address')
         .in('id', retailerIds);
 
       if (retailersError) throw retailersError;
 
-      const retailerMap = new Map(retailers?.map(r => [r.id, r.name]));
+      const retailerMap = new Map(retailers?.map(r => [r.id, { name: r.name, address: r.address }]));
 
       // Get order details for these visits
       const dateStart = new Date(dateStr);
@@ -346,6 +360,7 @@ export const MyVisits = () => {
         .from('orders')
         .select('retailer_id, total_amount, order_items(quantity)')
         .eq('user_id', user.id)
+        .eq('status', 'confirmed')
         .in('retailer_id', retailerIds)
         .gte('created_at', dateStart.toISOString())
         .lte('created_at', dateEnd.toISOString());
@@ -363,18 +378,28 @@ export const MyVisits = () => {
 
       // Transform visits to timeline format
       const timelineData = (visits || []).map(visit => {
+        const retailer = retailerMap.get(visit.retailer_id);
         const order = orderMap.get(visit.retailer_id);
+        // Use check_in_time if available, otherwise use skip_check_in_time for phone orders
+        const effectiveTime = visit.check_in_time || visit.skip_check_in_time;
+        
         return {
           id: visit.id,
-          retailer_name: retailerMap.get(visit.retailer_id) || 'Unknown',
-          check_in_time: visit.check_in_time,
+          retailer_name: retailer?.name || 'Unknown',
+          check_in_time: effectiveTime,
           check_out_time: visit.check_out_time,
-          check_in_address: visit.check_in_address,
+          check_in_address: visit.check_in_address || retailer?.address || 'Address not available',
           status: visit.status,
           order_value: order?.value || 0,
           order_quantity: order?.quantity || 0,
-          no_order_reason: visit.no_order_reason
+          no_order_reason: visit.no_order_reason,
+          is_planned: !effectiveTime // Flag for planned visits
         };
+      })
+      .filter(v => v.check_in_time) // Only show visits that have at least started (check_in or skip_check_in)
+      .sort((a, b) => {
+        // Sort by check_in_time chronologically
+        return new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime();
       });
 
       setTimelineVisits(timelineData);
@@ -1127,12 +1152,16 @@ export const MyVisits = () => {
         <Dialog open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Timeline View</DialogTitle>
+              <DialogTitle>Timeline View - {format(timelineDate, 'MMM dd, yyyy')}</DialogTitle>
             </DialogHeader>
             <TimelineView
               visits={timelineVisits}
+              dayStart={timelineDayStart}
               selectedDate={timelineDate}
-              onDateChange={(date) => setTimelineDate(date)}
+              onDateChange={(date) => {
+                setTimelineDate(date);
+                loadTimelineVisits(date);
+              }}
             />
           </DialogContent>
         </Dialog>

@@ -34,10 +34,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   selectedDate = new Date(),
   onDateChange 
 }) => {
-  // Sort visits by check_in_time (earliest first)
-  const sortedVisits = [...visits].sort((a, b) => 
-    new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
-  );
+  // Sort visits by check_in_time (earliest first), handling null values
+  const sortedVisits = [...visits]
+    .filter(v => v.check_in_time) // Only show visits with check-in time
+    .sort((a, b) => 
+      new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
+    );
 
   const calculateTimeDifference = (time1: string, time2?: string): string => {
     if (!time2) return '0 Min';
@@ -160,11 +162,19 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-500">Completed</Badge>;
+      case 'productive':
+        return <Badge className="bg-green-500 text-white">Completed</Badge>;
       case 'in-progress':
-        return <Badge className="bg-blue-500">In Progress</Badge>;
+        return <Badge className="bg-blue-500 text-white">In Progress</Badge>;
+      case 'unproductive':
+        return <Badge className="bg-orange-500 text-white">Unproductive</Badge>;
+      case 'store-closed':
+        return <Badge className="bg-red-500 text-white">Store Closed</Badge>;
       case 'skipped':
-        return <Badge className="bg-gray-500">Skipped</Badge>;
+      case 'cancelled':
+        return <Badge className="bg-gray-500 text-white">Skipped</Badge>;
+      case 'planned':
+        return <Badge variant="outline" className="border-blue-500 text-blue-500">Planned</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -230,6 +240,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       </div>
 
       {/* Timeline Items */}
+      {sortedVisits.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No visits with check-in recorded for this date.</p>
+          <p className="text-sm mt-2">Visits will appear here once you check in at retailers.</p>
+        </div>
+      )}
+      
       {sortedVisits.map((visit, index) => {
         const travelTime = index > 0 
           ? calculateTimeDifference(sortedVisits[index - 1].check_out_time || sortedVisits[index - 1].check_in_time, visit.check_in_time)
@@ -237,7 +254,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         
         const timeSpent = visit.check_out_time 
           ? calculateTimeDifference(visit.check_in_time, visit.check_out_time)
-          : '0 Min';
+          : 'In Progress';
         
         return (
           <div key={visit.id} className="relative">
