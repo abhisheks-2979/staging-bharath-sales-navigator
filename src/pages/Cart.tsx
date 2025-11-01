@@ -30,6 +30,7 @@ export const Cart = () => {
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
+  const isPhoneOrder = searchParams.get("phoneOrder") === "true";
 
   // Fetch and cache schemes from database
   const [allSchemes, setAllSchemes] = React.useState<any[]>([]);
@@ -449,12 +450,42 @@ React.useEffect(() => {
       // Track previous pending amount that will be cleared
       const previousPendingCleared = isCreditSubmit ? 0 : pendingAmountFromPrevious;
 
+      // For phone orders, create a visit first
+      let actualVisitId = validVisitId;
+      if (isPhoneOrder && !validVisitId && validRetailerId) {
+        const today = new Date().toISOString().split('T')[0];
+        const { data: newVisit, error: visitError } = await supabase
+          .from('visits')
+          .insert({
+            user_id: user.id,
+            retailer_id: validRetailerId,
+            planned_date: today,
+            status: 'productive',
+            skip_check_in_reason: 'phone-order',
+            skip_check_in_time: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (visitError) {
+          console.error('Error creating phone order visit:', visitError);
+          toast({
+            title: "Error",
+            description: "Failed to create visit for phone order",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        actualVisitId = newVisit.id;
+      }
+
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
-          visit_id: validVisitId,
+          visit_id: actualVisitId,
           retailer_id: validRetailerId,
           retailer_name: retailerName,
           subtotal,
@@ -508,8 +539,8 @@ React.useEffect(() => {
       }
 
       // Mark visit as productive if available
-      if (validVisitId) {
-        await supabase.from('visits').update({ status: 'productive' }).eq('id', validVisitId);
+      if (actualVisitId) {
+        await supabase.from('visits').update({ status: 'productive' }).eq('id', actualVisitId);
       }
 
       const orderType = isCreditSubmit ? "Credit Order" : "Order";
@@ -532,7 +563,7 @@ React.useEffect(() => {
       localStorage.removeItem(stockKey);
       localStorage.removeItem(tableFormKey);
       setCartItems([]);
-      navigate(`/visits/retailers`);
+      navigate(isPhoneOrder ? '/my-retailers' : '/visits/retailers');
     } catch (error) {
       console.error('Error submitting order:', error);
       toast({
@@ -553,7 +584,7 @@ React.useEffect(() => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}`)}
+                onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />

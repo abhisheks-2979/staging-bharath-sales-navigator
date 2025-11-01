@@ -68,6 +68,7 @@ export const OrderEntry = () => {
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
+  const isPhoneOrder = searchParams.get("phoneOrder") === "true";
 
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -1379,13 +1380,15 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => navigate("/visits/retailers")}
+                  onClick={() => navigate(isPhoneOrder ? "/my-retailers" : "/visits/retailers")}
                   className="text-primary-foreground hover:bg-primary-foreground/20 p-2 shrink-0"
                 >
                   <ArrowLeft size={18} />
                 </Button>
                 <div className="min-w-0 flex-1">
-                  <CardTitle className="text-base font-medium leading-tight">Order Entry</CardTitle>
+                  <CardTitle className="text-base font-medium leading-tight">
+                    {isPhoneOrder ? "Phone Order Entry" : "Order Entry"}
+                  </CardTitle>
                   <p className="text-xs text-primary-foreground/80 leading-tight truncate">{loggedInUserName}</p>
                 </div>
               </div>
@@ -1409,7 +1412,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 
                 <Button
                   variant="ghost"
-                  onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}`)}
+                  onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}${isPhoneOrder ? '&phoneOrder=true' : ''}`)}
                   className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-0 min-w-[50px] relative"
                 >
                   <div className="relative">
