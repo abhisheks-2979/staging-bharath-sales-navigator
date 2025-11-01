@@ -27,6 +27,7 @@ interface Retailer {
   priority: string | null;
   status: string | null;
   beat_id: string;
+  territory_id?: string | null;
   created_at: string;
   last_visit_date?: string | null;
   latitude?: number | null;

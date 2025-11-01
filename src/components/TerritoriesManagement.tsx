@@ -8,8 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Plus, FileDown, Search } from 'lucide-react';
+import { Plus, FileDown, Search, Check, ChevronsUpDown, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import TerritoryDetailsModal from './TerritoryDetailsModal';
 import TerritoryDashboard from './TerritoryDashboard';
 import { format } from 'date-fns';
@@ -38,16 +41,21 @@ const TerritoriesManagement = () => {
   const [region, setRegion] = useState('');
   const [zone, setZone] = useState('');
   const [pincodes, setPincodes] = useState('');
-  const [assignedUserId, setAssignedUserId] = useState('');
+  const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
+  const [assignedDistributorIds, setAssignedDistributorIds] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterUser, setFilterUser] = useState('all');
   const [users, setUsers] = useState<any[]>([]);
+  const [distributors, setDistributors] = useState<any[]>([]);
+  const [userComboOpen, setUserComboOpen] = useState(false);
+  const [distributorComboOpen, setDistributorComboOpen] = useState(false);
 
   useEffect(() => {
     loadTerritories();
     loadUsers();
+    loadDistributors();
 
     // Set up real-time subscription for orders to update territory stats
     const channel = supabase
@@ -74,6 +82,11 @@ const TerritoriesManagement = () => {
   const loadUsers = async () => {
     const { data } = await supabase.from('profiles').select('id, full_name, username');
     setUsers(data || []);
+  };
+
+  const loadDistributors = async () => {
+    const { data } = await supabase.from('distributors').select('id, name, contact_person');
+    setDistributors(data || []);
   };
 
   const loadTerritories = async () => {
@@ -183,7 +196,8 @@ const TerritoriesManagement = () => {
       region,
       zone: zone || null,
       pincode_ranges: pincodeArray,
-      assigned_user_id: assignedUserId || null,
+      assigned_user_ids: assignedUserIds.length > 0 ? JSON.stringify(assignedUserIds) : '[]',
+      assigned_distributor_ids: assignedDistributorIds.length > 0 ? JSON.stringify(assignedDistributorIds) : '[]',
       description: description || null,
     });
 
@@ -198,7 +212,8 @@ const TerritoriesManagement = () => {
     setRegion('');
     setZone('');
     setPincodes('');
-    setAssignedUserId('');
+    setAssignedUserIds([]);
+    setAssignedDistributorIds([]);
     setDescription('');
     setShowForm(false);
     loadTerritories();
@@ -236,12 +251,111 @@ const TerritoriesManagement = () => {
                   <div><Label>Territory Name *</Label><Input value={territoryName} onChange={(e) => setTerritoryName(e.target.value)} required /></div>
                   <div><Label>Region *</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} required /></div>
                   <div><Label>Zone</Label><Input value={zone} onChange={(e) => setZone(e.target.value)} /></div>
-                  <div><Label>Assign User</Label>
-                    <Select value={assignedUserId} onValueChange={setAssignedUserId}>
-                      <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
-                      <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.full_name || u.username}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Assign Users (Multiple)</Label>
+                  <Popover open={userComboOpen} onOpenChange={setUserComboOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between">
+                        {assignedUserIds.length > 0 ? `${assignedUserIds.length} user(s) selected` : "Select users..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search users..." />
+                        <CommandList>
+                          <CommandEmpty>No user found.</CommandEmpty>
+                          <CommandGroup>
+                            {users.map((user) => (
+                              <CommandItem
+                                key={user.id}
+                                onSelect={() => {
+                                  setAssignedUserIds(prev => 
+                                    prev.includes(user.id) 
+                                      ? prev.filter(id => id !== user.id)
+                                      : [...prev, user.id]
+                                  );
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", assignedUserIds.includes(user.id) ? "opacity-100" : "opacity-0")} />
+                                {user.full_name || user.username}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {assignedUserIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {assignedUserIds.map(userId => {
+                        const user = users.find(u => u.id === userId);
+                        return (
+                          <Badge key={userId} variant="secondary" className="gap-1">
+                            {user?.full_name || user?.username}
+                            <X className="h-3 w-3 cursor-pointer" onClick={() => setAssignedUserIds(prev => prev.filter(id => id !== userId))} />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Assign Distributors (Multiple)</Label>
+                  <Popover open={distributorComboOpen} onOpenChange={setDistributorComboOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between">
+                        {assignedDistributorIds.length > 0 ? `${assignedDistributorIds.length} distributor(s) selected` : "Select distributors..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search distributors..." />
+                        <CommandList>
+                          <CommandEmpty>No distributor found.</CommandEmpty>
+                          <CommandGroup>
+                            {distributors.map((distributor) => (
+                              <CommandItem
+                                key={distributor.id}
+                                onSelect={() => {
+                                  setAssignedDistributorIds(prev => 
+                                    prev.includes(distributor.id) 
+                                      ? prev.filter(id => id !== distributor.id)
+                                      : [...prev, distributor.id]
+                                  );
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", assignedDistributorIds.includes(distributor.id) ? "opacity-100" : "opacity-0")} />
+                                <div className="flex flex-col">
+                                  <span>{distributor.name}</span>
+                                  {distributor.contact_person && (
+                                    <span className="text-xs text-muted-foreground">{distributor.contact_person}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {assignedDistributorIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {assignedDistributorIds.map(distId => {
+                        const distributor = distributors.find(d => d.id === distId);
+                        return (
+                          <Badge key={distId} variant="secondary" className="gap-1">
+                            {distributor?.name}
+                            <X className="h-3 w-3 cursor-pointer" onClick={() => setAssignedDistributorIds(prev => prev.filter(id => id !== distId))} />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <Label>PIN Codes * (comma-separated)</Label>

@@ -5,10 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart } from "lucide-react";
+import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 interface Retailer {
@@ -20,6 +23,7 @@ interface Retailer {
   priority: string | null;
   status: string | null;
   beat_id: string;
+  territory_id?: string | null;
   created_at: string;
   last_visit_date?: string | null;
   notes?: string | null;
@@ -51,6 +55,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [isEditing, setIsEditing] = useState(startInEditMode);
   const [loading, setLoading] = useState(false);
   const [beats, setBeats] = useState<{ beat_id: string; beat_name: string }[]>([]);
+  const [territories, setTerritories] = useState<{ id: string; name: string; region: string }[]>([]);
+  const [territoryOpen, setTerritoryOpen] = useState(false);
 
   useEffect(() => {
     if (retailer) {
@@ -62,6 +68,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   useEffect(() => {
     if (user && isOpen) {
       loadBeats();
+      loadTerritories();
     }
   }, [user, isOpen]);
 
@@ -80,6 +87,20 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       setBeats(data || []);
     } catch (error: any) {
       console.error('Error loading beats:', error);
+    }
+  };
+
+  const loadTerritories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('territories')
+        .select('id, name, region')
+        .order('name');
+      
+      if (error) throw error;
+      setTerritories(data || []);
+    } catch (error: any) {
+      console.error('Error loading territories:', error);
     }
   };
 
@@ -111,6 +132,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           longitude: formData.longitude,
           beat_id: formData.beat_id,
           beat_name: selectedBeat?.beat_name || formData.beat_id,
+          territory_id: formData.territory_id || null,
         })
         .eq('id', formData.id)
         .eq('user_id', user.id);
@@ -198,30 +220,101 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             )}
             <div className="flex-1">
               <h3 className="text-xl font-semibold">{formData.name}</h3>
-              <div className="space-y-1 mt-2">
-                <Label className="text-xs text-muted-foreground">Beat</Label>
-                {isEditing ? (
-                  <Select 
-                    value={formData.beat_id || ''} 
-                    onValueChange={(v) => setFormData({...formData, beat_id: v})}
-                  >
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue placeholder="Select beat" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {beats.map((beat) => (
-                        <SelectItem key={beat.beat_id} value={beat.beat_id}>
-                          {beat.beat_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {formData.beat_id || 'Unassigned'}
-                  </p>
-                )}
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Beat</Label>
+                  {isEditing ? (
+                    <Select 
+                      value={formData.beat_id || ''} 
+                      onValueChange={(v) => setFormData({...formData, beat_id: v})}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Select beat" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {beats.map((beat) => (
+                          <SelectItem key={beat.beat_id} value={beat.beat_id}>
+                            {beat.beat_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {formData.beat_id || 'Unassigned'}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Territory</Label>
+                  {isEditing ? (
+                    <Popover open={territoryOpen} onOpenChange={setTerritoryOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={territoryOpen}
+                          className="h-8 w-full justify-between text-sm"
+                        >
+                          {formData.territory_id
+                            ? territories.find((t) => t.id === formData.territory_id)?.name
+                            : "Select territory..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search territory..." />
+                          <CommandList>
+                            <CommandEmpty>No territory found.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                onSelect={() => {
+                                  setFormData({...formData, territory_id: null});
+                                  setTerritoryOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !formData.territory_id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                None
+                              </CommandItem>
+                              {territories.map((territory) => (
+                                <CommandItem
+                                  key={territory.id}
+                                  onSelect={() => {
+                                    setFormData({...formData, territory_id: territory.id});
+                                    setTerritoryOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      formData.territory_id === territory.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span>{territory.name}</span>
+                                    <span className="text-xs text-muted-foreground">{territory.region}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {territories.find((t) => t.id === formData.territory_id)?.name || 'Not assigned'}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

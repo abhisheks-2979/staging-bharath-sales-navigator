@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine } from "lucide-react";
+import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 export const AddRetailer = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -48,6 +51,9 @@ export const AddRetailer = () => {
   const [selectedBeat, setSelectedBeat] = useState<string>('');
   const [beats, setBeats] = useState<{beat_id: string, beat_name: string}[]>([]);
   const [isScanningBoard, setIsScanningBoard] = useState(false);
+  const [territories, setTerritories] = useState<{id: string, name: string, region: string}[]>([]);
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
+  const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
@@ -85,10 +91,26 @@ export const AddRetailer = () => {
     }
   };
 
+  // Load territories from the territories table
+  const loadTerritories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('territories')
+        .select('id, name, region')
+        .order('name');
+      
+      if (error) throw error;
+      setTerritories(data || []);
+    } catch (error: any) {
+      console.error('Error loading territories:', error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadDistributors();
       loadBeats();
+      loadTerritories();
     }
   }, [user]);
 
@@ -337,6 +359,7 @@ export const AddRetailer = () => {
       address: retailerData.address,
       category: retailerData.category || null,
       beat_id: beatId,
+      territory_id: selectedTerritoryId || null,
       status: 'active',
       notes: retailerData.notes || null,
       parent_type: retailerData.parentType || null,
@@ -1035,6 +1058,70 @@ export const AddRetailer = () => {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assign to Territory</Label>
+                <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={territoryComboOpen}
+                      className="w-full justify-between bg-background"
+                    >
+                      {selectedTerritoryId
+                        ? territories.find((t) => t.id === selectedTerritoryId)?.name
+                        : "Select territory..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search territory..." />
+                      <CommandList>
+                        <CommandEmpty>No territory found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => {
+                              setSelectedTerritoryId(null);
+                              setTerritoryComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                !selectedTerritoryId ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            None
+                          </CommandItem>
+                          {territories.map((territory) => (
+                            <CommandItem
+                              key={territory.id}
+                              onSelect={() => {
+                                setSelectedTerritoryId(territory.id);
+                                setTerritoryComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{territory.name}</span>
+                                <span className="text-xs text-muted-foreground">{territory.region}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">Optionally assign this retailer to a sales territory</p>
               </div>
 
               <div className="space-y-2 hidden">

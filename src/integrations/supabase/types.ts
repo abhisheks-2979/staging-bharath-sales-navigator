@@ -1893,6 +1893,7 @@ export type Database = {
           priority: string | null
           retail_type: string | null
           status: string | null
+          territory_id: string | null
           updated_at: string
           user_id: string
         }
@@ -1922,6 +1923,7 @@ export type Database = {
           priority?: string | null
           retail_type?: string | null
           status?: string | null
+          territory_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1951,10 +1953,19 @@ export type Database = {
           priority?: string | null
           retail_type?: string | null
           status?: string | null
+          territory_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "retailers_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       role_definitions: {
         Row: {
@@ -2144,7 +2155,9 @@ export type Database = {
       }
       territories: {
         Row: {
+          assigned_distributor_ids: Json | null
           assigned_user_id: string | null
+          assigned_user_ids: Json | null
           created_at: string
           description: string | null
           id: string
@@ -2155,7 +2168,9 @@ export type Database = {
           zone: string | null
         }
         Insert: {
+          assigned_distributor_ids?: Json | null
           assigned_user_id?: string | null
+          assigned_user_ids?: Json | null
           created_at?: string
           description?: string | null
           id?: string
@@ -2166,7 +2181,9 @@ export type Database = {
           zone?: string | null
         }
         Update: {
+          assigned_distributor_ids?: Json | null
           assigned_user_id?: string | null
+          assigned_user_ids?: Json | null
           created_at?: string
           description?: string | null
           id?: string
