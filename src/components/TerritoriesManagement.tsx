@@ -196,8 +196,8 @@ const TerritoriesManagement = () => {
       region,
       zone: zone || null,
       pincode_ranges: pincodeArray,
-      assigned_user_ids: assignedUserIds.length > 0 ? JSON.stringify(assignedUserIds) : '[]',
-      assigned_distributor_ids: assignedDistributorIds.length > 0 ? JSON.stringify(assignedDistributorIds) : '[]',
+      assigned_user_ids: assignedUserIds,
+      assigned_distributor_ids: assignedDistributorIds,
       description: description || null,
     });
 
