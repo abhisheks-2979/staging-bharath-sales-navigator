@@ -15,8 +15,8 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v8';
-const PRECACHE_VERSION = 'v8';
+const RUNTIME_CACHE_VERSION = 'v9';
+const PRECACHE_VERSION = 'v9';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
@@ -116,32 +116,32 @@ registerRoute(
   }
 );
 
-// Runtime caching: Supabase API - Use NetworkFirst with short cache for fresh data
+// Runtime caching: Supabase API - Use NetworkFirst with very short cache
 registerRoute(
   ({ url }) => url.hostname.endsWith('.supabase.co'),
   new NetworkFirst({
     cacheName: `api-cache-${RUNTIME_CACHE_VERSION}`,
-    networkTimeoutSeconds: 5,
+    networkTimeoutSeconds: 3,
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 60 * 5, // 5 minutes only for API responses
+        maxEntries: 30,
+        maxAgeSeconds: 60 * 2, // 2 minutes only for API responses
         purgeOnQuotaError: true,
       }),
     ],
   }),
 );
 
-// Runtime caching: images - Use NetworkFirst for better updates
+// Runtime caching: images - Use NetworkFirst with shorter cache
 registerRoute(
   ({ request }) => request.destination === 'image',
   new NetworkFirst({
     cacheName: `images-cache-${RUNTIME_CACHE_VERSION}`,
-    networkTimeoutSeconds: 10,
+    networkTimeoutSeconds: 5,
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 100,
-        maxAgeSeconds: 60 * 60 * 24, // 1 day for images
+        maxEntries: 50,
+        maxAgeSeconds: 60 * 60 * 2, // 2 hours for images
         purgeOnQuotaError: true,
       }),
     ],
