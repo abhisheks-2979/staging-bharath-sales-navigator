@@ -1389,7 +1389,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                   <CardTitle className="text-base font-medium leading-tight">
                     {isPhoneOrder ? "Phone Order Entry" : "Order Entry"}
                   </CardTitle>
-                  <p className="text-xs text-primary-foreground/80 leading-tight truncate">{loggedInUserName}</p>
+                  <p className="text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 </div>
               </div>
               
