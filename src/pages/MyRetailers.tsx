@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, Phone } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -482,13 +482,12 @@ export const MyRetailers = () => {
                       <div className="flex items-center gap-1">
                         <Button 
                           size="sm" 
-                          variant="default"
+                          variant="ghost" 
                           onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
-                          className="h-8 px-2"
+                          className="h-8 w-8 p-0"
                           title="Phone Order"
                         >
-                          <Phone className="h-4 w-4 mr-1" />
-                          <span className="text-xs">Phone Order</span>
+                          <ShoppingCart className="h-4 w-4" />
                         </Button>
                         <Button 
                           size="sm" 
@@ -619,13 +618,12 @@ export const MyRetailers = () => {
                           <div className="flex items-center justify-end gap-1">
                             <Button 
                               size="sm" 
-                              variant="default"
+                              variant="ghost" 
                               onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
-                              className="h-8 px-2"
+                              className="h-8 w-8 p-0"
                               title="Phone Order"
                             >
-                              <Phone className="h-3 w-3 mr-1" />
-                              <span className="text-xs">Phone</span>
+                              <ShoppingCart className="h-4 w-4" />
                             </Button>
                             <Button 
                               size="sm" 

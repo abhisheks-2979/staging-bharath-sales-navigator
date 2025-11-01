@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2 } from "lucide-react";
+import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Retailer {
@@ -571,15 +571,17 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
         <div className="flex items-center justify-between gap-2 pt-4 border-t">
           <div className="flex gap-2">
             <Button 
-              variant="default"
+              size="sm"
+              variant="ghost"
               onClick={() => {
                 navigate(`/order-entry?phoneOrder=true&retailerId=${formData.id}&retailer=${encodeURIComponent(formData.name)}`);
                 onClose();
               }}
               disabled={loading}
+              className="h-8 w-8 p-0"
+              title="Phone Order"
             >
-              <Phone className="h-4 w-4 mr-2" />
-              Phone Order
+              <ShoppingCart className="h-4 w-4" />
             </Button>
           </div>
           <div className="flex gap-2">
