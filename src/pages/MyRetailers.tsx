@@ -474,7 +474,7 @@ export const MyRetailers = () => {
                         />
                         <h3 
                           className="font-semibold cursor-pointer hover:text-primary"
-                          onClick={() => openRetailerAnalytics(r)}
+                          onClick={() => openRetailerDetail(r)}
                         >
                           {r.name}
                         </h3>
@@ -581,8 +581,8 @@ export const MyRetailers = () => {
                         </TableCell>
                         <TableCell 
                           className="font-medium cursor-pointer hover:text-primary"
-                          onClick={() => openRetailerAnalytics(r)}
-                          title="Click to view analytics"
+                          onClick={() => openRetailerDetail(r)}
+                          title="Click to view retailer details"
                         >
                           {r.name}
                         </TableCell>

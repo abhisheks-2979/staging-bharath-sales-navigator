@@ -8,7 +8,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone, MapPin, Edit2, ExternalLink } from "lucide-react";
+import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Retailer {
   id: string;
@@ -43,8 +44,9 @@ interface RetailerDetailModalProps {
   startInEditMode?: boolean;
 }
 
-export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, startInEditMode = true }: RetailerDetailModalProps) => {
+export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, startInEditMode = false }: RetailerDetailModalProps) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<Retailer | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
   const [loading, setLoading] = useState(false);
@@ -225,7 +227,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           </div>
 
           {/* Accordion Sections */}
-          <Accordion type="multiple" defaultValue={["owner", "outlet", "location"]} className="w-full">
+          <Accordion type="multiple" defaultValue={["owner", "outlet", "location", "analytics"]} className="w-full">
             {/* Owner Details */}
             <AccordionItem value="owner">
               <AccordionTrigger className="text-lg font-semibold">
@@ -533,26 +535,94 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 </div>
               </AccordionContent>
             </AccordionItem>
+
+            {/* Analytics Section */}
+            <AccordionItem value="analytics">
+              <AccordionTrigger className="text-lg font-semibold">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Performance Analytics
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">
+                      ₹{(formData.order_value || 0).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">3-Month Avg Orders</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">
+                      ₹{(formData.order_value || 0).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Avg Order per Visit</p>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold text-primary">-</p>
+                    <p className="text-sm text-muted-foreground">Visits in 3 Months</p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              setFormData({ ...retailer! });
-              onClose();
-            }}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Save Changes"}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-4 border-t">
+          <div className="flex gap-2">
+            <Button 
+              variant="default"
+              onClick={() => {
+                navigate(`/order-entry?phoneOrder=true&retailerId=${formData.id}&retailer=${encodeURIComponent(formData.name)}`);
+                onClose();
+              }}
+              disabled={loading}
+            >
+              <Phone className="h-4 w-4 mr-2" />
+              Phone Order
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            {!isEditing ? (
+              <>
+                <Button 
+                  variant="outline"
+                  onClick={() => setIsEditing(true)}
+                  disabled={loading}
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={loading}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setFormData({ ...retailer! });
+                    setIsEditing(false);
+                  }}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSave}
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Save Changes"}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
