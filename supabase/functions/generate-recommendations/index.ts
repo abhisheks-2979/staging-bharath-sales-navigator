@@ -250,10 +250,16 @@ Provide:
 
 Data: ${JSON.stringify(data)}
 
-Provide:
-1. Top 5 priority retailers with scores (0-1)
-2. Reasoning for each retailer's priority
-3. Expected outcomes from visiting each`,
+Return a JSON array (no extra fields) with top 5 retailers in this EXACT format:
+[
+  {
+    "name": "Retailer Name",
+    "score": 0.9,
+    "reason": "One clear sentence explaining why they should be visited (max 30 words)"
+  }
+]
+
+Keep reasons concise and action-oriented. Focus on the key insight (e.g., "Not visited in 45 days with high potential" or "Consistent high-value orders showing 25% growth").`,
 
     discussion_points: `Generate 5-7 personalized conversation points for this retailer visit. Use:
 - Previous orders and buying patterns
@@ -310,7 +316,7 @@ Provide:
       messages: [
         {
           role: 'system',
-          content: 'You are an expert sales territory analyst. Provide clear, actionable recommendations based on data. Return responses in valid JSON format with recommendation, confidence (0-1), and reasoning fields.',
+          content: 'You are an expert sales territory analyst. Provide clear, actionable recommendations. Always return valid JSON only, no markdown formatting, no explanatory text. Keep recommendations concise and human-readable.',
         },
         {
           role: 'user',
@@ -333,20 +339,35 @@ Provide:
   }
 
   const aiData = await response.json();
-  const content = aiData.choices[0].message.content;
+  let content = aiData.choices[0].message.content;
 
-  // Try to parse as JSON, fallback to text
+  // Remove markdown code blocks if present
+  content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  // Try to parse as JSON
   try {
     const parsed = JSON.parse(content);
+    
+    // For retailer_priority, the array IS the recommendation
+    if (type === 'retailer_priority' && Array.isArray(parsed)) {
+      return {
+        recommendation: parsed,
+        confidence: 0.85,
+        reasoning: `Prioritization based on visit history, potential, and growth trends`,
+      };
+    }
+    
     return {
       recommendation: parsed.recommendation || parsed,
       confidence: parsed.confidence || 0.8,
-      reasoning: parsed.reasoning || content,
+      reasoning: parsed.reasoning || 'AI-generated recommendation based on data analysis',
     };
-  } catch {
+  } catch (error) {
+    console.error('Failed to parse AI response:', error);
+    console.error('Content:', content);
     return {
       recommendation: content,
-      confidence: 0.8,
+      confidence: 0.7,
       reasoning: content,
     };
   }
