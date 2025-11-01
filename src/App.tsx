@@ -48,6 +48,7 @@ import AttendanceManagement from "./pages/AttendanceManagement";
 import FeedbackManagement from "./pages/FeedbackManagement";
 import NotFound from "./pages/NotFound";
 import { MyRetailers } from "./pages/MyRetailers";
+import UserRoles from "./pages/UserRoles";
 import BrandingRequests from "./pages/BrandingRequests";
 import { MyBeats } from "./pages/MyBeats";
 import { BeatDetail } from "./pages/BeatDetail";
@@ -130,11 +131,16 @@ const App = () => (
               <UserProfile />
             </ProtectedRoute>
           } />
-          <Route path="/admin-controls" element={
-            <ProtectedRoute>
-              <AdminControls />
-            </ProtectedRoute>
-          } />
+            <Route path="/admin-controls" element={
+              <ProtectedRoute>
+                <AdminControls />
+              </ProtectedRoute>
+            } />
+            <Route path="/user_roles" element={
+              <ProtectedRoute>
+                <UserRoles />
+              </ProtectedRoute>
+            } />
           <Route path="/product-management" element={
             <ProtectedRoute>
               <ProductManagementPage />
