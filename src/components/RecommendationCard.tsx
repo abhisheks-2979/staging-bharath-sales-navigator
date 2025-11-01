@@ -61,17 +61,40 @@ export function RecommendationCard({ recommendation, onFeedback, compact = false
     }
 
     if (recommendation.recommendation_type === 'retailer_priority' && Array.isArray(data)) {
+      const getPriorityBadge = (score: number) => {
+        if (score >= 80) return { label: 'High Priority', variant: 'destructive' as const, color: 'text-red-600' };
+        if (score >= 60) return { label: 'Medium Priority', variant: 'default' as const, color: 'text-yellow-600' };
+        return { label: 'Low Priority', variant: 'secondary' as const, color: 'text-green-600' };
+      };
+
       return (
-        <div className="space-y-2">
-          {data.slice(0, compact ? 3 : 5).map((retailer: any, idx: number) => (
-            <div key={idx} className="flex items-center justify-between p-2 bg-secondary/50 rounded">
-              <div className="flex-1">
-                <span className="text-sm font-medium">{retailer.name}</span>
-                <p className="text-xs text-muted-foreground line-clamp-1">{retailer.reason}</p>
+        <div className="space-y-3">
+          {data.slice(0, compact ? 3 : 5).map((retailer: any, idx: number) => {
+            const scoreValue = Math.round((retailer.score || 0) * 100);
+            const priority = getPriorityBadge(scoreValue);
+            
+            return (
+              <div key={idx} className="p-4 bg-card border rounded-lg hover:shadow-md transition-all">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-base mb-1.5 truncate">{retailer.name}</h4>
+                    <Badge variant={priority.variant} className="text-xs">
+                      {priority.label}
+                    </Badge>
+                  </div>
+                  <div className="text-center shrink-0">
+                    <div className={`text-2xl font-bold ${priority.color}`}>{scoreValue}</div>
+                    <div className="text-xs text-muted-foreground">Score</div>
+                  </div>
+                </div>
+                {retailer.reason && (
+                  <p className="text-sm text-muted-foreground leading-relaxed mt-3 pt-3 border-t">
+                    {retailer.reason}
+                  </p>
+                )}
               </div>
-              <Badge variant="outline" className="ml-2">{Math.round((retailer.score || 0) * 100)}%</Badge>
-            </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
