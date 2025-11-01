@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useRecommendations } from "@/hooks/useRecommendations";
+import { RecommendationCard } from "@/components/RecommendationCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Beat {
   id: string;
@@ -68,6 +71,8 @@ export const MyBeats = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { recommendations, loading: recsLoading, generateRecommendation, provideFeedback } = useRecommendations('beat_visit');
+  const [activeTab, setActiveTab] = useState('beats');
 
   // Check for openCreateModal parameter and open modal if present
   useEffect(() => {
@@ -555,36 +560,50 @@ export const MyBeats = () => {
           </Card>
         </div>
 
-        {/* Beats Grid */}
-        {beats.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
+        {/* Tabs for Beats and AI Recommendations */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="beats" className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Beats ({beats.length})
+            </TabsTrigger>
+            <TabsTrigger value="recommendations" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              AI Insights ({recommendations.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="beats" className="mt-6">
+            {/* Beats Grid */}
+            {beats.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <div className="space-y-4">
+                    <Users className="h-16 w-16 mx-auto text-muted-foreground" />
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">No beats created yet</h3>
+                      <p className="text-muted-foreground mb-4">Create your first beat to organize your retailers into manageable routes</p>
+                    </div>
+                    <Button onClick={handleCreateBeat} className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Create Your First Beat
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
               <div className="space-y-4">
-                <Users className="h-16 w-16 mx-auto text-muted-foreground" />
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">No beats created yet</h3>
-                  <p className="text-muted-foreground mb-4">Create your first beat to organize your retailers into manageable routes</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <h2 className="text-lg font-semibold">Your Beats ({beats.length})</h2>
+                  <Button 
+                    onClick={handleAddBeats}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Add Beats to Plan
+                  </Button>
                 </div>
-                <Button onClick={handleCreateBeat} className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create Your First Beat
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h2 className="text-lg font-semibold">Your Beats ({beats.length})</h2>
-              <Button 
-                onClick={handleAddBeats}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Calendar className="h-4 w-4" />
-                Add Beats to Plan
-              </Button>
-            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {beats.map((beat) => (
@@ -708,6 +727,62 @@ export const MyBeats = () => {
             </div>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="recommendations" className="mt-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">AI-Powered Beat Insights</h2>
+                  <p className="text-sm text-muted-foreground">Recommendations on which beats to visit next</p>
+                </div>
+                <Button
+                  onClick={() => generateRecommendation('beat_visit')}
+                  disabled={recsLoading}
+                  className="flex items-center gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {recsLoading ? 'Generating...' : 'Generate New Insights'}
+                </Button>
+              </div>
+
+              {recommendations.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Sparkles className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">No recommendations yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Generate AI-powered insights to help you prioritize which beats to visit
+                    </p>
+                    <Button
+                      onClick={() => generateRecommendation('beat_visit')}
+                      disabled={recsLoading || beats.length === 0}
+                      className="flex items-center gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {recsLoading ? 'Generating...' : 'Generate Recommendations'}
+                    </Button>
+                    {beats.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Create beats first to get recommendations
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {recommendations.map((rec) => (
+                    <RecommendationCard
+                      key={rec.id}
+                      recommendation={rec}
+                      onFeedback={(feedbackType) => provideFeedback(rec.id, feedbackType)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Create Beat Modal */}
         <Dialog open={isCreateBeatOpen} onOpenChange={setIsCreateBeatOpen}>

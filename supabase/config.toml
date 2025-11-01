@@ -1,5 +1,8 @@
 project_id = "etabpbfokzhhfuybeieu"
 
+[functions.generate-recommendations]
+verify_jwt = true
+
 [functions.validate-invitation]
 verify_jwt = true
 

@@ -19,6 +19,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { TimelineView } from "@/components/TimelineView";
 import { toast } from "sonner";
+import { useRecommendations } from "@/hooks/useRecommendations";
+import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
 
 interface Visit {
   id: string;
@@ -156,6 +158,17 @@ export const MyVisits = () => {
   const [timelineVisits, setTimelineVisits] = useState<any[]>([]);
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Get current beat ID for recommendations
+  const currentBeatId = plannedBeats.length > 0 ? plannedBeats[0].beat_id : undefined;
+  
+  // AI Recommendations hooks
+  const { 
+    recommendations: retailerPriorityRecs, 
+    loading: retailerRecsLoading,
+    generateRecommendation: generateRetailerRecs,
+    provideFeedback: provideRetailerFeedback
+  } = useRecommendations('retailer_priority', currentBeatId);
 
   // Initialize selected day to today
   useEffect(() => {
@@ -961,8 +974,22 @@ export const MyVisits = () => {
                  <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">Unproductive</div>
                </button>
              </div>
-          </CardContent>
+           </CardContent>
         </Card>
+
+        {/* AI Recommendations Section */}
+        {plannedBeats.length > 0 && currentBeatId && (
+          <div className="space-y-3">
+            <AIRecommendationBanner
+              recommendations={retailerPriorityRecs}
+              onGenerate={() => generateRetailerRecs('retailer_priority', currentBeatId)}
+              onFeedback={provideRetailerFeedback}
+              loading={retailerRecsLoading}
+              type="retailer_priority"
+              beatId={currentBeatId}
+            />
+          </div>
+        )}
 
         {/* Enhanced Search and Filter Bar - Mobile Optimized */}
         <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">

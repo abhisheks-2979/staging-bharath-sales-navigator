@@ -1702,6 +1702,83 @@ export type Database = {
           },
         ]
       }
+      recommendation_feedback: {
+        Row: {
+          created_at: string | null
+          feedback_note: string | null
+          feedback_type: string
+          id: string
+          recommendation_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          feedback_note?: string | null
+          feedback_type: string
+          id?: string
+          recommendation_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          feedback_note?: string | null
+          feedback_type?: string
+          id?: string
+          recommendation_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_feedback_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recommendations: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          entity_id: string | null
+          entity_name: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          reasoning: string | null
+          recommendation_data: Json
+          recommendation_type: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          reasoning?: string | null
+          recommendation_data: Json
+          recommendation_type: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          reasoning?: string | null
+          recommendation_data?: Json
+          recommendation_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       regularization_requests: {
         Row: {
           approved_at: string | null
@@ -2341,6 +2418,7 @@ export type Database = {
           product_details: string
         }[]
       }
+      cleanup_expired_recommendations: { Args: never; Returns: undefined }
       create_approval_workflow: {
         Args: { user_id_param: string }
         Returns: undefined
