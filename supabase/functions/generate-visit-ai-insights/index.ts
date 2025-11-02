@@ -19,21 +19,15 @@ serve(async (req) => {
       throw new Error('Missing authorization header');
     }
 
-    // Create Supabase client with auth
+    // Create admin Supabase client for database operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Verify the user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Verify the JWT token to get user info
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
     if (userError || !user) {
       console.error('Auth error:', userError);
       throw new Error('Unauthorized');
