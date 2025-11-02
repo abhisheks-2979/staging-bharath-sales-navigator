@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, DollarSign } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, DollarSign, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { StockDataModal } from "./StockDataModal";
 import { RetailerAnalytics } from "./RetailerAnalytics";
 import { InvoiceGenerator } from "./InvoiceGenerator";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
+import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 
 interface Visit {
   id: string;
@@ -97,6 +98,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [proceedWithoutCheckIn, setProceedWithoutCheckIn] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [skipCheckInReason, setSkipCheckInReason] = useState('');
+  const [showAIInsights, setShowAIInsights] = useState(false);
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -1160,8 +1162,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         </div>
 
         <div className="space-y-2">
-          {/* First row - Check In, Order, No Order */}
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {/* First row - Check In, Order, Feedback, AI */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             <Button 
               size="sm" 
               className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
@@ -1219,6 +1221,33 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             >
               <MessageSquare size={12} className="sm:size-3.5" />
               <span className="text-xs">Feedback</span>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 border-primary/50 hover:bg-primary/10"
+              onClick={async () => {
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) {
+                    toast({ title: 'Login required', description: 'Please sign in first.', variant: 'destructive' });
+                    return;
+                  }
+                  const today = new Date().toISOString().split('T')[0];
+                  const retailerId = (visit.retailerId || visit.id) as string;
+                  const visitId = await ensureVisit(user.id, retailerId, today);
+                  setCurrentVisitId(visitId);
+                  setShowAIInsights(true);
+                } catch (err: any) {
+                  console.error('Open AI insights error', err);
+                  toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
+                }
+              }}
+              title="AI Insights - Get personalized visit recommendations"
+            >
+              <Sparkles size={12} className="sm:size-3.5 text-primary" />
+              <span className="text-xs">AI</span>
             </Button>
           </div>
 
@@ -1680,6 +1709,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             onClose={() => setShowRetailerAnalytics(false)}
           />
         )}
+
+        {/* AI Insights Modal */}
+        <VisitAIInsightsModal
+          isOpen={showAIInsights}
+          onClose={() => setShowAIInsights(false)}
+          retailerId={(visit.retailerId || visit.id) as string}
+          retailerName={visit.retailerName}
+          visitId={currentVisitId || visit.id}
+        />
       </CardContent>
     </Card>
   );
