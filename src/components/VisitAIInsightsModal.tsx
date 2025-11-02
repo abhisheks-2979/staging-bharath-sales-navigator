@@ -97,8 +97,10 @@ export const VisitAIInsightsModal = ({
         .eq('id', visitId)
         .single();
 
+      const currentFeedback = existingVisit?.feedback as Record<string, any> || {};
+      
       const updatedFeedback = {
-        ...(existingVisit?.feedback || {}),
+        ...currentFeedback,
         aiQuestions: Object.entries(questionAnswers).map(([index, answer]) => ({
           question: insights?.questions?.[parseInt(index)]?.question,
           category: insights?.questions?.[parseInt(index)]?.category,

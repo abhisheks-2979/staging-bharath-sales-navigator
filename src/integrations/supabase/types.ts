@@ -53,6 +53,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_feature_feedback: {
+        Row: {
+          created_at: string | null
+          feature: string
+          feedback_type: string
+          id: string
+          retailer_id: string | null
+          user_id: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          feature: string
+          feedback_type: string
+          id?: string
+          retailer_id?: string | null
+          user_id?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          feature?: string
+          feedback_type?: string
+          id?: string
+          retailer_id?: string | null
+          user_id?: string | null
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feature_feedback_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_feature_feedback_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_likes: {
         Row: {
           created_at: string
@@ -2345,6 +2390,41 @@ export type Database = {
         }
         Relationships: []
       }
+      visit_ai_insights: {
+        Row: {
+          created_at: string | null
+          id: string
+          insights: Json
+          retailer_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          insights: Json
+          retailer_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          insights?: Json
+          retailer_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_ai_insights_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visits: {
         Row: {
           check_in_address: string | null
@@ -2356,6 +2436,7 @@ export type Database = {
           check_out_photo_url: string | null
           check_out_time: string | null
           created_at: string
+          feedback: Json | null
           id: string
           location_match_in: boolean | null
           location_match_out: boolean | null
@@ -2378,6 +2459,7 @@ export type Database = {
           check_out_photo_url?: string | null
           check_out_time?: string | null
           created_at?: string
+          feedback?: Json | null
           id?: string
           location_match_in?: boolean | null
           location_match_out?: boolean | null
@@ -2400,6 +2482,7 @@ export type Database = {
           check_out_photo_url?: string | null
           check_out_time?: string | null
           created_at?: string
+          feedback?: Json | null
           id?: string
           location_match_in?: boolean | null
           location_match_out?: boolean | null

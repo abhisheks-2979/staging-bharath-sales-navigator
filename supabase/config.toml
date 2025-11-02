@@ -3,6 +3,9 @@ project_id = "etabpbfokzhhfuybeieu"
 [functions.generate-recommendations]
 verify_jwt = true
 
+[functions.generate-visit-ai-insights]
+verify_jwt = true
+
 [functions.validate-invitation]
 verify_jwt = true
 
