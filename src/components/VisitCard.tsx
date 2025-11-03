@@ -98,6 +98,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [proceedWithoutCheckIn, setProceedWithoutCheckIn] = useState(false);
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [skipCheckInReason, setSkipCheckInReason] = useState('');
+  const [skipCheckInReasonType, setSkipCheckInReasonType] = useState<string>('');
   const [showAIInsights, setShowAIInsights] = useState(false);
   
   // Check if the selected date is today's date
@@ -1463,13 +1464,42 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                       <label className="text-sm font-medium mb-2 block">
                         Reason for proceeding without check-in:
                       </label>
-                      <textarea
-                        value={skipCheckInReason}
-                        onChange={(e) => setSkipCheckInReason(e.target.value)}
-                        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="Enter your reason here..."
-                      />
+                      <Select
+                        value={skipCheckInReasonType}
+                        onValueChange={(value) => {
+                          setSkipCheckInReasonType(value);
+                          // Clear custom reason when changing from "Other" to predefined
+                          if (value !== 'other') {
+                            setSkipCheckInReason('');
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full bg-background z-50">
+                          <SelectValue placeholder="Select a reason" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          <SelectItem value="internet-issue">Internet issue</SelectItem>
+                          <SelectItem value="system-slow">System is slow and not allowing checkin</SelectItem>
+                          <SelectItem value="photo-upload-issue">Photo not getting uploaded</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+                    
+                    {skipCheckInReasonType === 'other' && (
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Enter your reason:
+                        </label>
+                        <textarea
+                          value={skipCheckInReason}
+                          onChange={(e) => setSkipCheckInReason(e.target.value)}
+                          className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="Enter your reason here..."
+                        />
+                      </div>
+                    )}
+                    
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -1478,6 +1508,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                         onClick={() => {
                           setShowReasonInput(false);
                           setSkipCheckInReason('');
+                          setSkipCheckInReasonType('');
                         }}
                       >
                         Cancel
@@ -1486,7 +1517,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                         size="sm"
                         className="flex-1"
                         onClick={async () => {
-                          if (skipCheckInReason.trim()) {
+                          // Get the final reason: use dropdown value if not "other", otherwise use custom text
+                          const finalReason = skipCheckInReasonType === 'other' 
+                            ? skipCheckInReason.trim()
+                            : skipCheckInReasonType 
+                              ? skipCheckInReasonType.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                              : '';
+                              
+                          if (finalReason) {
                             try {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (user) {
@@ -1503,7 +1541,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                                   .from('visits')
                                   .update({ 
                                     status: 'in-progress',
-                                    skip_check_in_reason: skipCheckInReason,
+                                    skip_check_in_reason: finalReason,
                                     skip_check_in_time: new Date().toISOString()
                                   } as any)
                                   .eq('id', visitId);
@@ -1513,6 +1551,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                                 setIsCheckedIn(true);
                                 setShowLocationModal(false);
                                 setShowReasonInput(false);
+                                setSkipCheckInReason('');
+                                setSkipCheckInReasonType('');
                                 
                                 // Dispatch event to notify parent components
                                 window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
@@ -1535,12 +1575,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                           } else {
                             toast({
                               title: 'Reason required',
-                              description: 'Please enter a reason to proceed.',
+                              description: 'Please select or enter a reason to proceed.',
                               variant: 'destructive'
                             });
                           }
                         }}
-                        disabled={!skipCheckInReason.trim()}
+                        disabled={
+                          !skipCheckInReasonType || 
+                          (skipCheckInReasonType === 'other' && !skipCheckInReason.trim())
+                        }
                       >
                         Submit
                       </Button>
