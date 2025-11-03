@@ -22,7 +22,7 @@ export function AIRecommendationBanner({
   loading,
   type,
 }: AIRecommendationBannerProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const getTitle = () => {
     switch (type) {

@@ -919,7 +919,7 @@ export const MyVisits = () => {
                 variant="secondary" 
                 size="sm" 
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
-                onClick={() => window.location.href = '/today-summary'}
+                onClick={() => navigate(`/today-summary?date=${selectedDate}`)}
               >
                 <FileText size={14} className="mr-1" />
                 Today's Summary
@@ -965,10 +965,13 @@ export const MyVisits = () => {
             
              {/* Stats Grid - Mobile Responsive */}
              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-               <div className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-4 rounded-xl border border-success/20 flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]">
+               <button
+                 onClick={() => navigate(`/today-summary?date=${selectedDate}`)}
+                 className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-4 rounded-xl border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]"
+               >
                  <div className="text-lg sm:text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
                  <div className="text-xs sm:text-sm text-success/80 font-medium mt-1">Total Order Value</div>
-               </div>
+               </button>
                <button
                  onClick={handleOrdersClick}
                  className="bg-gradient-to-r from-primary/10 to-primary/5 p-2 sm:p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]"
