@@ -33,7 +33,7 @@ interface AIInsights {
     category: string;
     options: string[];
   }>;
-  territoryInsights?: string[];
+  territoryInsights?: Array<string | { insight: string; fomo?: string }>;
   marketingInitiatives?: Array<{
     title: string;
     description: string;
@@ -292,11 +292,23 @@ export const VisitAIInsightsModal = ({
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {insights.territoryInsights && insights.territoryInsights.length > 0 ? (
-                    insights.territoryInsights.map((insight, index) => (
-                      <div key={index} className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                        <p className="text-sm">{insight}</p>
-                      </div>
-                    ))
+                    insights.territoryInsights.map((insight, index) => {
+                      const insightText = typeof insight === 'string' 
+                        ? insight 
+                        : insight.insight || '';
+                      const fomoText = typeof insight === 'object' && insight.fomo 
+                        ? insight.fomo 
+                        : null;
+                      
+                      return (
+                        <div key={index} className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-1">
+                          <p className="text-sm">{insightText}</p>
+                          {fomoText && (
+                            <p className="text-xs text-muted-foreground italic">{fomoText}</p>
+                          )}
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-sm text-muted-foreground">No territory insights available</p>
                   )}
