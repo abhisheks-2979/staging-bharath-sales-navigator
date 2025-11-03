@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfDay, subDays, subWeeks, subMonths, subQuarters, startOfYear, endOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
+import { PerformanceCalendar } from "@/components/PerformanceCalendar";
 
 const Analytics = () => {
   const navigate = useNavigate();
@@ -827,6 +828,9 @@ const Analytics = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Performance Calendar View */}
+              <PerformanceCalendar />
             </TabsContent>
 
             {/* Progress Tab */}
