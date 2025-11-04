@@ -62,19 +62,36 @@ export default function RetailManagement() {
         variant: "destructive" 
       });
     } else {
-      // Fetch user profiles separately
+      // Fetch user profiles and beat names to display correctly
       const userIds = [...new Set((data || []).map(r => r.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", userIds);
+      const [profilesRes, beatsRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, username")
+          .in("id", userIds),
+        supabase
+          .from("beats")
+          .select("beat_id, beat_name")
+      ]);
       
-      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+      const profiles = profilesRes.data;
+      const beats = beatsRes.data;
       
-      const retailersWithProfiles = (data || []).map(r => ({
-        ...r,
-        profiles: r.user_id ? { full_name: profileMap.get(r.user_id) || 'Unknown' } : null
-      }));
+      const profileMap = new Map(
+        (profiles || []).map((p: any) => [p.id, { full_name: p.full_name, username: p.username }])
+      );
+      const beatMap = new Map((beats || []).map((b: any) => [b.beat_id, b.beat_name]));
+      
+      const retailersWithProfiles = (data || []).map((r: any) => {
+        const prof = r.user_id ? profileMap.get(r.user_id) : null;
+        const displayName = prof?.full_name || prof?.username || 'Unknown';
+        const displayBeatName = r.beat_name || (r.beat_id ? beatMap.get(r.beat_id) : null) || r.beat_id;
+        return {
+          ...r,
+          beat_name: displayBeatName,
+          profiles: r.user_id ? { full_name: displayName } : null
+        };
+      });
       
       setRetailers(retailersWithProfiles as Retailer[]);
     }
