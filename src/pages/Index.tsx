@@ -58,6 +58,20 @@ const Index = () => {
   const { userProfile, user } = useAuth();
   const [profilePictureUrl, setProfilePictureUrl] = useState(userProfile?.profile_picture_url);
 
+  const refreshProfilePicture = async () => {
+    if (user?.id) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('profile_picture_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (data?.profile_picture_url) {
+        setProfilePictureUrl(data.profile_picture_url);
+      }
+    }
+  };
+
   useEffect(() => {
     const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
     setCurrentQuote(randomQuote);
@@ -188,8 +202,9 @@ const Index = () => {
                   userId={user.id}
                   currentPhotoUrl={profilePictureUrl}
                   fullName={displayName}
-                  onPhotoUpdate={(newUrl) => {
+                  onPhotoUpdate={async (newUrl) => {
                     setProfilePictureUrl(newUrl);
+                    await refreshProfilePicture();
                   }}
                   size="lg"
                 />
