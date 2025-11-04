@@ -22,13 +22,13 @@ import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Layout } from "@/components/Layout";
 import { useState, useEffect } from "react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
+import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 
 const motivationalQuotes = [
   "Success is not final, failure is not fatal: it is the courage to continue that counts.",
@@ -55,11 +55,15 @@ const Index = () => {
     revenue: "₹0"
   });
   const { isInstallable, installApp } = usePWAInstall();
-  const { userProfile } = useAuth();
+  const { userProfile, user } = useAuth();
+  const [profilePictureUrl, setProfilePictureUrl] = useState(userProfile?.profile_picture_url);
 
   useEffect(() => {
     const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
     setCurrentQuote(randomQuote);
+    
+    // Update profile picture URL when userProfile changes
+    setProfilePictureUrl(userProfile?.profile_picture_url);
     
     // Fetch monthly statistics when user profile is available
     if (userProfile?.id) {
@@ -179,12 +183,17 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-4 text-center">
             <div className="flex items-center justify-center space-x-3 mb-4">
-              <Avatar className="h-12 w-12 sm:h-16 sm:w-16 border-2 border-primary-foreground/20 shadow-lg">
-                <AvatarImage src={userProfile?.profile_picture_url || undefined} alt="User" />
-                <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg sm:text-xl font-bold">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
+              {user && (
+                <ProfilePictureUpload
+                  userId={user.id}
+                  currentPhotoUrl={profilePictureUrl}
+                  fullName={displayName}
+                  onPhotoUpdate={(newUrl) => {
+                    setProfilePictureUrl(newUrl);
+                  }}
+                  size="lg"
+                />
+              )}
               <div className="text-left">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
                   Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
