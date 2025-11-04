@@ -7,10 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Layout } from "@/components/Layout";
-import { Search, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
+import { Search, CheckCircle2, XCircle, ArrowLeft, Camera, Image as ImageIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { CameraCapture } from "@/components/CameraCapture";
 
 interface Retailer {
   id: string;
@@ -19,6 +22,8 @@ interface Retailer {
   phone: string | null;
   category: string | null;
   beat_id: string;
+  beat_name: string | null;
+  photo_url: string | null;
   verified: boolean;
   created_at: string;
   user_id: string;
@@ -34,6 +39,10 @@ export default function RetailManagement() {
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [search, setSearch] = useState("");
   const [verifiedFilter, setVerifiedFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
+  const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     document.title = "Retail Management | Admin Panel";
@@ -99,6 +108,55 @@ export default function RetailManagement() {
       });
       loadRetailers();
     }
+  };
+
+  const handlePhotoCapture = async (blob: Blob) => {
+    if (!selectedRetailer) return;
+    
+    setUploadingPhoto(true);
+    try {
+      const fileName = `${selectedRetailer.id}/store_${Date.now()}.jpg`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('retailer-photos')
+        .upload(fileName, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('retailer-photos')
+        .getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('retailers')
+        .update({ photo_url: urlData.publicUrl })
+        .eq('id', selectedRetailer.id);
+
+      if (updateError) throw updateError;
+
+      toast({ 
+        title: "Photo Uploaded",
+        description: "Retailer photo has been uploaded successfully."
+      });
+      
+      setCameraOpen(false);
+      setPhotoDialogOpen(false);
+      loadRetailers();
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ 
+        title: "Upload Failed",
+        description: error.message || "Failed to upload photo.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const openPhotoDialog = (retailer: Retailer) => {
+    setSelectedRetailer(retailer);
+    setPhotoDialogOpen(true);
   };
 
   if (authLoading) {
@@ -228,10 +286,11 @@ export default function RetailManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Photo</TableHead>
                       <TableHead>Retailer Name</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Address</TableHead>
-                      <TableHead>Beat</TableHead>
+                      <TableHead>Beat Name</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -240,13 +299,24 @@ export default function RetailManagement() {
                   <TableBody>
                     {filteredRetailers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           No retailers found
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredRetailers.map((retailer) => (
                         <TableRow key={retailer.id}>
+                          <TableCell>
+                            <Avatar 
+                              className="w-10 h-10 cursor-pointer"
+                              onClick={() => openPhotoDialog(retailer)}
+                            >
+                              <AvatarImage src={retailer.photo_url || undefined} />
+                              <AvatarFallback>
+                                <ImageIcon className="w-4 h-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                          </TableCell>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               {retailer.name}
@@ -258,7 +328,7 @@ export default function RetailManagement() {
                           <TableCell>{retailer.phone || 'N/A'}</TableCell>
                           <TableCell className="max-w-xs truncate">{retailer.address}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{retailer.beat_id}</Badge>
+                            <Badge variant="outline">{retailer.beat_name || retailer.beat_id}</Badge>
                           </TableCell>
                           <TableCell>{retailer.profiles?.full_name || 'Unknown'}</TableCell>
                           <TableCell>
@@ -301,6 +371,66 @@ export default function RetailManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Photo Dialog */}
+      <Dialog open={photoDialogOpen} onOpenChange={setPhotoDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Retailer Photo</DialogTitle>
+            <DialogDescription>
+              {selectedRetailer?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedRetailer?.photo_url ? (
+              <div className="space-y-4">
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
+                  <img 
+                    src={selectedRetailer.photo_url} 
+                    alt={selectedRetailer.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <Button 
+                  onClick={() => setCameraOpen(true)}
+                  className="w-full"
+                  disabled={uploadingPhoto}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {uploadingPhoto ? 'Uploading...' : 'Update Photo'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="w-full aspect-video rounded-lg overflow-hidden border bg-muted flex items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <ImageIcon className="w-12 h-12 mx-auto mb-2" />
+                    <p>No photo available</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => setCameraOpen(true)}
+                  className="w-full"
+                  disabled={uploadingPhoto}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {uploadingPhoto ? 'Uploading...' : 'Capture Photo'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera Capture */}
+      <CameraCapture
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handlePhotoCapture}
+        title="Capture Retailer Photo"
+        description="Take a clear photo of the retailer's store front"
+      />
     </Layout>
   );
 }
