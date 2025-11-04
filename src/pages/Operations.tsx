@@ -195,12 +195,16 @@ const Operations = () => {
             faceMatchConfidence = attendanceData.face_match_confidence;
             faceVerificationStatus = attendanceData.face_verification_status;
             
-            // Get attendance photo URL
+            // Get signed URL for attendance photo (bucket is private)
             if (attendanceData.check_in_photo_url) {
-              const { data: urlData } = supabase.storage
+              const { data: signedUrlData } = await supabase.storage
                 .from('attendance-photos')
-                .getPublicUrl(attendanceData.check_in_photo_url);
-              attendancePhotoUrl = urlData.publicUrl;
+                .createSignedUrl(attendanceData.check_in_photo_url, 3600);
+              if (signedUrlData?.signedUrl) {
+                attendancePhotoUrl = signedUrlData.signedUrl.startsWith('http') 
+                  ? signedUrlData.signedUrl 
+                  : `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1${signedUrlData.signedUrl}`;
+              }
             }
           }
 
