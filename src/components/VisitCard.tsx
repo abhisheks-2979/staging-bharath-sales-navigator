@@ -21,6 +21,7 @@ import { InvoiceGenerator } from "./InvoiceGenerator";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
+import { hasRecentUploadErrors } from "@/utils/uploadErrorChecker";
 
 interface Visit {
   id: string;
@@ -1506,6 +1507,43 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                               toast({
                                 title: 'Speed Test Failed',
                                 description: 'Could not verify internet speed. You can still proceed with this reason.',
+                                duration: 5000,
+                              });
+                            }
+                          }
+                          
+                          // If photo upload issue is selected, check logs for upload errors
+                          if (value === 'photo-upload-issue') {
+                            toast({
+                              title: 'Checking Upload Logs',
+                              description: 'Analyzing recent upload errors...',
+                            });
+                            
+                            try {
+                              const { hasErrors, errorCount, errors } = hasRecentUploadErrors();
+                              
+                              if (!hasErrors) {
+                                toast({
+                                  title: 'No Upload Issues Detected',
+                                  description: 'No issue detected with photo upload. Please proceed with normal check-in.',
+                                  variant: 'destructive',
+                                  duration: 8000,
+                                });
+                                // Reset selection since no errors found
+                                setSkipCheckInReasonType('');
+                              } else {
+                                toast({
+                                  title: 'Upload Errors Found',
+                                  description: `Detected ${errorCount} upload error(s) in recent logs. You can proceed without check-in.`,
+                                  duration: 6000,
+                                });
+                                console.log('Recent upload errors:', errors);
+                              }
+                            } catch (error) {
+                              console.error('Log check failed:', error);
+                              toast({
+                                title: 'Log Check Failed',
+                                description: 'Could not verify upload logs. You can still proceed with this reason.',
                                 duration: 5000,
                               });
                             }
