@@ -87,21 +87,35 @@ const Operations = () => {
     stockUpdates: 0
   });
 
-  // Fetch users for filter
+  // Fetch users for filter (via Edge Function to bypass RLS logging issue)
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, username')
-        .order('full_name');
-      
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('admin-get-users');
+      if (fnError) throw fnError;
+
+      // Normalize to expected shape
+      const list = (fnData?.users || fnData || []).map((u: any) => ({
+        id: u.id,
+        full_name: u.full_name ?? u.fullName ?? u.username ?? '—',
+        username: u.username ?? null,
+        profile_picture_url: u.profile_picture_url ?? u.profilePictureUrl ?? null,
+      }));
+      setUsers(list);
+    } catch (e1) {
+      // Fallback to direct select (works for admins or self)
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, profile_picture_url')
+          .order('full_name');
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.warn('Could not fetch users list:', (error as any)?.message || error);
+        setUsers([]);
+      }
     }
   };
-
   // Fetch check-in/check-out data
   const fetchCheckInData = async () => {
     setLoadingCheckins(true);
@@ -171,7 +185,7 @@ const Operations = () => {
       }
 
       const formattedData = await Promise.all(visitsData?.map(async (visit) => {
-        const user = usersData?.find(u => u.id === visit.user_id);
+        const user = (usersData?.find(u => u.id === visit.user_id)) || (users.find(u => u.id === visit.user_id));
         const retailer = retailersData?.find(r => r.id === visit.retailer_id);
         
         // Get signed URLs for photos if they exist
@@ -236,8 +250,8 @@ const Operations = () => {
             }
 
             // Get user's profile picture - use data from already fetched users
-            const userProfile = usersData?.find(u => u.id === visit.user_id);
-            if (userProfile) {
+            const userProfile = (usersData?.find(u => u.id === visit.user_id)) || (users.find(u => u.id === visit.user_id));
+            if (userProfile && (userProfile as any).profile_picture_url) {
               profilePictureUrl = (userProfile as any).profile_picture_url;
             }
           } catch (err) {
@@ -473,12 +487,14 @@ const Operations = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  // Initial data fetch
+  // Initial data fetch (ensure users are loaded before building check-ins)
   useEffect(() => {
-    fetchUsers();
-    fetchCheckInData();
-    fetchOrderData();
-    fetchStockData();
+    (async () => {
+      await fetchUsers();
+      await fetchCheckInData();
+      await fetchOrderData();
+      await fetchStockData();
+    })();
   }, [userFilter, dateFilter]);
 
   // Auto refresh
