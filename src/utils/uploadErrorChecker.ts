@@ -7,6 +7,9 @@ const recentErrors: Array<{ timestamp: number; message: string; type: string }> 
 const uploadAttempts: Array<{ timestamp: number; success: boolean }> = [];
 const MAX_ERROR_AGE = 5 * 60 * 1000; // 5 minutes
 
+// Store original console.error to avoid infinite loop
+let originalConsoleError: (...args: any[]) => void = console.error;
+
 /**
  * Log an upload error
  */
@@ -24,7 +27,8 @@ export const logUploadError = (message: string, type: 'network' | 'server' | 'ti
     recentErrors.shift();
   }
   
-  console.error(`[Upload Error - ${type}]`, message);
+  // Use original console.error to avoid infinite loop
+  originalConsoleError(`[Upload Error - ${type}]`, message);
 };
 
 /**
@@ -85,28 +89,38 @@ export const clearUploadErrors = () => {
 
 // Intercept console errors to catch upload issues
 if (typeof window !== 'undefined') {
-  const originalError = console.error;
+  originalConsoleError = console.error;
   console.error = function(...args: any[]) {
-    const message = args.map(arg => 
-      typeof arg === 'string' ? arg : JSON.stringify(arg)
-    ).join(' ');
+    const message = args.map(arg => {
+      if (typeof arg === 'string') return arg;
+      try {
+        return JSON.stringify(arg);
+      } catch {
+        return String(arg);
+      }
+    }).join(' ');
     
-    // Check if this is an upload-related error
-    const uploadKeywords = ['upload', 'photo', 'image', 'file', 'network', 'timeout', 'server error', 'failed to fetch'];
-    if (uploadKeywords.some(keyword => message.toLowerCase().includes(keyword))) {
+    // Check if this is an upload-related error (but not RLS or transaction errors)
+    const uploadKeywords = ['upload', 'photo', 'image', 'file'];
+    const excludeKeywords = ['read-only transaction', 'RLS', 'INSERT in'];
+    
+    const isUploadError = uploadKeywords.some(keyword => message.toLowerCase().includes(keyword));
+    const isExcluded = excludeKeywords.some(keyword => message.toLowerCase().includes(keyword));
+    
+    if (isUploadError && !isExcluded) {
       let errorType: 'network' | 'server' | 'timeout' | 'other' = 'other';
       
       if (message.toLowerCase().includes('network') || message.toLowerCase().includes('failed to fetch')) {
         errorType = 'network';
       } else if (message.toLowerCase().includes('timeout')) {
         errorType = 'timeout';
-      } else if (message.toLowerCase().includes('server') || message.toLowerCase().includes('500') || message.toLowerCase().includes('error')) {
+      } else if (message.toLowerCase().includes('server') || message.toLowerCase().includes('500')) {
         errorType = 'server';
       }
       
       logUploadError(message, errorType);
     }
     
-    originalError.apply(console, args);
+    originalConsoleError.apply(console, args);
   };
 }

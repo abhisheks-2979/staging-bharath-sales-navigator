@@ -135,24 +135,40 @@ const Operations = () => {
       const { data: visitsData, error } = await query;
       if (error) throw error;
 
-      // Get user and retailer data separately with error handling
-      const userIds = [...new Set(visitsData?.map(v => v.user_id) || [])];
-      const retailerIds = [...new Set(visitsData?.map(v => v.retailer_id) || [])];
+      // Get user and retailer data separately with proper error handling
+      const userIds = [...new Set(visitsData?.map(v => v.user_id).filter(Boolean) || [])];
+      const retailerIds = [...new Set(visitsData?.map(v => v.retailer_id).filter(Boolean) || [])];
 
-      const [usersResult, retailersResult] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, username').in('id', userIds),
-        supabase.from('retailers').select('id, name').in('id', retailerIds)
-      ]);
+      let usersData: any[] = [];
+      let retailersData: any[] = [];
 
-      if (usersResult.error) {
-        console.error('Error fetching user profiles:', usersResult.error);
+      // Fetch users if we have user IDs
+      if (userIds.length > 0) {
+        const { data, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, profile_picture_url')
+          .in('id', userIds);
+        
+        if (!usersError && data) {
+          usersData = data;
+        } else if (usersError) {
+          console.warn('Could not fetch user profiles:', usersError.message);
+        }
       }
-      if (retailersResult.error) {
-        console.error('Error fetching retailers:', retailersResult.error);
-      }
 
-      const usersData = usersResult.data;
-      const retailersData = retailersResult.data;
+      // Fetch retailers if we have retailer IDs
+      if (retailerIds.length > 0) {
+        const { data, error: retailersError } = await supabase
+          .from('retailers')
+          .select('id, name')
+          .in('id', retailerIds);
+        
+        if (!retailersError && data) {
+          retailersData = data;
+        } else if (retailersError) {
+          console.warn('Could not fetch retailers:', retailersError.message);
+        }
+      }
 
       const formattedData = await Promise.all(visitsData?.map(async (visit) => {
         const user = usersData?.find(u => u.id === visit.user_id);
@@ -192,43 +208,40 @@ const Operations = () => {
         let attendancePhotoUrl = null;
         let profilePictureUrl = null;
 
-        if (visit.check_in_time) {
-          const checkInDate = new Date(visit.check_in_time).toISOString().split('T')[0];
-          const { data: attendanceData } = await supabase
-            .from('attendance')
-            .select('face_match_confidence, face_verification_status, check_in_photo_url')
-            .eq('user_id', visit.user_id)
-            .eq('date', checkInDate)
-            .single();
+        if (visit.check_in_time && visit.user_id) {
+          try {
+            const checkInDate = new Date(visit.check_in_time).toISOString().split('T')[0];
+            const { data: attendanceData } = await supabase
+              .from('attendance')
+              .select('face_match_confidence, face_verification_status, check_in_photo_url')
+              .eq('user_id', visit.user_id)
+              .eq('date', checkInDate)
+              .maybeSingle();
 
-          if (attendanceData) {
-            faceMatchConfidence = attendanceData.face_match_confidence;
-            faceVerificationStatus = attendanceData.face_verification_status;
-            
-            // Get signed URL for attendance photo (bucket is private)
-            if (attendanceData.check_in_photo_url) {
-              const { data: signedUrlData } = await supabase.storage
-                .from('attendance-photos')
-                .createSignedUrl(attendanceData.check_in_photo_url, 3600);
-              if (signedUrlData?.signedUrl) {
-                attendancePhotoUrl = signedUrlData.signedUrl.startsWith('http') 
-                  ? signedUrlData.signedUrl 
-                  : `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1${signedUrlData.signedUrl}`;
+            if (attendanceData) {
+              faceMatchConfidence = attendanceData.face_match_confidence;
+              faceVerificationStatus = attendanceData.face_verification_status;
+              
+              // Get signed URL for attendance photo (bucket is private)
+              if (attendanceData.check_in_photo_url) {
+                const { data: signedUrlData } = await supabase.storage
+                  .from('attendance-photos')
+                  .createSignedUrl(attendanceData.check_in_photo_url, 3600);
+                if (signedUrlData?.signedUrl) {
+                  attendancePhotoUrl = signedUrlData.signedUrl.startsWith('http') 
+                    ? signedUrlData.signedUrl 
+                    : `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1${signedUrlData.signedUrl}`;
+                }
               }
             }
-          }
 
-          // Get user's profile picture with error handling
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('profile_picture_url')
-            .eq('id', visit.user_id)
-            .maybeSingle();
-
-          if (profileError) {
-            console.error('Error fetching profile picture:', profileError);
-          } else if (profileData?.profile_picture_url) {
-            profilePictureUrl = profileData.profile_picture_url;
+            // Get user's profile picture - use data from already fetched users
+            const userProfile = usersData?.find(u => u.id === visit.user_id);
+            if (userProfile) {
+              profilePictureUrl = (userProfile as any).profile_picture_url;
+            }
+          } catch (err) {
+            console.warn('Error fetching face match data:', err);
           }
         }
         
