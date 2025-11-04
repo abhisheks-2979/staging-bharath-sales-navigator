@@ -21,7 +21,7 @@ import { InvoiceGenerator } from "./InvoiceGenerator";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
-import { hasRecentUploadErrors } from "@/utils/uploadErrorChecker";
+import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
 
 interface Visit {
   id: string;
@@ -1512,14 +1512,30 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                             }
                           }
                           
-                          // If photo upload issue is selected, check logs for upload errors
+                          // If photo upload issue is selected, check for upload attempts and errors
                           if (value === 'photo-upload-issue') {
                             toast({
-                              title: 'Checking Upload Logs',
-                              description: 'Analyzing recent upload errors...',
+                              title: 'Checking Upload History',
+                              description: 'Verifying recent upload attempts...',
                             });
                             
                             try {
+                              // First check if user has attempted any uploads in the last 5 minutes
+                              const hasAttempts = hasRecentUploadAttempts();
+                              
+                              if (!hasAttempts) {
+                                toast({
+                                  title: 'No Upload Attempt Detected',
+                                  description: 'You have not tried to upload any photo in check-in. First try to upload using check-in, then use this option.',
+                                  variant: 'destructive',
+                                  duration: 8000,
+                                });
+                                // Reset selection since no upload attempt was made
+                                setSkipCheckInReasonType('');
+                                return;
+                              }
+                              
+                              // If attempts were made, check for errors
                               const { hasErrors, errorCount, errors } = hasRecentUploadErrors();
                               
                               if (!hasErrors) {
@@ -1540,10 +1556,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                                 console.log('Recent upload errors:', errors);
                               }
                             } catch (error) {
-                              console.error('Log check failed:', error);
+                              console.error('Upload verification failed:', error);
                               toast({
-                                title: 'Log Check Failed',
-                                description: 'Could not verify upload logs. You can still proceed with this reason.',
+                                title: 'Verification Failed',
+                                description: 'Could not verify upload history. You can still proceed with this reason.',
                                 duration: 5000,
                               });
                             }

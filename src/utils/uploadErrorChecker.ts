@@ -2,8 +2,9 @@
  * Utility to check for recent upload errors in console logs
  */
 
-// Store recent errors in memory
+// Store recent errors and upload attempts in memory
 const recentErrors: Array<{ timestamp: number; message: string; type: string }> = [];
+const uploadAttempts: Array<{ timestamp: number; success: boolean }> = [];
 const MAX_ERROR_AGE = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -49,10 +50,37 @@ export const hasRecentUploadErrors = (): { hasErrors: boolean; errorCount: numbe
 };
 
 /**
- * Clear all logged errors
+ * Log an upload attempt
+ */
+export const logUploadAttempt = (success: boolean) => {
+  const attempt = {
+    timestamp: Date.now(),
+    success
+  };
+  uploadAttempts.push(attempt);
+  
+  // Keep only recent attempts
+  const cutoff = Date.now() - MAX_ERROR_AGE;
+  while (uploadAttempts.length > 0 && uploadAttempts[0].timestamp < cutoff) {
+    uploadAttempts.shift();
+  }
+};
+
+/**
+ * Check if there are recent upload attempts
+ */
+export const hasRecentUploadAttempts = (): boolean => {
+  const cutoff = Date.now() - MAX_ERROR_AGE;
+  const validAttempts = uploadAttempts.filter(attempt => attempt.timestamp >= cutoff);
+  return validAttempts.length > 0;
+};
+
+/**
+ * Clear all logged errors and attempts
  */
 export const clearUploadErrors = () => {
   recentErrors.length = 0;
+  uploadAttempts.length = 0;
 };
 
 // Intercept console errors to catch upload issues
