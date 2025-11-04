@@ -11,12 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign } from 'lucide-react';
+import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface CheckInOutData {
   id: string;
+  user_id: string;
   user_name: string;
   retailer_name: string;
   check_in_time: string | null;
@@ -32,6 +34,10 @@ interface CheckInOutData {
   skip_check_in_reason?: string | null;
   no_order_reason?: string | null;
   status?: string;
+  face_match_confidence?: number | null;
+  face_verification_status?: string | null;
+  attendance_photo_url?: string | null;
+  profile_picture_url?: string | null;
 }
 
 interface OrderData {
@@ -169,9 +175,50 @@ const Operations = () => {
               : `https://etabpbfokzhhfuybeieu.supabase.co/storage/v1${signedUrlData.signedUrl}`;
           }
         }
+
+        // Fetch face matching data from attendance table
+        let faceMatchConfidence = null;
+        let faceVerificationStatus = null;
+        let attendancePhotoUrl = null;
+        let profilePictureUrl = null;
+
+        if (visit.check_in_time) {
+          const checkInDate = new Date(visit.check_in_time).toISOString().split('T')[0];
+          const { data: attendanceData } = await supabase
+            .from('attendance')
+            .select('face_match_confidence, face_verification_status, check_in_photo_url')
+            .eq('user_id', visit.user_id)
+            .eq('date', checkInDate)
+            .single();
+
+          if (attendanceData) {
+            faceMatchConfidence = attendanceData.face_match_confidence;
+            faceVerificationStatus = attendanceData.face_verification_status;
+            
+            // Get attendance photo URL
+            if (attendanceData.check_in_photo_url) {
+              const { data: urlData } = supabase.storage
+                .from('attendance-photos')
+                .getPublicUrl(attendanceData.check_in_photo_url);
+              attendancePhotoUrl = urlData.publicUrl;
+            }
+          }
+
+          // Get user's profile picture
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('profile_picture_url')
+            .eq('id', visit.user_id)
+            .single();
+
+          if (profileData?.profile_picture_url) {
+            profilePictureUrl = profileData.profile_picture_url;
+          }
+        }
         
         return {
           id: visit.id,
+          user_id: visit.user_id,
           user_name: user?.full_name || user?.username || 'Unknown',
           retailer_name: retailer?.name || 'Unknown',
           check_in_time: visit.check_in_time,
@@ -186,7 +233,11 @@ const Operations = () => {
           skip_check_in_time: visit.skip_check_in_time,
           skip_check_in_reason: visit.skip_check_in_reason,
           no_order_reason: visit.no_order_reason,
-          status: visit.status
+          status: visit.status,
+          face_match_confidence: faceMatchConfidence,
+          face_verification_status: faceVerificationStatus,
+          attendance_photo_url: attendancePhotoUrl,
+          profile_picture_url: profilePictureUrl
         };
       }) || []);
 
@@ -612,19 +663,20 @@ const Operations = () => {
                         <TableHead>Check-in Time</TableHead>
                         <TableHead>Check-out Time</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Face Match</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loadingCheckins ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8">
+                          <TableCell colSpan={8} className="text-center py-8">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
                           </TableCell>
                         </TableRow>
                       ) : filteredCheckInData.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             No check-in data found
                           </TableCell>
                         </TableRow>
@@ -683,6 +735,28 @@ const Operations = () => {
                                 <Badge variant="secondary">
                                   {item.status || 'Pending'}
                                 </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {item.face_match_confidence !== null && item.face_match_confidence !== undefined ? (
+                                <Badge 
+                                  variant={
+                                    item.face_match_confidence >= 70 ? 'default' : 
+                                    item.face_match_confidence >= 40 ? 'secondary' : 
+                                    'destructive'
+                                  }
+                                  className={cn(
+                                    item.face_match_confidence >= 70 && "bg-green-500 hover:bg-green-600",
+                                    item.face_match_confidence >= 40 && item.face_match_confidence < 70 && "bg-amber-500 hover:bg-amber-600"
+                                  )}
+                                >
+                                  {item.face_match_confidence >= 70 ? '✅' : 
+                                   item.face_match_confidence >= 40 ? '⚠️' : '❌'}
+                                  {' '}
+                                  {Math.round(item.face_match_confidence)}%
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -778,26 +852,97 @@ const Operations = () => {
                                           </p>
                                         </div>
                                       )}
-                                    </div>
-                                    {(item.check_in_photo_url || item.check_out_photo_url) && (
-                                      <div className="space-y-3 pt-4 border-t">
-                                        <label className="text-sm font-medium">Visit Photos</label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                          {item.check_in_photo_url && (
-                                            <div className="space-y-2">
-                                              <p className="text-xs text-muted-foreground">Check-in Photo</p>
-                                              <img 
-                                                src={item.check_in_photo_url} 
-                                                alt="Check-in" 
-                                                className="w-full h-48 object-cover rounded-lg border"
-                                              />
-                                            </div>
-                                          )}
-                                          {item.check_out_photo_url && (
-                                            <div className="space-y-2">
-                                              <p className="text-xs text-muted-foreground">Check-out Photo</p>
-                                              <img 
-                                                src={item.check_out_photo_url} 
+                                     </div>
+                                     
+                                     {/* Face Verification Section */}
+                                     {item.face_match_confidence !== null && item.face_match_confidence !== undefined && (
+                                       <div className="space-y-3 pt-4 border-t">
+                                         <label className="text-sm font-medium">Face Verification</label>
+                                         <div className={`p-4 rounded-lg ${
+                                           item.face_match_confidence >= 70 ? 'bg-green-50 border-green-200' :
+                                           item.face_match_confidence >= 40 ? 'bg-amber-50 border-amber-200' :
+                                           'bg-red-50 border-red-200'
+                                         } border`}>
+                                           <div className="flex items-center justify-between mb-3">
+                                             <div className="flex items-center gap-3">
+                                               <span className="text-2xl">
+                                                 {item.face_match_confidence >= 70 ? '✅' : 
+                                                  item.face_match_confidence >= 40 ? '⚠️' : '❌'}
+                                               </span>
+                                               <div>
+                                                 <p className="font-medium">
+                                                   {item.face_match_confidence >= 70 ? 'Match Verified' :
+                                                    item.face_match_confidence >= 40 ? 'Partial Match' :
+                                                    'Match Failed'}
+                                                 </p>
+                                                 <p className="text-sm text-muted-foreground">
+                                                   Confidence: {item.face_match_confidence.toFixed(1)}%
+                                                 </p>
+                                               </div>
+                                             </div>
+                                             <Badge 
+                                               variant={
+                                                 item.face_match_confidence >= 70 ? 'default' : 
+                                                 item.face_match_confidence >= 40 ? 'secondary' : 
+                                                 'destructive'
+                                               }
+                                               className={`${
+                                                 item.face_match_confidence >= 70 ? 'bg-green-500' :
+                                                 item.face_match_confidence >= 40 ? 'bg-amber-500' : ''
+                                               }`}
+                                             >
+                                               {Math.round(item.face_match_confidence)}%
+                                             </Badge>
+                                           </div>
+                                           
+                                           {/* Display both photos for comparison */}
+                                           {(item.profile_picture_url || item.attendance_photo_url) && (
+                                             <div className="grid grid-cols-2 gap-4 mt-3">
+                                               {item.profile_picture_url && (
+                                                 <div className="space-y-2">
+                                                   <p className="text-xs text-muted-foreground">Profile Photo</p>
+                                                   <img 
+                                                     src={item.profile_picture_url} 
+                                                     alt="Profile" 
+                                                     className="w-full h-32 object-cover rounded-lg border"
+                                                   />
+                                                 </div>
+                                               )}
+                                               {item.attendance_photo_url && (
+                                                 <div className="space-y-2">
+                                                   <p className="text-xs text-muted-foreground">Check-in Photo</p>
+                                                   <img 
+                                                     src={item.attendance_photo_url} 
+                                                     alt="Attendance" 
+                                                     className="w-full h-32 object-cover rounded-lg border"
+                                                   />
+                                                 </div>
+                                               )}
+                                             </div>
+                                           )}
+                                         </div>
+                                       </div>
+                                     )}
+
+                                     {(item.check_in_photo_url || item.check_out_photo_url) && (
+                                       <div className="space-y-3 pt-4 border-t">
+                                         <label className="text-sm font-medium">Visit Photos</label>
+                                         <div className="grid grid-cols-2 gap-4">
+                                           {item.check_in_photo_url && (
+                                             <div className="space-y-2">
+                                               <p className="text-xs text-muted-foreground">Check-in Photo</p>
+                                               <img 
+                                                 src={item.check_in_photo_url} 
+                                                 alt="Check-in" 
+                                                 className="w-full h-48 object-cover rounded-lg border"
+                                               />
+                                             </div>
+                                           )}
+                                           {item.check_out_photo_url && (
+                                             <div className="space-y-2">
+                                               <p className="text-xs text-muted-foreground">Check-out Photo</p>
+                                               <img 
+                                                 src={item.check_out_photo_url}
                                                 alt="Check-out" 
                                                 className="w-full h-48 object-cover rounded-lg border"
                                               />
