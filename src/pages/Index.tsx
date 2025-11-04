@@ -180,7 +180,7 @@ const Index = () => {
           <div className="relative p-4 text-center">
             <div className="flex items-center justify-center space-x-3 mb-4">
               <Avatar className="h-12 w-12 sm:h-16 sm:w-16 border-2 border-primary-foreground/20 shadow-lg">
-                <AvatarImage src="/placeholder.svg" alt="User" />
+                <AvatarImage src={userProfile?.profile_picture_url || undefined} alt="User" />
                 <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg sm:text-xl font-bold">
                   {userInitials}
                 </AvatarFallback>

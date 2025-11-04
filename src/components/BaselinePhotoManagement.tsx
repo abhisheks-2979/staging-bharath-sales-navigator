@@ -27,14 +27,15 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
 
   const fetchCurrentPhoto = async () => {
     try {
+      // Fetch profile picture from profiles table
       const { data } = await supabase
-        .from('employees')
-        .select('photo_url')
-        .eq('user_id', userId)
+        .from('profiles')
+        .select('profile_picture_url')
+        .eq('id', userId)
         .single();
 
-      if (data?.photo_url) {
-        setCurrentPhoto(data.photo_url);
+      if (data?.profile_picture_url) {
+        setCurrentPhoto(data.profile_picture_url);
       }
     } catch (error) {
       console.error('Error fetching current photo:', error);
@@ -85,13 +86,13 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
         .from('employee-photos')
         .getPublicUrl(fileName);
 
-      // Update employee record
+      // Update profiles table with the profile picture URL
       const { error: updateError } = await supabase
-        .from('employees')
-        .upsert({
-          user_id: userId,
-          photo_url: urlData.publicUrl
-        });
+        .from('profiles')
+        .update({
+          profile_picture_url: urlData.publicUrl
+        })
+        .eq('id', userId);
 
       if (updateError) {
         throw updateError;
@@ -102,7 +103,7 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
       
       toast({
         title: "Success",
-        description: "Baseline photo updated successfully.",
+        description: "Profile picture updated successfully.",
       });
 
     } catch (error) {
@@ -122,7 +123,7 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <User size={20} />
-          Baseline Photo
+          Profile Picture
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -140,7 +141,7 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
             {userProfile?.full_name || 'User'}
           </p>
           <p className="text-xs text-gray-500">
-            This photo is used for face verification during attendance
+            This photo is used for your profile and face verification during attendance
           </p>
         </div>
 
@@ -153,7 +154,7 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
           </DialogTrigger>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Upload Baseline Photo</DialogTitle>
+              <DialogTitle>Upload Profile Picture</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="text-sm text-gray-600">
@@ -189,15 +190,8 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
         </Dialog>
 
         {currentPhoto && (
-          <div className="text-center">
-            <Button
-              variant="ghost" 
-              size="sm"
-              onClick={() => setCurrentPhoto(null)}
-              className="text-red-600 hover:text-red-700"
-            >
-              Remove Photo
-            </Button>
+          <div className="text-xs text-center text-muted-foreground mt-2">
+            Last updated: {new Date().toLocaleDateString()}
           </div>
         )}
       </CardContent>

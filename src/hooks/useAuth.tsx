@@ -32,6 +32,7 @@ interface UserProfile {
   full_name: string;
   phone_number?: string;
   recovery_email?: string;
+  profile_picture_url?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, full_name, phone_number, recovery_email')
+        .select('id, username, full_name, phone_number, recovery_email, profile_picture_url')
         .eq('id', userId)
         .maybeSingle();
 

@@ -37,6 +37,11 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
       if (!profile?.profile_picture_url) {
         setNeedsProfileSetup(true);
         setIsOpen(true);
+      } else {
+        // User already has a profile picture
+        setProfileImageUrl(profile.profile_picture_url);
+        setNeedsProfileSetup(false);
+        setIsOpen(false);
       }
     } catch (error) {
       console.error('Error checking profile setup:', error);
@@ -103,10 +108,17 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
     }
     
     console.log('Completing profile setup with image:', profileImageUrl);
+    
+    // Reload the profile to ensure fresh data
+    await checkProfileSetup();
+    
     setNeedsProfileSetup(false);
     setIsOpen(false);
     onComplete();
     toast.success('Profile setup completed! Welcome aboard!');
+    
+    // Reload the page to refresh all profile data
+    window.location.reload();
   };
 
   const handleSkip = () => {
