@@ -1489,7 +1489,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                               if (uploadSpeed >= 4) {
                                 toast({
                                   title: 'Internet Connection Sufficient',
-                                  description: `Your upload speed is ${uploadSpeed.toFixed(2)} Mbps. Please proceed with normal check-in.`,
+                                  description: `Your upload speed is good enough to proceed with normal check-in (above the 4 Mbps threshold)`,
                                   variant: 'destructive',
                                   duration: 8000,
                                 });
