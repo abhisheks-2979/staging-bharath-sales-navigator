@@ -85,6 +85,13 @@ const Index = () => {
     }
   }, [userProfile]);
 
+  useEffect(() => {
+    // Ensure we always fetch latest picture from DB when user changes
+    if (user?.id) {
+      refreshProfilePicture();
+    }
+  }, [user?.id]);
+
   const fetchMonthlyStats = async () => {
     if (!userProfile?.id) return;
 
@@ -319,7 +326,7 @@ const Index = () => {
         <ProfileSetupModal
           userId={userProfile.id}
           fullName={userProfile.full_name || ''}
-          onComplete={() => {}}
+          onComplete={refreshProfilePicture}
         />
       )}
     </Layout>

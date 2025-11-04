@@ -90,7 +90,8 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          profile_picture_url: urlData.publicUrl
+          profile_picture_url: urlData.publicUrl,
+          onboarding_completed: true
         })
         .eq('id', userId);
 
@@ -167,6 +168,7 @@ export const BaselinePhotoManagement = ({ userId, userProfile }: BaselinePhotoMa
                   id="photo-upload"
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   onChange={handleFileUpload}
                   ref={fileInputRef}
                   disabled={isUploading}

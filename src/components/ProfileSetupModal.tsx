@@ -22,6 +22,12 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   useEffect(() => {
+    const completed = localStorage.getItem('profileSetupComplete') === 'true';
+    if (completed) {
+      setNeedsProfileSetup(false);
+      setIsOpen(false);
+      return;
+    }
     checkProfileSetup();
   }, [userId]);
 
