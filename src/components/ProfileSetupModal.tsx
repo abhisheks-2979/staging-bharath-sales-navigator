@@ -30,18 +30,20 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
       // Check if user has profile picture in profiles table
       const { data: profile } = await supabase
         .from('profiles')
-        .select('profile_picture_url')
+        .select('profile_picture_url, onboarding_completed')
         .eq('id', userId)
         .single();
 
-      if (!profile?.profile_picture_url) {
+      const hasPicture = !!profile?.profile_picture_url;
+      const completed = !!profile?.onboarding_completed;
+      if (!hasPicture && !completed) {
         setNeedsProfileSetup(true);
         setIsOpen(true);
       } else {
-        // User already has a profile picture
-        setProfileImageUrl(profile.profile_picture_url);
+        setProfileImageUrl(profile?.profile_picture_url ?? null);
         setNeedsProfileSetup(false);
         setIsOpen(false);
+        localStorage.setItem('profileSetupComplete', 'true');
       }
     } catch (error) {
       console.error('Error checking profile setup:', error);
@@ -78,7 +80,7 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
       // Update profiles table with profile picture
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ profile_picture_url: urlData.publicUrl })
+        .update({ profile_picture_url: urlData.publicUrl, onboarding_completed: true })
         .eq('id', userId);
 
       if (profileError) {
@@ -90,6 +92,10 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
       setProfileImageUrl(urlData.publicUrl);
       setUploadSuccess(true);
       setShowCamera(false);
+      localStorage.setItem('profileSetupComplete', 'true');
+      setNeedsProfileSetup(false);
+      setIsOpen(false);
+      onComplete();
       toast.success('Profile picture uploaded successfully!');
       
     } catch (error: any) {
@@ -111,14 +117,11 @@ export const ProfileSetupModal = ({ userId, fullName, onComplete }: ProfileSetup
     
     // Reload the profile to ensure fresh data
     await checkProfileSetup();
-    
     setNeedsProfileSetup(false);
     setIsOpen(false);
+    localStorage.setItem('profileSetupComplete', 'true');
     onComplete();
     toast.success('Profile setup completed! Welcome aboard!');
-    
-    // Reload the page to refresh all profile data
-    window.location.reload();
   };
 
   const handleSkip = () => {

@@ -62,7 +62,7 @@ export const ProfilePictureUpload = ({
 
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ profile_picture_url: urlData.publicUrl })
+        .update({ profile_picture_url: urlData.publicUrl, onboarding_completed: true })
         .eq("id", userId);
 
       if (updateError) throw updateError;
@@ -100,6 +100,7 @@ export const ProfilePictureUpload = ({
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleFileSelect}
       />
