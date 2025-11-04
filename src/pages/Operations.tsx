@@ -135,14 +135,24 @@ const Operations = () => {
       const { data: visitsData, error } = await query;
       if (error) throw error;
 
-      // Get user and retailer data separately
+      // Get user and retailer data separately with error handling
       const userIds = [...new Set(visitsData?.map(v => v.user_id) || [])];
       const retailerIds = [...new Set(visitsData?.map(v => v.retailer_id) || [])];
 
-      const [{ data: usersData }, { data: retailersData }] = await Promise.all([
+      const [usersResult, retailersResult] = await Promise.all([
         supabase.from('profiles').select('id, full_name, username').in('id', userIds),
         supabase.from('retailers').select('id, name').in('id', retailerIds)
       ]);
+
+      if (usersResult.error) {
+        console.error('Error fetching user profiles:', usersResult.error);
+      }
+      if (retailersResult.error) {
+        console.error('Error fetching retailers:', retailersResult.error);
+      }
+
+      const usersData = usersResult.data;
+      const retailersData = retailersResult.data;
 
       const formattedData = await Promise.all(visitsData?.map(async (visit) => {
         const user = usersData?.find(u => u.id === visit.user_id);
@@ -208,14 +218,16 @@ const Operations = () => {
             }
           }
 
-          // Get user's profile picture
-          const { data: profileData } = await supabase
+          // Get user's profile picture with error handling
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('profile_picture_url')
             .eq('id', visit.user_id)
-            .single();
+            .maybeSingle();
 
-          if (profileData?.profile_picture_url) {
+          if (profileError) {
+            console.error('Error fetching profile picture:', profileError);
+          } else if (profileData?.profile_picture_url) {
             profilePictureUrl = profileData.profile_picture_url;
           }
         }
