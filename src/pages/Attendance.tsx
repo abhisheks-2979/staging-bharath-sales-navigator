@@ -266,7 +266,12 @@ const Attendance = () => {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Request front-facing camera for selfie
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user' // 'user' = front camera
+        } 
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setShowCamera(true);
