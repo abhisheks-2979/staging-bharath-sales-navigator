@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Store, Package, Calendar, TrendingUp } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Store, Package, Calendar, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ interface Retailer {
   order_value: number;
   created_at: string;
   updated_at: string;
+  verified?: boolean;
 }
 
 export const RetailerDetail = () => {
@@ -186,7 +187,12 @@ export const RetailerDetail = () => {
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1">
-                <CardTitle className="text-xl mb-2">{retailer.name}</CardTitle>
+                <div className="flex items-center gap-2 mb-2">
+                  <CardTitle className="text-xl">{retailer.name}</CardTitle>
+                  {retailer.verified && (
+                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge className={getPriorityColor(retailer.priority)}>
                     {retailer.priority || 'Medium'} Priority

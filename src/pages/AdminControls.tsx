@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store } from 'lucide-react';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
@@ -204,6 +204,21 @@ const AdminControls = () => {
               <CardTitle>GPS Track Management</CardTitle>
               <CardDescription>
                 Monitor live locations and track user movements from login to logout
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/retail-management')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-teal-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Store className="h-8 w-8 text-teal-600" />
+              </div>
+              <CardTitle>Retail Management</CardTitle>
+              <CardDescription>
+                Verify and manage all retailers across the system
               </CardDescription>
             </CardHeader>
           </Card>

@@ -1941,6 +1941,7 @@ export type Database = {
           territory_id: string | null
           updated_at: string
           user_id: string
+          verified: boolean
         }
         Insert: {
           address: string
@@ -1971,6 +1972,7 @@ export type Database = {
           territory_id?: string | null
           updated_at?: string
           user_id: string
+          verified?: boolean
         }
         Update: {
           address?: string
@@ -2001,6 +2003,7 @@ export type Database = {
           territory_id?: string | null
           updated_at?: string
           user_id?: string
+          verified?: boolean
         }
         Relationships: [
           {

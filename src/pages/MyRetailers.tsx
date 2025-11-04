@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -43,6 +43,7 @@ interface Retailer {
   entity_type?: string | null;
   gst_number?: string | null;
   photo_url?: string | null;
+  verified?: boolean;
 }
 
 export const MyRetailers = () => {
@@ -466,20 +467,23 @@ export const MyRetailers = () => {
             <div className="md:hidden space-y-3">
               {filtered.map(r => (
                 <Card key={r.id} className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={selectedRetailerIds.includes(r.id)}
-                          onCheckedChange={() => toggleSelectRetailer(r.id)}
-                        />
-                        <h3 
-                          className="font-semibold cursor-pointer hover:text-primary"
-                          onClick={() => openRetailerDetail(r)}
-                        >
-                          {r.name}
-                        </h3>
-                      </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedRetailerIds.includes(r.id)}
+                            onCheckedChange={() => toggleSelectRetailer(r.id)}
+                          />
+                          <h3 
+                            className="font-semibold cursor-pointer hover:text-primary flex items-center gap-2"
+                            onClick={() => openRetailerDetail(r)}
+                          >
+                            {r.name}
+                            {r.verified && (
+                              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                            )}
+                          </h3>
+                        </div>
                       <div className="flex items-center gap-1">
                         <Button 
                           size="sm" 
@@ -579,12 +583,17 @@ export const MyRetailers = () => {
                             onCheckedChange={() => toggleSelectRetailer(r.id)}
                           />
                         </TableCell>
-                        <TableCell 
+                         <TableCell 
                           className="font-medium cursor-pointer hover:text-primary"
                           onClick={() => openRetailerDetail(r)}
                           title="Click to view retailer details"
                         >
-                          {r.name}
+                          <div className="flex items-center gap-2">
+                            {r.name}
+                            {r.verified && (
+                              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {r.phone ? (
