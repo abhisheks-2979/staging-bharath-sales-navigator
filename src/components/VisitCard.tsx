@@ -20,6 +20,7 @@ import { RetailerAnalytics } from "./RetailerAnalytics";
 import { InvoiceGenerator } from "./InvoiceGenerator";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
+import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 
 interface Visit {
   id: string;
@@ -1526,6 +1527,40 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                               : '';
                               
                           if (finalReason) {
+                            // If internet issue is selected, check actual internet speed
+                            if (skipCheckInReasonType === 'internet-issue') {
+                              toast({
+                                title: 'Checking Internet Speed',
+                                description: 'Please wait while we verify your connection...',
+                              });
+                              
+                              try {
+                                const uploadSpeed = await checkUploadSpeed();
+                                
+                                if (uploadSpeed >= 4) {
+                                  toast({
+                                    title: 'Internet Connection Sufficient',
+                                    description: `Your upload speed is ${uploadSpeed.toFixed(2)} Mbps. Please proceed with normal check-in.`,
+                                    variant: 'destructive',
+                                    duration: 6000,
+                                  });
+                                  return; // Don't allow proceeding
+                                }
+                                
+                                // If speed is below 4 Mbps, show the result and proceed
+                                toast({
+                                  title: 'Low Internet Speed Confirmed',
+                                  description: `Upload speed: ${uploadSpeed.toFixed(2)} Mbps. Proceeding without check-in.`,
+                                });
+                              } catch (error) {
+                                console.error('Speed test failed:', error);
+                                toast({
+                                  title: 'Speed Test Failed',
+                                  description: 'Could not verify internet speed. Proceeding with your selection.',
+                                });
+                              }
+                            }
+                            
                             try {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (user) {
