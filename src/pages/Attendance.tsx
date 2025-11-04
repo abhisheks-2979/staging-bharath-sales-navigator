@@ -394,25 +394,28 @@ const Attendance = () => {
         return;
       }
 
-      // Only allow attendance if face is verified
-      if (!faceMatchResult?.verified) {
-        toast({
-          title: "Face Verification Failed",
-          description: `Confidence: ${Math.round(faceMatchResult?.confidence || 0)}%. Your manager will be notified for review.`,
-          variant: "destructive"
-        });
-        setIsMarkingAttendance(false);
-        return;
-      }
+      // Determine match color and status based on confidence
+      const confidence = faceMatchResult?.confidence || 0;
+      const matchStatus = confidence >= 70 ? 'match' : confidence >= 40 ? 'partial' : 'nomatch';
+      const matchColor = confidence >= 70 ? 'green' : confidence >= 40 ? 'amber' : 'red';
       
-      // Show success result
+      // Show face match result with color-coded status
+      const statusMessage = confidence >= 70 
+        ? 'Face Match Verified ✅' 
+        : confidence >= 40 
+        ? 'Partial Face Match ⚠️' 
+        : 'Face Match Failed ❌';
+      
+      const statusVariant = confidence >= 70 ? 'default' : 'destructive';
+      
       toast({
-        title: `Face Verified (${Math.round(faceMatchResult.confidence)}%)`,
-        description: 'Identity confirmed successfully!',
+        title: statusMessage,
+        description: `Match Confidence: ${Math.round(confidence)}%`,
+        variant: statusVariant,
       });
 
       if (type === 'check-in') {
-        // Mark attendance with face verification result
+        // Mark attendance with face verification result - always save but flag low confidence
         const { error: attendanceError } = await supabase
           .from('attendance')
           .insert({
@@ -423,8 +426,8 @@ const Attendance = () => {
             check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
             check_in_photo_url: photoPath,
             status: 'present',
-            face_verification_status: faceMatchResult.status,
-            face_match_confidence: faceMatchResult.confidence
+            face_verification_status: matchStatus,
+            face_match_confidence: confidence
           });
 
         if (attendanceError) throw attendanceError;
@@ -790,7 +793,7 @@ const Attendance = () => {
                                 ) : (
                                   <XCircle className="h-5 w-5 text-red-600" />
                                 )}
-                                <div>
+                                <div className="flex-1">
                                   <div className="font-medium">
                                     {format(new Date(record.date), 'EEE, MMM dd, yyyy')}
                                   </div>
@@ -803,6 +806,25 @@ const Attendance = () => {
                                     </div>
                                   )}
                                 </div>
+                                {record.face_match_confidence !== null && (
+                                  <Badge 
+                                    variant={
+                                      record.face_match_confidence >= 70 ? 'default' : 
+                                      record.face_match_confidence >= 40 ? 'secondary' : 
+                                      'destructive'
+                                    }
+                                    className={cn(
+                                      "ml-2",
+                                      record.face_match_confidence >= 70 && "bg-green-500 hover:bg-green-600",
+                                      record.face_match_confidence >= 40 && record.face_match_confidence < 70 && "bg-amber-500 hover:bg-amber-600"
+                                    )}
+                                  >
+                                    {record.face_match_confidence >= 70 ? '✅' : 
+                                     record.face_match_confidence >= 40 ? '⚠️' : '❌'}
+                                    {' '}
+                                    {Math.round(record.face_match_confidence)}%
+                                  </Badge>
+                                )}
                               </div>
                             </div>
 

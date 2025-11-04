@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFaceMatching, type FaceMatchResult } from "@/hooks/useFaceMatching";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface AttendanceDetailModalProps {
   isOpen: boolean;
@@ -26,17 +27,14 @@ export const AttendanceDetailModal = ({ isOpen, onClose, selectedDate, record }:
 
   const fetchBaselinePhoto = async () => {
     try {
-      const { data: employeeData } = await supabase
-        .from('employees')
-        .select('photo_url')
-        .eq('user_id', record.rawRecord.user_id)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('profile_picture_url')
+        .eq('id', record.rawRecord.user_id)
         .single();
 
-      if (employeeData?.photo_url) {
-        const { data } = supabase.storage
-          .from('employee-photos')
-          .getPublicUrl(employeeData.photo_url);
-        setBaselinePhoto(data.publicUrl);
+      if (profileData?.profile_picture_url) {
+        setBaselinePhoto(profileData.profile_picture_url);
       }
     } catch (error) {
       console.error('Error fetching baseline photo:', error);
@@ -162,7 +160,12 @@ export const AttendanceDetailModal = ({ isOpen, onClose, selectedDate, record }:
                 )}
               </div>
               {faceMatchResult && (
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className={cn(
+                  "p-4 rounded-lg",
+                  faceMatchResult.confidence >= 70 && "bg-green-50 dark:bg-green-950",
+                  faceMatchResult.confidence >= 40 && faceMatchResult.confidence < 70 && "bg-amber-50 dark:bg-amber-950",
+                  faceMatchResult.confidence < 40 && "bg-red-50 dark:bg-red-950"
+                )}>
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">
                       {getMatchStatusIcon(faceMatchResult)}
@@ -173,6 +176,21 @@ export const AttendanceDetailModal = ({ isOpen, onClose, selectedDate, record }:
                         Confidence: {faceMatchResult.confidence.toFixed(1)}%
                       </p>
                     </div>
+                    <Badge 
+                      variant={
+                        faceMatchResult.confidence >= 70 ? 'default' : 
+                        faceMatchResult.confidence >= 40 ? 'secondary' : 
+                        'destructive'
+                      }
+                      className={cn(
+                        "ml-auto",
+                        faceMatchResult.confidence >= 70 && "bg-green-500",
+                        faceMatchResult.confidence >= 40 && faceMatchResult.confidence < 70 && "bg-amber-500"
+                      )}
+                    >
+                      {faceMatchResult.confidence >= 70 ? 'Match' : 
+                       faceMatchResult.confidence >= 40 ? 'Partial' : 'No Match'}
+                    </Badge>
                   </div>
                 </div>
               )}
