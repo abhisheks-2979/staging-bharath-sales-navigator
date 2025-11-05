@@ -192,9 +192,27 @@ const Index = () => {
       }]
     : navigationItems;
 
-  // Get user display name and initials
-  const displayName = userProfile?.full_name || userProfile?.username || 'User';
-  const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  // Get user display name and initials with robust fallbacks
+  const getEmailName = (email?: string | null) => {
+    if (!email) return null;
+    const base = email.split('@')[0] || '';
+    if (!base) return null;
+    return base.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+  const meta = (user?.user_metadata as any) || {};
+  const metaName: string | null = meta.full_name || meta.name || meta.username || null;
+  const displayName =
+    (userProfile?.full_name && userProfile.full_name.trim()) ||
+    (userProfile?.username && userProfile.username.trim()) ||
+    (metaName && metaName.trim()) ||
+    getEmailName(user?.email) ||
+    'User';
+  const userInitials =
+    displayName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase() || 'U';
   const roleDisplay = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'Field Executive';
 
   return (
