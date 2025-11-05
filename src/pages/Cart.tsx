@@ -523,11 +523,10 @@ React.useEffect(() => {
       // Update retailer's pending amount based on order type
       if (validRetailerId) {
         if (isCreditSubmit) {
-          // Credit order: Add new credit pending to existing pending amount
-          const newPendingAmount = pendingAmountFromPrevious + creditPending;
+          // Credit order: Set the new pending amount (creditPending already includes previous pending)
           await supabase
             .from('retailers')
-            .update({ pending_amount: newPendingAmount })
+            .update({ pending_amount: creditPending })
             .eq('id', validRetailerId);
         } else {
           // Regular order: Clear all pending amounts (full payment made)

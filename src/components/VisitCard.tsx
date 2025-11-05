@@ -1128,7 +1128,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   onClick={() => setShowPaymentModal(true)}
                 >
                   <DollarSign className="w-3 h-3" />
-                  Mark Payment
+                  Make Payment
                 </Button>
               </div>
             </div>
