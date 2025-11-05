@@ -1231,6 +1231,33 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               variant="outline" 
               size="sm"
               className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
+              onClick={() => {
+                setShowNoOrderModal(true);
+              }}
+              title="No Order - Mark visit as unproductive with reason"
+            >
+              <XCircle size={12} className="sm:size-3.5" />
+              <span className="text-xs">No Order</span>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
+              onClick={() => setShowStockCycleModal(true)}
+              title="AI Stock - Track stock levels with AI insights"
+            >
+              <Package size={12} className="sm:size-3.5" />
+              <span className="text-xs">AI Stock</span>
+            </Button>
+          </div>
+
+          {/* Second row - Feedback, AI, Van Sales (if enabled), GP Tracker */}
+          <div className={`grid ${isVanSalesEnabled ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 sm:gap-2`}>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
               onClick={() => setShowFeedbackModal(true)}
               title="Feedback - Branding, Retailer Feedback & Competition Insights"
             >
@@ -1264,15 +1291,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <Sparkles size={12} className="sm:size-3.5 text-primary" />
               <span className="text-xs">AI</span>
             </Button>
-          </div>
 
-          {/* Van Sales Button (conditionally shown) */}
-          {isVanSalesEnabled && (
-            <div className="mt-2">
+            {/* Van Sales Button (conditionally shown) */}
+            {isVanSalesEnabled && (
               <Button 
                 variant="outline" 
                 size="sm"
-                className="w-full h-10 text-sm flex items-center justify-center gap-2 border-emerald-500/50 hover:bg-emerald-500/10"
+                className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 border-emerald-500/50 hover:bg-emerald-500/10"
                 onClick={async () => {
                   try {
                     const { data: { user } } = await supabase.auth.getUser();
@@ -1292,11 +1317,22 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 }}
                 title="Van Sales - Manage van stock and sales"
               >
-                <Truck size={16} className="text-emerald-600" />
-                <span>Van Sales</span>
+                <Truck size={12} className="sm:size-3.5 text-emerald-600" />
+                <span className="text-xs">Van Sales</span>
               </Button>
-            </div>
-          )}
+            )}
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
+              onClick={() => setShowAnalyticsModal(true)}
+              title="GP Tracker - View retailer analytics and performance"
+            >
+              <BarChart3 size={12} className="sm:size-3.5" />
+              <span className="text-xs">GP Tracker</span>
+            </Button>
+          </div>
 
           {(visit.hasOrder || hasOrderToday) && (
             <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
