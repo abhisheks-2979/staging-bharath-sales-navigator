@@ -1275,61 +1275,64 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 </Button>
               </div>
               
-              {/* Credit Order Information */}
-              {isCreditOrder && (
-                <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">Total Amount:</span>
-                    <span className="font-semibold">₹{actualOrderValue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-success">Paid Amount:</span>
-                    <span className="font-medium text-success">₹{creditPaidAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-warning">Credit Amount:</span>
-                    <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Previous Pending Cleared */}
-              {previousPendingCleared > 0 && (
-                <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-md">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-success font-medium">✓ Previous Pending Cleared:</span>
-                    <span className="font-semibold text-success">₹{previousPendingCleared.toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-              
               {orderPreviewOpen && (
-                <div className="mt-2 space-y-1">
-                  {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
-                  {!loadingOrder && lastOrderItems.length === 0 && (
-                    <div className="text-xs text-muted-foreground">No items found.</div>
-                  )}
-                  {!loadingOrder && lastOrderItems.map((it, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-xs">
-                      <span className="truncate pr-2">{it.product_name}</span>
-                      <div className="whitespace-nowrap text-right">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{it.quantity} x ₹{it.actualRate.toFixed(2)}</span>
-                          {it.actualRate !== it.rate && (
-                            <span className="text-xs text-muted-foreground line-through">₹{it.rate.toFixed(2)}</span>
-                          )}
-                        </div>
+                <>
+                  {/* Credit Order Information */}
+                  {isCreditOrder && (
+                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">Total Amount:</span>
+                        <span className="font-semibold">₹{actualOrderValue.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-success">Paid Amount:</span>
+                        <span className="font-medium text-success">₹{creditPaidAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-warning">Credit Amount:</span>
+                        <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Invoice Generation Button */}
-              {lastOrderId && (
-                <div className="mt-3 pt-2 border-t">
-                  <InvoiceGenerator orderId={lastOrderId} className="w-full" />
-                </div>
+                  )}
+                  
+                  {/* Previous Pending Cleared */}
+                  {previousPendingCleared > 0 && (
+                    <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-md">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-success font-medium">✓ Previous Pending Cleared:</span>
+                        <span className="font-semibold text-success">₹{previousPendingCleared.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Order Items */}
+                  <div className="mt-2 space-y-1">
+                    {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
+                    {!loadingOrder && lastOrderItems.length === 0 && (
+                      <div className="text-xs text-muted-foreground">No items found.</div>
+                    )}
+                    {!loadingOrder && lastOrderItems.map((it, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-xs">
+                        <span className="truncate pr-2">{it.product_name}</span>
+                        <div className="whitespace-nowrap text-right">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{it.quantity} x ₹{it.actualRate.toFixed(2)}</span>
+                            {it.actualRate !== it.rate && (
+                              <span className="text-xs text-muted-foreground line-through">₹{it.rate.toFixed(2)}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Invoice Generation Button */}
+                  {lastOrderId && (
+                    <div className="mt-3 pt-2 border-t">
+                      <InvoiceGenerator orderId={lastOrderId} className="w-full" />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
