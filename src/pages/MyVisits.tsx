@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -21,6 +21,7 @@ import { TimelineView } from "@/components/TimelineView";
 import { toast } from "sonner";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
+import { VanStockManagement } from "@/components/VanStockManagement";
 
 interface Visit {
   id: string;
@@ -157,6 +158,7 @@ export const MyVisits = () => {
   const [timelineDate, setTimelineDate] = useState<Date>(new Date());
   const [timelineVisits, setTimelineVisits] = useState<any[]>([]);
   const [timelineDayStart, setTimelineDayStart] = useState<string>('08:00 AM');
+  const [isVanStockOpen, setIsVanStockOpen] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -926,8 +928,8 @@ export const MyVisits = () => {
               </Button>
             </div>
             
-            {/* Timeline View and Live Tracking Buttons */}
-            <div className="grid grid-cols-2 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
+            {/* Timeline View, GPS Track, and Van Stock Buttons */}
+            <div className="grid grid-cols-3 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
               <Button 
                 variant="secondary" 
                 size="sm" 
@@ -938,7 +940,7 @@ export const MyVisits = () => {
                 }}
               >
                 <Clock size={14} className="mr-1" />
-                Timeline View
+                Timeline
               </Button>
               <Button 
                 variant="secondary" 
@@ -948,6 +950,15 @@ export const MyVisits = () => {
               >
                 <MapPin size={14} className="mr-1" />
                 GPS Track
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto"
+                onClick={() => setIsVanStockOpen(true)}
+              >
+                <Truck size={14} className="mr-1" />
+                Van Stock
               </Button>
             </div>
           </CardContent>
@@ -1168,6 +1179,13 @@ export const MyVisits = () => {
             />
           </DialogContent>
         </Dialog>
+
+        {/* Van Stock Management Dialog */}
+        <VanStockManagement
+          open={isVanStockOpen}
+          onOpenChange={setIsVanStockOpen}
+          selectedDate={selectedDate}
+        />
       </div>
     </Layout>
   );
