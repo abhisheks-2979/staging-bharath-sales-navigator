@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,8 @@ import { RetailerAnalytics } from "./RetailerAnalytics";
 import { InvoiceGenerator } from "./InvoiceGenerator";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
+import { VanSalesModal } from "./VanSalesModal";
+import { useVanSales } from "@/hooks/useVanSales";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
 
@@ -104,6 +106,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [skipCheckInReason, setSkipCheckInReason] = useState('');
   const [skipCheckInReasonType, setSkipCheckInReasonType] = useState<string>('');
   const [showAIInsights, setShowAIInsights] = useState(false);
+  const [showVanSales, setShowVanSales] = useState(false);
+  const { isVanSalesEnabled } = useVanSales();
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -1262,6 +1266,38 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             </Button>
           </div>
 
+          {/* Van Sales Button (conditionally shown) */}
+          {isVanSalesEnabled && (
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full h-10 text-sm flex items-center justify-center gap-2 border-emerald-500/50 hover:bg-emerald-500/10"
+                onClick={async () => {
+                  try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) {
+                      toast({ title: 'Login required', description: 'Please sign in first.', variant: 'destructive' });
+                      return;
+                    }
+                    const today = new Date().toISOString().split('T')[0];
+                    const retailerId = (visit.retailerId || visit.id) as string;
+                    const visitId = await ensureVisit(user.id, retailerId, today);
+                    setCurrentVisitId(visitId);
+                    setShowVanSales(true);
+                  } catch (err: any) {
+                    console.error('Open van sales error', err);
+                    toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
+                  }
+                }}
+                title="Van Sales - Manage van stock and sales"
+              >
+                <Truck size={16} className="text-emerald-600" />
+                <span>Van Sales</span>
+              </Button>
+            </div>
+          )}
+
           {(visit.hasOrder || hasOrderToday) && (
             <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
@@ -1819,6 +1855,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             window.dispatchEvent(new CustomEvent('visitStatusChanged'));
           }}
         />
+
+        {/* Van Sales Modal */}
+        {showVanSales && (
+          <VanSalesModal
+            open={showVanSales}
+            onOpenChange={setShowVanSales}
+            retailerId={(visit.retailerId || visit.id) as string}
+            visitId={currentVisitId || visit.id}
+          />
+        )}
 
         {/* Retailer Analytics Modal */}
         {showRetailerAnalytics && (

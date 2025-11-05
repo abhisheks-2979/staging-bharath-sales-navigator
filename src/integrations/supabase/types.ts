@@ -2342,6 +2342,286 @@ export type Database = {
         }
         Relationships: []
       }
+      van_beat_assignments: {
+        Row: {
+          assigned_date: string
+          beat_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+          van_id: string
+        }
+        Insert: {
+          assigned_date?: string
+          beat_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          van_id: string
+        }
+        Update: {
+          assigned_date?: string
+          beat_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          van_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_beat_assignments_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_beat_assignments_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_sales_settings: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      van_stock: {
+        Row: {
+          beat_id: string | null
+          created_at: string
+          end_of_day_stock: Json
+          id: string
+          start_of_day_stock: Json
+          status: string
+          stock_date: string
+          total_ordered_qty: Json
+          updated_at: string
+          user_id: string
+          van_id: string
+        }
+        Insert: {
+          beat_id?: string | null
+          created_at?: string
+          end_of_day_stock?: Json
+          id?: string
+          start_of_day_stock?: Json
+          status?: string
+          stock_date?: string
+          total_ordered_qty?: Json
+          updated_at?: string
+          user_id: string
+          van_id: string
+        }
+        Update: {
+          beat_id?: string | null
+          created_at?: string
+          end_of_day_stock?: Json
+          id?: string
+          start_of_day_stock?: Json
+          status?: string
+          stock_date?: string
+          total_ordered_qty?: Json
+          updated_at?: string
+          user_id?: string
+          van_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_stock_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_stock_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_stock_adjustments: {
+        Row: {
+          adjustment_type: string
+          created_at: string
+          created_by: string
+          id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          reason: string | null
+          van_stock_id: string
+        }
+        Insert: {
+          adjustment_type: string
+          created_at?: string
+          created_by: string
+          id?: string
+          product_id: string
+          product_name: string
+          quantity: number
+          reason?: string | null
+          van_stock_id: string
+        }
+        Update: {
+          adjustment_type?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          reason?: string | null
+          van_stock_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_stock_adjustments_van_stock_id_fkey"
+            columns: ["van_stock_id"]
+            isOneToOne: false
+            referencedRelation: "van_stock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_stock_items: {
+        Row: {
+          created_at: string
+          id: string
+          left_qty: number
+          ordered_qty: number
+          product_id: string
+          product_name: string
+          start_qty: number
+          unit: string | null
+          updated_at: string
+          van_stock_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          left_qty?: number
+          ordered_qty?: number
+          product_id: string
+          product_name: string
+          start_qty?: number
+          unit?: string | null
+          updated_at?: string
+          van_stock_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          left_qty?: number
+          ordered_qty?: number
+          product_id?: string
+          product_name?: string
+          start_qty?: number
+          unit?: string | null
+          updated_at?: string
+          van_stock_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_stock_items_van_stock_id_fkey"
+            columns: ["van_stock_id"]
+            isOneToOne: false
+            referencedRelation: "van_stock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_address: string | null
+          driver_id_proof_url: string | null
+          driver_name: string | null
+          driver_phone: string | null
+          id: string
+          insurance_expiry_date: string | null
+          insurance_url: string | null
+          is_active: boolean
+          make_model: string
+          pollution_cert_url: string | null
+          pollution_expiry_date: string | null
+          purchase_date: string | null
+          rc_book_url: string | null
+          rc_expiry_date: string | null
+          registration_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_address?: string | null
+          driver_id_proof_url?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          id?: string
+          insurance_expiry_date?: string | null
+          insurance_url?: string | null
+          is_active?: boolean
+          make_model: string
+          pollution_cert_url?: string | null
+          pollution_expiry_date?: string | null
+          purchase_date?: string | null
+          rc_book_url?: string | null
+          rc_expiry_date?: string | null
+          registration_number: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_address?: string | null
+          driver_id_proof_url?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          id?: string
+          insurance_expiry_date?: string | null
+          insurance_url?: string | null
+          is_active?: boolean
+          make_model?: string
+          pollution_cert_url?: string | null
+          pollution_expiry_date?: string | null
+          purchase_date?: string | null
+          rc_book_url?: string | null
+          rc_expiry_date?: string | null
+          registration_number?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           city: string | null

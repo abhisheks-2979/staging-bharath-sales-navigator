@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck } from 'lucide-react';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
@@ -219,6 +219,21 @@ const AdminControls = () => {
               <CardTitle>Retail Management</CardTitle>
               <CardDescription>
                 Verify and manage all retailers across the system
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/van-sales-management')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-emerald-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Truck className="h-8 w-8 text-emerald-600" />
+              </div>
+              <CardTitle>Van Sales Management</CardTitle>
+              <CardDescription>
+                Manage vans, drivers, and van-based sales operations
               </CardDescription>
             </CardHeader>
           </Card>

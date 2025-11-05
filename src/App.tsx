@@ -63,6 +63,7 @@ import DistributorMapping from "./pages/DistributorMapping";
 import GPSTrack from "./pages/GPSTrack";
 import GPSTrackManagement from "./pages/GPSTrackManagement";
 import RetailManagement from "./pages/RetailManagement";
+import VanSalesManagement from "./pages/VanSalesManagement";
 
 import AdminExpenseManagement from "./pages/AdminExpenseManagement";
 import MyExpenses from "./pages/MyExpenses";
@@ -331,6 +332,11 @@ const App = () => (
             <Route path="/retail-management" element={
               <ProtectedRoute>
                 <RetailManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/van-sales-management" element={
+              <ProtectedRoute>
+                <VanSalesManagement />
               </ProtectedRoute>
             } />
             <Route path="/features/beat-planning" element={<Suspense fallback={<div>Loading...</div>}><BeatPlanningFeature /></Suspense>} />
