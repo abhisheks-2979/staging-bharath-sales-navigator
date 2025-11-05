@@ -254,15 +254,18 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             const cashOrders = ordersToday.filter((o: any) => !o.is_credit_order);
 
             const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
-            const paidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
+            const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+            const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
             
-            // Credit pending amount is the final remaining balance stored in the order
-            const finalCreditPending = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_pending_amount || 0), 0);
-            const finalCreditPaid = paidFromCredit;
+            // Calculate current pending from today's order only
+            // Total paid includes previous pending cleared + payment towards today's order
+            // Current pending = Today's order total - (Total paid - Previous pending cleared)
+            const paidTowardsTodaysOrder = Math.max(0, totalPaidFromCredit - totalPendingCleared);
+            const currentPendingFromToday = Math.max(0, creditOrdersTotal - paidTowardsTodaysOrder);
 
             setIsCreditOrder(creditOrders.length > 0);
-            setCreditPaidAmount(finalCreditPaid);
-            setCreditPendingAmount(finalCreditPending);
+            setCreditPaidAmount(totalPaidFromCredit); // Total paid amount
+            setCreditPendingAmount(currentPendingFromToday); // Only current order's pending
             
             // If an order exists and visit is checked in, automatically mark as productive
             if (visitData?.check_in_time && visitData.status === 'in-progress') {
@@ -1289,18 +1292,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                         <span className="font-medium text-success">₹{creditPaidAmount.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-warning">Credit Amount:</span>
+                        <span className="text-warning">Pending Amount:</span>
                         <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Previous Pending Cleared */}
-                  {previousPendingCleared > 0 && (
-                    <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded-md">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-success font-medium">✓ Previous Pending Cleared:</span>
-                        <span className="font-semibold text-success">₹{previousPendingCleared.toLocaleString()}</span>
                       </div>
                     </div>
                   )}
