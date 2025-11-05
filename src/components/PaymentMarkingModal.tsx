@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { DollarSign } from "lucide-react";
+import { IndianRupee } from "lucide-react";
 
 interface PaymentMarkingModalProps {
   open: boolean;
@@ -87,7 +87,7 @@ export const PaymentMarkingModal = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+            <IndianRupee className="w-5 h-5" />
             Mark Payment Received
           </DialogTitle>
         </DialogHeader>

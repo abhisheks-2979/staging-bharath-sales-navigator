@@ -85,10 +85,7 @@ export const Cart = () => {
         .select('pending_amount')
         .eq('id', validRetailerId)
         .single();
-      
-      if (data?.pending_amount) {
-        setPendingAmountFromPrevious(Number(data.pending_amount));
-      }
+      setPendingAmountFromPrevious(Number(data?.pending_amount ?? 0));
     };
 
     fetchPendingAmount();
@@ -437,18 +434,31 @@ React.useEffect(() => {
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
 
-      // Calculate credit amounts if it's a credit order
+      // Calculate credit amounts and final pending based on user input
+      const totalDue = pendingAmountFromPrevious + totalAmount;
+      let newTotalPending = 0;
       let creditPending = 0;
-      let creditPaid = totalAmount;
+      let creditPaid = 0;
+      let previousPendingCleared = 0;
 
       if (isCreditSubmit) {
-        const pending = typeof creditPendingOverride === 'number' ? creditPendingOverride : creditPendingAmount;
-        creditPending = pending;
-        creditPaid = totalAmount - pending;
+        // creditPendingOverride/custom input represents the FINAL pending after this order (including previous pending)
+        const override = typeof creditPendingOverride === 'number' ? creditPendingOverride : (creditPendingAmount || totalDue);
+        // Clamp to [0, totalDue]
+        newTotalPending = Math.min(Math.max(override, 0), totalDue);
+        const amountPaidNow = Math.max(totalDue - newTotalPending, 0);
+        // Portion of payment that clears previously pending dues
+        previousPendingCleared = Math.min(pendingAmountFromPrevious, amountPaidNow);
+        creditPaid = amountPaidNow; // money collected now
+        creditPending = newTotalPending; // final pending after this order
+      } else {
+        // Cash order: clear all dues
+        newTotalPending = 0;
+        previousPendingCleared = pendingAmountFromPrevious;
+        creditPaid = totalAmount;
+        creditPending = 0;
       }
 
-      // Track previous pending amount that will be cleared
-      const previousPendingCleared = isCreditSubmit ? 0 : pendingAmountFromPrevious;
 
       // For phone orders, create a visit first
       let actualVisitId = validVisitId;
@@ -522,19 +532,10 @@ React.useEffect(() => {
 
       // Update retailer's pending amount based on order type
       if (validRetailerId) {
-        if (isCreditSubmit) {
-          // Credit order: Set the new pending amount (creditPending already includes previous pending)
-          await supabase
-            .from('retailers')
-            .update({ pending_amount: creditPending })
-            .eq('id', validRetailerId);
-        } else {
-          // Regular order: Clear all pending amounts (full payment made)
-          await supabase
-            .from('retailers')
-            .update({ pending_amount: 0 })
-            .eq('id', validRetailerId);
-        }
+        await supabase
+          .from('retailers')
+          .update({ pending_amount: newTotalPending })
+          .eq('id', validRetailerId);
       }
 
       // Mark visit as productive if available
