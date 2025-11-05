@@ -257,15 +257,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
             const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
             
-            // Calculate current pending from today's order only
-            // Total paid includes previous pending cleared + payment towards today's order
-            // Current pending = Today's order total - (Total paid - Previous pending cleared)
-            const paidTowardsTodaysOrder = Math.max(0, totalPaidFromCredit - totalPendingCleared);
-            const currentPendingFromToday = Math.max(0, creditOrdersTotal - paidTowardsTodaysOrder);
+            // Calculate pending using: (Previous pending + Current order) - Amount paid = Updated pending
+            // Use the retailer's pending_amount from state as the previous pending
+            const previousPending = pendingAmount || 0;
+            const updatedPending = Math.max(0, previousPending + creditOrdersTotal - totalPaidFromCredit);
 
             setIsCreditOrder(creditOrders.length > 0);
-            setCreditPaidAmount(totalPaidFromCredit); // Total paid amount
-            setCreditPendingAmount(currentPendingFromToday); // Only current order's pending
+            setCreditPaidAmount(totalPaidFromCredit); // Total paid amount today
+            setCreditPendingAmount(updatedPending); // Updated pending after today's order
             
             // If an order exists and visit is checked in, automatically mark as productive
             if (visitData?.check_in_time && visitData.status === 'in-progress') {
