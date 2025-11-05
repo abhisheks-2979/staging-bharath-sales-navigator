@@ -255,10 +255,9 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
             const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
             const paidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
-            const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
-
-            // Credit amount for today = today's credit order total - what was paid today from credit orders
-            const finalCreditPending = Math.max(creditOrdersTotal - paidFromCredit, 0);
+            
+            // Credit pending amount is the final remaining balance stored in the order
+            const finalCreditPending = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_pending_amount || 0), 0);
             const finalCreditPaid = paidFromCredit;
 
             setIsCreditOrder(creditOrders.length > 0);
