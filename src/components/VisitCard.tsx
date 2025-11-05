@@ -81,6 +81,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [isCreditOrder, setIsCreditOrder] = useState(false);
   const [creditPendingAmount, setCreditPendingAmount] = useState<number>(0);
   const [creditPaidAmount, setCreditPaidAmount] = useState<number>(0);
+  const [paidTodayAmount, setPaidTodayAmount] = useState<number>(0);
+  const [ordersTodayList, setOrdersTodayList] = useState<Array<{ id: string; created_at: string; total_amount: number; is_credit_order: boolean; credit_paid_amount: number }>>([]);
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -229,7 +231,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           const { data: ordersToday } = await supabase
             .from('orders')
-            .select('id, total_amount, is_credit_order, credit_pending_amount, credit_paid_amount, previous_pending_cleared')
+            .select('id, created_at, total_amount, is_credit_order, credit_pending_amount, credit_paid_amount, previous_pending_cleared')
             .eq('user_id', user.user.id)
             .eq('retailer_id', visitRetailerId)
             .eq('status', 'confirmed')
@@ -239,6 +241,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           if (ordersToday && ordersToday.length > 0) {
             setHasOrderToday(true);
+            setOrdersTodayList(ordersToday as any);
             // Store the most recent order ID for invoice generation
             setLastOrderId(ordersToday[0].id);
             // Calculate totals for today
@@ -256,6 +259,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
             const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
             const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
+            const totalPaidToday = paidFromCash + totalPaidFromCredit;
             
             // Calculate pending using: (Previous pending + Current order) - Amount paid = Updated pending
             // Use the retailer's pending_amount from state as the previous pending
@@ -263,7 +267,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             const updatedPending = Math.max(0, previousPending + creditOrdersTotal - totalPaidFromCredit);
 
             setIsCreditOrder(creditOrders.length > 0);
-            setCreditPaidAmount(totalPaidFromCredit); // Total paid amount today
+            setCreditPaidAmount(totalPaidFromCredit); // Credit paid amount today (for reference)
+            setPaidTodayAmount(totalPaidToday); // Total paid amount today (cash + credit)
             setCreditPendingAmount(updatedPending); // Updated pending after today's order
             
             // If an order exists and visit is checked in, automatically mark as productive
@@ -279,6 +284,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             setIsCreditOrder(false);
             setCreditPendingAmount(0);
             setCreditPaidAmount(0);
+            setPaidTodayAmount(0);
+            setOrdersTodayList([]);
             setPreviousPendingCleared(0);
           }
         }
@@ -1001,12 +1008,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
       const { data: orders } = await supabase
         .from('orders')
-        .select('id')
+        .select('id, created_at, total_amount, is_credit_order, credit_paid_amount')
         .eq('user_id', user.id)
         .eq('retailer_id', retailerId)
         .eq('status', 'confirmed')
         .gte('created_at', dayStart.toISOString())
         .lte('created_at', dayEnd.toISOString());
+
+      setOrdersTodayList((orders || []) as any);
 
       if ((orders || []).length > 0) {
         const orderIds = (orders || []).map(o => o.id);
@@ -1279,23 +1288,44 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               
               {orderPreviewOpen && (
                 <>
-                  {/* Credit Order Information */}
-                  {isCreditOrder && (
-                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md space-y-1">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground">Total Amount:</span>
-                        <span className="font-semibold">₹{actualOrderValue.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-success">Paid Amount:</span>
-                        <span className="font-medium text-success">₹{creditPaidAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-warning">Pending Amount:</span>
-                        <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
-                      </div>
+                  {/* Order Summary (All payments) */}
+                  <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Total Amount:</span>
+                      <span className="font-semibold">₹{actualOrderValue.toLocaleString()}</span>
                     </div>
-                  )}
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-success">Paid Amount:</span>
+                      <span className="font-medium text-success">₹{paidTodayAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-warning">Pending Amount:</span>
+                      <span className="font-medium text-warning">₹{creditPendingAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Today's Orders (list) */}
+                  <div className="mt-2 space-y-1">
+                    {ordersTodayList.length === 0 && (
+                      <div className="text-xs text-muted-foreground">No orders found for today.</div>
+                    )}
+                    {ordersTodayList.map((o) => {
+                      const paid = o.is_credit_order ? Number(o.credit_paid_amount || 0) : Number(o.total_amount || 0);
+                      const dt = new Date(o.created_at);
+                      return (
+                        <div key={o.id} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span className="px-2 py-0.5 rounded bg-primary/10 text-primary">{o.is_credit_order ? 'Credit' : 'Cash'}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">₹{Number(o.total_amount || 0).toLocaleString()}</div>
+                            <div className="text-success">Paid: ₹{paid.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                   
                   {/* Order Items */}
                   <div className="mt-2 space-y-1">
