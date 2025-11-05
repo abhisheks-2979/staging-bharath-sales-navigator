@@ -1304,30 +1304,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                     </div>
                   </div>
                   
-                  {/* Today's Orders (list) */}
-                  <div className="mt-2 space-y-1">
-                    {ordersTodayList.length === 0 && (
-                      <div className="text-xs text-muted-foreground">No orders found for today.</div>
-                    )}
-                    {ordersTodayList.map((o) => {
-                      const paid = o.is_credit_order ? Number(o.credit_paid_amount || 0) : Number(o.total_amount || 0);
-                      const dt = new Date(o.created_at);
-                      return (
-                        <div key={o.id} className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            <span className="px-2 py-0.5 rounded bg-primary/10 text-primary">{o.is_credit_order ? 'Credit' : 'Cash'}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">₹{Number(o.total_amount || 0).toLocaleString()}</div>
-                            <div className="text-success">Paid: ₹{paid.toLocaleString()}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Order Items */}
+                  {/* Order Items (Aggregated from all orders today) */}
                   <div className="mt-2 space-y-1">
                     {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
                     {!loadingOrder && lastOrderItems.length === 0 && (
