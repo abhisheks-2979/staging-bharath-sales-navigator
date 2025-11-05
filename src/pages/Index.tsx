@@ -55,7 +55,7 @@ const Index = () => {
     revenue: "₹0"
   });
   const { isInstallable, installApp } = usePWAInstall();
-  const { userProfile, user } = useAuth();
+  const { userProfile, user, userRole } = useAuth();
   const [profilePictureUrl, setProfilePictureUrl] = useState(userProfile?.profile_picture_url);
 
   const refreshProfilePicture = async () => {
@@ -195,6 +195,7 @@ const Index = () => {
   // Get user display name and initials
   const displayName = userProfile?.full_name || userProfile?.username || 'User';
   const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  const roleDisplay = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'Field Executive';
 
   return (
     <Layout>
@@ -221,9 +222,7 @@ const Index = () => {
                   Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
                 </h1>
                 <p className="text-lg sm:text-xl opacity-90">{displayName}</p>
-                <p className="text-xs sm:text-sm opacity-75">
-                  {userProfile?.username ? `@${userProfile.username}` : 'Field Executive'}
-                </p>
+                <p className="text-xs sm:text-sm opacity-75">{roleDisplay}</p>
               </div>
             </div>
             
