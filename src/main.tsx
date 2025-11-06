@@ -2,7 +2,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import './i18n/config';
 import { forceCompleteRefresh } from './utils/forceRefresh';
 
 // PWA service worker will be auto-registered by VitePWA plugin
@@ -39,5 +38,11 @@ const checkReactIntegrity = () => {
 };
 
 if (checkReactIntegrity()) {
-  createRoot(document.getElementById("root")!).render(<App />);
+  // Initialize i18n after React is confirmed to be loaded
+  import('./i18n/config').then(() => {
+    createRoot(document.getElementById("root")!).render(<App />);
+  }).catch((error) => {
+    console.error('Failed to initialize i18n:', error);
+    createRoot(document.getElementById("root")!).render(<App />);
+  });
 }
