@@ -7,6 +7,8 @@ import { NetworkBadge } from "@/components/NetworkBadge";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { useTranslation } from 'react-i18next';
 import { 
   UserCheck, 
   Car, 
@@ -34,28 +36,29 @@ export const Navbar = () => {
   const { signOut, userProfile, userRole } = useAuth();
   const navigate = useNavigate();
   const connectivityStatus = useConnectivity();
+  const { t } = useTranslation('common');
 
   const navigationItems = [
-    { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
-    { icon: Car, label: "My Visit", href: "/visits/retailers", color: "from-green-500 to-green-600" },
-    { icon: Store, label: "All Retailers", href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
-    { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
-    { icon: Route, label: "GPS Track", href: "/gps-track", color: "from-purple-500 to-purple-600" },
-    { icon: Paintbrush, label: "Branding", href: "/branding-requests", color: "from-fuchsia-500 to-fuchsia-600" },
-    { icon: Users, label: "My Beats", href: "/my-beats", color: "from-orange-500 to-orange-600" },
+    { icon: UserCheck, label: t('nav.attendance'), href: "/attendance", color: "from-blue-500 to-blue-600" },
+    { icon: Car, label: t('nav.myVisit'), href: "/visits/retailers", color: "from-green-500 to-green-600" },
+    { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
+    { icon: MapPin, label: t('nav.territories'), href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
+    { icon: Route, label: t('nav.gpsTrack'), href: "/gps-track", color: "from-purple-500 to-purple-600" },
+    { icon: Paintbrush, label: t('nav.branding'), href: "/branding-requests", color: "from-fuchsia-500 to-fuchsia-600" },
+    { icon: Users, label: t('nav.myBeats'), href: "/my-beats", color: "from-orange-500 to-orange-600" },
     { icon: Briefcase, label: "Distributor Mapping", href: "/add-records", color: "from-red-500 to-red-600" },
-    { icon: Gift, label: "Check Schemes", href: "/schemes", color: "from-pink-500 to-pink-600" },
-    { icon: CreditCard, label: "My Expenses", href: "/expenses", color: "from-indigo-500 to-indigo-600" },
-    { icon: BarChart, label: "Performance Summary", href: "/performance", color: "from-cyan-500 to-cyan-600" },
+    { icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
+    { icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
+    { icon: BarChart, label: t('nav.performance'), href: "/performance", color: "from-cyan-500 to-cyan-600" },
     { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
-    { icon: Target, label: "Analytics", href: "/analytics", color: "from-violet-500 to-violet-600" },
+    { icon: Target, label: t('nav.analytics'), href: "/analytics", color: "from-violet-500 to-violet-600" },
   ];
 
   // Admin-only navigation items
   const adminNavigationItems = [
-    { icon: Shield, label: "Admin Controls", href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
-    { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
+    { icon: Shield, label: t('nav.adminPanel'), href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
+    { icon: MapPin, label: t('nav.territories'), href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
     { icon: Package, label: "Products", href: "/product-management", color: "from-rose-500 to-rose-600" },
     { icon: Factory, label: "Vendors", href: "/vendors", color: "from-sky-500 to-sky-600" },
     { icon: Settings, label: "Expense Management", href: "/expense-management", color: "from-purple-500 to-purple-600" },
@@ -101,6 +104,7 @@ export const Navbar = () => {
             
             <div className="flex items-center gap-2">
               <SyncStatusIndicator />
+              <LanguageSelector />
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
@@ -146,6 +150,7 @@ export const Navbar = () => {
                   <div className="flex items-center gap-2">
                     <SyncStatusIndicator />
                     <NetworkBadge />
+                    <LanguageSelector />
                     <Button
                       variant="ghost"
                       size="sm"
@@ -153,7 +158,7 @@ export const Navbar = () => {
                       className="text-primary-foreground hover:bg-primary-foreground/10 h-8"
                     >
                       <LogOut className="h-4 w-4 mr-1" />
-                      Logout
+                      {t('nav.logout')}
                     </Button>
                     <button
                       onClick={() => setIsOpen(false)}

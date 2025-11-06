@@ -1666,6 +1666,7 @@ export type Database = {
           onboarding_step: number | null
           permanent_address: string | null
           phone_number: string | null
+          preferred_language: string | null
           profile_picture_url: string | null
           recovery_email: string | null
           role_id: string | null
@@ -1697,6 +1698,7 @@ export type Database = {
           onboarding_step?: number | null
           permanent_address?: string | null
           phone_number?: string | null
+          preferred_language?: string | null
           profile_picture_url?: string | null
           recovery_email?: string | null
           role_id?: string | null
@@ -1728,6 +1730,7 @@ export type Database = {
           onboarding_step?: number | null
           permanent_address?: string | null
           phone_number?: string | null
+          preferred_language?: string | null
           profile_picture_url?: string | null
           recovery_email?: string | null
           role_id?: string | null
