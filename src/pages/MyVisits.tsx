@@ -21,7 +21,7 @@ import { TimelineView } from "@/components/TimelineView";
 import { toast } from "sonner";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
-import { VanStockManagement } from "@/components/VanStockManagement";
+import { VanStockView } from "@/components/VanStockView";
 
 interface Visit {
   id: string;
@@ -1181,11 +1181,14 @@ export const MyVisits = () => {
         </Dialog>
 
         {/* Van Stock Management Dialog */}
-        <VanStockManagement
-          open={isVanStockOpen}
-          onOpenChange={setIsVanStockOpen}
-          selectedDate={selectedDate}
-        />
+        <Dialog open={isVanStockOpen} onOpenChange={setIsVanStockOpen}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Van Stock - {new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</DialogTitle>
+            </DialogHeader>
+            <VanStockView selectedDate={new Date(selectedDate)} />
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
