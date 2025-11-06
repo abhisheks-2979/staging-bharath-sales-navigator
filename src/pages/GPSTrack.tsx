@@ -152,7 +152,7 @@ export default function GPSTrack() {
     // Fetch visits for the selected date and user
     const { data: visitsData, error: visitsError } = await supabase
       .from('visits')
-      .select('id, check_in_time, status, retailer_id')
+      .select('id, check_in_time, check_out_time, status, retailer_id, check_in_location, check_in_address')
       .eq('user_id', selectedMember)
       .eq('planned_date', dateStr)
       .not('retailer_id', 'is', null)
@@ -200,20 +200,52 @@ export default function GPSTrack() {
       // Check which retailers are missing location data
       const retailersWithoutLocation = retailersData.filter(r => !r.latitude || !r.longitude);
       
-      // Map retailers to visits
+      // Helper: parse "lat, lng" from check_in_address
+      const parseLatLngFromAddress = (addr?: string | null) => {
+        if (!addr) return null;
+        const match = addr.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
+        if (!match) return null;
+        const lat = parseFloat(match[1]);
+        const lng = parseFloat(match[2]);
+        if (isNaN(lat) || isNaN(lng)) return null;
+        return { latitude: lat, longitude: lng };
+      };
+
+      // Map retailers to visits with fallbacks (retailer -> visit.check_in_location -> parsed address)
       const retailerLocations: RetailerLocation[] = visitsData
         .map((visit: any) => {
           const retailer = retailersData.find(r => r.id === visit.retailer_id);
-          if (!retailer || !retailer.latitude || !retailer.longitude) {
-            console.log('Skipping visit - retailer missing or no location:', visit.retailer_id, retailer?.name);
+          let lat: number | null = null;
+          let lng: number | null = null;
+          let address: string = retailer?.address || '';
+
+          if (retailer?.latitude && retailer?.longitude) {
+            lat = parseFloat(retailer.latitude as unknown as string);
+            lng = parseFloat(retailer.longitude as unknown as string);
+          } else if (visit.check_in_location?.latitude && visit.check_in_location?.longitude) {
+            lat = visit.check_in_location.latitude;
+            lng = visit.check_in_location.longitude;
+            if (!address) address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          } else {
+            const parsed = parseLatLngFromAddress(visit.check_in_address);
+            if (parsed) {
+              lat = parsed.latitude;
+              lng = parsed.longitude;
+              if (!address) address = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            }
+          }
+
+          if (lat == null || lng == null) {
+            console.log('Skipping - no coords from retailer or visit:', visit.retailer_id, retailer?.name);
             return null;
           }
+
           return {
-            id: retailer.id,
-            name: retailer.name,
-            address: retailer.address,
-            latitude: parseFloat(retailer.latitude as unknown as string),
-            longitude: parseFloat(retailer.longitude as unknown as string),
+            id: retailer?.id || visit.retailer_id,
+            name: retailer?.name || 'Retailer',
+            address,
+            latitude: lat,
+            longitude: lng,
             visitId: visit.id,
             checkInTime: visit.check_in_time,
             status: visit.status
@@ -221,13 +253,13 @@ export default function GPSTrack() {
         })
         .filter((loc): loc is RetailerLocation => loc !== null);
 
-      console.log('Processed retailer locations:', retailerLocations);
+      console.log('Processed retailer locations (with fallbacks):', retailerLocations);
       setRetailers(retailerLocations);
-      
+
       if (retailerLocations.length === 0 && retailersWithoutLocation.length > 0) {
         const missingNames = retailersWithoutLocation.map(r => r.name).join(', ');
         toast.error(
-          `${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} missing location data: ${missingNames}. Please add GPS coordinates to these retailers.`,
+          `${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} missing location data. Using visit locations when available. Missing: ${missingNames}`,
           { duration: 8000 }
         );
       } else if (retailerLocations.length === 0) {
@@ -238,13 +270,6 @@ export default function GPSTrack() {
           `Loaded ${retailerLocations.length} retailer${retailerLocations.length > 1 ? 's' : ''} (${completedCount} completed)`,
           { duration: 4000 }
         );
-        
-        if (retailersWithoutLocation.length > 0) {
-          toast.warning(
-            `Note: ${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} skipped due to missing location data`,
-            { duration: 5000 }
-          );
-        }
       }
     }
   };
