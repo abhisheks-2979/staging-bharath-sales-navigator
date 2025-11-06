@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { toast } from 'sonner';
-import { Loader2, Package, Camera, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Package, Camera, CheckCircle } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
-import { Textarea } from './ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 interface Van {
   id: string;
@@ -34,14 +34,13 @@ interface Product {
   }>;
 }
 
-interface InwardItem {
+interface StockItem {
   productId: string;
+  productName: string;
   variantId?: string;
-  quantity: number;
-  aiScanned: boolean;
-  aiConfidence?: number;
-  productName?: string;
   variantName?: string;
+  sku: string;
+  quantity: number;
 }
 
 interface VanMorningInventoryProps {
@@ -60,8 +59,8 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
   const [vanDistance, setVanDistance] = useState('');
   const [documentsVerified, setDocumentsVerified] = useState(false);
   const [verifierName, setVerifierName] = useState('');
-  const [inwardItems, setInwardItems] = useState<InwardItem[]>([]);
-  const [showAIScan, setShowAIScan] = useState(false);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -128,39 +127,51 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
     }));
 
     setProducts(productsWithVariants);
+
+    // Build stock items list - one row per product/variant combination
+    const items: StockItem[] = [];
+    productsData?.forEach(product => {
+      const variants = variantsData?.filter(v => v.product_id === product.id) || [];
+      
+      if (variants.length > 0) {
+        variants.forEach(variant => {
+          items.push({
+            productId: product.id,
+            productName: product.name,
+            variantId: variant.id,
+            variantName: variant.variant_name,
+            sku: variant.sku,
+            quantity: 0
+          });
+        });
+      } else {
+        items.push({
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          quantity: 0
+        });
+      }
+    });
+
+    setStockItems(items);
   };
 
-  const handleAddProduct = () => {
-    setInwardItems([...inwardItems, {
-      productId: '',
-      variantId: undefined,
-      quantity: 0,
-      aiScanned: false,
-      aiConfidence: undefined
-    }]);
+  const handleQuantityChange = (index: number, quantity: number) => {
+    const updated = [...stockItems];
+    updated[index].quantity = quantity;
+    setStockItems(updated);
   };
 
-  const handleRemoveProduct = (index: number) => {
-    setInwardItems(inwardItems.filter((_, i) => i !== index));
-  };
-
-  const handleItemChange = (index: number, field: keyof InwardItem, value: any) => {
-    const updated = [...inwardItems];
-    updated[index] = { ...updated[index], [field]: value };
-    
-    if (field === 'productId') {
-      const product = products.find(p => p.id === value);
-      updated[index].productName = product?.name;
-      updated[index].variantId = undefined;
-      updated[index].variantName = undefined;
-    } else if (field === 'variantId') {
-      const product = products.find(p => p.id === updated[index].productId);
-      const variant = product?.variants?.find(v => v.id === value);
-      updated[index].variantName = variant?.variant_name;
-    }
-    
-    setInwardItems(updated);
-  };
+  const filteredStockItems = stockItems.filter(item => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      item.productName.toLowerCase().includes(query) ||
+      item.sku.toLowerCase().includes(query) ||
+      item.variantName?.toLowerCase().includes(query)
+    );
+  });
 
   const handleSaveInwardGRN = async () => {
     if (!selectedVan) {
@@ -173,8 +184,10 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
       return;
     }
 
-    if (inwardItems.length === 0 || inwardItems.some(item => !item.productId || item.quantity <= 0)) {
-      toast.error('Please add at least one valid product with quantity');
+    const itemsToSave = stockItems.filter(item => item.quantity > 0);
+    
+    if (itemsToSave.length === 0) {
+      toast.error('Please enter quantity for at least one product');
       return;
     }
 
@@ -212,13 +225,13 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
       if (grnError) throw grnError;
 
       // Insert GRN items
-      const grnItems = inwardItems.map(item => ({
+      const grnItems = itemsToSave.map(item => ({
         grn_id: grnData.id,
         product_id: item.productId,
         variant_id: item.variantId || null,
         quantity: item.quantity,
-        ai_scanned: item.aiScanned,
-        ai_confidence_percent: item.aiConfidence || null
+        ai_scanned: false,
+        ai_confidence_percent: null
       }));
 
       const { error: itemsError } = await supabase
@@ -228,7 +241,7 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
       if (itemsError) throw itemsError;
 
       // Update/Create van live inventory
-      for (const item of inwardItems) {
+      for (const item of itemsToSave) {
         await supabase
           .from('van_live_inventory')
           .upsert({
@@ -264,7 +277,8 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
     setVanDistance('');
     setDocumentsVerified(false);
     setVerifierName('');
-    setInwardItems([]);
+    setSearchQuery('');
+    loadProducts(); // Reload to reset quantities
   };
 
   return (
@@ -354,118 +368,87 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
             </CardContent>
           </Card>
 
-          {/* Products Section */}
+          {/* Stock Items Section */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Products to Load</CardTitle>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAIScan(true)}
-                  >
-                    <Camera className="h-4 w-4 mr-2" />
-                    AI Scan
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddProduct}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Product
-                  </Button>
+                <div>
+                  <CardTitle>Stock Items</CardTitle>
+                  <CardDescription className="mt-1">
+                    Enter quantities for products to load in the van
+                  </CardDescription>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  disabled={!searchQuery}
+                >
+                  Clear Filter
+                </Button>
+              </div>
+              <div className="mt-4">
+                <Input
+                  placeholder="Search products, SKU, variant..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {inwardItems.map((item, index) => {
-                const selectedProduct = products.find(p => p.id === item.productId);
-                return (
-                  <div key={index} className="p-4 border rounded-lg space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div className="text-sm font-medium">Item #{index + 1}</div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveProduct(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-2">
-                        <Label>Product *</Label>
-                        <Select
-                          value={item.productId}
-                          onValueChange={(value) => handleItemChange(index, 'productId', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map(product => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                        <div className="space-y-2">
-                          <Label>Variant</Label>
-                          <Select
-                            value={item.variantId || ''}
-                            onValueChange={(value) => handleItemChange(index, 'variantId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select variant" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {selectedProduct.variants.map(variant => (
-                                <SelectItem key={variant.id} value={variant.id}>
-                                  {variant.variant_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      <div className="space-y-2">
-                        <Label>Quantity *</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="Qty"
-                          value={item.quantity || ''}
-                          onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 0)}
-                        />
-                      </div>
-                    </div>
-
-                    {item.aiScanned && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        AI Scanned ({item.aiConfidence?.toFixed(1)}% confidence)
-                      </div>
+            <CardContent>
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[45%]">Product Name</TableHead>
+                      <TableHead className="w-[25%]">Variant</TableHead>
+                      <TableHead className="w-[20%]">SKU</TableHead>
+                      <TableHead className="w-[10%]">Quantity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStockItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {searchQuery ? 'No products found matching your search' : 'No products available'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredStockItems.map((item, index) => (
+                        <TableRow key={`${item.productId}-${item.variantId || 'base'}`}>
+                          <TableCell className="font-medium">{item.productName}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {item.variantName || '-'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {item.sku}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              className="w-20"
+                              value={item.quantity || ''}
+                              onChange={(e) => handleQuantityChange(
+                                stockItems.findIndex(si => 
+                                  si.productId === item.productId && 
+                                  si.variantId === item.variantId
+                                ),
+                                parseInt(e.target.value) || 0
+                              )}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
-                  </div>
-                );
-              })}
-
-              {inwardItems.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No products added yet. Click "Add Product" or use "AI Scan"
-                </div>
-              )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="mt-4 text-sm text-muted-foreground">
+                Total products with quantity: {stockItems.filter(i => i.quantity > 0).length} / {stockItems.length}
+              </div>
             </CardContent>
           </Card>
 
