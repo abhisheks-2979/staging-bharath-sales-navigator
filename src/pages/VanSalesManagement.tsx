@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Plus, Edit, Trash2, Upload } from 'lucide-react';
+import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { VanMorningInventory } from '@/components/VanMorningInventory';
+import { VanReturnStock } from '@/components/VanReturnStock';
+import { VanClosingStock } from '@/components/VanClosingStock';
 
 interface Van {
   id: string;
@@ -39,6 +43,10 @@ export default function VanSalesManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVan, setEditingVan] = useState<Van | null>(null);
+  const [morningInventoryOpen, setMorningInventoryOpen] = useState(false);
+  const [returnStockOpen, setReturnStockOpen] = useState(false);
+  const [closingStockOpen, setClosingStockOpen] = useState(false);
+  const [selectedDate] = useState(new Date());
   
   const [formData, setFormData] = useState({
     registration_number: '',
@@ -212,6 +220,54 @@ export default function VanSalesManagement() {
             />
           </div>
         </Card>
+
+        {isEnabled && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Van Inventory & Stock Management</CardTitle>
+              <CardDescription>Live tracking with morning GRN, returns, and closing stock</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="overview">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="morning">Morning GRN</TabsTrigger>
+                  <TabsTrigger value="returns">Returns</TabsTrigger>
+                  <TabsTrigger value="closing">Closing Stock</TabsTrigger>
+                </TabsList>
+                <TabsContent value="overview" className="mt-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <Button onClick={() => setMorningInventoryOpen(true)} className="h-24 flex-col gap-2">
+                      <Package className="h-8 w-8" />
+                      <span>Morning Inventory</span>
+                    </Button>
+                    <Button onClick={() => setReturnStockOpen(true)} variant="outline" className="h-24 flex-col gap-2">
+                      <RotateCcw className="h-8 w-8" />
+                      <span>Return Stock</span>
+                    </Button>
+                    <Button onClick={() => setClosingStockOpen(true)} variant="outline" className="h-24 flex-col gap-2">
+                      <ClipboardList className="h-8 w-8" />
+                      <span>Closing Stock</span>
+                    </Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="morning">
+                  <Button onClick={() => setMorningInventoryOpen(true)}><Plus className="mr-2 h-4 w-4" />Add Morning Inventory</Button>
+                </TabsContent>
+                <TabsContent value="returns">
+                  <Button onClick={() => setReturnStockOpen(true)}><Plus className="mr-2 h-4 w-4" />Record Returns</Button>
+                </TabsContent>
+                <TabsContent value="closing">
+                  <Button onClick={() => setClosingStockOpen(true)}><ClipboardList className="mr-2 h-4 w-4" />View Closing Stock</Button>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        )}
+
+        <VanMorningInventory open={morningInventoryOpen} onOpenChange={setMorningInventoryOpen} selectedDate={selectedDate} />
+        <VanReturnStock open={returnStockOpen} onOpenChange={setReturnStockOpen} selectedDate={selectedDate} />
+        <VanClosingStock open={closingStockOpen} onOpenChange={setClosingStockOpen} selectedDate={selectedDate} />
 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-semibold">Van Database</h2>

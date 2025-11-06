@@ -2390,6 +2390,505 @@ export type Database = {
           },
         ]
       }
+      van_closing_stock: {
+        Row: {
+          closing_date: string
+          closing_inventory_qty: number
+          computed_at: string
+          created_at: string
+          id: string
+          total_inward_qty: number
+          total_returned_qty: number
+          total_sold_qty: number
+          van_id: string
+        }
+        Insert: {
+          closing_date?: string
+          closing_inventory_qty?: number
+          computed_at?: string
+          created_at?: string
+          id?: string
+          total_inward_qty?: number
+          total_returned_qty?: number
+          total_sold_qty?: number
+          van_id: string
+        }
+        Update: {
+          closing_date?: string
+          closing_inventory_qty?: number
+          computed_at?: string
+          created_at?: string
+          id?: string
+          total_inward_qty?: number
+          total_returned_qty?: number
+          total_sold_qty?: number
+          van_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_closing_stock_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_closing_stock_items: {
+        Row: {
+          closing_qty: number
+          closing_stock_id: string
+          created_at: string
+          id: string
+          morning_qty: number
+          product_id: string
+          returned_qty: number
+          sold_qty: number
+          variant_id: string | null
+        }
+        Insert: {
+          closing_qty?: number
+          closing_stock_id: string
+          created_at?: string
+          id?: string
+          morning_qty?: number
+          product_id: string
+          returned_qty?: number
+          sold_qty?: number
+          variant_id?: string | null
+        }
+        Update: {
+          closing_qty?: number
+          closing_stock_id?: string
+          created_at?: string
+          id?: string
+          morning_qty?: number
+          product_id?: string
+          returned_qty?: number
+          sold_qty?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_closing_stock_items_closing_stock_id_fkey"
+            columns: ["closing_stock_id"]
+            isOneToOne: false
+            referencedRelation: "van_closing_stock"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_closing_stock_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_closing_stock_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_inward_grn: {
+        Row: {
+          beat_id: string | null
+          created_at: string
+          documents_verified: boolean | null
+          grn_date: string
+          grn_number: string
+          id: string
+          updated_at: string
+          user_id: string
+          van_distance_km: number | null
+          van_id: string
+          verified_at: string | null
+          verified_by: string | null
+          verified_by_name: string | null
+        }
+        Insert: {
+          beat_id?: string | null
+          created_at?: string
+          documents_verified?: boolean | null
+          grn_date?: string
+          grn_number: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          van_distance_km?: number | null
+          van_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
+        }
+        Update: {
+          beat_id?: string | null
+          created_at?: string
+          documents_verified?: boolean | null
+          grn_date?: string
+          grn_number?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          van_distance_km?: number | null
+          van_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_inward_grn_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_inward_grn_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_inward_grn_items: {
+        Row: {
+          ai_confidence_percent: number | null
+          ai_scanned: boolean | null
+          created_at: string
+          grn_id: string
+          id: string
+          product_id: string
+          quantity: number
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          ai_confidence_percent?: number | null
+          ai_scanned?: boolean | null
+          created_at?: string
+          grn_id: string
+          id?: string
+          product_id: string
+          quantity?: number
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          ai_confidence_percent?: number | null
+          ai_scanned?: boolean | null
+          created_at?: string
+          grn_id?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_inward_grn_items_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "van_inward_grn"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_inward_grn_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_inward_grn_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_live_inventory: {
+        Row: {
+          created_at: string
+          current_stock: number
+          date: string
+          id: string
+          last_updated_at: string
+          morning_stock: number
+          pending_quantity: number
+          product_id: string
+          returned_quantity: number
+          sold_quantity: number
+          van_id: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_stock?: number
+          date?: string
+          id?: string
+          last_updated_at?: string
+          morning_stock?: number
+          pending_quantity?: number
+          product_id: string
+          returned_quantity?: number
+          sold_quantity?: number
+          van_id: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_stock?: number
+          date?: string
+          id?: string
+          last_updated_at?: string
+          morning_stock?: number
+          pending_quantity?: number
+          product_id?: string
+          returned_quantity?: number
+          sold_quantity?: number
+          van_id?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_live_inventory_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_live_inventory_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_live_inventory_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_order_fulfillment: {
+        Row: {
+          created_at: string
+          fulfilled_quantity: number
+          fulfillment_date: string
+          id: string
+          order_id: string
+          order_item_id: string
+          pending_quantity: number
+          product_id: string
+          requested_quantity: number
+          updated_at: string
+          van_id: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fulfilled_quantity?: number
+          fulfillment_date?: string
+          id?: string
+          order_id: string
+          order_item_id: string
+          pending_quantity?: number
+          product_id: string
+          requested_quantity: number
+          updated_at?: string
+          van_id: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fulfilled_quantity?: number
+          fulfillment_date?: string
+          id?: string
+          order_id?: string
+          order_item_id?: string
+          pending_quantity?: number
+          product_id?: string
+          requested_quantity?: number
+          updated_at?: string
+          van_id?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_order_fulfillment_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_order_fulfillment_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_order_fulfillment_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_order_fulfillment_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_order_fulfillment_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_return_grn: {
+        Row: {
+          created_at: string
+          id: string
+          is_verified: boolean | null
+          notes: string | null
+          retailer_id: string
+          return_date: string
+          return_grn_number: string
+          updated_at: string
+          user_id: string
+          van_id: string
+          verified_at: string | null
+          verified_by: string | null
+          verified_by_name: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_verified?: boolean | null
+          notes?: string | null
+          retailer_id: string
+          return_date?: string
+          return_grn_number: string
+          updated_at?: string
+          user_id: string
+          van_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_verified?: boolean | null
+          notes?: string | null
+          retailer_id?: string
+          return_date?: string
+          return_grn_number?: string
+          updated_at?: string
+          user_id?: string
+          van_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_return_grn_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_return_grn_van_id_fkey"
+            columns: ["van_id"]
+            isOneToOne: false
+            referencedRelation: "vans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_return_grn_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      van_return_grn_items: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          return_grn_id: string
+          return_quantity: number
+          return_reason: string | null
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          return_grn_id: string
+          return_quantity?: number
+          return_reason?: string | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          return_grn_id?: string
+          return_quantity?: number
+          return_reason?: string | null
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_return_grn_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_return_grn_items_return_grn_id_fkey"
+            columns: ["return_grn_id"]
+            isOneToOne: false
+            referencedRelation: "van_return_grn"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_return_grn_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       van_sales_settings: {
         Row: {
           created_at: string
