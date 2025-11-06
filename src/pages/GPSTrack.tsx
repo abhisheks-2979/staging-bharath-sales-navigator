@@ -323,9 +323,26 @@ export default function GPSTrack() {
 
             {/* Map Display */}
             <Card className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <MapPin className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">Journey Heatmap</h2>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Journey Heatmap</h2>
+                  {retailers.length > 0 && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({retailers.length} retailer{retailers.length > 1 ? 's' : ''})
+                    </span>
+                  )}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    loadGPSData();
+                    loadRetailerLocations();
+                  }}
+                >
+                  Refresh Map
+                </Button>
               </div>
 
               {loading ? (
@@ -337,30 +354,58 @@ export default function GPSTrack() {
               )}
 
               {/* Stats */}
-              {gpsData.length > 0 && (
+              {(gpsData.length > 0 || retailers.length > 0) && (
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Card className="p-4">
-                    <div className="text-sm text-muted-foreground">Total Points</div>
-                    <div className="text-2xl font-bold">{gpsData.length}</div>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="text-sm text-muted-foreground">Start Time</div>
-                    <div className="text-xl font-semibold">
-                      {format(gpsData[0].timestamp, 'hh:mm a')}
-                    </div>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="text-sm text-muted-foreground">Last Update</div>
-                    <div className="text-xl font-semibold">
-                      {format(gpsData[gpsData.length - 1].timestamp, 'hh:mm a')}
-                    </div>
-                  </Card>
-                  <Card className="p-4">
-                    <div className="text-sm text-muted-foreground">Avg Accuracy</div>
-                    <div className="text-xl font-semibold">
-                      {Math.round(gpsData.reduce((sum, d) => sum + d.accuracy, 0) / gpsData.length)}m
-                    </div>
-                  </Card>
+                  {retailers.length > 0 && (
+                    <>
+                      <Card className="p-4">
+                        <div className="text-sm text-muted-foreground">Scheduled Retailers</div>
+                        <div className="text-2xl font-bold">{retailers.length}</div>
+                      </Card>
+                      <Card className="p-4">
+                        <div className="text-sm text-muted-foreground">Completed Visits</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {retailers.filter(r => r.status === 'completed' || r.status === 'productive' || r.checkInTime).length}
+                        </div>
+                      </Card>
+                      <Card className="p-4">
+                        <div className="text-sm text-muted-foreground">Pending Visits</div>
+                        <div className="text-2xl font-bold text-orange-600">
+                          {retailers.filter(r => !r.checkInTime && r.status !== 'completed').length}
+                        </div>
+                      </Card>
+                    </>
+                  )}
+                  {gpsData.length > 0 && (
+                    <>
+                      <Card className="p-4">
+                        <div className="text-sm text-muted-foreground">GPS Points</div>
+                        <div className="text-2xl font-bold">{gpsData.length}</div>
+                      </Card>
+                      {!retailers.length && (
+                        <>
+                          <Card className="p-4">
+                            <div className="text-sm text-muted-foreground">Start Time</div>
+                            <div className="text-xl font-semibold">
+                              {format(gpsData[0].timestamp, 'hh:mm a')}
+                            </div>
+                          </Card>
+                          <Card className="p-4">
+                            <div className="text-sm text-muted-foreground">Last Update</div>
+                            <div className="text-xl font-semibold">
+                              {format(gpsData[gpsData.length - 1].timestamp, 'hh:mm a')}
+                            </div>
+                          </Card>
+                          <Card className="p-4">
+                            <div className="text-sm text-muted-foreground">Avg Accuracy</div>
+                            <div className="text-xl font-semibold">
+                              {Math.round(gpsData.reduce((sum, d) => sum + d.accuracy, 0) / gpsData.length)}m
+                            </div>
+                          </Card>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </Card>
