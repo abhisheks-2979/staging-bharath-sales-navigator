@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { ImageStockCapture } from "@/components/ImageStockCapture";
+import { ReturnStockForm } from "@/components/ReturnStockForm";
 
 interface Product {
   id: string;
@@ -75,7 +76,7 @@ export const OrderEntry = () => {
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
-  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order">("grid");
+  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock">("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [noOrderReason, setNoOrderReason] = useState<string>("");
 const [categories, setCategories] = useState<string[]>(["All"]);
@@ -1484,6 +1485,15 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 AI Stock
               </Button>
               <Button
+                variant={orderMode === "return-stock" ? "default" : "outline"}
+                onClick={() => setOrderMode("return-stock")}
+                className="flex-1 h-8"
+                size="sm"
+              >
+                <RotateCcw size={14} className="mr-1" />
+                Return Stock
+              </Button>
+              <Button
                 variant={orderMode === "no-order" ? "default" : "outline"}
                 onClick={() => setOrderMode("no-order")}
                 className="flex-1 h-8"
@@ -1527,7 +1537,23 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
           </CardContent>
         </Card>
 
-        {orderMode === "no-order" ? (
+        {orderMode === "return-stock" ? (
+          <>
+            {/* Return Stock Section */}
+            <ReturnStockForm
+              visitId={visitId}
+              retailerId={retailerId}
+              retailerName={retailerName}
+              onComplete={() => {
+                toast({
+                  title: "Returns Recorded",
+                  description: "Return stock has been recorded successfully"
+                });
+                setOrderMode("grid");
+              }}
+            />
+          </>
+        ) : orderMode === "no-order" ? (
           <>
             {/* No Order Section */}
             <Card>
