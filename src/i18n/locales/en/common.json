@@ -128,6 +128,7 @@
   },
   "visitDetail": {
     "title": "Visit Details",
+    "subtitle": "Plan your visit strategy",
     "quickIntelligence": "Quick Intelligence",
     "monthlyRevenue": "Monthly Revenue",
     "orderFrequency": "Order Frequency",
@@ -136,7 +137,11 @@
     "lastOrder": "Last Order",
     "lastVisit": "Last Visit",
     "recommendedSchemes": "Recommended Schemes",
+    "pushOffers": "Push these offers to maximize sales",
     "startCall": "Start Call",
-    "viewOrders": "View Orders"
+    "viewOrders": "View Orders",
+    "schemes": "Schemes",
+    "createCompetitorInfo": "Create Competitor Info",
+    "backToVisits": "Back to Visits"
   }
 }

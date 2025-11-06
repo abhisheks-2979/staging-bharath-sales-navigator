@@ -128,6 +128,7 @@
   },
   "visitDetail": {
     "title": "મુલાકાત વિગતો",
+    "subtitle": "તમારી મુલાકાત વ્યૂહરચના આયોજન કરો",
     "quickIntelligence": "ઝડપી બુદ્ધિ",
     "monthlyRevenue": "માસિક આવક",
     "orderFrequency": "ઓર્ડર આવર્તન",
@@ -136,7 +137,11 @@
     "lastOrder": "છેલ્લો ઓર્ડર",
     "lastVisit": "છેલ્લી મુલાકાત",
     "recommendedSchemes": "ભલામણ કરેલી યોજનાઓ",
+    "pushOffers": "વેચાણ વધારવા માટે આ ઓફર્સને આગળ ધકેલો",
     "startCall": "કૉલ શરૂ કરો",
-    "viewOrders": "ઓર્ડર્સ જુઓ"
+    "viewOrders": "ઓર્ડર્સ જુઓ",
+    "schemes": "યોજનાઓ",
+    "createCompetitorInfo": "સ્પર્ધક માહિતી બનાવો",
+    "backToVisits": "મુલાકાતો પર પાછા જાઓ"
   }
 }

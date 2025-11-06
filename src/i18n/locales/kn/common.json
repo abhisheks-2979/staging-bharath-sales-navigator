@@ -128,6 +128,7 @@
   },
   "visitDetail": {
     "title": "ಭೇಟಿ ವಿವರಗಳು",
+    "subtitle": "ನಿಮ್ಮ ಭೇಟಿ ತಂತ್ರವನ್ನು ಯೋಜಿಸಿ",
     "quickIntelligence": "ತ್ವರಿತ ಮಾಹಿತಿ",
     "monthlyRevenue": "ಮಾಸಿಕ ಆದಾಯ",
     "orderFrequency": "ಆರ್ಡರ್ ಆವರ್ತನ",
@@ -136,7 +137,11 @@
     "lastOrder": "ಕೊನೆಯ ಆರ್ಡರ್",
     "lastVisit": "ಕೊನೆಯ ಭೇಟಿ",
     "recommendedSchemes": "ಶಿಫಾರಸು ಮಾಡಿದ ಯೋಜನೆಗಳು",
+    "pushOffers": "ಮಾರಾಟವನ್ನು ಹೆಚ್ಚಿಸಲು ಈ ಆಫರ್‌ಗಳನ್ನು ಮುಂದಕ್ಕೆ ತಳ್ಳಿರಿ",
     "startCall": "ಕರೆ ಪ್ರಾರಂಭಿಸಿ",
-    "viewOrders": "ಆರ್ಡರ್‌ಗಳನ್ನು ನೋಡಿ"
+    "viewOrders": "ಆರ್ಡರ್‌ಗಳನ್ನು ನೋಡಿ",
+    "schemes": "ಯೋಜನೆಗಳು",
+    "createCompetitorInfo": "ಸ್ಪರ್ಧಿ ಮಾಹಿತಿಯನ್ನು ರಚಿಸಿ",
+    "backToVisits": "ಭೇಟಿಗಳಿಗೆ ಹಿಂತಿರುಗಿ"
   }
 }

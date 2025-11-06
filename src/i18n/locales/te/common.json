@@ -128,6 +128,7 @@
   },
   "visitDetail": {
     "title": "సందర్శన వివరాలు",
+    "subtitle": "మీ సందర్శన వ్యూహాన్ని ప్లాన్ చేయండి",
     "quickIntelligence": "త్వరిత సమాచారం",
     "monthlyRevenue": "నెలవారీ ఆదాయం",
     "orderFrequency": "ఆర్డర్ ఫ్రీక్వెన్సీ",
@@ -136,7 +137,11 @@
     "lastOrder": "చివరి ఆర్డర్",
     "lastVisit": "చివరి సందర్శన",
     "recommendedSchemes": "సిఫార్సు చేసిన పథకాలు",
+    "pushOffers": "అమ్మకాలను పెంచడానికి ఈ ఆఫర్‌లను ప్రమోట్ చేయండి",
     "startCall": "కాల్ ప్రారంభించండి",
-    "viewOrders": "ఆర్డర్లను చూడండి"
+    "viewOrders": "ఆర్డర్లను చూడండి",
+    "schemes": "పథకాలు",
+    "createCompetitorInfo": "పోటీదారుల సమాచారాన్ని సృష్టించండి",
+    "backToVisits": "సందర్శనలకు తిరిగి వెళ్ళండి"
   }
 }

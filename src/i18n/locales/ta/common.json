@@ -128,6 +128,7 @@
   },
   "visitDetail": {
     "title": "பயண விவரங்கள்",
+    "subtitle": "உங்கள் பயணத் திட்டத்தை திட்டமிடுங்கள்",
     "quickIntelligence": "விரைவு தகவல்",
     "monthlyRevenue": "மாத வருவாய்",
     "orderFrequency": "ஆர்டர் அதிர்வெண்",
@@ -136,7 +137,11 @@
     "lastOrder": "கடைசி ஆர்டர்",
     "lastVisit": "கடைசி பயணம்",
     "recommendedSchemes": "பரிந்துரைக்கப்பட்ட திட்டங்கள்",
+    "pushOffers": "விற்பனையை அதிகரிக்க இந்த சலுகைகளை முன்னெடுக்கவும்",
     "startCall": "அழைப்பைத் தொடங்கு",
-    "viewOrders": "ஆர்டர்களைக் காண்க"
+    "viewOrders": "ஆர்டர்களைக் காண்க",
+    "schemes": "திட்டங்கள்",
+    "createCompetitorInfo": "போட்டியாளர் தகவலை உருவாக்கு",
+    "backToVisits": "பயணங்களுக்குத் திரும்பு"
   }
 }

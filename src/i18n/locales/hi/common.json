@@ -128,6 +128,7 @@
   },
   "visitDetail": {
     "title": "विज़िट विवरण",
+    "subtitle": "अपनी विज़िट रणनीति की योजना बनाएं",
     "quickIntelligence": "त्वरित जानकारी",
     "monthlyRevenue": "मासिक राजस्व",
     "orderFrequency": "ऑर्डर आवृत्ति",
@@ -136,7 +137,11 @@
     "lastOrder": "अंतिम ऑर्डर",
     "lastVisit": "अंतिम विज़िट",
     "recommendedSchemes": "अनुशंसित योजनाएं",
+    "pushOffers": "बिक्री बढ़ाने के लिए इन ऑफ़र को बढ़ावा दें",
     "startCall": "कॉल शुरू करें",
-    "viewOrders": "ऑर्डर देखें"
+    "viewOrders": "ऑर्डर देखें",
+    "schemes": "योजनाएं",
+    "createCompetitorInfo": "प्रतिस्पर्धी जानकारी बनाएं",
+    "backToVisits": "विज़िट पर वापस जाएं"
   }
 }

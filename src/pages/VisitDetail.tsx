@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export const VisitDetail = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const retailerData = {
     name: "Sham Kirana and General Stores",
@@ -19,10 +21,10 @@ export const VisitDetail = () => {
   };
 
   const quickInsights = [
-    { label: "Monthly Revenue", value: "₹45,200", trend: "+12%" },
-    { label: "Order Frequency", value: "2x/week", trend: "+5%" },
-    { label: "Popular Category", value: "Beverages", trend: "85%" },
-    { label: "Payment Terms", value: "30 days", trend: "On time" }
+    { label: t('visitDetail.monthlyRevenue'), value: "₹45,200", trend: "+12%" },
+    { label: t('visitDetail.orderFrequency'), value: "2x/week", trend: "+5%" },
+    { label: t('visitDetail.popularCategory'), value: "Beverages", trend: "85%" },
+    { label: t('visitDetail.paymentTerms'), value: "30 days", trend: "On time" }
   ];
 
   const schemes = [
@@ -56,8 +58,8 @@ export const VisitDetail = () => {
             <ArrowLeft size={20} />
           </Button>
           <div>
-            <h1 className="text-xl font-bold">Visit Details</h1>
-            <p className="text-sm text-muted-foreground">Plan your visit strategy</p>
+            <h1 className="text-xl font-bold">{t('visitDetail.title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('visitDetail.subtitle')}</p>
           </div>
         </div>
 
@@ -91,11 +93,11 @@ export const VisitDetail = () => {
 
             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
               <div>
-                <p className="text-xs text-muted-foreground">Last Order</p>
+                <p className="text-xs text-muted-foreground">{t('visitDetail.lastOrder')}</p>
                 <p className="font-semibold">{retailerData.lastOrder}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Last Visit</p>
+                <p className="text-xs text-muted-foreground">{t('visitDetail.lastVisit')}</p>
                 <p className="font-semibold">{retailerData.lastVisit}</p>
               </div>
             </div>
@@ -107,7 +109,7 @@ export const VisitDetail = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp size={20} className="text-primary" />
-              Quick Intelligence
+              {t('visitDetail.quickIntelligence')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -127,30 +129,30 @@ export const VisitDetail = () => {
         <div className="grid grid-cols-2 gap-3">
           <Button className="h-12 shadow-button">
             <CheckCircle size={18} className="mr-2" />
-            Check-In
+            {t('visits.checkIn')}
           </Button>
           <Button variant="outline" className="h-12">
             <Clock size={18} className="mr-2" />
-            Start Call
+            {t('visitDetail.startCall')}
           </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Button variant="outline" className="h-12">
             <ShoppingCart size={18} className="mr-2" />
-            View Orders
+            {t('visitDetail.viewOrders')}
           </Button>
           <Button variant="outline" className="h-12">
             <TrendingUp size={18} className="mr-2" />
-            Schemes
+            {t('visitDetail.schemes')}
           </Button>
         </div>
 
         {/* Recommended Schemes */}
         <Card className="shadow-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Recommended Schemes</CardTitle>
-            <p className="text-sm text-muted-foreground">Push these offers to maximize sales</p>
+            <CardTitle className="text-lg">{t('visitDetail.recommendedSchemes')}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t('visitDetail.pushOffers')}</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {schemes.map((scheme) => (
@@ -182,7 +184,7 @@ export const VisitDetail = () => {
         {/* Competitor Info Button */}
         <Button variant="outline" className="w-full h-12">
           <Users size={18} className="mr-2" />
-          Create Competitor Info
+          {t('visitDetail.createCompetitorInfo')}
         </Button>
 
         {/* Back Button */}
@@ -191,7 +193,7 @@ export const VisitDetail = () => {
           className="w-full mt-6"
           onClick={() => navigate(-1)}
         >
-          Back to Visits
+          {t('visitDetail.backToVisits')}
         </Button>
       </div>
     </Layout>
