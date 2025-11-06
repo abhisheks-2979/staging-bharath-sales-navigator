@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Input } from './ui/input';
 import { toast } from 'sonner';
-import { Edit, Package, Search } from 'lucide-react';
+import { Edit, Package, Search, Check, X } from 'lucide-react';
 import { VanMorningInventory } from './VanMorningInventory';
 
 interface VanStockItem {
@@ -34,6 +34,8 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editMode, setEditMode] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<number>(0);
 
   useEffect(() => {
     loadVanStock();
@@ -139,6 +141,64 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
     }
   };
 
+  const handleEditClick = (item: VanStockItem) => {
+    setEditingItemId(item.id);
+    setEditValue(item.available_inventory);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditValue(0);
+  };
+
+  const handleSaveEdit = async (item: VanStockItem) => {
+    try {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+
+      // Get van_id from the GRN
+      const { data: grnData, error: grnError } = await supabase
+        .from('van_inward_grn')
+        .select('van_id')
+        .eq('id', item.grn_id)
+        .single();
+
+      if (grnError) throw grnError;
+
+      // Calculate new current stock (morning_stock - sold_quantity + returned_quantity)
+      const newCurrentStock = editValue - item.sold_quantity;
+
+      // Build query based on variant_id
+      let query = supabase
+        .from('van_live_inventory')
+        .update({
+          morning_stock: editValue,
+          current_stock: newCurrentStock,
+          last_updated_at: new Date().toISOString()
+        })
+        .eq('van_id', grnData.van_id)
+        .eq('product_id', item.product_id)
+        .eq('date', dateStr);
+
+      // Add variant_id condition
+      if (item.variant_id) {
+        query = query.eq('variant_id', item.variant_id);
+      } else {
+        query = query.is('variant_id', null);
+      }
+
+      const { error: updateError } = await query;
+
+      if (updateError) throw updateError;
+
+      toast.success('Morning stock updated successfully');
+      setEditingItemId(null);
+      loadVanStock(); // Reload to show updated values
+    } catch (error: any) {
+      console.error('Error updating morning stock:', error);
+      toast.error('Failed to update morning stock');
+    }
+  };
+
   const filteredItems = stockItems.filter(item => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -216,8 +276,46 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
                       </TableCell>
                       <TableCell className="text-sm">{item.sku}</TableCell>
                       <TableCell className="text-right font-semibold">{item.quantity}</TableCell>
-                      <TableCell className="text-right font-semibold text-primary">
-                        {item.available_inventory}
+                      <TableCell className="text-right">
+                        {editingItemId === item.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <Input
+                              type="number"
+                              value={editValue}
+                              onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
+                              className="w-20 h-8 text-right"
+                              min="0"
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => handleSaveEdit(item)}
+                            >
+                              <Check className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={handleCancelEdit}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="font-semibold text-primary">{item.available_inventory}</span>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => handleEditClick(item)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-amber-600 dark:text-amber-400">
                         {item.sold_quantity}
