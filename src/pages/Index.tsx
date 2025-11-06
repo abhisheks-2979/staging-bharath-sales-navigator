@@ -56,41 +56,49 @@ const Index = () => {
   });
   const { isInstallable, installApp } = usePWAInstall();
   const { userProfile, user, userRole } = useAuth();
-  const [profilePictureUrl, setProfilePictureUrl] = useState(userProfile?.profile_picture_url);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   const refreshProfilePicture = async () => {
-    if (user?.id) {
-      const { data } = await supabase
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await supabase
         .from('profiles')
         .select('profile_picture_url')
         .eq('id', user.id)
         .single();
       
+      if (error) {
+        console.error('Error fetching profile picture:', error);
+        return;
+      }
+      
       if (data?.profile_picture_url) {
         setProfilePictureUrl(data.profile_picture_url);
       }
+    } catch (error) {
+      console.error('Error in refreshProfilePicture:', error);
     }
   };
 
   useEffect(() => {
     const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
     setCurrentQuote(randomQuote);
-    
-    // Update profile picture URL when userProfile changes
-    setProfilePictureUrl(userProfile?.profile_picture_url);
-    
-    // Fetch monthly statistics when user profile is available
-    if (userProfile?.id) {
-      fetchMonthlyStats();
-    }
-  }, [userProfile]);
+  }, []);
 
+  // Fetch profile picture whenever user or userProfile changes
   useEffect(() => {
-    // Ensure we always fetch latest picture from DB when user changes
     if (user?.id) {
       refreshProfilePicture();
     }
-  }, [user?.id]);
+  }, [user?.id, userProfile]);
+
+  // Fetch monthly statistics when user profile is available
+  useEffect(() => {
+    if (userProfile?.id) {
+      fetchMonthlyStats();
+    }
+  }, [userProfile?.id]);
 
   const fetchMonthlyStats = async () => {
     if (!userProfile?.id) return;
@@ -226,11 +234,11 @@ const Index = () => {
               {user && (
                 <ProfilePictureUpload
                   userId={user.id}
-                  currentPhotoUrl={profilePictureUrl}
+                  currentPhotoUrl={profilePictureUrl || undefined}
                   fullName={displayName}
-                  onPhotoUpdate={async (newUrl) => {
+                  onPhotoUpdate={(newUrl) => {
                     setProfilePictureUrl(newUrl);
-                    await refreshProfilePicture();
+                    refreshProfilePicture();
                   }}
                   size="lg"
                 />
