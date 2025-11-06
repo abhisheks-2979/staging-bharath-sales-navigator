@@ -101,60 +101,70 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
   };
 
   const loadProducts = async () => {
-    const { data: productsData, error: productsError } = await supabase
-      .from('products')
-      .select('id, name, sku')
-      .order('name');
+    try {
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, sku')
+        .order('name');
 
-    if (productsError) {
-      console.error('Error loading products:', productsError);
-      toast.error('Failed to load products');
-      return;
-    }
+      if (productsError) {
+        console.error('Error loading products:', productsError);
+        toast.error('Failed to load products: ' + productsError.message);
+        return;
+      }
 
-    const { data: variantsData, error: variantsError } = await supabase
-      .from('product_variants')
-      .select('id, product_id, variant_name, sku')
-      .order('variant_name');
+      console.log('Loaded products:', productsData?.length || 0);
 
-    if (variantsError) {
-      console.error('Error loading variants:', variantsError);
-    }
+      const { data: variantsData, error: variantsError } = await supabase
+        .from('product_variants')
+        .select('id, product_id, variant_name, sku')
+        .order('variant_name');
 
-    const productsWithVariants = (productsData || []).map(product => ({
-      ...product,
-      variants: (variantsData || []).filter(v => v.product_id === product.id)
-    }));
+      if (variantsError) {
+        console.error('Error loading variants:', variantsError);
+      }
 
-    setProducts(productsWithVariants);
+      console.log('Loaded variants:', variantsData?.length || 0);
 
-    // Build stock items list - one row per product/variant combination
-    const items: StockItem[] = [];
-    productsData?.forEach(product => {
-      const variants = variantsData?.filter(v => v.product_id === product.id) || [];
-      
-      if (variants.length > 0) {
-        variants.forEach(variant => {
+      const productsWithVariants = (productsData || []).map(product => ({
+        ...product,
+        variants: (variantsData || []).filter(v => v.product_id === product.id)
+      }));
+
+      setProducts(productsWithVariants);
+
+      // Build stock items list - one row per product/variant combination
+      const items: StockItem[] = [];
+      productsData?.forEach(product => {
+        const variants = variantsData?.filter(v => v.product_id === product.id) || [];
+        
+        if (variants.length > 0) {
+          variants.forEach(variant => {
+            items.push({
+              productId: product.id,
+              productName: product.name,
+              variantId: variant.id,
+              variantName: variant.variant_name,
+              sku: variant.sku,
+              quantity: 0
+            });
+          });
+        } else {
           items.push({
             productId: product.id,
             productName: product.name,
-            variantId: variant.id,
-            variantName: variant.variant_name,
-            sku: variant.sku,
+            sku: product.sku,
             quantity: 0
           });
-        });
-      } else {
-        items.push({
-          productId: product.id,
-          productName: product.name,
-          sku: product.sku,
-          quantity: 0
-        });
-      }
-    });
+        }
+      });
 
-    setStockItems(items);
+      console.log('Built stock items:', items.length);
+      setStockItems(items);
+    } catch (error: any) {
+      console.error('Unexpected error loading products:', error);
+      toast.error('Failed to load products');
+    }
   };
 
   const handleQuantityChange = (index: number, quantity: number) => {
@@ -431,13 +441,13 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
                               placeholder="0"
                               className="w-20"
                               value={item.quantity || ''}
-                              onChange={(e) => handleQuantityChange(
-                                stockItems.findIndex(si => 
+                              onChange={(e) => {
+                                const actualIndex = stockItems.findIndex(si => 
                                   si.productId === item.productId && 
                                   si.variantId === item.variantId
-                                ),
-                                parseInt(e.target.value) || 0
-                              )}
+                                );
+                                handleQuantityChange(actualIndex, parseInt(e.target.value) || 0);
+                              }}
                             />
                           </TableCell>
                         </TableRow>
