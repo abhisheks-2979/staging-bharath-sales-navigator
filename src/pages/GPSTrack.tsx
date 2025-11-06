@@ -197,12 +197,15 @@ export default function GPSTrack() {
     console.log('Found retailers:', retailersData);
 
     if (retailersData) {
+      // Check which retailers are missing location data
+      const retailersWithoutLocation = retailersData.filter(r => !r.latitude || !r.longitude);
+      
       // Map retailers to visits
       const retailerLocations: RetailerLocation[] = visitsData
         .map((visit: any) => {
           const retailer = retailersData.find(r => r.id === visit.retailer_id);
           if (!retailer || !retailer.latitude || !retailer.longitude) {
-            console.log('Skipping visit - retailer missing or no location:', visit.retailer_id);
+            console.log('Skipping visit - retailer missing or no location:', visit.retailer_id, retailer?.name);
             return null;
           }
           return {
@@ -221,10 +224,27 @@ export default function GPSTrack() {
       console.log('Processed retailer locations:', retailerLocations);
       setRetailers(retailerLocations);
       
-      if (retailerLocations.length === 0) {
+      if (retailerLocations.length === 0 && retailersWithoutLocation.length > 0) {
+        const missingNames = retailersWithoutLocation.map(r => r.name).join(', ');
+        toast.error(
+          `${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} missing location data: ${missingNames}. Please add GPS coordinates to these retailers.`,
+          { duration: 8000 }
+        );
+      } else if (retailerLocations.length === 0) {
         toast.info('No retailers with location data found');
       } else {
-        toast.success(`Loaded ${retailerLocations.length} retailer location${retailerLocations.length > 1 ? 's' : ''}`);
+        const completedCount = retailerLocations.filter(r => r.checkInTime).length;
+        toast.success(
+          `Loaded ${retailerLocations.length} retailer${retailerLocations.length > 1 ? 's' : ''} (${completedCount} completed)`,
+          { duration: 4000 }
+        );
+        
+        if (retailersWithoutLocation.length > 0) {
+          toast.warning(
+            `Note: ${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} skipped due to missing location data`,
+            { duration: 5000 }
+          );
+        }
       }
     }
   };
