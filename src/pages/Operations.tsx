@@ -67,7 +67,16 @@ const Operations = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [userFilter, setUserFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('today');
+  
+  // Separate date filters for each section
+  const [checkinDateFilter, setCheckinDateFilter] = useState('today');
+  const [orderDateFilter, setOrderDateFilter] = useState('today');
+  const [stockDateFilter, setStockDateFilter] = useState('today');
+  
+  // Custom date ranges
+  const [checkinCustomRange, setCheckinCustomRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
+  const [orderCustomRange, setOrderCustomRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
+  const [stockCustomRange, setStockCustomRange] = useState<{ from: Date | null; to: Date | null }>({ from: null, to: null });
   
   // Data states
   const [checkInData, setCheckInData] = useState<CheckInOutData[]>([]);
@@ -144,6 +153,27 @@ const Operations = () => {
 
       if (userFilter !== 'all') {
         query = query.eq('user_id', userFilter);
+      }
+
+      // Apply date filter for check-ins
+      const checkInToday = new Date();
+      const checkInStartOfToday = new Date(checkInToday.getFullYear(), checkInToday.getMonth(), checkInToday.getDate());
+      
+      if (checkinDateFilter === 'today') {
+        query = query.gte('planned_date', checkInStartOfToday.toISOString().split('T')[0]);
+      } else if (checkinDateFilter === 'week') {
+        const weekAgo = new Date(checkInStartOfToday);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('planned_date', weekAgo.toISOString().split('T')[0]);
+      } else if (checkinDateFilter === 'month') {
+        const monthAgo = new Date(checkInStartOfToday);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('planned_date', monthAgo.toISOString().split('T')[0]);
+      } else if (checkinDateFilter === 'custom' && checkinCustomRange.from) {
+        query = query.gte('planned_date', checkinCustomRange.from.toISOString().split('T')[0]);
+        if (checkinCustomRange.to) {
+          query = query.lte('planned_date', checkinCustomRange.to.toISOString().split('T')[0]);
+        }
       }
 
       const { data: visitsData, error } = await query;
@@ -354,20 +384,27 @@ const Operations = () => {
         query = query.eq('user_id', userFilter);
       }
 
-      // Apply date filter
-      const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      // Apply date filter for orders
+      const orderToday = new Date();
+      const orderStartOfToday = new Date(orderToday.getFullYear(), orderToday.getMonth(), orderToday.getDate());
       
-      if (dateFilter === 'today') {
-        query = query.gte('created_at', startOfToday.toISOString());
-      } else if (dateFilter === 'week') {
-        const weekAgo = new Date(startOfToday);
+      if (orderDateFilter === 'today') {
+        query = query.gte('created_at', orderStartOfToday.toISOString());
+      } else if (orderDateFilter === 'week') {
+        const weekAgo = new Date(orderStartOfToday);
         weekAgo.setDate(weekAgo.getDate() - 7);
         query = query.gte('created_at', weekAgo.toISOString());
-      } else if (dateFilter === 'month') {
-        const monthAgo = new Date(startOfToday);
+      } else if (orderDateFilter === 'month') {
+        const monthAgo = new Date(orderStartOfToday);
         monthAgo.setMonth(monthAgo.getMonth() - 1);
         query = query.gte('created_at', monthAgo.toISOString());
+      } else if (orderDateFilter === 'custom' && orderCustomRange.from) {
+        query = query.gte('created_at', orderCustomRange.from.toISOString());
+        if (orderCustomRange.to) {
+          const endOfDay = new Date(orderCustomRange.to);
+          endOfDay.setHours(23, 59, 59, 999);
+          query = query.lte('created_at', endOfDay.toISOString());
+        }
       }
 
       const { data: ordersData, error } = await query;
@@ -398,7 +435,7 @@ const Operations = () => {
 
       // Calculate today's orders
       const todayOrders = formattedData.filter(item => 
-        item.created_at.startsWith(today.toISOString().split('T')[0])
+        item.created_at.startsWith(orderToday.toISOString().split('T')[0])
       ).length;
       
       setTodayStats(prev => ({ ...prev, orders: todayOrders }));
@@ -430,6 +467,29 @@ const Operations = () => {
         query = query.eq('user_id', userFilter);
       }
 
+      // Apply date filter for stock
+      const stockToday = new Date();
+      const stockStartOfToday = new Date(stockToday.getFullYear(), stockToday.getMonth(), stockToday.getDate());
+      
+      if (stockDateFilter === 'today') {
+        query = query.gte('created_at', stockStartOfToday.toISOString());
+      } else if (stockDateFilter === 'week') {
+        const weekAgo = new Date(stockStartOfToday);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('created_at', weekAgo.toISOString());
+      } else if (stockDateFilter === 'month') {
+        const monthAgo = new Date(stockStartOfToday);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('created_at', monthAgo.toISOString());
+      } else if (stockDateFilter === 'custom' && stockCustomRange.from) {
+        query = query.gte('created_at', stockCustomRange.from.toISOString());
+        if (stockCustomRange.to) {
+          const endOfDay = new Date(stockCustomRange.to);
+          endOfDay.setHours(23, 59, 59, 999);
+          query = query.lte('created_at', endOfDay.toISOString());
+        }
+      }
+
       const { data: stockData, error } = await query;
       if (error) throw error;
 
@@ -459,9 +519,8 @@ const Operations = () => {
       setStockData(formattedData);
 
       // Calculate today's stock updates
-      const today = new Date().toISOString().split('T')[0];
       const todayStock = formattedData.filter(item => 
-        item.created_at.startsWith(today)
+        item.created_at.startsWith(stockToday.toISOString().split('T')[0])
       ).length;
       
       setTodayStats(prev => ({ ...prev, stockUpdates: todayStock }));
@@ -513,7 +572,7 @@ const Operations = () => {
       await fetchOrderData();
       await fetchStockData();
     })();
-  }, [userFilter, dateFilter]);
+  }, [userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   // Auto refresh
   useEffect(() => {
@@ -526,7 +585,7 @@ const Operations = () => {
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [activeTab, autoRefresh, userFilter, dateFilter]);
+  }, [activeTab, autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   // Real-time subscriptions
   useEffect(() => {
@@ -558,7 +617,7 @@ const Operations = () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(stockChannel);
     };
-  }, [autoRefresh, userFilter, dateFilter]);
+  }, [autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   if (loading) {
     return (
@@ -689,18 +748,124 @@ const Operations = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {activeTab === 'orders' && (
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Date Range" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="today">Today</SelectItem>
-                      <SelectItem value="week">This Week</SelectItem>
-                      <SelectItem value="month">This Month</SelectItem>
-                    </SelectContent>
-                  </Select>
+                
+                {/* Date Filter for Check-ins */}
+                {activeTab === 'checkins' && (
+                  <>
+                    <Select value={checkinDateFilter} onValueChange={(val) => {
+                      setCheckinDateFilter(val);
+                      if (val !== 'custom') {
+                        setCheckinCustomRange({ from: null, to: null });
+                      }
+                    }}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Date Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {checkinDateFilter === 'custom' && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="date"
+                          value={checkinCustomRange.from ? checkinCustomRange.from.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setCheckinCustomRange(prev => ({ ...prev, from: e.target.value ? new Date(e.target.value) : null }))}
+                          className="w-40"
+                        />
+                        <span className="text-muted-foreground">to</span>
+                        <Input
+                          type="date"
+                          value={checkinCustomRange.to ? checkinCustomRange.to.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setCheckinCustomRange(prev => ({ ...prev, to: e.target.value ? new Date(e.target.value) : null }))}
+                          className="w-40"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
+
+                {/* Date Filter for Orders */}
+                {activeTab === 'orders' && (
+                  <>
+                    <Select value={orderDateFilter} onValueChange={(val) => {
+                      setOrderDateFilter(val);
+                      if (val !== 'custom') {
+                        setOrderCustomRange({ from: null, to: null });
+                      }
+                    }}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Date Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {orderDateFilter === 'custom' && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="date"
+                          value={orderCustomRange.from ? orderCustomRange.from.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setOrderCustomRange(prev => ({ ...prev, from: e.target.value ? new Date(e.target.value) : null }))}
+                          className="w-40"
+                        />
+                        <span className="text-muted-foreground">to</span>
+                        <Input
+                          type="date"
+                          value={orderCustomRange.to ? orderCustomRange.to.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setOrderCustomRange(prev => ({ ...prev, to: e.target.value ? new Date(e.target.value) : null }))}
+                          className="w-40"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Date Filter for Stock */}
+                {activeTab === 'stock' && (
+                  <>
+                    <Select value={stockDateFilter} onValueChange={(val) => {
+                      setStockDateFilter(val);
+                      if (val !== 'custom') {
+                        setStockCustomRange({ from: null, to: null });
+                      }
+                    }}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Date Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="today">Today</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {stockDateFilter === 'custom' && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="date"
+                          value={stockCustomRange.from ? stockCustomRange.from.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setStockCustomRange(prev => ({ ...prev, from: e.target.value ? new Date(e.target.value) : null }))}
+                          className="w-40"
+                        />
+                        <span className="text-muted-foreground">to</span>
+                        <Input
+                          type="date"
+                          value={stockCustomRange.to ? stockCustomRange.to.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setStockCustomRange(prev => ({ ...prev, to: e.target.value ? new Date(e.target.value) : null }))}
+                          className="w-40"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+                
                 <Button
                   variant="outline"
                   onClick={() => {
