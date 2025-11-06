@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { VanMorningInventory } from '@/components/VanMorningInventory';
 import { VanReturnStock } from '@/components/VanReturnStock';
 import { VanClosingStock } from '@/components/VanClosingStock';
+import { VanStockView } from '@/components/VanStockView';
 
 interface Van {
   id: string;
@@ -228,13 +229,17 @@ export default function VanSalesManagement() {
               <CardDescription>Live tracking with morning GRN, returns, and closing stock</CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="overview">
-                <TabsList className="grid w-full grid-cols-4">
+              <Tabs defaultValue="stock">
+                <TabsList className="grid w-full grid-cols-5">
+                  <TabsTrigger value="stock">Stock in Van</TabsTrigger>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="morning">Morning GRN</TabsTrigger>
                   <TabsTrigger value="returns">Returns</TabsTrigger>
                   <TabsTrigger value="closing">Closing Stock</TabsTrigger>
                 </TabsList>
+                <TabsContent value="stock" className="mt-4">
+                  <VanStockView selectedDate={selectedDate} />
+                </TabsContent>
                 <TabsContent value="overview" className="mt-4">
                   <div className="grid grid-cols-3 gap-4">
                     <Button onClick={() => setMorningInventoryOpen(true)} className="h-24 flex-col gap-2">
