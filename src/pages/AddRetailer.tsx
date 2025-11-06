@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 export const AddRetailer = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [retailerData, setRetailerData] = useState({
@@ -438,8 +440,8 @@ export const AddRetailer = () => {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <CardTitle className="text-xl font-bold">Add Retailer</CardTitle>
-                <p className="text-primary-foreground/80">Add a new retailer to today's plan</p>
+                <CardTitle className="text-xl font-bold">{t('retailer.addRetailer')}</CardTitle>
+                <p className="text-primary-foreground/80">{t('retailer.subtitle')}</p>
               </div>
             </div>
             <Plus size={24} />
@@ -450,16 +452,16 @@ export const AddRetailer = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Retailer Information</CardTitle>
+              <CardTitle className="text-lg">{t('retailer.information')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Scan Board Section */}
               <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-dashed">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-semibold">Quick Scan</Label>
+                    <Label className="text-base font-semibold">{t('retailer.quickScan')}</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Take a photo of the shop board to auto-fill details
+                      {t('retailer.quickScanDesc')}
                     </p>
                   </div>
                   <Button
@@ -471,16 +473,16 @@ export const AddRetailer = () => {
                     className="flex items-center gap-2"
                   >
                     <ScanLine size={16} />
-                    {isScanningBoard ? 'Scanning...' : 'Scan Board'}
+                    {isScanningBoard ? t('retailer.scanning') : t('retailer.scanBoard')}
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Retailer Name *</Label>
+                <Label htmlFor="name">{t('retailer.retailerName')} *</Label>
                 <Input
                   id="name"
-                  placeholder="Enter retailer name"
+                  placeholder={t('retailer.enterRetailerName')}
                   value={retailerData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   className="bg-background"
@@ -488,10 +490,10 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="gstNumber">GST Number</Label>
+                <Label htmlFor="gstNumber">{t('retailer.gstNumber')}</Label>
                 <Input
                   id="gstNumber"
-                  placeholder="Enter GST number"
+                  placeholder={t('retailer.enterGstNumber')}
                   value={retailerData.gstNumber}
                   onChange={(e) => handleInputChange("gstNumber", e.target.value)}
                   className="bg-background"
@@ -500,7 +502,7 @@ export const AddRetailer = () => {
 
               {/* Photo Attachment Section */}
               <div className="space-y-2">
-                <Label>Retailer Photo</Label>
+                <Label>{t('retailer.retailerPhoto')}</Label>
                 <div className="flex items-center gap-3">
                   <Button
                     type="button"
@@ -511,7 +513,7 @@ export const AddRetailer = () => {
                     className="flex items-center gap-2"
                   >
                     <Camera size={16} />
-                    {isUploadingPhoto ? 'Uploading...' : 'Take Photo'}
+                    {isUploadingPhoto ? t('retailer.uploading') : t('retailer.takePhoto')}
                   </Button>
                   
                   {(capturedPhotoPreview || retailerData.photo_url) && (
@@ -523,19 +525,19 @@ export const AddRetailer = () => {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <span className="text-sm text-muted-foreground">Photo captured</span>
+                      <span className="text-sm text-muted-foreground">{t('retailer.photoCaptured')}</span>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">Take a photo of the retailer store front for reference</p>
+                <p className="text-xs text-muted-foreground">{t('retailer.photoDesc')}</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone">{t('retailer.phone')} *</Label>
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="Enter phone number"
+                  placeholder={t('retailer.enterPhone')}
                   value={retailerData.phone}
                   onChange={(e) => handleInputChange("phone", e.target.value)}
                   className="bg-background"
@@ -543,7 +545,7 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address *</Label>
+                <Label htmlFor="address">{t('retailer.address')} *</Label>
                 <div className="flex gap-2">
                   <Textarea
                     id="address"
@@ -856,7 +858,7 @@ export const AddRetailer = () => {
                     <MapPin size={16} />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Use GPS button to auto-fill location or enter manually</p>
+                <p className="text-xs text-muted-foreground">{t('retailer.gpsButton')}</p>
                 
                 {/* Latitude and Longitude Display */}
                 {(retailerData.latitude || retailerData.longitude) && (
@@ -926,7 +928,7 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="locationTag">Location Tag *</Label>
+                <Label htmlFor="locationTag">{t('retailer.locationTag')} *</Label>
                 <div className="flex gap-2">
                   <Input
                     id="locationTag"
@@ -943,10 +945,10 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>{t('retailer.category')}</Label>
                 <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
                   <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={t('retailer.selectCategory')} />
                   </SelectTrigger>
                   <SelectContent className="bg-background border z-50">
                     {categories.map((category) => (
