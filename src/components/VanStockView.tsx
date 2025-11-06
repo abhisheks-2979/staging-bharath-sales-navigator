@@ -20,6 +20,9 @@ interface VanStockItem {
   grn_number: string;
   grn_date: string;
   van_registration: string;
+  available_inventory: number;
+  sold_quantity: number;
+  current_stock: number;
 }
 
 interface VanStockViewProps {
@@ -87,9 +90,26 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
 
       if (itemsError) throw itemsError;
 
+      // Get live inventory data for these items
+      const vanIds = [...new Set(grnData.map(g => g.van_id))];
+      const { data: liveInventory, error: liveError } = await supabase
+        .from('van_live_inventory')
+        .select('product_id, variant_id, current_stock, sold_quantity, morning_stock')
+        .in('van_id', vanIds)
+        .eq('date', dateStr);
+
+      if (liveError) throw liveError;
+
       // Combine data
       const items: VanStockItem[] = (itemsData || []).map(item => {
         const grn = grnData.find(g => g.id === item.grn_id);
+        
+        // Find matching live inventory
+        const liveStock = (liveInventory || []).find(
+          inv => inv.product_id === item.product_id && 
+                 (item.variant_id ? inv.variant_id === item.variant_id : !inv.variant_id)
+        );
+
         return {
           id: item.id,
           grn_id: item.grn_id,
@@ -103,7 +123,10 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
             : ((item.products as any)?.sku || ''),
           grn_number: grn?.grn_number || '',
           grn_date: grn?.grn_date || '',
-          van_registration: (grn?.vans as any)?.registration_number || ''
+          van_registration: (grn?.vans as any)?.registration_number || '',
+          available_inventory: liveStock?.morning_stock || item.quantity,
+          sold_quantity: liveStock?.sold_quantity || 0,
+          current_stock: liveStock?.current_stock || item.quantity
         };
       });
 
@@ -176,7 +199,10 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
                     <TableHead>Product Name</TableHead>
                     <TableHead>Variant</TableHead>
                     <TableHead>SKU</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Morning Stock</TableHead>
+                    <TableHead className="text-right">Available Inventory</TableHead>
+                    <TableHead className="text-right">Retail Order Qty</TableHead>
+                    <TableHead className="text-right">Left in Van</TableHead>
                     <TableHead>Van</TableHead>
                     <TableHead>GRN Number</TableHead>
                   </TableRow>
@@ -190,6 +216,15 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
                       </TableCell>
                       <TableCell className="text-sm">{item.sku}</TableCell>
                       <TableCell className="text-right font-semibold">{item.quantity}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary">
+                        {item.available_inventory}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-amber-600 dark:text-amber-400">
+                        {item.sold_quantity}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">
+                        {item.current_stock}
+                      </TableCell>
                       <TableCell className="text-sm">{item.van_registration}</TableCell>
                       <TableCell className="text-sm font-mono">{item.grn_number}</TableCell>
                     </TableRow>
