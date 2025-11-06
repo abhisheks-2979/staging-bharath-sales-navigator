@@ -26,6 +26,17 @@ interface GPSData {
   timestamp: Date;
 }
 
+interface RetailerLocation {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  visitId: string;
+  checkInTime: string | null;
+  status: string;
+}
+
 export default function GPSTrack() {
   const { user } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
@@ -33,6 +44,7 @@ export default function GPSTrack() {
   const [currentLocationUser, setCurrentLocationUser] = useState<string>('');
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
+  const [retailers, setRetailers] = useState<RetailerLocation[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -42,7 +54,37 @@ export default function GPSTrack() {
   useEffect(() => {
     if (selectedMember) {
       loadGPSData();
+      loadRetailerLocations();
     }
+  }, [selectedMember, date]);
+
+  // Real-time subscription for visit updates
+  useEffect(() => {
+    if (!selectedMember) return;
+
+    const dateStr = date.toISOString().split('T')[0];
+    
+    const channel = supabase
+      .channel('visit-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'visits',
+          filter: `user_id=eq.${selectedMember}`
+        },
+        (payload) => {
+          console.log('Visit update received:', payload);
+          // Reload retailer locations when visits are updated
+          loadRetailerLocations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedMember, date]);
 
   const loadTeamMembers = async () => {
@@ -99,6 +141,54 @@ export default function GPSTrack() {
     }
 
     setLoading(false);
+  };
+
+  const loadRetailerLocations = async () => {
+    if (!selectedMember) return;
+
+    const dateStr = date.toISOString().split('T')[0];
+
+    // Fetch visits for the selected date and user with retailer details
+    const { data: visitsData, error } = await supabase
+      .from('visits')
+      .select(`
+        id,
+        check_in_time,
+        status,
+        retailer_id,
+        retailers (
+          id,
+          name,
+          address,
+          latitude,
+          longitude
+        )
+      `)
+      .eq('user_id', selectedMember)
+      .eq('planned_date', dateStr)
+      .order('check_in_time', { ascending: true });
+
+    if (error) {
+      console.error('Error loading retailer locations:', error);
+      return;
+    }
+
+    if (visitsData) {
+      const retailerLocations: RetailerLocation[] = visitsData
+        .filter((visit: any) => visit.retailers && visit.retailers.latitude && visit.retailers.longitude)
+        .map((visit: any) => ({
+          id: visit.retailers.id,
+          name: visit.retailers.name,
+          address: visit.retailers.address,
+          latitude: parseFloat(visit.retailers.latitude as unknown as string),
+          longitude: parseFloat(visit.retailers.longitude as unknown as string),
+          visitId: visit.id,
+          checkInTime: visit.check_in_time,
+          status: visit.status
+        }));
+
+      setRetailers(retailerLocations);
+    }
   };
 
   return (
@@ -205,7 +295,7 @@ export default function GPSTrack() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : (
-                <JourneyMap positions={gpsData} height="600px" />
+                <JourneyMap positions={gpsData} retailers={retailers} height="600px" />
               )}
 
               {/* Stats */}
