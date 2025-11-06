@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
@@ -138,6 +139,7 @@ const getWeekDays = (selectedWeekStart: Date) => {
 };
 
 export const MyVisits = () => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -813,10 +815,10 @@ export const MyVisits = () => {
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-2 sm:pb-3">
             <div>
-              <CardTitle className="text-lg sm:text-xl font-bold">My Visits</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-bold">{t('visits.title')}</CardTitle>
               <p className="text-sm sm:text-lg font-semibold mt-1 truncate">{currentBeatName}</p>
             </div>
-            <p className="text-primary-foreground/80 text-xs sm:text-sm">Manage your daily visit schedule</p>
+            <p className="text-primary-foreground/80 text-xs sm:text-sm">{t('visits.subtitle')}</p>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4">
             {/* Calendar Selector */}
@@ -824,15 +826,15 @@ export const MyVisits = () => {
                <div className="flex items-center gap-2 w-full sm:w-auto">
                  <Popover>
                    <PopoverTrigger asChild>
-                     <Button
-                       variant="outline"
-                       className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm w-full sm:w-auto"
-                     >
-                       <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                       <span className="truncate">
-                         Week of {format(selectedWeek, "MMM d, yyyy")}
-                       </span>
-                     </Button>
+                      <Button
+                        variant="outline"
+                        className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm w-full sm:w-auto"
+                      >
+                        <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="truncate">
+                          {t('visits.weekOf')} {format(selectedWeek, "MMM d, yyyy")}
+                        </span>
+                      </Button>
                    </PopoverTrigger>
                    <PopoverContent className="w-auto p-0" align="start">
                      <Calendar
@@ -904,7 +906,7 @@ export const MyVisits = () => {
                 disabled={selectedDate < new Date().toISOString().split('T')[0]}
               >
                 <Route size={14} className="mr-1" />
-                Journey Plan
+                {t('visits.journeyPlan')}
               </Button>
               <Button 
                 variant="secondary" 
@@ -913,7 +915,7 @@ export const MyVisits = () => {
                 onClick={() => navigate('/my-retailers')}
               >
                 <Plus size={14} className="mr-1" />
-                All Retailers
+                {t('visits.allRetailers')}
               </Button>
             </div>
             <div className="grid grid-cols-1 gap-2 mb-2">
@@ -924,7 +926,7 @@ export const MyVisits = () => {
                 onClick={() => navigate(`/today-summary?date=${selectedDate}`)}
               >
                 <FileText size={14} className="mr-1" />
-                Today's Summary
+                {t('visits.todaysSummary')}
               </Button>
             </div>
             
@@ -940,7 +942,7 @@ export const MyVisits = () => {
                 }}
               >
                 <Clock size={14} className="mr-1" />
-                Timeline
+                {t('visits.timeline')}
               </Button>
               <Button 
                 variant="secondary" 
@@ -949,7 +951,7 @@ export const MyVisits = () => {
                 onClick={() => navigate('/gps-track')}
               >
                 <MapPin size={14} className="mr-1" />
-                GPS Track
+                {t('visits.gpsTrack')}
               </Button>
               <Button 
                 variant="secondary" 
@@ -958,7 +960,7 @@ export const MyVisits = () => {
                 onClick={() => setIsVanStockOpen(true)}
               >
                 <Truck size={14} className="mr-1" />
-                Van Stock
+                {t('visits.vanStock')}
               </Button>
             </div>
           </CardContent>
@@ -968,7 +970,7 @@ export const MyVisits = () => {
         <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <CardContent className="p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 gap-2">
-              <h3 className="font-bold text-base sm:text-lg text-primary">Today's Progress</h3>
+              <h3 className="font-bold text-base sm:text-lg text-primary">{t('visits.todaysProgress')}</h3>
               <div className="text-xs sm:text-sm text-muted-foreground">
                 {(selectedDate ? new Date(selectedDate) : new Date()).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
               </div>
@@ -981,14 +983,14 @@ export const MyVisits = () => {
                  className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-4 rounded-xl border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]"
                >
                  <div className="text-lg sm:text-2xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
-                 <div className="text-xs sm:text-sm text-success/80 font-medium mt-1">Total Order Value</div>
+                 <div className="text-xs sm:text-sm text-success/80 font-medium mt-1">{t('visits.totalOrderValue')}</div>
                </button>
                <button
                  onClick={handleOrdersClick}
                  className="bg-gradient-to-r from-primary/10 to-primary/5 p-2 sm:p-4 rounded-xl border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[80px] sm:min-h-[100px]"
                >
                  <div className="text-lg sm:text-2xl font-bold text-primary">{totalOrdersToday}</div>
-                 <div className="text-xs sm:text-sm text-primary/80 font-medium mt-1">Today's Order</div>
+                 <div className="text-xs sm:text-sm text-primary/80 font-medium mt-1">{t('visits.todaysOrder')}</div>
                </button>
                <button
                  onClick={() => handleStatusClick("planned")}
@@ -999,7 +1001,7 @@ export const MyVisits = () => {
                  }`}
                >
                  <div className="text-lg sm:text-2xl font-bold">{plannedVisitsCount}</div>
-                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">Planned Visits</div>
+                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">{t('visits.plannedVisits')}</div>
                </button>
                <button
                  onClick={() => handleStatusClick("unproductive")}
@@ -1010,7 +1012,7 @@ export const MyVisits = () => {
                  }`}
                >
                  <div className="text-lg sm:text-2xl font-bold">{unproductiveVisits}</div>
-                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">Unproductive</div>
+                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">{t('visits.unproductive')}</div>
                </button>
              </div>
            </CardContent>
@@ -1035,7 +1037,7 @@ export const MyVisits = () => {
           <CardContent className="p-2 sm:p-4 space-y-3">
             <div className="w-full">
               <SearchInput
-                placeholder="🔍 Search by name or phone"
+                placeholder={t('visits.searchPlaceholder')}
                 value={searchTerm}
                 onChange={setSearchTerm}
               />
@@ -1055,16 +1057,16 @@ export const MyVisits = () => {
             <Card className="shadow-card">
               <CardContent className="p-4 sm:p-8 text-center">
                 <CalendarIcon size={32} className="sm:w-12 sm:h-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
-                <h3 className="font-semibold text-muted-foreground mb-2 text-sm sm:text-base">No visits found</h3>
+                <h3 className="font-semibold text-muted-foreground mb-2 text-sm sm:text-base">{t('visits.noVisitsFound')}</h3>
                 <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
-                  Try adjusting your search or create a new visit
+                  {t('visits.adjustSearch')}
                 </p>
                 <Button 
                   className="mt-2 sm:mt-4 text-xs sm:text-sm h-8 sm:h-auto"
                   onClick={() => setIsCreateVisitModalOpen(true)}
                 >
                   <Plus size={14} className="mr-1 sm:mr-2" />
-                  Create New Visit
+                  {t('visits.createNewVisit')}
                 </Button>
               </CardContent>
             </Card>
@@ -1099,14 +1101,14 @@ export const MyVisits = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
                 <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
-                Orders Placed Today
+                {t('visits.ordersPlacedToday')}
               </DialogTitle>
             </DialogHeader>
             
             <div className="mt-3 sm:mt-4">
               {ordersData.length === 0 ? (
                 <div className="text-center py-6 sm:py-8">
-                  <p className="text-muted-foreground text-sm sm:text-base">No orders placed today</p>
+                  <p className="text-muted-foreground text-sm sm:text-base">{t('visits.noOrdersToday')}</p>
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4">
@@ -1115,7 +1117,7 @@ export const MyVisits = () => {
                       <CardHeader className="pb-2 sm:pb-3">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                           <div>
-                            <h4 className="font-semibold text-sm sm:text-base">Order #{index + 1}</h4>
+                            <h4 className="font-semibold text-sm sm:text-base">{t('visits.orderNumber')}{index + 1}</h4>
                             <p className="text-xs sm:text-sm text-muted-foreground">
                               {order.retailer_name} • {format(new Date(order.created_at), 'hh:mm a')}
                             </p>
@@ -1128,15 +1130,15 @@ export const MyVisits = () => {
                       <CardContent>
                         {order.order_items && order.order_items.length > 0 && (
                           <div className="space-y-2">
-                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">Items:</p>
+                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">{t('visits.items')}</p>
                             <div className="overflow-x-auto">
                               <Table>
                                 <TableHeader>
                                   <TableRow>
-                                    <TableHead className="text-xs sm:text-sm">Product</TableHead>
-                                    <TableHead className="text-xs sm:text-sm">Quantity</TableHead>
-                                    <TableHead className="text-xs sm:text-sm">Rate</TableHead>
-                                    <TableHead className="text-xs sm:text-sm">Total</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">{t('visits.product')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">{t('visits.quantity')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">{t('visits.rate')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm">{t('visits.total')}</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1166,7 +1168,7 @@ export const MyVisits = () => {
         <Dialog open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Timeline View - {format(timelineDate, 'MMM dd, yyyy')}</DialogTitle>
+              <DialogTitle>{t('visits.timelineView')} - {format(timelineDate, 'MMM dd, yyyy')}</DialogTitle>
             </DialogHeader>
             <TimelineView
               visits={timelineVisits}
