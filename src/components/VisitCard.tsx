@@ -24,6 +24,7 @@ import { VanSalesModal } from "./VanSalesModal";
 import { useVanSales } from "@/hooks/useVanSales";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
+import { CameraCapture } from "./CameraCapture";
 
 interface Visit {
   id: string;
@@ -88,7 +89,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   const pendingCheckDataRef = useRef<{
     action: 'checkin' | 'checkout';
@@ -503,26 +504,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     return inserted.id;
   };
 
-  const handlePhotoSelected = async (e: any) => {
+  const handlePhotoCaptured = async (photoBlob: Blob) => {
     try {
-      const file = e.target.files?.[0];
-      e.target.value = '';
       const action = pendingPhotoActionRef.current;
       const checkData = pendingCheckDataRef.current;
       
-      // If no file selected, show error and clear
-      if (!file) {
-        toast({
-          title: 'Photo required',
-          description: 'You must take a photo to complete check-in',
-          variant: 'destructive'
-        });
-        pendingPhotoActionRef.current = null;
-        pendingCheckDataRef.current = null;
-        return;
-      }
-
       if (!action || !checkData) {
+        setShowCameraCapture(false);
         pendingPhotoActionRef.current = null;
         pendingCheckDataRef.current = null;
         return;
@@ -530,6 +518,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        setShowCameraCapture(false);
         pendingPhotoActionRef.current = null;
         pendingCheckDataRef.current = null;
         return;
@@ -541,7 +530,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
       const path = `${userId}/${visitId}-${action}-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('visit-photos')
-        .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+        .upload(path, photoBlob, { contentType: 'image/jpeg', upsert: false });
       
       if (uploadError) {
         console.error('Photo upload error:', uploadError);
@@ -550,6 +539,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           description: 'Could not upload photo. Please try again.', 
           variant: 'destructive' 
         });
+        setShowCameraCapture(false);
         pendingPhotoActionRef.current = null;
         pendingCheckDataRef.current = null;
         return;
@@ -594,13 +584,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         setPhase('in-progress');
         setLocationMatchIn(match);
         setIsCheckedIn(true);
+        setShowCameraCapture(false);
+        
         window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
           detail: { visitId: visitId, status: 'in-progress', retailerId: retailerId } 
         }));
         
         toast({ 
-          title: 'Checked in successfully', 
-          description: match === false ? 'Location mismatch detected' : 'Location verified' 
+          title: 'Check-in successful ✓', 
+          description: match === false ? 'Location mismatch detected' : 'Visit started successfully' 
         });
       }
 
@@ -613,6 +605,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         description: err.message || 'Could not complete check-in. Please try again.', 
         variant: 'destructive' 
       });
+      setShowCameraCapture(false);
       pendingPhotoActionRef.current = null;
       pendingCheckDataRef.current = null;
     }
@@ -858,21 +851,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         return;
       }
 
-      // For check-in: require photo
+      // For check-in: require photo with front camera
       pendingPhotoActionRef.current = action;
       pendingCheckDataRef.current = { action, timestamp, current, address, match, visitId, userId: user.id, retailerId, today };
       
-      // Request photo capture with clear message
-      toast({ 
-        title: 'Photo Required', 
-        description: 'Please take a photo to complete check-in',
-        duration: 3000
-      });
-      
-      // Trigger file input to open camera
-      setTimeout(() => {
-        fileInputRef.current?.click();
-      }, 300);
+      // Open camera capture modal
+      setShowCameraCapture(true);
 
     } catch (err: any) {
       console.error('Check-in/out error', err);
@@ -1373,14 +1357,17 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           )}
         </div>
 
-        {/* Hidden file input for photo capture */}
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          ref={fileInputRef}
-          onChange={handlePhotoSelected}
+        {/* Camera Capture Modal */}
+        <CameraCapture
+          isOpen={showCameraCapture}
+          onClose={() => {
+            setShowCameraCapture(false);
+            pendingPhotoActionRef.current = null;
+            pendingCheckDataRef.current = null;
+          }}
+          onCapture={handlePhotoCaptured}
+          title="Check-In Photo"
+          description="Position yourself in the frame and capture your photo"
         />
 
         {/* Location Modal */}
