@@ -74,13 +74,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
+      // Use a simple query without any complex operations
       const { data, error } = await supabase
         .from('profiles')
         .select('id, username, full_name, phone_number, recovery_email, profile_picture_url')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
       if (error) {
+        // If profile doesn't exist, return a basic profile with user data
+        if (error.code === 'PGRST116') {
+          return {
+            id: userId,
+            username: user?.email?.split('@')[0] || 'User',
+            full_name: user?.user_metadata?.full_name || 'Unknown User',
+            phone_number: user?.user_metadata?.phone_number,
+            recovery_email: user?.user_metadata?.recovery_email,
+            profile_picture_url: user?.user_metadata?.profile_picture_url
+          };
+        }
         console.error('Error fetching user profile:', error);
         return null;
       }
@@ -88,6 +100,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return data;
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+      // Return basic profile from user metadata as fallback
+      if (user) {
+        return {
+          id: userId,
+          username: user?.email?.split('@')[0] || 'User',
+          full_name: user?.user_metadata?.full_name || 'Unknown User',
+          phone_number: user?.user_metadata?.phone_number,
+          recovery_email: user?.user_metadata?.recovery_email,
+          profile_picture_url: user?.user_metadata?.profile_picture_url
+        };
+      }
       return null;
     }
   };
@@ -118,7 +141,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       async (event, session) => {
         // Only synchronous state updates here
         setSession(session);
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
         
         // Cache auth state for offline use
         if (session?.user) {
@@ -132,13 +156,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Defer Supabase calls with setTimeout
         if (session?.user) {
           setTimeout(async () => {
-            const role = await fetchUserRole(session.user.id);
-            setUserRole(role);
-            if (role) localStorage.setItem('cached_role', role);
-            
-            const profile = await fetchUserProfile(session.user.id);
-            setUserProfile(profile);
-            if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
+            try {
+              const role = await fetchUserRole(session.user.id);
+              setUserRole(role);
+              if (role) localStorage.setItem('cached_role', role);
+              
+              const profile = await fetchUserProfile(session.user.id);
+              setUserProfile(profile);
+              if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
+            } catch (err) {
+              console.error('Error loading user data in auth change:', err);
+              // Set basic profile from user metadata as fallback
+              const basicProfile: UserProfile = {
+                id: session.user.id,
+                username: session.user.email?.split('@')[0] || 'User',
+                full_name: session.user.user_metadata?.full_name || 'Unknown User'
+              };
+              setUserProfile(basicProfile);
+              localStorage.setItem('cached_profile', JSON.stringify(basicProfile));
+            }
           }, 0);
         } else {
           setUserRole(null);
@@ -152,18 +188,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
       
       if (session?.user) {
         localStorage.setItem('cached_user', JSON.stringify(session.user));
         
-        const role = await fetchUserRole(session.user.id);
-        setUserRole(role);
-        if (role) localStorage.setItem('cached_role', role);
-        
-        const profile = await fetchUserProfile(session.user.id);
-        setUserProfile(profile);
-        if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
+        try {
+          const role = await fetchUserRole(session.user.id);
+          setUserRole(role);
+          if (role) localStorage.setItem('cached_role', role);
+          
+          const profile = await fetchUserProfile(session.user.id);
+          setUserProfile(profile);
+          if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
+        } catch (err) {
+          console.error('Error loading user data:', err);
+          // Set basic profile from user metadata
+          const basicProfile: UserProfile = {
+            id: session.user.id,
+            username: session.user.email?.split('@')[0] || 'User',
+            full_name: session.user.user_metadata?.full_name || 'Unknown User'
+          };
+          setUserProfile(basicProfile);
+          localStorage.setItem('cached_profile', JSON.stringify(basicProfile));
+        }
       }
       
       setLoading(false);

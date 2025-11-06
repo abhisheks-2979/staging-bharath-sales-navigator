@@ -158,15 +158,33 @@ const Operations = () => {
 
       // Fetch users if we have user IDs
       if (userIds.length > 0) {
-        const { data, error: usersError } = await supabase
-          .from('profiles')
-          .select('id, full_name, username, profile_picture_url')
-          .in('id', userIds);
-        
-        if (!usersError && data) {
-          usersData = data;
-        } else if (usersError) {
-          console.warn('Could not fetch user profiles:', usersError.message);
+        try {
+          const { data, error: usersError } = await supabase
+            .from('profiles')
+            .select('id, full_name, username, profile_picture_url')
+            .in('id', userIds);
+          
+          if (!usersError && data) {
+            usersData = data;
+          } else if (usersError) {
+            console.warn('Could not fetch user profiles:', usersError.message);
+            // Set basic fallback data for users we couldn't fetch
+            usersData = userIds.map(id => ({
+              id,
+              full_name: 'Unknown User',
+              username: 'user',
+              profile_picture_url: null
+            }));
+          }
+        } catch (err) {
+          console.error('Error fetching user profiles:', err);
+          // Set basic fallback data
+          usersData = userIds.map(id => ({
+            id,
+            full_name: 'Unknown User',
+            username: 'user',
+            profile_picture_url: null
+          }));
         }
       }
 
