@@ -29,6 +29,7 @@ interface StockItem {
   unit: string;
   start_qty: number;
   ordered_qty: number;
+  returned_qty: number;
   left_qty: number;
 }
 
@@ -45,7 +46,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [todayStock, setTodayStock] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState<'start' | 'ordered' | 'left' | 'inventory' | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState<'start' | 'ordered' | 'returned' | 'left' | 'inventory' | null>(null);
   const [isMorning, setIsMorning] = useState(true);
 
   useEffect(() => {
@@ -123,6 +124,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           unit: item.unit,
           start_qty: item.start_qty,
           ordered_qty: item.ordered_qty,
+          returned_qty: item.returned_qty || 0,
           left_qty: item.left_qty,
         })));
       } else {
@@ -138,6 +140,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       unit: '',
       start_qty: 0,
       ordered_qty: 0,
+      returned_qty: 0,
       left_qty: 0,
     }]);
   };
@@ -158,8 +161,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
     }
 
-    if (field === 'start_qty' || field === 'ordered_qty') {
-      updated[index].left_qty = updated[index].start_qty - updated[index].ordered_qty;
+    if (field === 'start_qty' || field === 'ordered_qty' || field === 'returned_qty') {
+      updated[index].left_qty = updated[index].start_qty - updated[index].ordered_qty + updated[index].returned_qty;
     }
     
     setStockItems(updated);
@@ -212,6 +215,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         product_name: item.product_name,
         start_qty: item.start_qty,
         ordered_qty: item.ordered_qty,
+        returned_qty: item.returned_qty,
         left_qty: item.left_qty,
         unit: item.unit,
       }));
@@ -236,8 +240,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     return stockItems.reduce((acc, item) => ({
       totalStart: acc.totalStart + item.start_qty,
       totalOrdered: acc.totalOrdered + item.ordered_qty,
+      totalReturned: acc.totalReturned + item.returned_qty,
       totalLeft: acc.totalLeft + item.left_qty,
-    }), { totalStart: 0, totalOrdered: 0, totalLeft: 0 });
+    }), { totalStart: 0, totalOrdered: 0, totalReturned: 0, totalLeft: 0 });
   };
 
   const totals = calculateTotals();
@@ -279,7 +284,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             {selectedVan && (
               <>
                 {/* Summary Cards - All Clickable */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <Card 
                     className="p-4 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('start')}
@@ -309,7 +314,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     onClick={() => setShowDetailModal('ordered')}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <ShoppingCart className="h-5 w-5 text-success" />
+                      <ShoppingCart className="h-5 w-5 text-amber-500" />
                       <Eye className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mb-1">Retailer Ordered Qty</p>
@@ -318,10 +323,22 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
                   <Card 
                     className="p-4 cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => setShowDetailModal('returned')}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <Package className="h-5 w-5 text-blue-600" />
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">Returned Qty</p>
+                    <p className="text-2xl font-bold">{totals.totalReturned}</p>
+                  </Card>
+
+                  <Card 
+                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('left')}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <TrendingDown className="h-5 w-5 text-orange-500" />
+                      <TrendingDown className="h-5 w-5 text-green-600" />
                       <Eye className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground mb-1">Left in the Van</p>
@@ -356,7 +373,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   ) : (
                     stockItems.map((item, index) => (
                       <Card key={index} className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
                           <div className="md:col-span-2">
                             <Label className="text-xs">Product</Label>
                             <Select
@@ -390,6 +407,17 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               type="number"
                               value={item.ordered_qty}
                               onChange={(e) => handleProductChange(index, 'ordered_qty', parseInt(e.target.value) || 0)}
+                              placeholder="0"
+                              readOnly
+                              className="bg-muted"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Returned Qty</Label>
+                            <Input
+                              type="number"
+                              value={item.returned_qty}
+                              onChange={(e) => handleProductChange(index, 'returned_qty', parseInt(e.target.value) || 0)}
                               placeholder="0"
                             />
                           </div>
@@ -440,8 +468,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             <DialogTitle className="flex items-center gap-2">
               {showDetailModal === 'start' && <><Package className="h-5 w-5 text-primary" /> Product Stock in Van</>}
               {showDetailModal === 'inventory' && <><Package className="h-5 w-5 text-blue-500" /> Available Inventory</>}
-              {showDetailModal === 'ordered' && <><ShoppingCart className="h-5 w-5 text-success" /> Retailer Ordered Qty</>}
-              {showDetailModal === 'left' && <><TrendingDown className="h-5 w-5 text-orange-500" /> Left in the Van</>}
+              {showDetailModal === 'ordered' && <><ShoppingCart className="h-5 w-5 text-amber-500" /> Retailer Ordered Qty</>}
+              {showDetailModal === 'returned' && <><Package className="h-5 w-5 text-blue-600" /> Returned Qty</>}
+              {showDetailModal === 'left' && <><TrendingDown className="h-5 w-5 text-green-600" /> Left in the Van</>}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
@@ -462,6 +491,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                         {showDetailModal === 'start' && item.start_qty}
                         {showDetailModal === 'inventory' && item.start_qty}
                         {showDetailModal === 'ordered' && item.ordered_qty}
+                        {showDetailModal === 'returned' && item.returned_qty}
                         {showDetailModal === 'left' && item.left_qty}
                       </p>
                       <p className="text-xs text-muted-foreground">{item.unit}</p>

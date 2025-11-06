@@ -3019,6 +3019,7 @@ export type Database = {
           ordered_qty: number
           product_id: string
           product_name: string
+          returned_qty: number
           start_qty: number
           unit: string | null
           updated_at: string
@@ -3031,6 +3032,7 @@ export type Database = {
           ordered_qty?: number
           product_id: string
           product_name: string
+          returned_qty?: number
           start_qty?: number
           unit?: string | null
           updated_at?: string
@@ -3043,6 +3045,7 @@ export type Database = {
           ordered_qty?: number
           product_id?: string
           product_name?: string
+          returned_qty?: number
           start_qty?: number
           unit?: string | null
           updated_at?: string
