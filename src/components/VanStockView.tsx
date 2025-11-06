@@ -22,6 +22,7 @@ interface VanStockItem {
   van_registration: string;
   available_inventory: number;
   sold_quantity: number;
+  returned_quantity: number;
   current_stock: number;
 }
 
@@ -96,7 +97,7 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
       const vanIds = [...new Set(grnData.map(g => g.van_id))];
       const { data: liveInventory, error: liveError } = await supabase
         .from('van_live_inventory')
-        .select('product_id, variant_id, current_stock, sold_quantity, morning_stock')
+        .select('product_id, variant_id, current_stock, sold_quantity, returned_quantity, morning_stock')
         .in('van_id', vanIds)
         .eq('date', dateStr);
 
@@ -128,6 +129,7 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
           van_registration: (grn?.vans as any)?.registration_number || '',
           available_inventory: liveStock?.morning_stock || item.quantity,
           sold_quantity: liveStock?.sold_quantity || 0,
+          returned_quantity: liveStock?.returned_quantity || 0,
           current_stock: liveStock?.current_stock || item.quantity
         };
       });
@@ -262,6 +264,7 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
                     <TableHead className="text-right">Morning Stock</TableHead>
                     <TableHead className="text-right">Available Inventory</TableHead>
                     <TableHead className="text-right">Retail Order Qty</TableHead>
+                    <TableHead className="text-right">Returned Qty</TableHead>
                     <TableHead className="text-right">Left in Van</TableHead>
                     <TableHead>Van</TableHead>
                     <TableHead>GRN Number</TableHead>
@@ -319,6 +322,9 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
                       </TableCell>
                       <TableCell className="text-right font-semibold text-amber-600 dark:text-amber-400">
                         {item.sold_quantity}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-blue-600 dark:text-blue-400">
+                        {item.returned_quantity}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">
                         {item.current_stock}
