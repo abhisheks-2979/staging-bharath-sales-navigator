@@ -90,8 +90,10 @@
   },
   "order": {
     "orderEntry": "Order Entry",
+    "phoneOrderEntry": "Phone Order Entry",
     "addToCart": "Add to Cart",
     "viewCart": "View Cart",
+    "cart": "Cart",
     "placeOrder": "Place Order",
     "productName": "Product Name",
     "quantity": "Quantity",
@@ -103,7 +105,7 @@
     "gridView": "Grid View",
     "tableView": "Table View",
     "selectCategory": "Select Category",
-    "searchProducts": "Search Products"
+    "searchProducts": "🔍 Search products..."
   },
   "visitDetail": {
     "title": "Visit Details",

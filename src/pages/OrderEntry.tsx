@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ interface ProductVariant {
 
 
 export const OrderEntry = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
@@ -1388,7 +1390,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                 </Button>
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">
-                    {isPhoneOrder ? "Phone Order Entry" : "Order Entry"}
+                    {isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry')}
                   </CardTitle>
                   <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 </div>
@@ -1408,7 +1410,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                     <line x1="10" y1="11" x2="10" y2="17"/>
                     <line x1="14" y1="11" x2="14" y2="17"/>
                   </svg>
-                  <span className="text-[8px] sm:text-[9px] leading-tight">Clear</span>
+                  <span className="text-[8px] sm:text-[9px] leading-tight">{t('common.delete')}</span>
                 </Button>
                 
                 <Button
@@ -1426,7 +1428,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                       </Badge>
                     )}
                   </div>
-                  <span className="text-[9px] sm:text-[10px] leading-tight">Cart</span>
+                  <span className="text-[9px] sm:text-[10px] leading-tight">{t('order.cart')}</span>
                 </Button>
                 <Button
                   variant="ghost"
