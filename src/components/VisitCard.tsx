@@ -633,10 +633,24 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
   const autoCheckOutPreviousVisit = async (userId: string, currentRetailerId: string, today: string) => {
     try {
+      // Get current location for auto check-out
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
+      });
+
+      const currentLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
+      
       // Find any in-progress visit at a different retailer for today
       const { data: inProgressVisits } = await supabase
         .from('visits')
-        .select('id, retailer_id, check_in_time')
+        .select('id, retailer_id, check_in_time, updated_at')
         .eq('user_id', userId)
         .eq('planned_date', today)
         .eq('status', 'in-progress')
@@ -646,21 +660,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         for (const prevVisit of inProgressVisits) {
           console.log('Auto checking out previous visit:', prevVisit.id);
           
-          // Get the last order for this visit to determine check-out time
-          const { data: lastOrder } = await supabase
-            .from('orders')
-            .select('created_at')
-            .eq('user_id', userId)
-            .eq('retailer_id', prevVisit.retailer_id)
-            .eq('status', 'confirmed')
-            .gte('created_at', `${today}T00:00:00.000Z`)
-            .lte('created_at', `${today}T23:59:59.999Z`)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          // Use last order time or current time for checkout
-          const checkOutTime = lastOrder?.created_at || new Date().toISOString();
+          // Use the visit's last activity time (updated_at) for check-out
+          const checkOutTime = prevVisit.updated_at || new Date().toISOString();
           
           // Check if there are any orders for this visit
           const { data: ordersForVisit } = await supabase
@@ -675,11 +676,12 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
           const finalStatus = (ordersForVisit && ordersForVisit.length > 0) ? 'productive' : 'unproductive';
 
-          // Auto check-out the previous visit
+          // Auto check-out the previous visit with location (no photo required)
           await supabase
             .from('visits')
             .update({
               check_out_time: checkOutTime,
+              check_out_location: currentLocation,
               status: finalStatus
             })
             .eq('id', prevVisit.id);
