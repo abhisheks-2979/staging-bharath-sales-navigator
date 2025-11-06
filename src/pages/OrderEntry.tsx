@@ -1373,60 +1373,60 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
     <div className="min-h-screen bg-background pb-20">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-        <div className="container mx-auto p-4">
+        <div className="w-full px-2 sm:px-4 py-2 sm:py-4">
           <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 py-3">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
               {/* Left side - Back button and title */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
                 <Button 
                   variant="ghost" 
                   size="sm"
                   onClick={() => navigate(isPhoneOrder ? "/my-retailers" : "/visits/retailers")}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 p-2 shrink-0"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 p-1.5 sm:p-2 shrink-0"
                 >
                   <ArrowLeft size={18} />
                 </Button>
-                <div className="min-w-0 flex-1">
-                  <CardTitle className="text-base font-medium leading-tight">
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">
                     {isPhoneOrder ? "Phone Order Entry" : "Order Entry"}
                   </CardTitle>
-                  <p className="text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
+                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 </div>
               </div>
               
               {/* Right side - Clear, Cart and Current value */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 {/* Clear Form Button */}
                 <Button
                   variant="ghost"
                   onClick={clearAllFormData}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 flex flex-col items-center gap-0 min-w-[45px]"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1 sm:p-1.5 flex flex-col items-center gap-0 min-w-[40px] sm:min-w-[45px]"
                   title="Clear all form data"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:w-[14px] sm:h-[14px]">
                     <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                     <line x1="10" y1="11" x2="10" y2="17"/>
                     <line x1="14" y1="11" x2="14" y2="17"/>
                   </svg>
-                  <span className="text-[9px] leading-tight">Clear</span>
+                  <span className="text-[8px] sm:text-[9px] leading-tight">Clear</span>
                 </Button>
                 
                 <Button
                   variant="ghost"
                   onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}${isPhoneOrder ? '&phoneOrder=true' : ''}`)}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 flex flex-col items-center gap-0 min-w-[50px] relative"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 flex flex-col items-center gap-0 min-w-[42px] sm:min-w-[50px] relative"
                 >
                   <div className="relative">
-                    <ShoppingCart size={16} />
+                    <ShoppingCart size={14} className="sm:w-4 sm:h-4" />
                     {cart.length > 0 && (
                       <Badge 
-                        className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] bg-destructive text-destructive-foreground rounded-full border-0"
+                        className="absolute -top-1 -right-1 h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center p-0 text-[9px] sm:text-[10px] bg-destructive text-destructive-foreground rounded-full border-0"
                       >
                         {cart.length}
                       </Badge>
                     )}
                   </div>
-                  <span className="text-[10px] leading-tight">Cart</span>
+                  <span className="text-[9px] sm:text-[10px] leading-tight">Cart</span>
                 </Button>
                 <Button
                   variant="ghost"
@@ -1436,12 +1436,12 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                       setShowOrderSummary(true);
                     }
                   }}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-2 min-w-[60px]"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 min-w-[50px] sm:min-w-[60px]"
                   disabled={getSelectionValue() === 0}
                 >
                   <div className="text-center">
-                    <p className="text-[10px] text-primary-foreground/80 leading-tight">Current</p>
-                    <p className="text-sm font-bold leading-tight">₹{getSelectionValue().toLocaleString()}</p>
+                    <p className="text-[9px] sm:text-[10px] text-primary-foreground/80 leading-tight">Current</p>
+                    <p className="text-xs sm:text-sm font-bold leading-tight break-all">₹{getSelectionValue().toLocaleString()}</p>
                   </div>
                 </Button>
               </div>
@@ -1450,7 +1450,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
         </div>
       </div>
 
-      <div className="container mx-auto px-2 sm:px-4 space-y-3 pt-28">
+      <div className="w-full px-2 sm:px-4 space-y-3 pt-24 sm:pt-28">
 
         {/* Order Mode Toggle */}
         <Card>
