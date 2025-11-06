@@ -1455,53 +1455,60 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
         {/* Order Mode Toggle */}
         <Card>
           <CardContent className="p-3">
-            <div className="flex gap-2">
-              <Button
-                variant={orderMode === "grid" ? "default" : "outline"}
-                onClick={() => setOrderMode("grid")}
-                className="flex-1 h-8"
-                size="sm"
-              >
-                <Grid3X3 size={14} className="mr-1" />
-                Grid
-              </Button>
-              <Button
-                variant={orderMode === "table" ? "default" : "outline"}
-                onClick={() => setOrderMode("table")}
-                className="flex-1 h-8"
-                size="sm"
-              >
-                <Table size={14} className="mr-1" />
-                Table
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowImageCapture(true)}
-                className="flex-1 h-8"
-                size="sm"
-                title="AI Stock Capture"
-              >
-                <Camera size={14} className="mr-1" />
-                AI Stock
-              </Button>
-              <Button
-                variant={orderMode === "return-stock" ? "default" : "outline"}
-                onClick={() => setOrderMode("return-stock")}
-                className="flex-1 h-8"
-                size="sm"
-              >
-                <RotateCcw size={14} className="mr-1" />
-                Return Stock
-              </Button>
-              <Button
-                variant={orderMode === "no-order" ? "default" : "outline"}
-                onClick={() => setOrderMode("no-order")}
-                className="flex-1 h-8"
-                size="sm"
-              >
-                <XCircle size={14} className="mr-1" />
-                No Order
-              </Button>
+            <div className="space-y-2">
+              {/* First Row: Grid, Table, AI Stock */}
+              <div className="flex gap-2">
+                <Button
+                  variant={orderMode === "grid" ? "default" : "outline"}
+                  onClick={() => setOrderMode("grid")}
+                  className="flex-1 h-8"
+                  size="sm"
+                >
+                  <Grid3X3 size={14} className="mr-1" />
+                  Grid
+                </Button>
+                <Button
+                  variant={orderMode === "table" ? "default" : "outline"}
+                  onClick={() => setOrderMode("table")}
+                  className="flex-1 h-8"
+                  size="sm"
+                >
+                  <Table size={14} className="mr-1" />
+                  Table
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowImageCapture(true)}
+                  className="flex-1 h-8"
+                  size="sm"
+                  title="AI Stock Capture"
+                >
+                  <Camera size={14} className="mr-1" />
+                  AI Stock
+                </Button>
+              </div>
+              
+              {/* Second Row: Return Stock, No Order */}
+              <div className="flex gap-2">
+                <Button
+                  variant={orderMode === "return-stock" ? "default" : "outline"}
+                  onClick={() => setOrderMode("return-stock")}
+                  className="flex-1 h-8"
+                  size="sm"
+                >
+                  <RotateCcw size={14} className="mr-1" />
+                  Return Stock
+                </Button>
+                <Button
+                  variant={orderMode === "no-order" ? "default" : "outline"}
+                  onClick={() => setOrderMode("no-order")}
+                  className="flex-1 h-8"
+                  size="sm"
+                >
+                  <XCircle size={14} className="mr-1" />
+                  No Order
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
