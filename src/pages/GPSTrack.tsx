@@ -147,47 +147,85 @@ export default function GPSTrack() {
     if (!selectedMember) return;
 
     const dateStr = date.toISOString().split('T')[0];
+    console.log('Loading retailer locations for date:', dateStr, 'user:', selectedMember);
 
-    // Fetch visits for the selected date and user with retailer details
-    const { data: visitsData, error } = await supabase
+    // Fetch visits for the selected date and user
+    const { data: visitsData, error: visitsError } = await supabase
       .from('visits')
-      .select(`
-        id,
-        check_in_time,
-        status,
-        retailer_id,
-        retailers (
-          id,
-          name,
-          address,
-          latitude,
-          longitude
-        )
-      `)
+      .select('id, check_in_time, status, retailer_id')
       .eq('user_id', selectedMember)
       .eq('planned_date', dateStr)
+      .not('retailer_id', 'is', null)
       .order('check_in_time', { ascending: true });
 
-    if (error) {
-      console.error('Error loading retailer locations:', error);
+    if (visitsError) {
+      console.error('Error loading visits:', visitsError);
+      toast.error('Failed to load visits');
       return;
     }
 
-    if (visitsData) {
-      const retailerLocations: RetailerLocation[] = visitsData
-        .filter((visit: any) => visit.retailers && visit.retailers.latitude && visit.retailers.longitude)
-        .map((visit: any) => ({
-          id: visit.retailers.id,
-          name: visit.retailers.name,
-          address: visit.retailers.address,
-          latitude: parseFloat(visit.retailers.latitude as unknown as string),
-          longitude: parseFloat(visit.retailers.longitude as unknown as string),
-          visitId: visit.id,
-          checkInTime: visit.check_in_time,
-          status: visit.status
-        }));
+    if (!visitsData || visitsData.length === 0) {
+      console.log('No visits found for this date');
+      setRetailers([]);
+      toast.info('No retailers scheduled for this day');
+      return;
+    }
 
+    console.log('Found visits:', visitsData);
+
+    // Get unique retailer IDs
+    const retailerIds = [...new Set(visitsData.map(v => v.retailer_id).filter(Boolean))];
+    
+    if (retailerIds.length === 0) {
+      setRetailers([]);
+      toast.info('No retailers found in visits');
+      return;
+    }
+
+    // Fetch retailer details
+    const { data: retailersData, error: retailersError } = await supabase
+      .from('retailers')
+      .select('id, name, address, latitude, longitude')
+      .in('id', retailerIds);
+
+    if (retailersError) {
+      console.error('Error loading retailers:', retailersError);
+      toast.error('Failed to load retailer details');
+      return;
+    }
+
+    console.log('Found retailers:', retailersData);
+
+    if (retailersData) {
+      // Map retailers to visits
+      const retailerLocations: RetailerLocation[] = visitsData
+        .map((visit: any) => {
+          const retailer = retailersData.find(r => r.id === visit.retailer_id);
+          if (!retailer || !retailer.latitude || !retailer.longitude) {
+            console.log('Skipping visit - retailer missing or no location:', visit.retailer_id);
+            return null;
+          }
+          return {
+            id: retailer.id,
+            name: retailer.name,
+            address: retailer.address,
+            latitude: parseFloat(retailer.latitude as unknown as string),
+            longitude: parseFloat(retailer.longitude as unknown as string),
+            visitId: visit.id,
+            checkInTime: visit.check_in_time,
+            status: visit.status
+          };
+        })
+        .filter((loc): loc is RetailerLocation => loc !== null);
+
+      console.log('Processed retailer locations:', retailerLocations);
       setRetailers(retailerLocations);
+      
+      if (retailerLocations.length === 0) {
+        toast.info('No retailers with location data found');
+      } else {
+        toast.success(`Loaded ${retailerLocations.length} retailer location${retailerLocations.length > 1 ? 's' : ''}`);
+      }
     }
   };
 

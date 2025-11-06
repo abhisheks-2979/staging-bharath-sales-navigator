@@ -235,7 +235,10 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
   if (positions.length === 0 && retailers.length === 0) {
     return (
       <div className="flex items-center justify-center h-full bg-muted rounded-lg" style={{ height }}>
-        <p className="text-muted-foreground">No tracking data available</p>
+        <div className="text-center space-y-2">
+          <p className="text-muted-foreground">No retailers scheduled for this day</p>
+          <p className="text-sm text-muted-foreground">Add retailers to your day plan to see the route map</p>
+        </div>
       </div>
     );
   }
