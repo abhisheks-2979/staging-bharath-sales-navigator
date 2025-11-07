@@ -1,7 +1,8 @@
-import { Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import languageIcon from '@/assets/language-icon.png';
 
 const languages = [
   { code: 'en', name: 'English', nativeName: 'English' },
@@ -32,22 +33,35 @@ export const LanguageSelector = () => {
   };
 
   return (
-    <Select value={i18n.language} onValueChange={handleLanguageChange}>
-      <SelectTrigger className="w-[140px] sm:w-[160px] h-9 sm:h-10 bg-background border-border">
-        <Globe className="h-4 w-4 mr-2 flex-shrink-0" />
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="bg-popover border-border z-50">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="h-9 w-9 p-0 hover:bg-accent"
+          title="Select Language"
+        >
+          <img 
+            src={languageIcon} 
+            alt="Language" 
+            className="h-6 w-6 object-contain"
+          />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40 bg-popover border-border z-50">
         {languages.map((lang) => (
-          <SelectItem 
-            key={lang.code} 
-            value={lang.code}
+          <DropdownMenuItem
+            key={lang.code}
+            onClick={() => handleLanguageChange(lang.code)}
             className="cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
           >
             <span className="font-medium">{lang.nativeName}</span>
-          </SelectItem>
+            {i18n.language === lang.code && (
+              <span className="ml-auto text-primary">✓</span>
+            )}
+          </DropdownMenuItem>
         ))}
-      </SelectContent>
-    </Select>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
