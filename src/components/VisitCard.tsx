@@ -1252,38 +1252,6 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
             </Button>
           </div>
 
-          {/* Van Sales Button (conditionally shown) */}
-          {isVanSalesEnabled && (
-            <div className="mt-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="w-full h-10 text-sm flex items-center justify-center gap-2 border-emerald-500/50 hover:bg-emerald-500/10"
-                onClick={async () => {
-                  try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) {
-                      toast({ title: 'Login required', description: 'Please sign in first.', variant: 'destructive' });
-                      return;
-                    }
-                    const today = new Date().toISOString().split('T')[0];
-                    const retailerId = (visit.retailerId || visit.id) as string;
-                    const visitId = await ensureVisit(user.id, retailerId, today);
-                    setCurrentVisitId(visitId);
-                    setShowVanSales(true);
-                  } catch (err: any) {
-                    console.error('Open van sales error', err);
-                    toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
-                  }
-                }}
-                title="Van Sales - Manage van stock and sales"
-              >
-                <Truck size={16} className="text-emerald-600" />
-                <span>Van Sales</span>
-              </Button>
-            </div>
-          )}
-
           {(visit.hasOrder || hasOrderToday) && (
             <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
