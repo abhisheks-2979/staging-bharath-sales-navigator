@@ -3,16 +3,14 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, ChevronDown } from "lucide-react";
+import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, Camera } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
+import { CameraCapture } from "@/components/CameraCapture";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CartItem {
@@ -46,12 +44,16 @@ export const Cart = () => {
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
-  const [showCreditOptions, setShowCreditOptions] = React.useState(false);
-  const [isCreditOrder, setIsCreditOrder] = React.useState(false);
-  const [creditPendingAmount, setCreditPendingAmount] = React.useState<number>(0);
-  const [customPendingAmount, setCustomPendingAmount] = React.useState<string>("");
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
-  const [paymentMode, setPaymentMode] = React.useState<string>("");
+  
+  // New payment flow state
+  const [paymentType, setPaymentType] = React.useState<"" | "full" | "partial" | "credit">("");
+  const [paymentMethod, setPaymentMethod] = React.useState<"" | "cash" | "cheque" | "upi">("");
+  const [partialAmount, setPartialAmount] = React.useState<string>("");
+  const [chequePhotoUrl, setChequePhotoUrl] = React.useState<string>("");
+  const [upiPhotoUrl, setUpiPhotoUrl] = React.useState<string>("");
+  const [isCameraOpen, setIsCameraOpen] = React.useState(false);
+  const [cameraMode, setCameraMode] = React.useState<"cheque" | "upi">("cheque");
   
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -399,11 +401,89 @@ React.useEffect(() => {
     return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
   };
 
-  const handleSubmitOrder = async (isCreditSubmit: boolean = false, creditPendingOverride?: number) => {
+  const handleCameraCapture = async (blob: Blob) => {
+    try {
+      const fileName = `payment-${Date.now()}.jpg`;
+      const { data, error } = await supabase.storage
+        .from('expense-bills')
+        .upload(fileName, blob);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('expense-bills')
+        .getPublicUrl(fileName);
+
+      if (cameraMode === "cheque") {
+        setChequePhotoUrl(publicUrl);
+        toast({ title: "Cheque photo captured successfully" });
+      } else {
+        setUpiPhotoUrl(publicUrl);
+        toast({ title: "Payment confirmation captured successfully" });
+      }
+      
+      setIsCameraOpen(false);
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload photo. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSubmitOrder = async () => {
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
         description: "Please add items to cart before submitting",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate payment selections
+    if (!paymentType) {
+      toast({
+        title: "Select Payment Type",
+        description: "Please select Full Payment, Partial Payment, or Full Credit",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if ((paymentType === "full" || paymentType === "partial") && !paymentMethod) {
+      toast({
+        title: "Select Payment Method",
+        description: "Please select a payment method",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (paymentType === "partial" && (!partialAmount || parseFloat(partialAmount) <= 0)) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid partial payment amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (paymentMethod === "cheque" && !chequePhotoUrl) {
+      toast({
+        title: "Cheque Photo Required",
+        description: "Please capture cheque photo",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (paymentMethod === "upi" && !upiPhotoUrl) {
+      toast({
+        title: "Payment Confirmation Required",
+        description: "Please capture payment confirmation photo",
         variant: "destructive"
       });
       return;
@@ -441,29 +521,43 @@ React.useEffect(() => {
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
 
-      // Calculate credit amounts and final pending based on user input
+      // Calculate credit amounts based on new payment flow
       const totalDue = pendingAmountFromPrevious + totalAmount;
       let newTotalPending = 0;
       let creditPending = 0;
       let creditPaid = 0;
       let previousPendingCleared = 0;
+      let isCreditOrder = false;
+      let orderPaymentMethod = "";
+      let paymentProofUrl = "";
 
-      if (isCreditSubmit) {
-        // creditPendingOverride/custom input represents the FINAL pending after this order (including previous pending)
-        const override = typeof creditPendingOverride === 'number' ? creditPendingOverride : (creditPendingAmount || totalDue);
-        // Clamp to [0, totalDue]
-        newTotalPending = Math.min(Math.max(override, 0), totalDue);
-        const amountPaidNow = Math.max(totalDue - newTotalPending, 0);
-        // Portion of payment that clears previously pending dues
-        previousPendingCleared = Math.min(pendingAmountFromPrevious, amountPaidNow);
-        creditPaid = amountPaidNow; // money collected now
-        creditPending = newTotalPending; // final pending after this order
-      } else {
-        // Cash order: clear all dues
+      if (paymentType === "credit") {
+        // Full credit - no payment received
+        isCreditOrder = true;
+        newTotalPending = totalDue;
+        creditPending = totalAmount;
+        creditPaid = 0;
+        previousPendingCleared = 0;
+        orderPaymentMethod = "credit";
+      } else if (paymentType === "full") {
+        // Full payment - clear all dues
+        isCreditOrder = false;
         newTotalPending = 0;
         previousPendingCleared = pendingAmountFromPrevious;
         creditPaid = totalAmount;
         creditPending = 0;
+        orderPaymentMethod = paymentMethod;
+        paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : (paymentMethod === "upi" ? upiPhotoUrl : "");
+      } else if (paymentType === "partial") {
+        // Partial payment
+        isCreditOrder = true;
+        const paidAmount = parseFloat(partialAmount);
+        previousPendingCleared = Math.min(pendingAmountFromPrevious, paidAmount);
+        creditPaid = paidAmount;
+        newTotalPending = totalDue - paidAmount;
+        creditPending = newTotalPending;
+        orderPaymentMethod = paymentMethod;
+        paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : (paymentMethod === "upi" ? upiPhotoUrl : "");
       }
 
 
@@ -497,7 +591,7 @@ React.useEffect(() => {
         actualVisitId = newVisit.id;
       }
 
-      // Create order
+      // Create order with payment details
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -509,10 +603,12 @@ React.useEffect(() => {
           discount_amount: discountAmount,
           total_amount: totalAmount,
           status: 'confirmed',
-          is_credit_order: isCreditSubmit,
+          is_credit_order: isCreditOrder,
           credit_pending_amount: creditPending,
           credit_paid_amount: creditPaid,
-          previous_pending_cleared: previousPendingCleared
+          previous_pending_cleared: previousPendingCleared,
+          payment_method: orderPaymentMethod,
+          payment_proof_url: paymentProofUrl
         })
         .select()
         .single();
@@ -550,10 +646,10 @@ React.useEffect(() => {
         await supabase.from('visits').update({ status: 'productive' }).eq('id', actualVisitId);
       }
 
-      const orderType = isCreditSubmit ? "Credit Order" : "Order";
+      const orderType = isCreditOrder ? "Credit Order" : "Order";
       toast({
         title: `${orderType} Submitted`,
-        description: isCreditSubmit 
+        description: isCreditOrder 
           ? `${orderType} for ${retailerName} submitted with ₹${creditPending.toLocaleString()} pending!`
           : `Order for ${retailerName} submitted successfully!`
       });
@@ -784,142 +880,135 @@ React.useEffect(() => {
                   </div>
                 )}
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
+                {/* Payment Type Selection */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Select Payment Type:</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      onClick={() => {
+                        setPaymentType("full");
+                        setPaymentMethod("");
+                      }}
+                      variant={paymentType === "full" ? "default" : "outline"}
                       className="w-full"
-                      size="lg"
-                      variant={canSubmitOrder() ? "default" : "outline"}
-                      disabled={!canSubmitOrder()}
                     >
-                      Received Full Payment
-                      <ChevronDown className="ml-2" size={16} />
+                      Full Payment
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full">
-                    <DropdownMenuItem 
+                    <Button
                       onClick={() => {
-                        setPaymentMode("Cash");
-                        handleSubmitOrder(false);
+                        setPaymentType("partial");
+                        setPaymentMethod("");
                       }}
+                      variant={paymentType === "partial" ? "default" : "outline"}
+                      className="w-full"
                     >
-                      Cash
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
+                      Partial Payment
+                    </Button>
+                    <Button
                       onClick={() => {
-                        setPaymentMode("Cheque");
-                        handleSubmitOrder(false);
+                        setPaymentType("credit");
+                        setPaymentMethod("");
                       }}
+                      variant={paymentType === "credit" ? "default" : "outline"}
+                      className="w-full"
                     >
-                      Cheque
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => {
-                        setPaymentMode("UPI");
-                        handleSubmitOrder(false);
-                      }}
-                    >
-                      UPI
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      Full Credit
+                    </Button>
+                  </div>
+                </div>
 
-                <Button 
-                  onClick={() => setShowCreditOptions(!showCreditOptions)}
-                  className="w-full"
-                  size="lg"
-                  variant="outline"
-                >
-                  Credit Order Submit
-                </Button>
-
-                {showCreditOptions && (
-                  <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                    <p className="text-sm font-medium">Select Credit Option:</p>
-                    
-                    {/* Show payment breakdown */}
-                    <div className="p-3 bg-background rounded-md space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Order Total:</span>
-                        <span className="font-medium">₹{getFinalTotal().toLocaleString()}</span>
-                      </div>
-                      {pendingAmountFromPrevious > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Previous Pending:</span>
-                          <span className="font-medium text-warning">₹{pendingAmountFromPrevious.toLocaleString()}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between pt-2 border-t font-semibold">
-                        <span>Amount to Pay Now:</span>
-                        <span className="text-success">
-                          ₹{((getFinalTotal() + pendingAmountFromPrevious) - (creditPendingAmount || 0)).toLocaleString()}
-                        </span>
-                      </div>
-                      {creditPendingAmount > 0 && (
-                        <div className="flex justify-between">
-                          <span>Credit Amount:</span>
-                          <span className="font-medium text-warning">
-                            ₹{creditPendingAmount.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Button
-                        onClick={() => {
-                          const amount = getFinalTotal() + pendingAmountFromPrevious;
-                          setCreditPendingAmount(amount);
-                          setIsCreditOrder(true);
-                          handleSubmitOrder(true, amount);
-                        }}
-                        className="w-full"
-                        variant="secondary"
-                      >
-                        Full Amount Pending (₹{(getFinalTotal() + pendingAmountFromPrevious).toLocaleString()})
-                      </Button>
-                      
-                      <div className="space-y-2">
-                        <input
-                          type="number"
-                          placeholder="Enter custom pending amount"
-                          value={customPendingAmount}
-                          onChange={(e) => {
-                            setCustomPendingAmount(e.target.value);
-                            const amount = parseFloat(e.target.value);
-                            if (!isNaN(amount)) {
-                              setCreditPendingAmount(amount);
-                            }
-                          }}
-                          className="w-full px-3 py-2 border rounded-md"
-                          max={getFinalTotal() + pendingAmountFromPrevious}
-                        />
-                        <Button
-                          onClick={() => {
-                            const totalDue = getFinalTotal() + pendingAmountFromPrevious;
-                            const amount = parseFloat(customPendingAmount);
-                            if (isNaN(amount) || amount <= 0 || amount > totalDue) {
-                              toast({
-                                title: "Invalid Amount",
-                                description: `Please enter a valid amount between 0 and ₹${totalDue.toLocaleString()}`,
-                                variant: "destructive"
-                              });
-                              return;
-                            }
-                            setCreditPendingAmount(amount);
-                            setIsCreditOrder(true);
-                            handleSubmitOrder(true, amount);
-                          }}
-                          className="w-full"
-                          variant="secondary"
-                          disabled={!customPendingAmount}
-                        >
-                          Submit with ₹{customPendingAmount ? parseFloat(customPendingAmount).toLocaleString() : '0'} Pending
-                        </Button>
-                      </div>
-                    </div>
+                {/* Partial Payment Amount Input */}
+                {paymentType === "partial" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="partial-amount">Partial Payment Amount</Label>
+                    <Input
+                      id="partial-amount"
+                      type="number"
+                      placeholder="Enter amount"
+                      value={partialAmount}
+                      onChange={(e) => setPartialAmount(e.target.value)}
+                      max={getFinalTotal() + pendingAmountFromPrevious}
+                    />
                   </div>
                 )}
+
+                {/* Payment Method Selection */}
+                {(paymentType === "full" || paymentType === "partial") && (
+                  <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                    <p className="text-sm font-medium">Payment Method:</p>
+                    <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="cash" id="cash" />
+                        <Label htmlFor="cash">Cash</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="cheque" id="cheque" />
+                        <Label htmlFor="cheque">Cheque</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="upi" id="upi" />
+                        <Label htmlFor="upi">UPI</Label>
+                      </div>
+                    </RadioGroup>
+
+                    {/* Cheque Photo Capture */}
+                    {paymentMethod === "cheque" && (
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => {
+                            setCameraMode("cheque");
+                            setIsCameraOpen(true);
+                          }}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <Camera className="mr-2" size={16} />
+                          {chequePhotoUrl ? "Retake Cheque Photo" : "Capture Cheque Photo"}
+                        </Button>
+                        {chequePhotoUrl && (
+                          <p className="text-xs text-success">✓ Cheque photo captured</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* UPI Payment Confirmation */}
+                    {paymentMethod === "upi" && (
+                      <div className="space-y-2">
+                        <div className="p-4 bg-background rounded-md border">
+                          <p className="text-sm text-muted-foreground mb-2">Scan QR Code for Payment</p>
+                          <div className="flex items-center justify-center h-48 bg-muted rounded">
+                            <p className="text-muted-foreground">QR Code (Upload from Admin Panel)</p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            setCameraMode("upi");
+                            setIsCameraOpen(true);
+                          }}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <Camera className="mr-2" size={16} />
+                          {upiPhotoUrl ? "Retake Payment Confirmation" : "Capture Payment Confirmation"}
+                        </Button>
+                        {upiPhotoUrl && (
+                          <p className="text-xs text-success">✓ Payment confirmation captured</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Submit Order Button */}
+                <Button 
+                  onClick={handleSubmitOrder}
+                  className="w-full"
+                  size="lg"
+                  variant="default"
+                  disabled={!canSubmitOrder() || !paymentType}
+                >
+                  {getSubmitButtonText()}
+                </Button>
               </CardContent>
             </Card>
           </>
@@ -930,6 +1019,13 @@ React.useEffect(() => {
           isOpen={showItemDetail}
           onClose={() => setShowItemDetail(false)}
           item={selectedItem}
+        />
+
+        <CameraCapture
+          isOpen={isCameraOpen}
+          onClose={() => setIsCameraOpen(false)}
+          onCapture={handleCameraCapture}
+          title={cameraMode === "cheque" ? "Capture Cheque Photo" : "Capture Payment Confirmation"}
         />
       </div>
     </div>
