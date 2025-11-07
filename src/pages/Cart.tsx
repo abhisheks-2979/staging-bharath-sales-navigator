@@ -937,10 +937,6 @@ React.useEffect(() => {
                     {partialAmount && parseFloat(partialAmount) > 0 && (
                       <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Total Due:</span>
-                          <span className="font-semibold">₹{(getFinalTotal() + pendingAmountFromPrevious).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
                           <span className="text-success">Paying Now:</span>
                           <span className="font-semibold text-success">-₹{parseFloat(partialAmount).toLocaleString()}</span>
                         </div>
