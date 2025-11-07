@@ -4,7 +4,6 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck } from 'lucide-react';
-import { WhatsAppConfig } from '@/components/WhatsAppConfig';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
@@ -239,11 +238,6 @@ const AdminControls = () => {
             </CardHeader>
           </Card>
 
-        </div>
-
-        {/* WhatsApp Configuration Section */}
-        <div className="mt-8">
-          <WhatsAppConfig />
         </div>
       </div>
     </div>
