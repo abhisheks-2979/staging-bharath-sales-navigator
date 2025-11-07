@@ -3,9 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, Camera } from "lucide-react";
+import { CameraCapture } from "./CameraCapture";
 
 interface PaymentMarkingModalProps {
   open: boolean;
@@ -24,10 +26,54 @@ export const PaymentMarkingModal = ({
 }: PaymentMarkingModalProps) => {
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [capturedProof, setCapturedProof] = useState<Blob | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+
+  const handleCameraCapture = async (blob: Blob) => {
+    setCapturedProof(blob);
+    const preview = URL.createObjectURL(blob);
+    setProofPreview(preview);
+    setCameraOpen(false);
+  };
+
+  const uploadPaymentProof = async (): Promise<string | null> => {
+    if (!capturedProof) return null;
+
+    const fileName = `payment-proof-${retailerId}-${Date.now()}.jpg`;
+    const { data, error } = await supabase.storage
+      .from("order-documents")
+      .upload(fileName, capturedProof, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("Error uploading payment proof:", error);
+      throw error;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("order-documents")
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  };
 
   const handleFullPayment = async () => {
+    if ((paymentMethod === "cheque" || paymentMethod === "upi") && !capturedProof) {
+      toast.error(`Please capture ${paymentMethod === "cheque" ? "cheque" : "UPI"} photo`);
+      return;
+    }
+
     setLoading(true);
     try {
+      let proofUrl = null;
+      if (capturedProof) {
+        proofUrl = await uploadPaymentProof();
+      }
+
       const { error } = await supabase
         .from("retailers")
         .update({ pending_amount: 0 })
@@ -38,6 +84,7 @@ export const PaymentMarkingModal = ({
       toast.success("Full payment marked successfully!");
       onPaymentMarked();
       onOpenChange(false);
+      resetForm();
     } catch (error) {
       console.error("Error marking full payment:", error);
       toast.error("Failed to mark payment");
@@ -59,8 +106,18 @@ export const PaymentMarkingModal = ({
       return;
     }
 
+    if ((paymentMethod === "cheque" || paymentMethod === "upi") && !capturedProof) {
+      toast.error(`Please capture ${paymentMethod === "cheque" ? "cheque" : "UPI"} photo`);
+      return;
+    }
+
     setLoading(true);
     try {
+      let proofUrl = null;
+      if (capturedProof) {
+        proofUrl = await uploadPaymentProof();
+      }
+
       const newPendingAmount = currentPendingAmount - amount;
       
       const { error } = await supabase
@@ -73,13 +130,20 @@ export const PaymentMarkingModal = ({
       toast.success(`Payment of ₹${amount.toLocaleString()} marked successfully!`);
       onPaymentMarked();
       onOpenChange(false);
-      setPaymentAmount("");
+      resetForm();
     } catch (error) {
       console.error("Error marking custom payment:", error);
       toast.error("Failed to mark payment");
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setPaymentAmount("");
+    setPaymentMethod("cash");
+    setCapturedProof(null);
+    setProofPreview(null);
   };
 
   return (
@@ -97,6 +161,63 @@ export const PaymentMarkingModal = ({
             <p className="text-sm text-muted-foreground">Current Pending Amount</p>
             <p className="text-2xl font-bold">₹{currentPendingAmount.toLocaleString()}</p>
           </div>
+
+          {/* Payment Method Selection */}
+          <div className="space-y-3">
+            <Label>Payment Method</Label>
+            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="cash" id="cash" />
+                <Label htmlFor="cash" className="cursor-pointer">Cash</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="cheque" id="cheque" />
+                <Label htmlFor="cheque" className="cursor-pointer">Cheque</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="upi" id="upi" />
+                <Label htmlFor="upi" className="cursor-pointer">UPI</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Camera Capture for Cheque/UPI */}
+          {(paymentMethod === "cheque" || paymentMethod === "upi") && (
+            <div className="space-y-2">
+              <Label>
+                {paymentMethod === "cheque" ? "Cheque Photo" : "UPI Screenshot"}
+              </Label>
+              {proofPreview ? (
+                <div className="space-y-2">
+                  <img
+                    src={proofPreview}
+                    alt="Payment proof preview"
+                    className="w-full h-48 object-cover rounded-lg border"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCameraOpen(true)}
+                    className="w-full"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Retake Photo
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCameraOpen(true)}
+                  className="w-full"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Capture {paymentMethod === "cheque" ? "Cheque" : "UPI"} Photo
+                </Button>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Button
@@ -118,7 +239,7 @@ export const PaymentMarkingModal = ({
             </div>
 
             <div className="space-y-3">
-              <Label htmlFor="payment-amount">Custom Payment Amount</Label>
+              <Label htmlFor="payment-amount">Partial Payment Amount</Label>
               <Input
                 id="payment-amount"
                 type="number"
@@ -129,17 +250,41 @@ export const PaymentMarkingModal = ({
                 max={currentPendingAmount}
                 step="0.01"
               />
+              
+              {paymentAmount && parseFloat(paymentAmount) > 0 && (
+                <div className="bg-muted/50 p-3 rounded-lg space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Paying Now:</span>
+                    <span className="font-semibold">₹{parseFloat(paymentAmount).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Remaining Pending:</span>
+                    <span className="font-semibold text-orange-600">
+                      ₹{(currentPendingAmount - parseFloat(paymentAmount)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <Button
                 onClick={handleCustomPayment}
                 disabled={loading || !paymentAmount || currentPendingAmount === 0}
                 variant="outline"
                 className="w-full"
               >
-                Mark Custom Payment
+                Mark Partial Payment
               </Button>
             </div>
           </div>
         </div>
+
+        <CameraCapture
+          isOpen={cameraOpen}
+          onClose={() => setCameraOpen(false)}
+          onCapture={handleCameraCapture}
+          title={`Capture ${paymentMethod === "cheque" ? "Cheque" : "UPI"} Photo`}
+          description={`Take a clear photo of the ${paymentMethod === "cheque" ? "cheque" : "UPI transaction"}`}
+        />
 
         <DialogFooter>
           <Button
