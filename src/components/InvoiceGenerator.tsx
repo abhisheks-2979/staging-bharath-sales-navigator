@@ -5,12 +5,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface InvoiceItem {
   product_name: string;
@@ -387,28 +381,25 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={className}
-          disabled={loading}
-        >
-          <Download className="mr-2 h-4 w-4" />
-          {loading ? "Processing..." : "Invoice"}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={generateInvoice} disabled={loading}>
-          <Download className="mr-2 h-4 w-4" />
-          Download Invoice
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={shareViaWhatsApp} disabled={loading}>
-          <MessageSquare className="mr-2 h-4 w-4" />
-          Share via WhatsApp
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className={`flex gap-2 ${className}`}>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={loading}
+        onClick={generateInvoice}
+      >
+        <Download className="mr-2 h-4 w-4" />
+        {loading ? "Processing..." : "Download Invoice"}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={loading}
+        onClick={shareViaWhatsApp}
+      >
+        <MessageSquare className="mr-2 h-4 w-4" />
+        Share via WhatsApp
+      </Button>
+    </div>
   );
 };
