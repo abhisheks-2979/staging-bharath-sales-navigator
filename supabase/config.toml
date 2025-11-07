@@ -26,6 +26,3 @@ verify_jwt = true
 
 [functions.verify-face-match]
 verify_jwt = true
-
-[functions.send-whatsapp-invoice]
-verify_jwt = true

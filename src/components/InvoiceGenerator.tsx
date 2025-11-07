@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, MessageSquare } from "lucide-react";
+import { Download } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -319,54 +319,16 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
     }
   };
 
-  const shareViaWhatsApp = async () => {
-    setLoading(true);
-    try {
-      // Call the edge function to send WhatsApp message via Twilio
-      const { data, error } = await supabase.functions.invoke('send-whatsapp-invoice', {
-        body: { orderId }
-      });
-
-      if (error) {
-        console.error("Error invoking function:", error);
-        toast.error(error.message || "Failed to send WhatsApp message");
-        return;
-      }
-
-      if (!data?.success) {
-        toast.error(data?.error || "Failed to send WhatsApp message");
-        return;
-      }
-
-      toast.success("WhatsApp invoice sent successfully!");
-    } catch (error) {
-      console.error("Error sharing via WhatsApp:", error);
-      toast.error("Failed to share via WhatsApp");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className={`flex gap-2 ${className}`}>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={loading}
-        onClick={generateInvoice}
-      >
-        <Download className="mr-2 h-4 w-4" />
-        {loading ? "Processing..." : "Download Invoice"}
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={loading}
-        onClick={shareViaWhatsApp}
-      >
-        <MessageSquare className="mr-2 h-4 w-4" />
-        Share via WhatsApp
-      </Button>
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={loading}
+      onClick={generateInvoice}
+      className={className}
+    >
+      <Download className="mr-2 h-4 w-4" />
+      {loading ? "Processing..." : "Download Invoice"}
+    </Button>
   );
 };
