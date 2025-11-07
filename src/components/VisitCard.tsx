@@ -1089,23 +1089,6 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               </Badge>
             )}
             <div className="text-xs text-muted-foreground">{visit.retailerCategory}</div>
-            {actualOrderValue > 0 && hasOrderToday && visit.status !== 'unproductive' && (
-              <Button
-                variant="link"
-                size="sm"
-                className="h-6 p-0 text-primary"
-                onClick={async () => {
-                  const next = !orderPreviewOpen;
-                  setOrderPreviewOpen(next);
-                  if (next && lastOrderItems.length === 0) {
-                    await loadLastOrder();
-                  }
-                }}
-                title={selectedDate ? `View order for ${new Date(selectedDate).toLocaleDateString()}` : "View today's order"}
-              >
-                ₹{actualOrderValue.toLocaleString()}
-              </Button>
-            )}
           </div>
         </div>
 
