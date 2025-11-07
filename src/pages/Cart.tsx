@@ -3,7 +3,13 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, ChevronDown } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
@@ -45,6 +51,7 @@ export const Cart = () => {
   const [creditPendingAmount, setCreditPendingAmount] = React.useState<number>(0);
   const [customPendingAmount, setCustomPendingAmount] = React.useState<string>("");
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
+  const [paymentMode, setPaymentMode] = React.useState<string>("");
   
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -777,14 +784,45 @@ React.useEffect(() => {
                   </div>
                 )}
 
-                <Button 
-                  onClick={() => handleSubmitOrder(false)}
-                  className="w-full"
-                  size="lg"
-                  variant={canSubmitOrder() ? "default" : "outline"}
-                >
-                  {getSubmitButtonText()}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      className="w-full"
+                      size="lg"
+                      variant={canSubmitOrder() ? "default" : "outline"}
+                      disabled={!canSubmitOrder()}
+                    >
+                      Received Full Payment
+                      <ChevronDown className="ml-2" size={16} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full">
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        setPaymentMode("Cash");
+                        handleSubmitOrder(false);
+                      }}
+                    >
+                      Cash
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        setPaymentMode("Cheque");
+                        handleSubmitOrder(false);
+                      }}
+                    >
+                      Cheque
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        setPaymentMode("UPI");
+                        handleSubmitOrder(false);
+                      }}
+                    >
+                      UPI
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <Button 
                   onClick={() => setShowCreditOptions(!showCreditOptions)}
