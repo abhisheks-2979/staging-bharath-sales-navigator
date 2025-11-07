@@ -9,6 +9,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useTranslation } from 'react-i18next';
+import bharathLogo from '@/assets/bharath-logo.png';
 import { 
   UserCheck, 
   Car, 
@@ -83,15 +84,12 @@ export const Navbar = () => {
               </button>
               
               <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center relative transition-all duration-300 ${
-                  connectivityStatus === 'online' 
-                    ? 'bg-green-500 shadow-lg shadow-green-500/50' 
-                    : 'bg-primary-foreground/20'
-                }`}>
-                  <Home size={14} className="absolute opacity-30" />
-                  <span className={`text-xs font-bold relative z-10 ${
-                    connectivityStatus === 'online' ? 'text-white' : ''
-                  }`}>KVP</span>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden bg-white">
+                  <img 
+                    src={bharathLogo} 
+                    alt="Bharath Beverages" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div>
                   <h1 className="text-lg font-semibold">Bharath Beverages</h1>
