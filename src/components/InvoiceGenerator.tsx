@@ -322,56 +322,23 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
   const shareViaWhatsApp = async () => {
     setLoading(true);
     try {
-      // Get WhatsApp config
-      const { data: config } = await supabase
-        .from("whatsapp_config")
-        .select("business_phone_number")
-        .eq("is_active", true)
-        .single();
+      // Call the edge function to send WhatsApp message via Twilio
+      const { data, error } = await supabase.functions.invoke('send-whatsapp-invoice', {
+        body: { orderId }
+      });
 
-      if (!config?.business_phone_number) {
-        toast.error("WhatsApp is not configured. Please contact admin.");
-        setLoading(false);
+      if (error) {
+        console.error("Error invoking function:", error);
+        toast.error(error.message || "Failed to send WhatsApp message");
         return;
       }
 
-      // Fetch order and retailer data
-      const { data: order } = await supabase
-        .from("orders")
-        .select(`
-          *,
-          retailers (
-            name,
-            phone
-          )
-        `)
-        .eq("id", orderId)
-        .single();
-
-      if (!order?.retailers?.phone) {
-        toast.error("Customer phone number not available");
-        setLoading(false);
+      if (!data?.success) {
+        toast.error(data?.error || "Failed to send WhatsApp message");
         return;
       }
 
-      // Generate invoice message
-      const message = encodeURIComponent(
-        `Hello ${order.retailers.name},\n\n` +
-        `Thank you for your order!\n` +
-        `Order Number: ${order.id.substring(0, 8)}\n` +
-        `Total Amount: ₹${order.total_amount}\n\n` +
-        `Your invoice has been generated.\n\n` +
-        `Thank you for your business!`
-      );
-
-      // Format phone number (remove any non-numeric characters)
-      const customerPhone = order.retailers.phone.replace(/[^0-9]/g, "");
-      
-      // Open WhatsApp with pre-filled message
-      const whatsappUrl = `https://wa.me/${customerPhone}?text=${message}`;
-      window.open(whatsappUrl, "_blank");
-
-      toast.success("Opening WhatsApp to share invoice");
+      toast.success("WhatsApp invoice sent successfully!");
     } catch (error) {
       console.error("Error sharing via WhatsApp:", error);
       toast.error("Failed to share via WhatsApp");
