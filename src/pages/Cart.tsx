@@ -724,7 +724,7 @@ React.useEffect(() => {
             </div>
 
             {/* Order Summary */}
-            <Card className="sticky bottom-4">
+            <Card>
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
