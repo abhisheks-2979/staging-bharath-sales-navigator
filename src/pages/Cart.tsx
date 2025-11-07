@@ -644,6 +644,11 @@ React.useEffect(() => {
       // Mark visit as productive if available
       if (actualVisitId) {
         await supabase.from('visits').update({ status: 'productive' }).eq('id', actualVisitId);
+        
+        // Dispatch event to notify VisitCard components to refresh
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', { 
+          detail: { visitId: actualVisitId, status: 'productive', retailerId: validRetailerId } 
+        }));
       }
 
       const orderType = isCreditOrder ? "Credit Order" : "Order";
@@ -929,6 +934,22 @@ React.useEffect(() => {
                       onChange={(e) => setPartialAmount(e.target.value)}
                       max={getFinalTotal() + pendingAmountFromPrevious}
                     />
+                    {partialAmount && parseFloat(partialAmount) > 0 && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Total Due:</span>
+                          <span className="font-semibold">₹{(getFinalTotal() + pendingAmountFromPrevious).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-success">Paying Now:</span>
+                          <span className="font-semibold text-success">-₹{parseFloat(partialAmount).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-800">
+                          <span className="font-medium text-warning">Remaining Pending:</span>
+                          <span className="font-bold text-warning">₹{Math.max(0, (getFinalTotal() + pendingAmountFromPrevious) - parseFloat(partialAmount)).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
