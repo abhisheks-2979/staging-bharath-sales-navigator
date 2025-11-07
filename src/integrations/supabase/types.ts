@@ -3285,6 +3285,36 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_config: {
+        Row: {
+          business_name: string | null
+          business_phone_number: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_name?: string | null
+          business_phone_number: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_name?: string | null
+          business_phone_number?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

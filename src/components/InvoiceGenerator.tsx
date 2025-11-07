@@ -1,9 +1,16 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, MessageSquare } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface InvoiceItem {
   product_name: string;
@@ -19,7 +26,10 @@ interface InvoiceGeneratorProps {
 }
 
 export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) => {
+  const [loading, setLoading] = useState(false);
+
   const generateInvoice = async () => {
+    setLoading(true);
     try {
       // Fetch order details
       const { data: order, error: orderError } = await supabase
@@ -310,18 +320,95 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
     } catch (error) {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const shareViaWhatsApp = async () => {
+    setLoading(true);
+    try {
+      // Get WhatsApp config
+      const { data: config } = await supabase
+        .from("whatsapp_config")
+        .select("business_phone_number")
+        .eq("is_active", true)
+        .single();
+
+      if (!config?.business_phone_number) {
+        toast.error("WhatsApp is not configured. Please contact admin.");
+        setLoading(false);
+        return;
+      }
+
+      // Fetch order and retailer data
+      const { data: order } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          retailers (
+            name,
+            phone
+          )
+        `)
+        .eq("id", orderId)
+        .single();
+
+      if (!order?.retailers?.phone) {
+        toast.error("Customer phone number not available");
+        setLoading(false);
+        return;
+      }
+
+      // Generate invoice message
+      const message = encodeURIComponent(
+        `Hello ${order.retailers.name},\n\n` +
+        `Thank you for your order!\n` +
+        `Order Number: ${order.id.substring(0, 8)}\n` +
+        `Total Amount: ₹${order.total_amount}\n\n` +
+        `Your invoice has been generated.\n\n` +
+        `Thank you for your business!`
+      );
+
+      // Format phone number (remove any non-numeric characters)
+      const customerPhone = order.retailers.phone.replace(/[^0-9]/g, "");
+      
+      // Open WhatsApp with pre-filled message
+      const whatsappUrl = `https://wa.me/${customerPhone}?text=${message}`;
+      window.open(whatsappUrl, "_blank");
+
+      toast.success("Opening WhatsApp to share invoice");
+    } catch (error) {
+      console.error("Error sharing via WhatsApp:", error);
+      toast.error("Failed to share via WhatsApp");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Button
-      onClick={generateInvoice}
-      variant="outline"
-      size="sm"
-      className={className}
-    >
-      <Download className="w-4 h-4 mr-2" />
-      Download Invoice
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={className}
+          disabled={loading}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          {loading ? "Processing..." : "Invoice"}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={generateInvoice} disabled={loading}>
+          <Download className="mr-2 h-4 w-4" />
+          Download Invoice
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={shareViaWhatsApp} disabled={loading}>
+          <MessageSquare className="mr-2 h-4 w-4" />
+          Share via WhatsApp
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
