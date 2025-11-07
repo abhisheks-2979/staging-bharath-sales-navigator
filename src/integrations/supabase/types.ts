@@ -1312,6 +1312,8 @@ export type Database = {
           distributor_name: string | null
           id: string
           is_credit_order: boolean | null
+          payment_method: string | null
+          payment_proof_url: string | null
           previous_pending_cleared: number | null
           retailer_id: string | null
           retailer_name: string
@@ -1331,6 +1333,8 @@ export type Database = {
           distributor_name?: string | null
           id?: string
           is_credit_order?: boolean | null
+          payment_method?: string | null
+          payment_proof_url?: string | null
           previous_pending_cleared?: number | null
           retailer_id?: string | null
           retailer_name: string
@@ -1350,6 +1354,8 @@ export type Database = {
           distributor_name?: string | null
           id?: string
           is_credit_order?: boolean | null
+          payment_method?: string | null
+          payment_proof_url?: string | null
           previous_pending_cleared?: number | null
           retailer_id?: string | null
           retailer_name?: string
