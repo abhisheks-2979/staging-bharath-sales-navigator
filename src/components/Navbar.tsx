@@ -94,7 +94,7 @@ export const Navbar = () => {
                   }`}>KVP</span>
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold">KVP Business Solutions</h1>
+                  <h1 className="text-lg font-semibold">Bharath Beverages</h1>
                   <p className="text-xs opacity-80">
                     {connectivityStatus === 'online' ? 'Online' : connectivityStatus === 'offline' ? 'Offline' : 'Field Sales App'}
                   </p>
