@@ -161,6 +161,7 @@ export const MyVisits = () => {
   const [timelineVisits, setTimelineVisits] = useState<any[]>([]);
   const [timelineDayStart, setTimelineDayStart] = useState<string>('08:00 AM');
   const [isVanStockOpen, setIsVanStockOpen] = useState(false);
+  const [initialRetailerOrder, setInitialRetailerOrder] = useState<string[]>([]);
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -196,7 +197,7 @@ export const MyVisits = () => {
     }
   }, [user, selectedDate]);
 
-  // Set up real-time updates for visits and orders
+  // Set up real-time updates for visits and orders - WITHOUT re-sorting
   useEffect(() => {
     if (!user || !selectedDate) return;
 
@@ -212,8 +213,8 @@ export const MyVisits = () => {
         },
         (payload) => {
           console.log('Visit updated:', payload);
-          // Reload data when visits are updated
-          loadPlannedBeats(selectedDate);
+          // Reload data but preserve order
+          loadPlannedBeats(selectedDate, true);
         }
       )
       .on(
@@ -226,15 +227,15 @@ export const MyVisits = () => {
         },
         (payload) => {
           console.log('Order updated:', payload);
-          // Reload data when orders are updated
-          loadPlannedBeats(selectedDate);
+          // Reload data but preserve order
+          loadPlannedBeats(selectedDate, true);
         }
       )
       .subscribe();
 
     // Also listen for custom events from VisitCard components
     const handleVisitStatusChange = () => {
-      loadPlannedBeats(selectedDate);
+      loadPlannedBeats(selectedDate, true);
     };
 
     window.addEventListener('visitStatusChanged', handleVisitStatusChange);
@@ -268,7 +269,7 @@ export const MyVisits = () => {
     loadWeekPlans();
   }, [user, weekDays]);
 
-  const loadPlannedBeats = async (date: string) => {
+  const loadPlannedBeats = async (date: string, preserveOrder: boolean = false) => {
     if (!user) return;
     
     try {
@@ -288,11 +289,11 @@ export const MyVisits = () => {
         setCurrentBeatName(beatNames);
         
         // Load all visits and retailers for this date
-        await loadAllVisitsForDate(date, beatPlans);
+        await loadAllVisitsForDate(date, beatPlans, preserveOrder);
       } else {
         setCurrentBeatName("No beats planned");
         // Still load unplanned visits even if no beats are planned
-        await loadAllVisitsForDate(date, []);
+        await loadAllVisitsForDate(date, [], preserveOrder);
       }
     } catch (error) {
       console.error('Error loading beat plans:', error);
@@ -420,7 +421,7 @@ export const MyVisits = () => {
     }
   }, [timelineDate, isTimelineOpen, user]);
 
-  const loadAllVisitsForDate = async (date: string, beatPlans: any[]) => {
+  const loadAllVisitsForDate = async (date: string, beatPlans: any[], preserveOrder: boolean = false) => {
     if (!user) return;
     
     try {
@@ -463,6 +464,7 @@ export const MyVisits = () => {
       if (allRetailerIds.size === 0) {
         setRetailers([]);
         setRetailerStats(new Map());
+        setInitialRetailerOrder([]);
         return;
       }
 
@@ -567,8 +569,22 @@ export const MyVisits = () => {
 
       setRetailerStats(statsMap);
 
-      // Transform retailers into visit format
-      const transformedRetailers = Array.from(allRetailerIds)
+      // Determine the order of retailer IDs to use
+      let orderedRetailerIds: string[];
+      
+      if (preserveOrder && initialRetailerOrder.length > 0) {
+        // Use existing order and append any new retailers at the end
+        const existingIds = new Set(initialRetailerOrder);
+        const newIds = Array.from(allRetailerIds).filter(id => !existingIds.has(id));
+        orderedRetailerIds = [...initialRetailerOrder.filter(id => allRetailerIds.has(id)), ...newIds];
+      } else {
+        // First load or order reset - use database order
+        orderedRetailerIds = Array.from(allRetailerIds);
+        setInitialRetailerOrder(orderedRetailerIds);
+      }
+
+      // Transform retailers into visit format using the ordered list
+      const transformedRetailers = orderedRetailerIds
         .map(retailerId => {
           const retailer = retailerMap.get(retailerId);
           if (!retailer) return null;
