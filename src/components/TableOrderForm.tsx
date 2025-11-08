@@ -635,7 +635,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           variant="ghost"
                           size="icon"
                           onClick={() => removeRow(row.id)}
-                          className="h-6 w-6 md:h-7 md:w-7 hover:bg-destructive/10 hover:text-destructive"
+                          className="h-5 w-5 md:h-6 md:w-6 hover:bg-destructive/10 hover:text-destructive p-0"
                         >
                           <Trash2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
                         </Button>
