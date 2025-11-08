@@ -522,19 +522,24 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
-                            className="w-full justify-start h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
+                            className="w-full justify-start h-auto min-h-[44px] md:min-h-[52px] text-xs md:text-sm font-normal bg-background px-2 py-1.5"
                           >
                             {row.product ? (
-                              <span className="truncate text-left">
-                                {row.variant ? (() => {
-                                  let variantDisplayName = row.variant.variant_name;
-                                  if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
-                                    variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                    variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-                                  }
-                                  return variantDisplayName || row.variant.variant_name;
-                                })() : row.product.name}
-                              </span>
+                              <div className="flex flex-col items-start w-full">
+                                <span className="truncate text-left w-full">
+                                  {row.variant ? (() => {
+                                    let variantDisplayName = row.variant.variant_name;
+                                    if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
+                                      variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
+                                      variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
+                                    }
+                                    return variantDisplayName || row.variant.variant_name;
+                                  })() : row.product.name}
+                                </span>
+                                <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                                  ₹{row.variant?.price || row.product.rate || 0}
+                                </span>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground text-xs md:text-sm">Select...</span>
                             )}
