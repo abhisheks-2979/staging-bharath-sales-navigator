@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles, CalendarDays, Repeat } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles, CalendarDays, Repeat, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +90,7 @@ export const MyBeats = () => {
   const [repeatDays, setRepeatDays] = useState<number[]>([1]); // Monday by default
   const [repeatEndDate, setRepeatEndDate] = useState<Date>(addMonths(new Date(), 1));
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [showRetailersList, setShowRetailersList] = useState(false);
 
   // Check for openCreateModal parameter and open modal if present
   useEffect(() => {
@@ -937,113 +938,128 @@ export const MyBeats = () => {
                 </div>
               </div>
 
+              {/* Add New Retailer Button */}
+              <div className="border-t pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddRetailerModalOpen(true)}
+                  className="flex items-center gap-2 w-full sm:w-auto"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add New Retailer to {beatName || 'Beat'}
+                </Button>
+              </div>
+
+              {/* Select Retailers Section */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
+                <div 
+                  className="flex items-center justify-between cursor-pointer py-2 border-b hover:bg-muted/30 transition-colors"
+                  onClick={() => setShowRetailersList(!showRetailersList)}
+                >
                   <div>
-                    <h3 className="font-semibold">Select Retailers</h3>
+                    <h3 className="font-semibold flex items-center gap-2">
+                      Select Retailers
+                      <ChevronDown className={`h-4 w-4 transition-transform ${showRetailersList ? 'rotate-180' : ''}`} />
+                    </h3>
                     <p className="text-sm text-muted-foreground">
                       Choose retailers to include in this beat ({selectedRetailers.size} selected)
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsAddRetailerModalOpen(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add New Retailer to {beatName || 'Beat'}
-                  </Button>
                 </div>
 
-                <SearchInput
-                  placeholder="Search retailers by name, address, or phone"
-                  value={searchTerm}
-                  onChange={setSearchTerm}
-                />
+                {showRetailersList && (
+                  <>
+                    <SearchInput
+                      placeholder="Search retailers by name, address, or phone"
+                      value={searchTerm}
+                      onChange={setSearchTerm}
+                    />
 
-                {filteredRetailers.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {allRetailers.length === 0 
-                      ? "No retailers found. Please add some retailers first."
-                      : searchTerm 
-                        ? "No retailers found matching your search"
-                        : "No retailers available"
-                    }
-                  </div>
-                ) : (
-                  <div className="grid gap-4 max-h-64 overflow-y-auto">
-                    {filteredRetailers.map((retailer) => (
-                      <Card 
-                        key={retailer.id} 
-                        className={`cursor-pointer transition-all hover:shadow-md ${
-                          retailer.isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
-                        }`}
-                        onClick={() => handleRetailerSelection(retailer.id)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3 flex-1">
-                              <Checkbox
-                                checked={retailer.isSelected}
-                                onChange={() => handleRetailerSelection(retailer.id)}
-                                className="mt-1"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-medium truncate">{retailer.name}</h4>
-                                  {retailer.category && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {retailer.category}
-                                    </Badge>
-                                  )}
-                                  {/* Current Beat Status */}
-                                  <Badge 
-                                    variant={retailer.isUnassigned ? "default" : "secondary"} 
-                                    className={`text-xs ${
-                                      retailer.isUnassigned 
-                                        ? "bg-green-100 text-green-800 border-green-200" 
-                                        : "bg-orange-100 text-orange-800 border-orange-200"
-                                    }`}
-                                  >
-                                    {retailer.currentBeat || 'Unassigned'}
-                                  </Badge>
-                                </div>
-                                <div className="space-y-1 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate">{retailer.address}</span>
+                    {filteredRetailers.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {allRetailers.length === 0 
+                          ? "No retailers found. Please add some retailers first."
+                          : searchTerm 
+                            ? "No retailers found matching your search"
+                            : "No retailers available"
+                        }
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 max-h-64 overflow-y-auto">
+                        {filteredRetailers.map((retailer) => (
+                          <Card 
+                            key={retailer.id} 
+                            className={`cursor-pointer transition-all hover:shadow-md ${
+                              retailer.isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
+                            }`}
+                            onClick={() => handleRetailerSelection(retailer.id)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <Checkbox
+                                    checked={retailer.isSelected}
+                                    onChange={() => handleRetailerSelection(retailer.id)}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-medium truncate">{retailer.name}</h4>
+                                      {retailer.category && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {retailer.category}
+                                        </Badge>
+                                      )}
+                                      {/* Current Beat Status */}
+                                      <Badge 
+                                        variant={retailer.isUnassigned ? "default" : "secondary"} 
+                                        className={`text-xs ${
+                                          retailer.isUnassigned 
+                                            ? "bg-green-100 text-green-800 border-green-200" 
+                                            : "bg-orange-100 text-orange-800 border-orange-200"
+                                        }`}
+                                      >
+                                        {retailer.currentBeat || 'Unassigned'}
+                                      </Badge>
+                                    </div>
+                                    <div className="space-y-1 text-sm text-muted-foreground">
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="h-3 w-3" />
+                                        <span className="truncate">{retailer.address}</span>
+                                      </div>
+                                      <div>📞 {retailer.phone}</div>
+                                      {!retailer.isUnassigned && (
+                                        <div className="text-xs text-orange-600 font-medium">
+                                          ⚠️ Currently assigned to "{retailer.currentBeat}" - will be reassigned
+                                        </div>
+                                      )}
+                                      {retailer.metrics && (
+                                        <div className="text-xs">
+                                          Avg Orders (3M): {retailer.metrics.avgOrders3Months} | 
+                                          Avg Order Value: ₹{retailer.metrics.avgOrderPerVisit.toLocaleString()}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                   <div>📞 {retailer.phone}</div>
-                                   {!retailer.isUnassigned && (
-                                     <div className="text-xs text-orange-600 font-medium">
-                                       ⚠️ Currently assigned to "{retailer.currentBeat}" - will be reassigned
-                                     </div>
-                                   )}
-                                   {retailer.metrics && (
-                                     <div className="text-xs">
-                                       Avg Orders (3M): {retailer.metrics.avgOrders3Months} | 
-                                       Avg Order Value: ₹{retailer.metrics.avgOrderPerVisit.toLocaleString()}
-                                     </div>
-                                   )}
                                 </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAnalyticsRetailer(retailer);
+                                  }}
+                                >
+                                  <BarChart className="h-4 w-4" />
+                                </Button>
                               </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedAnalyticsRetailer(retailer);
-                              }}
-                            >
-                              <BarChart className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
