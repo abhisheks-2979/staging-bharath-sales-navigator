@@ -490,18 +490,18 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
             Enter product SKUs directly for faster ordering ({products.length} products available)
           </p>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="p-3">
           <div className="space-y-3">
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-center px-2 pb-2 border-b">
-              <div className="font-semibold text-sm">Product</div>
-              <div className="font-semibold text-sm">Unit</div>
-              <div className="font-semibold text-sm">Qty</div>
-              <div className="font-semibold text-sm">Stock</div>
-              <div className="w-8"></div>
+            <div className="grid grid-cols-[2.5fr_1.2fr_1fr_1fr_50px] gap-3 items-center px-2 pb-2 border-b border-border">
+              <div className="font-semibold text-base">Product</div>
+              <div className="font-semibold text-base">Unit</div>
+              <div className="font-semibold text-base text-center">Qty</div>
+              <div className="font-semibold text-base text-center">Stock</div>
+              <div className="w-10"></div>
             </div>
             {orderRows.map((row) => (
-              <div key={row.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-start p-2 bg-muted/30 rounded-lg min-h-[60px]">
-                <div>
+              <div key={row.id} className="grid grid-cols-[2.5fr_1.2fr_1fr_1fr_50px] gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center h-12">
                   <Popover 
                     open={openComboboxes[row.id]} 
                     onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
@@ -511,7 +511,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         variant="outline"
                         role="combobox"
                         aria-expanded={openComboboxes[row.id]}
-                        className="w-full justify-between h-12 text-sm font-normal"
+                        className="w-full justify-between h-12 text-base font-normal"
                       >
                         {row.product ? (
                           <span className="truncate text-left">
@@ -567,33 +567,33 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                   </Popover>
                 </div>
                 
-                <div>
+                <div className="flex items-center h-12">
                   <Select
                     value={row.unit}
                     onValueChange={(value) => updateRow(row.id, "unit", value)}
                   >
-                    <SelectTrigger className="h-12 text-sm">
+                    <SelectTrigger className="h-12 text-base w-full">
                       <SelectValue placeholder="Unit" />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-50">
-                      <SelectItem value="KG" className="text-sm">KG</SelectItem>
-                      <SelectItem value="Grams" className="text-sm">Grams</SelectItem>
+                      <SelectItem value="KG" className="text-base">KG</SelectItem>
+                      <SelectItem value="Grams" className="text-base">Grams</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
-                <div>
+                <div className="flex items-center h-12">
                   <Input
                     type="number"
                     placeholder="0"
                     value={row.quantity || ""}
                     onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
-                    className="h-12 text-sm text-center"
+                    className="h-12 text-base text-center font-medium w-full"
                     disabled={!row.product}
                   />
                 </div>
                 
-                <div>
+                <div className="flex items-center h-12">
                   <Input
                     type="number"
                     placeholder="0"
@@ -602,7 +602,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                       const value = e.target.value;
                       updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
                     }}
-                    className={`h-12 text-sm text-center ${row.closingStock === 0 ? "text-muted-foreground" : ""}`}
+                    className={`h-12 text-base text-center font-medium w-full ${row.closingStock === 0 ? "text-muted-foreground" : ""}`}
                     disabled={!row.product}
                   />
                 </div>
