@@ -333,11 +333,6 @@ export const MyBeats = () => {
       return;
     }
 
-    if (selectedRetailers.size === 0) {
-      toast.error('Please select at least one retailer');
-      return;
-    }
-
     if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
       toast.error("Please select at least one day for weekly repeat");
       return;
@@ -366,16 +361,18 @@ export const MyBeats = () => {
 
       if (beatError) throw beatError;
 
-      // Update selected retailers with beat information
-      const { error } = await supabase
-        .from('retailers')
-        .update({ 
-          beat_id: beatId,
-          beat_name: beatName.trim()
-        })
-        .in('id', Array.from(selectedRetailers));
+      // Update selected retailers with beat information (only if retailers are selected)
+      if (selectedRetailers.size > 0) {
+        const { error } = await supabase
+          .from('retailers')
+          .update({ 
+            beat_id: beatId,
+            beat_name: beatName.trim()
+          })
+          .in('id', Array.from(selectedRetailers));
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       // Create beat allowance record for the current user
       const { error: allowanceError } = await supabase
@@ -399,7 +396,10 @@ export const MyBeats = () => {
         await generateBeatPlans(beatId, repeatEndDate);
       }
 
-      toast.success(`Beat "${beatName}" created successfully with ${selectedRetailers.size} retailers`);
+      const retailerMessage = selectedRetailers.size > 0 
+        ? `with ${selectedRetailers.size} retailer${selectedRetailers.size > 1 ? 's' : ''}`
+        : 'with no retailers';
+      toast.success(`Beat "${beatName}" created successfully ${retailerMessage}`);
       setIsCreateBeatOpen(false);
       setBeatName("");
       setTravelAllowance("");
@@ -1168,8 +1168,8 @@ export const MyBeats = () => {
               <Button variant="outline" onClick={() => setIsCreateBeatOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveBeat} disabled={selectedRetailers.size === 0 || !beatName.trim() || isCreating}>
-                {isCreating ? 'Creating...' : `Create Beat (${selectedRetailers.size} retailers)`}
+              <Button onClick={handleSaveBeat} disabled={!beatName.trim() || isCreating}>
+                {isCreating ? 'Creating...' : `Create Beat (${selectedRetailers.size} retailer${selectedRetailers.size !== 1 ? 's' : ''})`}
               </Button>
             </div>
           </DialogContent>
