@@ -43,6 +43,7 @@ import Analytics from "./pages/Analytics";
 import { Schemes } from "./pages/Schemes";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import AdminControls from "./pages/AdminControls";
+import FeatureManagement from "./pages/FeatureManagement";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import FeedbackManagement from "./pages/FeedbackManagement";
@@ -136,6 +137,11 @@ const App = () => (
             <Route path="/admin-controls" element={
               <ProtectedRoute>
                 <AdminControls />
+              </ProtectedRoute>
+            } />
+            <Route path="/feature-management" element={
+              <ProtectedRoute>
+                <FeatureManagement />
               </ProtectedRoute>
             } />
             <Route path="/user_roles" element={
