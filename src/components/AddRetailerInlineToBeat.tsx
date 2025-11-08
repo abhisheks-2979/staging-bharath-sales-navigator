@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { X, Camera, ScanLine, Store, ChevronsUpDown, Check } from "lucide-react";
+import { X, Camera, ScanLine, Store, ChevronsUpDown, Check, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -428,13 +428,158 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
             <div className="space-y-2">
               <Label htmlFor="address">Address *</Label>
-              <Textarea
-                id="address"
-                placeholder="Enter complete address"
-                value={retailerData.address}
-                onChange={(e) => handleInputChange("address", e.target.value)}
-                rows={2}
-              />
+              <div className="flex gap-2">
+                <Textarea
+                  id="address"
+                  placeholder="Enter complete address"
+                  value={retailerData.address}
+                  onChange={(e) => handleInputChange("address", e.target.value)}
+                  rows={2}
+                  className="flex-1"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon"
+                  className="shrink-0 h-[72px]"
+                  onClick={async () => {
+                    if (!navigator.geolocation) {
+                      toast({ 
+                        title: "GPS Not Available", 
+                        description: "Your device doesn't support location services", 
+                        variant: "destructive" 
+                      });
+                      return;
+                    }
+                    
+                    try {
+                      const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+                      if (permissionStatus.state === 'denied') {
+                        toast({ 
+                          title: "Location Permission Denied", 
+                          description: "Please enable location access in your device settings",
+                          variant: "destructive",
+                          duration: 5000
+                        });
+                        return;
+                      }
+                    } catch (e) {
+                      console.log('Permission API not supported, will try direct geolocation');
+                    }
+                    
+                    toast({ 
+                      title: "Accessing Location", 
+                      description: "Please allow location access...",
+                      duration: 4000
+                    });
+                    
+                    try {
+                      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                        let best: GeolocationPosition | null = null;
+                        const startedAt = Date.now();
+                        const targetAccuracy = 30;
+                        const maxWait = 45000;
+                        
+                        const watchId = navigator.geolocation.watchPosition(
+                          (pos) => {
+                            if (!best || pos.coords.accuracy < best.coords.accuracy) {
+                              best = pos;
+                            }
+                            
+                            const ageMs = Date.now() - pos.timestamp;
+                            const goodEnough = pos.coords.accuracy <= targetAccuracy && ageMs < 30000;
+                            const timedOut = Date.now() - startedAt > maxWait;
+                            
+                            if (goodEnough || timedOut) {
+                              navigator.geolocation.clearWatch(watchId);
+                              resolve(best || pos);
+                            }
+                          },
+                          (error) => {
+                            navigator.geolocation.clearWatch(watchId);
+                            reject(error);
+                          },
+                          { 
+                            enableHighAccuracy: true,
+                            timeout: maxWait,
+                            maximumAge: 0
+                          }
+                        );
+                        
+                        setTimeout(() => {
+                          if (best) {
+                            navigator.geolocation.clearWatch(watchId);
+                            resolve(best);
+                          }
+                        }, maxWait + 1000);
+                      });
+                      
+                      const lat = Number(position.coords.latitude.toFixed(7));
+                      const lon = Number(position.coords.longitude.toFixed(7));
+                      const accuracy = position.coords.accuracy;
+                      
+                      handleInputChange("latitude", lat.toString());
+                      handleInputChange("longitude", lon.toString());
+                      
+                      if (accuracy > 100) {
+                        toast({ 
+                          title: "Low GPS Accuracy", 
+                          description: `Current accuracy: ${accuracy.toFixed(0)}m. Try moving to an open area.`,
+                          variant: "default",
+                          duration: 4000
+                        });
+                      } else {
+                        toast({ 
+                          title: "GPS Location Locked", 
+                          description: `Accuracy: ${accuracy.toFixed(0)}m. Fetching address...`,
+                          duration: 2000
+                        });
+                      }
+                      
+                      // Fetch address using Nominatim
+                      try {
+                        const response = await fetch(
+                          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+                          { headers: { 'User-Agent': 'FieldSalesNavigator/1.0' } }
+                        );
+                        
+                        if (response.ok) {
+                          const data = await response.json();
+                          if (data.display_name) {
+                            handleInputChange('address', data.display_name);
+                            toast({ 
+                              title: 'Address Found', 
+                              description: 'Location address retrieved successfully',
+                              duration: 2000
+                            });
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Address fetch error:', error);
+                        toast({ 
+                          title: 'GPS Location Captured', 
+                          description: `Coordinates saved: ${lat}, ${lon}`,
+                          duration: 2000
+                        });
+                      }
+                    } catch (error) {
+                      console.error('Geolocation error:', error);
+                      toast({ 
+                        title: 'Location Error', 
+                        description: 'Could not get location. Please enter address manually.',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                >
+                  <MapPin className="h-4 w-4" />
+                </Button>
+              </div>
+              {(retailerData.latitude && retailerData.longitude) && (
+                <p className="text-xs text-muted-foreground">
+                  📍 GPS: {retailerData.latitude}, {retailerData.longitude}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
