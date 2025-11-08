@@ -498,19 +498,18 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
               <div className="font-semibold text-xs md:text-sm">Unit</div>
               <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
               <div className="font-semibold text-xs md:text-sm text-center">Stock</div>
-              <div className="w-8 md:w-10"></div>
             </div>
               
               {/* Table Rows - Responsive */}
               <div className="divide-y divide-border">
                 {orderRows.map((row, index) => (
                   <div 
-                    key={row.id} 
-                    className={cn(
-                      "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_40px] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
-                      index % 2 === 0 ? "bg-background" : "bg-muted/20"
-                    )}
-                  >
+                  key={row.id} 
+                  className={cn(
+                    "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr] md:grid-cols-[2fr_1fr_1fr_1fr] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
+                    index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                  )}
+                >
                     {/* Product Column */}
                     <div>
                       <Popover 
@@ -626,23 +625,9 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         )}
                         disabled={!row.product}
                       />
-                    </div>
-                    
-                    {/* Delete Button Column */}
-                    <div className="flex items-center justify-center">
-                      {orderRows.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeRow(row.id)}
-                          className="h-5 w-5 md:h-6 md:w-6 hover:bg-destructive/10 hover:text-destructive p-0"
-                        >
-                          <Trash2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
-                        </Button>
-                      )}
-                    </div>
                   </div>
-                ))}
+                </div>
+              ))}
               </div>
             </div>
         </CardContent>
