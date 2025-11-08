@@ -522,7 +522,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
-                            className="w-full justify-between h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
+                            className="w-full justify-start h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
                           >
                             {row.product ? (
                               <span className="truncate text-left">
@@ -538,7 +538,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             ) : (
                               <span className="text-muted-foreground text-xs md:text-sm">Select...</span>
                             )}
-                            <ChevronsUpDown className="ml-1 h-3 w-3 md:h-4 md:w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[280px] md:w-[320px] p-0 bg-background z-50" align="start">
@@ -584,7 +583,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         value={row.unit}
                         onValueChange={(value) => updateRow(row.id, "unit", value)}
                       >
-                        <SelectTrigger className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2">
+                        <SelectTrigger className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2 [&>svg]:hidden">
                           <SelectValue placeholder="Unit" />
                         </SelectTrigger>
                         <SelectContent className="bg-background z-50">
