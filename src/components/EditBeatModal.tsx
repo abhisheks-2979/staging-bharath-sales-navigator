@@ -8,10 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SearchInput } from '@/components/SearchInput';
-import { Save, X, Users, MapPin, Clock, Truck } from 'lucide-react';
+import { Save, X, Users, MapPin, Clock, Truck, Repeat, CalendarDays } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format, addDays } from 'date-fns';
 
 interface Beat {
   id: string;
@@ -49,6 +54,23 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRetailers, setSelectedRetailers] = useState<Set<string>>(new Set());
   const { user } = useAuth();
+  
+  // Recurrence settings
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatType, setRepeatType] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [repeatDays, setRepeatDays] = useState<number[]>([1]); // 0=Sunday, 1=Monday, etc.
+  const [repeatEndDate, setRepeatEndDate] = useState<Date | undefined>(undefined);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+  const weekDays = [
+    { label: "Mon", value: 1 },
+    { label: "Tue", value: 2 },
+    { label: "Wed", value: 3 },
+    { label: "Thu", value: 4 },
+    { label: "Fri", value: 5 },
+    { label: "Sat", value: 6 },
+    { label: "Sun", value: 0 },
+  ];
 
   useEffect(() => {
     if (beat && isOpen) {
@@ -112,6 +134,54 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
       newSelectedRetailers.add(retailerId);
     }
     setSelectedRetailers(newSelectedRetailers);
+  };
+
+  const handleWeekDayToggle = (dayValue: number) => {
+    setRepeatDays(prev => 
+      prev.includes(dayValue)
+        ? prev.filter(d => d !== dayValue)
+        : [...prev, dayValue]
+    );
+  };
+
+  const generateBeatPlans = (beatId: string, beatName: string, endDate: Date) => {
+    const plans = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let currentDate = new Date(today);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    while (currentDate <= end) {
+      let shouldInclude = false;
+
+      if (repeatType === "daily") {
+        shouldInclude = true;
+      } else if (repeatType === "weekly") {
+        const dayOfWeek = currentDate.getDay();
+        shouldInclude = repeatDays.includes(dayOfWeek);
+      } else if (repeatType === "monthly") {
+        const dayOfWeek = currentDate.getDay();
+        shouldInclude = repeatDays.includes(dayOfWeek);
+      }
+
+      if (shouldInclude) {
+        plans.push({
+          user_id: user!.id,
+          beat_id: beatId,
+          beat_name: beatName,
+          plan_date: format(currentDate, 'yyyy-MM-dd'),
+          beat_data: {
+            retailer_ids: Array.from(selectedRetailers)
+          }
+        });
+      }
+
+      currentDate = addDays(currentDate, 1);
+    }
+
+    return plans;
   };
 
   const handleSave = async () => {
@@ -210,6 +280,30 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
 
       if (updateNameError) throw updateNameError;
 
+      // Handle beat plans if recurrence is enabled
+      if (repeatEnabled && repeatEndDate) {
+        // Delete existing future beat plans for this beat
+        const { error: deletePlansError } = await supabase
+          .from('beat_plans')
+          .delete()
+          .eq('beat_id', beat.id)
+          .eq('user_id', user.id)
+          .gte('plan_date', format(new Date(), 'yyyy-MM-dd'));
+
+        if (deletePlansError) throw deletePlansError;
+
+        // Create new beat plans
+        const beatPlans = generateBeatPlans(beat.id, beatName, repeatEndDate);
+        
+        if (beatPlans.length > 0) {
+          const { error: planError } = await supabase
+            .from('beat_plans')
+            .insert(beatPlans);
+
+          if (planError) throw planError;
+        }
+      }
+
       toast.success(`Beat "${beatName}" updated successfully`);
       onBeatUpdated();
       onClose();
@@ -228,6 +322,10 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
     setAverageTimeMinutes('');
     setSearchTerm('');
     setSelectedRetailers(new Set());
+    setRepeatEnabled(false);
+    setRepeatType("weekly");
+    setRepeatDays([1]);
+    setRepeatEndDate(undefined);
     onClose();
   };
 
@@ -313,6 +411,115 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                       />
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Recurrence Scheduling */}
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="repeatEnabled"
+                      checked={repeatEnabled}
+                      onCheckedChange={(checked) => setRepeatEnabled(checked as boolean)}
+                    />
+                    <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer">
+                      <Repeat className="h-4 w-4" />
+                      Create Recurring Visit Schedule
+                    </Label>
+                  </div>
+                  
+                  {repeatEnabled && (
+                    <div className="space-y-4 pl-6 border-l-2 border-primary/20">
+                      <div className="space-y-2">
+                        <Label>Repeat Pattern</Label>
+                        <RadioGroup value={repeatType} onValueChange={(value: any) => setRepeatType(value)}>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="daily" id="daily" />
+                            <Label htmlFor="daily" className="cursor-pointer">Daily</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="weekly" id="weekly" />
+                            <Label htmlFor="weekly" className="cursor-pointer">Weekly</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="monthly" id="monthly" />
+                            <Label htmlFor="monthly" className="cursor-pointer">Monthly</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      
+                      {repeatType === "weekly" && (
+                        <div className="space-y-2">
+                          <Label>Select Days</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {weekDays.map((day) => (
+                              <Button
+                                key={day.value}
+                                type="button"
+                                variant={repeatDays.includes(day.value) ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleWeekDayToggle(day.value)}
+                                className="w-12"
+                              >
+                                {day.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {repeatType === "monthly" && (
+                        <div className="space-y-2">
+                          <Label>Select Days of Month</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {weekDays.map((day) => (
+                              <Button
+                                key={day.value}
+                                type="button"
+                                variant={repeatDays.includes(day.value) ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleWeekDayToggle(day.value)}
+                                className="w-12"
+                              >
+                                {day.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !repeatEndDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarDays className="mr-2 h-4 w-4" />
+                              {repeatEndDate ? format(repeatEndDate, "PPP") : "Pick an end date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={repeatEndDate}
+                              onSelect={(date) => {
+                                setRepeatEndDate(date);
+                                setIsCalendarOpen(false);
+                              }}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
