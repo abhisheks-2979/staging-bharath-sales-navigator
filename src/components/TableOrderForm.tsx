@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,7 @@ interface OrderRow {
   variant?: any;
   quantity: number;
   closingStock: number;
+  unit: string;
   total: number;
 }
 
@@ -60,7 +62,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const retailerId = searchParams.get("retailerId") || '';
   
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
-    { id: "1", productCode: "", quantity: 0, closingStock: 0, total: 0 }
+    { id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }
   ]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -296,9 +298,10 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       productCode: "",
       quantity: 0,
       closingStock: 0,
-      total: 0
+      unit: "KG",
+      total: 0,
     };
-    setOrderRows(prev => [...prev, newRow]);
+    setOrderRows([...orderRows, newRow]);
   };
 
   const removeRow = (id: string) => {
@@ -493,10 +496,9 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[200px]">Product</TableHead>
-                  <TableHead className="w-20">SKU</TableHead>
-                  <TableHead className="w-16">Qty</TableHead>
-                  <TableHead className="w-16">Stock</TableHead>
-                  <TableHead className="w-20">Total</TableHead>
+                  <TableHead className="w-24">Unit</TableHead>
+                  <TableHead className="w-20">Qty</TableHead>
+                  <TableHead className="w-20">Stock</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -570,21 +572,18 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                       </Popover>
                     </TableCell>
                     <TableCell className="p-2">
-                      <div className="space-y-0.5">
-                        <Input
-                          type="text"
-                          placeholder="Enter SKU"
-                          value={row.productCode || ""}
-                          onChange={(e) => updateRow(row.id, "productCode", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                        />
-                        {row.product && hasActiveSchemes(row.product) && (
-                          <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] px-1 py-0">
-                            <Gift size={7} className="mr-0.5" />
-                            Scheme
-                          </Badge>
-                        )}
-                      </div>
+                      <Select
+                        value={row.unit}
+                        onValueChange={(value) => updateRow(row.id, "unit", value)}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          <SelectItem value="KG">KG</SelectItem>
+                          <SelectItem value="Grams">Grams</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="p-2">
                       <Input
@@ -610,11 +609,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                          disabled={!row.product}
                        />
                      </TableCell>
-                    <TableCell className="p-2">
-                      <span className="text-xs font-medium">
-                        {row.total > 0 ? `₹${row.total}` : "-"}
-                      </span>
-                    </TableCell>
                     <TableCell className="p-2">
                       {orderRows.length > 1 && (
                         <Button
