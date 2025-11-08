@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles, CalendarDays, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format, addDays, addWeeks, addMonths } from "date-fns";
+import { cn } from "@/lib/utils";
+import { AddRetailerInlineToBeat } from "@/components/AddRetailerInlineToBeat";
 
 interface Beat {
   id: string;
@@ -73,6 +79,17 @@ export const MyBeats = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { recommendations, loading: recsLoading, generateRecommendation, provideFeedback } = useRecommendations('beat_visit');
   const [activeTab, setActiveTab] = useState('beats');
+  const [showRetailerAnalytics, setShowRetailerAnalytics] = useState(false);
+  const [selectedRetailerId, setSelectedRetailerId] = useState<string | null>(null);
+  const [isAddRetailerModalOpen, setIsAddRetailerModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  
+  // Recurrence state
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatType, setRepeatType] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [repeatDays, setRepeatDays] = useState<number[]>([1]); // Monday by default
+  const [repeatEndDate, setRepeatEndDate] = useState<Date>(addMonths(new Date(), 1));
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Check for openCreateModal parameter and open modal if present
   useEffect(() => {
@@ -320,8 +337,14 @@ export const MyBeats = () => {
       return;
     }
 
+    if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
+      toast.error("Please select at least one day for weekly repeat");
+      return;
+    }
+
     if (!user) return;
 
+    setIsCreating(true);
     try {
       // Generate unique beat ID
       const beatId = `beat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -368,7 +391,11 @@ export const MyBeats = () => {
 
       if (allowanceError) {
         console.error('Error creating beat allowance:', allowanceError);
-        toast.error('Beat created but failed to save beat details');
+      }
+
+      // Create beat plans if recurrence is enabled
+      if (repeatEnabled) {
+        await generateBeatPlans(beatId, repeatEndDate);
       }
 
       toast.success(`Beat "${beatName}" created successfully with ${selectedRetailers.size} retailers`);
@@ -378,6 +405,10 @@ export const MyBeats = () => {
       setAverageKm("");
       setAverageTimeMinutes("");
       setSelectedRetailers(new Set());
+      setRepeatEnabled(false);
+      setRepeatType('weekly');
+      setRepeatDays([1]);
+      setRepeatEndDate(addMonths(new Date(), 1));
       
       // Reload data
       loadBeats();
@@ -385,7 +416,74 @@ export const MyBeats = () => {
     } catch (error) {
       console.error('Error creating beat:', error);
       toast.error('Failed to create beat');
+    } finally {
+      setIsCreating(false);
     }
+  };
+
+  const generateBeatPlans = async (beatId: string, endDate: Date) => {
+    try {
+      const beatPlans: any[] = [];
+      let currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+
+      while (currentDate <= endDate) {
+        let shouldAddDate = false;
+
+        if (repeatType === 'daily') {
+          shouldAddDate = true;
+        } else if (repeatType === 'weekly') {
+          const dayOfWeek = currentDate.getDay();
+          shouldAddDate = repeatDays.includes(dayOfWeek);
+        } else if (repeatType === 'monthly') {
+          // Add on the same date each month
+          shouldAddDate = currentDate.getDate() === new Date().getDate();
+        }
+
+        if (shouldAddDate) {
+          beatPlans.push({
+            beat_id: beatId,
+            planned_date: currentDate.toISOString().split('T')[0],
+            status: 'pending',
+            user_id: user?.id
+          });
+        }
+
+        currentDate = addDays(currentDate, 1);
+      }
+
+      if (beatPlans.length > 0) {
+        const { error: planError } = await supabase
+          .from('beat_plans')
+          .insert(beatPlans);
+
+        if (planError) {
+          console.error('Error creating beat plans:', planError);
+          toast.error('Beat created but failed to create visit schedule');
+        } else {
+          toast.success(`Created ${beatPlans.length} scheduled visits`);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error generating beat plans:', error);
+      toast.error('Failed to create beat schedule');
+    }
+  };
+
+  const handleRetailerAdded = (retailerId: string, retailerName: string) => {
+    setSelectedRetailers(prev => new Set(prev).add(retailerId));
+    loadAllRetailers();
+    setIsAddRetailerModalOpen(false);
+    toast.success(`Retailer "${retailerName}" added and selected`);
+  };
+
+  const handleWeekDayToggle = (day: number) => {
+    setRepeatDays(prev => {
+      const newDays = prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day].sort();
+      return newDays;
+    });
   };
 
   const handleDeleteBeat = async (beatId: string, beatName: string) => {
@@ -840,13 +938,22 @@ export const MyBeats = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
                     <h3 className="font-semibold">Select Retailers</h3>
                     <p className="text-sm text-muted-foreground">
                       Choose retailers to include in this beat ({selectedRetailers.size} selected)
                     </p>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddRetailerModalOpen(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add New Retailer to {beatName || 'Beat'}
+                  </Button>
                 </div>
 
                 <SearchInput
@@ -940,6 +1047,104 @@ export const MyBeats = () => {
                 )}
               </div>
 
+              {/* Recurrence Settings */}
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="repeatEnabled"
+                    checked={repeatEnabled}
+                    onChange={(e) => setRepeatEnabled(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer">
+                    <Repeat className="h-4 w-4" />
+                    Schedule Recurring Visits
+                  </Label>
+                </div>
+
+                {repeatEnabled && (
+                  <div className="space-y-4 pl-6">
+                    <div className="space-y-2">
+                      <Label>Repeat Frequency</Label>
+                      <RadioGroup value={repeatType} onValueChange={(value: any) => setRepeatType(value)}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="daily" id="daily" />
+                          <Label htmlFor="daily" className="cursor-pointer">Daily</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="weekly" id="weekly" />
+                          <Label htmlFor="weekly" className="cursor-pointer">Weekly</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="monthly" id="monthly" />
+                          <Label htmlFor="monthly" className="cursor-pointer">Monthly</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {repeatType === 'weekly' && (
+                      <div className="space-y-2">
+                        <Label>Select Days</Label>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { label: 'Sun', value: 0 },
+                            { label: 'Mon', value: 1 },
+                            { label: 'Tue', value: 2 },
+                            { label: 'Wed', value: 3 },
+                            { label: 'Thu', value: 4 },
+                            { label: 'Fri', value: 5 },
+                            { label: 'Sat', value: 6 },
+                          ].map(day => (
+                            <Button
+                              key={day.value}
+                              type="button"
+                              size="sm"
+                              variant={repeatDays.includes(day.value) ? "default" : "outline"}
+                              onClick={() => handleWeekDayToggle(day.value)}
+                            >
+                              {day.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label>Repeat Until</Label>
+                      <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !repeatEndDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarDays className="mr-2 h-4 w-4" />
+                            {repeatEndDate ? format(repeatEndDate, "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={repeatEndDate}
+                            onSelect={(date) => {
+                              if (date) {
+                                setRepeatEndDate(date);
+                                setIsCalendarOpen(false);
+                              }
+                            }}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
 
             {/* Fixed Footer */}
@@ -947,12 +1152,20 @@ export const MyBeats = () => {
               <Button variant="outline" onClick={() => setIsCreateBeatOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveBeat} disabled={selectedRetailers.size === 0 || !beatName.trim()}>
-                Create Beat ({selectedRetailers.size} retailers)
+              <Button onClick={handleSaveBeat} disabled={selectedRetailers.size === 0 || !beatName.trim() || isCreating}>
+                {isCreating ? 'Creating...' : `Create Beat (${selectedRetailers.size} retailers)`}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Add Retailer Modal */}
+        <AddRetailerInlineToBeat
+          open={isAddRetailerModalOpen}
+          onClose={() => setIsAddRetailerModalOpen(false)}
+          beatName={beatName}
+          onRetailerAdded={handleRetailerAdded}
+        />
 
         {/* Edit Beat Modal */}
         <EditBeatModal
