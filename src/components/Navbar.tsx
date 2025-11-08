@@ -76,9 +76,9 @@ export const Navbar = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/dashboard')}
                 className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
-                title="Go back"
+                title="Go to dashboard"
               >
                 <ArrowLeft size={20} />
               </button>
