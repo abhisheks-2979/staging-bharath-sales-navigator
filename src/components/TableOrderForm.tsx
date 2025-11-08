@@ -491,24 +491,23 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <div className="min-w-full">
-              {/* Table Header */}
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 bg-muted/50 border-b border-border">
-                <div className="font-semibold text-sm">Product</div>
-                <div className="font-semibold text-sm">Unit</div>
-                <div className="font-semibold text-sm">Qty</div>
-                <div className="font-semibold text-sm">Stock</div>
-                <div className="w-10"></div>
-              </div>
+          <div className="w-full">
+            {/* Table Header - Responsive */}
+            <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_40px] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
+              <div className="font-semibold text-xs md:text-sm">Product</div>
+              <div className="font-semibold text-xs md:text-sm">Unit</div>
+              <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
+              <div className="font-semibold text-xs md:text-sm text-center">Stock</div>
+              <div className="w-8 md:w-10"></div>
+            </div>
               
-              {/* Table Rows */}
+              {/* Table Rows - Responsive */}
               <div className="divide-y divide-border">
                 {orderRows.map((row, index) => (
                   <div 
                     key={row.id} 
                     className={cn(
-                      "grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center",
+                      "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_40px] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
                       index % 2 === 0 ? "bg-background" : "bg-muted/20"
                     )}
                   >
@@ -523,7 +522,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
-                            className="w-full justify-between h-11 text-sm font-normal bg-background"
+                            className="w-full justify-between h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
                           >
                             {row.product ? (
                               <span className="truncate text-left">
@@ -537,15 +536,15 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                 })() : row.product.name}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground">Select product...</span>
+                              <span className="text-muted-foreground text-xs md:text-sm">Select...</span>
                             )}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            <ChevronsUpDown className="ml-1 h-3 w-3 md:h-4 md:w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[320px] p-0 bg-background z-50" align="start">
+                        <PopoverContent className="w-[280px] md:w-[320px] p-0 bg-background z-50" align="start">
                           <Command className="bg-background">
-                            <CommandInput placeholder="Search products..." className="h-10" />
-                            <CommandList className="bg-background max-h-[300px]">
+                            <CommandInput placeholder="Search products..." className="h-9 md:h-10 text-xs md:text-sm" />
+                            <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
                               <CommandEmpty>No product found.</CommandEmpty>
                               <CommandGroup className="bg-background">
                                 {getProductOptions().map((option) => (
@@ -553,11 +552,11 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                     key={option.value}
                                     value={option.label}
                                     onSelect={() => handleProductSelect(row.id, option.value)}
-                                    className="text-sm bg-background hover:bg-accent py-2"
+                                    className="text-xs md:text-sm bg-background hover:bg-accent py-2"
                                   >
                                     <Check
                                       className={cn(
-                                        "mr-2 h-4 w-4",
+                                        "mr-2 h-3 w-3 md:h-4 md:w-4",
                                         row.product?.id === option.product.id && 
                                         (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
                                           ? "opacity-100"
@@ -566,7 +565,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                     />
                                     <div className="flex-1">
                                       <div className="font-medium">{option.label}</div>
-                                      <div className="text-xs text-muted-foreground">
+                                      <div className="text-[10px] md:text-xs text-muted-foreground">
                                         SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
                                       </div>
                                     </div>
@@ -585,12 +584,12 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         value={row.unit}
                         onValueChange={(value) => updateRow(row.id, "unit", value)}
                       >
-                        <SelectTrigger className="h-11 text-sm w-full bg-background">
-                          <SelectValue placeholder="Select" />
+                        <SelectTrigger className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2">
+                          <SelectValue placeholder="Unit" />
                         </SelectTrigger>
                         <SelectContent className="bg-background z-50">
-                          <SelectItem value="KG" className="text-sm">KG</SelectItem>
-                          <SelectItem value="Grams" className="text-sm">Grams</SelectItem>
+                          <SelectItem value="KG" className="text-xs md:text-sm">KG</SelectItem>
+                          <SelectItem value="Grams" className="text-xs md:text-sm">Grams</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -602,7 +601,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         placeholder="0"
                         value={row.quantity || ""}
                         onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
-                        className="h-11 text-sm text-center bg-background"
+                        className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1"
                         disabled={!row.product}
                       />
                     </div>
@@ -618,7 +617,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
                         }}
                         className={cn(
-                          "h-11 text-sm text-center bg-background",
+                          "h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1",
                           row.closingStock === 0 && "text-muted-foreground"
                         )}
                         disabled={!row.product}
@@ -632,9 +631,9 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           variant="ghost"
                           size="icon"
                           onClick={() => removeRow(row.id)}
-                          className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive"
+                          className="h-8 w-8 md:h-9 md:w-9 hover:bg-destructive/10 hover:text-destructive"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                         </Button>
                       )}
                     </div>
@@ -642,7 +641,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                 ))}
               </div>
             </div>
-          </div>
         </CardContent>
       </Card>
 
