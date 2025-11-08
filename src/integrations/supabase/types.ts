@@ -985,6 +985,77 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flag_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          feature_flag_id: string
+          id: string
+          new_value: boolean
+          old_value: boolean
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          feature_flag_id: string
+          id?: string
+          new_value: boolean
+          old_value: boolean
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          feature_flag_id?: string
+          id?: string
+          new_value?: boolean
+          old_value?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flag_audit_feature_flag_id_fkey"
+            columns: ["feature_flag_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          feature_key: string
+          feature_name: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          feature_key: string
+          feature_name: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          feature_key?: string
+          feature_name?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       gps_tracking: {
         Row: {
           accuracy: number | null
