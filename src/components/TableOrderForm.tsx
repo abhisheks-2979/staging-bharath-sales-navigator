@@ -490,137 +490,158 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
             Enter product SKUs directly for faster ordering ({products.length} products available)
           </p>
         </CardHeader>
-        <CardContent className="p-3">
-          <div className="space-y-3">
-            <div className="grid grid-cols-[2.5fr_1.2fr_1fr_1fr_50px] gap-3 items-center px-2 pb-2 border-b border-border">
-              <div className="font-semibold text-base">Product</div>
-              <div className="font-semibold text-base">Unit</div>
-              <div className="font-semibold text-base text-center">Qty</div>
-              <div className="font-semibold text-base text-center">Stock</div>
-              <div className="w-10"></div>
-            </div>
-            {orderRows.map((row) => (
-              <div key={row.id} className="grid grid-cols-[2.5fr_1.2fr_1fr_1fr_50px] gap-3 items-center p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center h-12">
-                  <Popover 
-                    open={openComboboxes[row.id]} 
-                    onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={openComboboxes[row.id]}
-                        className="w-full justify-between h-12 text-base font-normal"
-                      >
-                        {row.product ? (
-                          <span className="truncate text-left">
-                            {row.variant ? (() => {
-                              let variantDisplayName = row.variant.variant_name;
-                              if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
-                                variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-                              }
-                              return variantDisplayName || row.variant.variant_name;
-                            })() : row.product.name}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">Select...</span>
-                        )}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[320px] p-0 bg-background z-50" align="start">
-                      <Command className="bg-background">
-                        <CommandInput placeholder="Search products..." className="h-10" />
-                        <CommandList className="bg-background max-h-[300px]">
-                          <CommandEmpty>No product found.</CommandEmpty>
-                          <CommandGroup className="bg-background">
-                            {getProductOptions().map((option) => (
-                              <CommandItem
-                                key={option.value}
-                                value={option.label}
-                                onSelect={() => handleProductSelect(row.id, option.value)}
-                                className="text-sm bg-background hover:bg-accent py-2"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    row.product?.id === option.product.id && 
-                                    (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium">{option.label}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                
-                <div className="flex items-center h-12">
-                  <Select
-                    value={row.unit}
-                    onValueChange={(value) => updateRow(row.id, "unit", value)}
-                  >
-                    <SelectTrigger className="h-12 text-base w-full">
-                      <SelectValue placeholder="Unit" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      <SelectItem value="KG" className="text-base">KG</SelectItem>
-                      <SelectItem value="Grams" className="text-base">Grams</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="flex items-center h-12">
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={row.quantity || ""}
-                    onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
-                    className="h-12 text-base text-center font-medium w-full"
-                    disabled={!row.product}
-                  />
-                </div>
-                
-                <div className="flex items-center h-12">
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={row.closingStock === 0 ? "" : row.closingStock}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
-                    }}
-                    className={`h-12 text-base text-center font-medium w-full ${row.closingStock === 0 ? "text-muted-foreground" : ""}`}
-                    disabled={!row.product}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-center h-12">
-                  {orderRows.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeRow(row.id)}
-                      className="h-10 w-10"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  )}
-                </div>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <div className="min-w-full">
+              {/* Table Header */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 bg-muted/50 border-b border-border">
+                <div className="font-semibold text-sm">Product</div>
+                <div className="font-semibold text-sm">Unit</div>
+                <div className="font-semibold text-sm">Qty</div>
+                <div className="font-semibold text-sm">Stock</div>
+                <div className="w-10"></div>
               </div>
-            ))}
+              
+              {/* Table Rows */}
+              <div className="divide-y divide-border">
+                {orderRows.map((row, index) => (
+                  <div 
+                    key={row.id} 
+                    className={cn(
+                      "grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center",
+                      index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                    )}
+                  >
+                    {/* Product Column */}
+                    <div>
+                      <Popover 
+                        open={openComboboxes[row.id]} 
+                        onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openComboboxes[row.id]}
+                            className="w-full justify-between h-11 text-sm font-normal bg-background"
+                          >
+                            {row.product ? (
+                              <span className="truncate text-left">
+                                {row.variant ? (() => {
+                                  let variantDisplayName = row.variant.variant_name;
+                                  if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
+                                    variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
+                                    variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
+                                  }
+                                  return variantDisplayName || row.variant.variant_name;
+                                })() : row.product.name}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Select product...</span>
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[320px] p-0 bg-background z-50" align="start">
+                          <Command className="bg-background">
+                            <CommandInput placeholder="Search products..." className="h-10" />
+                            <CommandList className="bg-background max-h-[300px]">
+                              <CommandEmpty>No product found.</CommandEmpty>
+                              <CommandGroup className="bg-background">
+                                {getProductOptions().map((option) => (
+                                  <CommandItem
+                                    key={option.value}
+                                    value={option.label}
+                                    onSelect={() => handleProductSelect(row.id, option.value)}
+                                    className="text-sm bg-background hover:bg-accent py-2"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        row.product?.id === option.product.id && 
+                                        (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex-1">
+                                      <div className="font-medium">{option.label}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    {/* Unit Column */}
+                    <div>
+                      <Select
+                        value={row.unit}
+                        onValueChange={(value) => updateRow(row.id, "unit", value)}
+                      >
+                        <SelectTrigger className="h-11 text-sm w-full bg-background">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          <SelectItem value="KG" className="text-sm">KG</SelectItem>
+                          <SelectItem value="Grams" className="text-sm">Grams</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Qty Column */}
+                    <div>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={row.quantity || ""}
+                        onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
+                        className="h-11 text-sm text-center bg-background"
+                        disabled={!row.product}
+                      />
+                    </div>
+                    
+                    {/* Stock Column */}
+                    <div>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={row.closingStock === 0 ? "" : row.closingStock}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
+                        }}
+                        className={cn(
+                          "h-11 text-sm text-center bg-background",
+                          row.closingStock === 0 && "text-muted-foreground"
+                        )}
+                        disabled={!row.product}
+                      />
+                    </div>
+                    
+                    {/* Delete Button Column */}
+                    <div className="flex items-center justify-center">
+                      {orderRows.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRow(row.id)}
+                          className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
