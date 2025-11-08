@@ -595,14 +595,6 @@ export const MyBeats = () => {
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-lg font-semibold">Your Beats ({beats.length})</h2>
-                  <Button 
-                    onClick={handleAddBeats}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Add Beats to Plan
-                  </Button>
                 </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
