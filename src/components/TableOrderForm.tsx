@@ -493,7 +493,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         <CardContent className="p-0">
           <div className="w-full">
             {/* Table Header - Responsive */}
-            <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_40px] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
+            <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr] md:grid-cols-[2fr_1fr_1fr_1fr] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
               <div className="font-semibold text-xs md:text-sm">Product</div>
               <div className="font-semibold text-xs md:text-sm">Unit</div>
               <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
