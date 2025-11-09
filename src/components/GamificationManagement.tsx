@@ -9,7 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Award, Settings, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, Award, Settings, Users, Medal } from "lucide-react";
+import { BadgeManagement } from "./BadgeManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
@@ -362,6 +363,10 @@ export function GamificationManagement() {
             <Settings className="mr-2 h-4 w-4" />
             Games & Actions
           </TabsTrigger>
+          <TabsTrigger value="badges">
+            <Medal className="mr-2 h-4 w-4" />
+            Badges
+          </TabsTrigger>
           <TabsTrigger value="redemptions">
             <Award className="mr-2 h-4 w-4" />
             Redemptions
@@ -428,6 +433,10 @@ export function GamificationManagement() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="badges" className="space-y-4">
+          <BadgeManagement />
         </TabsContent>
 
         <TabsContent value="redemptions" className="space-y-4">

@@ -239,6 +239,39 @@ export type Database = {
         }
         Relationships: []
       }
+      badges: {
+        Row: {
+          badge_color: string | null
+          created_at: string
+          criteria_type: string
+          criteria_value: number
+          description: string | null
+          icon: string
+          id: string
+          name: string
+        }
+        Insert: {
+          badge_color?: string | null
+          created_at?: string
+          criteria_type: string
+          criteria_value: number
+          description?: string | null
+          icon: string
+          id?: string
+          name: string
+        }
+        Update: {
+          badge_color?: string | null
+          created_at?: string
+          criteria_type?: string
+          criteria_value?: number
+          description?: string | null
+          icon?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       beat_allowances: {
         Row: {
           average_km: number | null
@@ -2554,6 +2587,35 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      user_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_invitations: {
         Row: {

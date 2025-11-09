@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Trophy, Award, Gift, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal } from "lucide-react";
+import { BadgesDisplay } from "@/components/BadgesDisplay";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -288,10 +289,14 @@ export default function Leaderboard() {
           </div>
 
           <Tabs defaultValue="leaderboard" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="leaderboard">
                 <Trophy className="mr-2 h-4 w-4" />
                 Leaderboard
+              </TabsTrigger>
+              <TabsTrigger value="badges">
+                <Medal className="mr-2 h-4 w-4" />
+                Badges
               </TabsTrigger>
               <TabsTrigger value="redemptions">
                 <Gift className="mr-2 h-4 w-4" />
@@ -348,6 +353,17 @@ export default function Leaderboard() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="badges" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Achievements & Badges</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <BadgesDisplay />
                 </CardContent>
               </Card>
             </TabsContent>
