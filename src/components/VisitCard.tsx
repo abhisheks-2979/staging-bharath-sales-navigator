@@ -1165,7 +1165,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
-              } ${(!isCheckedIn && !proceedWithoutCheckIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${((isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={async () => {
                 if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
                   toast({ 
@@ -1175,7 +1175,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   });
                   return;
                 }
-                if ((!isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) return;
+                if ((isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) return;
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
