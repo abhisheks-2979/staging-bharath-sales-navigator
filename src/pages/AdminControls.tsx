@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText } from 'lucide-react';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
@@ -264,6 +264,21 @@ const AdminControls = () => {
               <CardTitle>Gamification</CardTitle>
               <CardDescription>
                 Configure games, points, actions, and manage redemptions
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/invoice-management')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-cyan-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <FileText className="h-8 w-8 text-cyan-600" />
+              </div>
+              <CardTitle>Invoice Management</CardTitle>
+              <CardDescription>
+                Create and manage GST invoices with automatic tax calculations
               </CardDescription>
             </CardHeader>
           </Card>

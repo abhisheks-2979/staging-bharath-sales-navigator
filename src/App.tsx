@@ -71,6 +71,7 @@ import MyExpenses from "./pages/MyExpenses";
 import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
 import GamificationAdmin from "./pages/GamificationAdmin";
+import InvoiceManagement from "./pages/InvoiceManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -349,6 +350,11 @@ const App = () => (
             <Route path="/gamification-admin" element={
               <ProtectedRoute>
                 <GamificationAdmin />
+              </ProtectedRoute>
+            } />
+            <Route path="/invoice-management" element={
+              <ProtectedRoute>
+                <InvoiceManagement />
               </ProtectedRoute>
             } />
             <Route path="/features/beat-planning" element={<Suspense fallback={<div>Loading...</div>}><BeatPlanningFeature /></Suspense>} />
