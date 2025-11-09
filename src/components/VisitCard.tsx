@@ -25,6 +25,7 @@ import { useVanSales } from "@/hooks/useVanSales";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
 import { CameraCapture } from "./CameraCapture";
+import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 
 interface Visit {
   id: string;
@@ -109,6 +110,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showVanSales, setShowVanSales] = useState(false);
   const { isVanSalesEnabled } = useVanSales();
+  const { isCheckInMandatory } = useCheckInMandatory();
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -939,7 +941,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   };
 
   const handleNoOrderClick = () => {
-    if (!isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
+    if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
       toast({ 
         title: 'Check-in Required', 
         description: 'Please check in or proceed without check-in first.',
@@ -1165,7 +1167,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${(!isCheckedIn && !proceedWithoutCheckIn || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={async () => {
-                if (!isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
+                if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
                   toast({ 
                     title: 'Check-in Required', 
                     description: 'Please check in first to place an order.',
