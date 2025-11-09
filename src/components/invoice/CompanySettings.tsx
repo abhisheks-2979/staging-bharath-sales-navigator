@@ -77,6 +77,9 @@ export default function CompanySettings() {
         qr_upi: data[0].qr_upi || "",
         terms_conditions: data[0].terms_conditions || "",
       });
+    } else {
+      // No companies exist, use defaults from form
+      setLogoUrl("/bharath-beverages-logo.png");
     }
   };
 

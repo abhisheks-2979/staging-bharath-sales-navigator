@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { InvoicePDFGenerator } from "./InvoicePDFGenerator";
 
 export default function InvoiceList() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -35,28 +36,6 @@ export default function InvoiceList() {
       toast.error("Failed to load invoices");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const downloadPDF = async (invoiceId: string) => {
-    try {
-      toast.info("Generating PDF...");
-      
-      const { data, error } = await supabase.functions.invoke("generate-invoice-pdf", {
-        body: { invoiceId },
-      });
-
-      if (error) throw error;
-
-      // Open PDF in new tab
-      if (data?.pdfUrl) {
-        window.open(data.pdfUrl, '_blank');
-      }
-      
-      toast.success("PDF generated successfully!");
-    } catch (error: any) {
-      console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF");
     }
   };
 
@@ -122,13 +101,7 @@ export default function InvoiceList() {
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadPDF(invoice.id)}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
+                      <InvoicePDFGenerator invoiceId={invoice.id} />
                       <Button
                         size="sm"
                         variant="outline"
