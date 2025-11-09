@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ interface TableOrderFormProps {
 
 export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
   
@@ -429,8 +430,12 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       
       toast({
         title: "Added to Cart",
-        description: `${validRows.length} items added to cart. Data will be cleared after order submission.`
+        description: `${validRows.length} items added to cart.`
       });
+      
+      // Navigate to cart with current parameters
+      const params = new URLSearchParams(searchParams);
+      navigate(`/cart?${params.toString()}`);
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast({
