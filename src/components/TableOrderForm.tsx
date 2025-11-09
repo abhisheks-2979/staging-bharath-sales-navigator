@@ -426,16 +426,36 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       });
 
       console.log('Adding items to cart:', cartItems);
+      
+      // Update cart through parent component
       onCartUpdate(cartItems);
+      
+      // Calculate storage key matching OrderEntry logic
+      const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+      const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
+      
+      const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
+        ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
+        : validRetailerIdForStorage 
+          ? `order_cart:temp:${validRetailerIdForStorage}`
+          : 'order_cart:fallback';
+      
+      console.log('Saving to localStorage with key:', storageKey, 'Items:', cartItems);
+      
+      // Save directly to localStorage before navigating to ensure data is persisted
+      localStorage.setItem(storageKey, JSON.stringify(cartItems));
       
       toast({
         title: "Added to Cart",
         description: `${validRows.length} items added to cart.`
       });
       
-      // Navigate to cart with current parameters
-      const params = new URLSearchParams(searchParams);
-      navigate(`/cart?${params.toString()}`);
+      // Small delay to ensure localStorage write completes
+      setTimeout(() => {
+        // Navigate to cart with current parameters
+        const params = new URLSearchParams(searchParams);
+        navigate(`/cart?${params.toString()}`);
+      }, 100);
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast({
