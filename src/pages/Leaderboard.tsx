@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal } from "lucide-react";
 import { BadgesDisplay } from "@/components/BadgesDisplay";
 import { useNavigate } from "react-router-dom";
@@ -429,36 +430,64 @@ export default function Leaderboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {games.map(game => (
-                      <div key={game.id} className="p-4 border rounded-lg bg-card">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg">{game.name}</h3>
-                            {game.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{game.description}</p>
-                            )}
+                    {games.map(game => {
+                      const completionPercentage = game.baseline_target > 0 
+                        ? Math.min((game.earned_points / game.baseline_target) * 100, 100)
+                        : 0;
+                      const isCompleted = game.earned_points >= game.baseline_target;
+                      
+                      return (
+                        <div key={game.id} className="p-4 border rounded-lg bg-card">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{game.name}</h3>
+                              {game.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{game.description}</p>
+                              )}
+                            </div>
+                            <Badge variant={isCompleted ? "default" : "secondary"}>
+                              {isCompleted ? "Target Achieved" : "Active"}
+                            </Badge>
                           </div>
-                          <Badge variant="default">Active</Badge>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            <div className="p-3 bg-muted/50 rounded-lg">
+                              <p className="text-sm text-muted-foreground">Activity</p>
+                              <p className="font-medium">{game.activity_name}</p>
+                            </div>
+                            <div className="p-3 bg-muted/50 rounded-lg">
+                              <p className="text-sm text-muted-foreground">Base Target</p>
+                              <p className="font-medium">{game.baseline_target} points</p>
+                            </div>
+                            <div className="p-3 bg-primary/10 rounded-lg">
+                              <p className="text-sm text-muted-foreground">Earned Points</p>
+                              <p className="font-bold text-primary text-xl">{game.earned_points}</p>
+                            </div>
+                          </div>
+                          
+                          {/* Progress Bar Section */}
+                          <div className="mt-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">Progress to Target</span>
+                              <span className={`text-sm font-bold ${isCompleted ? 'text-green-600' : 'text-primary'}`}>
+                                {completionPercentage.toFixed(1)}%
+                              </span>
+                            </div>
+                            <Progress 
+                              value={completionPercentage} 
+                              className="h-3"
+                            />
+                            <p className="text-xs text-muted-foreground text-right">
+                              {game.earned_points} / {game.baseline_target} points
+                              {!isCompleted && ` (${game.baseline_target - game.earned_points} points to go)`}
+                            </p>
+                          </div>
+                          
+                          <div className="mt-3 text-sm text-muted-foreground">
+                            <p>Period: {new Date(game.start_date).toLocaleDateString()} - {new Date(game.end_date).toLocaleDateString()}</p>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                          <div className="p-3 bg-muted/50 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Activity</p>
-                            <p className="font-medium">{game.activity_name}</p>
-                          </div>
-                          <div className="p-3 bg-muted/50 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Base Target</p>
-                            <p className="font-medium">{game.baseline_target} points</p>
-                          </div>
-                          <div className="p-3 bg-primary/10 rounded-lg">
-                            <p className="text-sm text-muted-foreground">Earned Points</p>
-                            <p className="font-bold text-primary text-xl">{game.earned_points}</p>
-                          </div>
-                        </div>
-                        <div className="mt-3 text-sm text-muted-foreground">
-                          <p>Period: {new Date(game.start_date).toLocaleDateString()} - {new Date(game.end_date).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {games.length === 0 && (
                       <p className="text-center text-muted-foreground py-8">No active games available</p>
                     )}
