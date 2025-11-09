@@ -16,6 +16,7 @@ import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { ImageStockCapture } from "@/components/ImageStockCapture";
 import { ReturnStockForm } from "@/components/ReturnStockForm";
+import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 
 interface Product {
   id: string;
@@ -72,6 +73,7 @@ export const OrderEntry = () => {
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
+  const { isCheckInMandatory, loading: checkInMandatoryLoading } = useCheckInMandatory();
 
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -180,6 +182,49 @@ useEffect(() => {
   
   fetchUserData();
 }, []);
+
+// Check if user has checked in when feature is enabled
+useEffect(() => {
+  const checkVisitCheckIn = async () => {
+    // Skip check if feature is loading or not mandatory
+    if (checkInMandatoryLoading || !isCheckInMandatory) {
+      return;
+    }
+
+    // Skip check if no visitId (phone orders or non-visit orders)
+    if (!visitId || visitId.length <= 1) {
+      return;
+    }
+
+    try {
+      // Check if user has checked into this visit
+      const { data: visit, error } = await supabase
+        .from('visits')
+        .select('status, check_in_time')
+        .eq('id', visitId)
+        .single();
+
+      if (error) {
+        console.error('Error checking visit status:', error);
+        return;
+      }
+
+      // If visit is not checked in yet, redirect to visit detail page
+      if (visit && !visit.check_in_time && visit.status === 'planned') {
+        toast({
+          title: "Check-in Required",
+          description: "Please check-in to the visit before entering orders.",
+          variant: "destructive"
+        });
+        navigate(`/visits/${visitId}`);
+      }
+    } catch (error) {
+      console.error('Error in visit check-in validation:', error);
+    }
+  };
+
+  checkVisitCheckIn();
+}, [isCheckInMandatory, checkInMandatoryLoading, visitId, navigate]);
 
 // Fix retailerId validation - don't use "." as a valid retailerId  
 const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
