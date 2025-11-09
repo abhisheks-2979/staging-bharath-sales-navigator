@@ -47,17 +47,17 @@ interface Redemption {
   profiles: { full_name: string };
 }
 
-const ACTION_TYPES = [
-  { type: "new_retailer", name: "Adding a New Retailer" },
-  { type: "first_order_new_retailer", name: "First Order from New Retailer" },
-  { type: "order_value", name: "Total Order Value (per ₹100)" },
-  { type: "order_quantity", name: "Order Quantity" },
-  { type: "focused_product_sales", name: "Focused Product Sales" },
-  { type: "productive_visit", name: "Productive Visit (with order)" },
-  { type: "order_frequency", name: "Retailer Order Frequency" },
-  { type: "beat_growth", name: "Average Beat Growth" },
-  { type: "competition_insight", name: "Capturing Competition Insight" },
-  { type: "product_feedback", name: "Product Feedback Capture" }
+const ACTIVITY_TYPES = [
+  { value: "new_retailer", label: "Adding a new retailer" },
+  { value: "first_order_new_retailer", label: "Adding new orders from this new retailer" },
+  { value: "order_value", label: "Order value" },
+  { value: "order_quantity", label: "Order quantity" },
+  { value: "focused_product_sales", label: "Focused product sales" },
+  { value: "productive_visit", label: "Productive visits (visits with orders)" },
+  { value: "order_frequency", label: "Frequency of orders from the retailer" },
+  { value: "beat_growth", label: "Average growth of business in a beat" },
+  { value: "competition_insight", label: "Capturing competition intelligence" },
+  { value: "product_feedback", label: "Capturing market feedback" }
 ];
 
 export function GamificationManagement() {
@@ -77,6 +77,8 @@ export function GamificationManagement() {
   const [selectedTerritories, setSelectedTerritories] = useState<string[]>([]);
   const [isAllTerritories, setIsAllTerritories] = useState(false);
   const [baselineTarget, setBaselineTarget] = useState("0");
+  const [selectedActivity, setSelectedActivity] = useState("");
+  const [rewardPoints, setRewardPoints] = useState("");
 
   useEffect(() => {
     fetchGames();
@@ -153,8 +155,13 @@ export function GamificationManagement() {
   };
 
   const createGame = async () => {
-    if (!gameName || !startDate || !endDate) {
+    if (!gameName || !startDate || !endDate || !selectedActivity || !rewardPoints) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (selectedTerritories.length === 0 && !isAllTerritories) {
+      toast.error("Please select at least one territory");
       return;
     }
 
@@ -178,21 +185,20 @@ export function GamificationManagement() {
       return;
     }
 
-    // Create default actions
-    const defaultActions = ACTION_TYPES.map(action => ({
-      game_id: gameData.id,
-      action_type: action.type,
-      action_name: action.name,
-      points: 0,
-      is_enabled: false
-    }));
-
+    // Create the selected activity action
+    const activity = ACTIVITY_TYPES.find(a => a.value === selectedActivity);
     const { error: actionsError } = await supabase
       .from("gamification_actions")
-      .insert(defaultActions);
+      .insert({
+        game_id: gameData.id,
+        action_type: selectedActivity,
+        action_name: activity?.label || selectedActivity,
+        points: parseFloat(rewardPoints),
+        is_enabled: true
+      });
 
     if (actionsError) {
-      toast.error("Failed to create actions");
+      toast.error("Failed to create action");
     } else {
       toast.success("Game created successfully");
       setShowCreateDialog(false);
@@ -242,6 +248,8 @@ export function GamificationManagement() {
     setSelectedTerritories([]);
     setIsAllTerritories(false);
     setBaselineTarget("0");
+    setSelectedActivity("");
+    setRewardPoints("");
   };
 
   if (loading) {
@@ -319,6 +327,32 @@ export function GamificationManagement() {
                   placeholder="0"
                 />
               </div>
+              <div>
+                <Label htmlFor="activityName">Activity Name *</Label>
+                <Select value={selectedActivity} onValueChange={setSelectedActivity}>
+                  <SelectTrigger id="activityName">
+                    <SelectValue placeholder="Select an activity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACTIVITY_TYPES.map(activity => (
+                      <SelectItem key={activity.value} value={activity.value}>
+                        {activity.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="rewardPoints">Reward Points per Activity *</Label>
+                <Input
+                  id="rewardPoints"
+                  type="number"
+                  value={rewardPoints}
+                  onChange={(e) => setRewardPoints(e.target.value)}
+                  placeholder="Enter points"
+                  min="0"
+                />
+              </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="allTerritories"
@@ -329,7 +363,7 @@ export function GamificationManagement() {
               </div>
               {!isAllTerritories && (
                 <div>
-                  <Label>Select Territories</Label>
+                  <Label>Select Territories *</Label>
                   <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
                     {territories.map(territory => (
                       <div key={territory} className="flex items-center space-x-2 mb-2">
