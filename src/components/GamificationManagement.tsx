@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Award, Settings, Users, Medal } from "lucide-react";
+import { Loader2, Plus, Trash2, Award, Settings, Users, Medal, Pencil } from "lucide-react";
 import { BadgeManagement } from "./BadgeManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,8 @@ export function GamificationManagement() {
   const [loading, setLoading] = useState(true);
   const [territories, setTerritories] = useState<string[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
 
   // Form states
   const [gameName, setGameName] = useState("");
@@ -237,6 +239,54 @@ export function GamificationManagement() {
     } else {
       toast.success(`Redemption ${status}`);
       fetchRedemptions();
+    }
+  };
+
+  const openEditDialog = (game: Game) => {
+    setEditingGame(game);
+    setGameName(game.name);
+    setGameDescription(game.description);
+    setStartDate(game.start_date);
+    setEndDate(game.end_date);
+    setSelectedTerritories(game.territories);
+    setIsAllTerritories(game.is_all_territories);
+    setBaselineTarget(game.baseline_target.toString());
+    setShowEditDialog(true);
+  };
+
+  const updateGame = async () => {
+    if (!editingGame) return;
+    if (!gameName || !startDate || !endDate) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (selectedTerritories.length === 0 && !isAllTerritories) {
+      toast.error("Please select at least one territory");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("gamification_games")
+      .update({
+        name: gameName,
+        description: gameDescription,
+        start_date: startDate,
+        end_date: endDate,
+        territories: isAllTerritories ? [] : selectedTerritories,
+        is_all_territories: isAllTerritories,
+        baseline_target: parseFloat(baselineTarget)
+      })
+      .eq("id", editingGame.id);
+
+    if (error) {
+      toast.error("Failed to update game");
+    } else {
+      toast.success("Game updated successfully");
+      setShowEditDialog(false);
+      resetForm();
+      setEditingGame(null);
+      fetchGames();
     }
   };
 
@@ -418,9 +468,21 @@ export function GamificationManagement() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     {game.name}
-                    <Badge variant={game.is_active ? "default" : "secondary"}>
-                      {game.is_active ? "Active" : "Inactive"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditDialog(game);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Badge variant={game.is_active ? "default" : "secondary"}>
+                        {game.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
                   </CardTitle>
                   <CardDescription>{game.description}</CardDescription>
                 </CardHeader>
@@ -536,6 +598,97 @@ export function GamificationManagement() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Game</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editGameName">Game Name *</Label>
+              <Input
+                id="editGameName"
+                value={gameName}
+                onChange={(e) => setGameName(e.target.value)}
+                placeholder="Q1 2024 Sales Challenge"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editGameDescription">Description</Label>
+              <Textarea
+                id="editGameDescription"
+                value={gameDescription}
+                onChange={(e) => setGameDescription(e.target.value)}
+                placeholder="Describe the game objectives..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editStartDate">Start Date *</Label>
+                <Input
+                  id="editStartDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editEndDate">End Date *</Label>
+                <Input
+                  id="editEndDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="editBaselineTarget">Baseline Target (Entry Points)</Label>
+              <Input
+                id="editBaselineTarget"
+                type="number"
+                value={baselineTarget}
+                onChange={(e) => setBaselineTarget(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="editAllTerritories"
+                checked={isAllTerritories}
+                onCheckedChange={setIsAllTerritories}
+              />
+              <Label htmlFor="editAllTerritories">Apply to All Territories</Label>
+            </div>
+            {!isAllTerritories && (
+              <div>
+                <Label>Select Territories *</Label>
+                <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
+                  {territories.map(territory => (
+                    <div key={territory} className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id={`edit-${territory}`}
+                        checked={selectedTerritories.includes(territory)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTerritories([...selectedTerritories, territory]);
+                          } else {
+                            setSelectedTerritories(selectedTerritories.filter(t => t !== territory));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`edit-${territory}`}>{territory}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Button onClick={updateGame} className="w-full">Update Game</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

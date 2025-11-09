@@ -41,12 +41,28 @@ interface Redemption {
   rejection_reason: string | null;
 }
 
+interface Game {
+  id: string;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  baseline_target: number;
+}
+
+interface GameWithPoints extends Game {
+  activity_name: string;
+  earned_points: number;
+}
+
 export default function Leaderboard() {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const [leaderboard, setLeaderboard] = useState<UserPoints[]>([]);
   const [myPoints, setMyPoints] = useState<MyPoints>({ today: 0, week: 0, month: 0, quarter: 0, year: 0, total: 0 });
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
+  const [games, setGames] = useState<GameWithPoints[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("month");
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
@@ -58,6 +74,7 @@ export default function Leaderboard() {
     fetchLeaderboardData();
     fetchMyPoints();
     fetchRedemptions();
+    fetchGames();
   }, []);
 
   const fetchLeaderboardData = async () => {
@@ -145,6 +162,50 @@ export default function Leaderboard() {
       .order("requested_at", { ascending: false });
 
     if (data) setRedemptions(data);
+  };
+
+  const fetchGames = async () => {
+    if (!userProfile?.id) return;
+    
+    // Fetch all active games
+    const { data: gamesData } = await supabase
+      .from("gamification_games")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (!gamesData) return;
+
+    // For each game, fetch actions and calculate earned points
+    const gamesWithPoints: GameWithPoints[] = await Promise.all(
+      gamesData.map(async (game) => {
+        // Fetch actions for this game
+        const { data: actionsData } = await supabase
+          .from("gamification_actions")
+          .select("action_name")
+          .eq("game_id", game.id)
+          .eq("is_enabled", true)
+          .limit(1);
+
+        // Fetch user's points for this game
+        const { data: pointsData } = await supabase
+          .from("gamification_points")
+          .select("points")
+          .eq("game_id", game.id)
+          .eq("user_id", userProfile.id);
+
+        const earnedPoints = pointsData?.reduce((sum, p) => sum + p.points, 0) || 0;
+        const activityName = actionsData?.[0]?.action_name || "N/A";
+
+        return {
+          ...game,
+          activity_name: activityName,
+          earned_points: earnedPoints
+        };
+      })
+    );
+
+    setGames(gamesWithPoints);
   };
 
   const requestRedemption = async () => {
@@ -289,10 +350,14 @@ export default function Leaderboard() {
           </div>
 
           <Tabs defaultValue="leaderboard" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="leaderboard">
                 <Trophy className="mr-2 h-4 w-4" />
                 Leaderboard
+              </TabsTrigger>
+              <TabsTrigger value="games">
+                <Award className="mr-2 h-4 w-4" />
+                My Games
               </TabsTrigger>
               <TabsTrigger value="badges">
                 <Medal className="mr-2 h-4 w-4" />
@@ -352,6 +417,51 @@ export default function Leaderboard() {
                         <Badge variant="secondary">{item.total_points} pts</Badge>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="games" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>My Active Games</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {games.map(game => (
+                      <div key={game.id} className="p-4 border rounded-lg bg-card">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{game.name}</h3>
+                            {game.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{game.description}</p>
+                            )}
+                          </div>
+                          <Badge variant="default">Active</Badge>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                          <div className="p-3 bg-muted/50 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Activity</p>
+                            <p className="font-medium">{game.activity_name}</p>
+                          </div>
+                          <div className="p-3 bg-muted/50 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Base Target</p>
+                            <p className="font-medium">{game.baseline_target} points</p>
+                          </div>
+                          <div className="p-3 bg-primary/10 rounded-lg">
+                            <p className="text-sm text-muted-foreground">Earned Points</p>
+                            <p className="font-bold text-primary text-xl">{game.earned_points}</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-sm text-muted-foreground">
+                          <p>Period: {new Date(game.start_date).toLocaleDateString()} - {new Date(game.end_date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {games.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No active games available</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
