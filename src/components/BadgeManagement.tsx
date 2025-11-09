@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Award } from "lucide-react";
+import { Plus, Trash2, Award, Pencil } from "lucide-react";
 
 interface Badge {
   id: string;
@@ -34,6 +34,8 @@ const BADGE_COLORS = ["gold", "silver", "blue", "green", "purple", "red", "orang
 export function BadgeManagement() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingBadge, setEditingBadge] = useState<Badge | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -78,6 +80,55 @@ export function BadgeManagement() {
     } else {
       toast.success("Badge created successfully");
       setShowCreateDialog(false);
+      setFormData({
+        name: "",
+        description: "",
+        icon: "🏆",
+        criteria_type: "order_count",
+        criteria_value: "0",
+        badge_color: "blue"
+      });
+      fetchBadges();
+    }
+  };
+
+  const openEditDialog = (badge: Badge) => {
+    setEditingBadge(badge);
+    setFormData({
+      name: badge.name,
+      description: badge.description || "",
+      icon: badge.icon,
+      criteria_type: badge.criteria_type,
+      criteria_value: badge.criteria_value.toString(),
+      badge_color: badge.badge_color
+    });
+    setShowEditDialog(true);
+  };
+
+  const updateBadge = async () => {
+    if (!editingBadge || !formData.name || !formData.criteria_value) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("badges")
+      .update({
+        name: formData.name,
+        description: formData.description,
+        icon: formData.icon,
+        criteria_type: formData.criteria_type,
+        criteria_value: parseFloat(formData.criteria_value),
+        badge_color: formData.badge_color
+      })
+      .eq("id", editingBadge.id);
+
+    if (error) {
+      toast.error("Failed to update badge");
+    } else {
+      toast.success("Badge updated successfully");
+      setShowEditDialog(false);
+      setEditingBadge(null);
       setFormData({
         name: "",
         description: "",
@@ -194,6 +245,80 @@ export function BadgeManagement() {
         </Dialog>
       </div>
 
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Badge</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Badge Name *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Century Maker"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Complete 100 orders"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-icon">Icon (Emoji)</Label>
+              <Input
+                id="edit-icon"
+                value={formData.icon}
+                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                placeholder="🏆"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-criteria_type">Criteria Type *</Label>
+              <Select value={formData.criteria_type} onValueChange={(v) => setFormData({ ...formData, criteria_type: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CRITERIA_TYPES.map(type => (
+                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-criteria_value">Criteria Value *</Label>
+              <Input
+                id="edit-criteria_value"
+                type="number"
+                value={formData.criteria_value}
+                onChange={(e) => setFormData({ ...formData, criteria_value: e.target.value })}
+                placeholder="100"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-badge_color">Badge Color</Label>
+              <Select value={formData.badge_color} onValueChange={(v) => setFormData({ ...formData, badge_color: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BADGE_COLORS.map(color => (
+                    <SelectItem key={color} value={color}>{color}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={updateBadge} className="w-full">Update Badge</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {badges.map(badge => (
           <Card key={badge.id}>
@@ -203,13 +328,22 @@ export function BadgeManagement() {
                   <span className="text-3xl">{badge.icon}</span>
                   {badge.name}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteBadge(badge.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEditDialog(badge)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteBadge(badge.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
