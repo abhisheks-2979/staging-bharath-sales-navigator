@@ -33,6 +33,20 @@ export default function CompanySettings() {
 
   const form = useForm<z.infer<typeof companySchema>>({
     resolver: zodResolver(companySchema),
+    defaultValues: {
+      name: "BHARATH BEVERAGES",
+      address: "S 15-7-366/2 -Bharath Beedi Golden Jubilee Building, 1st floor, Bharath Bagh, Kadri Rd, Mangaluru -575003",
+      contact_phone: "8951713030",
+      email: "bharath.beverages@bharathgroup.co.in",
+      gstin: "29ABDFB8743K1ZZ",
+      state: "29-Karnataka",
+      bank_name: "CANARA BANK",
+      bank_account: "120032473436",
+      ifsc: "CNRB0010105",
+      account_holder_name: "BHARATH BEVERAGES",
+      qr_upi: "",
+      terms_conditions: "Thanks for doing business with us!",
+    },
   });
 
   useEffect(() => {

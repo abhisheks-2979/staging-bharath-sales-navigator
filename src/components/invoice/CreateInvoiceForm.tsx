@@ -35,6 +35,7 @@ interface InvoiceItem {
 export default function CreateInvoiceForm({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [retailers, setRetailers] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -42,17 +43,24 @@ export default function CreateInvoiceForm({ onClose }: { onClose: () => void }) 
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       invoice_date: new Date().toISOString().split('T')[0],
+      place_of_supply: "29-Karnataka",
     },
   });
 
   useEffect(() => {
     fetchCustomers();
     fetchCompanies();
+    fetchRetailers();
   }, []);
 
   const fetchCustomers = async () => {
     const { data } = await supabase.from("customers").select("*").order("name");
     if (data) setCustomers(data);
+  };
+
+  const fetchRetailers = async () => {
+    const { data } = await supabase.from("retailers").select("*").order("name");
+    if (data) setRetailers(data);
   };
 
   const fetchCompanies = async () => {
@@ -246,19 +254,66 @@ export default function CreateInvoiceForm({ onClose }: { onClose: () => void }) 
                 name="customer_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Customer (Retailer)</FormLabel>
+                    <Select 
+                      onValueChange={async (value) => {
+                        field.onChange(value);
+                        // Check if it's a retailer or existing customer
+                        const retailer = retailers.find(r => r.id === value);
+                        if (retailer) {
+                          // Create customer from retailer if not exists
+                          const { data: existingCustomer } = await supabase
+                            .from("customers")
+                            .select("id")
+                            .eq("name", retailer.name)
+                            .single();
+                          
+                          if (!existingCustomer) {
+                            const { data: newCustomer } = await supabase
+                              .from("customers")
+                              .insert({
+                                name: retailer.name,
+                                address: retailer.address,
+                                contact_phone: retailer.phone,
+                                state: "29-Karnataka",
+                                gstin: retailer.gst_number,
+                              })
+                              .select()
+                              .single();
+                            
+                            if (newCustomer) {
+                              field.onChange(newCustomer.id);
+                              fetchCustomers();
+                            }
+                          } else {
+                            field.onChange(existingCustomer.id);
+                          }
+                        }
+                      }} 
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select customer" />
+                          <SelectValue placeholder="Select retailer/customer" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.name}
+                        <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Retailers</div>
+                        {retailers.map((retailer) => (
+                          <SelectItem key={retailer.id} value={retailer.id}>
+                            {retailer.name} - {retailer.phone}
                           </SelectItem>
                         ))}
+                        {customers.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Existing Customers</div>
+                            {customers.map((customer) => (
+                              <SelectItem key={customer.id} value={customer.id}>
+                                {customer.name}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
