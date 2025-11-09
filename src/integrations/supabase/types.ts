@@ -555,6 +555,63 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          account_holder_name: string | null
+          address: string | null
+          bank_account: string | null
+          bank_name: string | null
+          contact_phone: string | null
+          created_at: string | null
+          email: string | null
+          gstin: string | null
+          id: string
+          ifsc: string | null
+          logo_url: string | null
+          name: string
+          qr_upi: string | null
+          state: string | null
+          terms_conditions: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_holder_name?: string | null
+          address?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          email?: string | null
+          gstin?: string | null
+          id?: string
+          ifsc?: string | null
+          logo_url?: string | null
+          name: string
+          qr_upi?: string | null
+          state?: string | null
+          terms_conditions?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_holder_name?: string | null
+          address?: string | null
+          bank_account?: string | null
+          bank_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          email?: string | null
+          gstin?: string | null
+          id?: string
+          ifsc?: string | null
+          logo_url?: string | null
+          name?: string
+          qr_upi?: string | null
+          state?: string | null
+          terms_conditions?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       competencies: {
         Row: {
           category: string
@@ -648,6 +705,42 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visit_id?: string | null
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          address: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          created_at: string | null
+          gstin: string | null
+          id: string
+          name: string
+          state: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          gstin?: string | null
+          id?: string
+          name: string
+          state?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          gstin?: string | null
+          id?: string
+          name?: string
+          state?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -1383,6 +1476,137 @@ export type Database = {
           year?: number
         }
         Relationships: []
+      }
+      invoice_items: {
+        Row: {
+          cgst_amount: number | null
+          created_at: string | null
+          description: string
+          gst_rate: number | null
+          hsn_sac: string | null
+          id: string
+          invoice_id: string
+          price_per_unit: number | null
+          quantity: number | null
+          sgst_amount: number | null
+          taxable_amount: number | null
+          total_amount: number | null
+          unit: string | null
+        }
+        Insert: {
+          cgst_amount?: number | null
+          created_at?: string | null
+          description: string
+          gst_rate?: number | null
+          hsn_sac?: string | null
+          id?: string
+          invoice_id: string
+          price_per_unit?: number | null
+          quantity?: number | null
+          sgst_amount?: number | null
+          taxable_amount?: number | null
+          total_amount?: number | null
+          unit?: string | null
+        }
+        Update: {
+          cgst_amount?: number | null
+          created_at?: string | null
+          description?: string
+          gst_rate?: number | null
+          hsn_sac?: string | null
+          id?: string
+          invoice_id?: string
+          price_per_unit?: number | null
+          quantity?: number | null
+          sgst_amount?: number | null
+          taxable_amount?: number | null
+          total_amount?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount_in_words: string | null
+          company_id: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_id: string | null
+          due_date: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          place_of_supply: string | null
+          status: string | null
+          sub_total: number | null
+          terms: string | null
+          total_amount: number | null
+          total_tax: number | null
+          updated_at: string | null
+          vehicle_number: string | null
+        }
+        Insert: {
+          amount_in_words?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          place_of_supply?: string | null
+          status?: string | null
+          sub_total?: number | null
+          terms?: string | null
+          total_amount?: number | null
+          total_tax?: number | null
+          updated_at?: string | null
+          vehicle_number?: string | null
+        }
+        Update: {
+          amount_in_words?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          place_of_supply?: string | null
+          status?: string | null
+          sub_total?: number | null
+          terms?: string | null
+          total_amount?: number | null
+          total_tax?: number | null
+          updated_at?: string | null
+          vehicle_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leave_applications: {
         Row: {
@@ -3676,6 +3900,7 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: undefined
       }
+      generate_invoice_number: { Args: never; Returns: string }
       get_authenticated_email: { Args: never; Returns: string }
       get_basic_profiles_for_admin: {
         Args: never
