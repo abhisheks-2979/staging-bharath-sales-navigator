@@ -726,109 +726,83 @@ React.useEffect(() => {
           </Card>
         ) : (
           <>
-            <div className="space-y-3">
-              {cartItems.map(item => (
-                <Card key={item.id}>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.name}</h3>
-                        <p className="text-sm text-muted-foreground">{item.category}</p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">₹{item.rate}/{item.unit}</p>
+            <div className="space-y-2">
+              {cartItems.map(item => {
+                const discount = computeItemDiscount(item);
+                const finalPrice = computeItemTotal(item);
+                const hasDiscount = discount > 0;
+                
+                // Extract just the variant name if it contains a dash
+                const displayName = item.name.includes(' - ') 
+                  ? item.name.split(' - ')[1] || item.name
+                  : item.name;
+                
+                return (
+                  <Card key={item.id} className="border-border/50">
+                    <CardContent className="p-2.5">
+                      <div className="flex items-center gap-2">
+                        {/* Product Info - Compact */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{displayName}</h3>
+                          <p className="text-xs text-muted-foreground">₹{item.rate}/{item.unit}</p>
+                        </div>
+                        
+                        {/* Quantity Controls - Compact */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          >
+                            -
+                          </Button>
+                          <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          >
+                            +
+                          </Button>
+                        </div>
+                        
+                        {/* Price - Compact */}
+                        <div className="text-right min-w-[70px] shrink-0">
+                          <div className="font-bold text-sm">₹{finalPrice.toLocaleString()}</div>
+                          {hasDiscount && (
+                            <div className="text-[10px] text-green-600 font-medium">-₹{discount.toFixed(0)}</div>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons - Compact */}
+                        <div className="flex gap-1 shrink-0">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-primary"
                             onClick={() => {
                               setSelectedItem(item);
                               setShowItemDetail(true);
                             }}
-                            className="text-xs text-muted-foreground hover:text-primary"
                           >
-                            <Eye size={12} className="mr-1" />
-                            Show More
+                            <Eye size={14} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive/80"
+                            onClick={() => removeFromCart(item.id)}
+                          >
+                            <Trash2 size={14} />
                           </Button>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        >
-                          -
-                        </Button>
-                        <span className="w-12 text-center">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        >
-                          +
-                        </Button>
-                      </div>
-                      <div className="text-right">
-                        {(() => {
-                          const originalPrice = computeItemSubtotal(item);
-                          const discount = computeItemDiscount(item);
-                          const finalPrice = computeItemTotal(item);
-                          const hasDiscount = discount > 0;
-                          
-                          return (
-                            <div className="flex flex-col items-end">
-                              {hasDiscount && (
-                                <span className="text-xs text-muted-foreground line-through">₹{originalPrice.toLocaleString()}</span>
-                              )}
-                              <span className="font-bold text-lg">₹{finalPrice.toLocaleString()}</span>
-                              {hasDiscount && (
-                                <span className="text-xs text-green-600 font-medium">You saved ₹{discount.toLocaleString()}</span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 space-y-1 text-sm">
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>₹{item.rate}/{item.unit} × {item.quantity}</span>
-                        <span>₹{computeItemSubtotal(item).toLocaleString()}</span>
-                      </div>
-                      {computeItemDiscount(item) > 0 && (
-                        <div className="flex justify-between text-green-600">
-                          <span className="flex items-center gap-1">
-                            <Gift size={12} />
-                            {(() => {
-                              // Show scheme details if available, otherwise generic message
-                              if (item.total !== undefined) {
-                                return 'Scheme Offer Applied';
-                              }
-                              const s = getItemScheme(item);
-                              return s.discountPct ? `Scheme Discount (${s.discountPct}% off)` : 'Scheme Discount';
-                            })()}
-                          </span>
-                          <span className="font-medium">-₹{computeItemDiscount(item).toLocaleString()}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between font-semibold border-t pt-2">
-                        <span>Final Total</span>
-                        <span>₹{computeItemTotal(item).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Order Summary */}

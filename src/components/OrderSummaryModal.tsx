@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Gift, Package, ShoppingCart } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface OrderSummaryItem {
   id: string;
@@ -34,6 +35,28 @@ export const OrderSummaryModal = ({
   onAddToCart,
   productName = "Product"
 }: OrderSummaryModalProps) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  const handleAddToCart = () => {
+    onAddToCart();
+    onClose();
+    
+    // Navigate to cart page with current parameters
+    const visitId = searchParams.get("visitId") || '';
+    const retailerId = searchParams.get("retailerId") || '';
+    const retailerName = searchParams.get("retailer") || '';
+    const phoneOrder = searchParams.get("phoneOrder") || '';
+    
+    const params = new URLSearchParams();
+    if (visitId) params.set("visitId", visitId);
+    if (retailerId) params.set("retailerId", retailerId);
+    if (retailerName) params.set("retailer", retailerName);
+    if (phoneOrder) params.set("phoneOrder", phoneOrder);
+    
+    navigate(`/cart?${params.toString()}`);
+  };
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
@@ -121,7 +144,7 @@ export const OrderSummaryModal = ({
             </div>
             
             <Button 
-              onClick={onAddToCart}
+              onClick={handleAddToCart}
               className="w-full"
               size="lg"
             >
