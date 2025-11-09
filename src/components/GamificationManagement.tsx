@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Award, Settings, Users, Medal, Pencil } from "lucide-react";
+import { Loader2, Plus, Trash2, Award, Settings, Users, Medal, Pencil, Trophy } from "lucide-react";
 import { BadgeManagement } from "./BadgeManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,12 @@ interface Game {
   is_all_territories: boolean;
   baseline_target: number;
   is_active: boolean;
+}
+
+interface GameStats {
+  participants: number;
+  total_points: number;
+  active_actions: number;
 }
 
 interface GameAction {
@@ -70,6 +76,7 @@ export function GamificationManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [gameStats, setGameStats] = useState<Map<string, GameStats>>(new Map());
 
   // Form states
   const [gameName, setGameName] = useState("");
@@ -111,9 +118,44 @@ export function GamificationManagement() {
       setGames(data || []);
       if (data && data.length > 0) {
         setSelectedGame(data[0]);
+        // Fetch stats for all games
+        data.forEach(game => fetchGameStats(game.id));
       }
     }
     setLoading(false);
+  };
+
+  const fetchGameStats = async (gameId: string) => {
+    // Fetch participants count
+    const { data: participantsData } = await supabase
+      .from("gamification_points")
+      .select("user_id")
+      .eq("game_id", gameId);
+
+    const uniqueParticipants = new Set(participantsData?.map(p => p.user_id) || []).size;
+
+    // Fetch total points distributed
+    const { data: pointsData } = await supabase
+      .from("gamification_points")
+      .select("points")
+      .eq("game_id", gameId);
+
+    const totalPoints = pointsData?.reduce((sum, p) => sum + p.points, 0) || 0;
+
+    // Fetch active actions count
+    const { data: actionsData } = await supabase
+      .from("gamification_actions")
+      .select("id")
+      .eq("game_id", gameId)
+      .eq("is_enabled", true);
+
+    const activeActions = actionsData?.length || 0;
+
+    setGameStats(prev => new Map(prev).set(gameId, {
+      participants: uniqueParticipants,
+      total_points: totalPoints,
+      active_actions: activeActions
+    }));
   };
 
   const fetchActions = async (gameId: string) => {
@@ -458,43 +500,113 @@ export function GamificationManagement() {
         </TabsList>
 
         <TabsContent value="games" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {games.map(game => (
-              <Card
-                key={game.id}
-                className={`cursor-pointer transition-colors ${selectedGame?.id === game.id ? "border-primary" : ""}`}
-                onClick={() => setSelectedGame(game)}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    {game.name}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditDialog(game);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Badge variant={game.is_active ? "default" : "secondary"}>
-                        {game.is_active ? "Active" : "Inactive"}
-                      </Badge>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {games.map(game => {
+              const stats = gameStats.get(game.id);
+              const daysRemaining = Math.ceil((new Date(game.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              const isExpired = daysRemaining < 0;
+              
+              return (
+                <Card
+                  key={game.id}
+                  className={`cursor-pointer transition-all hover:shadow-lg ${selectedGame?.id === game.id ? "border-primary ring-2 ring-primary/20" : ""}`}
+                  onClick={() => setSelectedGame(game)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-xl mb-2">{game.name}</CardTitle>
+                        <CardDescription>{game.description || "No description"}</CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditDialog(game);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Badge variant={game.is_active && !isExpired ? "default" : "secondary"}>
+                          {isExpired ? "Expired" : game.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
                     </div>
-                  </CardTitle>
-                  <CardDescription>{game.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm space-y-1">
-                    <p><strong>Period:</strong> {new Date(game.start_date).toLocaleDateString()} - {new Date(game.end_date).toLocaleDateString()}</p>
-                    <p><strong>Territories:</strong> {game.is_all_territories ? "All" : game.territories.join(", ")}</p>
-                    <p><strong>Entry Target:</strong> {game.baseline_target} points</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Date Information */}
+                    <div className="flex items-center justify-between text-sm p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-muted-foreground">Start Date</p>
+                        <p className="font-medium">{new Date(game.start_date).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-muted-foreground">End Date</p>
+                        <p className="font-medium">{new Date(game.end_date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+
+                    {/* Days Remaining */}
+                    {!isExpired && (
+                      <div className="text-center p-2 bg-primary/10 rounded-lg">
+                        <p className="text-sm font-medium text-primary">
+                          {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                        <Users className="h-5 w-5 mx-auto mb-1 text-blue-600" />
+                        <p className="text-2xl font-bold text-blue-600">{stats?.participants || 0}</p>
+                        <p className="text-xs text-muted-foreground">Participants</p>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
+                        <Trophy className="h-5 w-5 mx-auto mb-1 text-green-600" />
+                        <p className="text-2xl font-bold text-green-600">{stats?.total_points || 0}</p>
+                        <p className="text-xs text-muted-foreground">Points Given</p>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg">
+                        <Settings className="h-5 w-5 mx-auto mb-1 text-purple-600" />
+                        <p className="text-2xl font-bold text-purple-600">{stats?.active_actions || 0}</p>
+                        <p className="text-xs text-muted-foreground">Active Actions</p>
+                      </div>
+                    </div>
+
+                    {/* Additional Details */}
+                    <div className="space-y-2 text-sm border-t pt-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Base Target:</span>
+                        <span className="font-medium">{game.baseline_target} points</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Territories:</span>
+                        <span className="font-medium text-right">
+                          {game.is_all_territories ? "All Territories" : `${game.territories.length} selected`}
+                        </span>
+                      </div>
+                      {!game.is_all_territories && game.territories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {game.territories.slice(0, 3).map(territory => (
+                            <Badge key={territory} variant="outline" className="text-xs">
+                              {territory}
+                            </Badge>
+                          ))}
+                          {game.territories.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{game.territories.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {selectedGame && (
