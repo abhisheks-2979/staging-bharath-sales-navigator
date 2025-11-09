@@ -29,7 +29,7 @@ export const AddRetailer = () => {
     category: "",
     notes: "",
     parentType: "Distributor", // Default to Distributor
-    parentName: "",
+    parentName: "BHARATH BEVERAGES",
     selectedDistributors: [] as string[], // Array for multiple distributors
     locationTag: "",
     retailType: "",

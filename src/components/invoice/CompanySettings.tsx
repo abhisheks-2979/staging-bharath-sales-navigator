@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Upload, X } from "lucide-react";
 
 const companySchema = z.object({
   name: z.string().min(1, "Company name is required"),
@@ -30,6 +31,8 @@ export default function CompanySettings() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>("/bharath-beverages-logo.png");
 
   const form = useForm<z.infer<typeof companySchema>>({
     resolver: zodResolver(companySchema),
@@ -58,6 +61,7 @@ export default function CompanySettings() {
     if (data && data.length > 0) {
       setCompanies(data);
       setSelectedCompany(data[0]);
+      setLogoUrl(data[0].logo_url || "/bharath-beverages-logo.png");
       // Type-safe form reset
       form.reset({
         name: data[0].name || "",
@@ -73,6 +77,61 @@ export default function CompanySettings() {
         qr_upi: data[0].qr_upi || "",
         terms_conditions: data[0].terms_conditions || "",
       });
+    }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size should be less than 2MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `company-logo-${Date.now()}.${fileExt}`;
+      const filePath = `company-logos/${fileName}`;
+
+      // Upload to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-assets')
+        .getPublicUrl(filePath);
+
+      setLogoUrl(publicUrl);
+
+      // Update company record if exists
+      if (selectedCompany) {
+        const { error: updateError } = await supabase
+          .from('companies')
+          .update({ logo_url: publicUrl })
+          .eq('id', selectedCompany.id);
+
+        if (updateError) throw updateError;
+      }
+
+      toast.success("Logo uploaded successfully");
+    } catch (error: any) {
+      console.error("Error uploading logo:", error);
+      toast.error(error.message || "Failed to upload logo");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -93,6 +152,7 @@ export default function CompanySettings() {
         account_holder_name: data.account_holder_name || null,
         qr_upi: data.qr_upi || null,
         terms_conditions: data.terms_conditions || null,
+        logo_url: logoUrl || null,
       };
       
       if (selectedCompany) {
@@ -124,6 +184,30 @@ export default function CompanySettings() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Logo Upload Section */}
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h3 className="text-sm font-semibold mb-3">Company Logo</h3>
+              <div className="flex items-center gap-4">
+                {logoUrl && (
+                  <div className="relative w-32 h-32 border rounded-lg overflow-hidden bg-white">
+                    <img src={logoUrl} alt="Company Logo" className="w-full h-full object-contain p-2" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={uploading}
+                    className="mb-2"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload company logo (max 2MB, PNG/JPG)
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
