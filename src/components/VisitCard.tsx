@@ -1167,7 +1167,27 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${((isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) ? "opacity-50 cursor-not-allowed" : ""}`}
               onClick={async () => {
-                if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
+                console.log('Order button clicked - Debug info:', {
+                  isCheckInMandatory,
+                  isCheckedIn,
+                  proceedWithoutCheckIn,
+                  isTodaysVisit,
+                  selectedDate,
+                  currentDate: new Date().toISOString().split('T')[0]
+                });
+
+                // Check if it's not today's visit
+                if (!isTodaysVisit) {
+                  toast({ 
+                    title: 'Cannot Place Order', 
+                    description: 'You can only place orders for today\'s visits. Please select today\'s date.',
+                    variant: 'destructive' 
+                  });
+                  return;
+                }
+
+                // Check if check-in is required but not done
+                if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
                   toast({ 
                     title: 'Check-in Required', 
                     description: 'Please check in first to place an order.',
@@ -1175,7 +1195,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   });
                   return;
                 }
-                if ((isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) || !isTodaysVisit) return;
+
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
                   if (!user) {
@@ -1184,12 +1204,16 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   }
                   const today = new Date().toISOString().split('T')[0];
                   const retailerId = (visit.retailerId || visit.id) as string;
+                  
+                  console.log('Creating/ensuring visit before navigation...', { retailerId, today });
                   const visitId = await ensureVisit(user.id, retailerId, today);
+                  console.log('Visit ensured, navigating to order-entry with visitId:', visitId);
+                  
                   setCurrentVisitId(visitId);
                   navigate(`/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(visitId)}&retailer=${encodeURIComponent(visit.retailerName)}`);
                 } catch (err: any) {
-                  console.error('Open order entry error', err);
-                  toast({ title: 'Unable to open', description: err.message || 'Try again.', variant: 'destructive' });
+                  console.error('Open order entry error:', err);
+                  toast({ title: 'Unable to open order entry', description: err.message || 'Please try again.', variant: 'destructive' });
                 }
               }}
               title={`${(!isCheckedIn && !proceedWithoutCheckIn) ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
