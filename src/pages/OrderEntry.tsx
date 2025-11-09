@@ -1297,7 +1297,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
     setCart(newCartItems);
     
     // Don't clear quantities - keep them until order is submitted
-    // setQuantities({});
+    // setQuantities({};
     // setSelectedVariants({});
     setShowOrderSummary(false);
     
@@ -1305,6 +1305,10 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
       title: "Cart Updated",
       description: `Cart updated with ${items.length} item(s)`
     });
+    
+    // Navigate to cart with current parameters
+    const params = new URLSearchParams(searchParams);
+    navigate(`/cart?${params.toString()}`);
   };
 
   // Auto-sync function to update cart with current selections
