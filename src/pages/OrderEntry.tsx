@@ -80,7 +80,7 @@ export const OrderEntry = () => {
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
-  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock">("grid");
+  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [noOrderReason, setNoOrderReason] = useState<string>("");
 const [categories, setCategories] = useState<string[]>(["All"]);
