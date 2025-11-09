@@ -1056,6 +1056,202 @@ export type Database = {
         }
         Relationships: []
       }
+      gamification_actions: {
+        Row: {
+          action_name: string
+          action_type: string
+          created_at: string
+          game_id: string
+          id: string
+          is_enabled: boolean | null
+          metadata: Json | null
+          points: number
+          updated_at: string
+        }
+        Insert: {
+          action_name: string
+          action_type: string
+          created_at?: string
+          game_id: string
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          points?: number
+          updated_at?: string
+        }
+        Update: {
+          action_name?: string
+          action_type?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          points?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_actions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gamification_games: {
+        Row: {
+          baseline_target: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string
+          id: string
+          is_active: boolean | null
+          is_all_territories: boolean | null
+          name: string
+          start_date: string
+          territories: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          baseline_target?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date: string
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          name: string
+          start_date: string
+          territories?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          baseline_target?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          name?: string
+          start_date?: string
+          territories?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gamification_points: {
+        Row: {
+          action_id: string
+          earned_at: string
+          game_id: string
+          id: string
+          metadata: Json | null
+          points: number
+          reference_id: string | null
+          reference_type: string | null
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          earned_at?: string
+          game_id: string
+          id?: string
+          metadata?: Json | null
+          points: number
+          reference_id?: string | null
+          reference_type?: string | null
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          earned_at?: string
+          game_id?: string
+          id?: string
+          metadata?: Json | null
+          points?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_points_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gamification_points_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gamification_redemptions: {
+        Row: {
+          created_at: string
+          game_id: string | null
+          id: string
+          points_redeemed: number
+          processed_at: string | null
+          processed_by: string | null
+          rejection_reason: string | null
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string
+          voucher_amount: number
+          voucher_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          points_redeemed: number
+          processed_at?: string | null
+          processed_by?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          voucher_amount: number
+          voucher_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          points_redeemed?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          voucher_amount?: number
+          voucher_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_redemptions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gps_tracking: {
         Row: {
           accuracy: number | null
