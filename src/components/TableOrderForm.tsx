@@ -711,7 +711,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         placeholder="0"
                         value={row.quantity || ""}
                         onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
-                        className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1"
+                        className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                         disabled={!row.product}
                       />
                     </div>
