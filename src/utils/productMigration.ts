@@ -74,7 +74,7 @@ export const migrateProducts = async () => {
         .from('products')
         .insert({
           name: product.name,
-          sku: '', // Keep SKU blank as requested
+          sku: `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Generate unique SKU
           category_id: categoryId,
           rate: product.rate || 0,
           unit: product.unit || 'grams',
