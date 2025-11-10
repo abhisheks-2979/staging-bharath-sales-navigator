@@ -19,6 +19,7 @@ interface CartItem {
   category: string;
   rate: number;
   unit: string;
+  base_unit?: string;
   quantity: number;
   total: number;
   schemeConditionQuantity?: number;
@@ -27,6 +28,27 @@ interface CartItem {
 }
 
 type AnyCartItem = CartItem;
+
+// Unit conversion helper - matches TableOrderForm logic
+const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+const getDisplayRate = (item: CartItem) => {
+  const baseRate = Number(item.rate) || 0;
+  const baseUnit = normalizeUnit(item.base_unit || item.unit);
+  const targetUnit = normalizeUnit(item.unit);
+
+  if (!baseUnit || !item.base_unit) return baseRate;
+
+  // KG ↔ Gram conversions
+  if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
+    if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
+    if (targetUnit === "kg") return baseRate;
+  } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
+    if (targetUnit === "kg") return baseRate * 1000;
+    if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
+  }
+
+  return baseRate;
+};
 
 export const Cart = () => {
   const navigate = useNavigate();
@@ -146,7 +168,8 @@ const getItemScheme = (item: AnyCartItem) => {
 const computeItemSubtotal = (item: AnyCartItem) => {
   try {
     if (!item || !item.rate || !item.quantity) return 0;
-    return Number(item.rate) * Number(item.quantity);
+    const displayRate = getDisplayRate(item);
+    return Number(displayRate) * Number(item.quantity);
   } catch (error) {
     console.error('Error computing subtotal:', error);
     return 0;
@@ -744,7 +767,7 @@ React.useEffect(() => {
                         {/* Product Info - Compact */}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm truncate">{displayName}</h3>
-                          <p className="text-xs text-muted-foreground">₹{item.rate}/{item.unit}</p>
+                          <p className="text-xs text-muted-foreground">₹{getDisplayRate(item).toFixed(2)}/{item.unit}</p>
                         </div>
                         
                         {/* Quantity Controls - Compact */}

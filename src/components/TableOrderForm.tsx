@@ -403,20 +403,21 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
             sku: row.variant ? row.variant.sku : row.product!.sku,
             closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
           };
-          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
-          return {
-            id: itemId,
-            name: baseProduct.name || 'Unknown Product',
-            category: baseProduct.category?.name || 'Uncategorized',
-            rate: Number(baseProduct.rate) || 0,
-            unit: baseProduct.unit || 'piece',
-            quantity: Number(row.quantity) || 0,
-            total: Number(row.total) || 0,
-            closingStock: Number(row.closingStock) || 0,
-            schemes: baseProduct.schemes || []
-          };
-        });
-        onCartUpdate(cartItems);
+            const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
+            return {
+              id: itemId,
+              name: baseProduct.name || 'Unknown Product',
+              category: baseProduct.category?.name || 'Uncategorized',
+              rate: Number(baseProduct.rate) || 0,
+              unit: row.unit || baseProduct.unit || 'piece',
+              base_unit: row.product!.base_unit,
+              quantity: Number(row.quantity) || 0,
+              total: Number(row.total) || 0,
+              closingStock: Number(row.closingStock) || 0,
+              schemes: baseProduct.schemes || []
+            };
+          });
+          onCartUpdate(cartItems);
       }, 0);
 
       return updatedRows;
@@ -445,21 +446,22 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
         };
         
-        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
-        
-        // Ensure all required fields are present and valid
-        return {
-          id: itemId,
-          name: baseProduct.name || 'Unknown Product',
-          category: baseProduct.category?.name || 'Uncategorized',
-          rate: Number(baseProduct.rate) || 0,
-          unit: baseProduct.unit || 'piece',
-          quantity: Number(row.quantity) || 0,
-          total: Number(row.total) || 0,
-          closingStock: Number(row.closingStock) || 0,
-          schemes: baseProduct.schemes || []
-        };
-      });
+          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
+          
+          // Ensure all required fields are present and valid
+          return {
+            id: itemId,
+            name: baseProduct.name || 'Unknown Product',
+            category: baseProduct.category?.name || 'Uncategorized',
+            rate: Number(baseProduct.rate) || 0,
+            unit: row.unit || baseProduct.unit || 'piece',
+            base_unit: row.product!.base_unit,
+            quantity: Number(row.quantity) || 0,
+            total: Number(row.total) || 0,
+            closingStock: Number(row.closingStock) || 0,
+            schemes: baseProduct.schemes || []
+          };
+        });
 
       console.log('Adding items to cart:', cartItems);
       
