@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2 } from 'lucide-react';
 import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
+import { migrateProducts } from '@/utils/productMigration';
 
 interface ProductCategory {
   id: string;
@@ -661,8 +662,20 @@ setProductForm({
                     />
                   </div>
                 </div>
-                <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
-                  <DialogTrigger asChild>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={async () => {
+                      const success = await migrateProducts();
+                      if (success) {
+                        fetchData();
+                      }
+                    }}
+                  >
+                    Reset & Load Products
+                  </Button>
+                  <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
+                    <DialogTrigger asChild>
 <Button onClick={() => setProductForm({
   id: '',
   sku: '',
@@ -868,7 +881,8 @@ setProductForm({
                       </Button>
                     </DialogFooter>
                   </DialogContent>
-                </Dialog>
+                  </Dialog>
+                </div>
               </div>
 
               <ScrollArea className="h-[400px] rounded-md border">
