@@ -17,7 +17,7 @@ import { StockCycleModal } from "./StockCycleModal";
 import { AnalyticsModal } from "./AnalyticsModal";
 import { StockDataModal } from "./StockDataModal";
 import { RetailerAnalytics } from "./RetailerAnalytics";
-import { InvoiceGenerator } from "./InvoiceGenerator";
+import { VisitInvoicePDFGenerator } from "./VisitInvoicePDFGenerator";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { VanSalesModal } from "./VanSalesModal";
@@ -1327,7 +1327,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   {/* Invoice Generation Button */}
                   {lastOrderId && (
                     <div className="mt-3 pt-2 border-t">
-                      <InvoiceGenerator orderId={lastOrderId} className="w-full" />
+                      <VisitInvoicePDFGenerator orderId={lastOrderId} className="w-full" />
                     </div>
                   )}
                 </>
