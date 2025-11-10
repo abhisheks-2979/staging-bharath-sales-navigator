@@ -370,9 +370,10 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       const base = Number(price) * Number(qty);
       const active = prod.schemes?.find(s => s.is_active);
       if (active && active.condition_quantity && active.discount_percentage && qty >= active.condition_quantity) {
-        return base - (base * (Number(active.discount_percentage) / 100));
+        const discountedTotal = base - (base * (Number(active.discount_percentage) / 100));
+        return parseFloat(discountedTotal.toFixed(2));
       }
-      return base;
+      return parseFloat(base.toFixed(2));
     };
 
     setOrderRows(prev => {
@@ -515,7 +516,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   };
 
   const getTotalValue = () => {
-    return orderRows.reduce((sum, row) => sum + row.total, 0);
+    return parseFloat(orderRows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
   };
 
   const hasActiveSchemes = (product: Product) => {
@@ -752,7 +753,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Total</p>
-          <p className="text-lg font-bold">₹{getTotalValue().toLocaleString()}</p>
+          <p className="text-lg font-bold">₹{getTotalValue().toFixed(2)}</p>
         </div>
       </div>
 
