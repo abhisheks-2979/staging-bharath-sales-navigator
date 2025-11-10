@@ -664,6 +664,33 @@ setProductForm({
                 </div>
                 <div className="flex gap-2">
                   <Button 
+                    variant="destructive" 
+                    onClick={async () => {
+                      if (confirm('Are you sure you want to delete ALL products? This action cannot be undone.')) {
+                        try {
+                          toast.loading('Deleting all products...');
+                          const { error } = await supabase
+                            .from('products')
+                            .delete()
+                            .neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          if (error) throw error;
+                          
+                          toast.dismiss();
+                          toast.success('All products deleted successfully');
+                          fetchData();
+                        } catch (error) {
+                          toast.dismiss();
+                          console.error('Error deleting products:', error);
+                          toast.error('Failed to delete products');
+                        }
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete All Products
+                  </Button>
+                  <Button 
                     variant="outline" 
                     onClick={async () => {
                       const success = await migrateProducts();
