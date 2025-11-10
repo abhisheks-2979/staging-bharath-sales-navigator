@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { InvoicePDFGenerator } from "./InvoicePDFGenerator";
@@ -50,6 +50,31 @@ export default function InvoiceList() {
     } catch (error: any) {
       console.error("Error deleting invoice:", error);
       toast.error("Failed to delete invoice");
+    }
+  };
+
+  const sendWhatsApp = async (invoiceId: string, customerPhone: string | null) => {
+    if (!customerPhone) {
+      toast.error("Customer phone number not found");
+      return;
+    }
+
+    try {
+      toast.info("Sending invoice via WhatsApp...");
+      const { data, error } = await supabase.functions.invoke('send-invoice-whatsapp', {
+        body: { invoiceId, customerPhone }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success("Invoice sent via WhatsApp successfully!");
+      } else {
+        throw new Error(data.error || 'Failed to send WhatsApp message');
+      }
+    } catch (error: any) {
+      console.error('WhatsApp send error:', error);
+      toast.error(error.message || "Failed to send invoice via WhatsApp");
     }
   };
 
@@ -102,6 +127,14 @@ export default function InvoiceList() {
                   <TableCell>
                     <div className="flex gap-2">
                       <InvoicePDFGenerator invoiceId={invoice.id} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => sendWhatsApp(invoice.id, invoice.retailers?.phone)}
+                        title="Send via WhatsApp"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"

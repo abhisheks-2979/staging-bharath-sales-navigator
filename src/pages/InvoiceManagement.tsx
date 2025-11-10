@@ -6,6 +6,7 @@ import InvoiceList from "@/components/invoice/InvoiceList";
 import CreateInvoiceForm from "@/components/invoice/CreateInvoiceForm";
 import CompanySettings from "@/components/invoice/CompanySettings";
 import CustomerManagement from "@/components/invoice/CustomerManagement";
+import { WhatsAppConfig } from "@/components/WhatsAppConfig";
 
 export default function InvoiceManagement() {
   const [activeTab, setActiveTab] = useState("invoices");
@@ -33,6 +34,7 @@ export default function InvoiceManagement() {
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="settings">Company Settings</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices">
@@ -49,6 +51,10 @@ export default function InvoiceManagement() {
 
         <TabsContent value="settings">
           <CompanySettings />
+        </TabsContent>
+
+        <TabsContent value="whatsapp">
+          <WhatsAppConfig />
         </TabsContent>
       </Tabs>
     </div>
