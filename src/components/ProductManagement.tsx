@@ -666,9 +666,30 @@ setProductForm({
                   <Button 
                     variant="destructive" 
                     onClick={async () => {
-                      if (confirm('Are you sure you want to delete ALL products? This action cannot be undone.')) {
+                      if (confirm('Are you sure you want to delete ALL products? This will also delete all related data (van inventory, schemes, variants). This action cannot be undone.')) {
                         try {
-                          toast.loading('Deleting all products...');
+                          toast.loading('Deleting all products and related data...');
+                          
+                          // Delete in order: child tables first, then parent
+                          // 1. Delete van inward GRN items
+                          await supabase.from('van_inward_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 2. Delete van closing stock items
+                          await supabase.from('van_closing_stock_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 3. Delete van return GRN items
+                          await supabase.from('van_return_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 4. Delete van order fulfillment
+                          await supabase.from('van_order_fulfillment').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 5. Delete product schemes
+                          await supabase.from('product_schemes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 6. Delete product variants
+                          await supabase.from('product_variants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 7. Finally delete products
                           const { error } = await supabase
                             .from('products')
                             .delete()
@@ -677,12 +698,12 @@ setProductForm({
                           if (error) throw error;
                           
                           toast.dismiss();
-                          toast.success('All products deleted successfully');
+                          toast.success('All products and related data deleted successfully');
                           fetchData();
                         } catch (error) {
                           toast.dismiss();
                           console.error('Error deleting products:', error);
-                          toast.error('Failed to delete products');
+                          toast.error('Failed to delete products. Check console for details.');
                         }
                       }
                     }}
