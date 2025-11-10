@@ -132,22 +132,37 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
       
       doc.setFontSize(8);
       doc.setFont(undefined, "normal");
-      const companyDetails = [
-        companyData?.address,
-        `Phone: ${companyData?.contact_phone || ''}`,
-        `Email: ${companyData?.email || ''}`,
-        `GSTIN: ${companyData?.gstin || ''}`,
-        `State: ${companyData?.state || '29-Karnataka'}`
-      ].filter(Boolean);
       
       let companyY = headerStartY + 10;
-      companyDetails.forEach((detail) => {
-        if (detail) {
-          const lines = doc.splitTextToSize(detail, 140);
-          doc.text(lines, 45, companyY);
-          companyY += lines.length * 3.5;
-        }
-      });
+      
+      // Address
+      if (companyData?.address) {
+        const addrLines = doc.splitTextToSize(companyData.address, 140);
+        doc.text(addrLines, 45, companyY);
+        companyY += addrLines.length * 3.5;
+      }
+      
+      // Phone
+      if (companyData?.contact_phone) {
+        doc.text("Phone: " + companyData.contact_phone, 45, companyY);
+        companyY += 3.5;
+      }
+      
+      // Email
+      if (companyData?.email) {
+        doc.text("Email: " + companyData.email, 45, companyY);
+        companyY += 3.5;
+      }
+      
+      // GSTIN
+      if (companyData?.gstin) {
+        doc.text("GSTIN: " + companyData.gstin, 45, companyY);
+        companyY += 3.5;
+      }
+      
+      // State
+      const state = companyData?.state || "29-Karnataka";
+      doc.text("State: " + state, 45, companyY);
 
       yPos += 45;
 
@@ -164,27 +179,33 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
       doc.setFontSize(8);
       
       // Customer details
-      const custName = customerData?.name || "";
-      doc.text(custName, 15, yPos + 10);
+      let billToY = yPos + 10;
+      
+      if (customerData?.name) {
+        doc.text(customerData.name, 15, billToY);
+        billToY += 4;
+      }
       
       if (customerData?.address) {
         const custAddr = doc.splitTextToSize(customerData.address, 80);
-        doc.text(custAddr, 15, yPos + 14);
+        doc.text(custAddr, 15, billToY);
+        billToY += custAddr.length * 3.5;
       }
       
       if (customerData?.contact_phone) {
-        doc.text(`Contact No: ${customerData.contact_phone}`, 15, yPos + 22);
+        doc.text("Contact: " + customerData.contact_phone, 15, billToY);
+        billToY += 3.5;
       }
       
-      if (customerData?.state) {
-        doc.text(`State: ${customerData.state}`, 15, yPos + 26);
+      if (customerData?.gstin) {
+        doc.text("GSTIN: " + customerData.gstin, 15, billToY);
       }
 
       // Invoice details
       const invoiceDetailsX = 15 + (pageWidth - 20) / 2;
-      doc.text(`No: ${invoiceNumber}`, invoiceDetailsX, yPos + 10);
-      doc.text(`Date: ${invoiceDate.toLocaleDateString("en-IN")}`, invoiceDetailsX, yPos + 14);
-      doc.text(`Place Of Supply: 29-Karnataka`, invoiceDetailsX, yPos + 18);
+      doc.text("No: " + invoiceNumber, invoiceDetailsX, yPos + 10);
+      doc.text("Date: " + invoiceDate.toLocaleDateString("en-IN"), invoiceDetailsX, yPos + 14);
+      doc.text("Place Of Supply: Karnataka", invoiceDetailsX, yPos + 18);
 
       yPos += 35;
 
@@ -204,9 +225,9 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
           "090230", // Default HSN
           quantity.toString(),
           item.unit || "Kg",
-          `₹ ${rate.toFixed(2)}`,
-          `₹ ${gstAmount.toFixed(2)} (${gstRate}%)`,
-          `₹ ${totalAmount.toFixed(2)}`
+          "Rs " + rate.toFixed(2),
+          gstRate.toString() + "%",
+          "Rs " + totalAmount.toFixed(2)
         ];
       });
 
@@ -223,13 +244,13 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
         totalQty.toString(),
         "",
         "",
-        `₹ ${totalGst.toFixed(2)}`,
-        `₹ ${grandTotal.toFixed(2)}`
+        "Rs " + totalGst.toFixed(2),
+        "Rs " + grandTotal.toFixed(2)
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [["#", "Item name", "HSN/ SAC", "Quantity", "Unit", "Price/ Unit(₹)", "GST(₹)", "Amount(₹)"]],
+        head: [["#", "Item Name", "HSN/SAC", "Qty", "Unit", "Rate (Rs)", "GST %", "Amount (Rs)"]],
         body: tableData,
         theme: "grid",
         headStyles: {
@@ -238,17 +259,22 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
           fontSize: 8,
           fontStyle: "bold",
           lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          lineColor: [0, 0, 0],
+          halign: "center"
+        },
+        bodyStyles: {
+          fontSize: 8
         },
         styles: {
           fontSize: 8,
           cellPadding: 2,
           lineWidth: 0.5,
-          lineColor: [0, 0, 0]
+          lineColor: [0, 0, 0],
+          font: "helvetica"
         },
         columnStyles: {
           0: { cellWidth: 10, halign: "center" },
-          1: { cellWidth: 60 },
+          1: { cellWidth: 60, halign: "left" },
           2: { cellWidth: 20, halign: "center" },
           3: { cellWidth: 18, halign: "center" },
           4: { cellWidth: 15, halign: "center" },
@@ -271,27 +297,27 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
 
       const taxTableData = [[
         "090230",
-        `${subTotal.toFixed(2)}`,
+        subTotal.toFixed(2),
         "9.0",
-        `${cgst.toFixed(2)}`,
+        cgst.toFixed(2),
         "9.0",
-        `${sgst.toFixed(2)}`,
-        `${totalGst.toFixed(2)}`
+        sgst.toFixed(2),
+        totalGst.toFixed(2)
       ]];
 
       taxTableData.push([
         "TOTAL",
-        `${subTotal.toFixed(2)}`,
+        subTotal.toFixed(2),
         "",
-        `${cgst.toFixed(2)}`,
+        cgst.toFixed(2),
         "",
-        `${sgst.toFixed(2)}`,
-        `${totalGst.toFixed(2)}`
+        sgst.toFixed(2),
+        totalGst.toFixed(2)
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [["HSN/ SAC", "Taxable amount (₹)", "CGST\nRate (%)", "Amt (₹)", "SGST\nRate (%)", "Amt (₹)", "Total Tax (₹)"]],
+        head: [["HSN/SAC", "Taxable Amt (Rs)", "CGST Rate %", "CGST Amt (Rs)", "SGST Rate %", "SGST Amt (Rs)", "Total Tax (Rs)"]],
         body: taxTableData,
         theme: "grid",
         headStyles: {
@@ -303,19 +329,23 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
           lineColor: [0, 0, 0],
           halign: "center"
         },
+        bodyStyles: {
+          fontSize: 7
+        },
         styles: {
           fontSize: 7,
           cellPadding: 2,
           lineWidth: 0.5,
           lineColor: [0, 0, 0],
-          halign: "center"
+          halign: "center",
+          font: "helvetica"
         },
         columnStyles: {
-          0: { cellWidth: 25 },
+          0: { cellWidth: 25, halign: "center" },
           1: { cellWidth: 30, halign: "right" },
-          2: { cellWidth: 20 },
+          2: { cellWidth: 20, halign: "center" },
           3: { cellWidth: 25, halign: "right" },
-          4: { cellWidth: 20 },
+          4: { cellWidth: 20, halign: "center" },
           5: { cellWidth: 25, halign: "right" },
           6: { cellWidth: 25, halign: "right" }
         }
@@ -324,18 +354,18 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
       yPos = (doc as any).lastAutoTable.finalY + 5;
 
       // Totals section on right side
-      const totalsX = pageWidth - 60;
-      doc.setFontSize(8);
+      const totalsX = pageWidth - 70;
+      doc.setFontSize(9);
       doc.setFont(undefined, "normal");
       
-      doc.text("Sub Total", totalsX, yPos);
-      doc.text(`: ₹ ${subTotal.toFixed(2)}`, totalsX + 22, yPos, { align: "right" });
+      doc.text("Subtotal:", totalsX, yPos);
+      doc.text("Rs " + subTotal.toFixed(2), totalsX + 40, yPos, { align: "right" });
       yPos += 5;
 
       doc.setFont(undefined, "bold");
-      doc.text("Total", totalsX, yPos);
-      doc.text(`: ₹ ${grandTotal.toFixed(2)}`, totalsX + 22, yPos, { align: "right" });
-      yPos += 7;
+      doc.text("Total:", totalsX, yPos);
+      doc.text("Rs " + grandTotal.toFixed(2), totalsX + 40, yPos, { align: "right" });
+      yPos += 8;
 
       // Amount in words
       doc.setFontSize(8);
@@ -403,26 +433,28 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
 
       // Bank details text next to QR
       const bankTextX = bankDetailsX + 28;
+      if (companyData?.account_holder_name) {
+        doc.text("Account Name: " + companyData.account_holder_name, bankTextX, bankY);
+        bankY += 4;
+      }
+      
       if (companyData?.bank_name) {
-        doc.text(`Name : ${companyData.bank_name}`, bankTextX, bankY);
+        doc.text("Bank: " + companyData.bank_name, bankTextX, bankY);
         bankY += 4;
       }
 
       if (companyData?.bank_account) {
-        doc.text(`Account No.: ${companyData.bank_account}`, bankTextX, bankY);
+        doc.text("A/C No: " + companyData.bank_account, bankTextX, bankY);
         bankY += 4;
       }
 
       if (companyData?.ifsc) {
-        doc.text(`IFSC code : ${companyData.ifsc}`, bankTextX, bankY);
-        bankY += 4;
+        doc.text("IFSC: " + companyData.ifsc, bankTextX, bankY);
       }
 
-      if (companyData?.account_holder_name) {
-        doc.text(`Account holder's name : ${companyData.account_holder_name}`, bankTextX, bankY);
-      }
-
-      // Signature area
+      // Signature area with line
+      const sigY = yPos + bottomSectionHeight - 10;
+      doc.line(signatureX + 2, sigY, signatureX + (pageWidth - 20) / 2 - 5, sigY);
       doc.setFont(undefined, "normal");
       doc.text("Authorized Signatory", signatureX + 2, yPos + bottomSectionHeight - 5);
 
@@ -439,60 +471,74 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
     }
   };
 
-  // Helper function to convert number to words
-  const convertNumberToWords = (num: number): string => {
+  // Helper function to convert number to words (Indian numbering system)
+  const convertNumberToWords = (amount: number): string => {
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
     const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
     
-    if (num === 0) return 'Zero Rupees only';
+    if (amount === 0) return 'Zero Rupees Only';
     
-    const numStr = Math.floor(num).toString();
-    let words = '';
+    // Separate rupees and paise
+    const rupees = Math.floor(amount);
+    const paise = Math.round((amount - rupees) * 100);
     
-    if (numStr.length > 7) {
-      const crores = parseInt(numStr.slice(0, -7));
-      words += convertNumberToWords(crores) + ' Crore ';
-      num = num % 10000000;
-    }
-    
-    if (numStr.length > 5) {
-      const lakhs = Math.floor(num / 100000);
-      if (lakhs > 0) {
-        words += convertNumberToWords(lakhs) + ' Lakh ';
-        num = num % 100000;
+    const convertToWords = (n: number): string => {
+      if (n === 0) return '';
+      
+      let words = '';
+      
+      // Crores
+      if (n >= 10000000) {
+        const crores = Math.floor(n / 10000000);
+        words += convertToWords(crores) + ' Crore ';
+        n = n % 10000000;
       }
-    }
-    
-    if (numStr.length > 3) {
-      const thousands = Math.floor(num / 1000);
-      if (thousands > 0) {
-        words += convertNumberToWords(thousands) + ' Thousand ';
-        num = num % 1000;
+      
+      // Lakhs
+      if (n >= 100000) {
+        const lakhs = Math.floor(n / 100000);
+        words += convertToWords(lakhs) + ' Lakh ';
+        n = n % 100000;
       }
-    }
-    
-    if (num > 0) {
-      const hundreds = Math.floor(num / 100);
-      if (hundreds > 0) {
+      
+      // Thousands
+      if (n >= 1000) {
+        const thousands = Math.floor(n / 1000);
+        words += convertToWords(thousands) + ' Thousand ';
+        n = n % 1000;
+      }
+      
+      // Hundreds
+      if (n >= 100) {
+        const hundreds = Math.floor(n / 100);
         words += ones[hundreds] + ' Hundred ';
-        num = num % 100;
+        n = n % 100;
       }
       
-      if (num >= 20) {
-        words += tens[Math.floor(num / 10)] + ' ';
-        num = num % 10;
-      } else if (num >= 10) {
-        words += teens[num - 10] + ' ';
-        num = 0;
+      // Tens and Ones
+      if (n >= 20) {
+        words += tens[Math.floor(n / 10)] + ' ';
+        n = n % 10;
+      } else if (n >= 10) {
+        words += teens[n - 10] + ' ';
+        n = 0;
       }
       
-      if (num > 0) {
-        words += ones[num] + ' ';
+      if (n > 0) {
+        words += ones[n] + ' ';
       }
+      
+      return words.trim();
+    };
+    
+    let result = convertToWords(rupees) + ' Rupees';
+    
+    if (paise > 0) {
+      result += ' and ' + convertToWords(paise) + ' Paise';
     }
     
-    return words.trim() + ' Rupees only';
+    return result + ' Only';
   };
 
   return (
