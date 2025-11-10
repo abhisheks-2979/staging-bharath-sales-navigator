@@ -593,64 +593,23 @@ export const AddRetailer = () => {
                       
                       const loadingToast = toast({ 
                         title: "Getting Location...", 
-                        description: "Please wait while we access your GPS",
-                        duration: 15000
+                        description: "Accessing GPS...",
+                        duration: 8000
                       });
                       
                       try {
-                        // Request high-accuracy location with shorter timeout
+                        // Use getCurrentPosition for immediate response with cached location
                         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                          let best: GeolocationPosition | null = null;
-                          const startedAt = Date.now();
-                          const targetAccuracy = 50; // meters (more lenient)
-                          const maxWait = 15000; // 15 seconds (reduced from 45s)
-                          let watchId: number | null = null;
-                          
-                          const cleanup = () => {
-                            if (watchId !== null) {
-                              navigator.geolocation.clearWatch(watchId);
-                              watchId = null;
-                            }
-                          };
-                          
-                          watchId = navigator.geolocation.watchPosition(
-                            (pos) => {
-                              // Keep the most accurate reading so far
-                              if (!best || pos.coords.accuracy < best.coords.accuracy) {
-                                best = pos;
-                              }
-                              
-                              const elapsed = Date.now() - startedAt;
-                              const goodEnough = pos.coords.accuracy <= targetAccuracy;
-                              const timedOut = elapsed > maxWait;
-                              
-                              // Accept first good reading or timeout with best available
-                              if (goodEnough || timedOut) {
-                                cleanup();
-                                resolve(best || pos);
-                              }
-                            },
-                            (error) => {
-                              cleanup();
-                              reject(error);
-                            },
+                          // Try to get position immediately with cached data
+                          navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject,
                             { 
-                              enableHighAccuracy: true,
-                              timeout: maxWait,
-                              maximumAge: 5000 // Allow cached location up to 5s old
+                              enableHighAccuracy: false, // Use network/cached location for speed
+                              timeout: 8000, // 8 second timeout
+                              maximumAge: 60000 // Accept location cached within last 60 seconds
                             }
                           );
-                          
-                          // Absolute safety timeout - ensure we always resolve/reject
-                          setTimeout(() => {
-                            if (best) {
-                              cleanup();
-                              resolve(best);
-                            } else {
-                              cleanup();
-                              reject(new Error('Location timeout - no GPS signal received'));
-                            }
-                          }, maxWait + 2000);
                         });
                         
                         // Get precise coordinates with 7 decimal places (~1 cm accuracy)
