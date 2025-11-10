@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,7 +20,9 @@ import { cn } from "@/lib/utils";
 export const AddRetailer = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const returnTo = location.state?.returnTo || '/my-retailers';
   const [retailerData, setRetailerData] = useState({
     name: "",
     gstNumber: "",
@@ -384,8 +386,12 @@ export const AddRetailer = () => {
     }
 
     toast({ title: 'Retailer Added', description: `${retailerData.name} saved successfully.` });
-    // Navigate to My Retailers and open the created record for view/edit
-    navigate('/my-retailers', { state: { openRetailerId: data?.id } });
+    // Navigate back to the return path (My Visits or My Retailers)
+    if (returnTo === '/my-visits') {
+      navigate(returnTo);
+    } else {
+      navigate('/my-retailers', { state: { openRetailerId: data?.id } });
+    }
 
   };
 
@@ -434,7 +440,7 @@ export const AddRetailer = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate('/my-retailers')}
+                onClick={() => navigate(returnTo)}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />

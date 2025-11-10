@@ -1058,12 +1058,25 @@ export const MyVisits = () => {
                 onChange={setSearchTerm}
               />
             </div>
-            <VisitFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-              availableCategories={availableCategories}
-              availableLocations={availableLocations}
-            />
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <div className="flex-1">
+                <VisitFilters
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  availableCategories={availableCategories}
+                  availableLocations={availableLocations}
+                />
+              </div>
+              <Button
+                onClick={() => navigate('/add-retailer', { state: { returnTo: '/my-visits' } })}
+                className="flex items-center gap-2 whitespace-nowrap h-9"
+                size="sm"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Add Retailer</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
