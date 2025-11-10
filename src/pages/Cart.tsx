@@ -851,11 +851,11 @@ React.useEffect(() => {
 
                 <div className="border-t pt-3 space-y-2">
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>CGST (5%):</span>
+                    <span>CGST (2.5%):</span>
                     <span>₹{getCGST().toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>SGST (5%):</span>
+                    <span>SGST (2.5%):</span>
                     <span>₹{getSGST().toLocaleString()}</span>
                   </div>
                 </div>
