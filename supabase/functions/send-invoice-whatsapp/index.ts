@@ -25,13 +25,13 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch invoice details
+    // Fetch invoice details with all related data
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .select(`
         *,
-        retailer:retailers(shop_name, phone_number),
-        company:company_settings(business_name)
+        retailers(shop_name, phone, address, gst_number),
+        companies(business_name, address, phone, email, gst_number)
       `)
       .eq('id', invoiceId)
       .single();
@@ -39,6 +39,29 @@ serve(async (req) => {
     if (invoiceError) throw invoiceError;
 
     console.log('Invoice fetched:', invoice);
+
+    // Fetch invoice items
+    const { data: invoiceItems, error: itemsError } = await supabase
+      .from('invoice_items')
+      .select('*')
+      .eq('invoice_id', invoiceId);
+
+    if (itemsError) throw itemsError;
+
+    // Fetch distributor info if mapped
+    let distributorInfo = null;
+    if (invoice.customer_id) {
+      const { data: mapping } = await supabase
+        .from('retailer_distributor_mapping')
+        .select('distributors(name, contact_person, phone, address, gst_number)')
+        .eq('retailer_id', invoice.customer_id)
+        .eq('is_active', true)
+        .single();
+      
+      if (mapping?.distributors) {
+        distributorInfo = mapping.distributors;
+      }
+    }
 
     // Get WhatsApp business number from config
     const { data: whatsappConfig, error: configError } = await supabase
@@ -77,20 +100,71 @@ serve(async (req) => {
 
     console.log('Phone numbers:', { from: fromPhone, to: toWhatsapp });
 
-    // Create message
-    const businessName = whatsappConfig.business_name || invoice.company?.business_name || 'Our Company';
+    // Create detailed invoice message
+    const company = invoice.companies;
+    const retailer = invoice.retailers;
+    const businessName = whatsappConfig.business_name || company?.business_name || 'Our Company';
+
+    // Build FROM section (Company/Distributor)
+    let fromSection = `*FROM:*\n`;
+    if (distributorInfo) {
+      fromSection += `${distributorInfo.name}\n`;
+      if (distributorInfo.contact_person) fromSection += `${distributorInfo.contact_person}\n`;
+      if (distributorInfo.address) fromSection += `${distributorInfo.address}\n`;
+      if (distributorInfo.phone) fromSection += `Phone: ${distributorInfo.phone}\n`;
+      if (distributorInfo.gst_number) fromSection += `GSTIN: ${distributorInfo.gst_number}\n`;
+    } else if (company) {
+      fromSection += `${company.business_name}\n`;
+      if (company.address) fromSection += `${company.address}\n`;
+      if (company.phone) fromSection += `Phone: ${company.phone}\n`;
+      if (company.email) fromSection += `Email: ${company.email}\n`;
+      if (company.gst_number) fromSection += `GSTIN: ${company.gst_number}\n`;
+    }
+
+    // Build BILL TO section
+    let billToSection = `\n*BILL TO:*\n`;
+    if (retailer) {
+      billToSection += `${retailer.shop_name}\n`;
+      if (retailer.address) billToSection += `${retailer.address}\n`;
+      if (retailer.phone) billToSection += `Phone: ${retailer.phone}\n`;
+      if (retailer.gst_number) billToSection += `GSTIN: ${retailer.gst_number}\n`;
+    }
+
+    // Build items section
+    let itemsSection = `\n*ITEMS:*\n`;
+    itemsSection += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+    
+    if (invoiceItems && invoiceItems.length > 0) {
+      invoiceItems.forEach((item: any, index: number) => {
+        itemsSection += `${index + 1}. ${item.description}\n`;
+        itemsSection += `   ${item.quantity} ${item.unit} × ₹${item.price_per_unit.toFixed(2)} = ₹${item.taxable_amount.toFixed(2)}\n`;
+      });
+    }
+
+    // Build totals section
+    const cgstAmount = invoice.total_tax / 2;
+    const sgstAmount = invoice.total_tax / 2;
+    
+    const totalsSection = `
+━━━━━━━━━━━━━━━━━━━━━━
+Subtotal: ₹${invoice.sub_total.toFixed(2)}
+CGST (9%): ₹${cgstAmount.toFixed(2)}
+SGST (9%): ₹${sgstAmount.toFixed(2)}
+━━━━━━━━━━━━━━━━━━━━━━
+*Total Amount: ₹${invoice.total_amount.toFixed(2)}*
+`;
+
     const message = `
-*Invoice from ${businessName}*
+🧾 *TAX INVOICE*
 
-Invoice No: ${invoice.invoice_number}
-Date: ${new Date(invoice.invoice_date).toLocaleDateString()}
-Customer: ${invoice.retailer?.shop_name || 'Customer'}
+*Invoice No:* ${invoice.invoice_number}
+*Date:* ${new Date(invoice.invoice_date).toLocaleDateString('en-IN')}
 
-Total Amount: ₹${invoice.total_amount.toFixed(2)}
+${fromSection}${billToSection}${itemsSection}${totalsSection}
 
-Thank you for your business!
+*Status:* ${invoice.status === 'paid' ? '✅ Paid' : '⏳ Pending'}
 
-View your invoice online or download the PDF from our portal.
+Thank you for your business! 🙏
     `.trim();
 
     console.log('Sending message:', message);
