@@ -8,11 +8,13 @@ import { toast } from "sonner";
 
 interface VisitInvoicePDFGeneratorProps {
   orderId: string;
+  customerPhone?: string;
   className?: string;
 }
 
-export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDFGeneratorProps) => {
+export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: VisitInvoicePDFGeneratorProps) => {
   const [loading, setLoading] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   const generatePDF = async () => {
     setLoading(true);
@@ -541,16 +543,54 @@ export const VisitInvoicePDFGenerator = ({ orderId, className }: VisitInvoicePDF
     return result + ' Only';
   };
 
+  const sendViaWhatsApp = async () => {
+    if (!customerPhone) {
+      toast.error("Customer phone number not available");
+      return;
+    }
+
+    setSendingWhatsApp(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-invoice-whatsapp', {
+        body: { 
+          invoiceId: orderId,
+          customerPhone: customerPhone 
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success("Invoice sent via WhatsApp successfully!");
+    } catch (error: any) {
+      console.error('Error sending invoice via WhatsApp:', error);
+      toast.error(error.message || "Failed to send invoice via WhatsApp");
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
+
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={loading}
-      onClick={generatePDF}
-      className={className}
-    >
-      <FileText className="mr-2 h-4 w-4" />
-      {loading ? "Generating..." : "Download Invoice"}
-    </Button>
+    <div className="flex gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={loading || sendingWhatsApp}
+        onClick={generatePDF}
+        className={className}
+      >
+        <FileText className="mr-2 h-4 w-4" />
+        {loading ? "Generating..." : "Download Invoice"}
+      </Button>
+      {customerPhone && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading || sendingWhatsApp}
+          onClick={sendViaWhatsApp}
+        >
+          {sendingWhatsApp ? "Sending..." : "Send via WhatsApp"}
+        </Button>
+      )}
+    </div>
   );
 };

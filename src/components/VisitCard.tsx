@@ -1327,7 +1327,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   {/* Invoice Generation Button */}
                   {lastOrderId && (
                     <div className="mt-3 pt-2 border-t">
-                      <VisitInvoicePDFGenerator orderId={lastOrderId} className="w-full" />
+                      <VisitInvoicePDFGenerator orderId={lastOrderId} customerPhone={visit.phone} className="w-full" />
                     </div>
                   )}
                 </>
