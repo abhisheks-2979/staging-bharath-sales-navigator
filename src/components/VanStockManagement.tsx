@@ -48,6 +48,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [loading, setLoading] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState<'start' | 'ordered' | 'returned' | 'left' | 'inventory' | null>(null);
   const [isMorning, setIsMorning] = useState(true);
+  const [startKm, setStartKm] = useState(0);
+  const [endKm, setEndKm] = useState(0);
 
   useEffect(() => {
     if (open) {
@@ -130,6 +132,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       } else {
         setStockItems([]);
       }
+      setStartKm(data?.start_km || 0);
+      setEndKm(data?.end_km || 0);
     }
   };
 
@@ -193,6 +197,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           user_id: session.session.user.id,
           stock_date: selectedDate,
           status: 'open',
+          start_km: startKm,
+          end_km: endKm,
         }, {
           onConflict: 'van_id,stock_date,user_id',
         })
@@ -246,7 +252,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const totals = calculateTotals();
-  const availableInventory = totals.totalStart; // Available = Start qty
+  const totalKm = endKm - startKm;
 
   return (
     <>
@@ -334,12 +340,42 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   </Card>
                 </div>
 
-                {/* Morning/Evening Status */}
-                <div className="flex items-center gap-2">
-                  <Badge variant={isMorning ? "default" : "secondary"}>
-                    {isMorning ? "Morning - Add Start Stock" : "Evening - Update Orders & Left Stock"}
-                  </Badge>
-                </div>
+                {/* KM Tracking */}
+                <Card className="p-4 bg-blue-50 dark:bg-blue-950">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold">Start KM</Label>
+                      <Input
+                        type="number"
+                        value={startKm}
+                        onChange={(e) => setStartKm(parseFloat(e.target.value) || 0)}
+                        placeholder="Enter start km"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">End KM</Label>
+                      <Input
+                        type="number"
+                        value={endKm}
+                        onChange={(e) => setEndKm(parseFloat(e.target.value) || 0)}
+                        placeholder="Enter end km"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">Total KM (Day)</Label>
+                      <div className="mt-1 h-10 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 flex items-center">
+                        <span className="text-lg font-bold text-primary">{totalKm.toFixed(2)} km</span>
+                      </div>
+                    </div>
+                    <div className="flex items-end">
+                      <Badge variant={isMorning ? "default" : "secondary"} className="h-10 flex items-center justify-center w-full">
+                        {isMorning ? "Morning - Add Start Stock" : "Evening - Update Orders & Left Stock"}
+                      </Badge>
+                    </div>
+                  </div>
+                </Card>
 
                 {/* Stock Items Management */}
                 <div className="space-y-3">
@@ -436,7 +472,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {showDetailModal === 'start' && <><Package className="h-5 w-5 text-primary" /> Product Stock in Van</>}
-              {showDetailModal === 'inventory' && <><Package className="h-5 w-5 text-blue-500" /> Available Inventory</>}
               {showDetailModal === 'ordered' && <><ShoppingCart className="h-5 w-5 text-amber-500" /> Retailer Ordered Qty</>}
               {showDetailModal === 'returned' && <><Package className="h-5 w-5 text-blue-600" /> Returned Qty</>}
               {showDetailModal === 'left' && <><TrendingDown className="h-5 w-5 text-green-600" /> Left in the Van</>}
@@ -458,7 +493,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     <div className="text-right">
                       <p className="text-2xl font-bold">
                         {showDetailModal === 'start' && item.start_qty}
-                        {showDetailModal === 'inventory' && item.start_qty}
                         {showDetailModal === 'ordered' && item.ordered_qty}
                         {showDetailModal === 'returned' && item.returned_qty}
                         {showDetailModal === 'left' && item.left_qty}
@@ -476,8 +510,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   <p className="font-bold text-lg">Total</p>
                   <p className="text-3xl font-bold text-primary">
                     {showDetailModal === 'start' && totals.totalStart}
-                    {showDetailModal === 'inventory' && availableInventory}
                     {showDetailModal === 'ordered' && totals.totalOrdered}
+                    {showDetailModal === 'returned' && totals.totalReturned}
                     {showDetailModal === 'left' && totals.totalLeft}
                   </p>
                 </div>

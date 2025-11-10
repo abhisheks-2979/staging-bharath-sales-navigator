@@ -3476,11 +3476,14 @@ export type Database = {
         Row: {
           beat_id: string | null
           created_at: string
+          end_km: number | null
           end_of_day_stock: Json
           id: string
+          start_km: number | null
           start_of_day_stock: Json
           status: string
           stock_date: string
+          total_km: number | null
           total_ordered_qty: Json
           updated_at: string
           user_id: string
@@ -3489,11 +3492,14 @@ export type Database = {
         Insert: {
           beat_id?: string | null
           created_at?: string
+          end_km?: number | null
           end_of_day_stock?: Json
           id?: string
+          start_km?: number | null
           start_of_day_stock?: Json
           status?: string
           stock_date?: string
+          total_km?: number | null
           total_ordered_qty?: Json
           updated_at?: string
           user_id: string
@@ -3502,11 +3508,14 @@ export type Database = {
         Update: {
           beat_id?: string | null
           created_at?: string
+          end_km?: number | null
           end_of_day_stock?: Json
           id?: string
+          start_km?: number | null
           start_of_day_stock?: Json
           status?: string
           stock_date?: string
+          total_km?: number | null
           total_ordered_qty?: Json
           updated_at?: string
           user_id?: string
