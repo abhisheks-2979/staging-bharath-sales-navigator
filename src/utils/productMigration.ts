@@ -5,7 +5,7 @@ const PRODUCTS_DATA = [
   { name: 'ADUKU', variants: ['100G', '20G', '250G', '500G'] },
   { name: 'DAKSHIN', variants: ['250G', '30G'] },
   { name: 'KADAK GOLD', variants: ['1KG', '250G', '40G', '500G'] },
-  { name: 'KADAK PYALI ADARAK', variants: ['250G', '40G'] },
+  { name: 'KADAK PYALI ADARAK', variants: ['250', '250G', '40G'] },
   { name: 'KADAK PYALI BLUE', variants: ['100G', '1KG', '20G', '250G', '40G', '500G'] },
   { name: 'KADAK PYALI ELACHI', variants: ['250G', '40G'] },
   { name: 'KADAK PYALI RL JAR', variants: ['1KG', '250G', '500G'] },
