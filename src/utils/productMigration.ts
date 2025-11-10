@@ -90,10 +90,10 @@ export const migrateProducts = async () => {
       }
       
       // Insert variants for this product
-      const variantsToInsert = product.variants.map(variant => ({
+      const variantsToInsert = product.variants.map((variant, idx) => ({
         product_id: newProduct.id,
         variant_name: variant,
-        sku: '', // Keep SKU blank as requested
+        sku: `TEMP-${newProduct.id.substring(0, 8)}-${idx + 1}`,
         price: product.rate || 0,
         stock_quantity: 0,
         is_active: true,
