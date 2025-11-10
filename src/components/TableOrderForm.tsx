@@ -558,16 +558,10 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Bulk Order Entry</CardTitle>
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">
-              Enter product SKUs directly for faster ordering ({products.length} products available)
-            </p>
-            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
-              <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
-            </p>
-          </div>
+        <CardHeader className="pb-2">
+          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
+            <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
+          </p>
         </CardHeader>
         <CardContent className="p-0">
           <div className="w-full">

@@ -1589,36 +1589,34 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
           </CardContent>
         </Card>
 
-        {/* Search Bar */}
-        <Card>
-          <CardContent className="p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
-              <Input
-                type="text"
-                placeholder="Search by product name, SKU, or variant..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10"
-              />
-              {searchTerm && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                >
-                  <X size={14} />
-                </Button>
-              )}
-            </div>
+        {/* Search Bar - Compact */}
+        <div className="px-2 sm:px-4">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+            <Input
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-8 h-9 text-sm"
+            />
             {searchTerm && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Found {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+              >
+                <X size={12} />
+              </Button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+          {searchTerm && (
+            <p className="text-xs text-muted-foreground mt-1 ml-1">
+              {filteredProducts.length} result{filteredProducts.length !== 1 ? "s" : ""}
+            </p>
+          )}
+        </div>
 
         {orderMode === "return-stock" ? (
           <>
