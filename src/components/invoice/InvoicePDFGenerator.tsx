@@ -34,12 +34,25 @@ export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGenerato
       // Generate PDF
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
-      let yPos = 20;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      let yPos = 15;
 
-      // Add company logo if available
+      // Title at top center
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      doc.text("Tax Invoice", pageWidth / 2, yPos, { align: "center" });
+      yPos += 10;
+
+      // Draw border for header section
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.5);
+      doc.rect(10, yPos, pageWidth - 20, 40);
+
+      // Company logo and details in header
+      const headerStartY = yPos + 5;
+      
       if (invoice.companies?.logo_url) {
         try {
-          // Load logo as image
           const img = new Image();
           img.crossOrigin = "anonymous";
           await new Promise((resolve, reject) => {
@@ -47,163 +60,166 @@ export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGenerato
             img.onerror = reject;
             img.src = invoice.companies.logo_url;
           });
-          
-          // Add logo to PDF
-          doc.addImage(img, "PNG", 14, yPos, 40, 20);
+          doc.addImage(img, "PNG", 15, headerStartY, 25, 15);
         } catch (error) {
           console.error("Error loading logo:", error);
         }
       }
 
-      // Company details (right side of logo)
-      doc.setFontSize(16);
+      // Company name and details
+      doc.setFontSize(14);
       doc.setFont(undefined, "bold");
-      doc.text(invoice.companies?.name || "BHARATH BEVERAGES", 60, yPos + 5);
+      doc.text(invoice.companies?.name || "BHARATH BEVERAGES", 45, headerStartY + 5);
       
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont(undefined, "normal");
-      if (invoice.companies?.address) {
-        const addressLines = doc.splitTextToSize(invoice.companies.address, 120);
-        doc.text(addressLines, 60, yPos + 12);
-        yPos += addressLines.length * 4;
-      }
+      const companyDetails = [
+        invoice.companies?.address,
+        `Phone: ${invoice.companies?.contact_phone || ''}`,
+        `Email: ${invoice.companies?.email || ''}`,
+        `GSTIN: ${invoice.companies?.gstin || ''}`,
+        `State: ${invoice.companies?.state || ''}`
+      ].filter(Boolean);
       
-      yPos += 20;
-      
-      if (invoice.companies?.contact_phone) {
-        doc.text(`Phone: ${invoice.companies.contact_phone}`, 60, yPos);
-        yPos += 5;
-      }
-      
-      if (invoice.companies?.email) {
-        doc.text(`Email: ${invoice.companies.email}`, 60, yPos);
-        yPos += 5;
-      }
-      
-      if (invoice.companies?.gstin) {
-        doc.text(`GSTIN: ${invoice.companies.gstin}`, 60, yPos);
-        yPos += 5;
-      }
-      
-      if (invoice.companies?.state) {
-        doc.text(`State: ${invoice.companies.state}`, 60, yPos);
-      }
+      let companyY = headerStartY + 10;
+      companyDetails.forEach((detail) => {
+        if (detail) {
+          const lines = doc.splitTextToSize(detail, 140);
+          doc.text(lines, 45, companyY);
+          companyY += lines.length * 3.5;
+        }
+      });
 
-      yPos += 15;
+      yPos += 45;
 
-      // Invoice title
-      doc.setFillColor(41, 128, 185);
-      doc.rect(0, yPos, pageWidth, 15, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.setFont(undefined, "bold");
-      doc.text("TAX INVOICE", pageWidth / 2, yPos + 10, { align: "center" });
-      
-      yPos += 20;
-      doc.setTextColor(0, 0, 0);
+      // Bill To and Invoice Details boxes
+      doc.rect(10, yPos, (pageWidth - 20) / 2, 30);
+      doc.rect(10 + (pageWidth - 20) / 2, yPos, (pageWidth - 20) / 2, 30);
 
-      // Bill To and Invoice Details side by side
-      doc.setFontSize(10);
-      doc.setFont(undefined, "bold");
-      doc.text("Bill To:", 14, yPos);
-      doc.text("Invoice Details:", pageWidth / 2 + 10, yPos);
-      
-      doc.setFont(undefined, "normal");
       doc.setFontSize(9);
-      yPos += 6;
+      doc.setFont(undefined, "bold");
+      doc.text("Bill To:", 15, yPos + 5);
+      doc.text("Invoice Details:", 15 + (pageWidth - 20) / 2, yPos + 5);
 
-      // Customer details (left)
-      const customerName = invoice.customers?.name || "";
-      doc.text(customerName, 14, yPos);
-      doc.text(`No: ${invoice.invoice_number}`, pageWidth / 2 + 10, yPos);
-      yPos += 5;
-
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(8);
+      
+      // Customer details
+      const custName = invoice.customers?.name || "";
+      doc.text(custName, 15, yPos + 10);
+      
       if (invoice.customers?.address) {
-        const custAddressLines = doc.splitTextToSize(invoice.customers.address, 80);
-        doc.text(custAddressLines, 14, yPos);
+        const custAddr = doc.splitTextToSize(invoice.customers.address, 80);
+        doc.text(custAddr, 15, yPos + 14);
       }
       
-      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}`, pageWidth / 2 + 10, yPos);
-      yPos += 5;
-
-      if (invoice.due_date) {
-        doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString("en-IN")}`, pageWidth / 2 + 10, yPos);
-        yPos += 5;
-      }
-
       if (invoice.customers?.contact_phone) {
-        doc.text(`Contact No: ${invoice.customers.contact_phone}`, 14, yPos + 10);
+        doc.text(`Contact No: ${invoice.customers.contact_phone}`, 15, yPos + 22);
       }
-
-      if (invoice.place_of_supply) {
-        doc.text(`Place Of Supply: ${invoice.place_of_supply}`, pageWidth / 2 + 10, yPos);
-        yPos += 5;
-      }
-
+      
       if (invoice.customers?.state) {
-        doc.text(`State: ${invoice.customers.state}`, 14, yPos + 15);
+        doc.text(`State: ${invoice.customers.state}`, 15, yPos + 26);
       }
 
-      yPos += 25;
+      // Invoice details
+      const invoiceDetailsX = 15 + (pageWidth - 20) / 2;
+      doc.text(`No: ${invoice.invoice_number}`, invoiceDetailsX, yPos + 10);
+      doc.text(`Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-IN")}`, invoiceDetailsX, yPos + 14);
+      
+      if (invoice.due_date) {
+        doc.text(`Due Date: ${new Date(invoice.due_date).toLocaleDateString("en-IN")}`, invoiceDetailsX, yPos + 18);
+      }
+      
+      if (invoice.place_of_supply) {
+        doc.text(`Place Of Supply: ${invoice.place_of_supply}`, invoiceDetailsX, yPos + 22);
+      }
+
+      yPos += 35;
 
       // Transportation Details
       if (invoice.vehicle_number) {
+        doc.rect(10, yPos, pageWidth - 20, 8);
         doc.setFont(undefined, "bold");
-        doc.text("Transportation Details:", 14, yPos);
+        doc.text("Transportation Details:", 15, yPos + 5);
         doc.setFont(undefined, "normal");
-        yPos += 6;
-        doc.text(`Vehicle Number: ${invoice.vehicle_number}`, 14, yPos);
         yPos += 10;
+        doc.rect(10, yPos, pageWidth - 20, 6);
+        doc.text(`Vehicle Number: ${invoice.vehicle_number}`, 15, yPos + 4);
+        yPos += 8;
       }
 
       // Items table
-      const tableData = invoice.invoice_items.map((item: any, index: number) => [
-        (index + 1).toString(),
-        item.description,
-        item.hsn_sac || "",
-        item.quantity.toString(),
-        item.unit || "Piece",
-        `₹ ${Number(item.price_per_unit).toFixed(2)}`,
-        `₹ ${item.gst_rate}%`,
-        `₹ ${Number(item.total_amount).toFixed(2)}`
+      const tableData = invoice.invoice_items.map((item: any, index: number) => {
+        const taxable = Number(item.taxable_amount);
+        const gstAmt = Number(item.cgst_amount) + Number(item.sgst_amount);
+        return [
+          (index + 1).toString(),
+          item.description,
+          item.hsn_sac || "",
+          item.quantity.toString(),
+          item.unit || "Kg",
+          `₹ ${Number(item.price_per_unit).toFixed(2)}`,
+          `₹ ${gstAmt.toFixed(2)} (${item.gst_rate}%)`,
+          `₹ ${Number(item.total_amount).toFixed(2)}`
+        ];
+      });
+
+      // Add total row
+      const totalQty = invoice.invoice_items.reduce((sum: number, item: any) => sum + Number(item.quantity), 0);
+      const totalGst = invoice.invoice_items.reduce((sum: number, item: any) => 
+        sum + Number(item.cgst_amount) + Number(item.sgst_amount), 0);
+      
+      tableData.push([
+        "",
+        "Total",
+        "",
+        totalQty.toString(),
+        "",
+        "",
+        `₹ ${totalGst.toFixed(2)}`,
+        `₹ ${Number(invoice.sub_total).toFixed(2)}`
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [["#", "Item name", "HSN/ SAC", "Quantity", "Unit", "Price/ Unit(₹)", "GST(%)", "Amount(₹)"]],
+        head: [["#", "Item name", "HSN/ SAC", "Quantity", "Unit", "Price/ Unit(₹)", "GST(₹)", "Amount(₹)"]],
         body: tableData,
-        theme: "striped",
+        theme: "grid",
         headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontSize: 9,
-          fontStyle: "bold"
+          fillColor: [255, 255, 255],
+          textColor: 0,
+          fontSize: 8,
+          fontStyle: "bold",
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
         },
         styles: {
           fontSize: 8,
-          cellPadding: 3
+          cellPadding: 2,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0]
         },
         columnStyles: {
           0: { cellWidth: 10, halign: "center" },
-          1: { cellWidth: 50 },
+          1: { cellWidth: 60 },
           2: { cellWidth: 20, halign: "center" },
-          3: { cellWidth: 20, halign: "center" },
+          3: { cellWidth: 18, halign: "center" },
           4: { cellWidth: 15, halign: "center" },
           5: { cellWidth: 25, halign: "right" },
-          6: { cellWidth: 20, halign: "center" },
-          7: { cellWidth: 30, halign: "right" }
+          6: { cellWidth: 25, halign: "center" },
+          7: { cellWidth: 25, halign: "right" }
         }
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = (doc as any).lastAutoTable.finalY + 5;
 
       // Tax Summary Table
-      const taxSummary: { [key: string]: { taxable: number, cgst: number, sgst: number, total: number } } = {};
+      const taxSummary: { [key: string]: { taxable: number, cgstRate: number, cgst: number, sgstRate: number, sgst: number, total: number } } = {};
       
       invoice.invoice_items.forEach((item: any) => {
         const hsn = item.hsn_sac || "N/A";
         if (!taxSummary[hsn]) {
-          taxSummary[hsn] = { taxable: 0, cgst: 0, sgst: 0, total: 0 };
+          taxSummary[hsn] = { taxable: 0, cgstRate: item.gst_rate / 2, cgst: 0, sgstRate: item.gst_rate / 2, sgst: 0, total: 0 };
         }
         taxSummary[hsn].taxable += Number(item.taxable_amount);
         taxSummary[hsn].cgst += Number(item.cgst_amount);
@@ -211,107 +227,169 @@ export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGenerato
         taxSummary[hsn].total += Number(item.cgst_amount) + Number(item.sgst_amount);
       });
 
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont(undefined, "bold");
-      doc.text("Tax Summary:", 14, yPos);
-      yPos += 7;
+      doc.text("Tax Summary:", 10, yPos);
+      yPos += 3;
 
       const taxTableData = Object.entries(taxSummary).map(([hsn, values]) => [
         hsn,
-        `₹ ${values.taxable.toFixed(2)}`,
-        `${((values.cgst / values.taxable) * 100).toFixed(2)}%`,
-        `₹ ${values.cgst.toFixed(2)}`,
-        `${((values.sgst / values.taxable) * 100).toFixed(2)}%`,
-        `₹ ${values.sgst.toFixed(2)}`,
-        `₹ ${values.total.toFixed(2)}`
+        `${values.taxable.toFixed(2)}`,
+        `${values.cgstRate.toFixed(1)}`,
+        `${values.cgst.toFixed(2)}`,
+        `${values.sgstRate.toFixed(1)}`,
+        `${values.sgst.toFixed(2)}`,
+        `${values.total.toFixed(2)}`
+      ]);
+
+      // Add total row for tax summary
+      const totalTaxable = Object.values(taxSummary).reduce((sum, v) => sum + v.taxable, 0);
+      const totalCgst = Object.values(taxSummary).reduce((sum, v) => sum + v.cgst, 0);
+      const totalSgst = Object.values(taxSummary).reduce((sum, v) => sum + v.sgst, 0);
+      const totalTax = Object.values(taxSummary).reduce((sum, v) => sum + v.total, 0);
+      
+      taxTableData.push([
+        "TOTAL",
+        `${totalTaxable.toFixed(2)}`,
+        "",
+        `${totalCgst.toFixed(2)}`,
+        "",
+        `${totalSgst.toFixed(2)}`,
+        `${totalTax.toFixed(2)}`
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [["HSN/ SAC", "Taxable amount (₹)", "CGST Rate (%)", "Amt (₹)", "SGST Rate (%)", "Amt (₹)", "Total Tax (₹)"]],
+        head: [["HSN/ SAC", "Taxable amount (₹)", "CGST\nRate (%)", "Amt (₹)", "SGST\nRate (%)", "Amt (₹)", "Total Tax (₹)"]],
         body: taxTableData,
-        theme: "plain",
+        theme: "grid",
         headStyles: {
-          fillColor: [240, 240, 240],
+          fillColor: [255, 255, 255],
           textColor: 0,
-          fontSize: 8,
-          fontStyle: "bold"
+          fontSize: 7,
+          fontStyle: "bold",
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0],
+          halign: "center"
         },
         styles: {
-          fontSize: 8,
-          cellPadding: 2
+          fontSize: 7,
+          cellPadding: 2,
+          lineWidth: 0.5,
+          lineColor: [0, 0, 0],
+          halign: "center"
+        },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 30, halign: "right" },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 25, halign: "right" },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 25, halign: "right" },
+          6: { cellWidth: 25, halign: "right" }
         }
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos = (doc as any).lastAutoTable.finalY + 5;
 
-      // Totals section
-      const totalsX = pageWidth - 70;
-      doc.setFontSize(9);
+      // Totals section on right side
+      const totalsX = pageWidth - 60;
+      doc.setFontSize(8);
       doc.setFont(undefined, "normal");
       
       doc.text("Sub Total", totalsX, yPos);
-      doc.text(`: ₹ ${Number(invoice.sub_total).toFixed(2)}`, totalsX + 25, yPos);
-      yPos += 6;
-
-      doc.text("Total", totalsX, yPos);
-      doc.text(`: ₹ ${Number(invoice.total_amount).toFixed(2)}`, totalsX + 25, yPos);
-      yPos += 8;
-
-      // Amount in words
-      doc.setFont(undefined, "bold");
-      doc.text("Invoice Amount in Words:", 14, yPos);
-      doc.setFont(undefined, "normal");
+      doc.text(`: ₹ ${Number(invoice.sub_total).toFixed(2)}`, totalsX + 22, yPos, { align: "right" });
       yPos += 5;
-      doc.text(invoice.amount_in_words || "", 14, yPos);
 
-      yPos += 15;
-
-      // Terms & Conditions
-      if (invoice.terms || invoice.companies?.terms_conditions) {
-        doc.setFont(undefined, "bold");
-        doc.text("Terms & Conditions:", 14, yPos);
-        doc.setFont(undefined, "normal");
-        yPos += 5;
-        const terms = invoice.terms || invoice.companies?.terms_conditions || "";
-        const termsLines = doc.splitTextToSize(terms, pageWidth - 28);
-        doc.text(termsLines, 14, yPos);
-        yPos += termsLines.length * 5 + 10;
-      }
-
-      // Bank Details and Signature side by side
-      const bankDetailsX = 14;
-      const signatureX = pageWidth / 2 + 10;
-      
       doc.setFont(undefined, "bold");
-      doc.text("Bank Details:", bankDetailsX, yPos);
-      doc.text(`For ${invoice.companies?.name || "BHARATH BEVERAGES"}:`, signatureX, yPos);
-      doc.setFont(undefined, "normal");
+      doc.text("Total", totalsX, yPos);
+      doc.text(`: ₹ ${Number(invoice.total_amount).toFixed(2)}`, totalsX + 22, yPos, { align: "right" });
       yPos += 7;
 
-      if (invoice.companies?.bank_name) {
-        doc.text(`Name : ${invoice.companies.bank_name}`, bankDetailsX, yPos);
+      // Amount in words
+      doc.setFontSize(8);
+      doc.setFont(undefined, "bold");
+      doc.text("Invoice Amount in Words:", 10, yPos);
+      doc.setFont(undefined, "normal");
+      yPos += 4;
+      doc.text(invoice.amount_in_words || "", 10, yPos);
+
+      yPos += 10;
+
+      // Terms & Conditions
+      doc.rect(10, yPos, pageWidth - 20, 8);
+      doc.setFont(undefined, "bold");
+      doc.text("Terms & Conditions:", 12, yPos + 5);
+      yPos += 10;
+      
+      if (invoice.terms || invoice.companies?.terms_conditions) {
+        doc.setFont(undefined, "normal");
+        doc.setFontSize(7);
+        const terms = invoice.terms || invoice.companies?.terms_conditions || "";
+        const termsLines = doc.splitTextToSize(terms, pageWidth - 24);
+        doc.text(termsLines, 12, yPos);
+        yPos += termsLines.length * 3 + 5;
+      } else {
         yPos += 5;
+      }
+
+      // Bank Details and Signature side by side with boxes
+      const bankDetailsX = 10;
+      const signatureX = pageWidth / 2;
+      const bottomSectionHeight = 45;
+      
+      doc.rect(bankDetailsX, yPos, (pageWidth - 20) / 2, bottomSectionHeight);
+      doc.rect(signatureX, yPos, (pageWidth - 20) / 2, bottomSectionHeight);
+
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Bank Details:", bankDetailsX + 2, yPos + 5);
+      doc.text(`For ${invoice.companies?.name || "BHARATH BEVERAGES"}:`, signatureX + 2, yPos + 5);
+      
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(7);
+      let bankY = yPos + 10;
+
+      // Add QR code if available
+      if (invoice.companies?.qr_code_url) {
+        try {
+          const qrImg = new Image();
+          qrImg.crossOrigin = "anonymous";
+          await new Promise((resolve, reject) => {
+            qrImg.onload = resolve;
+            qrImg.onerror = reject;
+            qrImg.src = invoice.companies.qr_code_url;
+          });
+          doc.addImage(qrImg, "PNG", bankDetailsX + 5, bankY, 20, 20);
+        } catch (error) {
+          console.error("Error loading QR code:", error);
+        }
+      }
+
+      // Bank details text next to QR
+      const bankTextX = bankDetailsX + 28;
+      if (invoice.companies?.bank_name) {
+        doc.text(`Name : ${invoice.companies.bank_name}`, bankTextX, bankY);
+        bankY += 4;
       }
 
       if (invoice.companies?.bank_account) {
-        doc.text(`Account No.: ${invoice.companies.bank_account}`, bankDetailsX, yPos);
-        yPos += 5;
+        doc.text(`Account No.: ${invoice.companies.bank_account}`, bankTextX, bankY);
+        bankY += 4;
       }
 
       if (invoice.companies?.ifsc) {
-        doc.text(`IFSC code : ${invoice.companies.ifsc}`, bankDetailsX, yPos);
-        yPos += 5;
+        doc.text(`IFSC code : ${invoice.companies.ifsc}`, bankTextX, bankY);
+        bankY += 4;
       }
 
       if (invoice.companies?.account_holder_name) {
-        doc.text(`Account holder's name : ${invoice.companies.account_holder_name}`, bankDetailsX, yPos);
+        doc.text(`Account holder's name : ${invoice.companies.account_holder_name}`, bankTextX, bankY);
       }
 
-      // Signature
-      const signatureY = yPos + 20;
+      // Signature area
       doc.setFont(undefined, "normal");
-      doc.text("Authorized Signatory", signatureX, signatureY);
+      doc.text("Authorized Signatory", signatureX + 2, yPos + bottomSectionHeight - 5);
 
       // Save PDF
       const fileName = `Invoice_${invoice.invoice_number.replace(/\//g, "_")}.pdf`;
