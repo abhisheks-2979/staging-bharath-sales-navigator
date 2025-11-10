@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 const PRODUCTS_DATA = [
   { name: 'ADUKU 20G', variants: ['ADUKU 100G', 'ADUKU 250G', 'ADUKU 500G'], rate: 342, unit: 'kg' },
-  { name: 'DAKSHIN', variants: ['250G', '30G'] },
+  { name: 'DAKSHIN 30G', variants: ['DAKSHIN 250G'], rate: 209, unit: 'kg' },
   { name: 'KADAK GOLD', variants: ['1KG', '250G', '40G', '500G'] },
   { name: 'KADAK PYALI ADARAK', variants: ['250', '250G', '40G'] },
   { name: 'KADAK PYALI BLUE', variants: ['100G', '1KG', '20G', '250G', '40G', '500G'] },
