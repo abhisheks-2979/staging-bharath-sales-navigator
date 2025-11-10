@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const PRODUCTS_DATA = [
-  { name: 'ADUKU', variants: ['100G', '20G', '250G', '500G'] },
+  { name: 'ADUKU 20G', variants: ['ADUKU 100G', 'ADUKU 250G', 'ADUKU 500G'], rate: 342, unit: 'kg' },
   { name: 'DAKSHIN', variants: ['250G', '30G'] },
   { name: 'KADAK GOLD', variants: ['1KG', '250G', '40G', '500G'] },
   { name: 'KADAK PYALI ADARAK', variants: ['250', '250G', '40G'] },
@@ -76,8 +76,8 @@ export const migrateProducts = async () => {
           name: product.name,
           sku: '', // Keep SKU blank as requested
           category_id: categoryId,
-          rate: 0,
-          unit: 'grams',
+          rate: product.rate || 0,
+          unit: product.unit || 'grams',
           closing_stock: 0,
           is_active: true,
         })
@@ -94,7 +94,7 @@ export const migrateProducts = async () => {
         product_id: newProduct.id,
         variant_name: variant,
         sku: '', // Keep SKU blank as requested
-        price: 0,
+        price: product.rate || 0,
         stock_quantity: 0,
         is_active: true,
       }));
