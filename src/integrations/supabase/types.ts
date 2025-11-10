@@ -569,6 +569,7 @@ export type Database = {
           ifsc: string | null
           logo_url: string | null
           name: string
+          qr_code_url: string | null
           qr_upi: string | null
           state: string | null
           terms_conditions: string | null
@@ -587,6 +588,7 @@ export type Database = {
           ifsc?: string | null
           logo_url?: string | null
           name: string
+          qr_code_url?: string | null
           qr_upi?: string | null
           state?: string | null
           terms_conditions?: string | null
@@ -605,6 +607,7 @@ export type Database = {
           ifsc?: string | null
           logo_url?: string | null
           name?: string
+          qr_code_url?: string | null
           qr_upi?: string | null
           state?: string | null
           terms_conditions?: string | null

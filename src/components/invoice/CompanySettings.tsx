@@ -32,7 +32,9 @@ export default function CompanySettings() {
   const [selectedCompany, setSelectedCompany] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingQR, setUploadingQR] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>("/bharath-beverages-logo.png");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
 
   const form = useForm<z.infer<typeof companySchema>>({
     resolver: zodResolver(companySchema),
@@ -62,6 +64,7 @@ export default function CompanySettings() {
       setCompanies(data);
       setSelectedCompany(data[0]);
       setLogoUrl(data[0].logo_url || "/bharath-beverages-logo.png");
+      setQrCodeUrl(data[0].qr_code_url || "");
       // Type-safe form reset
       form.reset({
         name: data[0].name || "",
@@ -80,6 +83,7 @@ export default function CompanySettings() {
     } else {
       // No companies exist, use defaults from form
       setLogoUrl("/bharath-beverages-logo.png");
+      setQrCodeUrl("");
     }
   };
 
@@ -138,6 +142,61 @@ export default function CompanySettings() {
     }
   };
 
+  const handleQRCodeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size should be less than 2MB");
+      return;
+    }
+
+    setUploadingQR(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `qr-code-${Date.now()}.${fileExt}`;
+      const filePath = `qr-codes/${fileName}`;
+
+      // Upload to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('company-assets')
+        .getPublicUrl(filePath);
+
+      setQrCodeUrl(publicUrl);
+
+      // Update company record if exists
+      if (selectedCompany) {
+        const { error: updateError } = await supabase
+          .from('companies')
+          .update({ qr_code_url: publicUrl })
+          .eq('id', selectedCompany.id);
+
+        if (updateError) throw updateError;
+      }
+
+      toast.success("QR Code uploaded successfully");
+    } catch (error: any) {
+      console.error("Error uploading QR code:", error);
+      toast.error(error.message || "Failed to upload QR code");
+    } finally {
+      setUploadingQR(false);
+    }
+  };
+
   const onSubmit = async (data: z.infer<typeof companySchema>) => {
     setLoading(true);
     try {
@@ -156,6 +215,7 @@ export default function CompanySettings() {
         qr_upi: data.qr_upi || null,
         terms_conditions: data.terms_conditions || null,
         logo_url: logoUrl || null,
+        qr_code_url: qrCodeUrl || null,
       };
       
       if (selectedCompany) {
@@ -369,6 +429,39 @@ export default function CompanySettings() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              {/* QR Code Upload Section */}
+              <div className="border rounded-lg p-4 bg-muted/50 mt-4">
+                <h3 className="text-sm font-semibold mb-3">UPI QR Code</h3>
+                <div className="flex items-center gap-4">
+                  {qrCodeUrl && (
+                    <div className="relative w-32 h-32 border rounded-lg overflow-hidden bg-white">
+                      <img src={qrCodeUrl} alt="UPI QR Code" className="w-full h-full object-contain p-2" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => setQrCodeUrl("")}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQRCodeUpload}
+                      disabled={uploadingQR}
+                      className="mb-2"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Upload UPI QR code (max 2MB, PNG/JPG)
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
