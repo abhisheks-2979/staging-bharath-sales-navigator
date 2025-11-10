@@ -314,19 +314,31 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   };
 
   const updateRow = (id: string, field: keyof OrderRow, value: any) => {
-    const computeTotal = (prod?: Product, variant?: any, qty?: number) => {
+    const computeTotal = (prod?: Product, variant?: any, qty?: number, selectedUnit?: string) => {
       if (!prod || !qty) return 0;
       
       let price = variant ? variant.price : prod.rate;
       
-      // Apply conversion factor to get correct unit price
-      // If product has a base unit (e.g., kg) and conversion factor, calculate accordingly
-      if (!variant && prod.base_unit && prod.conversion_factor) {
-        // rate is stored per base_unit (e.g., per kg)
-        // conversion_factor tells us how selling unit relates to base unit
-        // e.g., if base_unit=kg and unit=grams, conversion_factor=0.001
-        // So price per gram = rate * 0.001
-        price = prod.rate * prod.conversion_factor;
+      // Dynamically calculate conversion factor based on selected unit
+      if (!variant && prod.base_unit) {
+        const baseUnit = prod.base_unit.toLowerCase();
+        const targetUnit = (selectedUnit || prod.unit || 'kg').toLowerCase();
+        
+        // Calculate dynamic conversion factor
+        let dynamicConversionFactor = 1;
+        
+        if (baseUnit === 'kg') {
+          if (targetUnit === 'grams' || targetUnit === 'gram') {
+            dynamicConversionFactor = 0.001; // 1 gram = 0.001 kg
+          } else if (targetUnit === 'kg') {
+            dynamicConversionFactor = 1;
+          }
+        } else if (baseUnit === 'piece' || baseUnit === 'pcs') {
+          dynamicConversionFactor = prod.conversion_factor || 1;
+        }
+        
+        // Apply conversion: price per selected unit = rate per base unit × conversion factor
+        price = prod.rate * dynamicConversionFactor;
       }
       
       // Apply variant discount if applicable
@@ -356,7 +368,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
               updatedRow.product = result.product;
               updatedRow.variant = result.variant;
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
-              updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity);
+              updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
             } else {
               updatedRow.product = undefined;
               updatedRow.variant = undefined;
@@ -364,7 +376,10 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
               updatedRow.total = 0;
             }
           } else if (field === "quantity") {
-            updatedRow.total = computeTotal(row.product, row.variant, value);
+            updatedRow.total = computeTotal(row.product, row.variant, value, row.unit);
+          } else if (field === "unit") {
+            // Recalculate total when unit changes
+            updatedRow.total = computeTotal(row.product, row.variant, row.quantity, value);
           }
           return updatedRow;
         }
@@ -578,17 +593,35 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                     }
                                     return variantDisplayName || row.variant.variant_name;
                                   })() : row.product.name}
-                                </span>
-                                {row.product.base_unit && row.product.conversion_factor && row.product.conversion_factor !== 1 ? (
-                                  <div className="flex flex-col mt-0.5 w-full">
-                                    <span className="text-[10px] md:text-xs text-muted-foreground">
-                                      ₹{(row.product.rate * row.product.conversion_factor).toFixed(2)} per {row.product.unit}
+                                 </span>
+                                 {row.product.base_unit ? (() => {
+                                  const baseUnit = row.product.base_unit.toLowerCase();
+                                  const selectedUnit = (row.unit || row.product.unit || 'kg').toLowerCase();
+                                  let conversionFactor = 1;
+                                  
+                                  if (baseUnit === 'kg') {
+                                    if (selectedUnit === 'grams' || selectedUnit === 'gram') {
+                                      conversionFactor = 0.001;
+                                    }
+                                  }
+                                  
+                                  const pricePerUnit = row.product.rate * conversionFactor;
+                                  
+                                  return conversionFactor !== 1 ? (
+                                    <div className="flex flex-col mt-0.5 w-full">
+                                      <span className="text-[10px] md:text-xs text-muted-foreground">
+                                        ₹{pricePerUnit.toFixed(2)} per {row.unit}
+                                      </span>
+                                      <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
+                                        (₹{row.product.rate.toFixed(2)} per {row.product.base_unit})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                                      ₹{row.variant?.price || row.product.rate || 0}
                                     </span>
-                                    <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
-                                      (₹{row.product.rate.toFixed(2)} per {row.product.base_unit})
-                                    </span>
-                                  </div>
-                                ) : (
+                                  );
+                                })() : (
                                   <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
                                     ₹{row.variant?.price || row.product.rate || 0}
                                   </span>

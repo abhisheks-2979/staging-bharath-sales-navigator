@@ -43,6 +43,8 @@ interface GridProduct {
   category: string;
   rate: number;
   unit: string;
+  base_unit?: string;
+  conversion_factor?: number;
   hasScheme?: boolean;
   schemeDetails?: string;
   schemeConditionQuantity?: number;
@@ -80,6 +82,7 @@ export const OrderEntry = () => {
   const [quantities, setQuantities] = useState<{[key: string]: number}>({});
   const [closingStocks, setClosingStocks] = useState<{[key: string]: number}>({});
   const [selectedVariants, setSelectedVariants] = useState<{[key: string]: string}>({});
+  const [selectedUnits, setSelectedUnits] = useState<{[key: string]: string}>({});
   const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [noOrderReason, setNoOrderReason] = useState<string>("");
@@ -530,6 +533,8 @@ useEffect(() => {
           category: categoryData?.name || 'Uncategorized',
           rate: p.rate || 0,
           unit: p.unit || 'piece',
+          base_unit: p.base_unit || 'kg',
+          conversion_factor: p.conversion_factor || 1,
           hasScheme: productSchemes.length > 0,
           schemeDetails: productSchemes.length > 0 ? productSchemes.map(s => 
             `${s.name}: ${getSchemeDescription(s)}`
@@ -915,7 +920,27 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
       return;
     }
 
-    const baseTotal = Number(displayProduct.rate) * Number(quantity);
+    // Apply unit conversion to get correct price
+    let effectiveRate = Number(displayProduct.rate);
+    const selectedUnit = selectedUnits[product.id] || product.unit || 'kg';
+    
+    // Only apply conversion for non-variant products
+    if (!displayProduct.id.includes('_variant_') && (product as GridProduct).base_unit) {
+      const gridProduct = product as GridProduct;
+      const baseUnit = gridProduct.base_unit?.toLowerCase() || 'kg';
+      const targetUnit = selectedUnit.toLowerCase();
+      let conversionFactor = 1;
+      
+      if (baseUnit === 'kg') {
+        if (targetUnit === 'grams' || targetUnit === 'gram') {
+          conversionFactor = 0.001;
+        }
+      }
+      
+      effectiveRate = effectiveRate * conversionFactor;
+    }
+    
+    const baseTotal = effectiveRate * Number(quantity);
     
     // Determine the variant ID for scheme calculation
     let variantIdForScheme = null;
@@ -936,7 +961,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
       product.id, 
       variantIdForScheme, 
       quantity, 
-      Number(displayProduct.rate)
+      effectiveRate
     );
     const finalTotal = baseTotal - totalDiscount;
     
@@ -1853,17 +1878,60 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                         <div className="border rounded-lg overflow-hidden">
-                          <div className="bg-muted/50 grid grid-cols-4 gap-1 p-2 text-xs font-medium">
+                          <div className="bg-muted/50 grid grid-cols-5 gap-1 p-2 text-xs font-medium">
                             <div>Variant</div>
                             <div>Rate</div>
+                            <div>Unit</div>
                             <div>Qty</div>
                             <div>Stock</div>
                           </div>
                           
                           {/* Base Product Row */}
-                          <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
+                          <div className="grid grid-cols-5 gap-1 p-2 text-xs border-t">
                             <div className="text-xs">{product.name}</div>
-                            <div className="font-medium">₹{product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}</div>
+                            <div className="font-medium">
+                              {(() => {
+                                const selectedUnit = selectedUnits[product.id] || product.unit || 'kg';
+                                const baseUnit = product.base_unit?.toLowerCase() || 'kg';
+                                const targetUnit = selectedUnit.toLowerCase();
+                                let conversionFactor = 1;
+                                
+                                if (baseUnit === 'kg') {
+                                  if (targetUnit === 'grams' || targetUnit === 'gram') {
+                                    conversionFactor = 0.001;
+                                  }
+                                }
+                                
+                                const pricePerUnit = product.rate * conversionFactor;
+                                
+                                return conversionFactor !== 1 ? (
+                                  <div className="flex flex-col">
+                                    <span>₹{pricePerUnit.toFixed(2)}</span>
+                                    <span className="text-[9px] text-muted-foreground">
+                                      (₹{product.rate.toFixed(2)}/{baseUnit})
+                                    </span>
+                                  </div>
+                                ) : (
+                                  `₹${product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}`
+                                );
+                              })()}
+                            </div>
+                            <div>
+                              <Select
+                                value={selectedUnits[product.id] || product.unit || 'KG'}
+                                onValueChange={(value) => {
+                                  setSelectedUnits(prev => ({ ...prev, [product.id]: value }));
+                                }}
+                              >
+                                <SelectTrigger className="h-6 text-xs p-1 w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="KG">KG</SelectItem>
+                                  <SelectItem value="Grams">Grams</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                             <div>
                               <Input
                                 type="number"
