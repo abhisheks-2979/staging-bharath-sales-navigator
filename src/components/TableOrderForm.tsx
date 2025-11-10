@@ -281,11 +281,14 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
     if (option) {
       setOrderRows(prev => prev.map(row => {
         if (row.id === rowId) {
+          // Set the unit to match the product's selling unit
+          const productUnit = option.product.unit || 'KG';
           return {
             ...row,
             productCode: option.sku,
             product: option.product,
             variant: option.variant,
+            unit: productUnit,
             total: 0
           };
         }
@@ -324,6 +327,14 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         const baseUnit = prod.base_unit.toLowerCase();
         const targetUnit = (selectedUnit || prod.unit || 'kg').toLowerCase();
         
+        console.log('🔢 Computing total:', { 
+          productName: prod.name, 
+          baseUnit, 
+          targetUnit, 
+          baseRate: prod.rate, 
+          quantity: qty 
+        });
+        
         // Calculate dynamic conversion factor
         let dynamicConversionFactor = 1;
         
@@ -339,6 +350,12 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         
         // Apply conversion: price per selected unit = rate per base unit × conversion factor
         price = prod.rate * dynamicConversionFactor;
+        
+        console.log('💰 Price calculation:', { 
+          dynamicConversionFactor, 
+          pricePerUnit: price, 
+          total: price * qty 
+        });
       }
       
       // Apply variant discount if applicable
@@ -367,6 +384,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
             if (result) {
               updatedRow.product = result.product;
               updatedRow.variant = result.variant;
+              updatedRow.unit = result.product.unit || 'KG'; // Set unit to product's selling unit
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
             } else {
@@ -376,7 +394,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
               updatedRow.total = 0;
             }
           } else if (field === "quantity") {
-            updatedRow.total = computeTotal(row.product, row.variant, value, row.unit);
+            // Use updatedRow.unit to get the most current unit value
+            updatedRow.total = computeTotal(row.product, row.variant, value, updatedRow.unit);
           } else if (field === "unit") {
             // Recalculate total when unit changes
             updatedRow.total = computeTotal(row.product, row.variant, row.quantity, value);
