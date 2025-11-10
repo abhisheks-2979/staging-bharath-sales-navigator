@@ -34,6 +34,8 @@ interface Product {
   category?: ProductCategory;
   rate: number;
   unit: string;
+  base_unit: string;
+  conversion_factor: number;
   closing_stock: number;
   is_active: boolean;
 }
@@ -111,6 +113,8 @@ const [productForm, setProductForm] = useState({
   category_id: '',
   rate: 0,
   unit: 'piece',
+  base_unit: 'kg',
+  conversion_factor: 1,
   closing_stock: 0,
   is_active: true,
   sku_image_url: ''
@@ -349,6 +353,8 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
+            base_unit: productForm.base_unit,
+            conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
             sku_image_url: productForm.sku_image_url || null
@@ -368,6 +374,8 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
+            base_unit: productForm.base_unit,
+            conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
             sku_image_url: productForm.sku_image_url || null
@@ -387,6 +395,8 @@ setProductForm({
   category_id: '',
   rate: 0,
   unit: 'piece',
+  base_unit: 'kg',
+  conversion_factor: 1,
   closing_stock: 0,
   is_active: true,
   sku_image_url: ''
@@ -736,6 +746,8 @@ setProductForm({
   category_id: '',
   rate: 0,
   unit: 'piece',
+  base_unit: 'kg',
+  conversion_factor: 1,
   closing_stock: 0,
   is_active: true,
   sku_image_url: ''
@@ -807,37 +819,94 @@ setProductForm({
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="rate">Rate</Label>
-                          <Input
-                            id="rate"
-                            type="number"
-                            value={productForm.rate}
-                            onChange={(e) => setProductForm({ ...productForm, rate: parseFloat(e.target.value) || 0 })}
-                            placeholder="0.00"
-                          />
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="base_unit">Base Unit</Label>
+                            <Select
+                              value={productForm.base_unit}
+                              onValueChange={(value) => setProductForm({ ...productForm, base_unit: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="kg">KG</SelectItem>
+                                <SelectItem value="piece">Piece</SelectItem>
+                                <SelectItem value="liter">Liter</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1">Base unit for pricing</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="unit">Selling Unit</Label>
+                            <Select
+                              value={productForm.unit}
+                              onValueChange={(value) => {
+                                // Auto-set conversion factor based on unit
+                                let conversionFactor = 1;
+                                if (productForm.base_unit === 'kg') {
+                                  if (value === 'grams') conversionFactor = 0.001;
+                                  else if (value === 'kg') conversionFactor = 1;
+                                  else if (value === 'piece') conversionFactor = 1; // Custom, user can edit
+                                }
+                                setProductForm({ ...productForm, unit: value, conversion_factor: conversionFactor });
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="piece">Piece</SelectItem>
+                                <SelectItem value="kg">Kg</SelectItem>
+                                <SelectItem value="grams">Grams</SelectItem>
+                                <SelectItem value="liter">Liter</SelectItem>
+                                <SelectItem value="packet">Packet</SelectItem>
+                                <SelectItem value="bottle">Bottle</SelectItem>
+                                <SelectItem value="box">Box</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1">Unit for selling</p>
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="unit">Unit</Label>
-                          <Select
-                            value={productForm.unit}
-                            onValueChange={(value) => setProductForm({ ...productForm, unit: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="piece">Piece</SelectItem>
-                              <SelectItem value="kg">Kg</SelectItem>
-                              <SelectItem value="grams">Grams</SelectItem>
-                              <SelectItem value="liter">Liter</SelectItem>
-                              <SelectItem value="packet">Packet</SelectItem>
-                              <SelectItem value="bottle">Bottle</SelectItem>
-                              <SelectItem value="box">Box</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="rate">Rate per {productForm.base_unit.toUpperCase()}</Label>
+                            <Input
+                              id="rate"
+                              type="number"
+                              step="0.01"
+                              value={productForm.rate}
+                              onChange={(e) => setProductForm({ ...productForm, rate: parseFloat(e.target.value) || 0 })}
+                              placeholder="0.00"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              All base prices stored per {productForm.base_unit.toUpperCase()}
+                            </p>
+                          </div>
+                          <div>
+                            <Label htmlFor="conversion_factor">Conversion Factor</Label>
+                            <Input
+                              id="conversion_factor"
+                              type="number"
+                              step="0.001"
+                              value={productForm.conversion_factor}
+                              onChange={(e) => setProductForm({ ...productForm, conversion_factor: parseFloat(e.target.value) || 0 })}
+                              placeholder="1"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {productForm.unit} to {productForm.base_unit} (e.g., 0.001 for grams to kg)
+                            </p>
+                          </div>
                         </div>
+                        {productForm.conversion_factor !== 1 && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-sm font-medium">Calculated Rate per {productForm.unit}:</p>
+                            <p className="text-lg font-bold text-primary">
+                              ₹{(productForm.rate * productForm.conversion_factor).toFixed(2)}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Product Photo</Label>
@@ -944,7 +1013,8 @@ setProductForm({
                       <TableHead>SKU</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Category</TableHead>
-                      <TableHead>Rate</TableHead>
+                      <TableHead>Rate per Unit</TableHead>
+                      <TableHead>Rate per KG</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead>Stock</TableHead>
                       <TableHead>Variants</TableHead>
@@ -971,7 +1041,18 @@ setProductForm({
                         <TableCell className="font-mono">{product.sku}</TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>{product.category?.name}</TableCell>
-                        <TableCell>₹{product.rate}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">₹{(product.rate * (product.conversion_factor || 1)).toFixed(2)}</div>
+                            <div className="text-xs text-muted-foreground">per {product.unit}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">₹{product.rate.toFixed(2)}</div>
+                            <div className="text-xs text-muted-foreground">per {product.base_unit || 'kg'}</div>
+                          </div>
+                        </TableCell>
                         <TableCell>{product.unit}</TableCell>
                         <TableCell>{product.closing_stock}</TableCell>
                         <TableCell>
@@ -1011,6 +1092,8 @@ setProductForm({
   category_id: product.category_id || '',
   rate: product.rate,
   unit: product.unit,
+  base_unit: (product as any).base_unit || 'kg',
+  conversion_factor: (product as any).conversion_factor || 1,
   closing_stock: product.closing_stock,
   is_active: product.is_active,
   sku_image_url: (product as any).sku_image_url || ''

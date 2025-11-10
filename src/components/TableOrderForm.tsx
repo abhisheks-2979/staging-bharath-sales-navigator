@@ -20,6 +20,8 @@ interface Product {
   category: { name: string } | null;
   rate: number;
   unit: string;
+  base_unit?: string;
+  conversion_factor?: number;
   closing_stock: number;
   schemes?: { 
     name: string; 
@@ -152,6 +154,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           description,
           rate,
           unit,
+          base_unit,
+          conversion_factor,
           closing_stock,
           is_active,
           category_id,
@@ -314,6 +318,16 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       if (!prod || !qty) return 0;
       
       let price = variant ? variant.price : prod.rate;
+      
+      // Apply conversion factor to get correct unit price
+      // If product has a base unit (e.g., kg) and conversion factor, calculate accordingly
+      if (!variant && prod.base_unit && prod.conversion_factor) {
+        // rate is stored per base_unit (e.g., per kg)
+        // conversion_factor tells us how selling unit relates to base unit
+        // e.g., if base_unit=kg and unit=grams, conversion_factor=0.001
+        // So price per gram = rate * 0.001
+        price = prod.rate * prod.conversion_factor;
+      }
       
       // Apply variant discount if applicable
       if (variant) {
@@ -511,9 +525,14 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Bulk Order Entry</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Enter product SKUs directly for faster ordering ({products.length} products available)
-          </p>
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">
+              Enter product SKUs directly for faster ordering ({products.length} products available)
+            </p>
+            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
+              <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
+            </p>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="w-full">
@@ -560,9 +579,20 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                     return variantDisplayName || row.variant.variant_name;
                                   })() : row.product.name}
                                 </span>
-                                <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
-                                  ₹{row.variant?.price || row.product.rate || 0}
-                                </span>
+                                {row.product.base_unit && row.product.conversion_factor && row.product.conversion_factor !== 1 ? (
+                                  <div className="flex flex-col mt-0.5 w-full">
+                                    <span className="text-[10px] md:text-xs text-muted-foreground">
+                                      ₹{(row.product.rate * row.product.conversion_factor).toFixed(2)} per {row.product.unit}
+                                    </span>
+                                    <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
+                                      (₹{row.product.rate.toFixed(2)} per {row.product.base_unit})
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                                    ₹{row.variant?.price || row.product.rate || 0}
+                                  </span>
+                                )}
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-xs md:text-sm">Select...</span>

@@ -2122,8 +2122,10 @@ export type Database = {
       }
       products: {
         Row: {
+          base_unit: string | null
           category_id: string | null
           closing_stock: number | null
+          conversion_factor: number | null
           created_at: string
           description: string | null
           id: string
@@ -2137,8 +2139,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_unit?: string | null
           category_id?: string | null
           closing_stock?: number | null
+          conversion_factor?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -2152,8 +2156,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_unit?: string | null
           category_id?: string | null
           closing_stock?: number | null
+          conversion_factor?: number | null
           created_at?: string
           description?: string | null
           id?: string
