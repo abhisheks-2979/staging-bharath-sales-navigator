@@ -551,10 +551,198 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
 
     setSendingWhatsApp(true);
     try {
+      // First generate the PDF
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          order_items (*)
+        `)
+        .eq("id", orderId)
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Fetch company data
+      const { data: companyData } = await supabase
+        .from("companies")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+
+      // Fetch retailer data
+      let customerData: any = null;
+      if (order.retailer_id) {
+        const { data: retailer } = await supabase
+          .from("retailers")
+          .select("name, address, phone, gst_number")
+          .eq("id", order.retailer_id)
+          .single();
+
+        customerData = retailer;
+      }
+
+      // Generate PDF using the same logic
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPos = 15;
+
+      // Title
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      doc.text("Tax Invoice", pageWidth / 2, yPos, { align: "center" });
+      yPos += 10;
+
+      // Company header
+      doc.rect(10, yPos, pageWidth - 20, 40);
+      const headerStartY = yPos + 5;
+      
+      if (companyData?.logo_url) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = companyData.logo_url;
+          });
+          doc.addImage(img, "PNG", 15, headerStartY, 25, 15);
+        } catch (error) {
+          console.error("Error loading logo:", error);
+        }
+      }
+
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      doc.text(companyData?.name || "BHARATH BEVERAGES", 45, headerStartY + 5);
+      
+      doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
+      let companyY = headerStartY + 10;
+      
+      if (companyData?.address) {
+        const addrLines = doc.splitTextToSize(companyData.address, 140);
+        doc.text(addrLines, 45, companyY);
+        companyY += addrLines.length * 3.5;
+      }
+      if (companyData?.contact_phone) {
+        doc.text("Phone: " + companyData.contact_phone, 45, companyY);
+        companyY += 3.5;
+      }
+      if (companyData?.email) {
+        doc.text("Email: " + companyData.email, 45, companyY);
+        companyY += 3.5;
+      }
+      if (companyData?.gstin) {
+        doc.text("GSTIN: " + companyData.gstin, 45, companyY);
+      }
+
+      yPos += 45;
+
+      // Bill To and Invoice Details
+      doc.rect(10, yPos, (pageWidth - 20) / 2, 30);
+      doc.rect(10 + (pageWidth - 20) / 2, yPos, (pageWidth - 20) / 2, 30);
+
+      doc.setFontSize(9);
+      doc.setFont(undefined, "bold");
+      doc.text("Bill To:", 15, yPos + 5);
+      doc.text("Invoice Details:", 15 + (pageWidth - 20) / 2, yPos + 5);
+
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(8);
+      
+      let billToY = yPos + 10;
+      if (customerData?.name) {
+        doc.text(customerData.name, 15, billToY);
+        billToY += 4;
+      }
+      if (customerData?.address) {
+        const custAddr = doc.splitTextToSize(customerData.address, 80);
+        doc.text(custAddr, 15, billToY);
+        billToY += custAddr.length * 3.5;
+      }
+      if (customerData?.phone) {
+        doc.text("Contact: " + customerData.phone, 15, billToY);
+      }
+
+      const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
+      const invoiceDate = new Date(order.created_at);
+      const invoiceDetailsX = 15 + (pageWidth - 20) / 2;
+      doc.text("No: " + invoiceNumber, invoiceDetailsX, yPos + 10);
+      doc.text("Date: " + invoiceDate.toLocaleDateString("en-IN"), invoiceDetailsX, yPos + 14);
+      doc.text("Place Of Supply: Karnataka", invoiceDetailsX, yPos + 18);
+
+      yPos += 35;
+
+      // Items table
+      const items = order.order_items || [];
+      const tableData = items.map((item: any, index: number) => {
+        const quantity = Number(item.quantity || 0);
+        const rate = Number(item.rate || 0);
+        const taxableAmount = quantity * rate;
+        const gstRate = 18;
+        const gstAmount = (taxableAmount * gstRate) / 100;
+        const totalAmount = taxableAmount + gstAmount;
+
+        return [
+          (index + 1).toString(),
+          item.product_name || '',
+          "090230",
+          quantity.toString(),
+          item.unit || "Kg",
+          "Rs " + rate.toFixed(2),
+          gstRate.toString() + "%",
+          "Rs " + totalAmount.toFixed(2)
+        ];
+      });
+
+      const totalQty = items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+      const subTotal = items.reduce((sum: number, item: any) => sum + (Number(item.quantity || 0) * Number(item.rate || 0)), 0);
+      const totalGst = (subTotal * 18) / 100;
+      const grandTotal = subTotal + totalGst;
+
+      tableData.push(["", "Total", "", totalQty.toString(), "", "", "Rs " + totalGst.toFixed(2), "Rs " + grandTotal.toFixed(2)]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["#", "Item Name", "HSN/SAC", "Qty", "Unit", "Rate (Rs)", "GST %", "Amount (Rs)"]],
+        body: tableData,
+        theme: "grid",
+        headStyles: { fillColor: [255, 255, 255], textColor: 0, fontSize: 8, fontStyle: "bold" },
+        bodyStyles: { fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 2 }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 5;
+
+      // Get PDF as blob
+      const pdfBlob = doc.output('blob');
+      const fileName = `Invoice_${invoiceNumber}.pdf`;
+
+      // Upload to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('invoices')
+        .upload(`${order.user_id}/${fileName}`, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('invoices')
+        .getPublicUrl(uploadData.path);
+
+      console.log('PDF uploaded to:', publicUrl);
+
+      // Send via WhatsApp
       const { error } = await supabase.functions.invoke('send-invoice-whatsapp', {
         body: { 
           invoiceId: orderId,
-          customerPhone: customerPhone 
+          customerPhone: customerPhone,
+          pdfUrl: publicUrl,
+          invoiceNumber: invoiceNumber
         }
       });
 
