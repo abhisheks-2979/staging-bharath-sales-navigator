@@ -671,22 +671,25 @@ setProductForm({
                           toast.loading('Deleting all products and related data...');
                           
                           // Delete in order: child tables first, then parent
-                          // 1. Delete van inward GRN items
+                          // 1. Delete van live inventory (current stock)
+                          await supabase.from('van_live_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                          
+                          // 2. Delete van inward GRN items
                           await supabase.from('van_inward_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                           
-                          // 2. Delete van closing stock items
+                          // 3. Delete van closing stock items
                           await supabase.from('van_closing_stock_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                           
-                          // 3. Delete van return GRN items
+                          // 4. Delete van return GRN items
                           await supabase.from('van_return_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                           
-                          // 4. Delete van order fulfillment
+                          // 5. Delete van order fulfillment
                           await supabase.from('van_order_fulfillment').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                           
-                          // 5. Delete product schemes
+                          // 6. Delete product schemes
                           await supabase.from('product_schemes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                           
-                          // 6. Delete product variants
+                          // 7. Delete product variants
                           await supabase.from('product_variants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                           
                           // 7. Finally delete products
