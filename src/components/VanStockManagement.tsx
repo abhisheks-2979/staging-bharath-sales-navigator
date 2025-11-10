@@ -418,12 +418,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           </div>
                           <div>
                             <Label className="text-xs">Unit</Label>
-                            <Input
-                              type="text"
-                              value={item.unit || 'Select product'}
-                              readOnly
-                              className="bg-muted"
-                            />
+                            <Select
+                              value={item.unit}
+                              onValueChange={(value) => handleProductChange(index, 'unit', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="kg">kg</SelectItem>
+                                <SelectItem value="grams">grams</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div className="flex gap-2">
                             <div className="flex-1">
