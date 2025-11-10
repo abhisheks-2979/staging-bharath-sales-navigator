@@ -575,7 +575,7 @@ export const AddRetailer = () => {
                         if (permissionStatus.state === 'denied') {
                           toast({ 
                             title: "Location Permission Denied", 
-                            description: "Please enable location access in your device settings and reload the page",
+                            description: "Please enable location access in your device settings",
                             variant: "destructive",
                             duration: 5000
                           });
@@ -585,55 +585,66 @@ export const AddRetailer = () => {
                         console.log('Permission API not supported, will try direct geolocation');
                       }
                       
-                      toast({ 
-                        title: "Accessing Location", 
-                        description: "Please enable GPS and allow location access...",
-                        duration: 4000
+                      const loadingToast = toast({ 
+                        title: "Getting Location...", 
+                        description: "Please wait while we access your GPS",
+                        duration: 15000
                       });
                       
                       try {
-                        // Request high-accuracy location with iterative refinement
+                        // Request high-accuracy location with shorter timeout
                         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                           let best: GeolocationPosition | null = null;
                           const startedAt = Date.now();
-                          const targetAccuracy = 30; // meters
-                          const maxWait = 45000; // ms
+                          const targetAccuracy = 50; // meters (more lenient)
+                          const maxWait = 15000; // 15 seconds (reduced from 45s)
+                          let watchId: number | null = null;
                           
-                          const watchId = navigator.geolocation.watchPosition(
+                          const cleanup = () => {
+                            if (watchId !== null) {
+                              navigator.geolocation.clearWatch(watchId);
+                              watchId = null;
+                            }
+                          };
+                          
+                          watchId = navigator.geolocation.watchPosition(
                             (pos) => {
                               // Keep the most accurate reading so far
                               if (!best || pos.coords.accuracy < best.coords.accuracy) {
                                 best = pos;
                               }
                               
-                              const ageMs = Date.now() - pos.timestamp;
-                              const goodEnough = pos.coords.accuracy <= targetAccuracy && ageMs < 30000;
-                              const timedOut = Date.now() - startedAt > maxWait;
+                              const elapsed = Date.now() - startedAt;
+                              const goodEnough = pos.coords.accuracy <= targetAccuracy;
+                              const timedOut = elapsed > maxWait;
                               
+                              // Accept first good reading or timeout with best available
                               if (goodEnough || timedOut) {
-                                navigator.geolocation.clearWatch(watchId);
+                                cleanup();
                                 resolve(best || pos);
                               }
                             },
                             (error) => {
-                              navigator.geolocation.clearWatch(watchId);
-                              console.error('Geolocation error:', error);
+                              cleanup();
                               reject(error);
                             },
                             { 
-                              enableHighAccuracy: true, // Use GPS, not network location
-                              timeout: maxWait, // Longer timeout for GPS lock
-                              maximumAge: 0 // Always get fresh location
+                              enableHighAccuracy: true,
+                              timeout: maxWait,
+                              maximumAge: 5000 // Allow cached location up to 5s old
                             }
                           );
                           
-                          // Absolute safety timeout
+                          // Absolute safety timeout - ensure we always resolve/reject
                           setTimeout(() => {
                             if (best) {
-                              navigator.geolocation.clearWatch(watchId);
+                              cleanup();
                               resolve(best);
+                            } else {
+                              cleanup();
+                              reject(new Error('Location timeout - no GPS signal received'));
                             }
-                          }, maxWait + 1000);
+                          }, maxWait + 2000);
                         });
                         
                         // Get precise coordinates with 7 decimal places (~1 cm accuracy)
@@ -641,33 +652,27 @@ export const AddRetailer = () => {
                         const lon = Number(position.coords.longitude.toFixed(7));
                         const accuracy = position.coords.accuracy;
                         
-                        console.log('GPS Location captured:', { 
-                          latitude: lat, 
-                          longitude: lon, 
-                          accuracy: `${accuracy.toFixed(1)}m`,
-                          timestamp: new Date(position.timestamp).toISOString()
-                        });
-                        
                         // Update coordinates immediately
                         handleInputChange("latitude", lat.toString());
                         handleInputChange("longitude", lon.toString());
                         
+                        loadingToast.dismiss?.();
+                        
                         if (accuracy > 100) {
                           toast({ 
-                            title: "Low GPS Accuracy", 
-                            description: `Current accuracy: ${accuracy.toFixed(0)}m. Try moving to an open area for better signal.`,
-                            variant: "default",
-                            duration: 4000
+                            title: "Location Captured", 
+                            description: `GPS locked (accuracy: ${accuracy.toFixed(0)}m). Fetching address...`,
+                            duration: 3000
                           });
                         } else {
                           toast({ 
                             title: "GPS Location Locked", 
-                            description: `High accuracy: ${accuracy.toFixed(0)}m. Fetching address from Google Maps...`,
+                            description: `High accuracy: ${accuracy.toFixed(0)}m. Fetching address...`,
                             duration: 2000
                           });
                         }
                         
-                        // Use Google Maps Geocoding/Places for more precise POI-first address
+                        // Use Google Maps Geocoding with timeout
                         try {
                           const googleApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -686,6 +691,16 @@ export const AddRetailer = () => {
                           };
 
                           if (googleApiKey && googleApiKey !== 'your_google_maps_api_key_here') {
+                            // Add timeout for API calls
+                            const fetchWithTimeout = (url: string, timeout = 8000) => {
+                              return Promise.race([
+                                fetch(url),
+                                new Promise<Response>((_, reject) => 
+                                  setTimeout(() => reject(new Error('API timeout')), timeout)
+                                )
+                              ]);
+                            };
+
                             // 1) Reverse geocode prioritizing POIs/premise/street address
                             const geocodeUrl =
                               `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}` +
@@ -693,19 +708,19 @@ export const AddRetailer = () => {
                               `&result_type=street_address|premise|point_of_interest|establishment|shopping_mall` +
                               `&location_type=ROOFTOP|GEOMETRIC_CENTER`;
 
-                            // 2) Nearby places ordered by distance (to snap to closest POI like malls/stores)
+                            // 2) Nearby places ordered by distance
                             const nearbyUrl =
                               `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lon}` +
                               `&rankby=distance&type=establishment&key=${googleApiKey}`;
 
-                            const [geoRes, nearbyRes] = await Promise.all([
-                              fetch(geocodeUrl),
-                              fetch(nearbyUrl)
+                            const [geoRes, nearbyRes] = await Promise.allSettled([
+                              fetchWithTimeout(geocodeUrl),
+                              fetchWithTimeout(nearbyUrl)
                             ]);
 
                             let bestGeocode: any | null = null;
-                            if (geoRes.ok) {
-                              const geoData = await geoRes.json();
+                            if (geoRes.status === 'fulfilled' && geoRes.value.ok) {
+                              const geoData = await geoRes.value.json();
                               if (geoData.status === 'OK' && Array.isArray(geoData.results)) {
                                 const priority = [
                                   'shopping_mall',
@@ -728,8 +743,8 @@ export const AddRetailer = () => {
                             }
 
                             let bestPlace: any | null = null;
-                            if (nearbyRes.ok) {
-                              const nearbyData = await nearbyRes.json();
+                            if (nearbyRes.status === 'fulfilled' && nearbyRes.value.ok) {
+                              const nearbyData = await nearbyRes.value.json();
                               if ((nearbyData.status === 'OK' || nearbyData.status === 'ZERO_RESULTS') && Array.isArray(nearbyData.results)) {
                                 const desiredPlaceTypes = new Set([
                                   'shopping_mall',
@@ -819,34 +834,35 @@ export const AddRetailer = () => {
                         }
                         
                       } catch (error: any) {
+                        loadingToast.dismiss?.();
                         console.error('GPS/Geocoding error:', error);
                         
                         // Provide specific error messages
                         if (error.code === 1) {
                           toast({ 
                             title: "Location Permission Denied", 
-                            description: "Please enable location access in your device settings: Settings → Privacy → Location Services",
-                            variant: "destructive",
-                            duration: 6000
-                          });
-                        } else if (error.code === 2) {
-                          toast({ 
-                            title: "Location Unavailable", 
-                            description: "GPS signal not available. Please ensure you're outdoors or near a window and try again.",
+                            description: "Please enable location access: Settings → Privacy → Location",
                             variant: "destructive",
                             duration: 5000
                           });
-                        } else if (error.code === 3) {
+                        } else if (error.code === 2) {
                           toast({ 
-                            title: "Location Timeout", 
-                            description: "GPS took too long to respond. Please try again in a few moments.",
+                            title: "GPS Signal Not Available", 
+                            description: "Please move to an open area with clear sky view and try again",
+                            variant: "destructive",
+                            duration: 5000
+                          });
+                        } else if (error.code === 3 || error.message?.includes('timeout')) {
+                          toast({ 
+                            title: "GPS Timeout", 
+                            description: "Location request took too long. Please ensure GPS is enabled and try again",
                             variant: "destructive",
                             duration: 5000
                           });
                         } else {
                           toast({ 
-                            title: "GPS Error", 
-                            description: "Could not get accurate location. Please check your GPS settings and internet connection.",
+                            title: "Location Error", 
+                            description: "Could not get location. Please check GPS settings and try again",
                             variant: "destructive",
                             duration: 5000
                           });
