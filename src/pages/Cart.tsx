@@ -50,6 +50,13 @@ const getDisplayRate = (item: CartItem) => {
   return baseRate;
 };
 
+// Currency formatter that truncates to 2 decimals (no rounding)
+const formatINRTrunc2 = (value: number) => {
+  const num = Number(value) || 0;
+  const truncated = Math.floor(num * 100) / 100;
+  return truncated.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 export const Cart = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -852,11 +859,11 @@ React.useEffect(() => {
                 <div className="border-t pt-3 space-y-2">
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>CGST (2.5%):</span>
-                    <span>₹{getCGST().toLocaleString()}</span>
+                    <span>₹{formatINRTrunc2(getCGST())}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>SGST (2.5%):</span>
-                    <span>₹{getSGST().toLocaleString()}</span>
+                    <span>₹{formatINRTrunc2(getSGST())}</span>
                   </div>
                 </div>
 
