@@ -276,6 +276,28 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
     return options;
   };
 
+  // Unit conversion helpers - unified across UI and totals
+  const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+  const getPricePerUnit = (prod: Product, variant?: any, unit?: string) => {
+    const baseRate = Number(variant ? variant.price : prod.rate) || 0;
+    const baseUnit = normalizeUnit(prod.base_unit || prod.unit);
+    const targetUnit = normalizeUnit(unit || prod.unit);
+
+    if (!baseUnit) return baseRate;
+
+    // KG ↔ Gram conversions
+    if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
+      if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
+      if (targetUnit === "kg") return baseRate;
+    } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
+      if (targetUnit === "kg") return baseRate * 1000;
+      if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
+    }
+
+    // Piece-based or other units: keep as-is (optional conversion_factor can be added later)
+    return baseRate;
+  };
+
   const handleProductSelect = (rowId: string, value: string) => {
     const option = getProductOptions().find(opt => opt.value === value);
     if (option) {
@@ -319,54 +341,19 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const updateRow = (id: string, field: keyof OrderRow, value: any) => {
     const computeTotal = (prod?: Product, variant?: any, qty?: number, selectedUnit?: string) => {
       if (!prod || !qty) return 0;
-      
-      let price = variant ? variant.price : prod.rate;
-      
-      // Dynamically calculate conversion factor based on selected unit
-      if (!variant && prod.base_unit) {
-        const baseUnit = prod.base_unit.toLowerCase();
-        const targetUnit = (selectedUnit || prod.unit || 'kg').toLowerCase();
-        
-        console.log('🔢 Computing total:', { 
-          productName: prod.name, 
-          baseUnit, 
-          targetUnit, 
-          baseRate: prod.rate, 
-          quantity: qty 
-        });
-        
-        // Calculate dynamic conversion factor
-        let dynamicConversionFactor = 1;
-        
-        if (baseUnit === 'kg') {
-          if (targetUnit === 'grams' || targetUnit === 'gram') {
-            dynamicConversionFactor = 0.001; // 1 gram = 0.001 kg
-          } else if (targetUnit === 'kg') {
-            dynamicConversionFactor = 1;
-          }
-        } else if (baseUnit === 'piece' || baseUnit === 'pcs') {
-          dynamicConversionFactor = prod.conversion_factor || 1;
-        }
-        
-        // Apply conversion: price per selected unit = rate per base unit × conversion factor
-        price = prod.rate * dynamicConversionFactor;
-        
-        console.log('💰 Price calculation:', { 
-          dynamicConversionFactor, 
-          pricePerUnit: price, 
-          total: price * qty 
-        });
-      }
-      
+
+      // Price per selected unit using shared helper
+      let price = getPricePerUnit(prod, variant, selectedUnit);
+
       // Apply variant discount if applicable
       if (variant) {
-        if (variant.discount_percentage > 0) {
-          price = price - (price * variant.discount_percentage / 100);
-        } else if (variant.discount_amount > 0) {
-          price = price - variant.discount_amount;
+        if (Number(variant.discount_percentage) > 0) {
+          price = price - (price * Number(variant.discount_percentage) / 100);
+        } else if (Number(variant.discount_amount) > 0) {
+          price = price - Number(variant.discount_amount);
         }
       }
-      
+
       const base = Number(price) * Number(qty);
       const active = prod.schemes?.find(s => s.is_active);
       if (active && active.condition_quantity && active.discount_percentage && qty >= active.condition_quantity) {
@@ -608,36 +595,26 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                     return variantDisplayName || row.variant.variant_name;
                                   })() : row.product.name}
                                  </span>
-                                 {row.product.base_unit ? (() => {
-                                  const baseUnit = row.product.base_unit.toLowerCase();
-                                  const selectedUnit = (row.unit || row.product.unit || 'kg').toLowerCase();
-                                  let conversionFactor = 1;
-                                  
-                                  if (baseUnit === 'kg') {
-                                    if (selectedUnit === 'grams' || selectedUnit === 'gram') {
-                                      conversionFactor = 0.001;
-                                    }
-                                  }
-                                  
-                                  const pricePerUnit = row.product.rate * conversionFactor;
-                                  
-                                  return conversionFactor !== 1 ? (
+                                {row.product.base_unit ? (() => {
+                                  const pricePerUnit = getPricePerUnit(row.product!, row.variant, row.unit);
+                                  const baseUnit = (row.product!.base_unit || row.product!.unit || '').toLowerCase();
+                                  const selectedUnit = (row.unit || row.product!.unit || '').toLowerCase();
+                                  const showBase = baseUnit && selectedUnit && baseUnit !== selectedUnit;
+                                  return (
                                     <div className="flex flex-col mt-0.5 w-full">
                                       <span className="text-[10px] md:text-xs text-muted-foreground">
                                         ₹{pricePerUnit.toFixed(2)} per {row.unit}
                                       </span>
-                                      <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
-                                        (₹{row.product.rate.toFixed(2)} per {row.product.base_unit})
-                                      </span>
+                                      {showBase && (
+                                        <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
+                                          (₹{Number(row.variant?.price || row.product!.rate).toFixed(2)} per {row.product!.base_unit})
+                                        </span>
+                                      )}
                                     </div>
-                                  ) : (
-                                    <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
-                                      ₹{row.variant?.price || row.product.rate || 0}
-                                    </span>
                                   );
                                 })() : (
                                   <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
-                                    ₹{row.variant?.price || row.product.rate || 0}
+                                    ₹{Number(row.variant?.price || row.product.rate || 0).toFixed(2)} per {row.unit || row.product?.unit}
                                   </span>
                                 )}
                               </div>
