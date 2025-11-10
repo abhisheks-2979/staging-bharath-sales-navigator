@@ -17,19 +17,37 @@ export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGenerato
   const generatePDF = async () => {
     setLoading(true);
     try {
-      // Fetch invoice with all related data
+      // Fetch invoice with all related data  
       const { data: invoice, error: invoiceError } = await supabase
         .from("invoices")
         .select(`
           *,
           invoice_items (*),
-          companies (*),
-          customers (*)
+          companies (*)
         `)
         .eq("id", invoiceId)
         .single();
 
       if (invoiceError) throw invoiceError;
+
+      // Fetch retailer data separately
+      let customerData: any = null;
+      if (invoice.customer_id) {
+        const { data: retailer } = await supabase
+          .from("retailers")
+          .select("name, address, phone, gst_number")
+          .eq("id", invoice.customer_id)
+          .single();
+
+        // Map retailer data to customer format for PDF generation
+        customerData = retailer ? {
+          name: retailer.name,
+          address: retailer.address,
+          contact_phone: retailer.phone,
+          gstin: retailer.gst_number,
+          state: "29-Karnataka",
+        } : null;
+      }
 
       // Generate PDF
       const doc = new jsPDF();
@@ -105,20 +123,20 @@ export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGenerato
       doc.setFontSize(8);
       
       // Customer details
-      const custName = invoice.customers?.name || "";
+      const custName = customerData?.name || "";
       doc.text(custName, 15, yPos + 10);
       
-      if (invoice.customers?.address) {
-        const custAddr = doc.splitTextToSize(invoice.customers.address, 80);
+      if (customerData?.address) {
+        const custAddr = doc.splitTextToSize(customerData.address, 80);
         doc.text(custAddr, 15, yPos + 14);
       }
       
-      if (invoice.customers?.contact_phone) {
-        doc.text(`Contact No: ${invoice.customers.contact_phone}`, 15, yPos + 22);
+      if (customerData?.contact_phone) {
+        doc.text(`Contact No: ${customerData.contact_phone}`, 15, yPos + 22);
       }
       
-      if (invoice.customers?.state) {
-        doc.text(`State: ${invoice.customers.state}`, 15, yPos + 26);
+      if (customerData?.state) {
+        doc.text(`State: ${customerData.state}`, 15, yPos + 26);
       }
 
       // Invoice details

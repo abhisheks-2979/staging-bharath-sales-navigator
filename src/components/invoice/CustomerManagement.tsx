@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,32 +37,59 @@ export default function CustomerManagement() {
   }, []);
 
   const fetchCustomers = async () => {
-    const { data } = await supabase.from("customers").select("*").order("name");
-    if (data) setCustomers(data);
+    // Fetch from retailers table instead of non-existent customers table
+    const { data } = await supabase
+      .from("retailers")
+      .select("id, name, address, phone, gst_number, status")
+      .eq("status", "active")
+      .order("name");
+    
+    if (data) {
+      // Map retailers to customer format
+      const mappedCustomers = data.map(retailer => ({
+        id: retailer.id,
+        name: retailer.name,
+        address: retailer.address || "",
+        contact_person: "",
+        contact_phone: retailer.phone || "",
+        state: "",
+        gstin: retailer.gst_number || "",
+      }));
+      setCustomers(mappedCustomers);
+    }
   };
 
   const onSubmit = async (data: z.infer<typeof customerSchema>) => {
     setLoading(true);
     try {
-      // Type-safe data preparation
-      const insertData: Database['public']['Tables']['customers']['Insert'] = {
+      // Update retailer data instead
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const updateData = {
         name: data.name,
         address: data.address || null,
-        contact_person: data.contact_person || null,
-        contact_phone: data.contact_phone || null,
-        state: data.state || null,
-        gstin: data.gstin || null,
+        phone: data.contact_phone || null,
+        gst_number: data.gstin || null,
       };
       
       if (selectedCustomer) {
         const { error } = await supabase
-          .from("customers")
-          .update(insertData)
+          .from("retailers")
+          .update(updateData)
           .eq("id", selectedCustomer.id);
         if (error) throw error;
         toast.success("Customer updated successfully");
       } else {
-        const { error } = await supabase.from("customers").insert(insertData);
+        // Create new retailer as customer
+        const { error } = await supabase.from("retailers").insert({
+          ...updateData,
+          user_id: user.id,
+          beat_id: "INVOICE",
+          beat_name: "Invoice Customers",
+          category: "General Store",
+          status: "active",
+        });
         if (error) throw error;
         toast.success("Customer created successfully");
       }
@@ -83,9 +109,13 @@ export default function CustomerManagement() {
     if (!confirm("Are you sure you want to delete this customer?")) return;
 
     try {
-      const { error } = await supabase.from("customers").delete().eq("id", id);
+      // Set retailer status to inactive instead of deleting
+      const { error } = await supabase
+        .from("retailers")
+        .update({ status: "inactive" })
+        .eq("id", id);
       if (error) throw error;
-      toast.success("Customer deleted successfully");
+      toast.success("Customer deactivated successfully");
       fetchCustomers();
     } catch (error: any) {
       console.error("Error deleting customer:", error);
@@ -124,7 +154,7 @@ export default function CustomerManagement() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Customers</CardTitle>
+          <CardTitle>Customers (from Retailers)</CardTitle>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreateDialog}>
@@ -256,7 +286,7 @@ export default function CustomerManagement() {
             {customers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  No customers found. Add your first customer!
+                  No customers found. Customers are automatically created from Retailers.
                 </TableCell>
               </TableRow>
             ) : (

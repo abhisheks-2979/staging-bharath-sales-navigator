@@ -24,7 +24,7 @@ export default function InvoiceList() {
         .from("invoices")
         .select(`
           *,
-          customers (name),
+          retailers:customer_id (name, address, phone, gst_number),
           companies (name)
         `)
         .order("created_at", { ascending: false });
@@ -95,7 +95,7 @@ export default function InvoiceList() {
               invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                  <TableCell>{invoice.customers?.name || "N/A"}</TableCell>
+                  <TableCell>{invoice.retailers?.name || "N/A"}</TableCell>
                   <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
                   <TableCell>₹{parseFloat(invoice.total_amount).toFixed(2)}</TableCell>
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>

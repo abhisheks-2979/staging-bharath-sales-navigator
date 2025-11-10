@@ -81,9 +81,12 @@ export default function CompanySettings() {
         terms_conditions: data[0].terms_conditions || "",
       });
     } else {
-      // No companies exist, use defaults from form
+      // No companies exist, keep defaults
+      setCompanies([]);
+      setSelectedCompany(null);
       setLogoUrl("/bharath-beverages-logo.png");
       setQrCodeUrl("");
+      toast.info("No company found. Please save your company details first.");
     }
   };
 
@@ -242,7 +245,14 @@ export default function CompanySettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Company Settings</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Company Settings</CardTitle>
+          {companies.length === 0 && (
+            <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-3 py-1 rounded-md">
+              ⚠️ No company configured. Save details below to start.
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <Form {...form}>
