@@ -23,7 +23,21 @@ export const migrateProducts = async () => {
   try {
     toast.loading('Starting product migration...');
     
-    // Step 1: Delete all existing products (cascades to variants and schemes)
+    // Step 1: Clear related tables to avoid FK constraint errors
+    // Delete children first, then parents
+    // Inventory and operational child tables
+    await supabase.from('van_live_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('van_inward_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('van_closing_stock_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('van_return_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('van_order_fulfillment').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('distributor_item_mappings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Product child tables
+    await supabase.from('product_schemes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('product_variants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Step 2: Delete all existing products
     const { error: deleteError } = await supabase
       .from('products')
       .delete()
@@ -36,9 +50,9 @@ export const migrateProducts = async () => {
       .from('product_categories')
       .select('id')
       .limit(1)
-      .single();
+      .maybeSingle();
     
-    if (catError && catError.code !== 'PGRST116') throw catError;
+    if (catError) throw catError;
     
     let categoryId = categories?.id;
     
