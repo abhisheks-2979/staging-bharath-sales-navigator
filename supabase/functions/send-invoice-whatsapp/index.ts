@@ -55,33 +55,70 @@ serve(async (req) => {
 
     console.log('Sending to phone:', toPhone);
 
-    // Create message with PDF URL
     const businessName = whatsappConfig?.business_name || 'BHARATH BEVERAGES';
-    const message = `Thank you for placing order with ${businessName}!
+    
+    // Check if template messaging is enabled (set this to true once template is approved)
+    const useTemplate = Deno.env.get('WHATCHIMP_USE_TEMPLATE') === 'true';
+    const templateName = Deno.env.get('WHATCHIMP_TEMPLATE_NAME') || 'invoice_delivery';
+
+    let response;
+
+    if (useTemplate) {
+      // Send using WhatsApp Template (works outside 24-hour window)
+      console.log('Sending template message:', templateName);
+      
+      const whatchimpTemplateUrl = 'https://app.whatchimp.com/api/v1/whatsapp/send-template';
+      
+      const templateParams = new URLSearchParams({
+        apiToken: whatchimpApiKey,
+        phone_number_id: whatchimpPhoneNumberId,
+        phone_number: toPhone,
+        template_name: templateName,
+        template_language: 'en',
+        // Template variables in order: {{1}} businessName, {{2}} invoiceNumber, {{3}} pdfUrl
+        template_body_variables: JSON.stringify([
+          businessName,
+          invoiceNumber || 'Invoice',
+          pdfUrl || 'Processing...'
+        ])
+      });
+
+      response = await fetch(whatchimpTemplateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: templateParams,
+      });
+    } else {
+      // Send regular message (only works within 24-hour window)
+      console.log('Sending regular message (24-hour window required)');
+      
+      const message = `Thank you for placing order with ${businessName}!
 
 Here is your invoice: ${invoiceNumber || 'Invoice'}
 
 Download PDF: ${pdfUrl || 'Processing...'}`;
 
-    console.log('Sending message:', message);
+      console.log('Message content:', message);
 
-    // Send WhatsApp message via WhatChimp
-    const whatchimpUrl = 'https://app.whatchimp.com/api/v1/whatsapp/send';
-    
-    const params = new URLSearchParams({
-      apiToken: whatchimpApiKey,
-      phone_number_id: whatchimpPhoneNumberId,
-      phone_number: toPhone,
-      message: message,
-    });
+      const whatchimpUrl = 'https://app.whatchimp.com/api/v1/whatsapp/send';
+      
+      const params = new URLSearchParams({
+        apiToken: whatchimpApiKey,
+        phone_number_id: whatchimpPhoneNumberId,
+        phone_number: toPhone,
+        message: message,
+      });
 
-    const response = await fetch(whatchimpUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    });
+      response = await fetch(whatchimpUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params,
+      });
+    }
 
     const result = await response.json();
     
