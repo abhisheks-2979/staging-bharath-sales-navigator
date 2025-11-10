@@ -1068,7 +1068,7 @@ export const MyVisits = () => {
                 />
               </div>
               <Button
-                onClick={() => navigate('/add-retailer', { state: { returnTo: '/my-visits' } })}
+                onClick={() => navigate('/add-retailer', { state: { returnTo: '/visits/retailers' } })}
                 className="flex items-center gap-2 whitespace-nowrap h-9"
                 size="sm"
               >

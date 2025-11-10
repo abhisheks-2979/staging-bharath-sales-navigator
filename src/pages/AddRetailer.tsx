@@ -387,7 +387,7 @@ export const AddRetailer = () => {
 
     toast({ title: 'Retailer Added', description: `${retailerData.name} saved successfully.` });
     // Navigate back to the return path (My Visits or My Retailers)
-    if (returnTo === '/my-visits') {
+    if (returnTo === '/visits/retailers') {
       navigate(returnTo);
     } else {
       navigate('/my-retailers', { state: { openRetailerId: data?.id } });
