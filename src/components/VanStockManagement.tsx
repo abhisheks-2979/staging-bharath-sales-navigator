@@ -283,8 +283,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
             {selectedVan && (
               <>
-                {/* Summary Cards - All Clickable */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <Card 
                     className="p-4 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('start')}
@@ -295,18 +295,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     </div>
                     <p className="text-xs text-muted-foreground mb-1">Product Stock in Van</p>
                     <p className="text-2xl font-bold">{totals.totalStart}</p>
-                  </Card>
-
-                  <Card 
-                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
-                    onClick={() => setShowDetailModal('inventory')}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <Package className="h-5 w-5 text-blue-500" />
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-1">Available Inventory</p>
-                    <p className="text-2xl font-bold">{availableInventory}</p>
                   </Card>
 
                   <Card 
@@ -373,7 +361,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   ) : (
                     stockItems.map((item, index) => (
                       <Card key={index} className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                           <div className="md:col-span-2">
                             <Label className="text-xs">Product</Label>
                             <Select
@@ -393,52 +381,33 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                             </Select>
                           </div>
                           <div>
-                            <Label className="text-xs">Start Qty (Morning)</Label>
+                            <Label className="text-xs">Unit</Label>
                             <Input
-                              type="number"
-                              value={item.start_qty}
-                              onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Ordered Qty</Label>
-                            <Input
-                              type="number"
-                              value={item.ordered_qty}
-                              onChange={(e) => handleProductChange(index, 'ordered_qty', parseInt(e.target.value) || 0)}
-                              placeholder="0"
+                              type="text"
+                              value={item.unit || 'Select product'}
                               readOnly
                               className="bg-muted"
                             />
                           </div>
-                          <div>
-                            <Label className="text-xs">Returned Qty</Label>
-                            <Input
-                              type="number"
-                              value={item.returned_qty}
-                              onChange={(e) => handleProductChange(index, 'returned_qty', parseInt(e.target.value) || 0)}
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Left Qty (Auto)</Label>
-                            <Input
-                              type="number"
-                              value={item.left_qty}
-                              readOnly
-                              className="bg-muted"
-                            />
-                          </div>
-                          <div className="flex items-end">
-                            <Button 
-                              size="sm" 
-                              variant="destructive" 
-                              onClick={() => handleRemoveProduct(index)}
-                              className="w-full"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <Label className="text-xs">Quantity</Label>
+                              <Input
+                                type="number"
+                                value={item.start_qty}
+                                onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="flex items-end">
+                              <Button 
+                                size="sm" 
+                                variant="destructive" 
+                                onClick={() => handleRemoveProduct(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </Card>

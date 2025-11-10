@@ -250,7 +250,7 @@ export function VanSalesModal({ open, onOpenChange, retailerId, visitId, beatId 
 
             {selectedVan && (
               <>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <Card 
                     className="p-4 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('start')}
@@ -260,14 +260,6 @@ export function VanSalesModal({ open, onOpenChange, retailerId, visitId, beatId 
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-xs text-muted-foreground">Van Stock (Start)</p>
-                    <p className="text-2xl font-bold">{totals.totalStart}</p>
-                  </Card>
-
-                  <Card className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <Package className="h-4 w-4 text-blue-500" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Available Inventory</p>
                     <p className="text-2xl font-bold">{totals.totalStart}</p>
                   </Card>
 
@@ -306,7 +298,7 @@ export function VanSalesModal({ open, onOpenChange, retailerId, visitId, beatId 
 
                   {stockItems.map((item, index) => (
                     <Card key={index} className="p-4">
-                      <div className="grid grid-cols-5 gap-3">
+                      <div className="grid grid-cols-4 gap-3">
                         <div className="col-span-2">
                           <Label className="text-xs">Product</Label>
                           <Select
@@ -326,38 +318,33 @@ export function VanSalesModal({ open, onOpenChange, retailerId, visitId, beatId 
                           </Select>
                         </div>
                         <div>
-                          <Label className="text-xs">Start Qty</Label>
+                          <Label className="text-xs">Unit</Label>
                           <Input
-                            type="number"
-                            value={item.start_qty}
-                            onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                            type="text"
+                            value={item.unit || 'Select product'}
+                            readOnly
+                            className="bg-muted"
                           />
                         </div>
-                        <div>
-                          <Label className="text-xs">Ordered</Label>
-                          <Input
-                            type="number"
-                            value={item.ordered_qty}
-                            onChange={(e) => handleProductChange(index, 'ordered_qty', parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div className="flex items-end gap-2">
+                        <div className="flex gap-2">
                           <div className="flex-1">
-                            <Label className="text-xs">Left</Label>
+                            <Label className="text-xs">Quantity</Label>
                             <Input
                               type="number"
-                              value={item.left_qty}
-                              readOnly
-                              className="bg-muted"
+                              value={item.start_qty}
+                              onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                              placeholder="0"
                             />
                           </div>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => handleRemoveProduct(index)}
-                          >
-                            ×
-                          </Button>
+                          <div className="flex items-end">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleRemoveProduct(index)}
+                            >
+                              ×
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </Card>
