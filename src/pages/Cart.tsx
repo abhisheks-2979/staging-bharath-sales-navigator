@@ -820,7 +820,7 @@ React.useEffect(() => {
             <div className="flex items-center gap-2">
               <ShoppingCart size={20} />
               <Badge variant="secondary">{cartItems.length} items</Badge>
-              <Badge variant="secondary">₹{getFinalTotal().toLocaleString()}</Badge>
+              <Badge variant="secondary">₹{formatINRTrunc2(getFinalTotal())}</Badge>
             </div>
           </CardHeader>
         </Card>
@@ -885,9 +885,9 @@ React.useEffect(() => {
                         
                         {/* Price - Compact */}
                         <div className="text-right min-w-[70px] shrink-0">
-                          <div className="font-bold text-sm">₹{finalPrice.toLocaleString()}</div>
+                          <div className="font-bold text-sm">₹{formatINRTrunc2(finalPrice)}</div>
                           {hasDiscount && (
-                            <div className="text-[10px] text-green-600 font-medium">-₹{discount.toFixed(0)}</div>
+                            <div className="text-[10px] text-green-600 font-medium">-₹{formatINRTrunc2(discount)}</div>
                           )}
                         </div>
                         
@@ -925,7 +925,7 @@ React.useEffect(() => {
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span className="font-bold">₹{getSubtotal().toLocaleString()}</span>
+                  <span className="font-bold">₹{formatINRTrunc2(getSubtotal())}</span>
                 </div>
 
                 {getDiscount() > 0 && (
@@ -936,7 +936,7 @@ React.useEffect(() => {
                     </div>
                     <div className="flex justify-between text-sm mt-2">
                       <span>Discount:</span>
-                      <span className="text-success font-medium">-₹{getDiscount().toLocaleString()}</span>
+                      <span className="text-success font-medium">-₹{formatINRTrunc2(getDiscount())}</span>
                     </div>
                   </div>
                 )}
@@ -954,22 +954,22 @@ React.useEffect(() => {
 
                 <div className="flex justify-between text-lg font-bold border-t pt-3">
                   <span>Total:</span>
-                  <span>₹{getFinalTotal().toLocaleString()}</span>
+                  <span>₹{formatINRTrunc2(getFinalTotal())}</span>
                 </div>
 
                 {pendingAmountFromPrevious > 0 && (
                   <div className="space-y-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Previous Pending:</span>
-                      <span className="font-semibold text-warning">₹{pendingAmountFromPrevious.toLocaleString()}</span>
+                      <span className="font-semibold text-warning">₹{formatINRTrunc2(pendingAmountFromPrevious)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Current Order:</span>
-                      <span className="font-semibold">₹{getFinalTotal().toLocaleString()}</span>
+                      <span className="font-semibold">₹{formatINRTrunc2(getFinalTotal())}</span>
                     </div>
                     <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-800">
                       <span className="font-medium">Total Due:</span>
-                      <span className="font-bold">₹{(pendingAmountFromPrevious + getFinalTotal()).toLocaleString()}</span>
+                      <span className="font-bold">₹{formatINRTrunc2(pendingAmountFromPrevious + getFinalTotal())}</span>
                     </div>
                   </div>
                 )}
@@ -1027,11 +1027,11 @@ React.useEffect(() => {
                       <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
                         <div className="flex justify-between text-sm">
                           <span className="text-success">Paying Now:</span>
-                          <span className="font-semibold text-success">-₹{parseFloat(partialAmount).toLocaleString()}</span>
+                          <span className="font-semibold text-success">-₹{formatINRTrunc2(parseFloat(partialAmount))}</span>
                         </div>
                         <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-800">
                           <span className="font-medium text-warning">Remaining Pending:</span>
-                          <span className="font-bold text-warning">₹{Math.max(0, (getFinalTotal() + pendingAmountFromPrevious) - parseFloat(partialAmount)).toLocaleString()}</span>
+                          <span className="font-bold text-warning">₹{formatINRTrunc2(Math.max(0, (getFinalTotal() + pendingAmountFromPrevious) - parseFloat(partialAmount)))}</span>
                         </div>
                       </div>
                     )}
