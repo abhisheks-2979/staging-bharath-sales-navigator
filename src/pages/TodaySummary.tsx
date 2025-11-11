@@ -41,6 +41,7 @@ export const TodaySummary = () => {
       day: 'numeric' 
     }),
     beat: "Loading...",
+    beatNames: [] as string[],
     startTime: "Loading...",
     endTime: "Loading...",
     plannedVisits: 0,
@@ -49,6 +50,8 @@ export const TodaySummary = () => {
     totalOrders: 0,
     totalOrderValue: 0,
     avgOrderValue: 0,
+    totalKgSold: 0,
+    totalKgSoldFormatted: "0 KG",
     visitEfficiency: 0,
     orderConversionRate: 0,
     distanceCovered: 0,
@@ -63,15 +66,15 @@ export const TodaySummary = () => {
   ]);
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
-  const [productSales, setProductSales] = useState<Array<{ name: string; quantity: number; revenue: number }>>([]);
+  const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; items: number }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
-  const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; quantity: number; value: number; orders: number }>>([]);
+  const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
 
   // Dialog state and data sources for details
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState<string>("");
-  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products">("orders");
+  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products" | "kgBreakdown">("orders");
   const [dialogFilter, setDialogFilter] = useState<string | null>(null);
 
   // Handle URL query parameter for date from Attendance page
@@ -203,6 +206,12 @@ export const TodaySummary = () => {
 
       const { data: beatPlans } = await beatPlansQuery;
       const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
+      
+      // Collect all unique beat names
+      const uniqueBeatNames = beatPlans 
+        ? Array.from(new Set(beatPlans.map(bp => bp.beat_name).filter(Boolean)))
+        : [];
+      const beatNamesDisplay = uniqueBeatNames.length > 0 ? uniqueBeatNames : ['No beat planned'];
 
       // Create retailer lookup map
       const retailerMap = new Map();
@@ -242,6 +251,39 @@ export const TodaySummary = () => {
       const totalOrderValue = todayOrders?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
       const totalOrdersCount = todayOrders?.length || 0;
       const avgOrderValue = totalOrdersCount > 0 ? totalOrderValue / totalOrdersCount : 0;
+      
+      // Calculate total KG sold (convert all units to KG)
+      const convertToKg = (quantity: number, unit: string): number => {
+        const lowerUnit = unit.toLowerCase();
+        if (lowerUnit === 'kg' || lowerUnit === 'kilogram' || lowerUnit === 'kilograms') {
+          return quantity;
+        } else if (lowerUnit === 'g' || lowerUnit === 'gram' || lowerUnit === 'grams') {
+          return quantity / 1000;
+        } else if (lowerUnit === 'l' || lowerUnit === 'liter' || lowerUnit === 'liters' || lowerUnit === 'litre' || lowerUnit === 'litres') {
+          return quantity; // Treat liters as KG for beverages
+        } else if (lowerUnit === 'ml' || lowerUnit === 'milliliter' || lowerUnit === 'milliliters' || lowerUnit === 'millilitre' || lowerUnit === 'millilitres') {
+          return quantity / 1000; // Convert ml to liters/kg
+        }
+        return 0; // For pieces and other units, don't count towards KG
+      };
+      
+      const formatKg = (totalGrams: number): string => {
+        const kg = Math.floor(totalGrams);
+        const grams = Math.round((totalGrams - kg) * 1000);
+        if (grams === 0) {
+          return `${kg} KG`;
+        }
+        return `${kg} KG ${grams} g`;
+      };
+      
+      let totalKgFromOrders = 0;
+      todayOrders?.forEach(order => {
+        order.order_items?.forEach((item: any) => {
+          totalKgFromOrders += convertToKg(item.quantity, item.unit || 'piece');
+        });
+      });
+      
+      const totalKgSoldFormatted = formatKg(totalKgFromOrders);
 
       // Calculate distance and time metrics
       let totalDistance = 0;
@@ -329,6 +371,7 @@ export const TodaySummary = () => {
             })
           : `${format(dateRange.from, 'dd MMM')} - ${format(dateRange.to, 'dd MMM yyyy')}`,
         beat: beatPlan?.beat_name || "No beat planned",
+        beatNames: beatNamesDisplay,
         startTime: formatTime(firstCheckIn),
         endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
         plannedVisits: totalPlanned,
@@ -337,6 +380,8 @@ export const TodaySummary = () => {
         totalOrders: totalOrdersCount,
         totalOrderValue,
         avgOrderValue,
+        totalKgSold: totalKgFromOrders,
+        totalKgSoldFormatted,
         visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
         orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0,
         distanceCovered: totalDistance > 0 ? Math.round(totalDistance * 10) / 10 : 0,
@@ -376,20 +421,26 @@ export const TodaySummary = () => {
 
       setTopRetailers(topRetailersData);
 
-      // Process product sales
+      // Process product sales with KG conversion
       const productSalesMap = new Map();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productSalesMap.get(item.product_name) || { quantity: 0, revenue: 0 };
+          const existing = productSalesMap.get(item.product_name) || { kgSold: 0, revenue: 0 };
+          const itemKg = convertToKg(item.quantity, item.unit || 'piece');
           productSalesMap.set(item.product_name, {
-            quantity: existing.quantity + item.quantity,
+            kgSold: existing.kgSold + itemKg,
             revenue: existing.revenue + Number(item.total || 0)
           });
         });
       });
 
       const productSalesData = Array.from(productSalesMap.entries())
-        .map(([name, data]) => ({ name, quantity: data.quantity, revenue: data.revenue }))
+        .map(([name, data]) => ({ 
+          name, 
+          kgSold: data.kgSold,
+          kgFormatted: data.kgSold > 0 ? formatKg(data.kgSold) : 'N/A',
+          revenue: data.revenue 
+        }))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5);
 
@@ -404,13 +455,14 @@ export const TodaySummary = () => {
 
       setOrders(ordersData);
 
-      // Process product-grouped orders for Total Order Value dialog
+      // Process product-grouped orders for Total Order Value dialog with KG
       const productOrderMap = new Map();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productOrderMap.get(item.product_name) || { quantity: 0, value: 0, orderCount: 0 };
+          const existing = productOrderMap.get(item.product_name) || { kgSold: 0, value: 0, orderCount: 0 };
+          const itemKg = convertToKg(item.quantity, item.unit || 'piece');
           productOrderMap.set(item.product_name, {
-            quantity: existing.quantity + item.quantity,
+            kgSold: existing.kgSold + itemKg,
             value: existing.value + Number(item.total || 0),
             orderCount: existing.orderCount + 1
           });
@@ -420,7 +472,8 @@ export const TodaySummary = () => {
       const productGroupedData = Array.from(productOrderMap.entries())
         .map(([product, data]) => ({ 
           product, 
-          quantity: data.quantity, 
+          kgSold: data.kgSold,
+          kgFormatted: data.kgSold > 0 ? formatKg(data.kgSold) : 'N/A',
           value: data.value,
           orders: data.orderCount
         }))
@@ -453,6 +506,13 @@ export const TodaySummary = () => {
   const openProductsDialog = () => {
     setDialogTitle("Orders by Product");
     setDialogContentType("products");
+    setDialogFilter(null);
+    setDialogOpen(true);
+  };
+
+  const openKgBreakdownDialog = () => {
+    setDialogTitle("Total KG Sold - Product-wise Breakdown");
+    setDialogContentType("kgBreakdown");
     setDialogFilter(null);
     setDialogOpen(true);
   };
@@ -528,7 +588,7 @@ export const TodaySummary = () => {
       const metricsData = [
         ['Total Order Value', `Rs. ${summaryData.totalOrderValue.toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
-        ['Visit Efficiency', `${summaryData.visitEfficiency}%`],
+        ['Total KG Sold', summaryData.totalKgSoldFormatted],
         ['Avg Order Value', `Rs. ${summaryData.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`]
       ];
       
@@ -616,13 +676,13 @@ export const TodaySummary = () => {
         
         const productsData = productSales.map(p => [
           sanitizeText(p.name) || 'Unknown Product',
-          p.quantity.toString(),
+          p.kgFormatted,
           `Rs. ${p.revenue.toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
           startY: yPosition,
-          head: [['Product', 'Quantity', 'Revenue']],
+          head: [['Product', 'KG Sold', 'Revenue']],
           body: productsData,
           theme: 'grid',
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -806,10 +866,22 @@ export const TodaySummary = () => {
 
         {/* Beat Information */}
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <MapPin size={16} className="text-muted-foreground" />
-              <span className="font-semibold">{summaryData.beat}</span>
+          <CardContent className="p-4 space-y-3">
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">
+                {filterType === 'today' ? 'Today' : 
+                 filterType === 'week' ? 'This Week' :
+                 filterType === 'lastWeek' ? 'Last Week' :
+                 filterType === 'month' ? 'This Month' : 'Selected Period'}
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="text-muted-foreground" />
+                <div className="font-semibold">
+                  {summaryData.beatNames.length > 0 
+                    ? summaryData.beatNames.join(', ')
+                    : 'No beat planned'}
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-muted-foreground" />
@@ -852,13 +924,13 @@ export const TodaySummary = () => {
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
-                onClick={openEfficiencyDialog}
-                className="text-center p-3 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition"
+                onClick={openKgBreakdownDialog}
+                className="text-center p-3 bg-warning/10 rounded-lg cursor-pointer hover:bg-warning/20 transition"
               >
-                <div className="text-lg font-bold">
-                  {loading ? "Loading..." : `${summaryData.visitEfficiency}%`}
+                <div className="text-lg font-bold text-warning">
+                  {loading ? "Loading..." : summaryData.totalKgSoldFormatted}
                 </div>
-                <div className="text-sm text-muted-foreground">Visit Efficiency</div>
+                <div className="text-sm text-muted-foreground">Total KG Sold (Unit)</div>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
@@ -954,7 +1026,7 @@ export const TodaySummary = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">KG Sold</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
                 </TableRow>
               </TableHeader>
@@ -975,7 +1047,7 @@ export const TodaySummary = () => {
                   productSales.map((p) => (
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
-                     <TableCell className="text-right">{p.quantity}</TableCell>
+                     <TableCell className="text-right">{p.kgFormatted}</TableCell>
                      <TableCell className="text-right">₹{p.revenue.toLocaleString()}</TableCell>
                    </TableRow>
                  ))
@@ -1024,16 +1096,50 @@ export const TodaySummary = () => {
               <DialogTitle>{dialogTitle}</DialogTitle>
             </DialogHeader>
             <ScrollArea className="max-h-[60vh] pr-2">
-              {dialogContentType === "products" && (
+              {dialogContentType === "kgBreakdown" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: ₹{productGroupedOrders.reduce((sum, p) => sum + p.value, 0).toLocaleString()} • {productGroupedOrders.reduce((sum, p) => sum + p.quantity, 0)} units • {productGroupedOrders.length} products
+                    Total KG: {summaryData.totalKgSoldFormatted} • {productGroupedOrders.length} products
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">KG Sold</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productGroupedOrders.length > 0 ? (
+                        productGroupedOrders
+                          .filter(p => p.kgSold > 0)
+                          .map((p, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-medium">{p.product}</TableCell>
+                              <TableCell className="text-right">{p.kgFormatted}</TableCell>
+                            </TableRow>
+                          ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={2} className="text-center text-muted-foreground">
+                            No KG-based products sold today
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {dialogContentType === "products" && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Total: ₹{productGroupedOrders.reduce((sum, p) => sum + p.value, 0).toLocaleString()} • {productGroupedOrders.length} products
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-right">KG</TableHead>
                         <TableHead className="text-right">Value</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1042,7 +1148,7 @@ export const TodaySummary = () => {
                         productGroupedOrders.map((p, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{p.product}</TableCell>
-                            <TableCell className="text-right">{p.quantity}</TableCell>
+                            <TableCell className="text-right">{p.kgFormatted}</TableCell>
                             <TableCell className="text-right">₹{p.value.toLocaleString()}</TableCell>
                           </TableRow>
                         ))
