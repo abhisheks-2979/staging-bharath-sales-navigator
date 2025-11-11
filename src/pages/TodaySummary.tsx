@@ -452,12 +452,24 @@ export const TodaySummary = () => {
         order.order_items?.forEach((item: any) => {
           kgSum += convertToKg(item.quantity, item.unit || 'piece');
         });
+        
+        // Calculate credit amount based on payment type
+        let creditAmount = 0;
+        const totalAmount = Number(order.total_amount || 0);
+        const amountPaid = Number(order.amount_paid || 0);
+        
+        if (order.payment_type === 'full_credit') {
+          creditAmount = totalAmount;
+        } else if (order.payment_type === 'partial_payment') {
+          creditAmount = totalAmount - amountPaid;
+        }
+        
         return {
           retailer: order.retailer_name,
-          amount: Number(order.total_amount || 0),
+          amount: totalAmount,
           kgSold: kgSum,
           kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG',
-          creditAmount: Number(order.pending_amount || 0)
+          creditAmount: creditAmount
         };
       }) || [];
 
