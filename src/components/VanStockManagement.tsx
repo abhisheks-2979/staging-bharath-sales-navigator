@@ -33,6 +33,11 @@ interface StockItem {
   left_qty: number;
 }
 
+interface Beat {
+  id: string;
+  beat_name: string;
+}
+
 interface VanStockManagementProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,7 +47,9 @@ interface VanStockManagementProps {
 export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStockManagementProps) {
   const [vans, setVans] = useState<Van[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [beats, setBeats] = useState<Beat[]>([]);
   const [selectedVan, setSelectedVan] = useState<string>('');
+  const [selectedBeat, setSelectedBeat] = useState<string>('');
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [todayStock, setTodayStock] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -55,15 +62,43 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     if (open) {
       loadVans();
       loadProducts();
+      loadBeats();
       checkTime();
     }
   }, [open]);
 
   useEffect(() => {
-    if (selectedVan && selectedDate) {
+    if (selectedVan && selectedDate && selectedBeat) {
       loadTodayStock();
     }
-  }, [selectedVan, selectedDate]);
+  }, [selectedVan, selectedDate, selectedBeat]);
+
+  // Real-time subscription for order updates
+  useEffect(() => {
+    if (!selectedBeat || !selectedDate) return;
+
+    const channel = supabase
+      .channel('order-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          // Reload stock when orders change
+          if (selectedVan && selectedBeat) {
+            loadTodayStock();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedVan, selectedBeat, selectedDate]);
 
   const checkTime = () => {
     const hour = new Date().getHours();
@@ -100,6 +135,31 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
   };
 
+  const loadBeats = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session?.user) return;
+
+    const { data, error } = await supabase
+      .from('retailers')
+      .select('beat_id, beat_name')
+      .eq('user_id', session.session.user.id)
+      .not('beat_id', 'is', null)
+      .order('beat_name');
+    
+    if (error) {
+      console.error('Error loading beats:', error);
+    } else {
+      // Remove duplicates
+      const uniqueBeats = Array.from(
+        new Map(data?.map(item => [item.beat_id, { id: item.beat_id, beat_name: item.beat_name }])).values()
+      );
+      setBeats(uniqueBeats);
+      if (uniqueBeats.length > 0) {
+        setSelectedBeat(uniqueBeats[0].id);
+      }
+    }
+  };
+
   const loadTodayStock = async () => {
     const { data: session } = await supabase.auth.getSession();
     if (!session.session?.user) return;
@@ -118,6 +178,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       setStockItems([]);
     } else {
       setTodayStock(data);
+      
+      // Calculate ordered quantities from actual orders for the selected beat
+      const orderedQtys = await calculateOrderedQuantities();
+      
       if (data?.van_stock_items) {
         setStockItems(data.van_stock_items.map((item: any) => ({
           id: item.id,
@@ -125,15 +189,64 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           product_name: item.product_name,
           unit: item.unit,
           start_qty: item.start_qty,
-          ordered_qty: item.ordered_qty,
+          ordered_qty: orderedQtys[item.product_id] || 0, // Auto-calculate from orders
           returned_qty: item.returned_qty || 0,
-          left_qty: item.left_qty,
+          left_qty: item.start_qty - (orderedQtys[item.product_id] || 0) + (item.returned_qty || 0),
         })));
       } else {
         setStockItems([]);
       }
       setStartKm(data?.start_km || 0);
       setEndKm(data?.end_km || 0);
+    }
+  };
+
+  const calculateOrderedQuantities = async () => {
+    if (!selectedBeat) return {};
+
+    try {
+      // Get all retailers in the selected beat
+      const { data: retailers, error: retailerError } = await supabase
+        .from('retailers')
+        .select('id')
+        .eq('beat_id', selectedBeat);
+
+      if (retailerError) throw retailerError;
+      
+      const retailerIds = retailers?.map(r => r.id) || [];
+      if (retailerIds.length === 0) return {};
+
+      // Get all orders for today from retailers in this beat
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id')
+        .in('retailer_id', retailerIds)
+        .gte('created_at', `${selectedDate}T00:00:00`)
+        .lte('created_at', `${selectedDate}T23:59:59`);
+
+      if (ordersError) throw ordersError;
+
+      const orderIds = orders?.map(o => o.id) || [];
+      if (orderIds.length === 0) return {};
+
+      // Get all order items for these orders
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('product_id, quantity')
+        .in('order_id', orderIds);
+
+      if (itemsError) throw itemsError;
+
+      // Sum quantities by product
+      const quantities: { [key: string]: number } = {};
+      orderItems?.forEach(item => {
+        quantities[item.product_id] = (quantities[item.product_id] || 0) + item.quantity;
+      });
+
+      return quantities;
+    } catch (error) {
+      console.error('Error calculating ordered quantities:', error);
+      return {};
     }
   };
 
@@ -165,7 +278,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
     }
 
-    if (field === 'start_qty' || field === 'ordered_qty' || field === 'returned_qty') {
+    // Only auto-calculate left_qty when start_qty or returned_qty changes
+    // ordered_qty is now auto-calculated from orders
+    if (field === 'start_qty' || field === 'returned_qty') {
       updated[index].left_qty = updated[index].start_qty - updated[index].ordered_qty + updated[index].returned_qty;
     }
     
@@ -271,25 +386,49 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label>Select Van</Label>
-              <Select value={selectedVan} onValueChange={setSelectedVan}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a van" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vans.map(van => (
-                    <SelectItem key={van.id} value={van.id}>
-                      {van.registration_number} - {van.make_model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Select Van</Label>
+                <Select value={selectedVan} onValueChange={setSelectedVan}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a van" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vans.map(van => (
+                      <SelectItem key={van.id} value={van.id}>
+                        {van.registration_number} - {van.make_model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Select Beat</Label>
+                <Select value={selectedBeat} onValueChange={setSelectedBeat}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a beat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {beats.map(beat => (
+                      <SelectItem key={beat.id} value={beat.id}>
+                        {beat.beat_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {selectedVan && (
+            {selectedVan && selectedBeat && (
               <>
                 {/* Summary Cards */}
+                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800 mb-3">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Note:</strong> Retailer Ordered Qty is automatically calculated from orders placed by retailers in the selected beat for today.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <Card 
                     className="p-4 cursor-pointer hover:bg-accent transition-colors"
@@ -313,6 +452,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     </div>
                     <p className="text-xs text-muted-foreground mb-1">Retailer Ordered Qty</p>
                     <p className="text-2xl font-bold">{totals.totalOrdered}</p>
+                    <Badge variant="secondary" className="mt-2 text-[10px] px-1 py-0">Auto-calculated</Badge>
                   </Card>
 
                   <Card 
@@ -478,7 +618,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {showDetailModal === 'start' && <><Package className="h-5 w-5 text-primary" /> Product Stock in Van</>}
-              {showDetailModal === 'ordered' && <><ShoppingCart className="h-5 w-5 text-amber-500" /> Retailer Ordered Qty</>}
+              {showDetailModal === 'ordered' && (
+                <div className="flex items-center gap-2 w-full">
+                  <ShoppingCart className="h-5 w-5 text-amber-500" />
+                  <span>Retailer Ordered Qty (Beat: {beats.find(b => b.id === selectedBeat)?.beat_name})</span>
+                  <Badge variant="secondary" className="ml-auto">Auto-calculated</Badge>
+                </div>
+              )}
               {showDetailModal === 'returned' && <><Package className="h-5 w-5 text-blue-600" /> Returned Qty</>}
               {showDetailModal === 'left' && <><TrendingDown className="h-5 w-5 text-green-600" /> Left in the Van</>}
             </DialogTitle>
