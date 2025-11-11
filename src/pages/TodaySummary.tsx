@@ -453,16 +453,9 @@ export const TodaySummary = () => {
           kgSum += convertToKg(item.quantity, item.unit || 'piece');
         });
         
-        // Calculate credit amount based on payment type
-        let creditAmount = 0;
+        // Use pending_amount directly from the database
         const totalAmount = Number(order.total_amount || 0);
-        const amountPaid = Number(order.amount_paid || 0);
-        
-        if (order.payment_type === 'full_credit') {
-          creditAmount = totalAmount;
-        } else if (order.payment_type === 'partial_payment') {
-          creditAmount = totalAmount - amountPaid;
-        }
+        const creditAmount = Number(order.pending_amount || 0);
         
         // Format payment method for display
         const paymentMethod = order.payment_method 
