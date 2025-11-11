@@ -67,14 +67,14 @@ export const TodaySummary = () => {
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
-  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string }>>([]);
+  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
 
   // Dialog state and data sources for details
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState<string>("");
-  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products" | "kgBreakdown">("orders");
+  const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products" | "kgBreakdown" | "retailerValue">("orders");
   const [dialogFilter, setDialogFilter] = useState<string | null>(null);
 
   // Handle URL query parameter for date from Attendance page
@@ -456,7 +456,8 @@ export const TodaySummary = () => {
           retailer: order.retailer_name,
           amount: Number(order.total_amount || 0),
           kgSold: kgSum,
-          kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG'
+          kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG',
+          creditAmount: Number(order.pending_amount || 0)
         };
       }) || [];
 
@@ -513,6 +514,13 @@ export const TodaySummary = () => {
   const openProductsDialog = () => {
     setDialogTitle("Orders by Product");
     setDialogContentType("products");
+    setDialogFilter(null);
+    setDialogOpen(true);
+  };
+
+  const openRetailerValueDialog = () => {
+    setDialogTitle("Order Value by Retailer");
+    setDialogContentType("retailerValue");
     setDialogFilter(null);
     setDialogOpen(true);
   };
@@ -908,7 +916,7 @@ export const TodaySummary = () => {
             <div className="grid grid-cols-2 gap-4">
               <div
                 role="button"
-                onClick={openProductsDialog}
+                onClick={openRetailerValueDialog}
                 className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition"
               >
                 <div className="text-2xl font-bold text-primary">
@@ -1192,6 +1200,43 @@ export const TodaySummary = () => {
                           <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {dialogContentType === "retailerValue" && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    Total: ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} • 
+                    Credit: ₹{orders.reduce((sum, o) => sum + o.creditAmount, 0).toLocaleString()}
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead className="text-right">Total Value</TableHead>
+                        <TableHead className="text-right">Credit Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orders.length > 0 ? (
+                        orders.map((o, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{o.retailer}</TableCell>
+                            <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-warning">
+                              {o.creditAmount > 0 ? `₹${o.creditAmount.toLocaleString()}` : '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No orders placed today
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
