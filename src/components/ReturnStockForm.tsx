@@ -314,6 +314,15 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     const options: Array<{ value: string; label: string; sku?: string; price: number }> = [];
     
     products.forEach(product => {
+      // Always add the base product
+      options.push({
+        value: product.id,
+        label: product.name,
+        sku: product.sku,
+        price: product.rate
+      });
+      
+      // Also add variants if they exist
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           options.push({
@@ -322,13 +331,6 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
             sku: variant.sku,
             price: variant.price
           });
-        });
-      } else {
-        options.push({
-          value: product.id,
-          label: product.name,
-          sku: product.sku,
-          price: product.rate
         });
       }
     });
