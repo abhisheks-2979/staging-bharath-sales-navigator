@@ -4,11 +4,14 @@ import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Package, Check, Plus } from 'lucide-react';
+import { Package, Check, Plus, ChevronsUpDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
+import { cn } from '@/lib/utils';
 
 interface Product {
   id: string;
@@ -65,6 +68,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [returnQuantity, setReturnQuantity] = useState<number>(0);
   const [returnReason, setReturnReason] = useState<string>('');
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
 
   useEffect(() => {
     loadVans();
@@ -307,25 +311,35 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   };
 
   const getProductOptions = () => {
-    const options: Array<{ value: string; label: string }> = [];
+    const options: Array<{ value: string; label: string; sku?: string; price: number }> = [];
     
     products.forEach(product => {
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           options.push({
             value: `${product.id}_variant_${variant.id}`,
-            label: `${product.name} - ${variant.variant_name}`
+            label: `${product.name} - ${variant.variant_name}`,
+            sku: variant.sku,
+            price: variant.price
           });
         });
       } else {
         options.push({
           value: product.id,
-          label: product.name
+          label: product.name,
+          sku: product.sku,
+          price: product.rate
         });
       }
     });
     
     return options;
+  };
+
+  const getSelectedProductLabel = () => {
+    if (!selectedProduct) return 'Select...';
+    const option = getProductOptions().find(opt => opt.value === selectedProduct);
+    return option ? option.label : 'Select...';
   };
 
   const getTotalReturns = () => {
@@ -368,20 +382,47 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       <Card>
         <CardContent className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-1">
+          <div className="md:col-span-1">
               <Label>Product</Label>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getProductOptions().map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={productDropdownOpen} onOpenChange={setProductDropdownOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={productDropdownOpen}
+                    className="w-full justify-between"
+                  >
+                    {getSelectedProductLabel()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search products..." />
+                    <CommandList>
+                      <CommandEmpty>No product found.</CommandEmpty>
+                      <CommandGroup>
+                        {getProductOptions().map(option => (
+                          <CommandItem
+                            key={option.value}
+                            value={option.value}
+                            onSelect={(currentValue) => {
+                              setSelectedProduct(currentValue === selectedProduct ? '' : currentValue);
+                              setProductDropdownOpen(false);
+                            }}
+                            className="flex flex-col items-start py-3"
+                          >
+                            <div className="font-medium">{option.label}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {option.sku && `SKU: ${option.sku} | `}₹{option.price}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="md:col-span-1">
