@@ -217,22 +217,8 @@ export const BeatPlanning = () => {
         console.log('No beats selected, skipping expense creation');
         return;
       }
-      
-      // Delete existing expense records for this date
-      const { error: deleteError } = await supabase
-        .from('beat_allowances')
-        .delete()
-        .eq('user_id', user.id)
-        .gte('created_at', `${dateString}T00:00:00.000Z`)
-        .lt('created_at', `${dateString}T23:59:59.999Z`);
 
-      if (deleteError) {
-        console.error('Delete error:', deleteError);
-      } else {
-        console.log('Successfully deleted existing expense records for date:', dateString);
-      }
-
-      // Create expense records for each planned beat
+      // Create expense records for each planned beat using upsert
       const expenseData = selectedBeatIds.map(beatId => {
         const beat = beats.find(b => b.id === beatId);
         console.log(`Beat ${beatId} found:`, beat);
@@ -247,30 +233,36 @@ export const BeatPlanning = () => {
         };
       });
 
-      console.log('Expense data to insert:', expenseData);
+      console.log('Expense data to upsert:', expenseData);
 
       if (expenseData.length === 0) {
-        console.log('No expense data to insert');
+        console.log('No expense data to upsert');
         return;
       }
 
+      // Use upsert to handle existing records
       const { error, data } = await supabase
         .from('beat_allowances')
-        .insert(expenseData);
+        .upsert(expenseData, {
+          onConflict: 'beat_id,user_id',
+          ignoreDuplicates: false
+        });
 
       if (error) {
-        console.error('Insert error:', error);
-        console.error('Insert error details:', JSON.stringify(error, null, 2));
+        console.error('Upsert error:', error);
+        console.error('Upsert error details:', JSON.stringify(error, null, 2));
         throw error;
       }
       
-      console.log('Successfully created expense records:', data);
+      console.log('Successfully created/updated expense records:', data);
       
       // Show success message
       toast.success(`Created expense records for ${selectedBeatIds.length} beat(s)`);
     } catch (error) {
       console.error('Error creating expense records:', error);
-      toast.error('Failed to create expense records. Please check the console for details.');
+      toast.error('Failed to create expense records. Please check the console for details.', {
+        duration: 5000,
+      });
     }
   };
 
