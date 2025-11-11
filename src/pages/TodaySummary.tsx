@@ -67,7 +67,7 @@ export const TodaySummary = () => {
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
-  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; paymentMethod: string }>>([]);
+  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
 
@@ -486,6 +486,7 @@ export const TodaySummary = () => {
           kgSold: kgSum,
           kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG',
           creditAmount: creditAmount,
+          cashInHand: totalAmount - creditAmount,
           paymentMethod: paymentMethod
         };
       }) || [];
@@ -1238,7 +1239,8 @@ export const TodaySummary = () => {
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
                     Total: ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} • 
-                    Credit: ₹{orders.reduce((sum, o) => sum + o.creditAmount, 0).toLocaleString()}
+                    Credit: ₹{orders.reduce((sum, o) => sum + o.creditAmount, 0).toLocaleString()} • 
+                    Cash in Hand: ₹{orders.reduce((sum, o) => sum + o.cashInHand, 0).toLocaleString()}
                   </div>
                   <div className="overflow-x-auto">
                     <Table>
@@ -1247,6 +1249,7 @@ export const TodaySummary = () => {
                           <TableHead className="min-w-[120px]">Retailer</TableHead>
                           <TableHead className="text-right min-w-[100px]">Total Value</TableHead>
                           <TableHead className="text-right min-w-[100px]">Credit</TableHead>
+                          <TableHead className="text-right min-w-[100px]">Cash in Hand</TableHead>
                           <TableHead className="text-center min-w-[80px]">Payment</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1259,6 +1262,9 @@ export const TodaySummary = () => {
                               <TableCell className="text-right text-warning">
                                 {o.creditAmount > 0 ? `₹${o.creditAmount.toLocaleString()}` : '-'}
                               </TableCell>
+                              <TableCell className="text-right text-success">
+                                ₹{o.cashInHand.toLocaleString()}
+                              </TableCell>
                               <TableCell className="text-center">
                                 <Badge variant="outline" className="text-xs">
                                   {o.paymentMethod}
@@ -1268,7 +1274,7 @@ export const TodaySummary = () => {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
                               No orders placed today
                             </TableCell>
                           </TableRow>
