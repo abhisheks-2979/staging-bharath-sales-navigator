@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { IndianRupee, Camera } from "lucide-react";
@@ -165,20 +165,32 @@ export const PaymentMarkingModal = ({
           {/* Payment Method Selection */}
           <div className="space-y-3">
             <Label>Payment Method</Label>
-            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="cash" id="cash" />
-                <Label htmlFor="cash" className="cursor-pointer">Cash</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="cheque" id="cheque" />
-                <Label htmlFor="cheque" className="cursor-pointer">Cheque</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="upi" id="upi" />
-                <Label htmlFor="upi" className="cursor-pointer">UPI</Label>
-              </div>
-            </RadioGroup>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant={paymentMethod === "cash" ? "default" : "outline"}
+                className="h-auto py-4 flex flex-col items-center justify-center"
+                onClick={() => setPaymentMethod("cash")}
+              >
+                <span className="font-semibold">Cash</span>
+              </Button>
+              <Button
+                type="button"
+                variant={paymentMethod === "cheque" ? "default" : "outline"}
+                className="h-auto py-4 flex flex-col items-center justify-center"
+                onClick={() => setPaymentMethod("cheque")}
+              >
+                <span className="font-semibold">Cheque</span>
+              </Button>
+              <Button
+                type="button"
+                variant={paymentMethod === "upi" ? "default" : "outline"}
+                className="h-auto py-4 flex flex-col items-center justify-center"
+                onClick={() => setPaymentMethod("upi")}
+              >
+                <span className="font-semibold">UPI</span>
+              </Button>
+            </div>
           </div>
 
           {/* Camera Capture for Cheque/UPI */}
