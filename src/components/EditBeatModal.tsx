@@ -353,7 +353,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full pr-4">
+          <ScrollArea className="h-[60vh] pr-4">
             <div className="space-y-6">
               {/* Beat Details Form */}
               <Card>
@@ -539,7 +539,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                     onChange={setSearchTerm}
                   />
                   
-                  <div className="max-h-60 overflow-y-auto space-y-2">
+                  <div className="space-y-2">
                     {filteredRetailers.length === 0 ? (
                       <div className="text-center py-4 text-muted-foreground">
                         No retailers found
