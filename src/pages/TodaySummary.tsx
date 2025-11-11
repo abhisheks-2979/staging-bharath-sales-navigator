@@ -67,7 +67,7 @@ export const TodaySummary = () => {
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
-  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; items: number }>>([]);
+  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
 
@@ -447,11 +447,18 @@ export const TodaySummary = () => {
       setProductSales(productSalesData);
 
       // Process orders for dialog
-      const ordersData = todayOrders?.map(order => ({
-        retailer: order.retailer_name,
-        amount: Number(order.total_amount || 0),
-        items: order.order_items?.length || 0
-      })) || [];
+      const ordersData = todayOrders?.map(order => {
+        let kgSum = 0;
+        order.order_items?.forEach((item: any) => {
+          kgSum += convertToKg(item.quantity, item.unit || 'piece');
+        });
+        return {
+          retailer: order.retailer_name,
+          amount: Number(order.total_amount || 0),
+          kgSold: kgSum,
+          kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG'
+        };
+      }) || [];
 
       setOrders(ordersData);
 
@@ -1173,7 +1180,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Retailer</TableHead>
-                        <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">KG</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1181,7 +1188,7 @@ export const TodaySummary = () => {
                       {orders.map((o, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{o.retailer}</TableCell>
-                          <TableCell className="text-right">{o.items}</TableCell>
+                          <TableCell className="text-right">{o.kgFormatted}</TableCell>
                           <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
