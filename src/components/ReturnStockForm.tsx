@@ -55,13 +55,16 @@ const returnReasons = [
 
 export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete }: ReturnStockFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [returnItems, setReturnItems] = useState<{[key: string]: ReturnItem}>({});
+  const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedVan, setSelectedVan] = useState<string>('');
   const [vans, setVans] = useState<any[]>([]);
-  const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  
+  // Form state for adding new return
+  const [selectedProduct, setSelectedProduct] = useState<string>('');
+  const [returnQuantity, setReturnQuantity] = useState<number>(0);
+  const [returnReason, setReturnReason] = useState<string>('');
 
   useEffect(() => {
     loadVans();
@@ -125,56 +128,51 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     }
   };
 
-  const handleReturnQuantityChange = (productId: string, variantId: string | undefined, quantity: number) => {
-    const key = variantId ? `${productId}_variant_${variantId}` : productId;
+  const handleAddReturn = () => {
+    if (!selectedProduct) {
+      toast.error('Please select a product');
+      return;
+    }
+
+    if (returnQuantity <= 0) {
+      toast.error('Please enter a valid quantity');
+      return;
+    }
+
+    if (!returnReason) {
+      toast.error('Please select a return reason');
+      return;
+    }
+
+    const [productId, variantId] = selectedProduct.split('_variant_');
     const product = products.find(p => p.id === productId);
     
     if (!product) return;
 
     const variant = variantId ? product.variants?.find(v => v.id === variantId) : undefined;
 
-    setReturnItems(prev => ({
-      ...prev,
-      [key]: {
-        productId,
-        variantId,
-        productName: product.name,
-        variantName: variant?.variant_name,
-        unit: product.unit,
-        returnQuantity: quantity,
-        returnReason: prev[key]?.returnReason || ''
-      }
-    }));
-  };
+    const newItem: ReturnItem = {
+      productId,
+      variantId: variantId || undefined,
+      productName: product.name,
+      variantName: variant?.variant_name,
+      unit: product.unit,
+      returnQuantity,
+      returnReason
+    };
 
-  const handleReasonChange = (productId: string, variantId: string | undefined, reason: string) => {
-    const key = variantId ? `${productId}_variant_${variantId}` : productId;
+    setReturnItems(prev => [...prev, newItem]);
     
-    setReturnItems(prev => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        returnReason: reason
-      }
-    }));
+    // Reset form
+    setSelectedProduct('');
+    setReturnQuantity(0);
+    setReturnReason('');
+    
+    toast.success(`Added ${newItem.productName}${newItem.variantName ? ` - ${newItem.variantName}` : ''}`);
   };
 
-  const handleAddReturn = (productId: string, variantId?: string) => {
-    const key = variantId ? `${productId}_variant_${variantId}` : productId;
-    const item = returnItems[key];
-
-    if (!item || item.returnQuantity <= 0) {
-      toast.error('Please enter a valid quantity');
-      return;
-    }
-
-    if (!item.returnReason) {
-      toast.error('Please select a return reason');
-      return;
-    }
-
-    setAddedItems(prev => new Set(prev).add(key));
-    toast.success(`Added ${item.productName}${item.variantName ? ` - ${item.variantName}` : ''}`);
+  const handleRemoveItem = (index: number) => {
+    setReturnItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSaveReturns = async () => {
@@ -183,11 +181,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       return;
     }
 
-    const itemsToSave = Array.from(addedItems)
-      .map(key => returnItems[key])
-      .filter(item => item && item.returnQuantity > 0 && item.returnReason);
-
-    if (itemsToSave.length === 0) {
+    if (returnItems.length === 0) {
       toast.error('No items added for return');
       return;
     }
@@ -218,7 +212,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       if (grnError) throw grnError;
 
       // Create Return GRN Items
-      const returnGRNItems = itemsToSave.map(item => ({
+      const returnGRNItems = returnItems.map(item => ({
         return_grn_id: returnGRN.id,
         product_id: item.productId,
         variant_id: item.variantId || null,
@@ -233,7 +227,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       if (itemsError) throw itemsError;
 
       // Update van_live_inventory for each returned item
-      for (const item of itemsToSave) {
+      for (const item of returnItems) {
         // Build query
         let query = supabase
           .from('van_live_inventory')
@@ -298,8 +292,10 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       toast.success(`Return GRN ${grnNumber} created successfully`);
       
       // Reset form
-      setReturnItems({});
-      setAddedItems(new Set());
+      setReturnItems([]);
+      setSelectedProduct('');
+      setReturnQuantity(0);
+      setReturnReason('');
       
       onComplete();
     } catch (error: any) {
@@ -310,18 +306,30 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     }
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.variants?.some(v => 
-      v.variant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  const getProductOptions = () => {
+    const options: Array<{ value: string; label: string }> = [];
+    
+    products.forEach(product => {
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach(variant => {
+          options.push({
+            value: `${product.id}_variant_${variant.id}`,
+            label: `${product.name} - ${variant.variant_name}`
+          });
+        });
+      } else {
+        options.push({
+          value: product.id,
+          label: product.name
+        });
+      }
+    });
+    
+    return options;
+  };
 
   const getTotalReturns = () => {
-    return Array.from(addedItems)
-      .reduce((sum, key) => sum + (returnItems[key]?.returnQuantity || 0), 0);
+    return returnItems.reduce((sum, item) => sum + item.returnQuantity, 0);
   };
 
   if (loading) {
@@ -356,165 +364,121 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         </CardContent>
       </Card>
 
-      {/* Summary */}
-      {addedItems.size > 0 && (
-        <Card className="bg-primary/5">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Total Items: {addedItems.size}</p>
-                <p className="text-sm text-muted-foreground">Total Quantity: {getTotalReturns()}</p>
-              </div>
-              <Button onClick={handleSaveReturns} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Return GRN'}
+      {/* Add Return Form */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-1">
+              <Label>Product</Label>
+              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getProductOptions().map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-1">
+              <Label>Return Quantity</Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={returnQuantity || ''}
+                onChange={(e) => setReturnQuantity(parseInt(e.target.value) || 0)}
+                min="0"
+              />
+            </div>
+
+            <div className="md:col-span-1">
+              <Label>Reason</Label>
+              <Select value={returnReason} onValueChange={setReturnReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {returnReasons.map(reason => (
+                    <SelectItem key={reason} value={reason}>
+                      {reason}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-1 flex items-end">
+              <Button onClick={handleAddReturn} className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Return
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Search */}
-      <Input
-        placeholder="Search products..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      {/* Added Items List */}
+      {returnItems.length > 0 && (
+        <>
+          <Card className="bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Total Items: {returnItems.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Quantity: {getTotalReturns()}</p>
+                </div>
+                <Button onClick={handleSaveReturns} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Return GRN'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Products Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="w-[200px]">Return Quantity</TableHead>
-                <TableHead className="w-[200px]">Reason</TableHead>
-                <TableHead className="w-[120px]">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map(product => (
-                <>
-                  {/* Base Product Row */}
-                  {(!product.variants || product.variants.length === 0) && (
-                    <TableRow key={product.id}>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead className="w-[100px]">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {returnItems.map((item, index) => (
+                    <TableRow key={index}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-muted-foreground">Rate: ₹{product.rate} / {product.unit}</p>
+                          <p className="font-medium">{item.productName}</p>
+                          {item.variantName && (
+                            <p className="text-sm text-muted-foreground">{item.variantName}</p>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={returnItems[product.id]?.returnQuantity || ''}
-                          onChange={(e) => handleReturnQuantityChange(product.id, undefined, parseInt(e.target.value) || 0)}
-                          min="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={returnItems[product.id]?.returnReason || ''}
-                          onValueChange={(value) => handleReasonChange(product.id, undefined, value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select reason" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {returnReasons.map(reason => (
-                              <SelectItem key={reason} value={reason}>
-                                {reason}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
+                      <TableCell>{item.returnQuantity} {item.unit}</TableCell>
+                      <TableCell>{item.returnReason}</TableCell>
                       <TableCell>
                         <Button
                           size="sm"
-                          variant={addedItems.has(product.id) ? "secondary" : "default"}
-                          onClick={() => handleAddReturn(product.id)}
-                          disabled={addedItems.has(product.id)}
+                          variant="destructive"
+                          onClick={() => handleRemoveItem(index)}
                         >
-                          {addedItems.has(product.id) ? (
-                            <><Check className="h-4 w-4 mr-1" />Added</>
-                          ) : (
-                            <><Plus className="h-4 w-4 mr-1" />Add</>
-                          )}
+                          Remove
                         </Button>
                       </TableCell>
                     </TableRow>
-                  )}
-
-                  {/* Product with Variants Rows */}
-                  {product.variants && product.variants.length > 0 && product.variants.map((variant, index) => {
-                    const variantKey = `${product.id}_variant_${variant.id}`;
-                    return (
-                      <TableRow key={variantKey}>
-                        <TableCell>
-                          <div>
-                            {index === 0 && <p className="font-medium">{product.name}</p>}
-                            <p className="text-sm text-muted-foreground">{variant.variant_name}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={returnItems[variantKey]?.returnQuantity || ''}
-                            onChange={(e) => handleReturnQuantityChange(product.id, variant.id, parseInt(e.target.value) || 0)}
-                            min="0"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={returnItems[variantKey]?.returnReason || ''}
-                            onValueChange={(value) => handleReasonChange(product.id, variant.id, value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select reason" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {returnReasons.map(reason => (
-                                <SelectItem key={reason} value={reason}>
-                                  {reason}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant={addedItems.has(variantKey) ? "secondary" : "default"}
-                            onClick={() => handleAddReturn(product.id, variant.id)}
-                            disabled={addedItems.has(variantKey)}
-                          >
-                            {addedItems.has(variantKey) ? (
-                              <><Check className="h-4 w-4 mr-1" />Added</>
-                            ) : (
-                              <><Plus className="h-4 w-4 mr-1" />Add</>
-                            )}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </>
-              ))}
-
-              {filteredProducts.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    No products found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
