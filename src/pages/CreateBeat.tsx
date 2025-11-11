@@ -436,7 +436,7 @@ export const CreateBeat = () => {
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(retailers.filter(r => selectedRetailers.includes(r.id)).reduce((sum, r) => sum + r.metrics.revenue12Months, 0))}
+                  {formatCurrency(retailers.filter(r => selectedRetailers.includes(r.id)).reduce((sum, r) => sum + (r.order_value || 0), 0))}
                 </div>
                 <div className="text-sm text-primary-foreground/80">Selected Revenue</div>
               </div>
@@ -648,11 +648,17 @@ export const CreateBeat = () => {
                       
                       {/* Retailer Image */}
                       <div className="flex-shrink-0">
-                        <img
-                          src={retailer.image}
-                          alt={retailer.name}
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
+                        {retailer.photo_url ? (
+                          <img
+                            src={retailer.photo_url}
+                            alt={retailer.name}
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                            <Store size={20} className="text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex-1 min-w-0">
@@ -683,11 +689,17 @@ export const CreateBeat = () => {
                       
                       {/* Retailer Image */}
                       <div className="flex-shrink-0">
-                        <img
-                          src={retailer.image}
-                          alt={retailer.name}
-                          className="w-16 h-16 rounded-lg object-cover"
-                        />
+                        {retailer.photo_url ? (
+                          <img
+                            src={retailer.photo_url}
+                            alt={retailer.name}
+                            className="w-16 h-16 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                            <Store size={24} className="text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -698,15 +710,19 @@ export const CreateBeat = () => {
                         <div className="min-w-0 flex-1">
                           <h3 className="font-semibold text-sm">{retailer.name}</h3>
                           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            <span>Category {retailer.category}</span>
-                            <div className="flex items-center gap-1">
-                              <Users size={10} />
-                              <span className="truncate max-w-[100px]">{retailer.beatName}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Truck size={10} />
-                              <span className="truncate max-w-[120px]">{retailer.distributor}</span>
-                            </div>
+                            {retailer.category && <span>Category {retailer.category}</span>}
+                            {retailer.beat_name && (
+                              <div className="flex items-center gap-1">
+                                <Users size={10} />
+                                <span className="truncate max-w-[100px]">{retailer.beat_name}</span>
+                              </div>
+                            )}
+                            {retailer.parent_name && (
+                              <div className="flex items-center gap-1">
+                                <Truck size={10} />
+                                <span className="truncate max-w-[120px]">{retailer.parent_name}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Badge className={getPriorityColor(retailer.priority)}>
@@ -716,14 +732,18 @@ export const CreateBeat = () => {
 
                       {/* Beat and Distributor - Mobile Only */}
                       <div className="md:hidden space-y-1">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Users size={10} />
-                          <span className="truncate">{retailer.beatName}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Truck size={10} />
-                          <span className="truncate">{retailer.distributor}</span>
-                        </div>
+                        {retailer.beat_name && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Users size={10} />
+                            <span className="truncate">{retailer.beat_name}</span>
+                          </div>
+                        )}
+                        {retailer.parent_name && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Truck size={10} />
+                            <span className="truncate">{retailer.parent_name}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Contact Info */}
@@ -742,19 +762,19 @@ export const CreateBeat = () => {
                       <div className="bg-muted/20 rounded p-2">
                         <div className="grid grid-cols-3 gap-2 text-center">
                           <div>
-                            <div className="text-xs text-muted-foreground mb-1">3M Visits</div>
-                            <div className="font-semibold text-xs md:text-sm">{retailer.metrics.visitsIn3Months}</div>
+                            <div className="text-xs text-muted-foreground mb-1">Category</div>
+                            <div className="font-semibold text-xs md:text-sm">{retailer.category || 'N/A'}</div>
                           </div>
                           <div>
-                            <div className="text-xs text-muted-foreground mb-1">12M Revenue</div>
+                            <div className="text-xs text-muted-foreground mb-1">Order Value</div>
                             <div className="font-semibold text-xs md:text-sm">
-                              ₹{(retailer.metrics.revenue12Months / 1000).toFixed(0)}K
+                              ₹{((retailer.order_value || 0) / 1000).toFixed(0)}K
                             </div>
                           </div>
                           <div>
-                            <div className="text-xs text-muted-foreground mb-1">Avg Order</div>
+                            <div className="text-xs text-muted-foreground mb-1">Pending</div>
                             <div className="font-semibold text-xs md:text-sm">
-                              ₹{(retailer.metrics.avgOrderPerVisit / 1000).toFixed(1)}K
+                              ₹{((retailer.pending_amount || 0) / 1000).toFixed(1)}K
                             </div>
                           </div>
                         </div>
