@@ -943,14 +943,14 @@ React.useEffect(() => {
                 {/* Payment Type Selection */}
                 <div className="space-y-3">
                   <p className="text-sm font-medium">Select Payment Type:</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Button
                       onClick={() => {
                         setPaymentType("full");
                         setPaymentMethod("");
                       }}
                       variant={paymentType === "full" ? "default" : "outline"}
-                      className="w-full"
+                      className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
                     >
                       Full Payment
                     </Button>
@@ -960,7 +960,7 @@ React.useEffect(() => {
                         setPaymentMethod("");
                       }}
                       variant={paymentType === "partial" ? "default" : "outline"}
-                      className="w-full"
+                      className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
                     >
                       Partial Payment
                     </Button>
@@ -970,7 +970,7 @@ React.useEffect(() => {
                         setPaymentMethod("");
                       }}
                       variant={paymentType === "credit" ? "default" : "outline"}
-                      className="w-full"
+                      className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
                     >
                       Full Credit
                     </Button>

@@ -165,30 +165,30 @@ export const PaymentMarkingModal = ({
           {/* Payment Method Selection */}
           <div className="space-y-3">
             <Label>Payment Method</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Button
                 type="button"
                 variant={paymentMethod === "cash" ? "default" : "outline"}
-                className="h-auto py-4 flex flex-col items-center justify-center"
+                className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
                 onClick={() => setPaymentMethod("cash")}
               >
-                <span className="font-semibold">Cash</span>
+                Cash
               </Button>
               <Button
                 type="button"
                 variant={paymentMethod === "cheque" ? "default" : "outline"}
-                className="h-auto py-4 flex flex-col items-center justify-center"
+                className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
                 onClick={() => setPaymentMethod("cheque")}
               >
-                <span className="font-semibold">Cheque</span>
+                Cheque
               </Button>
               <Button
                 type="button"
                 variant={paymentMethod === "upi" ? "default" : "outline"}
-                className="h-auto py-4 flex flex-col items-center justify-center"
+                className="w-full h-auto py-3 whitespace-normal leading-tight text-center"
                 onClick={() => setPaymentMethod("upi")}
               >
-                <span className="font-semibold">UPI</span>
+                UPI
               </Button>
             </div>
           </div>
