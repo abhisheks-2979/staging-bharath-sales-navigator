@@ -453,14 +453,32 @@ export const TodaySummary = () => {
           kgSum += convertToKg(item.quantity, item.unit || 'piece');
         });
         
-        // Use pending_amount directly from the database
-        const totalAmount = Number(order.total_amount || 0);
-        const creditAmount = Number(order.pending_amount || 0);
+        // Derive credit from multiple fields with safe fallbacks
+        const totalAmount = Number(order.total_amount ?? 0);
+        const paid = Number(order.credit_paid_amount ?? order.amount_paid ?? 0);
+        const pendingField = order.pending_amount ?? order.credit_pending_amount;
+        const derivedPending = (order.is_credit_order ? Math.max(0, totalAmount - paid) : 0);
+        const creditAmount = Number(pendingField ?? derivedPending ?? 0);
         
         // Format payment method for display
         const paymentMethod = order.payment_method 
           ? order.payment_method.charAt(0).toUpperCase() + order.payment_method.slice(1)
           : 'N/A';
+        
+        // Debug log to verify credit calculation in runtime
+        try {
+          console.log('[TodaySummary] Order credit calc', {
+            order_id: order.id,
+            retailer: order.retailer_name,
+            totalAmount,
+            paid,
+            pending_amount: order.pending_amount,
+            credit_pending_amount: order.credit_pending_amount,
+            is_credit_order: order.is_credit_order,
+            derivedPending,
+            creditAmount
+          });
+        } catch (e) {}
         
         return {
           retailer: order.retailer_name,
