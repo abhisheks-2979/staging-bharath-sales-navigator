@@ -1243,7 +1243,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
               variantName: variant.variant_name,
               selectedItem: `${product.name} - ${variant.variant_name}`,
               quantity: variantQty,
-              rate: variantPrice,
+              rate: variant.price, // Use original price, not discounted
               totalPrice: baseTotal - totalDiscount,
               savings: (variantSavings * variantQty) + totalDiscount,
               appliedOffers
@@ -1916,7 +1916,7 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                             </div>
                             <div>
                               <Select
-                                value={selectedUnits[product.id] || product.unit || 'KG'}
+                                value={selectedUnits[product.id] || product.unit || 'kg'}
                                 onValueChange={(value) => {
                                   setSelectedUnits(prev => ({ ...prev, [product.id]: value }));
                                 }}
@@ -1925,8 +1925,8 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="KG">KG</SelectItem>
-                                  <SelectItem value="Grams">Grams</SelectItem>
+                                  <SelectItem value="kg">kg</SelectItem>
+                                  <SelectItem value="grams">grams</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
