@@ -15,9 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { cn } from "@/lib/utils";
 
-type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
+type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom';
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
@@ -32,11 +31,6 @@ export const TodaySummary = () => {
   });
   const [filterType, setFilterType] = useState<DateFilterType>('today');
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [dateRangeOpen, setDateRangeOpen] = useState(false);
-  const [tempDateRange, setTempDateRange] = useState<{ from: Date; to: Date }>({
-    from: new Date(),
-    to: new Date()
-  });
   
   // Real data state
   const [summaryData, setSummaryData] = useState({
@@ -100,7 +94,7 @@ export const TodaySummary = () => {
     fetchTodaysData();
   }, [dateRange, filterType]);
 
-  const handleDateFilterChange = (type: DateFilterType, date?: Date, range?: { from: Date; to: Date }) => {
+  const handleDateFilterChange = (type: DateFilterType, date?: Date) => {
     setFilterType(type);
     
     const now = new Date();
@@ -138,18 +132,7 @@ export const TodaySummary = () => {
           setSelectedDate(date);
         }
         break;
-      case 'dateRange':
-        if (range) {
-          setDateRange(range);
-          setSelectedDate(range.from);
-        }
-        break;
     }
-  };
-  
-  const applyDateRange = () => {
-    handleDateFilterChange('dateRange', undefined, tempDateRange);
-    setDateRangeOpen(false);
   };
 
   const fetchTodaysData = async () => {
@@ -169,7 +152,7 @@ export const TodaySummary = () => {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
         visitsQuery = visitsQuery.eq('planned_date', targetDate);
       } else {
-        // For week/lastWeek/month/dateRange, use date range
+        // For week/lastWeek/month, use date range
         const fromDate = format(dateRange.from, 'yyyy-MM-dd');
         const toDate = format(dateRange.to, 'yyyy-MM-dd');
         visitsQuery = visitsQuery.gte('planned_date', fromDate).lte('planned_date', toDate);
@@ -375,7 +358,6 @@ export const TodaySummary = () => {
         if (filterType === 'week') return 'This Week';
         if (filterType === 'lastWeek') return 'Last Week';
         if (filterType === 'month') return 'This Month';
-        if (filterType === 'dateRange') return 'Date Range';
         return format(selectedDate, 'dd MMM yyyy');
       };
 
@@ -800,16 +782,14 @@ export const TodaySummary = () => {
                 <ArrowLeft size={20} />
               </Button>
               <div>
-                <CardTitle className="text-xl font-bold">Visit Summary</CardTitle>
-                <p className="text-primary-foreground/90 font-medium">{summaryData.date}</p>
-                <p className="text-primary-foreground/70 text-sm mt-1">
-                  {filterType === 'today' ? 'Today' : 
-                   filterType === 'week' ? 'This Week' :
-                   filterType === 'lastWeek' ? 'Last Week' :
-                   filterType === 'month' ? 'This Month' :
-                   filterType === 'dateRange' ? `${format(dateRange.from, 'dd MMM')} - ${format(dateRange.to, 'dd MMM yyyy')}` :
-                   'Custom Date'}
-                </p>
+                <CardTitle className="text-xl font-bold">
+                  {filterType === 'today' ? "Today's Summary" : 
+                   filterType === 'week' ? "This Week's Summary" :
+                   filterType === 'lastWeek' ? "Last Week's Summary" :
+                   filterType === 'month' ? "Monthly Summary" :
+                   "Visit Summary"}
+                </CardTitle>
+                <p className="text-primary-foreground/80">{summaryData.date}</p>
               </div>
             </div>
             <FileText size={24} />
@@ -822,9 +802,9 @@ export const TodaySummary = () => {
             <div className="space-y-3">
               {/* Quick Filters Dropdown */}
               <Select 
-                value={filterType === 'custom' || filterType === 'dateRange' ? 'custom' : filterType} 
+                value={filterType === 'custom' ? 'custom' : filterType} 
                 onValueChange={(value: DateFilterType) => {
-                  if (value !== 'custom' && value !== 'dateRange') {
+                  if (value !== 'custom') {
                     handleDateFilterChange(value);
                   }
                 }}
@@ -836,89 +816,38 @@ export const TodaySummary = () => {
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="week">This Week</SelectItem>
                   <SelectItem value="lastWeek">Last Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
                 </SelectContent>
               </Select>
               
-              <div className="grid grid-cols-2 gap-2">
-                {/* Custom Date Picker */}
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filterType === 'custom' 
-                        ? format(selectedDate, 'dd MMM')
-                        : 'Single Date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          handleDateFilterChange('custom', date);
-                          setCalendarOpen(false);
-                        }
-                      }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-
-                {/* Date Range Picker */}
-                <Popover open={dateRangeOpen} onOpenChange={setDateRangeOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filterType === 'dateRange' 
-                        ? `${format(dateRange.from, 'dd MMM')} - ${format(dateRange.to, 'dd MMM')}`
-                        : 'Date Range'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <div className="p-4 space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">From Date</label>
-                        <Calendar
-                          mode="single"
-                          selected={tempDateRange.from}
-                          onSelect={(date) => {
-                            if (date) {
-                              setTempDateRange(prev => ({ ...prev, from: date }));
-                            }
-                          }}
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">To Date</label>
-                        <Calendar
-                          mode="single"
-                          selected={tempDateRange.to}
-                          onSelect={(date) => {
-                            if (date) {
-                              setTempDateRange(prev => ({ ...prev, to: date }));
-                            }
-                          }}
-                          disabled={(date) => date < tempDateRange.from}
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </div>
-                      <Button onClick={applyDateRange} className="w-full">
-                        Apply Date Range
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+              {/* Custom Date Picker */}
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterType === 'custom' 
+                      ? format(selectedDate, 'PPP')
+                      : 'Select custom date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        handleDateFilterChange('custom', date);
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </CardContent>
         </Card>
