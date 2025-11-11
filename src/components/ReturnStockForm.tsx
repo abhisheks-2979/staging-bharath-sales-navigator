@@ -318,7 +318,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         product.variants.forEach(variant => {
           options.push({
             value: `${product.id}_variant_${variant.id}`,
-            label: `${product.name} - ${variant.variant_name}`,
+            label: variant.variant_name,
             sku: variant.sku,
             price: variant.price
           });
