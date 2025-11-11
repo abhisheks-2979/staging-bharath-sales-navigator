@@ -555,11 +555,12 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         <CardContent className="p-0">
           <div className="w-full">
             {/* Table Header - Responsive */}
-            <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr] md:grid-cols-[2fr_1fr_1fr_1fr] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
+            <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
               <div className="font-semibold text-xs md:text-sm">Product</div>
               <div className="font-semibold text-xs md:text-sm">Unit</div>
               <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
               <div className="font-semibold text-xs md:text-sm text-center">Stock</div>
+              <div className="w-8"></div>
             </div>
               
               {/* Table Rows - Responsive */}
@@ -568,7 +569,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                   <div 
                   key={row.id} 
                   className={cn(
-                    "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr] md:grid-cols-[2fr_1fr_1fr_1fr] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
+                    "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
                     index % 2 === 0 ? "bg-background" : "bg-muted/20"
                   )}
                 >
@@ -706,8 +707,21 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                         )}
                         disabled={!row.product}
                       />
+                    </div>
+                    
+                    {/* Delete Button */}
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeRow(row.id)}
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={orderRows.length === 1}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
               ))}
               </div>
             </div>
