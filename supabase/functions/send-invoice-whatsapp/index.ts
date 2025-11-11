@@ -18,123 +18,85 @@ serve(async (req) => {
       throw new Error('Order ID and customer phone number are required');
     }
 
-    console.log('Sending WhatsApp invoice:', { invoiceId, customerPhone, pdfUrl, invoiceNumber });
+    console.log('Sending invoice via Twilio SMS:', { invoiceId, customerPhone, pdfUrl, invoiceNumber });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get WhatsApp business config for business name
-    const { data: whatsappConfig, error: configError } = await supabase
-      .from('whatsapp_config')
-      .select('business_name')
-      .eq('is_active', true)
+    // Get company config for business name
+    const { data: companyConfig } = await supabase
+      .from('company_info')
+      .select('name')
+      .limit(1)
       .maybeSingle();
 
-    if (configError) {
-      console.error('WhatsApp config error:', configError);
+    const businessName = companyConfig?.name || 'BHARATH BEVERAGES';
+
+    // Get Twilio credentials
+    const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+    const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+    const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+
+    if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+      throw new Error('Twilio credentials not configured');
     }
 
-    console.log('WhatsApp config:', whatsappConfig);
-
-    // Get WhatChimp credentials
-    const whatchimpApiKey = Deno.env.get('WHATCHIMP_API_KEY');
-    const whatchimpPhoneNumberId = Deno.env.get('WHATCHIMP_PHONE_NUMBER_ID');
-
-    if (!whatchimpApiKey || !whatchimpPhoneNumberId) {
-      throw new Error('WhatChimp credentials not configured');
-    }
-
-    // Format phone number - remove any non-digit characters
+    // Format phone number - ensure it has country code
     const formatPhone = (phone: string) => {
-      return phone.replace(/\D/g, '');
+      const cleaned = phone.replace(/\D/g, '');
+      // If doesn't start with country code, assume India (+91)
+      return cleaned.startsWith('91') ? `+${cleaned}` : `+91${cleaned}`;
     };
 
     const toPhone = formatPhone(customerPhone);
-
     console.log('Sending to phone:', toPhone);
 
-    const businessName = whatsappConfig?.business_name || 'BHARATH BEVERAGES';
-    
-    // Check if template messaging is enabled (set this to true once template is approved)
-    const useTemplate = Deno.env.get('WHATCHIMP_USE_TEMPLATE') === 'true';
-    const templateName = Deno.env.get('WHATCHIMP_TEMPLATE_NAME') || 'invoice_delivery';
+    // Create short link message
+    const message = `Thank you for your order with ${businessName}!
 
-    let response;
+Invoice: ${invoiceNumber || 'N/A'}
 
-    if (useTemplate) {
-      // Send using WhatsApp Template (works outside 24-hour window)
-      console.log('Sending template message:', templateName);
-      
-      const whatchimpTemplateUrl = 'https://app.whatchimp.com/api/v1/whatsapp/send-template';
-      
-      const templateParams = new URLSearchParams({
-        apiToken: whatchimpApiKey,
-        phone_number_id: whatchimpPhoneNumberId,
-        phone_number: toPhone,
-        template_name: templateName,
-        template_language: 'en',
-        // Template variables in order: {{1}} businessName, {{2}} invoiceNumber, {{3}} pdfUrl
-        template_body_variables: JSON.stringify([
-          businessName,
-          invoiceNumber || 'Invoice',
-          pdfUrl || 'Processing...'
-        ])
-      });
+Download your invoice: ${pdfUrl || 'Processing...'}`;
 
-      response = await fetch(whatchimpTemplateUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: templateParams,
-      });
-    } else {
-      // Send regular message (only works within 24-hour window)
-      console.log('Sending regular message (24-hour window required)');
-      
-      const message = `Thank you for placing order with ${businessName}!
+    console.log('Message content:', message);
 
-Here is your invoice: ${invoiceNumber || 'Invoice'}
+    // Twilio API endpoint
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
 
-Download PDF: ${pdfUrl || 'Processing...'}`;
+    // Create form body
+    const formBody = new URLSearchParams({
+      To: toPhone,
+      From: twilioPhoneNumber,
+      Body: message,
+    });
 
-      console.log('Message content:', message);
-
-      const whatchimpUrl = 'https://app.whatchimp.com/api/v1/whatsapp/send';
-      
-      const params = new URLSearchParams({
-        apiToken: whatchimpApiKey,
-        phone_number_id: whatchimpPhoneNumberId,
-        phone_number: toPhone,
-        message: message,
-      });
-
-      response = await fetch(whatchimpUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
-    }
+    // Send via Twilio
+    const response = await fetch(twilioUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formBody,
+    });
 
     const result = await response.json();
-    
-    // Check WhatChimp response status
-    if (result.status === "0" || !response.ok) {
-      console.error('WhatChimp error:', result);
-      throw new Error(result.message || 'Failed to send WhatsApp message');
+    console.log('Twilio response:', result);
+
+    if (!response.ok) {
+      console.error('Twilio error:', result);
+      throw new Error(result.message || 'Failed to send SMS via Twilio');
     }
 
-    console.log('WhatsApp sent successfully:', result);
+    console.log('SMS sent successfully via Twilio:', result);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageId: result.wa_message_id,
-        message: result.message || 'Invoice sent via WhatsApp successfully' 
+        messageId: result.sid,
+        message: 'Invoice sent via SMS successfully' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
