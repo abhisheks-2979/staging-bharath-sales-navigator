@@ -67,7 +67,7 @@ export const TodaySummary = () => {
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
-  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number }>>([]);
+  const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; paymentMethod: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
 
@@ -464,12 +464,18 @@ export const TodaySummary = () => {
           creditAmount = totalAmount - amountPaid;
         }
         
+        // Format payment method for display
+        const paymentMethod = order.payment_method 
+          ? order.payment_method.charAt(0).toUpperCase() + order.payment_method.slice(1)
+          : 'N/A';
+        
         return {
           retailer: order.retailer_name,
           amount: totalAmount,
           kgSold: kgSum,
           kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG',
-          creditAmount: creditAmount
+          creditAmount: creditAmount,
+          paymentMethod: paymentMethod
         };
       }) || [];
 
@@ -1223,34 +1229,42 @@ export const TodaySummary = () => {
                     Total: ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} • 
                     Credit: ₹{orders.reduce((sum, o) => sum + o.creditAmount, 0).toLocaleString()}
                   </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Retailer</TableHead>
-                        <TableHead className="text-right">Total Value</TableHead>
-                        <TableHead className="text-right">Credit Value</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {orders.length > 0 ? (
-                        orders.map((o, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">{o.retailer}</TableCell>
-                            <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
-                            <TableCell className="text-right text-warning">
-                              {o.creditAmount > 0 ? `₹${o.creditAmount.toLocaleString()}` : '-'}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[120px]">Retailer</TableHead>
+                          <TableHead className="text-right min-w-[100px]">Total Value</TableHead>
+                          <TableHead className="text-right min-w-[100px]">Credit</TableHead>
+                          <TableHead className="text-center min-w-[80px]">Payment</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {orders.length > 0 ? (
+                          orders.map((o, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-medium">{o.retailer}</TableCell>
+                              <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
+                              <TableCell className="text-right text-warning">
+                                {o.creditAmount > 0 ? `₹${o.creditAmount.toLocaleString()}` : '-'}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline" className="text-xs">
+                                  {o.paymentMethod}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
+                              No orders placed today
                             </TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            No orders placed today
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
 
