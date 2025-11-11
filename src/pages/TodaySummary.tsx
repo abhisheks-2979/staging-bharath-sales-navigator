@@ -802,7 +802,7 @@ export const TodaySummary = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate('/my-visits')}
+                onClick={() => navigate('/visits/retailers')}
                 className="text-primary-foreground hover:bg-primary-foreground/20"
               >
                 <ArrowLeft size={20} />
