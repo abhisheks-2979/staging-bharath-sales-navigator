@@ -8,6 +8,7 @@ import { Package, Check, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 interface Product {
   id: string;
@@ -379,125 +380,141 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         onChange={(e) => setSearchTerm(e.target.value)}
       />
 
-      {/* Products List */}
-      <div className="space-y-3">
-        {filteredProducts.map(product => (
-          <Card key={product.id}>
-            <CardContent className="p-4 space-y-3">
-              <div>
-                <h4 className="font-medium">{product.name}</h4>
-                <p className="text-sm text-muted-foreground">Rate: ₹{product.rate} / {product.unit}</p>
-              </div>
-
-              {/* Base Product Return */}
-              {(!product.variants || product.variants.length === 0) && (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Return Quantity</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={returnItems[product.id]?.returnQuantity || ''}
-                        onChange={(e) => handleReturnQuantityChange(product.id, undefined, parseInt(e.target.value) || 0)}
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Reason</Label>
-                      <Select
-                        value={returnItems[product.id]?.returnReason || ''}
-                        onValueChange={(value) => handleReasonChange(product.id, undefined, value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {returnReasons.map(reason => (
-                            <SelectItem key={reason} value={reason}>
-                              {reason}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={addedItems.has(product.id) ? "secondary" : "default"}
-                    onClick={() => handleAddReturn(product.id)}
-                    disabled={addedItems.has(product.id)}
-                    className="w-full"
-                  >
-                    {addedItems.has(product.id) ? (
-                      <><Check className="h-4 w-4 mr-1" />Added</>
-                    ) : (
-                      <><Plus className="h-4 w-4 mr-1" />Add Return</>
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              {/* Variants */}
-              {product.variants && product.variants.length > 0 && (
-                <div className="space-y-2">
-                  {product.variants.map(variant => {
-                    const variantKey = `${product.id}_variant_${variant.id}`;
-                    return (
-                      <div key={variant.id} className="border-t pt-2 space-y-2">
-                        <p className="text-sm font-medium">{variant.variant_name}</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-xs">Return Quantity</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={returnItems[variantKey]?.returnQuantity || ''}
-                              onChange={(e) => handleReturnQuantityChange(product.id, variant.id, parseInt(e.target.value) || 0)}
-                              min="0"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Reason</Label>
-                            <Select
-                              value={returnItems[variantKey]?.returnReason || ''}
-                              onValueChange={(value) => handleReasonChange(product.id, variant.id, value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select reason" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {returnReasons.map(reason => (
-                                  <SelectItem key={reason} value={reason}>
-                                    {reason}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+      {/* Products Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead className="w-[200px]">Return Quantity</TableHead>
+                <TableHead className="w-[200px]">Reason</TableHead>
+                <TableHead className="w-[120px]">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map(product => (
+                <>
+                  {/* Base Product Row */}
+                  {(!product.variants || product.variants.length === 0) && (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">Rate: ₹{product.rate} / {product.unit}</p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={returnItems[product.id]?.returnQuantity || ''}
+                          onChange={(e) => handleReturnQuantityChange(product.id, undefined, parseInt(e.target.value) || 0)}
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={returnItems[product.id]?.returnReason || ''}
+                          onValueChange={(value) => handleReasonChange(product.id, undefined, value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select reason" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {returnReasons.map(reason => (
+                              <SelectItem key={reason} value={reason}>
+                                {reason}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
                         <Button
                           size="sm"
-                          variant={addedItems.has(variantKey) ? "secondary" : "default"}
-                          onClick={() => handleAddReturn(product.id, variant.id)}
-                          disabled={addedItems.has(variantKey)}
-                          className="w-full"
+                          variant={addedItems.has(product.id) ? "secondary" : "default"}
+                          onClick={() => handleAddReturn(product.id)}
+                          disabled={addedItems.has(product.id)}
                         >
-                          {addedItems.has(variantKey) ? (
+                          {addedItems.has(product.id) ? (
                             <><Check className="h-4 w-4 mr-1" />Added</>
                           ) : (
-                            <><Plus className="h-4 w-4 mr-1" />Add Return</>
+                            <><Plus className="h-4 w-4 mr-1" />Add</>
                           )}
                         </Button>
-                      </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {/* Product with Variants Rows */}
+                  {product.variants && product.variants.length > 0 && product.variants.map((variant, index) => {
+                    const variantKey = `${product.id}_variant_${variant.id}`;
+                    return (
+                      <TableRow key={variantKey}>
+                        <TableCell>
+                          <div>
+                            {index === 0 && <p className="font-medium">{product.name}</p>}
+                            <p className="text-sm text-muted-foreground">{variant.variant_name}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={returnItems[variantKey]?.returnQuantity || ''}
+                            onChange={(e) => handleReturnQuantityChange(product.id, variant.id, parseInt(e.target.value) || 0)}
+                            min="0"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={returnItems[variantKey]?.returnReason || ''}
+                            onValueChange={(value) => handleReasonChange(product.id, variant.id, value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select reason" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {returnReasons.map(reason => (
+                                <SelectItem key={reason} value={reason}>
+                                  {reason}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant={addedItems.has(variantKey) ? "secondary" : "default"}
+                            onClick={() => handleAddReturn(product.id, variant.id)}
+                            disabled={addedItems.has(variantKey)}
+                          >
+                            {addedItems.has(variantKey) ? (
+                              <><Check className="h-4 w-4 mr-1" />Added</>
+                            ) : (
+                              <><Plus className="h-4 w-4 mr-1" />Add</>
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </div>
+                </>
+              ))}
+
+              {filteredProducts.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    No products found
+                  </TableCell>
+                </TableRow>
               )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
