@@ -293,6 +293,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       return;
     }
 
+    if (!startKm || startKm === 0) {
+      toast.error('Please enter the Start KM.');
+      return;
+    }
+
     if (stockItems.length === 0 || stockItems.some(item => !item.product_id)) {
       toast.error('Please add at least one product with valid details');
       return;
