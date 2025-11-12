@@ -587,8 +587,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             className="w-full justify-start h-auto min-h-[44px] md:min-h-[52px] text-xs md:text-sm font-normal bg-background px-2 py-1.5"
                           >
                             {row.product ? (
-                              <div className="flex flex-col items-start w-full">
-                                <span className="truncate text-left w-full">
+                              <div className="flex flex-col items-start w-full gap-1.5">
+                                <span className="truncate text-left w-full font-medium">
                                   {row.variant ? (() => {
                                     let variantDisplayName = row.variant.variant_name;
                                     if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
@@ -604,7 +604,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                   const selectedUnit = (row.unit || row.product!.unit || '').toLowerCase();
                                   const showBase = baseUnit && selectedUnit && baseUnit !== selectedUnit;
                                   return (
-                                    <div className="flex flex-col mt-0.5 w-full">
+                                    <div className="flex flex-col gap-0.5 w-full">
                                       <span className="text-[10px] md:text-xs text-muted-foreground">
                                         ₹{pricePerUnit.toFixed(2)} per {row.unit}
                                       </span>
@@ -616,7 +616,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                     </div>
                                   );
                                 })() : (
-                                  <span className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                                  <span className="text-[10px] md:text-xs text-muted-foreground">
                                     ₹{Number(row.variant?.price || row.product.rate || 0).toFixed(2)} per {row.unit || row.product?.unit}
                                   </span>
                                 )}
