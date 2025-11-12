@@ -1591,14 +1591,14 @@ console.log('🔍 Filtered products for category', selectedCategory, ':', filter
 
         {/* Search Bar - Compact */}
         <div className="px-2 sm:px-4">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={14} />
             <Input
               type="text"
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-8 h-9 text-sm"
+              className="pl-8 pr-8 h-8 text-xs"
             />
             {searchTerm && (
               <Button
