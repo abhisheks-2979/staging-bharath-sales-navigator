@@ -266,6 +266,21 @@ const Attendance = () => {
 
   const startCamera = async (): Promise<boolean> => {
     try {
+      // Open the camera dialog first so the video element mounts
+      setShowCamera(true);
+      
+      // Wait for the dialog/video element to mount
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      
+      // Ensure the video element is available (wait up to 1s)
+      const start = Date.now();
+      while (!videoRef.current && Date.now() - start < 1000) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      if (!videoRef.current) {
+        throw new Error('Video element not available');
+      }
+
       // Request front-facing camera for selfie
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
@@ -273,21 +288,11 @@ const Attendance = () => {
         } 
       });
       
-      if (!videoRef.current) {
-        return false;
-      }
-
-      videoRef.current.srcObject = stream;
+      const video = videoRef.current;
+      video.srcObject = stream;
       
       // Wait for video to be ready and playing
       await new Promise<void>((resolve, reject) => {
-        if (!videoRef.current) {
-          reject(new Error('Video element not available'));
-          return;
-        }
-
-        const video = videoRef.current;
-        
         const onLoadedMetadata = () => {
           video.play()
             .then(() => {
@@ -306,7 +311,6 @@ const Attendance = () => {
         }, 5000);
       });
 
-      setShowCamera(true);
       return true;
     } catch (error) {
       console.error('Error accessing camera:', error);
