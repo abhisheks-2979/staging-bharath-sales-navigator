@@ -133,7 +133,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     distance: trackingDistance,
     timeSpent,
     formattedTimeSpent,
-    startTracking
+    startTracking,
+    endAllActiveLogs
   } = useRetailerVisitTracking({
     retailerId: visit.retailerId || visit.id,
     retailerLat: visit.retailerLat,
@@ -142,6 +143,24 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
     userId,
     selectedDate
   });
+  
+  // Handle logout - end all active logs
+  useEffect(() => {
+    const handleLogout = async () => {
+      await endAllActiveLogs();
+    };
+    
+    // Listen for auth state changes (logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        handleLogout();
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [endAllActiveLogs]);
   
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   

@@ -148,6 +148,34 @@ export const useRetailerVisitTracking = ({
     actionType: 'order' | 'feedback' | 'ai' | 'phone_order',
     isPhoneOrder: boolean = false
   ) => {
+    // First, end any previous active log for different retailer
+    const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+    
+    const { data: previousActiveLogs } = await supabase
+      .from('retailer_visit_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('visit_date', targetDate)
+      .is('end_time', null)
+      .neq('retailer_id', retailerId);
+
+    if (previousActiveLogs && previousActiveLogs.length > 0) {
+      const endTime = new Date().toISOString();
+      for (const log of previousActiveLogs) {
+        const startTime = new Date(log.start_time).getTime();
+        const endTimeMs = new Date(endTime).getTime();
+        const timeSpentSeconds = Math.floor((endTimeMs - startTime) / 1000);
+
+        await supabase
+          .from('retailer_visit_logs')
+          .update({
+            end_time: endTime,
+            time_spent_seconds: timeSpentSeconds
+          })
+          .eq('id', log.id);
+      }
+    }
+
     // If already tracking for this retailer today, don't create a new log
     if (currentLogIdRef.current) {
       return;
@@ -185,7 +213,6 @@ export const useRetailerVisitTracking = ({
       }
     }
 
-    const targetDate = selectedDate || new Date().toISOString().split('T')[0];
     const startTime = new Date().toISOString();
 
     // Create new log entry
@@ -244,6 +271,35 @@ export const useRetailerVisitTracking = ({
     // Don't reset currentLogIdRef so we don't create duplicate logs
   }, []);
 
+  // End all active logs on logout
+  const endAllActiveLogs = useCallback(async () => {
+    const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+    const endTime = new Date().toISOString();
+    
+    const { data: activeLogs } = await supabase
+      .from('retailer_visit_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('visit_date', targetDate)
+      .is('end_time', null);
+
+    if (activeLogs && activeLogs.length > 0) {
+      for (const log of activeLogs) {
+        const startTime = new Date(log.start_time).getTime();
+        const endTimeMs = new Date(endTime).getTime();
+        const timeSpentSeconds = Math.floor((endTimeMs - startTime) / 1000);
+
+        await supabase
+          .from('retailer_visit_logs')
+          .update({
+            end_time: endTime,
+            time_spent_seconds: timeSpentSeconds
+          })
+          .eq('id', log.id);
+      }
+    }
+  }, [userId, selectedDate]);
+
   return {
     currentLog,
     locationStatus,
@@ -251,6 +307,7 @@ export const useRetailerVisitTracking = ({
     timeSpent,
     formattedTimeSpent: formatTimeSpent(timeSpent),
     startTracking,
-    endTracking
+    endTracking,
+    endAllActiveLogs
   };
 };
