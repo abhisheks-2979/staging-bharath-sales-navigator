@@ -745,7 +745,7 @@ export const Cart = () => {
                   <ArrowLeft size={18} />
                 </Button>
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">Cart</CardTitle>
+                  <CardTitle className="text-base sm:text-lg font-semibold leading-tight truncate">Cart</CardTitle>
                   <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 </div>
               </div>
