@@ -641,8 +641,8 @@ export const MyVisits = () => {
       const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) || visit.phone.includes(searchTerm);
       let matchesStatus = true;
       if (statusFilter === 'planned') {
-        // Show both planned and in-progress visits
-        matchesStatus = visit.status === 'planned' || visit.status === 'in-progress';
+        // Show planned, in-progress, and cancelled visits
+        matchesStatus = visit.status === 'planned' || visit.status === 'in-progress' || visit.status === 'cancelled';
       } else if (statusFilter === 'unproductive') {
         matchesStatus = visit.status === 'unproductive';
       } else if (statusFilter) {
@@ -707,8 +707,8 @@ export const MyVisits = () => {
   }, [allVisits, searchTerm, statusFilter, filters, retailerStats]);
   const visitsForSelectedDate = retailers;
 
-  // Calculate planned beats count: only beats that have visits still in planned or in-progress status
-  const plannedVisitsCount = visitsForSelectedDate.filter(visit => visit.status === "planned" || visit.status === "in-progress").length;
+  // Calculate planned beats count: only beats that have visits in planned, in-progress, or cancelled status
+  const plannedVisitsCount = visitsForSelectedDate.filter(visit => visit.status === "planned" || visit.status === "in-progress" || visit.status === "cancelled").length;
   const productiveVisits = visitsForSelectedDate.filter(visit => visit.status === "productive").length;
   const unproductiveVisits = visitsForSelectedDate.filter(visit => visit.status === "unproductive").length;
   const totalOrdersToday = visitsForSelectedDate.filter(visit => visit.hasOrder).length;
@@ -872,10 +872,10 @@ export const MyVisits = () => {
                  <div className="text-lg sm:text-2xl font-bold text-primary">{totalOrdersToday}</div>
                  <div className="text-xs sm:text-sm text-primary/80 font-medium mt-1">{t('visits.todaysOrder')}</div>
                </button>
-               <button onClick={() => handleStatusClick("planned")} className={`p-2 sm:p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[80px] sm:min-h-[100px] ${statusFilter === "planned" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"}`}>
-                 <div className="text-lg sm:text-2xl font-bold">{plannedVisitsCount}</div>
-                 <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">{t('visits.plannedVisits')}</div>
-               </button>
+                <button onClick={() => handleStatusClick("planned")} className={`p-2 sm:p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[80px] sm:min-h-[100px] ${statusFilter === "planned" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"}`}>
+                  <div className="text-lg sm:text-2xl font-bold">{plannedVisitsCount}</div>
+                  <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">Planned/Canceled</div>
+                </button>
                <button onClick={() => handleStatusClick("unproductive")} className={`p-2 sm:p-4 rounded-xl text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[80px] sm:min-h-[100px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
                  <div className="text-lg sm:text-2xl font-bold">{unproductiveVisits}</div>
                  <div className="text-xs sm:text-sm font-medium opacity-80 mt-1">{t('visits.unproductive')}</div>

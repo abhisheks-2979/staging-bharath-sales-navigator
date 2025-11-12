@@ -186,48 +186,49 @@ useEffect(() => {
   fetchUserData();
 }, []);
 
-// Check if user has checked in when feature is enabled
+// Check if user has started their day when feature is enabled
 useEffect(() => {
-  const checkVisitCheckIn = async () => {
+  const checkDayStarted = async () => {
     // Skip check if feature is loading or not mandatory
     if (checkInMandatoryLoading || !isCheckInMandatory) {
       return;
     }
 
-    // Skip check if no visitId (phone orders or non-visit orders)
-    if (!visitId || visitId.length <= 1) {
-      return;
-    }
-
     try {
-      // Check if user has checked into this visit
-      const { data: visit, error } = await supabase
-        .from('visits')
-        .select('status, check_in_time')
-        .eq('id', visitId)
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if user has started their day (attendance check-in)
+      const { data: attendance, error } = await supabase
+        .from('attendance')
+        .select('check_in_time')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .maybeSingle();
 
       if (error) {
-        console.error('Error checking visit status:', error);
+        console.error('Error checking attendance:', error);
         return;
       }
 
-      // If visit is not checked in yet, redirect to visit detail page
-      if (visit && !visit.check_in_time && visit.status === 'planned') {
+      // If no attendance record or no check-in time, redirect to attendance page
+      if (!attendance || !attendance.check_in_time) {
         toast({
-          title: "Check-in Required",
-          description: "Please check-in to the visit before entering orders.",
+          title: "Start Your Day First",
+          description: "Please start your day from the Attendance page before entering orders.",
           variant: "destructive"
         });
-        navigate(`/visits/${visitId}`);
+        navigate('/attendance');
       }
     } catch (error) {
-      console.error('Error in visit check-in validation:', error);
+      console.error('Error in day start validation:', error);
     }
   };
 
-  checkVisitCheckIn();
-}, [isCheckInMandatory, checkInMandatoryLoading, visitId, navigate]);
+  checkDayStarted();
+}, [isCheckInMandatory, checkInMandatoryLoading, navigate]);
 
 // Fix retailerId validation - don't use "." as a valid retailerId  
 const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;

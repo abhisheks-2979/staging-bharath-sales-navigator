@@ -478,7 +478,7 @@ const Attendance = () => {
 
       toast({
         title: "Success",
-        description: `${type === 'check-in' ? 'Check-in' : 'Check-out'} recorded successfully!${type === 'check-in' ? ' All planned visits marked as checked in.' : ''}`,
+        description: `${type === 'check-in' ? 'Day started successfully!' : 'Day ended successfully!'}${type === 'check-in' ? ' GPS tracking will start automatically at 9 AM.' : ''}`,
       });
 
       // Stop camera
@@ -487,6 +487,13 @@ const Attendance = () => {
         tracks.forEach(track => track.stop());
       }
       setShowCamera(false);
+      
+      // Start GPS tracking automatically after check-in if within working hours
+      if (type === 'check-in' && isWithinWorkingHours()) {
+        setTimeout(() => {
+          startTracking();
+        }, 1000);
+      }
       
       // Refresh data
       await fetchAttendanceData();
@@ -604,17 +611,61 @@ const Attendance = () => {
               </div>
             </div>
 
-            {/* GPS Tracking Button */}
-            <div className="flex justify-center">
-              <Button
-                onClick={() => isTracking ? handleStopTracking() : startTracking()}
-                variant={isTracking ? "destructive" : "default"}
-                className="gap-2"
-              >
-                <Navigation2 className={cn("h-4 w-4", isTracking && "animate-pulse")} />
-                {isTracking ? 'Stop Tracking' : 'Track Today'}
-              </Button>
+          {/* Start/End Day Buttons */}
+            <div className="flex justify-center gap-4">
+              {!todaysAttendance ? (
+                <Button
+                  onClick={() => markAttendance('check-in')}
+                  disabled={isMarkingAttendance}
+                  className="gap-2"
+                >
+                  <Camera className="h-4 w-4" />
+                  {isMarkingAttendance ? 'Starting Day...' : 'Start My Day'}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    disabled
+                    className="gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Day Started
+                  </Button>
+                  {!todaysAttendance.check_out_time && (
+                    <Button
+                      onClick={() => markAttendance('check-out')}
+                      disabled={isMarkingAttendance}
+                      variant="destructive"
+                      className="gap-2"
+                    >
+                      <Camera className="h-4 w-4" />
+                      {isMarkingAttendance ? 'Ending Day...' : 'End My Day'}
+                    </Button>
+                  )}
+                  {todaysAttendance.check_out_time && (
+                    <Button
+                      variant="outline"
+                      disabled
+                      className="gap-2"
+                    >
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      Day Ended
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
+
+            {/* GPS Tracking Info */}
+            {todaysAttendance && !todaysAttendance.check_out_time && (
+              <div className="flex justify-center items-center gap-2 text-sm text-muted-foreground">
+                <Navigation2 className={cn("h-4 w-4", isTracking && "animate-pulse text-primary")} />
+                <span>
+                  {isTracking ? '🟢 GPS tracking active' : 'GPS tracking will start at 9 AM'}
+                </span>
+              </div>
+            )}
 
             {/* Stop Reason Dialog */}
             <Dialog open={showStopReasonDialog} onOpenChange={setShowStopReasonDialog}>

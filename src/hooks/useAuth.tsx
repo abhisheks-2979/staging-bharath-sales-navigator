@@ -283,6 +283,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
+      // Get current user before signing out
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Cancel all pending planned visits for today
+        const today = new Date().toISOString().split('T')[0];
+        const { error: cancelError } = await supabase
+          .from('visits')
+          .update({ status: 'cancelled' })
+          .eq('user_id', user.id)
+          .eq('planned_date', today)
+          .eq('status', 'planned');
+        
+        if (cancelError) {
+          console.error('Error canceling planned visits:', cancelError);
+        }
+      }
+      
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) {
