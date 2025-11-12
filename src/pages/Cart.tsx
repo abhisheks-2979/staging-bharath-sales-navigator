@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, Camera } from "lucide-react";
+import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, Camera, FileText } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
@@ -11,6 +11,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { format } from "date-fns";
 interface CartItem {
   id: string;
   name: string;
@@ -85,6 +87,7 @@ export const Cart = () => {
   const [neftPhotoUrl, setNeftPhotoUrl] = React.useState<string>("");
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
   const [cameraMode, setCameraMode] = React.useState<"cheque" | "upi" | "neft">("cheque");
+  const [showInvoicePreview, setShowInvoicePreview] = React.useState(false);
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -764,8 +767,17 @@ export const Cart = () => {
                 </div>
               </div>
               
-              {/* Right side - Cart info */}
+              {/* Right side - Preview and Cart info */}
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInvoicePreview(true)}
+                  className="text-primary-foreground hover:bg-primary-foreground/20 p-1.5 sm:p-2 text-[10px] sm:text-xs h-auto"
+                >
+                  <Eye size={14} className="sm:w-4 sm:h-4 mr-1" />
+                  Preview
+                </Button>
                 <div className="flex items-center gap-1.5">
                   <ShoppingCart size={14} className="sm:w-4 sm:h-4" />
                   <Badge variant="secondary" className="text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5">{cartItems.length} items</Badge>
@@ -1029,6 +1041,98 @@ export const Cart = () => {
         <CartItemDetail isOpen={showItemDetail} onClose={() => setShowItemDetail(false)} item={selectedItem} />
 
         <CameraCapture isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={handleCameraCapture} title={cameraMode === "cheque" ? "Capture Cheque Photo" : cameraMode === "upi" ? "Capture Payment Confirmation" : "Capture NEFT Confirmation"} />
+        
+        {/* Invoice Preview Dialog */}
+        <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Invoice Preview
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="bg-white text-black p-6 rounded-lg space-y-6">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b pb-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">TAX INVOICE</h1>
+                  <p className="text-sm text-gray-600 mt-1">Date: {visitDate ? format(new Date(visitDate), 'dd MMM yyyy') : format(new Date(), 'dd MMM yyyy')}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Invoice #</p>
+                  <p className="font-bold text-gray-900">PENDING</p>
+                </div>
+              </div>
+
+              {/* Bill To */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Bill To:</h3>
+                  <p className="font-bold text-gray-900">{retailerName}</p>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="text-left p-3 text-sm font-semibold text-gray-900">Item</th>
+                      <th className="text-right p-3 text-sm font-semibold text-gray-900">Qty</th>
+                      <th className="text-right p-3 text-sm font-semibold text-gray-900">Rate</th>
+                      <th className="text-right p-3 text-sm font-semibold text-gray-900">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cartItems.map((item, index) => (
+                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="p-3 text-sm text-gray-900">{item.name}</td>
+                        <td className="p-3 text-sm text-right text-gray-900">{item.quantity} {item.unit}</td>
+                        <td className="p-3 text-sm text-right text-gray-900">₹{getDisplayRate(item).toFixed(2)}</td>
+                        <td className="p-3 text-sm text-right text-gray-900">₹{formatINRTrunc2(computeItemTotal(item))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-semibold text-gray-900">₹{formatINRTrunc2(getSubtotal())}</span>
+                  </div>
+                  {getDiscount() > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Discount:</span>
+                      <span className="font-semibold text-green-600">-₹{formatINRTrunc2(getDiscount())}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">CGST (9%):</span>
+                    <span className="font-semibold text-gray-900">₹{formatINRTrunc2(getCGST())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">SGST (9%):</span>
+                    <span className="font-semibold text-gray-900">₹{formatINRTrunc2(getSGST())}</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="font-bold text-gray-900">Total:</span>
+                    <span className="font-bold text-lg text-gray-900">₹{formatINRTrunc2(getFinalTotal())}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Note */}
+              <div className="text-center text-sm text-gray-600 border-t pt-4">
+                <p>Thank you for your business!</p>
+                <p className="text-xs mt-1">This is a preview. Final invoice will be generated after order submission.</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>;
 };
