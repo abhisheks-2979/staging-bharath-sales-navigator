@@ -911,7 +911,7 @@ export const Cart = () => {
                     {partialAmount && parseFloat(partialAmount) > 0 && <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-success">Paying Now:</span>
-                          <span className="font-semibold text-success">-₹{formatINRTrunc2(parseFloat(partialAmount))}</span>
+                          <span className="font-semibold text-success">₹{formatINRTrunc2(parseFloat(partialAmount))}</span>
                         </div>
                         <div className="flex justify-between text-xs pt-1 border-t border-amber-200 dark:border-amber-800">
                           <span className="font-medium text-warning">Remaining:</span>
