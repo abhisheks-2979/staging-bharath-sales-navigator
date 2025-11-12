@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -776,7 +776,8 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
           disabled={loading || sendingWhatsApp}
           onClick={sendViaWhatsApp}
         >
-          {sendingWhatsApp ? "Sending..." : "Send via WhatsApp"}
+          <Share2 className="mr-2 h-4 w-4" />
+          {sendingWhatsApp ? "Sending..." : "Share"}
         </Button>
       )}
     </div>
