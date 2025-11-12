@@ -273,26 +273,41 @@ const Attendance = () => {
         } 
       });
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setShowCamera(true);
-        
-        // Wait for video to be ready
-        return new Promise((resolve) => {
-          if (videoRef.current) {
-            videoRef.current.onloadedmetadata = () => {
-              if (videoRef.current) {
-                videoRef.current.play().then(() => {
-                  resolve(true);
-                }).catch(() => resolve(false));
-              }
-            };
-          } else {
-            resolve(false);
-          }
-        });
+      if (!videoRef.current) {
+        return false;
       }
-      return false;
+
+      videoRef.current.srcObject = stream;
+      
+      // Wait for video to be ready and playing
+      await new Promise<void>((resolve, reject) => {
+        if (!videoRef.current) {
+          reject(new Error('Video element not available'));
+          return;
+        }
+
+        const video = videoRef.current;
+        
+        const onLoadedMetadata = () => {
+          video.play()
+            .then(() => {
+              video.removeEventListener('loadedmetadata', onLoadedMetadata);
+              resolve();
+            })
+            .catch(reject);
+        };
+
+        video.addEventListener('loadedmetadata', onLoadedMetadata);
+        
+        // Fallback timeout
+        setTimeout(() => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          reject(new Error('Camera timeout'));
+        }, 5000);
+      });
+
+      setShowCamera(true);
+      return true;
     } catch (error) {
       console.error('Error accessing camera:', error);
       toast({
