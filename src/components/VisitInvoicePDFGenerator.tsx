@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Share2 } from "lucide-react";
+import { Download, MessageSquare, Mail } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +16,8 @@ interface VisitInvoicePDFGeneratorProps {
 export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: VisitInvoicePDFGeneratorProps) => {
   const [loading, setLoading] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingSMS, setSendingSMS] = useState(false);
 
   const generatePDF = async () => {
     setLoading(true);
@@ -757,28 +760,83 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
     }
   };
 
+  const sendViaEmail = async () => {
+    setSendingEmail(true);
+    try {
+      // Email functionality to be implemented
+      toast.info("Email sharing coming soon!");
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      toast.error("Failed to send email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const sendViaSMS = async () => {
+    setSendingSMS(true);
+    try {
+      // SMS functionality to be implemented
+      toast.info("SMS sharing coming soon!");
+    } catch (error: any) {
+      console.error('Error sending SMS:', error);
+      toast.error("Failed to send SMS");
+    } finally {
+      setSendingSMS(false);
+    }
+  };
+
   return (
-    <div className="flex gap-2">
+    <div className="flex items-center justify-between gap-4">
+      {/* Invoice Download Button */}
       <Button
         variant="outline"
         size="sm"
-        disabled={loading || sendingWhatsApp}
+        disabled={loading || sendingWhatsApp || sendingEmail || sendingSMS}
         onClick={generatePDF}
-        className={className}
+        className="flex-1"
       >
         <Download className="mr-2 h-4 w-4" />
         {loading ? "Generating..." : "Invoice"}
       </Button>
+
+      {/* Share Options */}
       {customerPhone && (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={loading || sendingWhatsApp}
-          onClick={sendViaWhatsApp}
-        >
-          <Share2 className="mr-2 h-4 w-4" />
-          {sendingWhatsApp ? "Sending..." : "Share"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Share:</span>
+          <div className="flex gap-1.5">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={loading || sendingWhatsApp}
+              onClick={sendViaWhatsApp}
+              title="Share via WhatsApp"
+            >
+              <MessageCircle className="h-4 w-4 text-green-600" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={loading || sendingEmail}
+              onClick={sendViaEmail}
+              title="Share via Email"
+            >
+              <Mail className="h-4 w-4 text-blue-600" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={loading || sendingSMS}
+              onClick={sendViaSMS}
+              title="Share via SMS"
+            >
+              <MessageSquare className="h-4 w-4 text-orange-600" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
