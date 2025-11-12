@@ -2453,6 +2453,77 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_visit_logs: {
+        Row: {
+          action_type: string | null
+          created_at: string
+          distance_meters: number | null
+          end_time: string | null
+          id: string
+          is_phone_order: boolean | null
+          location_feedback_notes: string | null
+          location_feedback_reason: string | null
+          location_status: string | null
+          retailer_id: string
+          start_latitude: number | null
+          start_longitude: number | null
+          start_time: string
+          time_spent_seconds: number | null
+          updated_at: string
+          user_id: string
+          visit_date: string
+          visit_id: string | null
+        }
+        Insert: {
+          action_type?: string | null
+          created_at?: string
+          distance_meters?: number | null
+          end_time?: string | null
+          id?: string
+          is_phone_order?: boolean | null
+          location_feedback_notes?: string | null
+          location_feedback_reason?: string | null
+          location_status?: string | null
+          retailer_id: string
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time: string
+          time_spent_seconds?: number | null
+          updated_at?: string
+          user_id: string
+          visit_date: string
+          visit_id?: string | null
+        }
+        Update: {
+          action_type?: string | null
+          created_at?: string
+          distance_meters?: number | null
+          end_time?: string | null
+          id?: string
+          is_phone_order?: boolean | null
+          location_feedback_notes?: string | null
+          location_feedback_reason?: string | null
+          location_status?: string | null
+          retailer_id?: string
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string
+          time_spent_seconds?: number | null
+          updated_at?: string
+          user_id?: string
+          visit_date?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_visit_logs_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailers: {
         Row: {
           address: string

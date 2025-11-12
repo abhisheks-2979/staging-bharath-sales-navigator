@@ -27,6 +27,8 @@ import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadEr
 import { CameraCapture } from "./CameraCapture";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { useLocationFeature } from "@/hooks/useLocationFeature";
+import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
+import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 
 interface Visit {
   id: string;
@@ -113,6 +115,35 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const { isVanSalesEnabled } = useVanSales();
   const { isCheckInMandatory } = useCheckInMandatory();
   const { isLocationEnabled, loading: locationFeatureLoading } = useLocationFeature();
+  
+  // Get user ID for visit tracking
+  const [userId, setUserId] = useState<string>('');
+  useEffect(() => {
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    };
+    getUserId();
+  }, []);
+  
+  // Visit tracking hook
+  const {
+    currentLog,
+    locationStatus: trackingLocationStatus,
+    distance: trackingDistance,
+    timeSpent,
+    formattedTimeSpent,
+    startTracking
+  } = useRetailerVisitTracking({
+    retailerId: visit.retailerId || visit.id,
+    retailerLat: visit.retailerLat,
+    retailerLng: visit.retailerLng,
+    visitId: currentVisitId || undefined,
+    userId,
+    selectedDate
+  });
+  
+  const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -1052,15 +1083,60 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
         {/* Header - Retailer info and status */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-card-foreground text-sm sm:text-base truncate">
-              <button
-                onClick={() => window.open(`/retailer/${visit.retailerId || visit.id}`, '_blank')}
-                className="text-left hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline"
-                title="View retailer details"
-              >
-                {visit.retailerName}
-              </button>
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-card-foreground text-sm sm:text-base">
+                <button
+                  onClick={() => window.open(`/retailer/${visit.retailerId || visit.id}`, '_blank')}
+                  className="text-left hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline"
+                  title="View retailer details"
+                >
+                  {visit.retailerName}
+                </button>
+              </h3>
+              
+              {/* Location Status and Time Tracker */}
+              {currentLog && (
+                <button
+                  onClick={() => setShowVisitDetailsModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                  title="Click to view visit details"
+                >
+                  {/* Location Status Icon */}
+                  {trackingLocationStatus === 'at_store' && (
+                    <span className="text-success">🟢</span>
+                  )}
+                  {trackingLocationStatus === 'within_range' && (
+                    <span className="text-warning">🟠</span>
+                  )}
+                  {trackingLocationStatus === 'not_at_store' && (
+                    <span className="text-destructive">🔴</span>
+                  )}
+                  {trackingLocationStatus === 'location_unavailable' && (
+                    <span className="text-muted-foreground">⚠️</span>
+                  )}
+                  
+                  {/* Location Status Text */}
+                  <span className="font-medium">
+                    {trackingLocationStatus === 'at_store' && 'At Store'}
+                    {trackingLocationStatus === 'within_range' && 'Within 15m'}
+                    {trackingLocationStatus === 'not_at_store' && 'Not at Store'}
+                    {trackingLocationStatus === 'location_unavailable' && 'Location N/A'}
+                  </span>
+                  
+                  {/* Time Spent */}
+                  <span className="text-muted-foreground">•</span>
+                  <span className="font-medium">{formattedTimeSpent}</span>
+                  
+                  {/* Phone Order Badge */}
+                  {currentLog.is_phone_order && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-blue-600 font-medium">Phone Order</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
             {(distributorName || visit.distributor) && (
               <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
                 <Store size={12} className="sm:size-3.5 flex-shrink-0" />
@@ -1215,6 +1291,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   console.log('Visit ensured, navigating to order-entry with visitId:', visitId);
                   
                   setCurrentVisitId(visitId);
+                  
+                  // Start tracking visit time and location
+                  await startTracking('order', skipCheckInReason === 'phone-order');
+                  
                   navigate(`/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(visitId)}&retailer=${encodeURIComponent(visit.retailerName)}`);
                 } catch (err: any) {
                   console.error('Open order entry error:', err);
@@ -1231,7 +1311,11 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               variant="outline" 
               size="sm"
               className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5"
-              onClick={() => setShowFeedbackModal(true)}
+              onClick={async () => {
+                // Start tracking visit time and location
+                await startTracking('feedback', skipCheckInReason === 'phone-order');
+                setShowFeedbackModal(true);
+              }}
               title="Feedback - Branding, Retailer Feedback & Competition Insights"
             >
               <MessageSquare size={12} className="sm:size-3.5" />
@@ -1253,6 +1337,10 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   const retailerId = (visit.retailerId || visit.id) as string;
                   const visitId = await ensureVisit(user.id, retailerId, today);
                   setCurrentVisitId(visitId);
+                  
+                  // Start tracking visit time and location
+                  await startTracking('ai', skipCheckInReason === 'phone-order');
+                  
                   setShowAIInsights(true);
                 } catch (err: any) {
                   console.error('Open AI insights error', err);
@@ -1875,6 +1963,23 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
           retailerName={visit.retailerName}
           visitId={currentVisitId || visit.id}
         />
+        
+        {/* Visit Details Modal */}
+        {currentLog && (
+          <RetailerVisitDetailsModal
+            open={showVisitDetailsModal}
+            onOpenChange={setShowVisitDetailsModal}
+            retailerName={visit.retailerName}
+            startTime={currentLog.start_time}
+            endTime={currentLog.end_time}
+            timeSpent={timeSpent}
+            distance={trackingDistance}
+            locationStatus={trackingLocationStatus}
+            actionType={currentLog.action_type}
+            isPhoneOrder={currentLog.is_phone_order}
+            logId={currentLog.id}
+          />
+        )}
       </CardContent>
     </Card>
   );
