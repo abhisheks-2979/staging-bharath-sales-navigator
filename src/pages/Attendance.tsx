@@ -264,7 +264,7 @@ const Attendance = () => {
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = async (): Promise<boolean> => {
     try {
       // Request front-facing camera for selfie
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -272,10 +272,27 @@ const Attendance = () => {
           facingMode: 'user' // 'user' = front camera
         } 
       });
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setShowCamera(true);
+        
+        // Wait for video to be ready
+        return new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              if (videoRef.current) {
+                videoRef.current.play().then(() => {
+                  resolve(true);
+                }).catch(() => resolve(false));
+              }
+            };
+          } else {
+            resolve(false);
+          }
+        });
       }
+      return false;
     } catch (error) {
       console.error('Error accessing camera:', error);
       toast({
@@ -283,6 +300,7 @@ const Attendance = () => {
         description: "Could not access camera. Please check permissions.",
         variant: "destructive"
       });
+      return false;
     }
   };
 
@@ -350,15 +368,20 @@ const Attendance = () => {
         );
       });
       
-      await startCamera();
+      // Start camera and wait for it to be ready
+      const cameraReady = await startCamera();
       
-      // Give user time to position for photo
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!cameraReady) {
+        throw new Error('Camera failed to start. Please try again.');
+      }
+      
+      // Give user time to position for photo (3 seconds for better positioning)
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       const photoBlob = await capturePhoto();
       
       if (!photoBlob) {
-        throw new Error('Failed to capture photo');
+        throw new Error('Failed to capture photo. Please ensure camera has permission and try again.');
       }
 
       const today = new Date().toISOString().split('T')[0];
