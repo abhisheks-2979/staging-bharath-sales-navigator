@@ -88,6 +88,8 @@ export function GamificationManagement() {
   const [baselineTarget, setBaselineTarget] = useState("0");
   const [selectedActivity, setSelectedActivity] = useState("");
   const [rewardPoints, setRewardPoints] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
 
   useEffect(() => {
     fetchGames();
@@ -293,6 +295,8 @@ export function GamificationManagement() {
     setSelectedTerritories(game.territories);
     setIsAllTerritories(game.is_all_territories);
     setBaselineTarget(game.baseline_target.toString());
+    setSelectedActivity("");
+    setRewardPoints("");
     setShowEditDialog(true);
   };
 
@@ -323,11 +327,66 @@ export function GamificationManagement() {
 
     if (error) {
       toast.error("Failed to update game");
+      return;
+    }
+
+    // If new activity is selected, add it
+    if (selectedActivity && rewardPoints) {
+      const activity = ACTIVITY_TYPES.find(a => a.value === selectedActivity);
+      const { error: actionsError } = await supabase
+        .from("gamification_actions")
+        .insert({
+          game_id: editingGame.id,
+          action_type: selectedActivity,
+          action_name: activity?.label || selectedActivity,
+          points: parseFloat(rewardPoints),
+          is_enabled: true
+        });
+
+      if (actionsError) {
+        toast.error("Failed to add new activity");
+      }
+    }
+
+    toast.success("Game updated successfully");
+    setShowEditDialog(false);
+    resetForm();
+    setEditingGame(null);
+    fetchGames();
+    if (selectedGame?.id === editingGame.id) {
+      fetchActions(editingGame.id);
+    }
+  };
+
+  const deleteGame = async () => {
+    if (!gameToDelete) return;
+
+    // First delete all associated actions
+    const { error: actionsError } = await supabase
+      .from("gamification_actions")
+      .delete()
+      .eq("game_id", gameToDelete.id);
+
+    if (actionsError) {
+      toast.error("Failed to delete game actions");
+      return;
+    }
+
+    // Then delete the game
+    const { error: gameError } = await supabase
+      .from("gamification_games")
+      .delete()
+      .eq("id", gameToDelete.id);
+
+    if (gameError) {
+      toast.error("Failed to delete game");
     } else {
-      toast.success("Game updated successfully");
-      setShowEditDialog(false);
-      resetForm();
-      setEditingGame(null);
+      toast.success("Game deleted successfully");
+      setShowDeleteDialog(false);
+      setGameToDelete(null);
+      if (selectedGame?.id === gameToDelete.id) {
+        setSelectedGame(null);
+      }
       fetchGames();
     }
   };
@@ -528,6 +587,17 @@ export function GamificationManagement() {
                           }}
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGameToDelete(game);
+                            setShowDeleteDialog(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                         <Badge variant={game.is_active && !isExpired ? "default" : "secondary"}>
                           {isExpired ? "Expired" : game.is_active ? "Active" : "Inactive"}
@@ -765,6 +835,42 @@ export function GamificationManagement() {
                 placeholder="0"
               />
             </div>
+            
+            <div className="border-t pt-4 space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p className="font-semibold mb-2">Add New Activity (Optional)</p>
+                <p>Existing activities can be managed in the Action Configuration section below.</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="editActivityName">Activity Name</Label>
+                <Select value={selectedActivity} onValueChange={setSelectedActivity}>
+                  <SelectTrigger id="editActivityName">
+                    <SelectValue placeholder="Select an activity to add" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACTIVITY_TYPES.map(activity => (
+                      <SelectItem key={activity.value} value={activity.value}>
+                        {activity.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="editRewardPoints">Reward Points per Activity</Label>
+                <Input
+                  id="editRewardPoints"
+                  type="number"
+                  value={rewardPoints}
+                  onChange={(e) => setRewardPoints(e.target.value)}
+                  placeholder="Enter points for new activity"
+                  min="0"
+                />
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Switch
                 id="editAllTerritories"
@@ -798,6 +904,30 @@ export function GamificationManagement() {
               </div>
             )}
             <Button onClick={updateGame} className="w-full">Update Game</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Game</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete "{gameToDelete?.name}"? This will also delete all associated actions and cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setShowDeleteDialog(false);
+                setGameToDelete(null);
+              }}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={deleteGame}>
+                Delete Game
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
