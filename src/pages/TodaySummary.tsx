@@ -1054,12 +1054,12 @@ export const TodaySummary = () => {
               <div
                 role="button"
                 onClick={openRetailerValueDialog}
-                className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition"
+                className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition overflow-hidden"
               >
-                <div className="text-2xl font-bold text-primary">
+                <div className="text-xl font-bold text-primary break-words">
                   {loading ? "Loading..." : `₹${summaryData.totalOrderValue.toLocaleString()}`}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Order Value</div>
+                <div className="text-xs text-muted-foreground mt-1">Total Order Value</div>
               </div>
               <div
                 role="button"
