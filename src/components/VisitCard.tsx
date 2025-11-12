@@ -195,6 +195,13 @@ export const VisitCard = ({
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
 
+  // Auto-start tracking when card is visible for today's visits
+  useEffect(() => {
+    if (isTodaysVisit && userId && !currentLog) {
+      startTracking('order', false);
+    }
+  }, [isTodaysVisit, userId, currentLog, startTracking]);
+
   // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
     const checkStatus = async () => {
@@ -1072,31 +1079,51 @@ export const VisitCard = ({
               </h3>
               
               {/* Location Status and Time Tracker */}
-              {currentLog && <button onClick={() => setShowVisitDetailsModal(true)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer" title="Click to view visit details">
-                  {/* Location Status Icon */}
-                  {trackingLocationStatus === 'at_store' && <span className="text-success">🟢</span>}
-                  {trackingLocationStatus === 'within_range' && <span className="text-warning">🟠</span>}
-                  {trackingLocationStatus === 'not_at_store' && <span className="text-destructive">🔴</span>}
-                  {trackingLocationStatus === 'location_unavailable' && <span className="text-muted-foreground">⚠️</span>}
-                  
-                  {/* Location Status Text */}
-                  <span className="font-medium">
-                    {trackingLocationStatus === 'at_store' && 'At Store'}
-                    {trackingLocationStatus === 'within_range' && 'Within 15m'}
-                    {trackingLocationStatus === 'not_at_store' && 'Not at Store'}
-                    {trackingLocationStatus === 'location_unavailable' && 'Location N/A'}
-                  </span>
+              {isTodaysVisit && currentLog && (
+                <button 
+                  onClick={() => setShowVisitDetailsModal(true)} 
+                  className="flex items-center gap-1.5 text-xs hover:text-primary transition-colors cursor-pointer" 
+                  title="Click to view visit details"
+                >
+                  {/* Location Status with Color */}
+                  {trackingLocationStatus === 'at_store' && (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <span>🟢</span>
+                      <span className="font-medium">At Store</span>
+                    </span>
+                  )}
+                  {trackingLocationStatus === 'within_range' && (
+                    <span className="flex items-center gap-1 text-orange-500">
+                      <span>🟠</span>
+                      <span className="font-medium">Within 15m</span>
+                    </span>
+                  )}
+                  {trackingLocationStatus === 'not_at_store' && (
+                    <span className="flex items-center gap-1 text-red-600">
+                      <span>🔴</span>
+                      <span className="font-medium">Not at Store</span>
+                    </span>
+                  )}
+                  {trackingLocationStatus === 'location_unavailable' && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <span>⚠️</span>
+                      <span className="font-medium">Location N/A</span>
+                    </span>
+                  )}
                   
                   {/* Time Spent */}
                   <span className="text-muted-foreground">•</span>
-                  <span className="font-medium">{formattedTimeSpent}</span>
+                  <span className="font-medium text-foreground">{formattedTimeSpent}</span>
                   
                   {/* Phone Order Badge */}
-                  {currentLog.is_phone_order && <>
+                  {currentLog.is_phone_order && (
+                    <>
                       <span className="text-muted-foreground">•</span>
-                      
-                    </>}
-                </button>}
+                      <span className="text-blue-600 font-medium">📞 Phone</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
             {(distributorName || visit.distributor) && <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
                 <Store size={12} className="sm:size-3.5 flex-shrink-0" />
