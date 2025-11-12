@@ -13,7 +13,6 @@ import { Loader2, Plus, Trash2, Award, Settings, Users, Medal, Pencil, Trophy } 
 import { BadgeManagement } from "./BadgeManagement";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-
 interface Game {
   id: string;
   name: string;
@@ -25,13 +24,11 @@ interface Game {
   baseline_target: number;
   is_active: boolean;
 }
-
 interface GameStats {
   participants: number;
   total_points: number;
   active_actions: number;
 }
-
 interface GameAction {
   id: string;
   game_id: string;
@@ -41,7 +38,6 @@ interface GameAction {
   is_enabled: boolean;
   metadata: any;
 }
-
 interface Redemption {
   id: string;
   user_id: string;
@@ -50,22 +46,41 @@ interface Redemption {
   voucher_amount: number;
   status: string;
   requested_at: string;
-  profiles: { full_name: string };
+  profiles: {
+    full_name: string;
+  };
 }
-
-const ACTIVITY_TYPES = [
-  { value: "new_retailer", label: "Adding a new retailer" },
-  { value: "first_order_new_retailer", label: "Adding new orders from this new retailer" },
-  { value: "order_value", label: "Order value" },
-  { value: "order_quantity", label: "Order quantity" },
-  { value: "focused_product_sales", label: "Focused product sales" },
-  { value: "productive_visit", label: "Productive visits (visits with orders)" },
-  { value: "order_frequency", label: "Frequency of orders from the retailer" },
-  { value: "beat_growth", label: "Average growth of business in a beat" },
-  { value: "competition_insight", label: "Capturing competition intelligence" },
-  { value: "product_feedback", label: "Capturing market feedback" }
-];
-
+const ACTIVITY_TYPES = [{
+  value: "new_retailer",
+  label: "Adding a new retailer"
+}, {
+  value: "first_order_new_retailer",
+  label: "Adding new orders from this new retailer"
+}, {
+  value: "order_value",
+  label: "Order value"
+}, {
+  value: "order_quantity",
+  label: "Order quantity"
+}, {
+  value: "focused_product_sales",
+  label: "Focused product sales"
+}, {
+  value: "productive_visit",
+  label: "Productive visits (visits with orders)"
+}, {
+  value: "order_frequency",
+  label: "Frequency of orders from the retailer"
+}, {
+  value: "beat_growth",
+  label: "Average growth of business in a beat"
+}, {
+  value: "competition_insight",
+  label: "Capturing competition intelligence"
+}, {
+  value: "product_feedback",
+  label: "Capturing market feedback"
+}];
 export function GamificationManagement() {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -90,30 +105,29 @@ export function GamificationManagement() {
   const [rewardPoints, setRewardPoints] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
-
   useEffect(() => {
     fetchGames();
     fetchTerritories();
   }, []);
-
   useEffect(() => {
     if (selectedGame) {
       fetchActions(selectedGame.id);
     }
   }, [selectedGame]);
-
   const fetchTerritories = async () => {
-    const { data } = await supabase.from("territories").select("name");
+    const {
+      data
+    } = await supabase.from("territories").select("name");
     if (data) setTerritories(data.map(t => t.name));
   };
-
   const fetchGames = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("gamification_games")
-      .select("*")
-      .order("created_at", { ascending: false });
-
+    const {
+      data,
+      error
+    } = await supabase.from("gamification_games").select("*").order("created_at", {
+      ascending: false
+    });
     if (error) {
       toast.error("Failed to load games");
     } else {
@@ -126,59 +140,48 @@ export function GamificationManagement() {
     }
     setLoading(false);
   };
-
   const fetchGameStats = async (gameId: string) => {
     // Fetch participants count
-    const { data: participantsData } = await supabase
-      .from("gamification_points")
-      .select("user_id")
-      .eq("game_id", gameId);
-
+    const {
+      data: participantsData
+    } = await supabase.from("gamification_points").select("user_id").eq("game_id", gameId);
     const uniqueParticipants = new Set(participantsData?.map(p => p.user_id) || []).size;
 
     // Fetch total points distributed
-    const { data: pointsData } = await supabase
-      .from("gamification_points")
-      .select("points")
-      .eq("game_id", gameId);
-
+    const {
+      data: pointsData
+    } = await supabase.from("gamification_points").select("points").eq("game_id", gameId);
     const totalPoints = pointsData?.reduce((sum, p) => sum + p.points, 0) || 0;
 
     // Fetch active actions count
-    const { data: actionsData } = await supabase
-      .from("gamification_actions")
-      .select("id")
-      .eq("game_id", gameId)
-      .eq("is_enabled", true);
-
+    const {
+      data: actionsData
+    } = await supabase.from("gamification_actions").select("id").eq("game_id", gameId).eq("is_enabled", true);
     const activeActions = actionsData?.length || 0;
-
     setGameStats(prev => new Map(prev).set(gameId, {
       participants: uniqueParticipants,
       total_points: totalPoints,
       active_actions: activeActions
     }));
   };
-
   const fetchActions = async (gameId: string) => {
-    const { data, error } = await supabase
-      .from("gamification_actions")
-      .select("*")
-      .eq("game_id", gameId);
-
+    const {
+      data,
+      error
+    } = await supabase.from("gamification_actions").select("*").eq("game_id", gameId);
     if (error) {
       toast.error("Failed to load actions");
     } else {
       setActions(data || []);
     }
   };
-
   const fetchRedemptions = async () => {
-    const { data, error } = await supabase
-      .from("gamification_redemptions")
-      .select("*")
-      .order("requested_at", { ascending: false });
-
+    const {
+      data,
+      error
+    } = await supabase.from("gamification_redemptions").select("*").order("requested_at", {
+      ascending: false
+    });
     if (error) {
       toast.error("Failed to load redemptions");
       return;
@@ -186,46 +189,40 @@ export function GamificationManagement() {
 
     // Fetch user profiles separately
     const userIds = [...new Set(data?.map(r => r.user_id) || [])];
-    const { data: profilesData } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", userIds);
-
+    const {
+      data: profilesData
+    } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
     const profileMap = new Map(profilesData?.map(p => [p.id, p]) || []);
     const redemptionsWithProfiles = data?.map(r => ({
       ...r,
-      profiles: profileMap.get(r.user_id) || { full_name: "Unknown User" }
+      profiles: profileMap.get(r.user_id) || {
+        full_name: "Unknown User"
+      }
     })) || [];
-
     setRedemptions(redemptionsWithProfiles);
   };
-
   const createGame = async () => {
     if (!gameName || !startDate || !endDate || !selectedActivity || !rewardPoints) {
       toast.error("Please fill in all required fields");
       return;
     }
-
     if (selectedTerritories.length === 0 && !isAllTerritories) {
       toast.error("Please select at least one territory");
       return;
     }
-
-    const { data: gameData, error: gameError } = await supabase
-      .from("gamification_games")
-      .insert({
-        name: gameName,
-        description: gameDescription,
-        start_date: startDate,
-        end_date: endDate,
-        territories: isAllTerritories ? [] : selectedTerritories,
-        is_all_territories: isAllTerritories,
-        baseline_target: parseFloat(baselineTarget),
-        is_active: true
-      })
-      .select()
-      .single();
-
+    const {
+      data: gameData,
+      error: gameError
+    } = await supabase.from("gamification_games").insert({
+      name: gameName,
+      description: gameDescription,
+      start_date: startDate,
+      end_date: endDate,
+      territories: isAllTerritories ? [] : selectedTerritories,
+      is_all_territories: isAllTerritories,
+      baseline_target: parseFloat(baselineTarget),
+      is_active: true
+    }).select().single();
     if (gameError) {
       toast.error("Failed to create game");
       return;
@@ -233,16 +230,15 @@ export function GamificationManagement() {
 
     // Create the selected activity action
     const activity = ACTIVITY_TYPES.find(a => a.value === selectedActivity);
-    const { error: actionsError } = await supabase
-      .from("gamification_actions")
-      .insert({
-        game_id: gameData.id,
-        action_type: selectedActivity,
-        action_name: activity?.label || selectedActivity,
-        points: parseFloat(rewardPoints),
-        is_enabled: true
-      });
-
+    const {
+      error: actionsError
+    } = await supabase.from("gamification_actions").insert({
+      game_id: gameData.id,
+      action_type: selectedActivity,
+      action_name: activity?.label || selectedActivity,
+      points: parseFloat(rewardPoints),
+      is_enabled: true
+    });
     if (actionsError) {
       toast.error("Failed to create action");
     } else {
@@ -252,13 +248,10 @@ export function GamificationManagement() {
       fetchGames();
     }
   };
-
   const updateAction = async (actionId: string, updates: Partial<GameAction>) => {
-    const { error } = await supabase
-      .from("gamification_actions")
-      .update(updates)
-      .eq("id", actionId);
-
+    const {
+      error
+    } = await supabase.from("gamification_actions").update(updates).eq("id", actionId);
     if (error) {
       toast.error("Failed to update action");
     } else {
@@ -266,18 +259,15 @@ export function GamificationManagement() {
       if (selectedGame) fetchActions(selectedGame.id);
     }
   };
-
   const processRedemption = async (redemptionId: string, status: string, voucherCode?: string, rejectionReason?: string) => {
-    const { error } = await supabase
-      .from("gamification_redemptions")
-      .update({
-        status,
-        voucher_code: voucherCode,
-        rejection_reason: rejectionReason,
-        processed_at: new Date().toISOString()
-      })
-      .eq("id", redemptionId);
-
+    const {
+      error
+    } = await supabase.from("gamification_redemptions").update({
+      status,
+      voucher_code: voucherCode,
+      rejection_reason: rejectionReason,
+      processed_at: new Date().toISOString()
+    }).eq("id", redemptionId);
     if (error) {
       toast.error("Failed to process redemption");
     } else {
@@ -285,7 +275,6 @@ export function GamificationManagement() {
       fetchRedemptions();
     }
   };
-
   const openEditDialog = (game: Game) => {
     setEditingGame(game);
     setGameName(game.name);
@@ -299,32 +288,27 @@ export function GamificationManagement() {
     setRewardPoints("");
     setShowEditDialog(true);
   };
-
   const updateGame = async () => {
     if (!editingGame) return;
     if (!gameName || !startDate || !endDate) {
       toast.error("Please fill in all required fields");
       return;
     }
-
     if (selectedTerritories.length === 0 && !isAllTerritories) {
       toast.error("Please select at least one territory");
       return;
     }
-
-    const { error } = await supabase
-      .from("gamification_games")
-      .update({
-        name: gameName,
-        description: gameDescription,
-        start_date: startDate,
-        end_date: endDate,
-        territories: isAllTerritories ? [] : selectedTerritories,
-        is_all_territories: isAllTerritories,
-        baseline_target: parseFloat(baselineTarget)
-      })
-      .eq("id", editingGame.id);
-
+    const {
+      error
+    } = await supabase.from("gamification_games").update({
+      name: gameName,
+      description: gameDescription,
+      start_date: startDate,
+      end_date: endDate,
+      territories: isAllTerritories ? [] : selectedTerritories,
+      is_all_territories: isAllTerritories,
+      baseline_target: parseFloat(baselineTarget)
+    }).eq("id", editingGame.id);
     if (error) {
       toast.error("Failed to update game");
       return;
@@ -333,21 +317,19 @@ export function GamificationManagement() {
     // If new activity is selected, add it
     if (selectedActivity && rewardPoints) {
       const activity = ACTIVITY_TYPES.find(a => a.value === selectedActivity);
-      const { error: actionsError } = await supabase
-        .from("gamification_actions")
-        .insert({
-          game_id: editingGame.id,
-          action_type: selectedActivity,
-          action_name: activity?.label || selectedActivity,
-          points: parseFloat(rewardPoints),
-          is_enabled: true
-        });
-
+      const {
+        error: actionsError
+      } = await supabase.from("gamification_actions").insert({
+        game_id: editingGame.id,
+        action_type: selectedActivity,
+        action_name: activity?.label || selectedActivity,
+        points: parseFloat(rewardPoints),
+        is_enabled: true
+      });
       if (actionsError) {
         toast.error("Failed to add new activity");
       }
     }
-
     toast.success("Game updated successfully");
     setShowEditDialog(false);
     resetForm();
@@ -357,27 +339,22 @@ export function GamificationManagement() {
       fetchActions(editingGame.id);
     }
   };
-
   const deleteGame = async () => {
     if (!gameToDelete) return;
 
     // First delete all associated actions
-    const { error: actionsError } = await supabase
-      .from("gamification_actions")
-      .delete()
-      .eq("game_id", gameToDelete.id);
-
+    const {
+      error: actionsError
+    } = await supabase.from("gamification_actions").delete().eq("game_id", gameToDelete.id);
     if (actionsError) {
       toast.error("Failed to delete game actions");
       return;
     }
 
     // Then delete the game
-    const { error: gameError } = await supabase
-      .from("gamification_games")
-      .delete()
-      .eq("id", gameToDelete.id);
-
+    const {
+      error: gameError
+    } = await supabase.from("gamification_games").delete().eq("id", gameToDelete.id);
     if (gameError) {
       toast.error("Failed to delete game");
     } else {
@@ -390,7 +367,6 @@ export function GamificationManagement() {
       fetchGames();
     }
   };
-
   const resetForm = () => {
     setGameName("");
     setGameDescription("");
@@ -402,17 +378,12 @@ export function GamificationManagement() {
     setSelectedActivity("");
     setRewardPoints("");
   };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
+    return <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold">Gamification Management</h2>
@@ -430,53 +401,24 @@ export function GamificationManagement() {
               <DialogTitle>Create New Game</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="gameName">Game Name *</Label>
-                <Input
-                  id="gameName"
-                  value={gameName}
-                  onChange={(e) => setGameName(e.target.value)}
-                  placeholder="Q1 2024 Sales Challenge"
-                />
-              </div>
+              
               <div>
                 <Label htmlFor="gameDescription">Description</Label>
-                <Textarea
-                  id="gameDescription"
-                  value={gameDescription}
-                  onChange={(e) => setGameDescription(e.target.value)}
-                  placeholder="Describe the game objectives..."
-                />
+                <Textarea id="gameDescription" value={gameDescription} onChange={e => setGameDescription(e.target.value)} placeholder="Describe the game objectives..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="startDate">Start Date *</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                  <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="endDate">End Date *</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
+                  <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
                 </div>
               </div>
               <div>
                 <Label htmlFor="baselineTarget">Baseline Target (Entry Points)</Label>
-                <Input
-                  id="baselineTarget"
-                  type="number"
-                  value={baselineTarget}
-                  onChange={(e) => setBaselineTarget(e.target.value)}
-                  placeholder="0"
-                />
+                <Input id="baselineTarget" type="number" value={baselineTarget} onChange={e => setBaselineTarget(e.target.value)} placeholder="0" />
               </div>
               <div>
                 <Label htmlFor="activityName">Activity Name *</Label>
@@ -485,64 +427,42 @@ export function GamificationManagement() {
                     <SelectValue placeholder="Select an activity" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ACTIVITY_TYPES.map(activity => (
-                      <SelectItem key={activity.value} value={activity.value}>
+                    {ACTIVITY_TYPES.map(activity => <SelectItem key={activity.value} value={activity.value}>
                         {activity.label}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="rewardPoints">Reward Points per Activity *</Label>
-                <Input
-                  id="rewardPoints"
-                  type="number"
-                  value={rewardPoints}
-                  onChange={(e) => setRewardPoints(e.target.value)}
-                  placeholder="Enter points"
-                  min="0"
-                />
+                <Input id="rewardPoints" type="number" value={rewardPoints} onChange={e => setRewardPoints(e.target.value)} placeholder="Enter points" min="0" />
               </div>
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="allTerritories"
-                  checked={isAllTerritories}
-                  onCheckedChange={setIsAllTerritories}
-                />
+                <Switch id="allTerritories" checked={isAllTerritories} onCheckedChange={setIsAllTerritories} />
                 <Label htmlFor="allTerritories">Apply to All Territories</Label>
               </div>
-              {!isAllTerritories && (
-                <div>
+              {!isAllTerritories && <div>
                   <Label>Select Territories *</Label>
                   <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
-                    {territories.map(territory => (
-                      <div key={territory} className="flex items-center space-x-2 mb-2">
-                        <input
-                          type="checkbox"
-                          id={territory}
-                          checked={selectedTerritories.includes(territory)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTerritories([...selectedTerritories, territory]);
-                            } else {
-                              setSelectedTerritories(selectedTerritories.filter(t => t !== territory));
-                            }
-                          }}
-                        />
+                    {territories.map(territory => <div key={territory} className="flex items-center space-x-2 mb-2">
+                        <input type="checkbox" id={territory} checked={selectedTerritories.includes(territory)} onChange={e => {
+                    if (e.target.checked) {
+                      setSelectedTerritories([...selectedTerritories, territory]);
+                    } else {
+                      setSelectedTerritories(selectedTerritories.filter(t => t !== territory));
+                    }
+                  }} />
                         <Label htmlFor={territory}>{territory}</Label>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
-                </div>
-              )}
+                </div>}
               <Button onClick={createGame} className="w-full">Create Game</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Tabs defaultValue="games" className="space-y-4" onValueChange={(v) => v === "redemptions" && fetchRedemptions()}>
+      <Tabs defaultValue="games" className="space-y-4" onValueChange={v => v === "redemptions" && fetchRedemptions()}>
         <TabsList>
           <TabsTrigger value="games">
             <Settings className="mr-2 h-4 w-4" />
@@ -561,16 +481,10 @@ export function GamificationManagement() {
         <TabsContent value="games" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {games.map(game => {
-              const stats = gameStats.get(game.id);
-              const daysRemaining = Math.ceil((new Date(game.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-              const isExpired = daysRemaining < 0;
-              
-              return (
-                <Card
-                  key={game.id}
-                  className={`cursor-pointer transition-all hover:shadow-lg ${selectedGame?.id === game.id ? "border-primary ring-2 ring-primary/20" : ""}`}
-                  onClick={() => setSelectedGame(game)}
-                >
+            const stats = gameStats.get(game.id);
+            const daysRemaining = Math.ceil((new Date(game.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            const isExpired = daysRemaining < 0;
+            return <Card key={game.id} className={`cursor-pointer transition-all hover:shadow-lg ${selectedGame?.id === game.id ? "border-primary ring-2 ring-primary/20" : ""}`} onClick={() => setSelectedGame(game)}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -578,25 +492,17 @@ export function GamificationManagement() {
                         <CardDescription>{game.description || "No description"}</CardDescription>
                       </div>
                       <div className="flex items-center gap-2 ml-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditDialog(game);
-                          }}
-                        >
+                        <Button variant="ghost" size="icon" onClick={e => {
+                      e.stopPropagation();
+                      openEditDialog(game);
+                    }}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setGameToDelete(game);
-                            setShowDeleteDialog(true);
-                          }}
-                        >
+                        <Button variant="ghost" size="icon" onClick={e => {
+                      e.stopPropagation();
+                      setGameToDelete(game);
+                      setShowDeleteDialog(true);
+                    }}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                         <Badge variant={game.is_active && !isExpired ? "default" : "secondary"}>
@@ -619,13 +525,11 @@ export function GamificationManagement() {
                     </div>
 
                     {/* Days Remaining */}
-                    {!isExpired && (
-                      <div className="text-center p-2 bg-primary/10 rounded-lg">
+                    {!isExpired && <div className="text-center p-2 bg-primary/10 rounded-lg">
                         <p className="text-sm font-medium text-primary">
                           {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} remaining
                         </p>
-                      </div>
-                    )}
+                      </div>}
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-3 gap-2">
@@ -658,59 +562,43 @@ export function GamificationManagement() {
                           {game.is_all_territories ? "All Territories" : `${game.territories.length} selected`}
                         </span>
                       </div>
-                      {!game.is_all_territories && game.territories.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {game.territories.slice(0, 3).map(territory => (
-                            <Badge key={territory} variant="outline" className="text-xs">
+                      {!game.is_all_territories && game.territories.length > 0 && <div className="flex flex-wrap gap-1 mt-2">
+                          {game.territories.slice(0, 3).map(territory => <Badge key={territory} variant="outline" className="text-xs">
                               {territory}
-                            </Badge>
-                          ))}
-                          {game.territories.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
+                            </Badge>)}
+                          {game.territories.length > 3 && <Badge variant="outline" className="text-xs">
                               +{game.territories.length - 3} more
-                            </Badge>
-                          )}
-                        </div>
-                      )}
+                            </Badge>}
+                        </div>}
                     </div>
                   </CardContent>
-                </Card>
-              );
-            })}
+                </Card>;
+          })}
           </div>
 
-          {selectedGame && (
-            <Card>
+          {selectedGame && <Card>
               <CardHeader>
                 <CardTitle>Action Configuration - {selectedGame.name}</CardTitle>
                 <CardDescription>Set points for each action type</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {actions.map(action => (
-                    <div key={action.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                      <Switch
-                        checked={action.is_enabled}
-                        onCheckedChange={(checked) => updateAction(action.id, { is_enabled: checked })}
-                      />
+                  {actions.map(action => <div key={action.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                      <Switch checked={action.is_enabled} onCheckedChange={checked => updateAction(action.id, {
+                  is_enabled: checked
+                })} />
                       <div className="flex-1">
                         <Label>{action.action_name}</Label>
                       </div>
                       <div className="w-32">
-                        <Input
-                          type="number"
-                          value={action.points}
-                          onChange={(e) => updateAction(action.id, { points: parseFloat(e.target.value) })}
-                          placeholder="Points"
-                          disabled={!action.is_enabled}
-                        />
+                        <Input type="number" value={action.points} onChange={e => updateAction(action.id, {
+                    points: parseFloat(e.target.value)
+                  })} placeholder="Points" disabled={!action.is_enabled} />
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                 </div>
               </CardContent>
-            </Card>
-          )}
+            </Card>}
         </TabsContent>
 
         <TabsContent value="badges" className="space-y-4">
@@ -725,8 +613,7 @@ export function GamificationManagement() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {redemptions.map(redemption => (
-                  <div key={redemption.id} className="p-4 border rounded-lg">
+                {redemptions.map(redemption => <div key={redemption.id} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <p className="font-semibold">{redemption.profiles.full_name}</p>
@@ -734,10 +621,7 @@ export function GamificationManagement() {
                           Requested: {new Date(redemption.requested_at).toLocaleString()}
                         </p>
                       </div>
-                      <Badge variant={
-                        redemption.status === "approved" ? "default" :
-                        redemption.status === "rejected" ? "destructive" : "secondary"
-                      }>
+                      <Badge variant={redemption.status === "approved" ? "default" : redemption.status === "rejected" ? "destructive" : "secondary"}>
                         {redemption.status}
                       </Badge>
                     </div>
@@ -746,35 +630,23 @@ export function GamificationManagement() {
                         <p className="text-sm"><strong>Points:</strong> {redemption.points_redeemed}</p>
                         <p className="text-sm"><strong>Voucher Amount:</strong> ₹{redemption.voucher_amount}</p>
                       </div>
-                      {redemption.status === "pending" && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              const code = prompt("Enter voucher code:");
-                              if (code) processRedemption(redemption.id, "approved", code);
-                            }}
-                          >
+                      {redemption.status === "pending" && <div className="flex gap-2">
+                          <Button size="sm" onClick={() => {
+                      const code = prompt("Enter voucher code:");
+                      if (code) processRedemption(redemption.id, "approved", code);
+                    }}>
                             Approve
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                              const reason = prompt("Enter rejection reason:");
-                              if (reason) processRedemption(redemption.id, "rejected", undefined, reason);
-                            }}
-                          >
+                          <Button size="sm" variant="destructive" onClick={() => {
+                      const reason = prompt("Enter rejection reason:");
+                      if (reason) processRedemption(redemption.id, "rejected", undefined, reason);
+                    }}>
                             Reject
                           </Button>
-                        </div>
-                      )}
+                        </div>}
                     </div>
-                  </div>
-                ))}
-                {redemptions.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">No redemption requests yet</p>
-                )}
+                  </div>)}
+                {redemptions.length === 0 && <p className="text-center text-muted-foreground py-8">No redemption requests yet</p>}
               </div>
             </CardContent>
           </Card>
@@ -789,51 +661,25 @@ export function GamificationManagement() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="editGameName">Game Name *</Label>
-              <Input
-                id="editGameName"
-                value={gameName}
-                onChange={(e) => setGameName(e.target.value)}
-                placeholder="Q1 2024 Sales Challenge"
-              />
+              <Input id="editGameName" value={gameName} onChange={e => setGameName(e.target.value)} placeholder="Q1 2024 Sales Challenge" />
             </div>
             <div>
               <Label htmlFor="editGameDescription">Description</Label>
-              <Textarea
-                id="editGameDescription"
-                value={gameDescription}
-                onChange={(e) => setGameDescription(e.target.value)}
-                placeholder="Describe the game objectives..."
-              />
+              <Textarea id="editGameDescription" value={gameDescription} onChange={e => setGameDescription(e.target.value)} placeholder="Describe the game objectives..." />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="editStartDate">Start Date *</Label>
-                <Input
-                  id="editStartDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+                <Input id="editStartDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="editEndDate">End Date *</Label>
-                <Input
-                  id="editEndDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+                <Input id="editEndDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
               </div>
             </div>
             <div>
               <Label htmlFor="editBaselineTarget">Baseline Target (Entry Points)</Label>
-              <Input
-                id="editBaselineTarget"
-                type="number"
-                value={baselineTarget}
-                onChange={(e) => setBaselineTarget(e.target.value)}
-                placeholder="0"
-              />
+              <Input id="editBaselineTarget" type="number" value={baselineTarget} onChange={e => setBaselineTarget(e.target.value)} placeholder="0" />
             </div>
             
             <div className="border-t pt-4 space-y-4">
@@ -849,60 +695,38 @@ export function GamificationManagement() {
                     <SelectValue placeholder="Select an activity to add" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ACTIVITY_TYPES.map(activity => (
-                      <SelectItem key={activity.value} value={activity.value}>
+                    {ACTIVITY_TYPES.map(activity => <SelectItem key={activity.value} value={activity.value}>
                         {activity.label}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               
               <div>
                 <Label htmlFor="editRewardPoints">Reward Points per Activity</Label>
-                <Input
-                  id="editRewardPoints"
-                  type="number"
-                  value={rewardPoints}
-                  onChange={(e) => setRewardPoints(e.target.value)}
-                  placeholder="Enter points for new activity"
-                  min="0"
-                />
+                <Input id="editRewardPoints" type="number" value={rewardPoints} onChange={e => setRewardPoints(e.target.value)} placeholder="Enter points for new activity" min="0" />
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <Switch
-                id="editAllTerritories"
-                checked={isAllTerritories}
-                onCheckedChange={setIsAllTerritories}
-              />
+              <Switch id="editAllTerritories" checked={isAllTerritories} onCheckedChange={setIsAllTerritories} />
               <Label htmlFor="editAllTerritories">Apply to All Territories</Label>
             </div>
-            {!isAllTerritories && (
-              <div>
+            {!isAllTerritories && <div>
                 <Label>Select Territories *</Label>
                 <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
-                  {territories.map(territory => (
-                    <div key={territory} className="flex items-center space-x-2 mb-2">
-                      <input
-                        type="checkbox"
-                        id={`edit-${territory}`}
-                        checked={selectedTerritories.includes(territory)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedTerritories([...selectedTerritories, territory]);
-                          } else {
-                            setSelectedTerritories(selectedTerritories.filter(t => t !== territory));
-                          }
-                        }}
-                      />
+                  {territories.map(territory => <div key={territory} className="flex items-center space-x-2 mb-2">
+                      <input type="checkbox" id={`edit-${territory}`} checked={selectedTerritories.includes(territory)} onChange={e => {
+                  if (e.target.checked) {
+                    setSelectedTerritories([...selectedTerritories, territory]);
+                  } else {
+                    setSelectedTerritories(selectedTerritories.filter(t => t !== territory));
+                  }
+                }} />
                       <Label htmlFor={`edit-${territory}`}>{territory}</Label>
-                    </div>
-                  ))}
+                    </div>)}
                 </div>
-              </div>
-            )}
+              </div>}
             <Button onClick={updateGame} className="w-full">Update Game</Button>
           </div>
         </DialogContent>
@@ -919,9 +743,9 @@ export function GamificationManagement() {
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => {
-                setShowDeleteDialog(false);
-                setGameToDelete(null);
-              }}>
+              setShowDeleteDialog(false);
+              setGameToDelete(null);
+            }}>
                 Cancel
               </Button>
               <Button variant="destructive" onClick={deleteGame}>
@@ -931,6 +755,5 @@ export function GamificationManagement() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 }
