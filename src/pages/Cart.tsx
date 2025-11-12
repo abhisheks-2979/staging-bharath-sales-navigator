@@ -730,8 +730,8 @@ export const Cart = () => {
   };
   return <div className="min-h-screen bg-background">
       {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50">
-        <Card className="shadow-card bg-gradient-primary text-primary-foreground rounded-none rounded-b-3xl border-x-0 border-t-0">
+      <div className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground rounded-3xl border-0">
           <CardHeader className="flex flex-row items-center justify-between py-2 px-3">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-7 w-7">
