@@ -160,6 +160,7 @@ export const VisitCard = ({
     timeSpent,
     formattedTimeSpent,
     startTracking,
+    endTracking,
     endAllActiveLogs
   } = useRetailerVisitTracking({
     retailerId: visit.retailerId || visit.id,
@@ -194,6 +195,13 @@ export const VisitCard = ({
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
+
+  // Ensure visit tracking ends when this card unmounts or user navigates away
+  useEffect(() => {
+    return () => {
+      try { endTracking?.(); } catch {}
+    };
+  }, [endTracking]);
 
   // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
@@ -1072,6 +1080,21 @@ export const VisitCard = ({
               </h3>
               
               {/* Location Status and Time Tracker */}
+              {isTodaysVisit && trackingLocationStatus === 'location_unavailable' && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await startTracking('feedback', false);
+                    } catch (e) {
+                      console.error('Start tracking failed', e);
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
+                  title="Tap to capture your location and start visit timer"
+                >
+                  Capture location
+                </button>
+              )}
               {isTodaysVisit && currentLog && (
                 <button 
                   onClick={() => setShowVisitDetailsModal(true)} 
