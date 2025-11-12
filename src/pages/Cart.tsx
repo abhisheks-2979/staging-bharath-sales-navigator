@@ -732,20 +732,19 @@ export const Cart = () => {
       <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20">
-                <ArrowLeft size={20} />
+          <CardHeader className="flex flex-row items-center justify-between py-2 px-3">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-7 w-7">
+                <ArrowLeft size={16} />
               </Button>
               <div>
-                <CardTitle className="text-lg">Cart</CardTitle>
-                <p className="text-primary-foreground/80">{loggedInUserName}</p>
+                <CardTitle className="text-sm leading-tight">Cart</CardTitle>
+                <p className="text-[10px] text-primary-foreground/80 leading-tight">{loggedInUserName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <ShoppingCart size={20} />
-              <Badge variant="secondary">{cartItems.length} items</Badge>
-              
+            <div className="flex items-center gap-1.5">
+              <ShoppingCart size={14} />
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{cartItems.length} items</Badge>
             </div>
           </CardHeader>
         </Card>
