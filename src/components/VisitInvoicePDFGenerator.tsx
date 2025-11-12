@@ -99,7 +99,13 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       // Generate PDF
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       let yPos = 15;
+
+      // Draw border around entire page
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.5);
+      doc.rect(5, 5, pageWidth - 10, pageHeight - 10);
 
       // Title at top center
       doc.setFontSize(14);
@@ -220,7 +226,7 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
         const quantity = Number(item.quantity || 0);
         const rate = Number(item.rate || 0);
         const taxableAmount = quantity * rate;
-        const gstRate = 18; // Default GST rate
+        const gstRate = 5; // 2.5% CGST + 2.5% SGST = 5% total
         const gstAmount = (taxableAmount * gstRate) / 100;
         const totalAmount = taxableAmount + gstAmount;
 
@@ -239,7 +245,7 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       // Calculate totals
       const totalQty = items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
       const subTotal = items.reduce((sum: number, item: any) => sum + (Number(item.quantity || 0) * Number(item.rate || 0)), 0);
-      const totalGst = (subTotal * 18) / 100;
+      const totalGst = (subTotal * 5) / 100; // 5% total GST (2.5% CGST + 2.5% SGST)
       const grandTotal = subTotal + totalGst;
       
       tableData.push([
@@ -292,8 +298,8 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       yPos = (doc as any).lastAutoTable.finalY + 5;
 
       // Tax Summary Table
-      const cgst = totalGst / 2;
-      const sgst = totalGst / 2;
+      const cgst = (subTotal * 2.5) / 100; // 2.5% CGST
+      const sgst = (subTotal * 2.5) / 100; // 2.5% SGST
 
       doc.setFontSize(9);
       doc.setFont(undefined, "bold");
@@ -303,9 +309,9 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       const taxTableData = [[
         "090230",
         subTotal.toFixed(2),
-        "9.0",
+        "2.5",
         cgst.toFixed(2),
-        "9.0",
+        "2.5",
         sgst.toFixed(2),
         totalGst.toFixed(2)
       ]];
