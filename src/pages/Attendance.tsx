@@ -990,6 +990,46 @@ const Attendance = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* Camera Capture Dialog */}
+      <Dialog open={showCamera} onOpenChange={(open) => {
+        if (!open) {
+          if (videoRef.current?.srcObject) {
+            const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+            tracks.forEach(track => track.stop());
+          }
+          setShowCamera(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Take Your Photo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative aspect-square w-full bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>
+                {location ? 
+                  `Location captured: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
+                  'Capturing location...'
+                }
+              </span>
+            </div>
+            <div className="text-sm text-muted-foreground text-center">
+              Position yourself in the frame. Photo will be captured automatically.
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
