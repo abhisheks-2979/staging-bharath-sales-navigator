@@ -584,11 +584,11 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
-                            className="w-full justify-start h-auto min-h-[44px] md:min-h-[52px] text-xs md:text-sm font-normal bg-background px-2 py-1.5"
+                            className="w-full justify-start h-auto min-h-[44px] md:min-h-[52px] text-xs md:text-sm font-normal bg-background px-3 py-2"
                           >
                             {row.product ? (
-                              <div className="flex flex-col items-start w-full gap-1.5">
-                                <span className="truncate text-left w-full font-medium">
+                              <div className="flex flex-col items-start w-full gap-2">
+                                <span className="truncate text-left w-full font-medium text-foreground">
                                   {row.variant ? (() => {
                                     let variantDisplayName = row.variant.variant_name;
                                     if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
