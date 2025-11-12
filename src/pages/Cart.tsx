@@ -831,146 +831,146 @@ export const Cart = () => {
 
             {/* Order Summary */}
             <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span className="font-bold">₹{formatINRTrunc2(getSubtotal())}</span>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="font-semibold">₹{formatINRTrunc2(getSubtotal())}</span>
                 </div>
 
-                {getDiscount() > 0 && <div className="p-3 bg-success/10 rounded-lg border border-success/20">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Gift size={16} className="text-success" />
-                      <p className="text-sm font-medium text-success">Schemes Applied</p>
+                {getDiscount() > 0 && <div className="p-2 bg-success/10 rounded-lg border border-success/20">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Gift size={12} className="text-success" />
+                      <p className="text-xs font-medium text-success">Schemes Applied</p>
                     </div>
-                    <div className="flex justify-between text-sm mt-2">
+                    <div className="flex justify-between text-xs">
                       <span>Discount:</span>
                       <span className="text-success font-medium">-₹{formatINRTrunc2(getDiscount())}</span>
                     </div>
                   </div>}
 
-                <div className="border-t pt-3 space-y-2">
-                  <div className="flex justify-between text-sm text-muted-foreground">
+                <div className="border-t pt-2 space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
                     <span>CGST (2.5%):</span>
                     <span>₹{formatINRTrunc2(getCGST())}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
+                  <div className="flex justify-between text-xs text-muted-foreground">
                     <span>SGST (2.5%):</span>
                     <span>₹{formatINRTrunc2(getSGST())}</span>
                   </div>
                 </div>
 
-                <div className="flex justify-between text-lg font-bold border-t pt-3">
+                <div className="flex justify-between text-base font-bold border-t pt-2">
                   <span>Total:</span>
                   <span>₹{formatINRTrunc2(getFinalTotal())}</span>
                 </div>
 
-                {pendingAmountFromPrevious > 0 && <div className="space-y-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="flex justify-between text-sm">
+                {pendingAmountFromPrevious > 0 && <div className="space-y-1.5 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Previous Pending:</span>
                       <span className="font-semibold text-warning">₹{formatINRTrunc2(pendingAmountFromPrevious)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Current Order:</span>
                       <span className="font-semibold">₹{formatINRTrunc2(getFinalTotal())}</span>
                     </div>
-                    <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-800">
+                    <div className="flex justify-between text-xs pt-1.5 border-t border-amber-200 dark:border-amber-800">
                       <span className="font-medium">Total Due:</span>
                       <span className="font-bold">₹{formatINRTrunc2(pendingAmountFromPrevious + getFinalTotal())}</span>
                     </div>
                   </div>}
 
                 {/* Payment Type Selection */}
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Select Payment Type:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-medium">Select Payment Type:</p>
+                  <div className="grid grid-cols-3 gap-1.5">
                     <Button onClick={() => {
                   setPaymentType("full");
                   setPaymentMethod("");
-                }} variant={paymentType === "full" ? "default" : "outline"} className="w-full h-auto py-3 whitespace-normal leading-tight text-center">
-                      Full Payment
+                }} variant={paymentType === "full" ? "default" : "outline"} className="h-8 text-xs px-2">
+                      Full Pay
                     </Button>
                     <Button onClick={() => {
                   setPaymentType("partial");
                   setPaymentMethod("");
-                }} variant={paymentType === "partial" ? "default" : "outline"} className="w-full h-auto py-3 whitespace-normal leading-tight text-center">
-                      Partial Payment
+                }} variant={paymentType === "partial" ? "default" : "outline"} className="h-8 text-xs px-2">
+                      Partial
                     </Button>
                     <Button onClick={() => {
                   setPaymentType("credit");
                   setPaymentMethod("");
-                }} variant={paymentType === "credit" ? "default" : "outline"} className="w-full h-auto py-3 whitespace-normal leading-tight text-center">
-                      Full Credit
+                }} variant={paymentType === "credit" ? "default" : "outline"} className="h-8 text-xs px-2">
+                      Credit
                     </Button>
                   </div>
                 </div>
 
                 {/* Partial Payment Amount Input */}
-                {paymentType === "partial" && <div className="space-y-2">
-                    <Label htmlFor="partial-amount">Partial Payment Amount</Label>
-                    <Input id="partial-amount" type="number" placeholder="Enter amount" value={partialAmount} onChange={e => setPartialAmount(e.target.value)} max={getFinalTotal() + pendingAmountFromPrevious} />
-                    {partialAmount && parseFloat(partialAmount) > 0 && <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
-                        <div className="flex justify-between text-sm">
+                {paymentType === "partial" && <div className="space-y-1.5">
+                    <Label htmlFor="partial-amount" className="text-xs">Partial Payment Amount</Label>
+                    <Input id="partial-amount" type="number" placeholder="Enter amount" value={partialAmount} onChange={e => setPartialAmount(e.target.value)} max={getFinalTotal() + pendingAmountFromPrevious} className="h-8 text-sm" />
+                    {partialAmount && parseFloat(partialAmount) > 0 && <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
+                        <div className="flex justify-between text-xs">
                           <span className="text-success">Paying Now:</span>
                           <span className="font-semibold text-success">-₹{formatINRTrunc2(parseFloat(partialAmount))}</span>
                         </div>
-                        <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-800">
-                          <span className="font-medium text-warning">Remaining Pending:</span>
+                        <div className="flex justify-between text-xs pt-1 border-t border-amber-200 dark:border-amber-800">
+                          <span className="font-medium text-warning">Remaining:</span>
                           <span className="font-bold text-warning">₹{formatINRTrunc2(Math.max(0, getFinalTotal() + pendingAmountFromPrevious - parseFloat(partialAmount)))}</span>
                         </div>
                       </div>}
                   </div>}
 
                 {/* Payment Method Selection */}
-                {(paymentType === "full" || paymentType === "partial") && <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                    <p className="text-sm font-medium">Payment Method:</p>
-                    <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                {(paymentType === "full" || paymentType === "partial") && <div className="space-y-2 p-2.5 border rounded-lg bg-muted/50">
+                    <p className="text-xs font-medium">Payment Method:</p>
+                    <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)} className="space-y-1.5">
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="cash" id="cash" />
-                        <Label htmlFor="cash">Cash</Label>
+                        <RadioGroupItem value="cash" id="cash" className="h-3.5 w-3.5" />
+                        <Label htmlFor="cash" className="text-xs">Cash</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="cheque" id="cheque" />
-                        <Label htmlFor="cheque">Cheque</Label>
+                        <RadioGroupItem value="cheque" id="cheque" className="h-3.5 w-3.5" />
+                        <Label htmlFor="cheque" className="text-xs">Cheque</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="upi" id="upi" />
-                        <Label htmlFor="upi">UPI</Label>
+                        <RadioGroupItem value="upi" id="upi" className="h-3.5 w-3.5" />
+                        <Label htmlFor="upi" className="text-xs">UPI</Label>
                       </div>
                     </RadioGroup>
 
                     {/* Cheque Photo Capture */}
-                    {paymentMethod === "cheque" && <div className="space-y-2">
+                    {paymentMethod === "cheque" && <div className="space-y-1.5">
                         <Button onClick={() => {
                   setCameraMode("cheque");
                   setIsCameraOpen(true);
-                }} variant="outline" className="w-full">
-                          <Camera className="mr-2" size={16} />
-                          {chequePhotoUrl ? "Retake Cheque Photo" : "Capture Cheque Photo"}
+                }} variant="outline" className="w-full h-8 text-xs">
+                          <Camera className="mr-1.5" size={12} />
+                          {chequePhotoUrl ? "Retake Cheque" : "Capture Cheque"}
                         </Button>
-                        {chequePhotoUrl && <p className="text-xs text-success">✓ Cheque photo captured</p>}
+                        {chequePhotoUrl && <p className="text-[10px] text-success">✓ Cheque photo captured</p>}
                       </div>}
 
                     {/* UPI Payment Confirmation */}
-                    {paymentMethod === "upi" && <div className="space-y-2">
-                        <div className="p-4 bg-background rounded-md border">
-                          <p className="text-sm text-muted-foreground mb-2">Scan QR Code for Payment</p>
-                          <div className="flex items-center justify-center h-48 bg-muted rounded">
-                            <p className="text-muted-foreground">QR Code (Upload from Admin Panel)</p>
+                    {paymentMethod === "upi" && <div className="space-y-1.5">
+                        <div className="p-2 bg-background rounded-md border">
+                          <p className="text-xs text-muted-foreground mb-1.5">Scan QR for Payment</p>
+                          <div className="flex items-center justify-center h-32 bg-muted rounded">
+                            <p className="text-xs text-muted-foreground">QR Code</p>
                           </div>
                         </div>
                         <Button onClick={() => {
                   setCameraMode("upi");
                   setIsCameraOpen(true);
-                }} variant="outline" className="w-full">
-                          <Camera className="mr-2" size={16} />
-                          {upiPhotoUrl ? "Retake Payment Confirmation" : "Capture Payment Confirmation"}
+                }} variant="outline" className="w-full h-8 text-xs">
+                          <Camera className="mr-1.5" size={12} />
+                          {upiPhotoUrl ? "Retake Proof" : "Capture Proof"}
                         </Button>
-                        {upiPhotoUrl && <p className="text-xs text-success">✓ Payment confirmation captured</p>}
+                        {upiPhotoUrl && <p className="text-[10px] text-success">✓ Payment proof captured</p>}
                       </div>}
                   </div>}
 
                 {/* Submit Order Button */}
-                <Button onClick={handleSubmitOrder} className="w-full" size="lg" variant="default" disabled={!canSubmitOrder() || !paymentType}>
+                <Button onClick={handleSubmitOrder} className="w-full h-9 text-sm" variant="default" disabled={!canSubmitOrder() || !paymentType}>
                   {getSubmitButtonText()}
                 </Button>
               </CardContent>
