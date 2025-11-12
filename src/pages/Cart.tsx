@@ -78,12 +78,13 @@ export const Cart = () => {
 
   // New payment flow state
   const [paymentType, setPaymentType] = React.useState<"" | "full" | "partial" | "credit">("");
-  const [paymentMethod, setPaymentMethod] = React.useState<"" | "cash" | "cheque" | "upi">("");
+  const [paymentMethod, setPaymentMethod] = React.useState<"" | "cash" | "cheque" | "upi" | "neft">("");
   const [partialAmount, setPartialAmount] = React.useState<string>("");
   const [chequePhotoUrl, setChequePhotoUrl] = React.useState<string>("");
   const [upiPhotoUrl, setUpiPhotoUrl] = React.useState<string>("");
+  const [neftPhotoUrl, setNeftPhotoUrl] = React.useState<string>("");
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
-  const [cameraMode, setCameraMode] = React.useState<"cheque" | "upi">("cheque");
+  const [cameraMode, setCameraMode] = React.useState<"cheque" | "upi" | "neft">("cheque");
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -428,10 +429,15 @@ export const Cart = () => {
         toast({
           title: "Cheque photo captured successfully"
         });
-      } else {
+      } else if (cameraMode === "upi") {
         setUpiPhotoUrl(publicUrl);
         toast({
           title: "Payment confirmation captured successfully"
+        });
+      } else if (cameraMode === "neft") {
+        setNeftPhotoUrl(publicUrl);
+        toast({
+          title: "NEFT confirmation captured successfully"
         });
       }
       setIsCameraOpen(false);
@@ -495,6 +501,14 @@ export const Cart = () => {
       });
       return;
     }
+    if (paymentMethod === "neft" && !neftPhotoUrl) {
+      toast({
+        title: "NEFT Confirmation Required",
+        description: "Please capture NEFT confirmation photo",
+        variant: "destructive"
+      });
+      return;
+    }
 
     // Check if order can be submitted today - BLOCK submission if not today
     if (!canSubmitOrder()) {
@@ -554,7 +568,7 @@ export const Cart = () => {
         creditPaid = totalAmount;
         creditPending = 0;
         orderPaymentMethod = paymentMethod;
-        paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : "";
+        paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       } else if (paymentType === "partial") {
         // Partial payment
         isCreditOrder = true;
@@ -564,7 +578,7 @@ export const Cart = () => {
         newTotalPending = totalDue - paidAmount;
         creditPending = newTotalPending;
         orderPaymentMethod = paymentMethod;
-        paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : "";
+        paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
       // For phone orders, create a visit first
@@ -936,10 +950,23 @@ export const Cart = () => {
                         <RadioGroupItem value="upi" id="upi" className="h-3.5 w-3.5" />
                         <Label htmlFor="upi" className="text-xs">UPI</Label>
                       </div>
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem value="neft" id="neft" className="h-3.5 w-3.5" />
+                        <Label htmlFor="neft" className="text-xs">NEFT</Label>
+                      </div>
                     </RadioGroup>
 
-                    {/* Cheque Photo Capture */}
+                    {/* Cheque Bank Details and Photo Capture */}
                     {paymentMethod === "cheque" && <div className="space-y-1.5">
+                        <div className="p-2 bg-background rounded-md border">
+                          <p className="text-xs font-medium mb-1.5">Bank Details for Cheque</p>
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p><span className="font-medium">Bank Name:</span> HDFC Bank</p>
+                            <p><span className="font-medium">Account Name:</span> Bharath Beverages Pvt Ltd</p>
+                            <p><span className="font-medium">Account Number:</span> 1234567890</p>
+                            <p><span className="font-medium">IFSC Code:</span> HDFC0001234</p>
+                          </div>
+                        </div>
                         <Button onClick={() => {
                   setCameraMode("cheque");
                   setIsCameraOpen(true);
@@ -967,6 +994,27 @@ export const Cart = () => {
                         </Button>
                         {upiPhotoUrl && <p className="text-[10px] text-success">✓ Payment proof captured</p>}
                       </div>}
+
+                    {/* NEFT Bank Details and Photo Capture */}
+                    {paymentMethod === "neft" && <div className="space-y-1.5">
+                        <div className="p-2 bg-background rounded-md border">
+                          <p className="text-xs font-medium mb-1.5">Bank Details for NEFT</p>
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p><span className="font-medium">Bank Name:</span> HDFC Bank</p>
+                            <p><span className="font-medium">Account Name:</span> Bharath Beverages Pvt Ltd</p>
+                            <p><span className="font-medium">Account Number:</span> 1234567890</p>
+                            <p><span className="font-medium">IFSC Code:</span> HDFC0001234</p>
+                          </div>
+                        </div>
+                        <Button onClick={() => {
+                  setCameraMode("neft");
+                  setIsCameraOpen(true);
+                }} variant="outline" className="w-full h-8 text-xs">
+                          <Camera className="mr-1.5" size={12} />
+                          {neftPhotoUrl ? "Retake NEFT Proof" : "Capture NEFT Proof"}
+                        </Button>
+                        {neftPhotoUrl && <p className="text-[10px] text-success">✓ NEFT confirmation captured</p>}
+                      </div>}
                   </div>}
 
                 {/* Submit Order Button */}
@@ -980,7 +1028,7 @@ export const Cart = () => {
         {/* Cart Item Detail Modal */}
         <CartItemDetail isOpen={showItemDetail} onClose={() => setShowItemDetail(false)} item={selectedItem} />
 
-        <CameraCapture isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={handleCameraCapture} title={cameraMode === "cheque" ? "Capture Cheque Photo" : "Capture Payment Confirmation"} />
+        <CameraCapture isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={handleCameraCapture} title={cameraMode === "cheque" ? "Capture Cheque Photo" : cameraMode === "upi" ? "Capture Payment Confirmation" : "Capture NEFT Confirmation"} />
       </div>
     </div>;
 };
