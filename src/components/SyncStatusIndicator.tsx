@@ -4,7 +4,6 @@ import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from "lucide-re
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
-
 export const SyncStatusIndicator = () => {
   const isOnline = useConnectivity() === 'online';
   const [syncQueueCount, setSyncQueueCount] = useState(0);
@@ -21,7 +20,6 @@ export const SyncStatusIndicator = () => {
         console.error('Error checking sync queue:', error);
       }
     };
-
     checkQueue();
     const interval = setInterval(checkQueue, 2000); // Check every 2 seconds
 
@@ -34,24 +32,22 @@ export const SyncStatusIndicator = () => {
       if (isOnline && syncQueueCount > 0) {
         setIsSyncing(true);
         setLastSyncStatus(null);
-        
         toast({
           title: "Syncing...",
-          description: `Uploading ${syncQueueCount} pending ${syncQueueCount === 1 ? 'item' : 'items'}`,
+          description: `Uploading ${syncQueueCount} pending ${syncQueueCount === 1 ? 'item' : 'items'}`
         });
 
         // Wait for sync to complete (check queue again after delay)
         setTimeout(async () => {
           const queue = await offlineStorage.getSyncQueue();
           setIsSyncing(false);
-          
           if (queue.length === 0) {
             setLastSyncStatus('success');
             toast({
               title: "Sync Complete",
-              description: "All changes uploaded successfully",
+              description: "All changes uploaded successfully"
             });
-            
+
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
           } else {
@@ -59,13 +55,12 @@ export const SyncStatusIndicator = () => {
             toast({
               title: "Sync Error",
               description: `${queue.length} items failed to sync`,
-              variant: "destructive",
+              variant: "destructive"
             });
           }
         }, 3000);
       }
     };
-
     handleSync();
   }, [isOnline, syncQueueCount]);
 
@@ -73,38 +68,5 @@ export const SyncStatusIndicator = () => {
   if (isOnline && syncQueueCount === 0 && !isSyncing && !lastSyncStatus) {
     return null;
   }
-
-  return (
-    <Badge 
-      variant={isOnline ? "default" : "secondary"}
-      className="flex items-center gap-2 px-3 py-1.5"
-    >
-      {isSyncing ? (
-        <>
-          <RefreshCw className="h-3 w-3 animate-spin" />
-          <span className="text-xs">Syncing {syncQueueCount}...</span>
-        </>
-      ) : lastSyncStatus === 'success' ? (
-        <>
-          <CheckCircle2 className="h-3 w-3 text-green-600" />
-          <span className="text-xs">Synced</span>
-        </>
-      ) : lastSyncStatus === 'error' ? (
-        <>
-          <AlertCircle className="h-3 w-3 text-destructive" />
-          <span className="text-xs">{syncQueueCount} pending</span>
-        </>
-      ) : !isOnline && syncQueueCount > 0 ? (
-        <>
-          <CloudOff className="h-3 w-3" />
-          <span className="text-xs">{syncQueueCount} queued</span>
-        </>
-      ) : isOnline && syncQueueCount > 0 ? (
-        <>
-          <Cloud className="h-3 w-3" />
-          <span className="text-xs">{syncQueueCount} pending</span>
-        </>
-      ) : null}
-    </Badge>
-  );
+  return;
 };
