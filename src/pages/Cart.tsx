@@ -728,30 +728,42 @@ export const Cart = () => {
       });
     }
   };
-  return <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background pb-20">
       {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
-        <Card className="shadow-card bg-gradient-primary text-primary-foreground rounded-3xl border-0">
-          <CardHeader className="flex flex-row items-center justify-between py-4 px-4">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-7 w-7">
-                <ArrowLeft size={16} />
-              </Button>
-              <div>
-                <CardTitle className="text-sm leading-tight">Cart</CardTitle>
-                <p className="text-[10px] text-primary-foreground/80 leading-tight">{loggedInUserName}</p>
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
+        <div className="w-full px-2 sm:px-4 py-2 sm:py-4">
+          <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
+              {/* Left side - Back button and title */}
+              <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)}
+                  className="text-primary-foreground hover:bg-primary-foreground/20 p-1.5 sm:p-2 shrink-0"
+                >
+                  <ArrowLeft size={18} />
+                </Button>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">Cart</CardTitle>
+                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <ShoppingCart size={14} />
-              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{cartItems.length} items</Badge>
-            </div>
-          </CardHeader>
-        </Card>
+              
+              {/* Right side - Cart info */}
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <ShoppingCart size={14} className="sm:w-4 sm:h-4" />
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] h-4 sm:h-5 px-1.5">{cartItems.length} items</Badge>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
 
       {/* Scrollable Content with top padding for fixed header */}
-      <div className="container mx-auto p-4 space-y-4 pt-20">
+      <div className="w-full px-2 sm:px-4 space-y-3 pt-24 sm:pt-28">
         {/* Cart Items */}
         {cartItems.length === 0 ? <Card>
             <CardContent className="p-8 text-center">
