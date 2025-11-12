@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useLocationFeature = () => {
-  const [isLocationEnabled, setIsLocationEnabled] = useState(true);
+  const [isLocationEnabled, setIsLocationEnabled] = useState(false); // Default to false to prevent flickering
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

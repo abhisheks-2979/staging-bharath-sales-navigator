@@ -194,35 +194,50 @@ export const MyVisits = () => {
     }
   }, [user, selectedDate]);
 
-  // Set up real-time updates for visits and orders - WITHOUT re-sorting
+  // Set up real-time updates for visits and orders with debouncing
   useEffect(() => {
     if (!user || !selectedDate) return;
-    const channel = supabase.channel('visit-updates').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'visits',
-      filter: `user_id=eq.${user.id}`
-    }, payload => {
-      console.log('Visit updated:', payload);
-      // Reload data but preserve order
-      loadPlannedBeats(selectedDate, true);
-    }).on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'orders',
-      filter: `user_id=eq.${user.id}`
-    }, payload => {
-      console.log('Order updated:', payload);
-      // Reload data but preserve order
-      loadPlannedBeats(selectedDate, true);
-    }).subscribe();
+
+    let debounceTimer: NodeJS.Timeout;
+    const debouncedReload = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadPlannedBeats(selectedDate, true);
+      }, 500); // Debounce for 500ms to avoid multiple rapid reloads
+    };
+
+    const channel = supabase.channel('visit-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'visits',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Visit updated:', payload);
+        // Only reload if the update is for the current date
+        if (payload.new && 'planned_date' in payload.new && payload.new.planned_date === selectedDate) {
+          debouncedReload();
+        }
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Order updated:', payload);
+        debouncedReload();
+      })
+      .subscribe();
 
     // Also listen for custom events from VisitCard components
     const handleVisitStatusChange = () => {
-      loadPlannedBeats(selectedDate, true);
+      debouncedReload();
     };
     window.addEventListener('visitStatusChanged', handleVisitStatusChange);
+
     return () => {
+      clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
       window.removeEventListener('visitStatusChanged', handleVisitStatusChange);
     };
@@ -390,30 +405,28 @@ export const MyVisits = () => {
       selectedDateObj.setHours(0, 0, 0, 0);
       const isFutureDate = selectedDateObj > today;
 
-      // Get all visits for the selected date
-      const {
-        data: visits,
-        error: visitsError
-      } = await supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date);
-      if (visitsError) throw visitsError;
-
       // Get planned beat IDs
       const plannedBeatIds = beatPlans.map(plan => plan.beat_id);
 
-      // Get all retailers that should be shown (from planned beats + visit retailers)
-      const visitRetailerIds = (visits || []).map(v => v.retailer_id);
-      const allRetailerIds = new Set([...visitRetailerIds]);
+      // Fetch visits and plannedRetailers in parallel
+      const [visitsResult, plannedRetailersResult] = await Promise.all([
+        supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
+        plannedBeatIds.length > 0 
+          ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
+          : Promise.resolve({ data: [], error: null })
+      ]);
 
-      // If there are planned beats, also include retailers from those beats
-      if (plannedBeatIds.length > 0) {
-        const {
-          data: plannedRetailers,
-          error: plannedError
-        } = await supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds);
-        if (!plannedError && plannedRetailers) {
-          plannedRetailers.forEach(r => allRetailerIds.add(r.id));
-        }
+      if (visitsResult.error) throw visitsResult.error;
+      const visits = visitsResult.data || [];
+
+      // Get all retailer IDs (visits + planned beats)
+      const visitRetailerIds = visits.map(v => v.retailer_id);
+      const allRetailerIds = new Set([...visitRetailerIds]);
+      
+      if (plannedRetailersResult.data) {
+        plannedRetailersResult.data.forEach(r => allRetailerIds.add(r.id));
       }
+
       if (allRetailerIds.size === 0) {
         setRetailers([]);
         setRetailerStats(new Map());
@@ -421,58 +434,73 @@ export const MyVisits = () => {
         return;
       }
 
-      // Get all retailer data
-      const {
-        data: retailersData,
-        error: retailersError
-      } = await supabase.from('retailers').select('*').eq('user_id', user.id).in('id', Array.from(allRetailerIds));
-      if (retailersError) throw retailersError;
+      // Prepare date range for orders query
+      const dateStart = new Date(date);
+      dateStart.setHours(0, 0, 0, 0);
+      const dateEnd = new Date(date);
+      dateEnd.setHours(23, 59, 59, 999);
+
+      // Fetch retailers, current day orders, and historical data in parallel
+      const [retailersResult, ordersForDateResult, allOrdersResult, allVisitsResult] = await Promise.all([
+        supabase.from('retailers').select('*').eq('user_id', user.id).in('id', Array.from(allRetailerIds)),
+        !isFutureDate 
+          ? supabase.from('orders')
+              .select('id, retailer_id, total_amount, created_at')
+              .eq('user_id', user.id)
+              .eq('status', 'confirmed')
+              .in('retailer_id', Array.from(allRetailerIds))
+              .gte('created_at', dateStart.toISOString())
+              .lte('created_at', dateEnd.toISOString())
+          : Promise.resolve({ data: [], error: null }),
+        !isFutureDate
+          ? supabase.from('orders')
+              .select('retailer_id, total_amount, created_at')
+              .eq('user_id', user.id)
+              .eq('status', 'confirmed')
+              .in('retailer_id', Array.from(allRetailerIds))
+              .lte('created_at', date + 'T23:59:59.999Z')
+          : Promise.resolve({ data: [], error: null }),
+        !isFutureDate
+          ? supabase.from('visits')
+              .select('retailer_id, planned_date')
+              .eq('user_id', user.id)
+              .in('retailer_id', Array.from(allRetailerIds))
+              .lte('planned_date', date)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+
+      if (retailersResult.error) throw retailersResult.error;
+      
+      const retailersData = retailersResult.data || [];
+      const ordersForDate = ordersForDateResult.data || [];
+      const allOrders = allOrdersResult.data || [];
+      const allVisits = allVisitsResult.data || [];
 
       // Create retailer map
       const retailerMap = new Map();
-      (retailersData || []).forEach(retailer => {
+      retailersData.forEach(retailer => {
         retailerMap.set(retailer.id, retailer);
       });
 
       // Create visit map
       const visitMap = new Map();
-      (visits || []).forEach(visit => {
+      visits.forEach(visit => {
         visitMap.set(visit.retailer_id, visit);
       });
 
-      // Get orders ONLY for the selected date (not for future dates)
+      // Calculate order totals by retailer for current date
       const totalsByRetailer = new Map<string, number>();
+      ordersForDate.forEach(o => {
+        if (!o.retailer_id) return;
+        totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
+      });
 
-      // Only fetch orders if it's not a future date
-      if (!isFutureDate) {
-        const dateStart = new Date(date);
-        dateStart.setHours(0, 0, 0, 0);
-        const dateEnd = new Date(date);
-        dateEnd.setHours(23, 59, 59, 999);
-        const {
-          data: ordersForDate
-        } = await supabase.from('orders').select('id, retailer_id, total_amount, created_at').eq('user_id', user.id).eq('status', 'confirmed').in('retailer_id', Array.from(allRetailerIds)).gte('created_at', dateStart.toISOString()).lte('created_at', dateEnd.toISOString());
-        (ordersForDate || []).forEach(o => {
-          if (!o.retailer_id) return;
-          totalsByRetailer.set(o.retailer_id, (totalsByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
-        });
-      }
-
-      // Get historical stats for all retailers (only for past/current dates, not future)
+      // Calculate historical stats per retailer
       const statsMap = new Map();
       if (!isFutureDate) {
-        const {
-          data: allOrders
-        } = await supabase.from('orders').select('retailer_id, total_amount, created_at').eq('user_id', user.id).eq('status', 'confirmed').in('retailer_id', Array.from(allRetailerIds)).lte('created_at', date + 'T23:59:59.999Z'); // Only orders up to selected date
-
-        const {
-          data: allVisits
-        } = await supabase.from('visits').select('retailer_id, planned_date').eq('user_id', user.id).in('retailer_id', Array.from(allRetailerIds)).lte('planned_date', date); // Only visits up to selected date
-
-        // Calculate stats per retailer
         allRetailerIds.forEach(retailerId => {
-          const retailerOrders = (allOrders || []).filter(o => o.retailer_id === retailerId);
-          const retailerVisits = (allVisits || []).filter(v => v.retailer_id === retailerId);
+          const retailerOrders = allOrders.filter(o => o.retailer_id === retailerId);
+          const retailerVisits = allVisits.filter(v => v.retailer_id === retailerId);
           const totalSales = retailerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
           const avgSales = retailerOrders.length > 0 ? totalSales / retailerOrders.length : 0;
           const visitCount = retailerVisits.length;
