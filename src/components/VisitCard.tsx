@@ -195,13 +195,6 @@ export const VisitCard = ({
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
 
-  // Auto-start tracking when card is visible for today's visits
-  useEffect(() => {
-    if (isTodaysVisit && userId && !currentLog) {
-      startTracking('order', false);
-    }
-  }, [isTodaysVisit, userId, currentLog, startTracking]);
-
   // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
     const checkStatus = async () => {
