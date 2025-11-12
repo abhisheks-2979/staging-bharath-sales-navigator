@@ -731,11 +731,11 @@ export const MyVisits = () => {
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4">
             {/* Calendar Selector */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
-               <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+               <div className="flex items-center gap-2 flex-1">
                  <Popover>
                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm w-full sm:w-auto">
+                      <Button variant="outline" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm flex-1 sm:flex-none">
                         <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="truncate">
                           {t('visits.weekOf')} {format(selectedWeek, "MMM d, yyyy")}
@@ -754,7 +754,7 @@ export const MyVisits = () => {
                    </PopoverContent>
                  </Popover>
                </div>
-              <div className="flex items-center gap-1 self-end sm:self-auto">
+              <div className="flex items-center gap-1">
                 <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')} className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-8 w-8 p-0">
                   ←
                 </Button>
