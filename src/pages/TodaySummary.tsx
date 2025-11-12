@@ -1361,7 +1361,7 @@ export const TodaySummary = () => {
                       <div className="text-sm font-bold text-success whitespace-nowrap">
                         ₹{orders.reduce((sum, o) => sum + o.cashInHand, 0).toLocaleString()}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">Cash in Hand</div>
+                      <div className="text-xs text-muted-foreground mt-1">Amount Collected</div>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
