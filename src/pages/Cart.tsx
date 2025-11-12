@@ -821,31 +821,28 @@ React.useEffect(() => {
                 return (
                   <Card key={item.id} className="border-border/50">
                     <CardContent className="p-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         {/* Product Info - Compact */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm truncate">{displayName}</h3>
+                          <h3 className="font-semibold text-sm truncate leading-tight">{displayName}</h3>
                           <p className="text-xs text-muted-foreground">₹{getDisplayRate(item).toFixed(2)}/{item.unit}</p>
                         </div>
                         
                         {/* Quantity Controls - Compact */}
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-6 w-6 text-xs"
                             onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           >
                             -
                           </Button>
-                          <div className="w-12 text-center">
-                            <span className="text-sm font-medium block">{item.quantity}</span>
-                            <span className="text-[10px] text-muted-foreground">{item.unit}</span>
-                          </div>
+                          <span className="text-xs font-medium min-w-[40px] text-center">{item.quantity} {item.unit}</span>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-6 w-6 text-xs"
                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           >
                             +
@@ -853,30 +850,30 @@ React.useEffect(() => {
                         </div>
                         
                         {/* Price - Compact */}
-                        <div className="text-right min-w-[70px] shrink-0">
-                          <div className="font-bold text-sm">₹{formatINRTrunc2(finalPrice)}</div>
+                        <div className="text-right min-w-[60px] shrink-0">
+                          <div className="font-bold text-xs">₹{formatINRTrunc2(finalPrice)}</div>
                           {hasDiscount && (
                             <div className="text-[10px] text-green-600 font-medium">-₹{formatINRTrunc2(discount)}</div>
                           )}
                         </div>
                         
                         {/* Action Buttons - Compact */}
-                        <div className="flex gap-1 shrink-0">
+                        <div className="flex gap-0.5 shrink-0">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-primary"
+                            className="h-6 w-6 text-muted-foreground hover:text-primary"
                             onClick={() => {
                               setSelectedItem(item);
                               setShowItemDetail(true);
                             }}
                           >
-                            <Eye size={14} />
+                            <Eye size={12} />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive/80"
+                            className="h-6 w-6 text-destructive hover:text-destructive/80"
                             onClick={() => removeFromCart(item.id)}
                           >
                             <Trash2 size={14} />
