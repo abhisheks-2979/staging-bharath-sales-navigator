@@ -1346,19 +1346,19 @@ export const TodaySummary = () => {
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="text-center p-3 bg-primary/10 rounded-lg overflow-hidden">
-                      <div className="text-base font-bold text-primary break-words">
+                      <div className="text-sm font-bold text-primary whitespace-nowrap">
                         ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Total</div>
                     </div>
                     <div className="text-center p-3 bg-destructive/10 rounded-lg overflow-hidden">
-                      <div className="text-base font-bold text-destructive break-words">
+                      <div className="text-sm font-bold text-destructive whitespace-nowrap">
                         ₹{orders.reduce((sum, o) => sum + o.creditAmount, 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Credit</div>
                     </div>
                     <div className="text-center p-3 bg-success/10 rounded-lg overflow-hidden">
-                      <div className="text-base font-bold text-success break-words">
+                      <div className="text-sm font-bold text-success whitespace-nowrap">
                         ₹{orders.reduce((sum, o) => sum + o.cashInHand, 0).toLocaleString()}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Cash in Hand</div>
