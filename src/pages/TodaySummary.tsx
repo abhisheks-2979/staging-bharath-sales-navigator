@@ -871,50 +871,88 @@ export const TodaySummary = () => {
               </Select>
               
               {/* Custom Date Picker / Date Range Picker */}
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filterType === 'custom' 
-                      ? format(selectedDate, 'PPP')
-                      : filterType === 'dateRange'
-                      ? `${format(dateRange.from, 'PPP')} - ${format(dateRange.to, 'PPP')}`
-                      : 'Select custom date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  {filterType === 'dateRange' ? (
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={(range) => {
-                        if (range?.from && range?.to) {
-                          handleDateFilterChange('dateRange', range.from, range.to);
-                          setCalendarOpen(false);
+              <div className="flex items-center gap-2">
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex-1 justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filterType === 'custom'
+                        ? format(selectedDate, 'PPP')
+                        : filterType === 'dateRange'
+                        ? `${format(dateRange.from, 'PPP')} - ${format(dateRange.to, 'PPP')}`
+                        : 'Select custom date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    {filterType === 'dateRange' ? (
+                      <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={(range) => {
+                          if (range?.from && range?.to) {
+                            handleDateFilterChange('dateRange', range.from, range.to);
+                            setCalendarOpen(false);
+                          }
+                        }}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    ) : (
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            handleDateFilterChange('custom', date);
+                            setCalendarOpen(false);
+                          }
+                        }}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    )}
+                  </PopoverContent>
+                </Popover>
+                {filterType !== 'dateRange' && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        if (filterType === 'week' || filterType === 'lastWeek') {
+                          newDate.setDate(newDate.getDate() - 7);
+                        } else if (filterType === 'month') {
+                          newDate.setMonth(newDate.getMonth() - 1);
                         }
+                        handleDateFilterChange(filterType, newDate);
                       }}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  ) : (
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          handleDateFilterChange('custom', date);
-                          setCalendarOpen(false);
+                    >
+                      ←
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        if (filterType === 'week' || filterType === 'lastWeek') {
+                          newDate.setDate(newDate.getDate() + 7);
+                        } else if (filterType === 'month') {
+                          newDate.setMonth(newDate.getMonth() + 1);
                         }
+                        handleDateFilterChange(filterType, newDate);
                       }}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  )}
-                </PopoverContent>
-              </Popover>
+                    >
+                      →
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -951,7 +989,7 @@ export const TodaySummary = () => {
                    filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
                    'Selected Period'}
                 </div>
-                {(filterType === 'week' || filterType === 'lastWeek' || filterType === 'month') && (
+                {(filterType === 'week' || filterType === 'lastWeek' || filterType === 'month') && false && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
