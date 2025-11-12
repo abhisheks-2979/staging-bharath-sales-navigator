@@ -92,9 +92,23 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
         }
       }
 
-      // Generate invoice number based on order
-      const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
-      const invoiceDate = new Date(order.created_at);
+      // Fetch invoice number from database - find invoice for this order
+      let invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
+      const { data: invoiceData } = await supabase
+        .from("invoices")
+        .select("invoice_number, invoice_date")
+        .eq("customer_id", order.retailer_id)
+        .eq("created_by", order.user_id)
+        .gte("created_at", new Date(new Date(order.created_at).getTime() - 60000).toISOString()) // Within 1 minute before order
+        .lte("created_at", new Date(new Date(order.created_at).getTime() + 60000).toISOString()) // Within 1 minute after order
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      const invoiceDate = invoiceData?.invoice_date ? new Date(invoiceData.invoice_date) : new Date(order.created_at);
+      if (invoiceData?.invoice_number) {
+        invoiceNumber = invoiceData.invoice_number;
+      }
 
       // Generate PDF
       const doc = new jsPDF();

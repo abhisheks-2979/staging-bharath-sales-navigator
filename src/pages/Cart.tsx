@@ -671,6 +671,63 @@ export const Cart = () => {
       } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
+      // Create invoice record with auto-generated invoice number
+      const invoiceDate = new Date().toISOString().split('T')[0];
+      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 30 days from now
+
+      const { data: invoiceRecord, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert([{
+          customer_id: validRetailerId,
+          invoice_date: invoiceDate,
+          due_date: dueDate,
+          sub_total: subtotal,
+          total_tax: cgstAmount + sgstAmount,
+          total_amount: totalAmount,
+          created_by: user.id,
+          status: 'issued',
+          place_of_supply: '29-Karnataka'
+        }] as any)
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Error creating invoice:', invoiceError);
+      } else if (invoiceRecord) {
+        // Create invoice items
+        const invoiceItems = cartItems.map(item => {
+          const quantity = Number(item.quantity || 0);
+          const rate = Number(getDisplayRate(item));
+          const taxableAmount = quantity * rate;
+          const gstRate = 5; // 2.5% CGST + 2.5% SGST
+          const cgst = (taxableAmount * 2.5) / 100;
+          const sgst = (taxableAmount * 2.5) / 100;
+          const totalAmount = taxableAmount + cgst + sgst;
+
+          return {
+            invoice_id: invoiceRecord.id,
+            description: item.name,
+            quantity: quantity,
+            price_per_unit: rate,
+            gst_rate: gstRate,
+            taxable_amount: taxableAmount,
+            cgst_amount: cgst,
+            sgst_amount: sgst,
+            total_amount: totalAmount,
+            unit: item.unit,
+            hsn_sac: '090230'
+          };
+        });
+
+        const { error: invoiceItemsError } = await supabase
+          .from('invoice_items')
+          .insert(invoiceItems);
+
+        if (invoiceItemsError) {
+          console.error('Error creating invoice items:', invoiceItemsError);
+        }
+      }
+
       // Update retailer's pending amount based on order type
       if (validRetailerId) {
         await supabase.from('retailers').update({
