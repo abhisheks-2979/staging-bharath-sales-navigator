@@ -782,7 +782,10 @@ export const Cart = () => {
                           <Button variant="outline" size="icon" className="h-6 w-6 text-xs" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
                             -
                           </Button>
-                          <span className="text-xs font-medium min-w-[40px] text-center">{item.quantity} {item.unit}</span>
+                          <div className="min-w-[40px] text-center">
+                            <div className="text-xs font-medium leading-tight">{item.quantity}</div>
+                            <div className="text-[10px] text-muted-foreground leading-tight">{item.unit}</div>
+                          </div>
                           <Button variant="outline" size="icon" className="h-6 w-6 text-xs" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
                             +
                           </Button>
