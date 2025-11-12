@@ -26,6 +26,7 @@ import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
 import { CameraCapture } from "./CameraCapture";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
+import { useLocationFeature } from "@/hooks/useLocationFeature";
 
 interface Visit {
   id: string;
@@ -111,6 +112,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   const [showVanSales, setShowVanSales] = useState(false);
   const { isVanSalesEnabled } = useVanSales();
   const { isCheckInMandatory } = useCheckInMandatory();
+  const { isLocationEnabled } = useLocationFeature();
   
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -941,7 +943,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
   };
 
   const handleNoOrderClick = () => {
-    if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
+    if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
       toast({ 
         title: 'Check-in Required', 
         description: 'Please check in or proceed without check-in first.',
@@ -1149,18 +1151,20 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
 
         <div className="space-y-2">
           {/* First row - Check In, Order, Feedback, AI */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-            <Button 
-              size="sm" 
-              className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
-              onClick={handleLocationClick}
+          <div className={`grid gap-1.5 sm:gap-2 ${isLocationEnabled ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {isLocationEnabled && (
+              <Button 
+                size="sm" 
+                className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
+                onClick={handleLocationClick}
               title={getLocationBtnTitle()}
             >
               <MapPin size={12} className="sm:size-3.5" />
               <span className="text-xs">Check-In/Out</span>
             </Button>
+            )}
             
-            <Button 
+            <Button
               variant={hasOrderToday ? "default" : "outline"}
               size="sm"
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
@@ -1186,8 +1190,8 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   return;
                 }
 
-                // Check if check-in is required but not done
-                if (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
+                // Check if check-in is required but not done (only if location feature is enabled)
+                if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
                   toast({ 
                     title: 'Check-in Required', 
                     description: 'Please check in first to place an order.',
@@ -1216,7 +1220,7 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   toast({ title: 'Unable to open order entry', description: err.message || 'Please try again.', variant: 'destructive' });
                 }
               }}
-              title={`${(!isCheckedIn && !proceedWithoutCheckIn) ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
+              title={`${(isLocationEnabled && !isCheckedIn && !proceedWithoutCheckIn) ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}
             >
               <ShoppingCart size={12} className="sm:size-3.5" />
               <span className="text-xs">Order</span>
@@ -1356,13 +1360,14 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
               <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-4">
-              {!isCheckedIn && isTodaysVisit && (
+              {isLocationEnabled && !isCheckedIn && isTodaysVisit && (
                 <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-medium mb-1">📍 Location & Camera Required</p>
                   <p className="text-xs">Please allow location and camera access when prompted for check-in.</p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
+              {isLocationEnabled && (
+                <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={() => handleCheckInOut('checkin')}
                   className={`w-full h-12 text-base font-medium ${
@@ -1431,12 +1436,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   }`}
                   disabled={isCheckedIn || !isTodaysVisit}
                 >
-                  <Phone className="mr-2 h-5 w-5" />
-                  Phone Order
-                </Button>
-              </div>
-              <Button
-                onClick={() => handleCheckInOut('checkout')}
+                    <Phone className="mr-2 h-5 w-5" />
+                    Phone Order
+                  </Button>
+                </div>
+              )}
+              
+              {isLocationEnabled && (
+                <Button
+                  onClick={() => handleCheckInOut('checkout')}
                 className={`w-full h-12 text-base font-medium ${
                   isCheckedOut
                     ? 'bg-success text-success-foreground hover:bg-success/90 border-success'
@@ -1447,13 +1455,15 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                 variant={isCheckedOut ? "default" : "outline"}
                 disabled={!isCheckedIn || isCheckedOut || !isTodaysVisit}
               >
-                <LogOut className="mr-2 h-5 w-5" />
-                {isCheckedOut ? 'Checked Out' : 'Check Out'}
-              </Button>
+                  <LogOut className="mr-2 h-5 w-5" />
+                  {isCheckedOut ? 'Checked Out' : 'Check Out'}
+                </Button>
+              )}
               
-              <div className="pt-2 border-t">
-                {!showReasonInput && !proceedWithoutCheckIn && !isCheckedIn && (
-                  <button
+              {isLocationEnabled && (
+                <div className="pt-2 border-t">
+                  {!showReasonInput && !proceedWithoutCheckIn && !isCheckedIn && (
+                    <button
                     onClick={() => setShowReasonInput(true)}
                     className="w-full text-sm text-primary hover:underline text-center py-2"
                   >
@@ -1683,12 +1693,13 @@ export const VisitCard = ({ visit, onViewDetails, selectedDate }: VisitCardProps
                   </div>
                 )}
                 
-                {proceedWithoutCheckIn && (
-                  <div className="text-sm text-center py-2 text-muted-foreground">
-                    Proceeding without check-in
-                  </div>
-                )}
-              </div>
+                  {proceedWithoutCheckIn && (
+                    <div className="text-sm text-center py-2 text-muted-foreground">
+                      Proceeding without check-in
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

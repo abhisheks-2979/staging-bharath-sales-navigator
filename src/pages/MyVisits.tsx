@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
 import { VanStockManagement } from "@/components/VanStockManagement";
+import { useLocationFeature } from "@/hooks/useLocationFeature";
 interface Visit {
   id: string;
   retailerName: string;
@@ -169,6 +170,8 @@ export const MyVisits = () => {
     generateRecommendation: generateRetailerRecs,
     provideFeedback: provideRetailerFeedback
   } = useRecommendations('retailer_priority', currentBeatId);
+  
+  const { isLocationEnabled } = useLocationFeature();
 
   // Initialize selected day to today
   useEffect(() => {
