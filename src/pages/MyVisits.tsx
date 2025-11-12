@@ -779,7 +779,6 @@ export const MyVisits = () => {
                 {t('visits.journeyPlan')}
               </Button>
               <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/my-retailers')}>
-                <Plus size={14} className="mr-1" />
                 {t('visits.allRetailers')}
               </Button>
               <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/add-retailer', {
