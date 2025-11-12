@@ -886,20 +886,20 @@ export const Cart = () => {
                     <Button onClick={() => {
                   setPaymentType("full");
                   setPaymentMethod("");
-                }} variant={paymentType === "full" ? "default" : "outline"} className="h-8 text-xs px-2">
-                      Full Pay
+                }} variant={paymentType === "full" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
+                      Full Payment
                     </Button>
                     <Button onClick={() => {
                   setPaymentType("partial");
                   setPaymentMethod("");
-                }} variant={paymentType === "partial" ? "default" : "outline"} className="h-8 text-xs px-2">
-                      Partial
+                }} variant={paymentType === "partial" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
+                      Partial Payment
                     </Button>
                     <Button onClick={() => {
                   setPaymentType("credit");
                   setPaymentMethod("");
-                }} variant={paymentType === "credit" ? "default" : "outline"} className="h-8 text-xs px-2">
-                      Credit
+                }} variant={paymentType === "credit" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
+                      Full Credit
                     </Button>
                   </div>
                 </div>
