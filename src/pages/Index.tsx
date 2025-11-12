@@ -240,7 +240,7 @@ const Index = () => {
                     setProfilePictureUrl(newUrl);
                     refreshProfilePicture();
                   }}
-                  size="lg"
+                  size="md"
                 />
               )}
               <div className="text-left">
