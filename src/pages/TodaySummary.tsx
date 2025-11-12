@@ -942,13 +942,51 @@ export const TodaySummary = () => {
         <Card>
           <CardContent className="p-4 space-y-3">
             <div>
-              <div className="text-sm text-muted-foreground mb-1">
-                {filterType === 'today' ? 'Today' : 
-                 filterType === 'week' ? 'This Week' :
-                 filterType === 'lastWeek' ? 'Last Week' :
-                 filterType === 'month' ? 'This Month' : 
-                 filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
-                 'Selected Period'}
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-sm text-muted-foreground">
+                  {filterType === 'today' ? 'Today' : 
+                   filterType === 'week' ? 'This Week' :
+                   filterType === 'lastWeek' ? 'Last Week' :
+                   filterType === 'month' ? 'This Month' : 
+                   filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+                   'Selected Period'}
+                </div>
+                {(filterType === 'week' || filterType === 'lastWeek' || filterType === 'month') && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        if (filterType === 'week' || filterType === 'lastWeek') {
+                          newDate.setDate(newDate.getDate() - 7);
+                        } else if (filterType === 'month') {
+                          newDate.setMonth(newDate.getMonth() - 1);
+                        }
+                        handleDateFilterChange(filterType, newDate);
+                      }}
+                    >
+                      ←
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        if (filterType === 'week' || filterType === 'lastWeek') {
+                          newDate.setDate(newDate.getDate() + 7);
+                        } else if (filterType === 'month') {
+                          newDate.setMonth(newDate.getMonth() + 1);
+                        }
+                        handleDateFilterChange(filterType, newDate);
+                      }}
+                    >
+                      →
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-muted-foreground" />
