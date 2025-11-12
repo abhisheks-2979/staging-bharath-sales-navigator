@@ -16,7 +16,7 @@ import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, par
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom';
+type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
@@ -94,7 +94,7 @@ export const TodaySummary = () => {
     fetchTodaysData();
   }, [dateRange, filterType]);
 
-  const handleDateFilterChange = (type: DateFilterType, date?: Date) => {
+  const handleDateFilterChange = (type: DateFilterType, date?: Date, rangeTo?: Date) => {
     setFilterType(type);
     
     const now = new Date();
@@ -129,6 +129,12 @@ export const TodaySummary = () => {
       case 'custom':
         if (date) {
           setDateRange({ from: date, to: date });
+          setSelectedDate(date);
+        }
+        break;
+      case 'dateRange':
+        if (date && rangeTo) {
+          setDateRange({ from: date, to: rangeTo });
           setSelectedDate(date);
         }
         break;
@@ -604,7 +610,8 @@ export const TodaySummary = () => {
         filterType === 'today' ? "Today's Summary" : 
         filterType === 'week' ? "This Week's Summary" :
         filterType === 'lastWeek' ? "Last Week's Summary" :
-        filterType === 'month' ? "Monthly Summary" : "Visit Summary", 
+        filterType === 'month' ? "Monthly Summary" :
+        filterType === 'dateRange' ? "Date Range Summary" : "Visit Summary", 
         pageWidth / 2, 
         yPosition, 
         { align: 'center' }
@@ -825,6 +832,7 @@ export const TodaySummary = () => {
                    filterType === 'week' ? "This Week's Summary" :
                    filterType === 'lastWeek' ? "Last Week's Summary" :
                    filterType === 'month' ? "Monthly Summary" :
+                   filterType === 'dateRange' ? "Date Range Summary" :
                    "Visit Summary"}
                 </CardTitle>
                 <p className="text-primary-foreground/80">{summaryData.date}</p>
@@ -840,10 +848,13 @@ export const TodaySummary = () => {
             <div className="space-y-3">
               {/* Quick Filters Dropdown */}
               <Select 
-                value={filterType === 'custom' ? 'custom' : filterType} 
+                value={filterType === 'custom' || filterType === 'dateRange' ? filterType : filterType} 
                 onValueChange={(value: DateFilterType) => {
-                  if (value !== 'custom') {
+                  if (value !== 'custom' && value !== 'dateRange') {
                     handleDateFilterChange(value);
+                  } else if (value === 'dateRange') {
+                    setFilterType('dateRange');
+                    setCalendarOpen(true);
                   }
                 }}
               >
@@ -855,10 +866,11 @@ export const TodaySummary = () => {
                   <SelectItem value="week">This Week</SelectItem>
                   <SelectItem value="lastWeek">Last Week</SelectItem>
                   <SelectItem value="month">Month</SelectItem>
+                  <SelectItem value="dateRange">Date Range</SelectItem>
                 </SelectContent>
               </Select>
               
-              {/* Custom Date Picker */}
+              {/* Custom Date Picker / Date Range Picker */}
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -868,22 +880,39 @@ export const TodaySummary = () => {
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {filterType === 'custom' 
                       ? format(selectedDate, 'PPP')
+                      : filterType === 'dateRange'
+                      ? `${format(dateRange.from, 'PPP')} - ${format(dateRange.to, 'PPP')}`
                       : 'Select custom date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => {
-                      if (date) {
-                        handleDateFilterChange('custom', date);
-                        setCalendarOpen(false);
-                      }
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
+                  {filterType === 'dateRange' ? (
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          handleDateFilterChange('dateRange', range.from, range.to);
+                          setCalendarOpen(false);
+                        }
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  ) : (
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          handleDateFilterChange('custom', date);
+                          setCalendarOpen(false);
+                        }
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  )}
                 </PopoverContent>
               </Popover>
             </div>
@@ -917,7 +946,9 @@ export const TodaySummary = () => {
                 {filterType === 'today' ? 'Today' : 
                  filterType === 'week' ? 'This Week' :
                  filterType === 'lastWeek' ? 'Last Week' :
-                 filterType === 'month' ? 'This Month' : 'Selected Period'}
+                 filterType === 'month' ? 'This Month' : 
+                 filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+                 'Selected Period'}
               </div>
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-muted-foreground" />
