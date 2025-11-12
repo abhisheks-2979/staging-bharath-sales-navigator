@@ -838,7 +838,10 @@ React.useEffect(() => {
                           >
                             -
                           </Button>
-                          <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                          <div className="w-12 text-center">
+                            <span className="text-sm font-medium block">{item.quantity}</span>
+                            <span className="text-[10px] text-muted-foreground">{item.unit}</span>
+                          </div>
                           <Button
                             variant="outline"
                             size="icon"
