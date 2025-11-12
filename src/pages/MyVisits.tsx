@@ -786,9 +786,7 @@ export const MyVisits = () => {
                   returnTo: '/visits/retailers'
                 }
               })}>
-                <Plus size={14} className="mr-1" />
-                <span className="hidden sm:inline">{t('visits.addRetailer', 'Add Retailer')}</span>
-                <span className="sm:hidden">Add</span>
+                + Retailer
               </Button>
             </div>
             <div className="grid grid-cols-1 gap-2 mb-2">
