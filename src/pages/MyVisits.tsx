@@ -773,7 +773,7 @@ export const MyVisits = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-3 gap-2 mb-2">
               <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
                 <Route size={14} className="mr-1" />
                 {t('visits.journeyPlan')}
@@ -781,6 +781,15 @@ export const MyVisits = () => {
               <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/my-retailers')}>
                 <Plus size={14} className="mr-1" />
                 {t('visits.allRetailers')}
+              </Button>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/add-retailer', {
+                state: {
+                  returnTo: '/visits/retailers'
+                }
+              })}>
+                <Plus size={14} className="mr-1" />
+                <span className="hidden sm:inline">{t('visits.addRetailer', 'Add Retailer')}</span>
+                <span className="sm:hidden">Add</span>
               </Button>
             </div>
             <div className="grid grid-cols-1 gap-2 mb-2">
@@ -862,15 +871,6 @@ export const MyVisits = () => {
               <div className="flex-1">
                 <VisitFilters filters={filters} onFiltersChange={setFilters} availableCategories={availableCategories} availableLocations={availableLocations} />
               </div>
-              <Button onClick={() => navigate('/add-retailer', {
-              state: {
-                returnTo: '/visits/retailers'
-              }
-            })} className="flex items-center gap-2 whitespace-nowrap h-9" size="sm">
-                <Plus size={16} />
-                <span className="hidden sm:inline">Add Retailer</span>
-                <span className="sm:hidden">Add</span>
-              </Button>
             </div>
           </CardContent>
         </Card>
