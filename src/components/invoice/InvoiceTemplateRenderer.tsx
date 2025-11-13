@@ -116,6 +116,7 @@ export default function InvoiceTemplateRenderer({
           retailer={retailer}
           cartItems={cartItems}
           orderId={orderId}
+          showDownloadButton={false}
         />
       )}
       {customTemplate && (

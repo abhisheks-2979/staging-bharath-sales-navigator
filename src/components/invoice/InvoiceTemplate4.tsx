@@ -9,6 +9,7 @@ interface InvoiceTemplate4Props {
   retailer: any;
   cartItems: any[];
   orderId?: string;
+  showDownloadButton?: boolean;
 }
 
 // Helper function to convert number to words
@@ -59,6 +60,7 @@ export default function InvoiceTemplate4({
   retailer,
   cartItems,
   orderId,
+  showDownloadButton = true,
 }: InvoiceTemplate4Props) {
   const generatePDF = async () => {
     try {
@@ -369,10 +371,10 @@ export default function InvoiceTemplate4({
     }
   };
 
-  return (
+  return showDownloadButton ? (
     <Button onClick={generatePDF} className="w-full">
       <Download className="w-4 h-4 mr-2" />
       Download Invoice (Template 4)
     </Button>
-  );
+  ) : null;
 }
