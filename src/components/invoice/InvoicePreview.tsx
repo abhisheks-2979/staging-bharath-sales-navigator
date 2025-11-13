@@ -5,22 +5,17 @@ interface InvoicePreviewProps {
   orderId?: string;
   templateStyle: "template1" | "template2" | "template3" | "template4";
 }
-
 export default function InvoicePreview({
   company,
   retailer,
   cartItems,
   orderId = "INV001",
-  templateStyle,
+  templateStyle
 }: InvoicePreviewProps) {
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0),
-    0
-  );
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0), 0);
   const cgst = subtotal * 0.025;
   const sgst = subtotal * 0.025;
   const total = subtotal + cgst + sgst;
-
   const getStyleClasses = () => {
     switch (templateStyle) {
       case "template1":
@@ -28,49 +23,44 @@ export default function InvoicePreview({
           container: "border-2 border-gray-800 bg-white text-black",
           header: "bg-blue-600 text-white",
           tableHeader: "bg-blue-600 text-white",
-          totalBox: "bg-blue-600 text-white",
+          totalBox: "bg-blue-600 text-white"
         };
       case "template2":
         return {
           container: "bg-white text-black",
           header: "bg-gray-700 text-white",
           tableHeader: "bg-gray-700 text-white",
-          totalBox: "bg-gray-700 text-white",
+          totalBox: "bg-gray-700 text-white"
         };
       case "template3":
         return {
           container: "bg-white text-black",
           header: "bg-gray-800 text-white",
           tableHeader: "bg-gray-800 text-white",
-          totalBox: "bg-gray-800 text-white",
+          totalBox: "bg-gray-800 text-white"
         };
       case "template4":
         return {
           container: "bg-white text-black",
           header: "bg-gray-800 text-white",
           tableHeader: "bg-green-600 text-white",
-          totalBox: "bg-green-600 text-white",
+          totalBox: "bg-green-600 text-white"
         };
       default:
         return {
           container: "border border-gray-300 bg-white text-black",
           header: "bg-gray-800 text-white",
           tableHeader: "bg-gray-600 text-white",
-          totalBox: "bg-gray-600 text-white",
+          totalBox: "bg-gray-600 text-white"
         };
     }
   };
-
   const styles = getStyleClasses();
-
-  return (
-    <div className={`p-6 rounded-lg ${styles.container} max-w-4xl mx-auto text-sm`}>
+  return <div className={`p-6 rounded-lg ${styles.container} max-w-4xl mx-auto text-sm`}>
       {/* Header */}
       <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-6`}>
         <div className="flex items-center gap-4">
-          {company.logo_url && (
-            <img src={company.logo_url} alt="Company Logo" className="w-28 h-28 object-contain" />
-          )}
+          {company.logo_url && <img src={company.logo_url} alt="Company Logo" className="w-28 h-28 object-contain" />}
           <div>
             <h1 className="text-lg font-bold">{company.name || "COMPANY NAME"}</h1>
             <p className="text-xs opacity-90">{company.address}</p>
@@ -120,8 +110,7 @@ export default function InvoicePreview({
             </tr>
           </thead>
           <tbody>
-            {cartItems.map((item, index) => (
-              <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+            {cartItems.map((item, index) => <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                 <td className="border border-gray-300 p-2 text-center text-xs">{index + 1}</td>
                 <td className="border border-gray-300 p-2 text-xs">{item.product_name || item.name}</td>
                 <td className="border border-gray-300 p-2 text-center text-xs">{item.hsn_code || "-"}</td>
@@ -133,8 +122,7 @@ export default function InvoicePreview({
                 <td className="border border-gray-300 p-2 text-right text-xs">
                   ₹{((item.quantity || 0) * (item.rate || item.price || 0)).toFixed(2)}
                 </td>
-              </tr>
-            ))}
+              </tr>)}
           </tbody>
         </table>
       </div>
@@ -189,10 +177,7 @@ export default function InvoicePreview({
       {/* Footer */}
       <div className={`${styles.header} p-3 rounded-b-lg text-center mt-6`}>
         <p className="text-xl font-bold mb-2">THANK YOU FOR YOUR BUSINESS</p>
-        <p className="text-xs opacity-90">
-          {[company.address, company.contact_phone, company.email].filter(Boolean).join(" - ")}
-        </p>
+        
       </div>
-    </div>
-  );
+    </div>;
 }
