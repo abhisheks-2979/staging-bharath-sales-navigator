@@ -69,7 +69,7 @@ export default function InvoicePreview({
       <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-6`}>
         <div className="flex items-center gap-4">
           {company.logo_url && (
-            <img src={company.logo_url} alt="Company Logo" className="w-12 h-12 rounded-full bg-green-500 p-1" />
+            <img src={company.logo_url} alt="Company Logo" className="w-16 h-16 object-contain" />
           )}
           <div>
             <h1 className="text-lg font-bold">{company.name || "COMPANY NAME"}</h1>
@@ -155,7 +155,7 @@ export default function InvoicePreview({
             <span className="text-xs">₹{cgst.toFixed(2)}</span>
           </div>
           <div className={`${styles.totalBox} p-2 rounded flex justify-between`}>
-            <span className="font-bold text-sm">Due</span>
+            <span className="font-bold text-sm">Total</span>
             <span className="font-bold text-sm">₹{total.toFixed(2)}</span>
           </div>
         </div>
