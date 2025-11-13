@@ -27,10 +27,10 @@ export default function InvoicePreview({
         };
       case "template2":
         return {
-          container: "bg-white text-black",
-          header: "bg-gray-700 text-white",
-          tableHeader: "bg-gray-700 text-white",
-          totalBox: "bg-gray-700 text-white"
+          container: "border-2 border-purple-200 bg-gradient-to-br from-purple-50/30 to-white text-black",
+          header: "bg-gradient-to-r from-purple-400 to-pink-400 text-white",
+          tableHeader: "bg-gradient-to-r from-purple-400 to-pink-400 text-white",
+          totalBox: "bg-gradient-to-r from-purple-400 to-pink-400 text-white"
         };
       case "template3":
         return {
