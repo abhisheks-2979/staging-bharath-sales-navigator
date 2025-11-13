@@ -196,21 +196,32 @@ export default function InvoicePreview({
         </div>
       </div>
 
-      {/* Bank Details */}
-      <div className="mb-6">
-        <h3 className="font-bold text-xs mb-2">BANK DETAILS</h3>
-        <div className="text-xs space-y-1">
-          {company.bank_name && <p>Bank: {company.bank_name}</p>}
-          {company.account_holder_name && <p>Account Holder: {company.account_holder_name}</p>}
-          {company.bank_account && <p>Account Number: {company.bank_account}</p>}
-          {company.ifsc && <p>IFSC: {company.ifsc}</p>}
-          {company.qr_upi && <p>UPI ID: {company.qr_upi}</p>}
+      {/* Bank Details and QR Code */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Bank Details */}
+        <div>
+          <h3 className="font-bold text-xs mb-2">BANK DETAILS</h3>
+          <div className="text-xs space-y-1">
+            {company.bank_name && <p>Bank: {company.bank_name}</p>}
+            {company.account_holder_name && <p>Account Holder: {company.account_holder_name}</p>}
+            {company.bank_account && <p>Account Number: {company.bank_account}</p>}
+            {company.ifsc && <p>IFSC: {company.ifsc}</p>}
+            {company.qr_upi && <p>UPI ID: {company.qr_upi}</p>}
+          </div>
         </div>
         
+        {/* QR Code for Payment */}
         {company.qr_code_url && (
-          <div className="mt-3">
-            <p className="text-xs font-bold mb-1">Scan to Pay</p>
-            <img src={company.qr_code_url} alt="Payment QR Code" className="w-24 h-24 object-contain border border-border rounded" />
+          <div className="flex flex-col items-center justify-center border-2 border-primary/20 rounded-lg p-4 bg-primary/5">
+            <p className="text-sm font-bold mb-3 text-primary">Scan QR for Payment</p>
+            <img 
+              src={company.qr_code_url} 
+              alt="Payment QR Code" 
+              className="w-32 h-32 object-contain border-2 border-primary rounded-lg shadow-md" 
+            />
+            {company.qr_upi && (
+              <p className="text-xs text-muted-foreground mt-2">UPI: {company.qr_upi}</p>
+            )}
           </div>
         )}
       </div>
