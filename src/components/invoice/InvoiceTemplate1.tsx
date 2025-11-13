@@ -79,18 +79,27 @@ export default function InvoiceTemplate1({
       const tableData = cartItems.map((item, index) => [
         index + 1,
         item.product_name || item.name,
-        item.quantity,
+        item.hsn_code || "-",
         item.unit || "Piece",
+        item.quantity,
         `₹${(item.rate || item.price || 0).toFixed(2)}`,
         `₹${((item.quantity || 0) * (item.rate || item.price || 0)).toFixed(2)}`,
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [["#", "Item Description", "Qty", "Unit", "Rate", "Amount"]],
+        head: [["#", "Item Description", "HSN/SAC", "Unit", "Qty", "Rate", "Amount"]],
         body: tableData,
         theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 15 },
+          6: { halign: "right" },
+        },
         margin: { left: 15, right: 15 },
       });
 
@@ -102,21 +111,25 @@ export default function InvoiceTemplate1({
       const sgst = subtotal * 0.025;
       const total = subtotal + cgst + sgst;
 
-      doc.text("Subtotal:", pageWidth - 80, yPos);
-      doc.text(`₹${subtotal.toFixed(2)}`, pageWidth - 20, yPos, { align: "right" });
+      const rightCol = pageWidth - 15;
+      const labelX = pageWidth - 75;
+
+      doc.setFontSize(9);
+      doc.text("Subtotal:", labelX, yPos);
+      doc.text(`₹${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 7;
       
-      doc.text("CGST @ 2.5%:", pageWidth - 80, yPos);
-      doc.text(`₹${cgst.toFixed(2)}`, pageWidth - 20, yPos, { align: "right" });
+      doc.text("CGST (2.5%):", labelX, yPos);
+      doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 7;
       
-      doc.text("SGST @ 2.5%:", pageWidth - 80, yPos);
-      doc.text(`₹${sgst.toFixed(2)}`, pageWidth - 20, yPos, { align: "right" });
+      doc.text("SGST (2.5%):", labelX, yPos);
+      doc.text(`₹${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 7;
       
       doc.setFont("helvetica", "bold");
-      doc.text("Total:", pageWidth - 80, yPos);
-      doc.text(`₹${total.toFixed(2)}`, pageWidth - 20, yPos, { align: "right" });
+      doc.text("Total:", labelX, yPos);
+      doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
       
       yPos += 15;
 

@@ -170,23 +170,24 @@ export default function InvoiceTemplate4({
         return [
           (index + 1).toString(),
           item.product_name || item.name || "Item",
+          item.hsn_code || "-",
           item.unit || "Piece",
-          `₹${rate.toFixed(2)}`,
           qty.toString(),
+          `₹${rate.toFixed(2)}`,
           `₹${total.toFixed(2)}`,
         ];
       });
 
       autoTable(doc, {
         startY: 95,
-        head: [["NO", "DESCRIPTION", "UNIT", "PRICE", "QTY", "TOTAL"]],
+        head: [["NO", "DESCRIPTION", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]],
         body: tableData,
         theme: "plain",
         headStyles: {
           fillColor: [139, 195, 74],
           textColor: [255, 255, 255],
           fontStyle: "bold",
-          fontSize: 9,
+          fontSize: 8,
           halign: "center",
         },
         bodyStyles: {
@@ -197,12 +198,13 @@ export default function InvoiceTemplate4({
           fillColor: [250, 250, 250],
         },
         columnStyles: {
-          0: { cellWidth: 15, halign: "center" },
-          1: { cellWidth: 65, halign: "left" },
+          0: { cellWidth: 12, halign: "center" },
+          1: { cellWidth: 50, halign: "left" },
           2: { cellWidth: 20, halign: "center" },
-          3: { cellWidth: 25, halign: "right" },
-          4: { cellWidth: 15, halign: "center" },
-          5: { cellWidth: 30, halign: "right" },
+          3: { cellWidth: 15, halign: "center" },
+          4: { cellWidth: 12, halign: "center" },
+          5: { cellWidth: 25, halign: "right" },
+          6: { cellWidth: 26, halign: "right" },
         },
         margin: { left: 15, right: 15 },
       });
@@ -222,34 +224,34 @@ export default function InvoiceTemplate4({
 
       // Totals section (right-aligned)
       yPos = (doc as any).lastAutoTable.finalY + 12;
-      const rightCol = pageWidth - 18;
-      const labelCol = pageWidth - 65;
+      const rightCol = pageWidth - 15;
+      const labelCol = pageWidth - 60;
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
       
-      doc.text("SUB-TOTAL", labelCol, yPos, { align: "right" });
-      doc.text(`₹ ${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
+      doc.text("SUB-TOTAL", labelCol, yPos);
+      doc.text(`₹${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
       
       yPos += 5;
-      doc.text("SGST (2.5%)", labelCol, yPos, { align: "right" });
-      doc.text(`₹ ${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+      doc.text("SGST (2.5%)", labelCol, yPos);
+      doc.text(`₹${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
       
       yPos += 5;
-      doc.text("CGST (2.5%)", labelCol, yPos, { align: "right" });
-      doc.text(`₹ ${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+      doc.text("CGST (2.5%)", labelCol, yPos);
+      doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
 
       // Total Due box (green background)
       yPos += 8;
       doc.setFillColor(139, 195, 74);
-      doc.rect(labelCol - 8, yPos - 4, 73, 9, "F");
+      doc.rect(labelCol - 5, yPos - 4, rightCol - labelCol + 20, 9, "F");
       
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text("Total Due", labelCol, yPos, { align: "right" });
-      doc.text(`₹ ${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
+      doc.text("Due", labelCol, yPos);
+      doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
       
       doc.setTextColor(0, 0, 0);
       
