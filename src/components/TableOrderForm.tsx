@@ -739,7 +739,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         className="w-full"
         disabled={getTotalValue() === 0}
       >
-        Add All to Cart
+        Preview Order
       </Button>
       
       <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
