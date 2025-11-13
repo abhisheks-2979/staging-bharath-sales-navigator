@@ -90,6 +90,8 @@ export const Cart = () => {
   const [showInvoicePreview, setShowInvoicePreview] = React.useState(false);
   const [companyData, setCompanyData] = React.useState<any>(null);
   const [retailerData, setRetailerData] = React.useState<any>(null);
+  const [selectedTemplate, setSelectedTemplate] = React.useState<any>(null);
+  const [selectedTemplateItems, setSelectedTemplateItems] = React.useState<any[]>([]);
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -247,7 +249,7 @@ export const Cart = () => {
     }
   }, [visitId]);
 
-  // Fetch company and retailer data for invoice preview
+  // Fetch company, retailer data, and selected template for invoice preview
   React.useEffect(() => {
     const fetchInvoiceData = async () => {
       // Fetch company data
@@ -262,6 +264,32 @@ export const Cart = () => {
           .eq("id", validRetailerId)
           .single();
         if (retailer) setRetailerData(retailer);
+      }
+
+      // Fetch selected template
+      const selectedTemplateId = localStorage.getItem('selected_invoice_template');
+      if (selectedTemplateId) {
+        const { data: template } = await supabase
+          .from("invoices")
+          .select(`
+            *,
+            retailers:customer_id(name, address, phone, gst_number),
+            companies(*)
+          `)
+          .eq("id", selectedTemplateId)
+          .single();
+        
+        if (template) {
+          setSelectedTemplate(template);
+          
+          // Fetch template items
+          const { data: items } = await supabase
+            .from("invoice_items")
+            .select("*")
+            .eq("invoice_id", selectedTemplateId);
+          
+          if (items) setSelectedTemplateItems(items);
+        }
       }
     };
     fetchInvoiceData();
@@ -1132,53 +1160,69 @@ export const Cart = () => {
             </DialogHeader>
             
             <div className="bg-white text-black p-8 rounded-lg space-y-4">
-              {/* Title */}
-              <div className="text-center">
-                <h1 className="text-xl font-bold text-gray-900">Tax Invoice</h1>
-              </div>
+              {!selectedTemplate ? (
+                <div className="text-center p-8 space-y-4">
+                  <p className="text-gray-600">No invoice template selected</p>
+                  <p className="text-sm text-gray-500">Please select a template from Invoice Management</p>
+                </div>
+              ) : (
+                <>
+                  {/* Title */}
+                  <div className="text-center">
+                    <h1 className="text-xl font-bold text-gray-900">Tax Invoice</h1>
+                  </div>
 
-              {/* Company Header Box */}
-              <div className="border-2 border-gray-900 p-4">
-                <div className="flex items-start gap-4">
-                  {companyData?.logo_url && (
-                    <img src={companyData.logo_url} alt="Company Logo" className="w-24 h-16 object-contain" />
-                  )}
-                  <div className="flex-1">
-                    <h2 className="text-lg font-bold text-gray-900">{companyData?.name || "BHARATH BEVERAGES"}</h2>
-                    <div className="text-xs text-gray-700 space-y-0.5 mt-1">
-                      {companyData?.address && <p>{companyData.address}</p>}
-                      {companyData?.contact_phone && <p>Phone: {companyData.contact_phone}</p>}
-                      {companyData?.email && <p>Email: {companyData.email}</p>}
-                      {companyData?.gstin && <p>GSTIN: {companyData.gstin}</p>}
-                      <p>State: {companyData?.state || "29-Karnataka"}</p>
+                  {/* Company Header Box */}
+                  <div className="border-2 border-gray-900 p-4">
+                    <div className="flex items-start gap-4">
+                      {selectedTemplate?.companies?.logo_url && (
+                        <img src={selectedTemplate.companies.logo_url} alt="Company Logo" className="w-24 h-16 object-contain" />
+                      )}
+                      <div className="flex-1">
+                        <h2 className="text-lg font-bold text-gray-900">{selectedTemplate?.companies?.name || "BHARATH BEVERAGES"}</h2>
+                        <div className="text-xs text-gray-700 space-y-0.5 mt-1">
+                          {selectedTemplate?.companies?.address && <p>{selectedTemplate.companies.address}</p>}
+                          {selectedTemplate?.companies?.contact_phone && <p>Phone: {selectedTemplate.companies.contact_phone}</p>}
+                          {selectedTemplate?.companies?.email && <p>Email: {selectedTemplate.companies.email}</p>}
+                          {selectedTemplate?.companies?.gstin && <p>GSTIN: {selectedTemplate.companies.gstin}</p>}
+                          <p>State: {selectedTemplate?.companies?.state || selectedTemplate?.place_of_supply || "29-Karnataka"}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
 
-              {/* Bill To and Invoice Details */}
-              <div className="grid grid-cols-2 gap-0">
-                <div className="border-2 border-gray-900 border-r-0 p-3">
-                  <h3 className="font-bold text-sm text-gray-900 mb-2">Bill To:</h3>
-                  <div className="text-xs text-gray-700 space-y-1">
-                    {retailerData?.name && <p className="font-semibold">{retailerData.name}</p>}
-                    {retailerData?.address && <p>{retailerData.address}</p>}
-                    {retailerData?.phone && <p>Contact: {retailerData.phone}</p>}
-                    {retailerData?.gst_number && <p>GSTIN: {retailerData.gst_number}</p>}
+              {selectedTemplate && (
+                <>
+                  {/* Bill To and Invoice Details */}
+                  <div className="grid grid-cols-2 gap-0">
+                    <div className="border-2 border-gray-900 border-r-0 p-3">
+                      <h3 className="font-bold text-sm text-gray-900 mb-2">Bill To:</h3>
+                      <div className="text-xs text-gray-700 space-y-1">
+                        {retailerData?.name && <p className="font-semibold">{retailerData.name}</p>}
+                        {retailerData?.address && <p>{retailerData.address}</p>}
+                        {retailerData?.phone && <p>Contact: {retailerData.phone}</p>}
+                        {retailerData?.gst_number && <p>GSTIN: {retailerData.gst_number}</p>}
+                      </div>
+                    </div>
+                    <div className="border-2 border-gray-900 p-3">
+                      <h3 className="font-bold text-sm text-gray-900 mb-2">Invoice Details:</h3>
+                      <div className="text-xs text-gray-700 space-y-1">
+                        <p>No: <span className="font-semibold">PENDING</span></p>
+                        <p>Date: {visitDate ? format(new Date(visitDate), 'dd MMM yyyy') : format(new Date(), 'dd MMM yyyy')}</p>
+                        <p>Place Of Supply: {selectedTemplate.place_of_supply || "Karnataka"}</p>
+                        {selectedTemplate.vehicle_number && <p>Vehicle: {selectedTemplate.vehicle_number}</p>}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="border-2 border-gray-900 p-3">
-                  <h3 className="font-bold text-sm text-gray-900 mb-2">Invoice Details:</h3>
-                  <div className="text-xs text-gray-700 space-y-1">
-                    <p>No: <span className="font-semibold">PENDING</span></p>
-                    <p>Date: {visitDate ? format(new Date(visitDate), 'dd MMM yyyy') : format(new Date(), 'dd MMM yyyy')}</p>
-                    <p>Place Of Supply: Karnataka</p>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
 
-              {/* Items Table */}
-              <div className="border-2 border-gray-900 overflow-hidden">
+              {selectedTemplate && (
+                <>
+                  {/* Items Table */}
+                  <div className="border-2 border-gray-900 overflow-hidden">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-white border-b-2 border-gray-900">
@@ -1330,44 +1374,50 @@ export const Cart = () => {
               })()}
 
               {/* Terms & Conditions */}
-              <div className="border-2 border-gray-900 p-2">
-                <h3 className="font-bold text-xs text-gray-900 mb-1">Terms & Conditions:</h3>
-                <p className="text-[9px] text-gray-700">
-                  {companyData?.terms_conditions || "Thanks for doing business with us!"}
-                </p>
-              </div>
+              {selectedTemplate?.terms && (
+                <div className="border-2 border-gray-900 p-2">
+                  <h3 className="font-bold text-xs text-gray-900 mb-1">Terms & Conditions:</h3>
+                  <p className="text-[9px] text-gray-700">
+                    {selectedTemplate.terms}
+                  </p>
+                </div>
+              )}
 
               {/* Bank Details and Signature */}
-              <div className="grid grid-cols-2 gap-0">
-                <div className="border-2 border-gray-900 border-r-0 p-3">
-                  <h3 className="font-bold text-xs text-gray-900 mb-2">Bank Details:</h3>
-                  <div className="flex gap-3">
-                    {companyData?.qr_code_url && (
-                      <img src={companyData.qr_code_url} alt="QR Code" className="w-16 h-16 object-contain" />
-                    )}
-                    <div className="text-[9px] text-gray-700 space-y-1">
-                      {companyData?.account_holder_name && <p>Account Name: {companyData.account_holder_name}</p>}
-                      {companyData?.bank_name && <p>Bank: {companyData.bank_name}</p>}
-                      {companyData?.bank_account && <p>A/C No: {companyData.bank_account}</p>}
-                      {companyData?.ifsc && <p>IFSC: {companyData.ifsc}</p>}
+              {selectedTemplate?.companies && (
+                <div className="grid grid-cols-2 gap-0">
+                  <div className="border-2 border-gray-900 border-r-0 p-3">
+                    <h3 className="font-bold text-xs text-gray-900 mb-2">Bank Details:</h3>
+                    <div className="flex gap-3">
+                      {selectedTemplate.companies.qr_code_url && (
+                        <img src={selectedTemplate.companies.qr_code_url} alt="QR Code" className="w-16 h-16 object-contain" />
+                      )}
+                      <div className="text-[9px] text-gray-700 space-y-1">
+                        {selectedTemplate.companies.account_holder_name && <p>Account Name: {selectedTemplate.companies.account_holder_name}</p>}
+                        {selectedTemplate.companies.bank_name && <p>Bank: {selectedTemplate.companies.bank_name}</p>}
+                        {selectedTemplate.companies.bank_account && <p>A/C No: {selectedTemplate.companies.bank_account}</p>}
+                        {selectedTemplate.companies.ifsc && <p>IFSC: {selectedTemplate.companies.ifsc}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-2 border-gray-900 p-3 flex flex-col justify-between">
+                    <h3 className="font-bold text-xs text-gray-900">For {selectedTemplate.companies.name || "BHARATH BEVERAGES"}:</h3>
+                    <div className="mt-auto">
+                      <div className="border-t border-gray-900 pt-1">
+                        <p className="text-[9px] text-gray-700">Authorized Signatory</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="border-2 border-gray-900 p-3 flex flex-col justify-between">
-                  <h3 className="font-bold text-xs text-gray-900">For {companyData?.name || "BHARATH BEVERAGES"}:</h3>
-                  <div className="mt-auto">
-                    <div className="border-t border-gray-900 pt-1">
-                      <p className="text-[9px] text-gray-700">Authorized Signatory</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Footer Note */}
               <div className="text-center text-xs text-gray-600 border-t pt-3">
                 <p className="font-semibold">Thank you for your business!</p>
                 <p className="text-[10px] mt-1">This is a preview. Final invoice will be generated after order submission.</p>
               </div>
+                </>
+              )}
             </div>
           </DialogContent>
         </Dialog>

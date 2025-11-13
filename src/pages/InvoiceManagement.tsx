@@ -24,14 +24,14 @@ export default function InvoiceManagement() {
         {activeTab === "invoices" && (
           <Button onClick={() => setShowCreateForm(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Create Invoice
+            Create Template
           </Button>
         )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="invoices">Invoice Template</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="settings">Company Settings</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>

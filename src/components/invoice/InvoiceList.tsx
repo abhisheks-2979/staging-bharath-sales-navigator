@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Trash2, MessageSquare } from "lucide-react";
+import { Eye, Trash2, MessageSquare, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { InvoicePDFGenerator } from "./InvoicePDFGenerator";
@@ -92,16 +92,25 @@ export default function InvoiceList() {
     return <div className="text-center py-8">Loading invoices...</div>;
   }
 
+  const selectTemplate = (templateId: string) => {
+    localStorage.setItem('selected_invoice_template', templateId);
+    toast.success("Template selected for cart invoices");
+  };
+
+  const getSelectedTemplate = () => {
+    return localStorage.getItem('selected_invoice_template');
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Invoices</CardTitle>
+        <CardTitle>All Templates</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice No</TableHead>
+              <TableHead>Template No</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Amount</TableHead>
@@ -113,46 +122,54 @@ export default function InvoiceList() {
             {invoices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  No invoices found. Create your first invoice!
+                  No templates found. Create your first template!
                 </TableCell>
               </TableRow>
             ) : (
-              invoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                  <TableCell>{invoice.retailers?.name || "N/A"}</TableCell>
-                  <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
-                  <TableCell>₹{parseFloat(invoice.total_amount).toFixed(2)}</TableCell>
-                  <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <InvoicePDFGenerator invoiceId={invoice.id} />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => sendWhatsApp(invoice.id, invoice.retailers?.phone)}
-                        title="Send via WhatsApp"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toast.info("View invoice details")}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteInvoice(invoice.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              invoices.map((invoice) => {
+                const isSelected = getSelectedTemplate() === invoice.id;
+                return (
+                  <TableRow key={invoice.id} className={isSelected ? "bg-primary/5" : ""}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {invoice.invoice_number}
+                        {isSelected && <Check className="w-4 h-4 text-primary" />}
+                      </div>
+                    </TableCell>
+                    <TableCell>{invoice.retailers?.name || "N/A"}</TableCell>
+                    <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
+                    <TableCell>₹{parseFloat(invoice.total_amount).toFixed(2)}</TableCell>
+                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant={isSelected ? "default" : "outline"}
+                          onClick={() => selectTemplate(invoice.id)}
+                          title="Use this template for cart invoices"
+                        >
+                          {isSelected ? "Selected" : "Select"}
+                        </Button>
+                        <InvoicePDFGenerator invoiceId={invoice.id} />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toast.info("View template details")}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deleteInvoice(invoice.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

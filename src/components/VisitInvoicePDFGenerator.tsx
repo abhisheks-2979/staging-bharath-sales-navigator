@@ -22,6 +22,27 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
   const generatePDF = async () => {
     setLoading(true);
     try {
+      // Fetch selected template first
+      const selectedTemplateId = localStorage.getItem('selected_invoice_template');
+      let templateData: any = null;
+      let templateCompany: any = null;
+
+      if (selectedTemplateId) {
+        const { data: template } = await supabase
+          .from("invoices")
+          .select(`
+            *,
+            companies(*)
+          `)
+          .eq("id", selectedTemplateId)
+          .single();
+        
+        if (template) {
+          templateData = template;
+          templateCompany = template.companies;
+        }
+      }
+
       // Fetch order with all related data
       const { data: order, error: orderError } = await supabase
         .from("orders")
@@ -34,14 +55,18 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
 
       if (orderError) throw orderError;
 
-      // Fetch company data
-      const { data: companyData, error: companyError } = await supabase
-        .from("companies")
-        .select("*")
-        .limit(1)
-        .maybeSingle();
+      // Use template company data if available, otherwise fetch default company data
+      let companyData = templateCompany;
+      if (!companyData) {
+        const { data: defaultCompany, error: companyError } = await supabase
+          .from("companies")
+          .select("*")
+          .limit(1)
+          .maybeSingle();
 
-      if (companyError) console.error("Error fetching company:", companyError);
+        if (companyError) console.error("Error fetching company:", companyError);
+        companyData = defaultCompany;
+      }
 
       // Fetch retailer data
       let customerData: any = null;
@@ -409,19 +434,13 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       doc.text("Terms & Conditions:", 12, yPos + 5);
       yPos += 10;
       
-      if (companyData?.terms_conditions) {
-        doc.setFont(undefined, "normal");
-        doc.setFontSize(7);
-        const terms = companyData.terms_conditions;
-        const termsLines = doc.splitTextToSize(terms, pageWidth - 24);
-        doc.text(termsLines, 12, yPos);
-        yPos += termsLines.length * 3 + 5;
-      } else {
-        doc.setFont(undefined, "normal");
-        doc.setFontSize(7);
-        doc.text("Thanks for doing business with us!", 12, yPos);
-        yPos += 5;
-      }
+      // Use template terms if available, otherwise use company terms
+      const termsText = templateData?.terms || companyData?.terms_conditions || "Thanks for doing business with us!";
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(7);
+      const termsLines = doc.splitTextToSize(termsText, pageWidth - 24);
+      doc.text(termsLines, 12, yPos);
+      yPos += termsLines.length * 3 + 5;
 
       // Bank Details and Signature side by side with boxes
       const bankDetailsX = 10;
