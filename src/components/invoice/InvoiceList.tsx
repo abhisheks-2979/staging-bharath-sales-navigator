@@ -20,20 +20,26 @@ export default function InvoiceList() {
   const fetchInvoices = async () => {
     setLoading(true);
     try {
+      // Fetch invoices with optional joins (left joins) to handle templates without customer/company data
       const { data, error } = await supabase
         .from("invoices")
         .select(`
           *,
           retailers:customer_id (name, address, phone, gst_number),
-          companies (name)
+          companies:company_id (*)
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching templates:", error);
+        throw error;
+      }
+      
+      console.log("Fetched templates:", data);
       setInvoices(data || []);
     } catch (error: any) {
-      console.error("Error fetching invoices:", error);
-      toast.error("Failed to load invoices");
+      console.error("Error fetching templates:", error);
+      toast.error("Failed to load templates: " + error.message);
     } finally {
       setLoading(false);
     }
