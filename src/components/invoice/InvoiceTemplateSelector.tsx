@@ -9,10 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Check, Eye, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import InvoiceTemplate1 from "./InvoiceTemplate1";
-import InvoiceTemplate2 from "./InvoiceTemplate2";
-import InvoiceTemplate3 from "./InvoiceTemplate3";
-import InvoiceTemplate4 from "./InvoiceTemplate4";
+import InvoicePreview from "./InvoicePreview";
 
 export default function InvoiceTemplateSelector() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("template1");
@@ -385,39 +382,20 @@ export default function InvoiceTemplateSelector() {
       </Card>
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Template Preview - {templates.find(t => t.id === previewTemplate)?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4 border rounded-lg p-4 bg-white">
-            {previewTemplate === "template1" && (
-              <InvoiceTemplate1
+          <div className="mt-4">
+            {previewTemplate && (
+              <InvoicePreview
                 company={sampleCompany}
                 retailer={sampleRetailer}
                 cartItems={sampleCart}
-              />
-            )}
-            {previewTemplate === "template2" && (
-              <InvoiceTemplate2
-                company={sampleCompany}
-                retailer={sampleRetailer}
-                cartItems={sampleCart}
-              />
-            )}
-            {previewTemplate === "template3" && (
-              <InvoiceTemplate3
-                company={sampleCompany}
-                retailer={sampleRetailer}
-                cartItems={sampleCart}
-              />
-            )}
-            {previewTemplate === "template4" && (
-              <InvoiceTemplate4
-                company={sampleCompany}
-                retailer={sampleRetailer}
-                cartItems={sampleCart}
+                orderId="INV12345678"
+                templateStyle={previewTemplate as "template1" | "template2" | "template3" | "template4"}
               />
             )}
           </div>
