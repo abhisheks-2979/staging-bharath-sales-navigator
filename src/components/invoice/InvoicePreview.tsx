@@ -12,7 +12,48 @@ export default function InvoicePreview({
   orderId = "INV001",
   templateStyle
 }: InvoicePreviewProps) {
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0), 0);
+  // Unit conversion helper
+  const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+  
+  const getDisplayRate = (item: any) => {
+    const baseRate = Number(item.rate || item.price) || 0;
+    const baseUnit = normalizeUnit(item.base_unit || item.unit);
+    const targetUnit = normalizeUnit(item.unit);
+    if (!baseUnit || !item.base_unit) return baseRate;
+
+    // KG ↔ Gram conversions
+    if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
+      if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
+      if (targetUnit === "kg") return baseRate;
+    } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
+      if (targetUnit === "kg") return baseRate * 1000;
+      if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
+    }
+    return baseRate;
+  };
+
+  // Get display name - show only variant name if it's a variant, or base product name
+  const getDisplayName = (item: any) => {
+    const fullName = item.product_name || item.name || "";
+    // Check if this is a variant (contains " - ")
+    if (fullName.includes(" - ")) {
+      const parts = fullName.split(" - ");
+      const variantPart = parts[1];
+      // If variant is "Base variant", show only the base product name
+      if (variantPart.toLowerCase() === "base variant") {
+        return parts[0];
+      }
+      // Otherwise show only the variant name
+      return variantPart;
+    }
+    // If no variant, return the full name
+    return fullName;
+  };
+
+  const subtotal = cartItems.reduce((sum, item) => {
+    const displayRate = getDisplayRate(item);
+    return sum + (item.quantity || 0) * displayRate;
+  }, 0);
   const cgst = subtotal * 0.025;
   const sgst = subtotal * 0.025;
   const total = subtotal + cgst + sgst;
@@ -110,19 +151,25 @@ export default function InvoicePreview({
             </tr>
           </thead>
           <tbody>
-            {cartItems.map((item, index) => <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                <td className="border border-gray-300 p-2 text-center text-xs">{index + 1}</td>
-                <td className="border border-gray-300 p-2 text-xs">{item.product_name || item.name}</td>
-                <td className="border border-gray-300 p-2 text-center text-xs">{item.hsn_code || "-"}</td>
-                <td className="border border-gray-300 p-2 text-center text-xs">{item.unit || "Piece"}</td>
-                <td className="border border-gray-300 p-2 text-center text-xs">{item.quantity}</td>
-                <td className="border border-gray-300 p-2 text-right text-xs">
-                  ₹{(item.rate || item.price || 0).toFixed(2)}
-                </td>
-                <td className="border border-gray-300 p-2 text-right text-xs">
-                  ₹{((item.quantity || 0) * (item.rate || item.price || 0)).toFixed(2)}
-                </td>
-              </tr>)}
+            {cartItems.map((item, index) => {
+              const displayRate = getDisplayRate(item);
+              const itemTotal = (item.quantity || 0) * displayRate;
+              return (
+                <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                  <td className="border border-gray-300 p-2 text-center text-xs">{index + 1}</td>
+                  <td className="border border-gray-300 p-2 text-xs">{getDisplayName(item)}</td>
+                  <td className="border border-gray-300 p-2 text-center text-xs">{item.hsn_code || "-"}</td>
+                  <td className="border border-gray-300 p-2 text-center text-xs">{item.unit || "Piece"}</td>
+                  <td className="border border-gray-300 p-2 text-center text-xs">{item.quantity}</td>
+                  <td className="border border-gray-300 p-2 text-right text-xs">
+                    ₹{displayRate.toFixed(2)}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-right text-xs">
+                    ₹{itemTotal.toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
