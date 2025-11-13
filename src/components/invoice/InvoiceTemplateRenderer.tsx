@@ -18,6 +18,7 @@ export default function InvoiceTemplateRenderer({
 }: InvoiceTemplateRendererProps) {
   const [company, setCompany] = useState<any>(null);
   const [retailer, setRetailer] = useState<any>(null);
+  const [customTemplate, setCustomTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,6 +37,21 @@ export default function InvoiceTemplateRenderer({
 
       if (companyData) {
         setCompany(companyData);
+        
+        // If template is not a default one, fetch custom template
+        const templateId = companyData.invoice_template || "template1";
+        if (!["template1", "template2", "template3"].includes(templateId)) {
+          const { data: customTemplateData } = await supabase
+            .from("custom_invoice_templates")
+            .select("*")
+            .eq("id", templateId)
+            .eq("is_active", true)
+            .single();
+          
+          if (customTemplateData) {
+            setCustomTemplate(customTemplateData);
+          }
+        }
       }
 
       // Fetch retailer details
@@ -92,6 +108,31 @@ export default function InvoiceTemplateRenderer({
           cartItems={cartItems}
           orderId={orderId}
         />
+      )}
+      {customTemplate && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-muted p-3 border-b">
+            <h3 className="font-semibold text-foreground">{customTemplate.name}</h3>
+            {customTemplate.description && (
+              <p className="text-sm text-muted-foreground mt-1">{customTemplate.description}</p>
+            )}
+          </div>
+          <div className="p-4">
+            {customTemplate.template_file_url.endsWith('.pdf') ? (
+              <iframe
+                src={customTemplate.template_file_url}
+                className="w-full h-[600px] border-0"
+                title="Invoice Template Preview"
+              />
+            ) : (
+              <img
+                src={customTemplate.template_file_url}
+                alt={customTemplate.name}
+                className="w-full h-auto"
+              />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
