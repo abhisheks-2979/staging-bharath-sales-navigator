@@ -175,23 +175,23 @@ export default function InvoicePreview({
       </div>
 
       {/* Totals Section */}
-      <div className="mb-8">
-        <div className="grid grid-cols-2 gap-3 max-w-2xl ml-auto">
-          <div className="border border-gray-300 p-3 rounded bg-gray-50">
-            <div className="font-bold text-xs text-muted-foreground mb-1">SUB-TOTAL</div>
-            <div className="text-lg font-semibold">₹{subtotal.toFixed(2)}</div>
+      <div className="flex justify-end mb-8">
+        <div className="w-64">
+          <div className="flex justify-between mb-2">
+            <span className="font-bold text-xs">SUB-TOTAL</span>
+            <span className="text-xs">₹{subtotal.toFixed(2)}</span>
           </div>
-          <div className="border border-gray-300 p-3 rounded bg-gray-50">
-            <div className="font-bold text-xs text-muted-foreground mb-1">SGST (2.5%)</div>
-            <div className="text-lg font-semibold">₹{sgst.toFixed(2)}</div>
+          <div className="flex justify-between mb-2">
+            <span className="font-bold text-xs">SGST (2.5%)</span>
+            <span className="text-xs">₹{sgst.toFixed(2)}</span>
           </div>
-          <div className="border border-gray-300 p-3 rounded bg-gray-50">
-            <div className="font-bold text-xs text-muted-foreground mb-1">CGST (2.5%)</div>
-            <div className="text-lg font-semibold">₹{cgst.toFixed(2)}</div>
+          <div className="flex justify-between mb-3">
+            <span className="font-bold text-xs">CGST (2.5%)</span>
+            <span className="text-xs">₹{cgst.toFixed(2)}</span>
           </div>
-          <div className={`${styles.totalBox} p-3 rounded`}>
-            <div className="font-bold text-xs mb-1">TOTAL</div>
-            <div className="text-xl font-bold">₹{total.toFixed(2)}</div>
+          <div className={`${styles.totalBox} p-2 rounded flex justify-between`}>
+            <span className="font-bold text-sm">Total</span>
+            <span className="font-bold text-sm">₹{total.toFixed(2)}</span>
           </div>
         </div>
       </div>
