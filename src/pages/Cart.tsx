@@ -2,6 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import InvoiceTemplateRenderer from "@/components/invoice/InvoiceTemplateRenderer";
 import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, Camera, FileText } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -1159,7 +1160,7 @@ export const Cart = () => {
         
         {/* Invoice Preview Dialog */}
         <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -1167,264 +1168,61 @@ export const Cart = () => {
               </DialogTitle>
             </DialogHeader>
             
-            <div className="bg-white text-black p-8 rounded-lg space-y-4">
-              {!selectedTemplate ? (
-                <div className="text-center p-8 space-y-4">
-                  <p className="text-gray-600">No invoice template selected</p>
-                  <p className="text-sm text-gray-500">Please select a template from Invoice Management</p>
+            <div className="space-y-4 p-4">
+              {!companyData ? (
+                <div className="text-center p-8 space-y-4 bg-muted rounded-lg">
+                  <p className="text-muted-foreground">No company data found</p>
+                  <p className="text-sm text-muted-foreground">Please configure company details in Invoice Management</p>
                 </div>
               ) : (
-                <>
-                  {/* Title */}
-                  <div className="text-center">
-                    <h1 className="text-xl font-bold text-gray-900">Tax Invoice</h1>
+                <div className="space-y-6">
+                  <div className="bg-primary/5 p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2">Invoice Template</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {companyData.invoice_template === "template1" && "Template 1 - Traditional GST Layout"}
+                      {companyData.invoice_template === "template2" && "Template 2 - Modern Minimalist"}
+                      {companyData.invoice_template === "template3" && "Template 3 - Professional Elegant"}
+                      {!companyData.invoice_template && "Template 1 - Traditional GST Layout (Default)"}
+                    </p>
                   </div>
 
-                  {/* Company Header Box */}
-                  <div className="border-2 border-gray-900 p-4">
-                    <div className="flex items-start gap-4">
-                      {selectedTemplate?.companies?.logo_url && (
-                        <img src={selectedTemplate.companies.logo_url} alt="Company Logo" className="w-24 h-16 object-contain" />
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">Company Details</h4>
+                      <p className="text-sm">{companyData.name}</p>
+                      <p className="text-xs text-muted-foreground">GSTIN: {companyData.gstin}</p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">Bill To</h4>
+                      <p className="text-sm">{retailerData?.name || retailerName}</p>
+                      {retailerData?.gst_number && (
+                        <p className="text-xs text-muted-foreground">GSTIN: {retailerData.gst_number}</p>
                       )}
-                      <div className="flex-1">
-                        <h2 className="text-lg font-bold text-gray-900">{selectedTemplate?.companies?.name || "BHARATH BEVERAGES"}</h2>
-                        <div className="text-xs text-gray-700 space-y-0.5 mt-1">
-                          {selectedTemplate?.companies?.address && <p>{selectedTemplate.companies.address}</p>}
-                          {selectedTemplate?.companies?.contact_phone && <p>Phone: {selectedTemplate.companies.contact_phone}</p>}
-                          {selectedTemplate?.companies?.email && <p>Email: {selectedTemplate.companies.email}</p>}
-                          {selectedTemplate?.companies?.gstin && <p>GSTIN: {selectedTemplate.companies.gstin}</p>}
-                          <p>State: {selectedTemplate?.companies?.state || selectedTemplate?.place_of_supply || "29-Karnataka"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {selectedTemplate && (
-                <>
-                  {/* Bill To and Invoice Details */}
-                  <div className="grid grid-cols-2 gap-0">
-                    <div className="border-2 border-gray-900 border-r-0 p-3">
-                      <h3 className="font-bold text-sm text-gray-900 mb-2">Bill To:</h3>
-                      <div className="text-xs text-gray-700 space-y-1">
-                        {retailerData?.name && <p className="font-semibold">{retailerData.name}</p>}
-                        {retailerData?.address && <p>{retailerData.address}</p>}
-                        {retailerData?.phone && <p>Contact: {retailerData.phone}</p>}
-                        {retailerData?.gst_number && <p>GSTIN: {retailerData.gst_number}</p>}
-                      </div>
-                    </div>
-                    <div className="border-2 border-gray-900 p-3">
-                      <h3 className="font-bold text-sm text-gray-900 mb-2">Invoice Details:</h3>
-                      <div className="text-xs text-gray-700 space-y-1">
-                        <p>No: <span className="font-semibold">PENDING</span></p>
-                        <p>Date: {visitDate ? format(new Date(visitDate), 'dd MMM yyyy') : format(new Date(), 'dd MMM yyyy')}</p>
-                        <p>Place Of Supply: {selectedTemplate.place_of_supply || "Karnataka"}</p>
-                        {selectedTemplate.vehicle_number && <p>Vehicle: {selectedTemplate.vehicle_number}</p>}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {selectedTemplate && (
-                <>
-                  {/* Items Table */}
-                  <div className="border-2 border-gray-900 overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-white border-b-2 border-gray-900">
-                      <th className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">#</th>
-                      <th className="text-left p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">Item Name</th>
-                      <th className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">HSN/SAC</th>
-                      <th className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">Qty</th>
-                      <th className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">Unit</th>
-                      <th className="text-right p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">Rate (Rs)</th>
-                      <th className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">GST %</th>
-                      <th className="text-right p-2 text-[10px] font-bold text-gray-900">Amount (Rs)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                     {(() => {
-                      // Calculate totals exactly like PDF generator does
-                      let previewSubTotal = 0;
-                      
-                      return cartItems.map((item, index) => {
-                        const quantity = Number(item.quantity || 0);
-                        const rate = Number(getDisplayRate(item));
-                        const taxableAmount = quantity * rate;
-                        previewSubTotal += taxableAmount;
-                        const gstRate = 5; // 2.5% CGST + 2.5% SGST = 5% total
-                        const gstAmount = (taxableAmount * gstRate) / 100;
-                        const totalAmount = taxableAmount + gstAmount;
-
-                        return (
-                          <tr key={item.id} className="border-b border-gray-900">
-                            <td className="text-center p-2 text-[10px] text-gray-900 border-r border-gray-900">{index + 1}</td>
-                            <td className="text-left p-2 text-[10px] text-gray-900 border-r border-gray-900">{item.name}</td>
-                            <td className="text-center p-2 text-[10px] text-gray-900 border-r border-gray-900">090230</td>
-                            <td className="text-center p-2 text-[10px] text-gray-900 border-r border-gray-900">{quantity}</td>
-                            <td className="text-center p-2 text-[10px] text-gray-900 border-r border-gray-900">{item.unit}</td>
-                            <td className="text-right p-2 text-[10px] text-gray-900 border-r border-gray-900">Rs {rate.toFixed(2)}</td>
-                            <td className="text-center p-2 text-[10px] text-gray-900 border-r border-gray-900">{gstRate}%</td>
-                            <td className="text-right p-2 text-[10px] text-gray-900">Rs {totalAmount.toFixed(2)}</td>
-                          </tr>
-                        );
-                      });
-                    })()}
-                    {(() => {
-                      const totalQty = cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-                      const subTotal = cartItems.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(getDisplayRate(item))), 0);
-                      const totalGst = (subTotal * 5) / 100; // 5% total GST
-                      const grandTotal = subTotal + totalGst;
-
-                      return (
-                        <tr className="border-b-2 border-gray-900 bg-gray-50">
-                          <td className="p-2 border-r border-gray-900"></td>
-                          <td className="text-left p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">Total</td>
-                          <td className="p-2 border-r border-gray-900"></td>
-                          <td className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">
-                            {totalQty}
-                          </td>
-                          <td className="p-2 border-r border-gray-900"></td>
-                          <td className="p-2 border-r border-gray-900"></td>
-                          <td className="text-center p-2 text-[10px] font-bold text-gray-900 border-r border-gray-900">
-                            Rs {totalGst.toFixed(2)}
-                          </td>
-                          <td className="text-right p-2 text-[10px] font-bold text-gray-900">Rs {grandTotal.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Tax Summary */}
-              <div>
-                <h3 className="font-bold text-sm text-gray-900 mb-2">Tax Summary:</h3>
-                <div className="border-2 border-gray-900 overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-white border-b-2 border-gray-900">
-                        <th className="text-center p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">HSN/SAC</th>
-                        <th className="text-right p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">Taxable Amt (Rs)</th>
-                        <th className="text-center p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">CGST Rate %</th>
-                        <th className="text-right p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">CGST Amt (Rs)</th>
-                        <th className="text-center p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">SGST Rate %</th>
-                        <th className="text-right p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">SGST Amt (Rs)</th>
-                        <th className="text-right p-2 text-[9px] font-bold text-gray-900">Total Tax (Rs)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const subTotal = cartItems.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(getDisplayRate(item))), 0);
-                        const cgst = (subTotal * 2.5) / 100; // 2.5% CGST
-                        const sgst = (subTotal * 2.5) / 100; // 2.5% SGST
-                        const totalGst = (subTotal * 5) / 100; // 5% total
-
-                        return (
-                          <>
-                            <tr className="border-b border-gray-900">
-                              <td className="text-center p-2 text-[9px] text-gray-900 border-r border-gray-900">090230</td>
-                              <td className="text-right p-2 text-[9px] text-gray-900 border-r border-gray-900">{subTotal.toFixed(2)}</td>
-                              <td className="text-center p-2 text-[9px] text-gray-900 border-r border-gray-900">2.5</td>
-                              <td className="text-right p-2 text-[9px] text-gray-900 border-r border-gray-900">{cgst.toFixed(2)}</td>
-                              <td className="text-center p-2 text-[9px] text-gray-900 border-r border-gray-900">2.5</td>
-                              <td className="text-right p-2 text-[9px] text-gray-900 border-r border-gray-900">{sgst.toFixed(2)}</td>
-                              <td className="text-right p-2 text-[9px] text-gray-900">{totalGst.toFixed(2)}</td>
-                            </tr>
-                            <tr className="border-b-2 border-gray-900 bg-gray-50">
-                              <td className="text-center p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">TOTAL</td>
-                              <td className="text-right p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">{subTotal.toFixed(2)}</td>
-                              <td className="p-2 border-r border-gray-900"></td>
-                              <td className="text-right p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">{cgst.toFixed(2)}</td>
-                              <td className="p-2 border-r border-gray-900"></td>
-                              <td className="text-right p-2 text-[9px] font-bold text-gray-900 border-r border-gray-900">{sgst.toFixed(2)}</td>
-                              <td className="text-right p-2 text-[9px] font-bold text-gray-900">{totalGst.toFixed(2)}</td>
-                            </tr>
-                          </>
-                        );
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Totals on Right */}
-              {(() => {
-                const subTotal = cartItems.reduce((sum, item) => sum + (Number(item.quantity || 0) * Number(getDisplayRate(item))), 0);
-                const grandTotal = subTotal + (subTotal * 5) / 100; // 5% total GST
-
-                return (
-                  <>
-                    <div className="flex justify-end">
-                      <div className="w-64 space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-900">Subtotal:</span>
-                          <span className="text-gray-900">Rs {subTotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm font-bold border-t pt-2">
-                          <span className="text-gray-900">Total:</span>
-                          <span className="text-gray-900">Rs {grandTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
                     </div>
 
-                    {/* Amount in Words */}
-                    <div className="border-t pt-2">
-                      <p className="text-xs font-bold text-gray-900">Invoice Amount in Words:</p>
-                      <p className="text-xs text-gray-900 mt-1">
-                        Rupees {Math.round(grandTotal)} Only
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">Order Summary</h4>
+                      <p className="text-sm">{cartItems.length} items</p>
+                      <p className="text-sm font-semibold">
+                        Total: ₹{formatINRTrunc2(cartItems.reduce((sum, item) => {
+                          const subtotal = Number(item.quantity || 0) * Number(getDisplayRate(item));
+                          return sum + subtotal + (subtotal * 0.05); // Add 5% GST
+                        }, 0))}
                       </p>
                     </div>
-                  </>
-                );
-              })()}
-
-              {/* Terms & Conditions */}
-              {selectedTemplate?.terms && (
-                <div className="border-2 border-gray-900 p-2">
-                  <h3 className="font-bold text-xs text-gray-900 mb-1">Terms & Conditions:</h3>
-                  <p className="text-[9px] text-gray-700">
-                    {selectedTemplate.terms}
-                  </p>
-                </div>
-              )}
-
-              {/* Bank Details and Signature */}
-              {selectedTemplate?.companies && (
-                <div className="grid grid-cols-2 gap-0">
-                  <div className="border-2 border-gray-900 border-r-0 p-3">
-                    <h3 className="font-bold text-xs text-gray-900 mb-2">Bank Details:</h3>
-                    <div className="flex gap-3">
-                      {selectedTemplate.companies.qr_code_url && (
-                        <img src={selectedTemplate.companies.qr_code_url} alt="QR Code" className="w-16 h-16 object-contain" />
-                      )}
-                      <div className="text-[9px] text-gray-700 space-y-1">
-                        {selectedTemplate.companies.account_holder_name && <p>Account Name: {selectedTemplate.companies.account_holder_name}</p>}
-                        {selectedTemplate.companies.bank_name && <p>Bank: {selectedTemplate.companies.bank_name}</p>}
-                        {selectedTemplate.companies.bank_account && <p>A/C No: {selectedTemplate.companies.bank_account}</p>}
-                        {selectedTemplate.companies.ifsc && <p>IFSC: {selectedTemplate.companies.ifsc}</p>}
-                      </div>
-                    </div>
                   </div>
-                  <div className="border-2 border-gray-900 p-3 flex flex-col justify-between">
-                    <h3 className="font-bold text-xs text-gray-900">For {selectedTemplate.companies.name || "BHARATH BEVERAGES"}:</h3>
-                    <div className="mt-auto">
-                      <div className="border-t border-gray-900 pt-1">
-                        <p className="text-[9px] text-gray-700">Authorized Signatory</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Footer Note */}
-              <div className="text-center text-xs text-gray-600 border-t pt-3">
-                <p className="font-semibold">Thank you for your business!</p>
-                <p className="text-[10px] mt-1">This is a preview. Final invoice will be generated after order submission.</p>
-              </div>
-                </>
+                  {validRetailerId && cartItems.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <InvoiceTemplateRenderer
+                        orderId={validVisitId || "DRAFT"}
+                        retailerId={validRetailerId}
+                        cartItems={cartItems}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </DialogContent>

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, X } from "lucide-react";
 
 const companySchema = z.object({
@@ -25,6 +26,7 @@ const companySchema = z.object({
   account_holder_name: z.string().optional(),
   qr_upi: z.string().optional(),
   terms_conditions: z.string().optional(),
+  invoice_template: z.string().optional(),
 });
 
 export default function CompanySettings() {
@@ -51,6 +53,7 @@ export default function CompanySettings() {
       account_holder_name: "BHARATH BEVERAGES",
       qr_upi: "",
       terms_conditions: "Thanks for doing business with us!",
+      invoice_template: "template1",
     },
   });
 
@@ -79,6 +82,7 @@ export default function CompanySettings() {
         account_holder_name: data[0].account_holder_name || "",
         qr_upi: data[0].qr_upi || "",
         terms_conditions: data[0].terms_conditions || "",
+        invoice_template: data[0].invoice_template || "template1",
       });
     } else {
       // No companies exist, keep defaults
@@ -219,6 +223,7 @@ export default function CompanySettings() {
         terms_conditions: data.terms_conditions || null,
         logo_url: logoUrl || null,
         qr_code_url: qrCodeUrl || null,
+        invoice_template: data.invoice_template || "template1",
       };
       
       if (selectedCompany) {
@@ -279,6 +284,33 @@ export default function CompanySettings() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Invoice Template Selection */}
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h3 className="text-sm font-semibold mb-3">Invoice Template Selection</h3>
+              <FormField
+                control={form.control}
+                name="invoice_template"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Invoice Template</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a template" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="template1">Template 1 - Traditional GST Layout</SelectItem>
+                        <SelectItem value="template2">Template 2 - Modern Minimalist</SelectItem>
+                        <SelectItem value="template3">Template 3 - Professional Elegant</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

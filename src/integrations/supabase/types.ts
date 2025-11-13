@@ -567,6 +567,7 @@ export type Database = {
           gstin: string | null
           id: string
           ifsc: string | null
+          invoice_template: string | null
           logo_url: string | null
           name: string
           qr_code_url: string | null
@@ -586,6 +587,7 @@ export type Database = {
           gstin?: string | null
           id?: string
           ifsc?: string | null
+          invoice_template?: string | null
           logo_url?: string | null
           name: string
           qr_code_url?: string | null
@@ -605,6 +607,7 @@ export type Database = {
           gstin?: string | null
           id?: string
           ifsc?: string | null
+          invoice_template?: string | null
           logo_url?: string | null
           name?: string
           qr_code_url?: string | null
