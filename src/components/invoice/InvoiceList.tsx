@@ -134,6 +134,9 @@ export default function InvoiceList() {
             ) : (
               invoices.map((invoice) => {
                 const isSelected = getSelectedTemplate() === invoice.id;
+                const companyName = invoice.companies?.name || "N/A";
+                const customerName = invoice.retailers?.name || "N/A";
+                
                 return (
                   <TableRow key={invoice.id} className={isSelected ? "bg-primary/5" : ""}>
                     <TableCell className="font-medium">
@@ -142,7 +145,7 @@ export default function InvoiceList() {
                         {isSelected && <Check className="w-4 h-4 text-primary" />}
                       </div>
                     </TableCell>
-                    <TableCell>{invoice.retailers?.name || "N/A"}</TableCell>
+                    <TableCell>{customerName}</TableCell>
                     <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
                     <TableCell>₹{parseFloat(invoice.total_amount).toFixed(2)}</TableCell>
                     <TableCell>{getStatusBadge(invoice.status)}</TableCell>

@@ -703,9 +703,17 @@ export const Cart = () => {
       const invoiceDate = new Date().toISOString().split('T')[0];
       const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 30 days from now
 
+      // Fetch company_id to associate with invoice
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
       const { data: invoiceRecord, error: invoiceError } = await supabase
         .from('invoices')
         .insert([{
+          company_id: companyData?.id || null,
           customer_id: validRetailerId,
           invoice_date: invoiceDate,
           due_date: dueDate,
