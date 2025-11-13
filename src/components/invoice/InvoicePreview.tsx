@@ -101,7 +101,7 @@ export default function InvoicePreview({
           <thead>
             <tr className={styles.tableHeader}>
               <th className="border border-gray-300 p-2 text-center text-xs">NO</th>
-              <th className="border border-gray-300 p-2 text-left text-xs">DESCRIPTION</th>
+              <th className="border border-gray-300 p-2 text-left text-xs">PRODUCT</th>
               <th className="border border-gray-300 p-2 text-center text-xs">HSN/SAC</th>
               <th className="border border-gray-300 p-2 text-center text-xs">UNIT</th>
               <th className="border border-gray-300 p-2 text-center text-xs">QTY</th>
