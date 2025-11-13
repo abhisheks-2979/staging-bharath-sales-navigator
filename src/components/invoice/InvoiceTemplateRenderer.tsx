@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import InvoiceTemplate1 from "./InvoiceTemplate1";
 import InvoiceTemplate2 from "./InvoiceTemplate2";
 import InvoiceTemplate3 from "./InvoiceTemplate3";
+import InvoiceTemplate4 from "./InvoiceTemplate4";
 
 interface InvoiceTemplateRendererProps {
   orderId: string;
@@ -40,7 +41,7 @@ export default function InvoiceTemplateRenderer({
         
         // If template is not a default one, fetch custom template
         const templateId = companyData.invoice_template || "template1";
-        if (!["template1", "template2", "template3"].includes(templateId)) {
+        if (!["template1", "template2", "template3", "template4"].includes(templateId)) {
           const { data: customTemplateData } = await supabase
             .from("custom_invoice_templates")
             .select("*")
@@ -103,6 +104,14 @@ export default function InvoiceTemplateRenderer({
       )}
       {selectedTemplate === "template3" && (
         <InvoiceTemplate3
+          company={company}
+          retailer={retailer}
+          cartItems={cartItems}
+          orderId={orderId}
+        />
+      )}
+      {selectedTemplate === "template4" && (
+        <InvoiceTemplate4
           company={company}
           retailer={retailer}
           cartItems={cartItems}

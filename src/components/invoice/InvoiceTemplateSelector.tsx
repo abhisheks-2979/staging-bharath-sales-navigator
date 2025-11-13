@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import InvoiceTemplate1 from "./InvoiceTemplate1";
 import InvoiceTemplate2 from "./InvoiceTemplate2";
 import InvoiceTemplate3 from "./InvoiceTemplate3";
+import InvoiceTemplate4 from "./InvoiceTemplate4";
 
 export default function InvoiceTemplateSelector() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("template1");
@@ -100,6 +101,11 @@ export default function InvoiceTemplateSelector() {
       id: "template3",
       name: "Template 3 - Professional Elegant",
       description: "Sophisticated layout with elegant typography and organized sections"
+    },
+    {
+      id: "template4",
+      name: "Template 4 - Green Accent Professional",
+      description: "Modern design with green accents, dark header/footer, and clean layout"
     }
   ];
 
@@ -402,6 +408,13 @@ export default function InvoiceTemplateSelector() {
             )}
             {previewTemplate === "template3" && (
               <InvoiceTemplate3
+                company={sampleCompany}
+                retailer={sampleRetailer}
+                cartItems={sampleCart}
+              />
+            )}
+            {previewTemplate === "template4" && (
+              <InvoiceTemplate4
                 company={sampleCompany}
                 retailer={sampleRetailer}
                 cartItems={sampleCart}
