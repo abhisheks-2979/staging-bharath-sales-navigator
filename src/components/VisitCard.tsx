@@ -1127,10 +1127,6 @@ export const VisitCard = ({
                     </span>
                   )}
                   
-                  {/* Time Spent */}
-                  <span className="text-muted-foreground">•</span>
-                  <span className="font-medium text-foreground">{formattedTimeSpent}</span>
-                  
                   {/* Phone Order Badge */}
                   {currentLog.is_phone_order && (
                     <>
