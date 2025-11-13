@@ -1,6 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InvoiceTemplateSelector from "@/components/invoice/InvoiceTemplateSelector";
 import CompanySettings from "@/components/invoice/CompanySettings";
 
 export default function InvoiceManagement() {
@@ -25,7 +27,18 @@ export default function InvoiceManagement() {
         </div>
       </div>
 
-      <CompanySettings />
+      <Tabs defaultValue="template" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="template">Invoice Template Selection</TabsTrigger>
+          <TabsTrigger value="company">Company Settings</TabsTrigger>
+        </TabsList>
+        <TabsContent value="template" className="mt-6">
+          <InvoiceTemplateSelector />
+        </TabsContent>
+        <TabsContent value="company" className="mt-6">
+          <CompanySettings />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
