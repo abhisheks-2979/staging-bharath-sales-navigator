@@ -20,10 +20,10 @@ export default function InvoicePreview({
     switch (templateStyle) {
       case "template1":
         return {
-          container: "border-2 border-gray-800 bg-white text-black",
-          header: "bg-blue-600 text-white",
-          tableHeader: "bg-blue-600 text-white",
-          totalBox: "bg-blue-600 text-white"
+          container: "border-2 border-blue-200 bg-gradient-to-br from-blue-50/30 to-white text-black",
+          header: "bg-gradient-to-r from-blue-400 to-cyan-400 text-white",
+          tableHeader: "bg-gradient-to-r from-blue-400 to-cyan-400 text-white",
+          totalBox: "bg-gradient-to-r from-blue-400 to-cyan-400 text-white"
         };
       case "template2":
         return {
