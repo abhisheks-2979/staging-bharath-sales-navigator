@@ -150,24 +150,26 @@ export default function InvoicePreview({
       </div>
 
       {/* Bank Details */}
-      <div className="mb-6">
-        <h3 className="font-bold text-xs mb-2">BANK DETAILS</h3>
-        <div className="text-xs space-y-0">
-          {company.bank_name && <span className="inline-block mr-3">Bank: {company.bank_name}</span>}
-          {company.account_holder_name && <span className="inline-block mr-3">Account Holder: {company.account_holder_name}</span>}
-          {company.bank_account && <span className="inline-block mr-3">Account Number: {company.bank_account}</span>}
-          {company.ifsc && <span className="inline-block mr-3">IFSC: {company.ifsc}</span>}
-          {company.qr_upi && <span className="inline-block mr-3">UPI ID: {company.qr_upi}</span>}
-        </div>
-        
-        {company.qr_code_url && (
-          <div className="flex justify-center mt-3">
-            <div className="text-center">
-              <p className="text-xs font-bold mb-1">Scan to Pay</p>
-              <img src={company.qr_code_url} alt="Payment QR Code" className="w-24 h-24 object-contain border border-border rounded" />
-            </div>
+      <div className="mb-6 flex justify-end">
+        <div className="text-right">
+          <h3 className="font-bold text-xs mb-2">BANK DETAILS</h3>
+          <div className="text-xs space-y-1">
+            {company.bank_name && <p>Bank: {company.bank_name}</p>}
+            {company.account_holder_name && <p>Account Holder: {company.account_holder_name}</p>}
+            {company.bank_account && <p>Account Number: {company.bank_account}</p>}
+            {company.ifsc && <p>IFSC: {company.ifsc}</p>}
+            {company.qr_upi && <p>UPI ID: {company.qr_upi}</p>}
           </div>
-        )}
+          
+          {company.qr_code_url && (
+            <div className="flex justify-end mt-3">
+              <div className="text-center">
+                <p className="text-xs font-bold mb-1">Scan to Pay</p>
+                <img src={company.qr_code_url} alt="Payment QR Code" className="w-24 h-24 object-contain border border-border rounded" />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Signature */}
