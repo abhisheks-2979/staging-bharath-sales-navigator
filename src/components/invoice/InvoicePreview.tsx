@@ -167,12 +167,14 @@ export default function InvoicePreview({
       </div>
 
       {/* Terms */}
-      <div className="mb-4">
-        <h3 className="font-bold text-xs mb-2">TERMS AND CONDITIONS</h3>
-        <p className="text-xs text-blue-600">
-          {company.terms_conditions || "Thank you for your business!"}
-        </p>
-      </div>
+      {company.terms_conditions && company.terms_conditions.trim() && (
+        <div className="mb-4">
+          <h3 className="font-bold text-xs mb-2">TERMS AND CONDITIONS</h3>
+          <p className="text-xs text-blue-600">
+            {company.terms_conditions}
+          </p>
+        </div>
+      )}
 
       {/* Footer */}
       <div className={`${styles.header} p-3 rounded-b-lg text-center mt-6`}>
