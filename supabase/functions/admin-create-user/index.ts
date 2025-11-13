@@ -28,15 +28,25 @@ serve(async (req) => {
     // Verify admin role
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      throw new Error('No authorization header')
+      console.error('No authorization header provided')
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     
     if (userError || !user) {
-      throw new Error('Invalid token')
+      console.error('Invalid token:', userError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid token or unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+
+    console.log('User authenticated:', user.id)
 
     // Check if user is admin
     const { data: roleData, error: roleError } = await supabaseAdmin
@@ -45,12 +55,23 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single()
 
-    if (roleError || roleData?.role !== 'admin') {
+    if (roleError) {
+      console.error('Error fetching user role:', roleError)
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Error checking user permissions' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (roleData?.role !== 'admin') {
+      console.error('User is not admin. Role:', roleData?.role)
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('Admin verified')
 
     // Parse request body
     const {
@@ -76,6 +97,14 @@ serve(async (req) => {
 
     console.log('Creating user with email:', email)
 
+    // Validate required fields
+    if (!email || !password || !username || !full_name) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: email, password, username, and full_name are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create the auth user
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -93,11 +122,21 @@ serve(async (req) => {
 
     if (authError) {
       console.error('Auth creation error:', authError)
-      throw authError
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to create user account', 
+          details: authError.message 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     if (!authUser.user) {
-      throw new Error('User creation failed')
+      console.error('User creation returned no user object')
+      return new Response(
+        JSON.stringify({ error: 'User creation failed - no user returned' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     console.log('Auth user created:', authUser.user.id)
@@ -123,7 +162,13 @@ serve(async (req) => {
       console.error('Employee creation error:', employeeError)
       // Clean up auth user if employee creation fails
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
-      throw employeeError
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to create employee record', 
+          details: employeeError.message 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     console.log('Employee record created successfully')
