@@ -483,11 +483,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       // Save directly to localStorage before navigating to ensure data is persisted
       localStorage.setItem(storageKey, JSON.stringify(cartItems));
       
-      toast({
-        title: "Added to Cart",
-        description: `${validRows.length} items added to cart.`
-      });
-      
       // Small delay to ensure localStorage write completes
       setTimeout(() => {
         // Navigate to cart with current parameters
