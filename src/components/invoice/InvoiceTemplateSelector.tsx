@@ -153,16 +153,18 @@ export default function InvoiceTemplateSelector() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // Validate file type - only invoice templates (PDF and images)
     const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
     if (!validTypes.includes(file.type)) {
-      toast.error("Please upload a PDF or image file (PNG, JPG)");
+      toast.error("Please upload an invoice template file (PDF, PNG, or JPG only)");
+      e.target.value = ''; // Reset input
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error("File size should be less than 5MB");
+      e.target.value = ''; // Reset input
       return;
     }
 
@@ -346,7 +348,7 @@ export default function InvoiceTemplateSelector() {
                         }}
                       >
                         <Eye className="w-4 h-4 mr-2" />
-                        View File
+                        Preview Template
                       </Button>
                       <Button
                         variant="destructive"
@@ -438,7 +440,7 @@ export default function InvoiceTemplateSelector() {
             </div>
 
             <div>
-              <Label htmlFor="template-file">Upload Template File *</Label>
+              <Label htmlFor="template-file">Upload Invoice Template *</Label>
               <Input
                 id="template-file"
                 type="file"
@@ -446,7 +448,10 @@ export default function InvoiceTemplateSelector() {
                 onChange={handleFileChange}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Supported formats: PDF, PNG, JPG (Max 5MB)
+                Upload your invoice template design as PDF or image (PNG/JPG). Max 5MB.
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                ⚠️ Only invoice template files accepted - no text documents or other file types.
               </p>
               {importData.file && (
                 <p className="text-sm text-primary mt-2">
