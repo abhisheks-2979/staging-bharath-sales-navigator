@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import InvoiceTemplate1 from "./InvoiceTemplate1";
-import InvoiceTemplate2 from "./InvoiceTemplate2";
-import InvoiceTemplate3 from "./InvoiceTemplate3";
-import InvoiceTemplate4 from "./InvoiceTemplate4";
+import InvoicePreview from "./InvoicePreview";
 
 interface InvoiceTemplateRendererProps {
   orderId: string;
@@ -83,43 +80,26 @@ export default function InvoiceTemplateRenderer({
 
   // Render the appropriate template based on company settings
   const selectedTemplate = company.invoice_template || "template1";
+  
+  // Map template IDs to template styles
+  const getTemplateStyle = (): "template1" | "template2" | "template3" | "template4" => {
+    if (["template1", "template2", "template3", "template4"].includes(selectedTemplate)) {
+      return selectedTemplate as "template1" | "template2" | "template3" | "template4";
+    }
+    return "template1"; // default
+  };
 
   return (
     <div className="space-y-4">
-      {selectedTemplate === "template1" && (
-        <InvoiceTemplate1
+      {!customTemplate ? (
+        <InvoicePreview
           company={company}
           retailer={retailer}
           cartItems={cartItems}
           orderId={orderId}
+          templateStyle={getTemplateStyle()}
         />
-      )}
-      {selectedTemplate === "template2" && (
-        <InvoiceTemplate2
-          company={company}
-          retailer={retailer}
-          cartItems={cartItems}
-          orderId={orderId}
-        />
-      )}
-      {selectedTemplate === "template3" && (
-        <InvoiceTemplate3
-          company={company}
-          retailer={retailer}
-          cartItems={cartItems}
-          orderId={orderId}
-        />
-      )}
-      {selectedTemplate === "template4" && (
-        <InvoiceTemplate4
-          company={company}
-          retailer={retailer}
-          cartItems={cartItems}
-          orderId={orderId}
-          showDownloadButton={false}
-        />
-      )}
-      {customTemplate && (
+      ) : (
         <div className="border rounded-lg overflow-hidden">
           <div className="bg-muted p-3 border-b">
             <h3 className="font-semibold text-foreground">{customTemplate.name}</h3>

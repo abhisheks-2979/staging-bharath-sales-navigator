@@ -1160,7 +1160,7 @@ export const Cart = () => {
         
         {/* Invoice Preview Dialog */}
         <Dialog open={showInvoicePreview} onOpenChange={setShowInvoicePreview}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -1168,63 +1168,13 @@ export const Cart = () => {
               </DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 p-4">
-              {!companyData ? (
-                <div className="text-center p-8 space-y-4 bg-muted rounded-lg">
-                  <p className="text-muted-foreground">No company data found</p>
-                  <p className="text-sm text-muted-foreground">Please configure company details in Invoice Management</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="bg-primary/5 p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2">Invoice Template</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {companyData.invoice_template === "template1" && "Template 1 - Traditional GST Layout"}
-                      {companyData.invoice_template === "template2" && "Template 2 - Modern Minimalist"}
-                      {companyData.invoice_template === "template3" && "Template 3 - Professional Elegant"}
-                      {!companyData.invoice_template && "Template 1 - Traditional GST Layout (Default)"}
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <h4 className="text-sm font-semibold mb-1">Company Details</h4>
-                      <p className="text-sm">{companyData.name}</p>
-                      <p className="text-xs text-muted-foreground">GSTIN: {companyData.gstin}</p>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold mb-1">Bill To</h4>
-                      <p className="text-sm">{retailerData?.name || retailerName}</p>
-                      {retailerData?.gst_number && (
-                        <p className="text-xs text-muted-foreground">GSTIN: {retailerData.gst_number}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold mb-1">Order Summary</h4>
-                      <p className="text-sm">{cartItems.length} items</p>
-                      <p className="text-sm font-semibold">
-                        Total: ₹{formatINRTrunc2(cartItems.reduce((sum, item) => {
-                          const subtotal = Number(item.quantity || 0) * Number(getDisplayRate(item));
-                          return sum + subtotal + (subtotal * 0.05); // Add 5% GST
-                        }, 0))}
-                      </p>
-                    </div>
-                  </div>
-
-                  {validRetailerId && cartItems.length > 0 && (
-                    <div className="pt-4 border-t">
-                      <InvoiceTemplateRenderer
-                        orderId={validVisitId || "DRAFT"}
-                        retailerId={validRetailerId}
-                        cartItems={cartItems}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            {validRetailerId && cartItems.length > 0 && (
+              <InvoiceTemplateRenderer
+                orderId={validVisitId || "DRAFT"}
+                retailerId={validRetailerId}
+                cartItems={cartItems}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>
