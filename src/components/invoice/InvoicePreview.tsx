@@ -95,28 +95,6 @@ export default function InvoicePreview({
         </div>
       </div>
 
-      {/* Bank Details */}
-      <div className="mb-6 pb-4 border-b border-border">
-        <h3 className="font-bold text-xs mb-3">BANK DETAILS</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            {company.bank_name && <p className="text-xs">Bank: {company.bank_name}</p>}
-            {company.account_holder_name && <p className="text-xs">Account Holder: {company.account_holder_name}</p>}
-            {company.bank_account && <p className="text-xs">Account Number: {company.bank_account}</p>}
-            {company.ifsc && <p className="text-xs">IFSC Code: {company.ifsc}</p>}
-            {company.upi_id && <p className="text-xs">UPI ID: {company.upi_id}</p>}
-          </div>
-          {company.qr_code_url && (
-            <div className="flex justify-end">
-              <div>
-                <p className="text-xs font-bold mb-1">Scan to Pay</p>
-                <img src={company.qr_code_url} alt="Payment QR Code" className="w-24 h-24 object-contain border border-border rounded" />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Items Table */}
       <div className="mb-6">
         <table className="w-full border-collapse">
@@ -168,6 +146,28 @@ export default function InvoicePreview({
             <span className="font-bold text-sm">Total</span>
             <span className="font-bold text-sm">₹{total.toFixed(2)}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Bank Details */}
+      <div className="mb-6">
+        <h3 className="font-bold text-xs mb-3">BANK DETAILS</h3>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            {company.bank_name && <p className="text-xs mb-1">Bank: {company.bank_name}</p>}
+            {company.account_holder_name && <p className="text-xs mb-1">Account Holder: {company.account_holder_name}</p>}
+            {company.bank_account && <p className="text-xs mb-1">Account Number: {company.bank_account}</p>}
+            {company.ifsc && <p className="text-xs mb-1">IFSC Code: {company.ifsc}</p>}
+            {company.upi_id && <p className="text-xs mb-1">UPI ID: {company.upi_id}</p>}
+          </div>
+          {company.qr_code_url && (
+            <div className="flex justify-end">
+              <div>
+                <p className="text-xs font-bold mb-1">Scan to Pay</p>
+                <img src={company.qr_code_url} alt="Payment QR Code" className="w-24 h-24 object-contain border border-border rounded" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
