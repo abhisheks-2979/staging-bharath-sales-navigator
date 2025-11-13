@@ -12,7 +12,7 @@ export default function InvoiceManagement() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/admin-controls")}
           className="h-8 w-8"
         >
           <ArrowLeft className="h-5 w-5" />
