@@ -69,7 +69,7 @@ export default function InvoicePreview({
       <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-6`}>
         <div className="flex items-center gap-4">
           {company.logo_url && (
-            <img src={company.logo_url} alt="Company Logo" className="w-16 h-16 object-contain" />
+            <img src={company.logo_url} alt="Company Logo" className="w-24 h-24 object-contain" />
           )}
           <div>
             <h1 className="text-lg font-bold">{company.name || "COMPANY NAME"}</h1>
