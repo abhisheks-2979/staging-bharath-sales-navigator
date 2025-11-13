@@ -144,9 +144,10 @@ export default function InvoiceTemplate3({
 
       // Bank Details Box
       if (company.bank_name) {
+        const bankBoxHeight = company.upi_id || company.qr_code_url ? 30 : 20;
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
-        doc.rect(15, yPos, pageWidth - 30, 20);
+        doc.rect(15, yPos, pageWidth - 30, bankBoxHeight);
         
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
@@ -156,6 +157,33 @@ export default function InvoiceTemplate3({
         doc.text(`Bank: ${company.bank_name}`, 20, yPos);
         yPos += 5;
         doc.text(`Account: ${company.bank_account || ""} | IFSC: ${company.ifsc || ""}`, 20, yPos);
+        if (company.upi_id) {
+          yPos += 5;
+          doc.text(`UPI ID: ${company.upi_id}`, 20, yPos);
+        }
+        
+        // Add QR Code if available
+        if (company.qr_code_url) {
+          try {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = company.qr_code_url;
+            await new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+            if (img.complete) {
+              const qrYPos = yPos - (company.upi_id ? 15 : 10);
+              doc.addImage(img, "PNG", pageWidth - 45, qrYPos, 25, 25);
+              doc.setFontSize(6);
+              doc.text("Scan to Pay", pageWidth - 32, qrYPos + 27, { align: "center" });
+            }
+          } catch (error) {
+            console.error("Error loading QR code:", error);
+          }
+        }
+        
+        yPos += 5;
       }
 
       // Footer

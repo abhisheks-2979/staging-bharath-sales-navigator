@@ -143,6 +143,31 @@ export default function InvoiceTemplate1({
         doc.text(`Bank: ${company.bank_name}`, 15, yPos);
         yPos += 5;
         doc.text(`A/c: ${company.bank_account || ""} | IFSC: ${company.ifsc || ""}`, 15, yPos);
+        yPos += 5;
+        if (company.upi_id) {
+          doc.text(`UPI ID: ${company.upi_id}`, 15, yPos);
+          yPos += 5;
+        }
+        
+        // Add QR Code if available
+        if (company.qr_code_url) {
+          try {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = company.qr_code_url;
+            await new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+            if (img.complete) {
+              doc.addImage(img, "PNG", pageWidth - 45, yPos - 20, 30, 30);
+              doc.setFontSize(7);
+              doc.text("Scan to Pay", pageWidth - 30, yPos + 12, { align: "center" });
+            }
+          } catch (error) {
+            console.error("Error loading QR code:", error);
+          }
+        }
       }
 
       // Save PDF

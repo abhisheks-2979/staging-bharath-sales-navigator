@@ -60,7 +60,7 @@ export default function InvoiceTemplate4({
   cartItems,
   orderId,
 }: InvoiceTemplate4Props) {
-  const generatePDF = () => {
+  const generatePDF = async () => {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.width;
@@ -290,8 +290,29 @@ export default function InvoiceTemplate4({
         doc.text(`IFSC Code: ${company.ifsc}`, 15, yPos);
         yPos += 4;
       }
-      if (company.qr_upi) {
-        doc.text(`UPI ID: ${company.qr_upi}`, 15, yPos);
+      if (company.upi_id) {
+        doc.text(`UPI ID: ${company.upi_id}`, 15, yPos);
+        yPos += 4;
+      }
+      
+      // Add QR Code if available
+      if (company.qr_code_url) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = company.qr_code_url;
+          await new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+          if (img.complete) {
+            doc.addImage(img, "PNG", pageWidth - 50, yPos - 30, 30, 30);
+            doc.setFontSize(7);
+            doc.text("Scan to Pay", pageWidth - 35, yPos + 2, { align: "center" });
+          }
+        } catch (error) {
+          console.error("Error loading QR code:", error);
+        }
       }
 
       // Signature area (right side)
