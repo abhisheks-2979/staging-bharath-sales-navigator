@@ -144,7 +144,7 @@ export default function InvoiceTemplate3({
 
       // Bank Details Box
       if (company.bank_name) {
-        const bankBoxHeight = company.upi_id || company.qr_code_url ? 30 : 20;
+        const bankBoxHeight = company.qr_upi || company.qr_code_url ? 30 : 20;
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.rect(15, yPos, pageWidth - 30, bankBoxHeight);
@@ -157,9 +157,9 @@ export default function InvoiceTemplate3({
         doc.text(`Bank: ${company.bank_name}`, 20, yPos);
         yPos += 5;
         doc.text(`Account: ${company.bank_account || ""} | IFSC: ${company.ifsc || ""}`, 20, yPos);
-        if (company.upi_id) {
+        if (company.qr_upi) {
           yPos += 5;
-          doc.text(`UPI ID: ${company.upi_id}`, 20, yPos);
+          doc.text(`UPI ID: ${company.qr_upi}`, 20, yPos);
         }
         
         // Add QR Code if available
@@ -175,7 +175,7 @@ export default function InvoiceTemplate3({
             });
             
             const imgFormat = company.qr_code_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-            const qrYPos = yPos - (company.upi_id ? 15 : 10);
+            const qrYPos = yPos - (company.qr_upi ? 15 : 10);
             doc.addImage(base64, imgFormat, pageWidth - 45, qrYPos, 25, 25);
             doc.setFontSize(6);
             doc.text("Scan to Pay", pageWidth - 32, qrYPos + 27, { align: "center" });

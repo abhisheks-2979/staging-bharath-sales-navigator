@@ -158,7 +158,7 @@ export default function InvoicePreview({
             {company.account_holder_name && <p className="text-xs mb-1">Account Holder: {company.account_holder_name}</p>}
             {company.bank_account && <p className="text-xs mb-1">Account Number: {company.bank_account}</p>}
             {company.ifsc && <p className="text-xs mb-1">IFSC Code: {company.ifsc}</p>}
-            {company.upi_id && <p className="text-xs mb-1">UPI ID: {company.upi_id}</p>}
+            {company.qr_upi && <p className="text-xs mb-1">UPI ID: {company.qr_upi}</p>}
           </div>
           {company.qr_code_url && (
             <div className="flex justify-end">

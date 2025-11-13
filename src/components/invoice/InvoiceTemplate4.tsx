@@ -290,8 +290,8 @@ export default function InvoiceTemplate4({
         doc.text(`IFSC Code: ${company.ifsc}`, 15, yPos);
         yPos += 4;
       }
-      if (company.upi_id) {
-        doc.text(`UPI ID: ${company.upi_id}`, 15, yPos);
+      if (company.qr_upi) {
+        doc.text(`UPI ID: ${company.qr_upi}`, 15, yPos);
         yPos += 4;
       }
       

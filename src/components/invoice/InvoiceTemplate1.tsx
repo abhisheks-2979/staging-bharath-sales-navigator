@@ -144,8 +144,8 @@ export default function InvoiceTemplate1({
         yPos += 5;
         doc.text(`A/c: ${company.bank_account || ""} | IFSC: ${company.ifsc || ""}`, 15, yPos);
         yPos += 5;
-        if (company.upi_id) {
-          doc.text(`UPI ID: ${company.upi_id}`, 15, yPos);
+        if (company.qr_upi) {
+          doc.text(`UPI ID: ${company.qr_upi}`, 15, yPos);
           yPos += 5;
         }
         

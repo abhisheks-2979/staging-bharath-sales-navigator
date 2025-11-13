@@ -156,8 +156,8 @@ export default function InvoiceTemplate2({
         doc.setFont("helvetica", "normal");
         doc.text(`Bank: ${company.bank_name} | A/c: ${company.bank_account || ""} | IFSC: ${company.ifsc || ""}`, 15, yPos);
         yPos += 5;
-        if (company.upi_id) {
-          doc.text(`UPI ID: ${company.upi_id}`, 15, yPos);
+        if (company.qr_upi) {
+          doc.text(`UPI ID: ${company.qr_upi}`, 15, yPos);
           yPos += 5;
         }
         
