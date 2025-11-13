@@ -63,7 +63,7 @@ export default function InvoicePreview({
           {company.logo_url && <img src={company.logo_url} alt="Company Logo" className="w-28 h-28 object-contain" />}
           <div>
             <h1 className="text-lg font-bold">{company.name || "COMPANY NAME"}</h1>
-            <p className="text-xs opacity-90">{company.address}</p>
+            <p className="text-xs opacity-90 max-w-md leading-tight">{company.address}</p>
             {company.contact_phone && <p className="text-xs">Tel: {company.contact_phone}</p>}
             {company.email && <p className="text-xs">Email: {company.email}</p>}
             {company.gstin && <p className="text-xs">GSTIN: {company.gstin}</p>}
