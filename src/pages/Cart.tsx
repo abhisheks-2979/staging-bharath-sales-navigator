@@ -797,16 +797,131 @@ export const Cart = () => {
         } = await supabase.from('retailers').select('phone').eq('id', validRetailerId).single();
         const retailerPhone = retailerData?.phone;
 
-        // Get company settings for invoice (not used currently but kept for future)
+        // Get company settings for invoice
         const {
           data: companyData
         } = await supabase.from('companies').select('*').limit(1).maybeSingle();
-        if (validRetailerId && retailerPhone) {
-          // Generate a temporary invoice number for SMS (will be formalized in database)
-          const tempInvoiceNumber = `INV-${Date.now()}`;
+        
+        if (validRetailerId && retailerPhone && companyData) {
+          // Generate invoice number
+          const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
 
-          // Create a simple invoice URL (you can enhance this to generate actual PDF)
-          const invoiceUrl = `${window.location.origin}/order-detail/${order.id}`;
+          // Generate PDF using jsPDF (simplified version)
+          const jsPDF = (await import('jspdf')).default;
+          const autoTable = (await import('jspdf-autotable')).default;
+          
+          const doc = new jsPDF();
+          const pageWidth = doc.internal.pageSize.width;
+          let yPos = 20;
+
+          // Header with company info
+          doc.setFontSize(16);
+          doc.setFont(undefined, 'bold');
+          doc.text(companyData.name || 'BHARATH BEVERAGES', pageWidth / 2, yPos, { align: 'center' });
+          yPos += 10;
+
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          if (companyData.address) {
+            doc.text(companyData.address, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 6;
+          }
+          if (companyData.contact_phone) {
+            doc.text(`Phone: ${companyData.contact_phone}`, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 6;
+          }
+          if (companyData.gstin) {
+            doc.text(`GSTIN: ${companyData.gstin}`, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 10;
+          }
+
+          // Invoice details
+          doc.setFontSize(14);
+          doc.setFont(undefined, 'bold');
+          doc.text('TAX INVOICE', pageWidth / 2, yPos, { align: 'center' });
+          yPos += 10;
+
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.text(`Invoice No: ${invoiceNumber}`, 15, yPos);
+          doc.text(`Date: ${new Date(order.created_at).toLocaleDateString('en-IN')}`, pageWidth - 15, yPos, { align: 'right' });
+          yPos += 10;
+
+          // Bill To
+          doc.setFont(undefined, 'bold');
+          doc.text('Bill To:', 15, yPos);
+          yPos += 6;
+          doc.setFont(undefined, 'normal');
+          doc.text(retailerName || 'Customer', 15, yPos);
+          yPos += 6;
+          if (retailerData?.phone) {
+            doc.text(`Phone: ${retailerData.phone}`, 15, yPos);
+            yPos += 10;
+          }
+
+          // Items table
+          const tableData = cartItems.map((item: any, index: number) => {
+            const quantity = Number(item.quantity || 0);
+            const rate = Number(item.rate || 0);
+            const amount = quantity * rate;
+
+            return [
+              (index + 1).toString(),
+              item.product_name || '',
+              quantity.toString(),
+              item.unit || 'Kg',
+              `₹${rate.toFixed(2)}`,
+              `₹${amount.toFixed(2)}`
+            ];
+          });
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [['#', 'Product', 'Qty', 'Unit', 'Rate', 'Amount']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [66, 66, 66], textColor: 255, fontSize: 10, fontStyle: 'bold' },
+            bodyStyles: { fontSize: 9 },
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 10;
+
+          // Totals
+          const subtotal = getSubtotal();
+          const cgst = getCGST();
+          const sgst = getSGST();
+          const grandTotal = getFinalTotal();
+
+          doc.setFont(undefined, 'bold');
+          doc.text(`Subtotal: ₹${subtotal.toFixed(2)}`, pageWidth - 15, yPos, { align: 'right' });
+          yPos += 6;
+          doc.text(`CGST (2.5%): ₹${cgst.toFixed(2)}`, pageWidth - 15, yPos, { align: 'right' });
+          yPos += 6;
+          doc.text(`SGST (2.5%): ₹${sgst.toFixed(2)}`, pageWidth - 15, yPos, { align: 'right' });
+          yPos += 6;
+          doc.setFontSize(12);
+          doc.text(`Total: ₹${grandTotal.toFixed(2)}`, pageWidth - 15, yPos, { align: 'right' });
+
+          // Get PDF as blob
+          const pdfBlob = doc.output('blob');
+          const fileName = `Invoice_${invoiceNumber}.pdf`;
+
+          // Upload to Supabase storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('invoices')
+            .upload(`${order.user_id}/${fileName}`, pdfBlob, {
+              contentType: 'application/pdf',
+              upsert: true
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('invoices')
+            .getPublicUrl(uploadData.path);
+
+          console.log('PDF uploaded to:', publicUrl);
           console.log('Sending invoice via SMS to:', retailerPhone);
 
           // Send via Twilio SMS
@@ -817,8 +932,8 @@ export const Cart = () => {
             body: {
               invoiceId: order.id,
               customerPhone: retailerPhone,
-              pdfUrl: invoiceUrl,
-              invoiceNumber: tempInvoiceNumber
+              pdfUrl: publicUrl,
+              invoiceNumber: invoiceNumber
             }
           });
           if (smsError) {
