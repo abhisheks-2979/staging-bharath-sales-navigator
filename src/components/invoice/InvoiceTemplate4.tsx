@@ -298,18 +298,19 @@ export default function InvoiceTemplate4({
       // Add QR Code if available
       if (company.qr_code_url) {
         try {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = company.qr_code_url;
-          await new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
+          const response = await fetch(company.qr_code_url);
+          const blob = await response.blob();
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
           });
-          if (img.complete) {
-            doc.addImage(img, "PNG", pageWidth - 50, yPos - 30, 30, 30);
-            doc.setFontSize(7);
-            doc.text("Scan to Pay", pageWidth - 35, yPos + 2, { align: "center" });
-          }
+          
+          const imgFormat = company.qr_code_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
+          doc.addImage(base64, imgFormat, pageWidth - 50, yPos - 30, 30, 30);
+          doc.setFontSize(7);
+          doc.text("Scan to Pay", pageWidth - 35, yPos + 2, { align: "center" });
         } catch (error) {
           console.error("Error loading QR code:", error);
         }
