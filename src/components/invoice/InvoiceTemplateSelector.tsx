@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Check, Eye } from "lucide-react";
+import { Check, Eye, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import InvoiceTemplate1 from "./InvoiceTemplate1";
 import InvoiceTemplate2 from "./InvoiceTemplate2";
@@ -17,9 +19,18 @@ export default function InvoiceTemplateSelector() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [importData, setImportData] = useState({
+    name: "",
+    description: "",
+    file: null as File | null
+  });
 
   useEffect(() => {
     fetchCurrentTemplate();
+    fetchCustomTemplates();
   }, []);
 
   const fetchCurrentTemplate = async () => {
@@ -34,6 +45,21 @@ export default function InvoiceTemplateSelector() {
       setCompanyId(data.id);
       setSelectedTemplate(data.invoice_template || "template1");
     }
+  };
+
+  const fetchCustomTemplates = async () => {
+    const { data, error } = await supabase
+      .from("custom_invoice_templates")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching custom templates:", error);
+      return;
+    }
+
+    setCustomTemplates(data || []);
   };
 
   const handleSaveTemplate = async () => {
@@ -123,11 +149,118 @@ export default function InvoiceTemplateSelector() {
     setShowPreview(true);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a PDF or image file (PNG, JPG)");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size should be less than 5MB");
+      return;
+    }
+
+    setImportData({ ...importData, file });
+  };
+
+  const handleImportTemplate = async () => {
+    if (!importData.name.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+
+    if (!importData.file) {
+      toast.error("Please select a file to upload");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Upload file to storage
+      const fileExt = importData.file.name.split('.').pop();
+      const fileName = `template-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('invoice-templates')
+        .upload(filePath, importData.file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('invoice-templates')
+        .getPublicUrl(filePath);
+
+      // Save template metadata
+      const { error: insertError } = await supabase
+        .from('custom_invoice_templates')
+        .insert({
+          name: importData.name.trim(),
+          description: importData.description.trim() || null,
+          template_file_url: publicUrl,
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Template imported successfully");
+      setShowImportDialog(false);
+      setImportData({ name: "", description: "", file: null });
+      fetchCustomTemplates();
+    } catch (error: any) {
+      console.error("Error importing template:", error);
+      toast.error(error.message || "Failed to import template");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteCustomTemplate = async (templateId: string, fileUrl: string) => {
+    if (!confirm("Are you sure you want to delete this template?")) return;
+
+    try {
+      // Extract file path from URL
+      const urlParts = fileUrl.split('/');
+      const filePath = urlParts[urlParts.length - 1];
+
+      // Delete from storage
+      await supabase.storage
+        .from('invoice-templates')
+        .remove([filePath]);
+
+      // Delete from database
+      const { error } = await supabase
+        .from('custom_invoice_templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      toast.success("Template deleted successfully");
+      fetchCustomTemplates();
+    } catch (error: any) {
+      console.error("Error deleting template:", error);
+      toast.error(error.message || "Failed to delete template");
+    }
+  };
+
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Select Invoice Template</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Select Invoice Template</CardTitle>
+            <Button onClick={() => setShowImportDialog(true)} size="sm">
+              <Upload className="w-4 h-4 mr-2" />
+              Import Template
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <RadioGroup value={selectedTemplate} onValueChange={setSelectedTemplate}>
@@ -173,6 +306,64 @@ export default function InvoiceTemplateSelector() {
                 </div>
               </div>
             ))}
+
+            {/* Custom Templates */}
+            {customTemplates.map((template) => (
+              <div
+                key={template.id}
+                className={`relative border rounded-lg p-4 transition-all ${
+                  selectedTemplate === template.id ? "border-primary bg-primary/5" : ""
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <RadioGroupItem 
+                    value={template.id} 
+                    id={template.id} 
+                    className="mt-1" 
+                    onClick={() => setSelectedTemplate(template.id)}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor={template.id} className="cursor-pointer" onClick={() => setSelectedTemplate(template.id)}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">{template.name}</span>
+                        {selectedTemplate === template.id && (
+                          <Check className="w-4 h-4 text-primary" />
+                        )}
+                      </div>
+                      {template.description && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {template.description}
+                        </p>
+                      )}
+                    </Label>
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(template.template_file_url, '_blank');
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View File
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustomTemplate(template.id, template.template_file_url);
+                        }}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </RadioGroup>
 
           <Button
@@ -214,6 +405,71 @@ export default function InvoiceTemplateSelector() {
                 cartItems={sampleCart}
               />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Template Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Custom Invoice Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="template-name">Template Name *</Label>
+              <Input
+                id="template-name"
+                placeholder="e.g., Custom Design 2024"
+                value={importData.name}
+                onChange={(e) => setImportData({ ...importData, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="template-description">Description (Optional)</Label>
+              <Textarea
+                id="template-description"
+                placeholder="Describe your template..."
+                value={importData.description}
+                onChange={(e) => setImportData({ ...importData, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="template-file">Upload Template File *</Label>
+              <Input
+                id="template-file"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={handleFileChange}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Supported formats: PDF, PNG, JPG (Max 5MB)
+              </p>
+              {importData.file && (
+                <p className="text-sm text-primary mt-2">
+                  Selected: {importData.file.name}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowImportDialog(false);
+                  setImportData({ name: "", description: "", file: null });
+                }}
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleImportTemplate} disabled={uploading}>
+                {uploading ? "Uploading..." : "Import Template"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
