@@ -542,11 +542,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-2">
-          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
-            <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
-          </p>
-        </CardHeader>
         <CardContent className="p-0">
           <div className="w-full">
             {/* Table Header - Responsive */}
@@ -746,6 +741,10 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       >
         Add All to Cart
       </Button>
+      
+      <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
+        <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
+      </p>
     </div>
   );
 };
