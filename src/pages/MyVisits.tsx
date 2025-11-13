@@ -905,34 +905,32 @@ export const MyVisits = () => {
 
         {/* Enhanced Search and Filter Bar - Mobile Optimized */}
         <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-2 sm:p-4">
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <div className="flex-1">
+          <CardContent className="p-2">
+            <div className="flex gap-2 items-center">
+              <div className="flex-1 min-w-0">
                 <SearchInput placeholder={t('visits.searchPlaceholder')} value={searchTerm} onChange={setSearchTerm} />
               </div>
-              <div className="flex gap-2 items-center">
-                <VisitFilters filters={filters} onFiltersChange={setFilters} availableCategories={availableCategories} availableLocations={availableLocations} />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/15 hover:to-primary/10 text-xs sm:text-sm h-9 w-9 p-0"
-                      title="Sort Alphabetically"
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-background z-50">
-                    <DropdownMenuItem onClick={() => setSortOrder('asc')} className={cn("cursor-pointer", sortOrder === 'asc' && "bg-primary/10")}>
-                      A-Z
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortOrder('desc')} className={cn("cursor-pointer", sortOrder === 'desc' && "bg-primary/10")}>
-                      Z-A
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <VisitFilters filters={filters} onFiltersChange={setFilters} availableCategories={availableCategories} availableLocations={availableLocations} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/15 hover:to-primary/10 h-9 w-9 p-0 flex-shrink-0"
+                    title="Sort Alphabetically"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background z-50">
+                  <DropdownMenuItem onClick={() => setSortOrder('asc')} className={cn("cursor-pointer", sortOrder === 'asc' && "bg-primary/10")}>
+                    A-Z
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('desc')} className={cn("cursor-pointer", sortOrder === 'desc' && "bg-primary/10")}>
+                    Z-A
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardContent>
         </Card>
