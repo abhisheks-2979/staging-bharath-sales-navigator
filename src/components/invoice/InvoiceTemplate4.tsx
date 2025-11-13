@@ -11,6 +11,49 @@ interface InvoiceTemplate4Props {
   orderId?: string;
 }
 
+// Helper function to convert number to words
+const numberToWords = (num: number): string => {
+  if (num === 0) return "Zero";
+  
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+  const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  
+  const convertTwoDigit = (n: number): string => {
+    if (n < 10) return ones[n];
+    if (n < 20) return teens[n - 10];
+    return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+  };
+  
+  const convertThreeDigit = (n: number): string => {
+    if (n === 0) return "";
+    if (n < 100) return convertTwoDigit(n);
+    return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + convertTwoDigit(n % 100) : "");
+  };
+  
+  if (num < 100) return convertTwoDigit(num);
+  if (num < 1000) return convertThreeDigit(num);
+  if (num < 100000) {
+    const thousands = Math.floor(num / 1000);
+    const remainder = num % 1000;
+    return convertThreeDigit(thousands) + " Thousand" + (remainder ? " " + convertThreeDigit(remainder) : "");
+  }
+  if (num < 10000000) {
+    const lakhs = Math.floor(num / 100000);
+    let remainder = num % 100000;
+    let result = convertTwoDigit(lakhs) + " Lakh";
+    if (remainder >= 1000) {
+      result += " " + convertThreeDigit(Math.floor(remainder / 1000)) + " Thousand";
+      remainder = remainder % 1000;
+    }
+    if (remainder > 0) {
+      result += " " + convertThreeDigit(remainder);
+    }
+    return result;
+  }
+  return num.toString();
+};
+
 export default function InvoiceTemplate4({
   company,
   retailer,
@@ -25,41 +68,58 @@ export default function InvoiceTemplate4({
 
       // Dark header background
       doc.setFillColor(52, 52, 52);
-      doc.rect(0, 0, pageWidth, 35, "F");
+      doc.rect(0, 0, pageWidth, 45, "F");
 
       // Logo circle background (green)
+      let companyNameX = 15;
       if (company.logo_url) {
         doc.setFillColor(139, 195, 74);
         doc.circle(22, 17, 10, "F");
         
-        // Add logo image
-        const logoImg = new Image();
-        logoImg.src = company.logo_url;
-        logoImg.onload = () => {
-          doc.addImage(logoImg, "PNG", 15, 10, 14, 14);
-        };
+        try {
+          doc.addImage(company.logo_url, "PNG", 15, 10, 14, 14);
+        } catch (e) {
+          console.log("Logo load failed");
+        }
+        companyNameX = 35;
       }
 
-      // Company name and slogan (left side, next to logo)
+      // Company name and details (left side)
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(14);
+      doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      const companyNameX = company.logo_url ? 35 : 15;
       doc.text((company.name || "COMPANY NAME").toUpperCase(), companyNameX, 15);
+      
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text("YOUR SLOGAN HERE", companyNameX, 21);
+      let headerY = 20;
+      if (company.address) {
+        const addressLines = doc.splitTextToSize(company.address, 90);
+        doc.text(addressLines.slice(0, 2), companyNameX, headerY);
+        headerY += addressLines.slice(0, 2).length * 3;
+      }
+      if (company.contact_phone) {
+        doc.text(`Tel: ${company.contact_phone}`, companyNameX, headerY);
+        headerY += 3;
+      }
+      if (company.email) {
+        doc.text(`Email: ${company.email}`, companyNameX, headerY);
+        headerY += 3;
+      }
+      if (company.gstin) {
+        doc.text(`GSTIN: ${company.gstin}`, companyNameX, headerY);
+      }
 
       // INVOICE title (right side)
-      doc.setFontSize(28);
+      doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
-      doc.text("INVOICE", pageWidth - 15, 20, { align: "right" });
+      doc.text("INVOICE", pageWidth - 15, 18, { align: "right" });
 
       // Reset text color
       doc.setTextColor(0, 0, 0);
 
       // Bill To section
-      let yPos = 50;
+      let yPos = 55;
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
@@ -79,36 +139,47 @@ export default function InvoiceTemplate4({
         yPos += addressLines.length * 4;
       }
       if (retailer.phone) {
-        doc.text(retailer.phone, 15, yPos);
+        doc.text(`Phone: ${retailer.phone}`, 15, yPos);
+        yPos += 4;
+      }
+      if (retailer.gst_number) {
+        doc.text(`GSTIN: ${retailer.gst_number}`, 15, yPos);
       }
 
       // Invoice details (right side)
-      yPos = 50;
+      let invoiceY = 55;
+      const invoiceNum = orderId?.slice(0, 8).toUpperCase() || "INV001";
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text("INVOICE #", pageWidth - 60, yPos);
+      doc.text("INVOICE #", pageWidth - 60, invoiceY);
       doc.setFont("helvetica", "normal");
-      doc.text(orderId || "001", pageWidth - 15, yPos, { align: "right" });
+      doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
       
-      yPos += 6;
+      invoiceY += 6;
       doc.setFont("helvetica", "bold");
-      doc.text("INVOICE DATE", pageWidth - 60, yPos);
+      doc.text("INVOICE DATE", pageWidth - 60, invoiceY);
       doc.setFont("helvetica", "normal");
-      doc.text(new Date().toLocaleDateString("en-GB"), pageWidth - 15, yPos, { align: "right" });
+      doc.text(new Date().toLocaleDateString("en-GB"), pageWidth - 15, invoiceY, { align: "right" });
 
       // Items table with green header
-      const tableData = cartItems.map((item, index) => [
-        (index + 1).toString(),
-        item.product_name || "Item/Service",
-        `₹ ${item.price?.toFixed(2) || "0.00"}`,
-        item.quantity?.toString() || "1",
-        `₹ ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}`,
-      ]);
+      const tableData = cartItems.map((item, index) => {
+        const rate = item.rate || item.price || 0;
+        const qty = item.quantity || 0;
+        const total = rate * qty;
+        return [
+          (index + 1).toString(),
+          item.product_name || item.name || "Item",
+          item.unit || "Piece",
+          `₹${rate.toFixed(2)}`,
+          qty.toString(),
+          `₹${total.toFixed(2)}`,
+        ];
+      });
 
       autoTable(doc, {
-        startY: 85,
-        head: [["NO", "DESCRIPTION", "PRICE", "QTY", "TOTAL"]],
+        startY: 95,
+        head: [["NO", "DESCRIPTION", "UNIT", "PRICE", "QTY", "TOTAL"]],
         body: tableData,
         theme: "plain",
         headStyles: {
@@ -119,30 +190,35 @@ export default function InvoiceTemplate4({
           halign: "center",
         },
         bodyStyles: {
-          fontSize: 9,
+          fontSize: 8,
           textColor: [0, 0, 0],
         },
         alternateRowStyles: {
           fillColor: [250, 250, 250],
         },
         columnStyles: {
-          0: { cellWidth: 20, halign: "center" },
-          1: { cellWidth: 85, halign: "left" },
-          2: { cellWidth: 25, halign: "center" },
-          3: { cellWidth: 20, halign: "center" },
-          4: { cellWidth: 30, halign: "center" },
+          0: { cellWidth: 15, halign: "center" },
+          1: { cellWidth: 65, halign: "left" },
+          2: { cellWidth: 20, halign: "center" },
+          3: { cellWidth: 25, halign: "right" },
+          4: { cellWidth: 15, halign: "center" },
+          5: { cellWidth: 30, halign: "right" },
         },
         margin: { left: 15, right: 15 },
       });
 
       // Calculate totals
       const subtotal = cartItems.reduce(
-        (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+        (sum, item) => sum + (item.rate || item.price || 0) * (item.quantity || 0),
         0
       );
       const sgst = subtotal * 0.025; // 2.5%
       const cgst = subtotal * 0.025; // 2.5%
       const total = subtotal + sgst + cgst;
+      
+      // Convert total to words
+      const totalInWords = numberToWords(Math.floor(total)) + " Rupees" + 
+        (total % 1 > 0 ? " and " + numberToWords(Math.round((total % 1) * 100)) + " Paise" : "") + " Only";
 
       // Totals section (right-aligned)
       yPos = (doc as any).lastAutoTable.finalY + 12;
@@ -176,9 +252,19 @@ export default function InvoiceTemplate4({
       doc.text(`₹ ${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
       
       doc.setTextColor(0, 0, 0);
+      
+      // Total in Words
+      yPos += 10;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text("Amount in Words:", 15, yPos);
+      doc.setFont("helvetica", "normal");
+      yPos += 4;
+      const wordsLines = doc.splitTextToSize(totalInWords, pageWidth - 30);
+      doc.text(wordsLines, 15, yPos);
 
       // Payment Method section
-      yPos += 18;
+      yPos += 14;
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("PAYMENT METHOD", 15, yPos);
@@ -187,27 +273,34 @@ export default function InvoiceTemplate4({
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       if (company.bank_name) {
-        doc.text(`Bank: ${company.bank_name}`, 15, yPos);
+        doc.text(`Bank Name: ${company.bank_name}`, 15, yPos);
         yPos += 4;
       }
-      if (company.account_name) {
-        doc.text(`Account Name: ${company.account_name}`, 15, yPos);
+      if (company.account_holder_name) {
+        doc.text(`Account Holder: ${company.account_holder_name}`, 15, yPos);
         yPos += 4;
       }
-      if (company.account_number) {
-        doc.text(`Account Number: ${company.account_number}`, 15, yPos);
+      if (company.bank_account) {
+        doc.text(`Account Number: ${company.bank_account}`, 15, yPos);
         yPos += 4;
       }
-      if (company.ifsc_code) {
-        doc.text(`IFSC Code: ${company.ifsc_code}`, 15, yPos);
+      if (company.ifsc) {
+        doc.text(`IFSC Code: ${company.ifsc}`, 15, yPos);
+        yPos += 4;
+      }
+      if (company.qr_upi) {
+        doc.text(`UPI ID: ${company.qr_upi}`, 15, yPos);
       }
 
       // Signature area (right side)
-      const sigYPos = yPos - 18;
-      doc.setFontSize(8);
+      const sigYPos = yPos - 22;
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.text("For " + (company.name || "Company"), pageWidth - 40, sigYPos + 18, { align: "center" });
       doc.setFont("helvetica", "italic");
-      doc.text("Authorized Signature", pageWidth - 40, sigYPos + 25, { align: "center" });
-      doc.line(pageWidth - 55, sigYPos + 23, pageWidth - 25, sigYPos + 23);
+      doc.setFontSize(7);
+      doc.text("Authorized Signatory", pageWidth - 40, sigYPos + 30, { align: "center" });
+      doc.line(pageWidth - 55, sigYPos + 28, pageWidth - 25, sigYPos + 28);
 
       // Terms and Conditions
       yPos += 12;
@@ -244,7 +337,7 @@ export default function InvoiceTemplate4({
       const footerText = footerParts.join(" - ");
       doc.text(footerText, pageWidth / 2, pageHeight - 12, { align: "center" });
 
-      doc.save(`invoice-${orderId || "001"}.pdf`);
+      doc.save(`invoice-${invoiceNum}.pdf`);
       toast.success("Invoice downloaded successfully!");
     } catch (error) {
       console.error("Error generating PDF:", error);
