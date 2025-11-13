@@ -25,7 +25,7 @@ export default function InvoiceTemplateSelector() {
     description: "",
     file: null as File | null
   });
-
+  const [companyData, setCompanyData] = useState<any | null>(null);
   useEffect(() => {
     fetchCurrentTemplate();
     fetchCustomTemplates();
@@ -34,7 +34,7 @@ export default function InvoiceTemplateSelector() {
   const fetchCurrentTemplate = async () => {
     const { data } = await supabase
       .from("companies")
-      .select("id, invoice_template")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
@@ -42,6 +42,7 @@ export default function InvoiceTemplateSelector() {
     if (data) {
       setCompanyId(data.id);
       setSelectedTemplate(data.invoice_template || "template1");
+      setCompanyData(data);
     }
   };
 
@@ -391,7 +392,7 @@ export default function InvoiceTemplateSelector() {
           <div className="mt-4">
             {previewTemplate && (
               <InvoicePreview
-                company={sampleCompany}
+                company={companyData || sampleCompany}
                 retailer={sampleRetailer}
                 cartItems={sampleCart}
                 orderId="INV12345678"
