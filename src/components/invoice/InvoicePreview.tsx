@@ -157,6 +157,13 @@ export default function InvoicePreview({
           {company.account_holder_name && <p className="text-xs">Account Holder: {company.account_holder_name}</p>}
           {company.bank_account && <p className="text-xs">Account Number: {company.bank_account}</p>}
           {company.ifsc && <p className="text-xs">IFSC Code: {company.ifsc}</p>}
+          {company.upi_id && <p className="text-xs">UPI ID: {company.upi_id}</p>}
+          {company.qr_code_url && (
+            <div className="mt-3">
+              <p className="text-xs font-bold mb-1">Scan to Pay</p>
+              <img src={company.qr_code_url} alt="Payment QR Code" className="w-24 h-24 object-contain border border-border rounded" />
+            </div>
+          )}
         </div>
         <div className="text-right">
           <p className="text-xs font-bold mb-1">For {company.name || "Company"}</p>
