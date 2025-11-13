@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck } from "lucide-react";
+import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -138,6 +138,7 @@ export const MyVisits = () => {
   const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [filters, setFilters] = useState<FilterOptions>({});
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Current week start
   const [weekDays, setWeekDays] = useState(() => getWeekDays(new Date()));
   const [plannedBeats, setPlannedBeats] = useState<any[]>([]);
@@ -637,7 +638,7 @@ export const MyVisits = () => {
   // Show visits for selected date based on planned beats
   const allVisits = retailers;
   const filteredVisits = useMemo(() => {
-    return allVisits.filter(visit => {
+    const filtered = allVisits.filter(visit => {
       const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) || visit.phone.includes(searchTerm);
       let matchesStatus = true;
       if (statusFilter === 'planned') {
@@ -704,7 +705,19 @@ export const MyVisits = () => {
       }
       return matchesSearch && matchesStatus;
     });
-  }, [allVisits, searchTerm, statusFilter, filters, retailerStats]);
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      const nameA = a.retailerName.toLowerCase();
+      const nameB = b.retailerName.toLowerCase();
+      
+      if (sortOrder === 'asc') {
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
+  }, [allVisits, searchTerm, statusFilter, filters, retailerStats, sortOrder]);
   const visitsForSelectedDate = retailers;
 
   // Calculate planned beats count: only beats that have visits in planned, in-progress, or cancelled status
@@ -891,13 +904,23 @@ export const MyVisits = () => {
 
         {/* Enhanced Search and Filter Bar - Mobile Optimized */}
         <Card className="shadow-card bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-2 sm:p-4 space-y-3">
-            <div className="w-full">
-              <SearchInput placeholder={t('visits.searchPlaceholder')} value={searchTerm} onChange={setSearchTerm} />
-            </div>
+          <CardContent className="p-2 sm:p-4">
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
               <div className="flex-1">
+                <SearchInput placeholder={t('visits.searchPlaceholder')} value={searchTerm} onChange={setSearchTerm} />
+              </div>
+              <div className="flex gap-2 items-center">
                 <VisitFilters filters={filters} onFiltersChange={setFilters} availableCategories={availableCategories} availableLocations={availableLocations} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/15 hover:to-primary/10 text-xs sm:text-sm h-9 whitespace-nowrap"
+                  title={sortOrder === 'asc' ? 'Sort Z-A' : 'Sort A-Z'}
+                >
+                  <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                </Button>
               </div>
             </div>
           </CardContent>
