@@ -262,10 +262,10 @@ export const CreateBeat = () => {
       return;
     }
 
-    if (repeatEnabled && repeatType === "weekly" && repeatDays.length === 0) {
+    if (repeatEnabled && (repeatType === "weekly" || repeatType === "monthly") && repeatDays.length === 0) {
       toast({
         title: "Days Required",
-        description: "Please select at least one day for weekly recurring beats",
+        description: `Please select at least one day for ${repeatType} recurring beats`,
         variant: "destructive"
       });
       return;
@@ -536,6 +536,29 @@ export const CreateBeat = () => {
                     {repeatType === "weekly" && (
                       <div className="space-y-2">
                         <Label>Select Days *</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {weekDays.map((day) => (
+                            <Button
+                              key={day.value}
+                              type="button"
+                              variant={repeatDays.includes(day.value) ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handleWeekDayToggle(day.value)}
+                              className="w-12"
+                            >
+                              {day.label}
+                            </Button>
+                          ))}
+                        </div>
+                        {repeatDays.length === 0 && (
+                          <p className="text-xs text-destructive">Please select at least one day</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {repeatType === "monthly" && (
+                      <div className="space-y-2">
+                        <Label>Select Days of Month *</Label>
                         <div className="flex flex-wrap gap-2">
                           {weekDays.map((day) => (
                             <Button
