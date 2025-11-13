@@ -1080,21 +1080,6 @@ export const VisitCard = ({
               </h3>
               
               {/* Location Status and Time Tracker */}
-              {isTodaysVisit && trackingLocationStatus === 'location_unavailable' && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await startTracking('feedback', false);
-                    } catch (e) {
-                      console.error('Start tracking failed', e);
-                    }
-                  }}
-                  className="px-2 py-0.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
-                  title="Tap to capture your location and start visit timer"
-                >
-                  Capture location
-                </button>
-              )}
               {isTodaysVisit && currentLog && (
                 <button 
                   onClick={() => setShowVisitDetailsModal(true)} 
