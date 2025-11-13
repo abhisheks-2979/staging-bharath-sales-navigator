@@ -19,14 +19,10 @@ export default function InvoiceList() {
   const fetchInvoices = async () => {
     setLoading(true);
     try {
-      // Fetch invoices with optional joins (left joins) to handle templates without customer/company data
+      // Fetch all invoice templates
       const { data, error } = await supabase
         .from("invoices")
-        .select(`
-          *,
-          retailers:customer_id (name, address, phone, gst_number),
-          companies:company_id (*)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) {
