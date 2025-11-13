@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Eye } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,10 +9,19 @@ import { toast } from "sonner";
 interface InvoicePDFGeneratorProps {
   invoiceId: string;
   className?: string;
+  buttonLabel?: string;
+  buttonIcon?: React.ReactNode;
 }
 
-export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGeneratorProps) => {
+export const InvoicePDFGenerator = ({ 
+  invoiceId, 
+  className, 
+  buttonLabel = "Download PDF",
+  buttonIcon 
+}: InvoicePDFGeneratorProps) => {
   const [loading, setLoading] = useState(false);
+
+  const defaultIcon = buttonLabel === "Download PDF" ? <Download className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />;
 
   const generatePDF = async () => {
     setLoading(true);
@@ -430,8 +439,8 @@ export const InvoicePDFGenerator = ({ invoiceId, className }: InvoicePDFGenerato
       onClick={generatePDF}
       className={className}
     >
-      <Download className="mr-2 h-4 w-4" />
-      {loading ? "Generating..." : "Download PDF"}
+      {buttonIcon || defaultIcon}
+      {loading ? "Generating..." : buttonLabel}
     </Button>
   );
 };

@@ -4,9 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Trash2, MessageSquare, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { InvoicePDFGenerator } from "./InvoicePDFGenerator";
 
 export default function InvoiceList() {
@@ -45,54 +44,6 @@ export default function InvoiceList() {
     }
   };
 
-  const deleteInvoice = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this invoice?")) return;
-
-    try {
-      const { error } = await supabase.from("invoices").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Invoice deleted successfully");
-      fetchInvoices();
-    } catch (error: any) {
-      console.error("Error deleting invoice:", error);
-      toast.error("Failed to delete invoice");
-    }
-  };
-
-  const sendWhatsApp = async (invoiceId: string, customerPhone: string | null) => {
-    if (!customerPhone) {
-      toast.error("Customer phone number not found");
-      return;
-    }
-
-    try {
-      toast.info("Sending invoice via WhatsApp...");
-      const { data, error } = await supabase.functions.invoke('send-invoice-whatsapp', {
-        body: { invoiceId, customerPhone }
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast.success("Invoice sent via WhatsApp successfully!");
-      } else {
-        throw new Error(data.error || 'Failed to send WhatsApp message');
-      }
-    } catch (error: any) {
-      console.error('WhatsApp send error:', error);
-      toast.error(error.message || "Failed to send invoice via WhatsApp");
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: any = {
-      draft: "secondary",
-      issued: "default",
-      paid: "success",
-      cancelled: "destructive",
-    };
-    return <Badge variant={variants[status] || "secondary"}>{status.toUpperCase()}</Badge>;
-  };
 
   if (loading) {
     return <div className="text-center py-8">Loading invoices...</div>;
@@ -110,69 +61,60 @@ export default function InvoiceList() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Templates</CardTitle>
+        <CardTitle>All Templates ({invoices.length})</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Template No</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Invoice Template Number</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {invoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
                   No templates found. Create your first template!
                 </TableCell>
               </TableRow>
             ) : (
               invoices.map((invoice) => {
                 const isSelected = getSelectedTemplate() === invoice.id;
-                const companyName = invoice.companies?.name || "N/A";
-                const customerName = invoice.retailers?.name || "N/A";
                 
                 return (
                   <TableRow key={invoice.id} className={isSelected ? "bg-primary/5" : ""}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {invoice.invoice_number}
-                        {isSelected && <Check className="w-4 h-4 text-primary" />}
+                        {isSelected && (
+                          <Badge variant="default" className="ml-2">
+                            <Check className="w-3 h-3 mr-1" />
+                            Active Template
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>{customerName}</TableCell>
-                    <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
-                    <TableCell>₹{parseFloat(invoice.total_amount).toFixed(2)}</TableCell>
-                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <InvoicePDFGenerator 
+                          invoiceId={invoice.id} 
+                          buttonLabel="View Template"
+                        />
                         <Button
                           size="sm"
                           variant={isSelected ? "default" : "outline"}
                           onClick={() => selectTemplate(invoice.id)}
-                          title="Use this template for cart invoices"
+                          title="Use this template for all cart invoices"
                         >
-                          {isSelected ? "Selected" : "Select"}
-                        </Button>
-                        <InvoicePDFGenerator invoiceId={invoice.id} />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toast.info("View template details")}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteInvoice(invoice.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          {isSelected ? (
+                            <>
+                              <Check className="w-4 h-4 mr-1" />
+                              Selected
+                            </>
+                          ) : (
+                            "Select Template"
+                          )}
                         </Button>
                       </div>
                     </TableCell>
