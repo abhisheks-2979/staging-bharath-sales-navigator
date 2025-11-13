@@ -125,7 +125,19 @@ const CreateUserForm = () => {
         body: formData
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to create user');
+      }
+
+      if (data?.error) {
+        console.error('Server error:', data.error, data.details);
+        throw new Error(data.details || data.error || 'Failed to create user');
+      }
+
+      if (!data?.user?.id) {
+        throw new Error('User creation succeeded but no user ID returned');
+      }
 
       const userId = data.user.id;
 
