@@ -54,7 +54,7 @@ serve(async (req) => {
     console.log('Sending to phone:', toPhone);
 
     // Send via WhatChimp WhatsApp API with template
-    const whatchimpUrl = `https://api.whatchamp.com/v1/${whatchimpPhoneNumberId}/messages`;
+    const whatchimpUrl = `https://api.whatchimp.com/v1/${whatchimpPhoneNumberId}/messages`;
 
     const whatsappPayload = {
       messaging_product: 'whatsapp',
