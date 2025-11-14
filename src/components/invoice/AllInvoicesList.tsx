@@ -29,33 +29,28 @@ export default function AllInvoicesList() {
     setLoading(true);
     try {
       // Fetch all orders from all users
-      const { data: orders, error } = await supabase
+      const { data, error } = await supabase
         .from("orders")
-        .select(`
-          id,
-          invoice_number,
-          created_at,
-          retailer_id,
-          total_amount
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       // Fetch retailer names for each order
+      const orders: any[] = data || [];
       if (orders && orders.length > 0) {
-        const retailerIds = [...new Set(orders.map(o => o.retailer_id).filter(Boolean))];
+        const retailerIds = [...new Set(orders.map((o: any) => o.retailer_id).filter(Boolean))];
         const { data: retailers } = await supabase
           .from("retailers")
           .select("id, name")
           .in("id", retailerIds);
 
-        const retailerMap = new Map(retailers?.map(r => [r.id, r.name]) || []);
+        const retailerMap = new Map((retailers as any[])?.map((r: any) => [r.id, r.name]) || []);
 
-        const invoicesWithRetailers = orders.map(order => ({
+        const invoicesWithRetailers = orders.map((order: any) => ({
           ...order,
-          retailer_name: retailerMap.get(order.retailer_id) || "Unknown Retailer"
-        }));
+          retailer_name: retailerMap.get(order.retailer_id) || "Unknown Retailer",
+        })) as Invoice[];
 
         setInvoices(invoicesWithRetailers);
       } else {
