@@ -31,8 +31,12 @@ interface AttendanceData {
   check_out_location: any;
   check_in_address: string | null;
   check_out_address: string | null;
+  check_in_photo_url: string | null;
+  check_out_photo_url: string | null;
   face_match_confidence?: number | null;
+  face_match_confidence_out?: number | null;
   face_verification_status?: string | null;
+  face_verification_status_out?: string | null;
   profiles?: {
     full_name: string;
     username: string;
@@ -205,6 +209,12 @@ const LiveAttendanceMonitoring = () => {
               check_out_location: null,
               check_in_address: null,
               check_out_address: null,
+              check_in_photo_url: null,
+              check_out_photo_url: null,
+              face_match_confidence: null,
+              face_match_confidence_out: null,
+              face_verification_status: null,
+              face_verification_status_out: null,
               profiles: {
                 full_name: user.full_name,
                 username: user.username
@@ -370,17 +380,17 @@ const LiveAttendanceMonitoring = () => {
 
   const exportData = () => {
     // Create CSV content
-    const headers = ['Employee', 'Date', 'First Check In', 'Last Check In', 'Active Market Hours', 'Status', 'Location'];
+    const headers = ['Employee', 'Date', 'First Check In', 'Last Check Out', 'Active Market Hours', 'Check In Location', 'Check Out Location'];
     const csvContent = [
       headers.join(','),
       ...filteredData.map(record => [
         record.profiles?.full_name || 'Unknown',
         record.date,
-        record.first_visit_check_in ? format(new Date(record.first_visit_check_in), 'HH:mm') : '--',
-        record.last_visit_check_in ? format(new Date(record.last_visit_check_in), 'HH:mm') : '--',
+        record.check_in_time ? format(new Date(record.check_in_time), 'HH:mm') : '--',
+        record.check_out_time ? format(new Date(record.check_out_time), 'HH:mm') : '--',
         record.active_market_hours ? `${record.active_market_hours.toFixed(1)}h` : '--',
-        record.status,
-        formatLocation(record.first_visit_location, record.check_in_address)
+        formatLocation(record.check_in_location, record.check_in_address),
+        formatLocation(record.check_out_location, record.check_out_address)
       ].join(','))
     ].join('\n');
 
@@ -593,23 +603,21 @@ const LiveAttendanceMonitoring = () => {
             <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Status</TableHead>
                     <TableHead>Employee</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead>Photo</TableHead>
                     <TableHead>First Check In</TableHead>
-                    <TableHead>Last Check In</TableHead>
+                    <TableHead>Last Check Out</TableHead>
                     <TableHead>Active Market Hours</TableHead>
-                    <TableHead>Face Match</TableHead>
-                    <TableHead>Attendance Status</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead>Face Match Check In</TableHead>
+                    <TableHead>Face Match Check Out</TableHead>
+                    <TableHead>Check In Location</TableHead>
+                    <TableHead>Check Out Location</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
                 {filteredData.map((record) => (
                   <TableRow key={record.id}>
-                    <TableCell>
-                      {getStatusIcon(record)}
-                    </TableCell>
                     <TableCell className="font-medium">
                       {record.profiles?.full_name || 'Unknown User'}
                     </TableCell>
@@ -617,10 +625,24 @@ const LiveAttendanceMonitoring = () => {
                       {format(new Date(record.date), 'MMM dd, yyyy')}
                     </TableCell>
                     <TableCell>
+                      {record.check_in_photo_url ? (
+                        <a
+                          href={`https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/attendance-photos/${record.check_in_photo_url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline"
+                        >
+                          View Photo
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">--</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        {record.first_visit_check_in 
-                          ? format(new Date(record.first_visit_check_in), 'HH:mm')
+                        {record.check_in_time 
+                          ? format(new Date(record.check_in_time), 'HH:mm')
                           : '--'
                         }
                       </div>
@@ -628,8 +650,8 @@ const LiveAttendanceMonitoring = () => {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        {record.last_visit_check_in 
-                          ? format(new Date(record.last_visit_check_in), 'HH:mm')
+                        {record.check_out_time 
+                          ? format(new Date(record.check_out_time), 'HH:mm')
                           : '--'
                         }
                       </div>
@@ -641,13 +663,21 @@ const LiveAttendanceMonitoring = () => {
                       {getFaceMatchBadge(record.face_match_confidence)}
                     </TableCell>
                     <TableCell>
-                      {getStatusBadge(record.status)}
+                      {getFaceMatchBadge(record.face_match_confidence_out)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm max-w-xs truncate">
-                          {formatLocation(record.first_visit_location, record.check_in_address)}
+                          {formatLocation(record.check_in_location, record.check_in_address)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm max-w-xs truncate">
+                          {formatLocation(record.check_out_location, record.check_out_address)}
                         </span>
                       </div>
                     </TableCell>
