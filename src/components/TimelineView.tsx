@@ -19,6 +19,7 @@ interface Visit {
   order_value?: number;
   order_quantity?: number;
   no_order_reason?: string;
+  activity_time?: string;
 }
 
 interface TimelineViewProps {
@@ -34,12 +35,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   selectedDate = new Date(),
   onDateChange 
 }) => {
-  // Sort visits by check_in_time (earliest first), handling null values
-  const sortedVisits = [...visits]
-    .filter(v => v.check_in_time) // Only show visits with check-in time
-    .sort((a, b) => 
-      new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime()
-    );
+  // Sort visits by activity_time (when order/no-order/feedback happened), already sorted from backend
+  const sortedVisits = [...visits];
 
   const calculateTimeDifference = (time1: string, time2?: string): string => {
     if (!time2) return '0 Min';
@@ -116,8 +113,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       
-      // Time
-      doc.text(`Check-in: ${format(new Date(visit.check_in_time), 'hh:mm a')}`, 25, yPosition);
+      // Time - show activity time (when order/no-order was recorded)
+      const displayTime = visit.activity_time ? format(new Date(visit.activity_time), 'hh:mm a') : format(new Date(visit.check_in_time), 'hh:mm a');
+      doc.text(`Activity Time: ${displayTime}`, 25, yPosition);
       yPosition += 5;
       
       doc.text(`Time Spent: ${timeSpent}`, 25, yPosition);
@@ -242,8 +240,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       {/* Timeline Items */}
       {sortedVisits.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          <p>No visits with check-in recorded for this date.</p>
-          <p className="text-sm mt-2">Visits will appear here once you check in at retailers.</p>
+          <p>No activities recorded for this date.</p>
+          <p className="text-sm mt-2">Activities will appear here once you place orders or record no-order reasons.</p>
         </div>
       )}
       
@@ -286,7 +284,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   </div>
                   <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
                     <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                    {format(new Date(visit.check_in_time), 'hh:mm a')}
+                    {visit.activity_time ? format(new Date(visit.activity_time), 'hh:mm a') : format(new Date(visit.check_in_time), 'hh:mm a')}
                   </div>
                 </div>
 
