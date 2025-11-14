@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ProductFormFields } from './ProductFormFields';
 import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 import { migrateProducts } from '@/utils/productMigration';
@@ -43,6 +44,8 @@ interface Product {
   focused_due_date?: string;
   focused_target_quantity?: number;
   focused_territories?: string[];
+  barcode?: string;
+  qr_code?: string;
 }
 
 interface ProductScheme {
@@ -87,6 +90,18 @@ interface ProductVariant {
   discount_percentage: number;
   discount_amount: number;
   is_active: boolean;
+  is_focused_product?: boolean;
+  focused_due_date?: string;
+  focused_target_quantity?: number;
+  focused_territories?: string[];
+  barcode?: string;
+  qr_code?: string;
+}
+
+interface Territory {
+  id: string;
+  name: string;
+  region: string;
 }
 
 const ProductManagement = () => {
@@ -94,6 +109,7 @@ const ProductManagement = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [schemes, setSchemes] = useState<ProductScheme[]>([]);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [territories, setTerritories] = useState<Territory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
@@ -126,7 +142,9 @@ const [productForm, setProductForm] = useState({
   conversion_factor: 1,
   closing_stock: 0,
   is_active: true,
-  sku_image_url: ''
+  sku_image_url: '',
+  barcode: '',
+  qr_code: ''
 });
   const [schemeForm, setSchemeForm] = useState({
     id: '',
@@ -164,7 +182,13 @@ const [productForm, setProductForm] = useState({
     stock_quantity: 0,
     discount_percentage: 0,
     discount_amount: 0,
-    is_active: true
+    is_active: true,
+    is_focused_product: false,
+    focused_due_date: '',
+    focused_target_quantity: 0,
+    focused_territories: [] as string[],
+    barcode: '',
+    qr_code: ''
   });
 
   useEffect(() => {
@@ -174,13 +198,28 @@ const [productForm, setProductForm] = useState({
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCategories(), fetchProducts(), fetchSchemes(), fetchVariants()]);
+      await Promise.all([fetchCategories(), fetchProducts(), fetchSchemes(), fetchVariants(), fetchTerritories()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchTerritories = async () => {
+    const { data, error } = await supabase
+      .from('territories')
+      .select('id, name, region')
+      .order('name');
+    
+    if (error) throw error;
+    setTerritories(data || []);
+  };
+
+  // Generate QR code content
+  const generateQRCode = (type: 'product' | 'variant', sku: string, name: string) => {
+    return `${type}:${sku}:${name}`;
   };
 
   const fetchCategories = async () => {
@@ -243,6 +282,9 @@ const [productForm, setProductForm] = useState({
         variantSku = `${productSku}_${variantNameClean}_${Date.now().toString().slice(-6)}`;
       }
 
+      // Generate QR code if not exists
+      const qrCode = variantForm.qr_code || generateQRCode('variant', variantSku, variantForm.variant_name);
+
       if (variantForm.id) {
         const { error } = await supabase
           .from('product_variants')
@@ -254,7 +296,13 @@ const [productForm, setProductForm] = useState({
             stock_quantity: variantForm.stock_quantity,
             discount_percentage: variantForm.discount_percentage,
             discount_amount: variantForm.discount_amount,
-            is_active: variantForm.is_active
+            is_active: variantForm.is_active,
+            is_focused_product: variantForm.is_focused_product,
+            focused_due_date: variantForm.focused_due_date || null,
+            focused_target_quantity: variantForm.focused_target_quantity || 0,
+            focused_territories: variantForm.focused_territories || [],
+            barcode: variantForm.barcode || null,
+            qr_code: qrCode
           })
           .eq('id', variantForm.id);
         
@@ -271,7 +319,13 @@ const [productForm, setProductForm] = useState({
             stock_quantity: variantForm.stock_quantity,
             discount_percentage: variantForm.discount_percentage,
             discount_amount: variantForm.discount_amount,
-            is_active: variantForm.is_active
+            is_active: variantForm.is_active,
+            is_focused_product: variantForm.is_focused_product,
+            focused_due_date: variantForm.focused_due_date || null,
+            focused_target_quantity: variantForm.focused_target_quantity || 0,
+            focused_territories: variantForm.focused_territories || [],
+            barcode: variantForm.barcode || null,
+            qr_code: qrCode
           });
         
         if (error) throw error;
@@ -288,7 +342,13 @@ const [productForm, setProductForm] = useState({
         stock_quantity: 0,
         discount_percentage: 0,
         discount_amount: 0,
-        is_active: true
+        is_active: true,
+        is_focused_product: false,
+        focused_due_date: '',
+        focused_target_quantity: 0,
+        focused_territories: [],
+        barcode: '',
+        qr_code: ''
       });
       fetchVariants();
     } catch (error) {
@@ -351,6 +411,9 @@ const [productForm, setProductForm] = useState({
 
   const handleProductSubmit = async () => {
     try {
+      // Generate QR code if not exists
+      const qrCode = productForm.qr_code || generateQRCode('product', productForm.sku, productForm.name);
+
       if (productForm.id) {
         const { error } = await supabase
           .from('products')
@@ -366,7 +429,13 @@ const [productForm, setProductForm] = useState({
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
-            sku_image_url: productForm.sku_image_url || null
+            sku_image_url: productForm.sku_image_url || null,
+            is_focused_product: productForm.is_focused_product,
+            focused_due_date: productForm.focused_due_date || null,
+            focused_target_quantity: productForm.focused_target_quantity || 0,
+            focused_territories: productForm.focused_territories || [],
+            barcode: productForm.barcode || null,
+            qr_code: qrCode
           })
           .eq('id', productForm.id);
         
@@ -387,7 +456,13 @@ const [productForm, setProductForm] = useState({
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
-            sku_image_url: productForm.sku_image_url || null
+            sku_image_url: productForm.sku_image_url || null,
+            is_focused_product: productForm.is_focused_product,
+            focused_due_date: productForm.focused_due_date || null,
+            focused_target_quantity: productForm.focused_target_quantity || 0,
+            focused_territories: productForm.focused_territories || [],
+            barcode: productForm.barcode || null,
+            qr_code: qrCode
           });
         
         if (error) throw error;
@@ -412,7 +487,9 @@ setProductForm({
   conversion_factor: 1,
   closing_stock: 0,
   is_active: true,
-  sku_image_url: ''
+  sku_image_url: '',
+  barcode: '',
+  qr_code: ''
 });
       fetchProducts();
     } catch (error) {
@@ -767,7 +844,9 @@ setProductForm({
   conversion_factor: 1,
   closing_stock: 0,
   is_active: true,
-  sku_image_url: ''
+  sku_image_url: '',
+  barcode: '',
+  qr_code: ''
 })}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
@@ -1091,7 +1170,16 @@ setProductForm({
                           )}
                         </TableCell>
                         <TableCell className="font-mono">{product.sku}</TableCell>
-                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{product.name}</span>
+                            {product.is_focused_product && (
+                              <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                                Focused
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{product.category?.name}</TableCell>
                         <TableCell>
                           <div>
@@ -1152,7 +1240,9 @@ setProductForm({
   conversion_factor: (product as any).conversion_factor || 1,
   closing_stock: product.closing_stock,
   is_active: product.is_active,
-  sku_image_url: (product as any).sku_image_url || ''
+  sku_image_url: (product as any).sku_image_url || '',
+  barcode: (product as any).barcode || '',
+  qr_code: (product as any).qr_code || ''
 });
                                 setIsProductDialogOpen(true);
                               }}
@@ -1450,7 +1540,13 @@ setProductForm({
                       stock_quantity: 0,
                       discount_percentage: 0,
                       discount_amount: 0,
-                      is_active: true
+                      is_active: true,
+                      is_focused_product: false,
+                      focused_due_date: '',
+                      focused_target_quantity: 0,
+                      focused_territories: [],
+                      barcode: '',
+                      qr_code: ''
                     })}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1619,7 +1715,13 @@ setProductForm({
                                   stock_quantity: variant.stock_quantity,
                                   discount_percentage: variant.discount_percentage,
                                   discount_amount: variant.discount_amount,
-                                  is_active: variant.is_active
+                                  is_active: variant.is_active,
+                                  is_focused_product: variant.is_focused_product || false,
+                                  focused_due_date: variant.focused_due_date || '',
+                                  focused_target_quantity: variant.focused_target_quantity || 0,
+                                  focused_territories: variant.focused_territories || [],
+                                  barcode: variant.barcode || '',
+                                  qr_code: variant.qr_code || ''
                                 });
                                 setIsVariantDialogOpen(true);
                               }}
