@@ -1231,34 +1231,55 @@ export type Database = {
         Row: {
           action_name: string
           action_type: string
+          base_daily_target: number | null
+          consecutive_orders_required: number | null
           created_at: string
+          focused_products: string[] | null
           game_id: string
           id: string
           is_enabled: boolean | null
+          max_awardable_activities: number | null
+          max_daily_awards: number | null
           metadata: Json | null
+          min_growth_percentage: number | null
           points: number
+          target_type: string | null
           updated_at: string
         }
         Insert: {
           action_name: string
           action_type: string
+          base_daily_target?: number | null
+          consecutive_orders_required?: number | null
           created_at?: string
+          focused_products?: string[] | null
           game_id: string
           id?: string
           is_enabled?: boolean | null
+          max_awardable_activities?: number | null
+          max_daily_awards?: number | null
           metadata?: Json | null
+          min_growth_percentage?: number | null
           points?: number
+          target_type?: string | null
           updated_at?: string
         }
         Update: {
           action_name?: string
           action_type?: string
+          base_daily_target?: number | null
+          consecutive_orders_required?: number | null
           created_at?: string
+          focused_products?: string[] | null
           game_id?: string
           id?: string
           is_enabled?: boolean | null
+          max_awardable_activities?: number | null
+          max_daily_awards?: number | null
           metadata?: Json | null
+          min_growth_percentage?: number | null
           points?: number
+          target_type?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1267,6 +1288,44 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gamification_daily_tracking: {
+        Row: {
+          action_id: string
+          count: number | null
+          created_at: string | null
+          id: string
+          tracking_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          tracking_date: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          tracking_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_daily_tracking_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_actions"
             referencedColumns: ["id"]
           },
         ]
@@ -1422,6 +1481,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      gamification_retailer_sequences: {
+        Row: {
+          consecutive_orders: number | null
+          created_at: string | null
+          id: string
+          last_order_date: string | null
+          retailer_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          consecutive_orders?: number | null
+          created_at?: string | null
+          id?: string
+          last_order_date?: string | null
+          retailer_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          consecutive_orders?: number | null
+          created_at?: string | null
+          id?: string
+          last_order_date?: string | null
+          retailer_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       gps_tracking: {
         Row: {
