@@ -162,12 +162,13 @@ const LiveAttendanceMonitoring = () => {
             lastVisitCheckIn = userVisitsToday[userVisitsToday.length - 1].check_in_time;
             firstVisitLocation = userVisitsToday[0].check_in_location;
             lastVisitLocation = userVisitsToday[userVisitsToday.length - 1].check_in_location;
-            
-            if (firstVisitCheckIn && lastVisitCheckIn) {
-              const firstTime = new Date(firstVisitCheckIn).getTime();
-              const lastTime = new Date(lastVisitCheckIn).getTime();
-              activeMarketHours = (lastTime - firstTime) / (1000 * 60 * 60);
-            }
+          }
+          
+          // Calculate Active Market Hours from attendance check-in and check-out times
+          if (record.check_in_time && record.check_out_time) {
+            const checkInTime = new Date(record.check_in_time).getTime();
+            const checkOutTime = new Date(record.check_out_time).getTime();
+            activeMarketHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
           }
           
           attendanceDataWithAbsent.push({
