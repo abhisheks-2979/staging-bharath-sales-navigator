@@ -56,9 +56,10 @@ serve(async (req) => {
     // Create short link message
     const message = `Thank you for your order with ${businessName}!
 
-Invoice: ${invoiceNumber || 'N/A'}
+Invoice Number: ${invoiceNumber || 'N/A'}
 
-Download your invoice: ${pdfUrl || 'Processing...'}`;
+Click here to view and download your invoice:
+${pdfUrl || 'Processing...'}`;
 
     console.log('Message content:', message);
 
