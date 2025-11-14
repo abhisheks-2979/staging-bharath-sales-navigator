@@ -11,8 +11,19 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Declare variables outside try-catch so they're accessible in fallback
+  let invoiceId: string;
+  let customerPhone: string;
+  let pdfUrl: string;
+  let invoiceNumber: string;
+  let businessName = 'BHARATH BEVERAGES';
+
   try {
-    const { invoiceId, customerPhone, pdfUrl, invoiceNumber } = await req.json();
+    const body = await req.json();
+    invoiceId = body.invoiceId;
+    customerPhone = body.customerPhone;
+    pdfUrl = body.pdfUrl;
+    invoiceNumber = body.invoiceNumber;
 
     if (!invoiceId || !customerPhone) {
       throw new Error('Order ID and customer phone number are required');
@@ -32,7 +43,7 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const businessName = companyConfig?.name || 'BHARATH BEVERAGES';
+    businessName = companyConfig?.name || 'BHARATH BEVERAGES';
 
     // Get WhatChimp credentials
     const whatchimpApiKey = Deno.env.get('WHATCHIMP_API_KEY');
