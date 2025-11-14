@@ -126,15 +126,64 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in send-invoice-whatsapp:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.toString()
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Fallback to SMS via Twilio if WhatsApp template fails or isn't configured
+    try {
+      const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+      const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+      const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+
+      if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+        throw new Error('Twilio credentials not configured');
       }
-    );
+
+      const formatPhoneForSMS = (phone: string) => {
+        const cleaned = phone.replace(/\D/g, '');
+        return cleaned.startsWith('91') ? `+${cleaned}` : `+91${cleaned}`; // E.164 with +
+      };
+
+      const toPhone = formatPhoneForSMS(customerPhone);
+      const message = `Thank you for your order with ${businessName}!\n\nInvoice Number: ${invoiceNumber || 'N/A'}\n\nClick here to view your invoice: ${pdfUrl || ''}`;
+
+      const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+      const formBody = new URLSearchParams({ To: toPhone, From: twilioPhoneNumber, Body: message });
+
+      const response = await fetch(twilioUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formBody,
+      });
+
+      const result = await response.json();
+      console.log('Twilio fallback response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to send SMS via Twilio');
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          channel: 'sms',
+          messageId: result.sid,
+          message: 'Invoice sent via SMS (fallback)'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (fallbackError) {
+      console.error('Fallback SMS failed:', fallbackError);
+      return new Response(
+        JSON.stringify({ 
+          error: (fallbackError as any).message,
+          original_error: (error as any).message
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
   }
 });
