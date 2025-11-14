@@ -2120,39 +2120,57 @@ export type Database = {
       }
       product_variants: {
         Row: {
+          barcode: string | null
           created_at: string
           discount_amount: number | null
           discount_percentage: number | null
+          focused_due_date: string | null
+          focused_target_quantity: number | null
+          focused_territories: string[] | null
           id: string
           is_active: boolean | null
+          is_focused_product: boolean | null
           price: number
           product_id: string
+          qr_code: string | null
           sku: string
           stock_quantity: number
           updated_at: string
           variant_name: string
         }
         Insert: {
+          barcode?: string | null
           created_at?: string
           discount_amount?: number | null
           discount_percentage?: number | null
+          focused_due_date?: string | null
+          focused_target_quantity?: number | null
+          focused_territories?: string[] | null
           id?: string
           is_active?: boolean | null
+          is_focused_product?: boolean | null
           price?: number
           product_id: string
+          qr_code?: string | null
           sku: string
           stock_quantity?: number
           updated_at?: string
           variant_name: string
         }
         Update: {
+          barcode?: string | null
           created_at?: string
           discount_amount?: number | null
           discount_percentage?: number | null
+          focused_due_date?: string | null
+          focused_target_quantity?: number | null
+          focused_territories?: string[] | null
           id?: string
           is_active?: boolean | null
+          is_focused_product?: boolean | null
           price?: number
           product_id?: string
+          qr_code?: string | null
           sku?: string
           stock_quantity?: number
           updated_at?: string
@@ -2170,6 +2188,7 @@ export type Database = {
       }
       products: {
         Row: {
+          barcode: string | null
           base_unit: string | null
           category_id: string | null
           closing_stock: number | null
@@ -2184,6 +2203,7 @@ export type Database = {
           is_focused_product: boolean | null
           name: string
           product_number: string | null
+          qr_code: string | null
           rate: number
           sku: string
           sku_image_url: string | null
@@ -2191,6 +2211,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          barcode?: string | null
           base_unit?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -2205,6 +2226,7 @@ export type Database = {
           is_focused_product?: boolean | null
           name: string
           product_number?: string | null
+          qr_code?: string | null
           rate?: number
           sku: string
           sku_image_url?: string | null
@@ -2212,6 +2234,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          barcode?: string | null
           base_unit?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -2226,6 +2249,7 @@ export type Database = {
           is_focused_product?: boolean | null
           name?: string
           product_number?: string | null
+          qr_code?: string | null
           rate?: number
           sku?: string
           sku_image_url?: string | null
