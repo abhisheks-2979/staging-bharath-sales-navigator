@@ -20,6 +20,7 @@ import { JourneyMap } from '@/components/JourneyMap';
 import { TimelineView } from '@/components/TimelineView';
 import { cn } from '@/lib/utils';
 import { useFaceMatching } from '@/hooks/useFaceMatching';
+import { CameraCapture } from '@/components/CameraCapture';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -45,8 +46,7 @@ const Attendance = () => {
   const [gpsPositionsByDate, setGpsPositionsByDate] = useState<Map<string, any[]>>(new Map());
   const [showStopReasonDialog, setShowStopReasonDialog] = useState(false);
   const [stopReason, setStopReason] = useState('');
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const [attendanceType, setAttendanceType] = useState<'check-in' | 'check-out' | null>(null);
   const { compareImages, getMatchStatusIcon, getMatchStatusText } = useFaceMatching();
 
   // GPS Tracking for today
@@ -264,83 +264,9 @@ const Attendance = () => {
     }
   };
 
-  const startCamera = async (): Promise<boolean> => {
-    try {
-      // Open the camera dialog first so the video element mounts
-      setShowCamera(true);
-      
-      // Wait for the dialog/video element to mount
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      
-      // Ensure the video element is available (wait up to 1s)
-      const start = Date.now();
-      while (!videoRef.current && Date.now() - start < 1000) {
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      if (!videoRef.current) {
-        throw new Error('Video element not available');
-      }
+  const handleCameraCapture = async (photoBlob: Blob) => {
+    if (!attendanceType) return;
 
-      // Request front-facing camera for selfie
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'user' // 'user' = front camera
-        } 
-      });
-      
-      const video = videoRef.current;
-      video.srcObject = stream;
-      
-      // Wait for video to be ready and playing
-      await new Promise<void>((resolve, reject) => {
-        const onLoadedMetadata = () => {
-          video.play()
-            .then(() => {
-              video.removeEventListener('loadedmetadata', onLoadedMetadata);
-              resolve();
-            })
-            .catch(reject);
-        };
-
-        video.addEventListener('loadedmetadata', onLoadedMetadata);
-        
-        // Fallback timeout
-        setTimeout(() => {
-          video.removeEventListener('loadedmetadata', onLoadedMetadata);
-          reject(new Error('Camera timeout'));
-        }, 5000);
-      });
-
-      return true;
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      toast({
-        title: "Camera Error",
-        description: "Could not access camera. Please check permissions.",
-        variant: "destructive"
-      });
-      return false;
-    }
-  };
-
-  const capturePhoto = (): Promise<Blob | null> => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      context.drawImage(videoRef.current, 0, 0);
-      
-      return new Promise((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
-      });
-    }
-    return Promise.resolve(null);
-  };
-
-  const markAttendance = async (type: 'check-in' | 'check-out') => {
-    setIsMarkingAttendance(true);
-    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
@@ -358,11 +284,10 @@ const Attendance = () => {
           description: "Please upload your profile picture first in your profile settings.",
           variant: "destructive"
         });
-        setIsMarkingAttendance(false);
         return;
       }
 
-      // Get fresh high-accuracy location right before marking attendance
+      // Get fresh high-accuracy location
       const freshLocation = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
         if (!navigator.geolocation) {
           reject(new Error('Geolocation not supported'));
@@ -380,37 +305,21 @@ const Attendance = () => {
             reject(error);
           },
           { 
-            enableHighAccuracy: true, // Force GPS usage
+            enableHighAccuracy: true,
             timeout: 30000,
-            maximumAge: 0 // Must be fresh location
+            maximumAge: 0
           }
         );
       });
-      
-      // Start camera and wait for it to be ready
-      const cameraReady = await startCamera();
-      
-      if (!cameraReady) {
-        throw new Error('Camera failed to start. Please try again.');
-      }
-      
-      // Give user time to position for photo (3 seconds for better positioning)
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const photoBlob = await capturePhoto();
-      
-      if (!photoBlob) {
-        throw new Error('Failed to capture photo. Please ensure camera has permission and try again.');
-      }
 
       const today = new Date().toISOString().split('T')[0];
       const timestamp = new Date().toISOString();
 
       // Upload photo
-      const photoPath = `attendance/${user.id}/${today}_${type}_${Date.now()}.jpg`;
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const photoPath = `attendance/${user.id}/${today}_${attendanceType}_${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
         .from('attendance-photos')
-        .upload(photoPath, photoBlob as Blob);
+        .upload(photoPath, photoBlob);
 
       if (uploadError) throw uploadError;
 
@@ -437,16 +346,12 @@ const Attendance = () => {
           description: "Unable to verify your identity. Please try again.",
           variant: "destructive"
         });
-        setIsMarkingAttendance(false);
         return;
       }
 
-      // Determine match color and status based on confidence
       const confidence = faceMatchResult?.confidence || 0;
       const matchStatus = confidence >= 70 ? 'match' : confidence >= 40 ? 'partial' : 'nomatch';
-      const matchColor = confidence >= 70 ? 'green' : confidence >= 40 ? 'amber' : 'red';
       
-      // Show face match result with color-coded status
       const statusMessage = confidence >= 70 
         ? 'Face Match Verified ✅' 
         : confidence >= 40 
@@ -461,8 +366,8 @@ const Attendance = () => {
         variant: statusVariant,
       });
 
-      if (type === 'check-in') {
-        // Mark attendance with face verification result - always save but flag low confidence
+      if (attendanceType === 'check-in') {
+        // Mark attendance with face verification result
         const { error: attendanceError } = await supabase
           .from('attendance')
           .insert({
@@ -479,7 +384,7 @@ const Attendance = () => {
 
         if (attendanceError) throw attendanceError;
 
-        // Also check in to all planned visits for today
+        // Check in to all planned visits for today
         const { data: plannedVisits } = await supabase
           .from('visits')
           .select('id')
@@ -502,6 +407,17 @@ const Attendance = () => {
               .eq('id', visit.id);
           }
         }
+
+        // Start GPS tracking immediately after check-in
+        toast({
+          title: "Success",
+          description: "Day started successfully! GPS tracking is now active.",
+        });
+        
+        setTimeout(() => {
+          startTracking();
+        }, 500);
+
       } else {
         // Update existing record with check-out
         const { error: updateError } = await supabase
@@ -516,25 +432,11 @@ const Attendance = () => {
           .eq('date', today);
 
         if (updateError) throw updateError;
-      }
 
-      toast({
-        title: "Success",
-        description: `${type === 'check-in' ? 'Day started successfully!' : 'Day ended successfully!'}${type === 'check-in' ? ' GPS tracking will start automatically at 9 AM.' : ''}`,
-      });
-
-      // Stop camera
-      if (videoRef.current?.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach(track => track.stop());
-      }
-      setShowCamera(false);
-      
-      // Start GPS tracking automatically after check-in if within working hours
-      if (type === 'check-in' && isWithinWorkingHours()) {
-        setTimeout(() => {
-          startTracking();
-        }, 1000);
+        toast({
+          title: "Success",
+          description: "Day ended successfully!",
+        });
       }
       
       // Refresh data
@@ -544,12 +446,19 @@ const Attendance = () => {
       console.error('Error marking attendance:', error);
       toast({
         title: "Error",
-        description: `Failed to mark ${type}. Please try again.`,
+        description: `Failed to mark ${attendanceType}. Please try again.`,
         variant: "destructive"
       });
     } finally {
       setIsMarkingAttendance(false);
+      setAttendanceType(null);
     }
+  };
+
+  const markAttendance = async (type: 'check-in' | 'check-out') => {
+    setIsMarkingAttendance(true);
+    setAttendanceType(type);
+    setShowCamera(true);
   };
 
   const formatTime = (timeString: string) => {
@@ -1030,45 +939,18 @@ const Attendance = () => {
         </div>
       </div>
 
-      {/* Camera Capture Dialog */}
-      <Dialog open={showCamera} onOpenChange={(open) => {
-        if (!open) {
-          if (videoRef.current?.srcObject) {
-            const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-            tracks.forEach(track => track.stop());
-          }
+      {/* Camera Capture Component */}
+      <CameraCapture
+        isOpen={showCamera}
+        onClose={() => {
           setShowCamera(false);
-        }
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Take Your Photo</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="relative aspect-square w-full bg-black rounded-lg overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              <canvas ref={canvasRef} className="hidden" />
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span>
-                {location ? 
-                  `Location captured: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
-                  'Capturing location...'
-                }
-              </span>
-            </div>
-            <div className="text-sm text-muted-foreground text-center">
-              Position yourself in the frame. Photo will be captured automatically.
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          setIsMarkingAttendance(false);
+          setAttendanceType(null);
+        }}
+        onCapture={handleCameraCapture}
+        title="Capture Photo for Attendance"
+        description="Position yourself in the frame and capture your photo"
+      />
     </Layout>
   );
 };
