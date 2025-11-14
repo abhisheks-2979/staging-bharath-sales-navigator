@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2, Award, Settings, Users, Medal, Pencil, Trophy } from "lucide-react";
 import { BadgeManagement } from "./BadgeManagement";
+import { MetricConfigFields } from "./MetricConfigFields";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 interface Game {
@@ -50,37 +51,71 @@ interface Redemption {
     full_name: string;
   };
 }
-const ACTIVITY_TYPES = [{
-  value: "new_retailer",
-  label: "Adding a new retailer"
-}, {
-  value: "first_order_new_retailer",
-  label: "Adding new orders from this new retailer"
-}, {
-  value: "order_value",
-  label: "Order value"
-}, {
-  value: "order_quantity",
-  label: "Order quantity"
-}, {
-  value: "focused_product_sales",
-  label: "Focused product sales"
-}, {
-  value: "productive_visit",
-  label: "Productive visits (visits with orders)"
-}, {
-  value: "order_frequency",
-  label: "Frequency of orders from the retailer"
-}, {
-  value: "beat_growth",
-  label: "Average growth of business in a beat"
-}, {
-  value: "competition_insight",
-  label: "Capturing competition intelligence"
-}, {
-  value: "product_feedback",
-  label: "Capturing market feedback"
-}];
+const METRIC_TYPES = [
+  {
+    value: "first_order_new_retailer",
+    label: "1. First orders from a new retailer",
+    defaultPoints: 5,
+    configType: "max_activities",
+    description: "Awarded only on the first order ever placed by a newly acquired retailer"
+  },
+  {
+    value: "daily_target",
+    label: "2. Meeting daily target",
+    defaultPoints: 15,
+    configType: "daily_threshold",
+    description: "Awarded once per day when the rep hits the defined daily threshold"
+  },
+  {
+    value: "focused_product_sales",
+    label: "3. Focused product sales",
+    defaultPoints: 5,
+    configType: "product_selection",
+    description: "Awarded for each order containing a focused product"
+  },
+  {
+    value: "productive_visit",
+    label: "4. Productive visits (visits with orders)",
+    defaultPoints: 5,
+    configType: "daily_limit",
+    description: "Awarded for any check-in/visit that results in an order"
+  },
+  {
+    value: "order_frequency",
+    label: "5. Frequency of orders from the retailer",
+    defaultPoints: 2,
+    configType: "consecutive_orders",
+    description: "Sequential bonus: Awarded on consecutive orders from the same retailer"
+  },
+  {
+    value: "beat_growth",
+    label: "6. Average growth of business in a beat",
+    defaultPoints: 5,
+    configType: "growth_percentage",
+    description: "Requires calculation of sales growth vs. prior period within the user's beat"
+  },
+  {
+    value: "competition_insight",
+    label: "7. Capturing competition intelligence",
+    defaultPoints: 2,
+    configType: "unlimited",
+    description: "Awarded upon successful submission of a Competition Intelligence form"
+  },
+  {
+    value: "retailer_feedback",
+    label: "8. Capturing retailer feedback",
+    defaultPoints: 2,
+    configType: "unlimited",
+    description: "Awarded upon successful submission of a Retailer Feedback form"
+  },
+  {
+    value: "branding_request",
+    label: "9. Capturing branding request",
+    defaultPoints: 2,
+    configType: "unlimited",
+    description: "Awarded upon successful submission of a Branding Request form"
+  }
+];
 export function GamificationManagement() {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
@@ -103,6 +138,7 @@ export function GamificationManagement() {
   const [baselineTarget, setBaselineTarget] = useState("0");
   const [selectedActivity, setSelectedActivity] = useState("");
   const [rewardPoints, setRewardPoints] = useState("");
+  const [metricConfig, setMetricConfig] = useState<any>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
   useEffect(() => {
@@ -229,7 +265,7 @@ export function GamificationManagement() {
     }
 
     // Create the selected activity action
-    const activity = ACTIVITY_TYPES.find(a => a.value === selectedActivity);
+    const activity = METRIC_TYPES.find(a => a.value === selectedActivity);
     const {
       error: actionsError
     } = await supabase.from("gamification_actions").insert({
@@ -237,7 +273,14 @@ export function GamificationManagement() {
       action_type: selectedActivity,
       action_name: activity?.label || selectedActivity,
       points: parseFloat(rewardPoints),
-      is_enabled: true
+      is_enabled: true,
+      max_awardable_activities: metricConfig.max_awardable_activities,
+      base_daily_target: metricConfig.base_daily_target,
+      focused_products: metricConfig.focused_products,
+      max_daily_awards: metricConfig.max_daily_awards,
+      consecutive_orders_required: metricConfig.consecutive_orders_required,
+      min_growth_percentage: metricConfig.min_growth_percentage,
+      target_type: metricConfig.target_type
     });
     if (actionsError) {
       toast.error("Failed to create action");
@@ -316,7 +359,7 @@ export function GamificationManagement() {
 
     // If new activity is selected, add it
     if (selectedActivity && rewardPoints) {
-      const activity = ACTIVITY_TYPES.find(a => a.value === selectedActivity);
+      const activity = METRIC_TYPES.find(a => a.value === selectedActivity);
       const {
         error: actionsError
       } = await supabase.from("gamification_actions").insert({
@@ -377,6 +420,7 @@ export function GamificationManagement() {
     setBaselineTarget("0");
     setSelectedActivity("");
     setRewardPoints("");
+    setMetricConfig({});
   };
   if (loading) {
     return <div className="flex items-center justify-center h-64">
@@ -427,7 +471,7 @@ export function GamificationManagement() {
                     <SelectValue placeholder="Select an activity" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ACTIVITY_TYPES.map(activity => <SelectItem key={activity.value} value={activity.value}>
+                    {METRIC_TYPES.map(activity => <SelectItem key={activity.value} value={activity.value}>
                         {activity.label}
                       </SelectItem>)}
                   </SelectContent>
@@ -437,6 +481,14 @@ export function GamificationManagement() {
                 <Label htmlFor="rewardPoints">Reward Points per Activity *</Label>
                 <Input id="rewardPoints" type="number" value={rewardPoints} onChange={e => setRewardPoints(e.target.value)} placeholder="Enter points" min="0" />
               </div>
+              
+              {selectedActivity && (
+                <MetricConfigFields
+                  metricType={selectedActivity}
+                  config={metricConfig}
+                  onConfigChange={setMetricConfig}
+                />
+              )}
               <div className="flex items-center space-x-2">
                 <Switch id="allTerritories" checked={isAllTerritories} onCheckedChange={setIsAllTerritories} />
                 <Label htmlFor="allTerritories">Apply to All Territories</Label>
@@ -695,7 +747,7 @@ export function GamificationManagement() {
                     <SelectValue placeholder="Select an activity to add" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ACTIVITY_TYPES.map(activity => <SelectItem key={activity.value} value={activity.value}>
+                    {METRIC_TYPES.map(activity => <SelectItem key={activity.value} value={activity.value}>
                         {activity.label}
                       </SelectItem>)}
                   </SelectContent>
