@@ -84,7 +84,7 @@ export const Navbar = () => {
               </button>
               
               <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden bg-white p-1">
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden bg-white p-1.5">
                   <img 
                     src={bharathLogo} 
                     alt="Bharath Beverages" 
