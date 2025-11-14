@@ -45,14 +45,7 @@ export default function InvoiceList() {
     return <div className="text-center py-8">Loading invoices...</div>;
   }
 
-  const selectTemplate = (templateId: string) => {
-    localStorage.setItem('selected_invoice_template', templateId);
-    toast.success("Template selected for cart invoices");
-  };
-
-  const getSelectedTemplate = () => {
-    return localStorage.getItem('selected_invoice_template');
-  };
+// Template selection via localStorage removed to enforce official templates only
 
   return (
     <Card>
