@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceTemplateSelector from "@/components/invoice/InvoiceTemplateSelector";
 import CompanySettings from "@/components/invoice/CompanySettings";
+import AllInvoicesList from "@/components/invoice/AllInvoicesList";
 
 export default function InvoiceManagement() {
   const navigate = useNavigate();
@@ -28,15 +29,19 @@ export default function InvoiceManagement() {
       </div>
 
       <Tabs defaultValue="template" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="template">Invoice Template Selection</TabsTrigger>
           <TabsTrigger value="company">Company Settings</TabsTrigger>
+          <TabsTrigger value="invoices">All Invoices</TabsTrigger>
         </TabsList>
         <TabsContent value="template" className="mt-6">
           <InvoiceTemplateSelector />
         </TabsContent>
         <TabsContent value="company" className="mt-6">
           <CompanySettings />
+        </TabsContent>
+        <TabsContent value="invoices" className="mt-6">
+          <AllInvoicesList />
         </TabsContent>
       </Tabs>
     </div>
