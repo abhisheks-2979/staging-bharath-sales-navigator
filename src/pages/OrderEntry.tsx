@@ -26,6 +26,7 @@ interface Product {
   hasScheme?: boolean;
   schemeDetails?: string;
   closingStock?: number;
+  is_focused_product?: boolean;
 }
 interface CartItem extends Product {
   quantity: number;

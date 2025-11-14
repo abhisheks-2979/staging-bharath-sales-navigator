@@ -23,6 +23,7 @@ interface Product {
   base_unit?: string;
   conversion_factor?: number;
   closing_stock: number;
+  is_focused_product?: boolean;
   schemes?: { 
     name: string; 
     description: string; 

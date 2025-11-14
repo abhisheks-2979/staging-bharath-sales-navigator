@@ -2176,8 +2176,12 @@ export type Database = {
           conversion_factor: number | null
           created_at: string
           description: string | null
+          focused_due_date: string | null
+          focused_target_quantity: number | null
+          focused_territories: string[] | null
           id: string
           is_active: boolean | null
+          is_focused_product: boolean | null
           name: string
           product_number: string | null
           rate: number
@@ -2193,8 +2197,12 @@ export type Database = {
           conversion_factor?: number | null
           created_at?: string
           description?: string | null
+          focused_due_date?: string | null
+          focused_target_quantity?: number | null
+          focused_territories?: string[] | null
           id?: string
           is_active?: boolean | null
+          is_focused_product?: boolean | null
           name: string
           product_number?: string | null
           rate?: number
@@ -2210,8 +2218,12 @@ export type Database = {
           conversion_factor?: number | null
           created_at?: string
           description?: string | null
+          focused_due_date?: string | null
+          focused_target_quantity?: number | null
+          focused_territories?: string[] | null
           id?: string
           is_active?: boolean | null
+          is_focused_product?: boolean | null
           name?: string
           product_number?: string | null
           rate?: number
