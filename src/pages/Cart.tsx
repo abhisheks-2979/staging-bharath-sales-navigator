@@ -801,29 +801,38 @@ export const Cart = () => {
 
         if (validRetailerId && retailerPhone && order.id) {
           // Fetch selected template
-          const selectedTemplateId = localStorage.getItem('selected_invoice_template');
-          let templateData: any = null;
-          let templateCompany: any = null;
+          // Fetch selected template from company settings
+          let selectedTemplateId: string = 'template1';
+          let customTemplate: any = null;
+          let companyData: any = null;
 
-          if (selectedTemplateId) {
-            const { data: template } = await supabase
-              .from("invoices")
-              .select(`*, companies(*)`)
-              .eq("id", selectedTemplateId)
-              .single();
-            
-            if (template) {
-              templateData = template;
-              templateCompany = template.companies;
-            }
+          const { data: company } = await supabase
+            .from('companies')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (company) {
+            selectedTemplateId = company.invoice_template || 'template1';
+            companyData = company;
           }
 
-          // Use template company data if available, otherwise fetch default
-          let companyData = templateCompany;
+          if (!['template1','template2','template3','template4'].includes(selectedTemplateId)) {
+            const { data: ct } = await supabase
+              .from('custom_invoice_templates')
+              .select('*')
+              .eq('id', selectedTemplateId)
+              .eq('is_active', true)
+              .single();
+            if (ct) customTemplate = ct;
+          }
+
+          // Ensure company data
           if (!companyData) {
             const { data: defaultCompany } = await supabase
-              .from("companies")
-              .select("*")
+              .from('companies')
+              .select('*')
               .limit(1)
               .maybeSingle();
             companyData = defaultCompany;
@@ -838,8 +847,29 @@ export const Cart = () => {
           };
 
           // Generate PDF using same logic as VisitInvoicePDFGenerator
-          const jsPDF = (await import('jspdf')).default;
-          const autoTable = (await import('jspdf-autotable')).default;
+          // Determine invoice number for messaging
+          const invoiceNumberForSend = `INV-${order.id.substring(0, 8).toUpperCase()}`;
+
+          // If a custom template is selected in Invoice Management, send that exact file
+          if (customTemplate?.template_file_url) {
+            console.log('Sending selected custom template via SMS:', customTemplate.template_file_url);
+            const { data: smsData, error: smsError } = await supabase.functions.invoke('send-invoice-whatsapp', {
+              body: {
+                invoiceId: order.id,
+                customerPhone: retailerPhone,
+                pdfUrl: customTemplate.template_file_url,
+                invoiceNumber: invoiceNumberForSend
+              }
+            });
+            if (smsError) {
+              console.error('SMS send error:', smsError);
+            } else if (smsData?.success) {
+              console.log('Invoice (custom template) sent via SMS successfully');
+              invoiceSentViaSMS = true;
+            }
+          } else {
+            const jsPDF = (await import('jspdf')).default;
+            const autoTable = (await import('jspdf-autotable')).default;
           
           const doc = new jsPDF();
           const pageWidth = doc.internal.pageSize.width;
@@ -1075,6 +1105,7 @@ export const Cart = () => {
             invoiceSentViaSMS = true;
           }
         }
+          }
       } catch (invoiceError) {
         console.error('Error sending invoice via SMS:', invoiceError);
         // Don't block order submission if SMS fails
