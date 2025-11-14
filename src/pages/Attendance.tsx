@@ -426,16 +426,21 @@ const Attendance = () => {
             check_out_time: timestamp,
             check_out_location: freshLocation,
             check_out_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
-            check_out_photo_url: photoPath
+            check_out_photo_url: photoPath,
+            face_verification_status_out: matchStatus,
+            face_match_confidence_out: confidence
           })
           .eq('user_id', user.id)
           .eq('date', today);
 
         if (updateError) throw updateError;
 
+        // Stop GPS tracking after successful check-out
+        stopTracking();
+
         toast({
           title: "Success",
-          description: "Day ended successfully!",
+          description: "Day ended successfully! Have a great evening! 🌙",
         });
       }
       
