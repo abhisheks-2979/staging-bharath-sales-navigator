@@ -189,7 +189,9 @@ export type Database = {
           created_at: string
           date: string
           face_match_confidence: number | null
+          face_match_confidence_out: number | null
           face_verification_status: string | null
+          face_verification_status_out: string | null
           id: string
           notes: string | null
           status: string
@@ -209,7 +211,9 @@ export type Database = {
           created_at?: string
           date?: string
           face_match_confidence?: number | null
+          face_match_confidence_out?: number | null
           face_verification_status?: string | null
+          face_verification_status_out?: string | null
           id?: string
           notes?: string | null
           status?: string
@@ -229,7 +233,9 @@ export type Database = {
           created_at?: string
           date?: string
           face_match_confidence?: number | null
+          face_match_confidence_out?: number | null
           face_verification_status?: string | null
+          face_verification_status_out?: string | null
           id?: string
           notes?: string | null
           status?: string
@@ -1874,6 +1880,7 @@ export type Database = {
           distributor_id: string | null
           distributor_name: string | null
           id: string
+          invoice_number: string | null
           is_credit_order: boolean | null
           payment_method: string | null
           payment_proof_url: string | null
@@ -1884,6 +1891,7 @@ export type Database = {
           subtotal: number
           total_amount: number
           updated_at: string
+          upi_last_four_code: string | null
           user_id: string
           visit_id: string | null
         }
@@ -1895,6 +1903,7 @@ export type Database = {
           distributor_id?: string | null
           distributor_name?: string | null
           id?: string
+          invoice_number?: string | null
           is_credit_order?: boolean | null
           payment_method?: string | null
           payment_proof_url?: string | null
@@ -1905,6 +1914,7 @@ export type Database = {
           subtotal: number
           total_amount: number
           updated_at?: string
+          upi_last_four_code?: string | null
           user_id: string
           visit_id?: string | null
         }
@@ -1916,6 +1926,7 @@ export type Database = {
           distributor_id?: string | null
           distributor_name?: string | null
           id?: string
+          invoice_number?: string | null
           is_credit_order?: boolean | null
           payment_method?: string | null
           payment_proof_url?: string | null
@@ -1926,6 +1937,7 @@ export type Database = {
           subtotal?: number
           total_amount?: number
           updated_at?: string
+          upi_last_four_code?: string | null
           user_id?: string
           visit_id?: string | null
         }

@@ -339,7 +339,8 @@ export const MyVisits = () => {
           check_in_address,
           status,
           no_order_reason,
-          skip_check_in_time
+          skip_check_in_time,
+          updated_at
         `).eq('user_id', user.id).eq('planned_date', dateStr);
       if (error) throw error;
 
@@ -359,7 +360,7 @@ export const MyVisits = () => {
         address: r.address
       }]));
 
-      // Get order details for these visits
+      // Get order details with created_at for these visits
       const dateStart = new Date(dateStr);
       dateStart.setHours(0, 0, 0, 0);
       const dateEnd = new Date(dateStr);
@@ -367,27 +368,64 @@ export const MyVisits = () => {
       const {
         data: orders,
         error: ordersError
-      } = await supabase.from('orders').select('retailer_id, total_amount, order_items(quantity)').eq('user_id', user.id).eq('status', 'confirmed').in('retailer_id', retailerIds).gte('created_at', dateStart.toISOString()).lte('created_at', dateEnd.toISOString());
+      } = await supabase.from('orders').select('retailer_id, total_amount, created_at, order_items(quantity)').eq('user_id', user.id).eq('status', 'confirmed').in('retailer_id', retailerIds).gte('created_at', dateStart.toISOString()).lte('created_at', dateEnd.toISOString());
       if (ordersError) throw ordersError;
 
-      // Create order map
+      // Create order map with created_at time
       const orderMap = new Map();
       (orders || []).forEach(order => {
-        const existing = orderMap.get(order.retailer_id) || {
-          value: 0,
-          quantity: 0
-        };
-        existing.value += Number(order.total_amount || 0);
-        existing.quantity += order.order_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
-        orderMap.set(order.retailer_id, existing);
+        const existing = orderMap.get(order.retailer_id);
+        if (!existing || new Date(order.created_at) < new Date(existing.created_at)) {
+          // Keep earliest order time for this retailer
+          orderMap.set(order.retailer_id, {
+            value: (existing?.value || 0) + Number(order.total_amount || 0),
+            quantity: (existing?.quantity || 0) + (order.order_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0),
+            created_at: existing?.created_at ? (new Date(order.created_at) < new Date(existing.created_at) ? order.created_at : existing.created_at) : order.created_at
+          });
+        } else {
+          existing.value += Number(order.total_amount || 0);
+          existing.quantity += order.order_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+          orderMap.set(order.retailer_id, existing);
+        }
       });
 
-      // Transform visits to timeline format
+      // Get feedback data
+      const {
+        data: feedbacks,
+        error: feedbackError
+      } = await supabase.from('retailer_feedback').select('retailer_id, created_at').eq('user_id', user.id).in('retailer_id', retailerIds).gte('created_at', dateStart.toISOString()).lte('created_at', dateEnd.toISOString());
+      
+      const feedbackMap = new Map();
+      (feedbacks || []).forEach(feedback => {
+        const existing = feedbackMap.get(feedback.retailer_id);
+        if (!existing || new Date(feedback.created_at) < new Date(existing)) {
+          feedbackMap.set(feedback.retailer_id, feedback.created_at);
+        }
+      });
+
+      // Transform visits to timeline format with activity time
       const timelineData = (visits || []).map(visit => {
         const retailer = retailerMap.get(visit.retailer_id);
         const order = orderMap.get(visit.retailer_id);
+        const feedbackTime = feedbackMap.get(visit.retailer_id);
+        
+        // Determine activity time based on what action was taken
+        let activityTime = null;
+        
+        if (order?.created_at) {
+          // If order exists, use order creation time
+          activityTime = order.created_at;
+        } else if (visit.no_order_reason && visit.updated_at) {
+          // If no order reason exists, use visit updated time
+          activityTime = visit.updated_at;
+        } else if (feedbackTime) {
+          // If feedback exists, use feedback time
+          activityTime = feedbackTime;
+        }
+
         // Use check_in_time if available, otherwise use skip_check_in_time for phone orders
         const effectiveTime = visit.check_in_time || visit.skip_check_in_time;
+        
         return {
           id: visit.id,
           retailer_name: retailer?.name || 'Unknown',
@@ -398,13 +436,17 @@ export const MyVisits = () => {
           order_value: order?.value || 0,
           order_quantity: order?.quantity || 0,
           no_order_reason: visit.no_order_reason,
+          activity_time: activityTime,
           is_planned: !effectiveTime // Flag for planned visits
         };
-      }).filter(v => v.check_in_time) // Only show visits that have at least started (check_in or skip_check_in)
+      })
+      // Filter to only show visits with an activity (order, no_order_reason, or feedback)
+      .filter(v => v.activity_time !== null)
+      // Sort by activity time (when the transaction happened) in ascending order
       .sort((a, b) => {
-        // Sort by check_in_time chronologically
-        return new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime();
+        return new Date(a.activity_time).getTime() - new Date(b.activity_time).getTime();
       });
+      
       setTimelineVisits(timelineData);
     } catch (error) {
       console.error('Error loading timeline visits:', error);
