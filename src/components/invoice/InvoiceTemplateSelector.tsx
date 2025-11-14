@@ -260,13 +260,7 @@ export default function InvoiceTemplateSelector() {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
             <CardTitle>Select Invoice Template</CardTitle>
-            <Button onClick={() => setShowImportDialog(true)} size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Import Template
-            </Button>
-          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <RadioGroup value={selectedTemplate} onValueChange={setSelectedTemplate}>
