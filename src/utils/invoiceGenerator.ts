@@ -327,7 +327,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   yPos += 12;
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("TERM AND CONDITIONS", 15, yPos);
+  doc.text("TERMS AND CONDITIONS", 15, yPos);
   
   yPos += 5;
   doc.setFontSize(7);

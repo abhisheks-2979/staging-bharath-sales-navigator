@@ -252,7 +252,7 @@ export default function InvoiceTemplate4({
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.text("Due", labelCol, yPos);
+      doc.text("Total Due", labelCol, yPos);
       doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
       
       doc.setTextColor(0, 0, 0);
@@ -332,7 +332,7 @@ export default function InvoiceTemplate4({
       yPos += 12;
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("TERM AND CONDITIONS", 15, yPos);
+      doc.text("TERMS AND CONDITIONS", 15, yPos);
       
       yPos += 5;
       doc.setFontSize(7);
