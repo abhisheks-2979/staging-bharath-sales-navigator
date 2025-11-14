@@ -35,21 +35,9 @@ export default function InvoiceTemplateRenderer({
 
       if (companyData) {
         setCompany(companyData);
-        
-        // If template is not a default one, fetch custom template
-        const templateId = companyData.invoice_template || "template1";
-        if (!["template1", "template2", "template3", "template4"].includes(templateId)) {
-          const { data: customTemplateData } = await supabase
-            .from("custom_invoice_templates")
-            .select("*")
-            .eq("id", templateId)
-            .eq("is_active", true)
-            .single();
-          
-          if (customTemplateData) {
-            setCustomTemplate(customTemplateData);
-          }
-        }
+        // Force default template usage everywhere (Template 4)
+        // Explicitly clear any custom template so preview always uses our default renderer
+        setCustomTemplate(null);
       }
 
       // Fetch retailer details
