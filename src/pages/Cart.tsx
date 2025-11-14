@@ -88,6 +88,7 @@ export const Cart = () => {
   const [partialAmount, setPartialAmount] = React.useState<string>("");
   const [chequePhotoUrl, setChequePhotoUrl] = React.useState<string>("");
   const [upiPhotoUrl, setUpiPhotoUrl] = React.useState<string>("");
+  const [upiLastFourCode, setUpiLastFourCode] = React.useState<string>("");
   const [neftPhotoUrl, setNeftPhotoUrl] = React.useState<string>("");
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
   const [cameraMode, setCameraMode] = React.useState<"cheque" | "upi" | "neft">("cheque");
@@ -686,7 +687,8 @@ export const Cart = () => {
         credit_paid_amount: creditPaid,
         previous_pending_cleared: previousPendingCleared,
         payment_method: orderPaymentMethod,
-        payment_proof_url: paymentProofUrl
+        payment_proof_url: paymentProofUrl,
+        upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
       }).select().single();
       if (orderError) throw orderError;
 
@@ -1198,6 +1200,18 @@ export const Cart = () => {
                           <div className="flex items-center justify-center h-32 bg-muted rounded">
                             <p className="text-xs text-muted-foreground">QR Code</p>
                           </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="upiLastFour" className="text-xs">UPI Last-4 Code</Label>
+                          <Input
+                            id="upiLastFour"
+                            type="text"
+                            maxLength={4}
+                            value={upiLastFourCode}
+                            onChange={(e) => setUpiLastFourCode(e.target.value.replace(/\D/g, ''))}
+                            placeholder="Enter last 4 digits"
+                            className="h-8 text-xs"
+                          />
                         </div>
                         <Button onClick={() => {
                   setCameraMode("upi");
