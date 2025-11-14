@@ -230,6 +230,27 @@ export const MyVisits = () => {
         console.log('Order updated:', payload);
         debouncedReload();
       })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'beat_plans',
+        filter: `user_id=eq.${user.id}`
+      }, async (payload) => {
+        console.log('Beat plan updated:', payload);
+        // Refresh planned dates for the week
+        const startIso = weekDays[0]?.isoDate;
+        const endIso = weekDays[weekDays.length - 1]?.isoDate;
+        if (startIso && endIso) {
+          const { data } = await supabase
+            .from('beat_plans')
+            .select('plan_date')
+            .eq('user_id', user.id)
+            .gte('plan_date', startIso)
+            .lte('plan_date', endIso);
+          setPlannedDates(new Set((data || []).map((d: any) => d.plan_date)));
+        }
+        debouncedReload();
+      })
       .subscribe();
 
     // Also listen for custom events from VisitCard components
@@ -243,7 +264,7 @@ export const MyVisits = () => {
       supabase.removeChannel(channel);
       window.removeEventListener('visitStatusChanged', handleVisitStatusChange);
     };
-  }, [user, selectedDate]);
+  }, [user, selectedDate, weekDays]);
 
   // Load week plan markers for calendar
   useEffect(() => {
