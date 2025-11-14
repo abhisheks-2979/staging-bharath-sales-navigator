@@ -58,8 +58,7 @@ serve(async (req) => {
 
 Invoice Number: ${invoiceNumber || 'N/A'}
 
-Click here to view and download your invoice:
-${pdfUrl || 'Processing...'}`;
+Click here to view your invoice: ${pdfUrl || 'Processing...'}`;
 
     console.log('Message content:', message);
 
