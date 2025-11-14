@@ -627,18 +627,12 @@ const LiveAttendanceMonitoring = () => {
                     </TableCell>
                     <TableCell>
                       {record.check_in_photo_url ? (
-                        <a
-                          href={`https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/attendance-photos/${record.check_in_photo_url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block"
-                        >
-                          <img
-                            src={`https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/attendance-photos/${record.check_in_photo_url}`}
-                            alt="Check-in photo"
-                            className="w-16 h-16 object-cover rounded border border-border hover:opacity-80 transition-opacity cursor-pointer"
-                          />
-                        </a>
+                        <img
+                          src={supabase.storage.from('attendance-photos').getPublicUrl(record.check_in_photo_url).data.publicUrl}
+                          alt="Check-in photo"
+                          className="w-16 h-16 object-cover rounded border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => window.open(supabase.storage.from('attendance-photos').getPublicUrl(record.check_in_photo_url).data.publicUrl, '_blank')}
+                        />
                       ) : (
                         <span className="text-muted-foreground">--</span>
                       )}
