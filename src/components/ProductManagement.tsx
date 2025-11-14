@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 import { migrateProducts } from '@/utils/productMigration';
@@ -38,6 +39,10 @@ interface Product {
   conversion_factor: number;
   closing_stock: number;
   is_active: boolean;
+  is_focused_product?: boolean;
+  focused_due_date?: string;
+  focused_target_quantity?: number;
+  focused_territories?: string[];
 }
 
 interface ProductScheme {
@@ -111,6 +116,10 @@ const [productForm, setProductForm] = useState({
   name: '',
   description: '',
   category_id: '',
+  is_focused_product: false,
+  focused_due_date: '',
+  focused_target_quantity: 0,
+  focused_territories: [] as string[],
   rate: 0,
   unit: 'piece',
   base_unit: 'kg',
@@ -393,6 +402,10 @@ setProductForm({
   name: '',
   description: '',
   category_id: '',
+  is_focused_product: false,
+  focused_due_date: '',
+  focused_target_quantity: 0,
+  focused_territories: [],
   rate: 0,
   unit: 'piece',
   base_unit: 'kg',
@@ -744,6 +757,10 @@ setProductForm({
   name: '',
   description: '',
   category_id: '',
+  is_focused_product: false,
+  focused_due_date: '',
+  focused_target_quantity: 0,
+  focused_territories: [],
   rate: 0,
   unit: 'piece',
   base_unit: 'kg',
@@ -819,6 +836,41 @@ setProductForm({
                           </SelectContent>
                         </Select>
                       </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="is_focused" 
+                          checked={productForm.is_focused_product}
+                          onCheckedChange={(checked) => setProductForm({ ...productForm, is_focused_product: checked as boolean })}
+                        />
+                        <Label htmlFor="is_focused" className="text-sm font-medium cursor-pointer">
+                          Focused Product
+                        </Label>
+                      </div>
+                      
+                      {productForm.is_focused_product && (
+                        <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                          <div>
+                            <Label htmlFor="focused_due_date">Due Date <span className="text-xs text-muted-foreground">(This is a focused product until this date)</span></Label>
+                            <Input
+                              id="focused_due_date"
+                              type="date"
+                              value={productForm.focused_due_date}
+                              onChange={(e) => setProductForm({ ...productForm, focused_due_date: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="focused_target_quantity">Target Quantity</Label>
+                            <Input
+                              id="focused_target_quantity"
+                              type="number"
+                              value={productForm.focused_target_quantity}
+                              onChange={(e) => setProductForm({ ...productForm, focused_target_quantity: parseInt(e.target.value) || 0 })}
+                              placeholder="Target quantity to achieve"
+                            />
+                          </div>
+                        </div>
+                      )}
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -1090,6 +1142,10 @@ setProductForm({
   name: product.name,
   description: product.description || '',
   category_id: product.category_id || '',
+  is_focused_product: product.is_focused_product || false,
+  focused_due_date: product.focused_due_date || '',
+  focused_target_quantity: product.focused_target_quantity || 0,
+  focused_territories: product.focused_territories || [],
   rate: product.rate,
   unit: product.unit,
   base_unit: (product as any).base_unit || 'kg',
