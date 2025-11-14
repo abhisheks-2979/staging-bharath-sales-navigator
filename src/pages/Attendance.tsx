@@ -367,6 +367,8 @@ const Attendance = () => {
       });
 
       if (attendanceType === 'check-in') {
+        console.log('Starting check-in process...');
+        
         // Mark attendance with face verification result
         const { error: attendanceError } = await supabase
           .from('attendance')
@@ -382,7 +384,12 @@ const Attendance = () => {
             face_match_confidence: confidence
           });
 
-        if (attendanceError) throw attendanceError;
+        if (attendanceError) {
+          console.error('Attendance insert error:', attendanceError);
+          throw attendanceError;
+        }
+        
+        console.log('Attendance marked successfully');
 
         // Check in to all planned visits for today
         const { data: plannedVisits } = await supabase
@@ -391,6 +398,8 @@ const Attendance = () => {
           .eq('user_id', user.id)
           .eq('planned_date', today)
           .is('check_in_time', null);
+
+        console.log('Planned visits found:', plannedVisits?.length || 0);
 
         if (plannedVisits && plannedVisits.length > 0) {
           for (const visit of plannedVisits) {
@@ -406,7 +415,17 @@ const Attendance = () => {
               })
               .eq('id', visit.id);
           }
+          console.log('All planned visits checked in');
         }
+
+        // Close camera modal
+        setShowCamera(false);
+        setAttendanceType(null);
+        setIsMarkingAttendance(false);
+
+        // Refresh attendance data
+        await fetchAttendanceData();
+        await fetchTodaysVisits();
 
         // Start GPS tracking immediately after check-in
         toast({
@@ -414,11 +433,14 @@ const Attendance = () => {
           description: "Day started successfully! GPS tracking is now active.",
         });
         
+        console.log('Starting GPS tracking...');
         setTimeout(() => {
           startTracking();
         }, 500);
 
       } else {
+        console.log('Starting check-out process...');
+        
         // Update existing record with check-out
         const { error: updateError } = await supabase
           .from('attendance')
@@ -433,19 +455,31 @@ const Attendance = () => {
           .eq('user_id', user.id)
           .eq('date', today);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Check-out update error:', updateError);
+          throw updateError;
+        }
+        
+        console.log('Check-out marked successfully');
+
+        // Close camera modal
+        setShowCamera(false);
+        setAttendanceType(null);
+        setIsMarkingAttendance(false);
+
+        // Refresh attendance data
+        await fetchAttendanceData();
+        await fetchTodaysVisits();
 
         // Stop GPS tracking after successful check-out
+        console.log('Stopping GPS tracking...');
         stopTracking();
 
         toast({
           title: "Success",
-          description: "Day ended successfully! Have a great evening! 🌙",
+          description: "Day ended successfully! GPS tracking stopped.",
         });
       }
-      
-      // Refresh data
-      await fetchAttendanceData();
 
     } catch (error) {
       console.error('Error marking attendance:', error);
@@ -454,9 +488,11 @@ const Attendance = () => {
         description: `Failed to mark ${attendanceType}. Please try again.`,
         variant: "destructive"
       });
-    } finally {
-      setIsMarkingAttendance(false);
+      
+      // Reset states on error
+      setShowCamera(false);
       setAttendanceType(null);
+      setIsMarkingAttendance(false);
     }
   };
 
