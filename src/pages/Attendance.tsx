@@ -569,40 +569,45 @@ const Attendance = () => {
 
           {/* Start/End Day Buttons */}
             <div className="flex justify-center gap-4">
-              {/* Show Start My Day only if not checked in yet */}
-              {!todaysAttendance?.check_in_time && (
-                <Button
-                  onClick={() => markAttendance('check-in')}
-                  disabled={isMarkingAttendance}
-                  className="gap-2"
-                  variant="default"
-                >
-                  <Camera className="h-4 w-4" />
-                  {isMarkingAttendance ? 'Starting Day...' : 'Start My Day'}
-                </Button>
-              )}
+              {/* Start My Day Button */}
+              <Button
+                onClick={() => markAttendance('check-in')}
+                disabled={isMarkingAttendance || todaysAttendance?.check_in_time}
+                variant={todaysAttendance?.check_in_time ? "outline" : "default"}
+                className="gap-2"
+              >
+                {todaysAttendance?.check_in_time ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Day Started
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4" />
+                    {isMarkingAttendance ? 'Starting Day...' : 'Start My Day'}
+                  </>
+                )}
+              </Button>
               
-              {/* Show End My Day only after day has started */}
-              {todaysAttendance?.check_in_time && (
-                <Button
-                  onClick={() => markAttendance('check-out')}
-                  disabled={isMarkingAttendance || todaysAttendance?.check_out_time}
-                  variant={todaysAttendance?.check_out_time ? "outline" : "destructive"}
-                  className="gap-2"
-                >
-                  {todaysAttendance?.check_out_time ? (
-                    <>
-                      <XCircle className="h-4 w-4 text-red-600" />
-                      Day Ended
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-4 w-4" />
-                      {isMarkingAttendance ? 'Ending Day...' : 'End My Day'}
-                    </>
-                  )}
-                </Button>
-              )}
+              {/* End My Day Button */}
+              <Button
+                onClick={() => markAttendance('check-out')}
+                disabled={isMarkingAttendance || !todaysAttendance?.check_in_time || todaysAttendance?.check_out_time}
+                variant={todaysAttendance?.check_out_time ? "outline" : "destructive"}
+                className="gap-2"
+              >
+                {todaysAttendance?.check_out_time ? (
+                  <>
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    Day Ended
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4" />
+                    {isMarkingAttendance ? 'Ending Day...' : 'End My Day'}
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* GPS Tracking Info */}
