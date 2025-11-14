@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Layout } from '@/components/Layout';
-import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter, Navigation2, Route, CalendarDays, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Camera, MapPin, Clock, Plus, Filter, Navigation2, Route, CalendarDays, FileText, LogOut, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -681,21 +681,18 @@ const Attendance = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* First Check In */}
-                {todaysVisits.length > 0 ? (
+                {/* First Check In - Start My Day */}
+                {todaysAttendance?.check_in_time ? (
                   <div className="bg-green-100 dark:bg-green-900 p-4 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="text-center">
                       <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
                       <div className="font-semibold text-green-800 dark:text-green-200 text-sm">First Check In</div>
                       <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-                        {formatTime(todaysVisits[0].check_in_time)}
+                        {format(new Date(todaysAttendance.check_in_time), 'hh:mm a')}
                       </div>
-                      {todaysVisits[0].check_in_location && (
-                        <div className="text-xs text-green-500 mt-1 flex items-center justify-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {todaysVisits[0].check_in_location.latitude?.toFixed(4)}, {todaysVisits[0].check_in_location.longitude?.toFixed(4)}
-                        </div>
-                      )}
+                      <div className="text-xs text-green-500 mt-1">
+                        {todaysVisits.length === 0 ? 'No visits today' : `${todaysVisits.length} visit${todaysVisits.length === 1 ? '' : 's'} today`}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -703,51 +700,57 @@ const Attendance = () => {
                     <div className="text-center text-gray-500 dark:text-gray-400">
                       <CheckCircle className="h-5 w-5 mx-auto mb-2" />
                       <div className="font-semibold text-sm">First Check In</div>
-                      <div className="text-xs mt-1">No visits today</div>
+                      <div className="text-xs mt-1">Not started</div>
                     </div>
                   </div>
                 )}
 
-                {/* Active Market Hours */}
+                {/* Active Market Hours - Only show after check-out */}
                 <div className={`p-4 rounded-lg border ${
-                  activeMarketHours !== null 
+                  todaysAttendance?.check_out_time
                     ? 'bg-blue-100 dark:bg-blue-900 border-blue-200 dark:border-blue-800' 
                     : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                 }`}>
                   <div className="text-center">
-                    <Clock className={`h-5 w-5 mx-auto mb-2 ${activeMarketHours !== null ? 'text-blue-600' : 'text-gray-500'}`} />
-                    <div className={`font-semibold text-sm ${activeMarketHours !== null ? 'text-blue-800 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
+                    <Clock className={`h-5 w-5 mx-auto mb-2 ${todaysAttendance?.check_out_time ? 'text-blue-600' : 'text-gray-500'}`} />
+                    <div className={`font-semibold text-sm ${todaysAttendance?.check_out_time ? 'text-blue-800 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'}`}>
                       Active Market Hours
                     </div>
-                    <div className={`text-sm mt-1 ${activeMarketHours !== null ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                      {activeMarketHours !== null ? `${activeMarketHours.toFixed(1)} hrs` : '--:--'}
+                    <div className={`text-sm mt-1 ${todaysAttendance?.check_out_time ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {todaysAttendance?.check_in_time && todaysAttendance?.check_out_time ? (
+                        (() => {
+                          const checkIn = new Date(todaysAttendance.check_in_time);
+                          const checkOut = new Date(todaysAttendance.check_out_time);
+                          const diffMs = checkOut.getTime() - checkIn.getTime();
+                          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                          return `${hours}h ${minutes}m`;
+                        })()
+                      ) : '--:--'}
                     </div>
                   </div>
                 </div>
 
-                {/* Last Check In */}
-                {todaysVisits.length > 0 ? (
+                {/* Last Check Out - End My Day */}
+                {todaysAttendance?.check_out_time ? (
                   <div className="bg-orange-100 dark:bg-orange-900 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
                     <div className="text-center">
-                      <Clock className="h-5 w-5 mx-auto mb-2 text-orange-600" />
-                      <div className="font-semibold text-orange-800 dark:text-orange-200 text-sm">Last Check In</div>
+                      <LogOut className="h-5 w-5 mx-auto mb-2 text-orange-600" />
+                      <div className="font-semibold text-orange-800 dark:text-orange-200 text-sm">Last Check Out</div>
                       <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                        {formatTime(todaysVisits[todaysVisits.length - 1].check_in_time)}
+                        {format(new Date(todaysAttendance.check_out_time), 'hh:mm a')}
                       </div>
-                      {todaysVisits[todaysVisits.length - 1].check_in_location && (
-                        <div className="text-xs text-orange-500 mt-1 flex items-center justify-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {todaysVisits[todaysVisits.length - 1].check_in_location.latitude?.toFixed(4)}, {todaysVisits[todaysVisits.length - 1].check_in_location.longitude?.toFixed(4)}
-                        </div>
-                      )}
+                      <div className="text-xs text-orange-500 mt-1">
+                        {todaysVisits.length === 0 ? 'No visits today' : `${todaysVisits.length} visit${todaysVisits.length === 1 ? '' : 's'} today`}
+                      </div>
                     </div>
                   </div>
                 ) : (
                   <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border">
                     <div className="text-center text-gray-500 dark:text-gray-400">
-                      <Clock className="h-5 w-5 mx-auto mb-2" />
-                      <div className="font-semibold text-sm">Last Check In</div>
-                      <div className="text-xs mt-1">No visits today</div>
+                      <LogOut className="h-5 w-5 mx-auto mb-2" />
+                      <div className="font-semibold text-sm">Last Check Out</div>
+                      <div className="text-xs mt-1">Not ended</div>
                     </div>
                   </div>
                 )}
