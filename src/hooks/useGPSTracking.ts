@@ -136,30 +136,26 @@ export const useGPSTracking = (userId: string | undefined, date: Date) => {
     loadSavedTracking();
   }, [loadSavedTracking]);
 
-  // Auto-start/stop tracking based on working hours
+  // Auto-stop tracking after working hours (7 PM) only
   useEffect(() => {
-    const checkAndToggleTracking = () => {
+    const checkAndStopTracking = () => {
       const withinHours = isWithinWorkingHours();
       
-      if (withinHours && !isTracking) {
-        startTracking(true);
-      } else if (!withinHours && isTracking) {
+      // Only auto-stop if tracking is active and outside working hours
+      if (!withinHours && isTracking) {
         stopTracking(true);
       }
     };
 
-    // Check immediately
-    checkAndToggleTracking();
-
     // Check every minute
-    autoCheckIntervalRef.current = setInterval(checkAndToggleTracking, 60000);
+    autoCheckIntervalRef.current = setInterval(checkAndStopTracking, 60000);
 
     return () => {
       if (autoCheckIntervalRef.current) {
         clearInterval(autoCheckIntervalRef.current);
       }
     };
-  }, [isTracking, isWithinWorkingHours, startTracking, stopTracking]);
+  }, [isTracking, isWithinWorkingHours, stopTracking]);
 
   useEffect(() => {
     return () => {
