@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
 interface CartItem {
   id: string;
   name: string;
@@ -68,6 +69,8 @@ export const Cart = () => {
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
+  const { isPaymentProofMandatory } = usePaymentProofMandatory();
+
 
   // Fetch and cache schemes from database
   const [allSchemes, setAllSchemes] = React.useState<any[]>([]);
@@ -539,29 +542,32 @@ export const Cart = () => {
       });
       return;
     }
-    if (paymentMethod === "cheque" && !chequePhotoUrl) {
-      toast({
-        title: "Cheque Photo Required",
-        description: "Please capture cheque photo",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (paymentMethod === "upi" && !upiPhotoUrl) {
-      toast({
-        title: "Payment Confirmation Required",
-        description: "Please capture payment confirmation photo",
-        variant: "destructive"
-      });
-      return;
-    }
-    if (paymentMethod === "neft" && !neftPhotoUrl) {
-      toast({
-        title: "NEFT Confirmation Required",
-        description: "Please capture NEFT confirmation photo",
-        variant: "destructive"
-      });
-      return;
+    // Check payment proof only if mandatory
+    if (isPaymentProofMandatory) {
+      if (paymentMethod === "cheque" && !chequePhotoUrl) {
+        toast({
+          title: "Cheque Photo Required",
+          description: "Please capture cheque photo",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (paymentMethod === "upi" && !upiPhotoUrl) {
+        toast({
+          title: "Payment Confirmation Required",
+          description: "Please capture payment confirmation photo",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (paymentMethod === "neft" && !neftPhotoUrl) {
+        toast({
+          title: "NEFT Confirmation Required",
+          description: "Please capture NEFT confirmation photo",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     // Check if order can be submitted today - BLOCK submission if not today
