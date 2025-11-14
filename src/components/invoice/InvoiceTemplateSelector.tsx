@@ -41,7 +41,7 @@ export default function InvoiceTemplateSelector() {
 
     if (data) {
       setCompanyId(data.id);
-      setSelectedTemplate(data.invoice_template || "template1");
+      setSelectedTemplate(data.invoice_template || "template4");
       setCompanyData(data);
     }
   };
@@ -85,21 +85,6 @@ export default function InvoiceTemplateSelector() {
   };
 
   const templates = [
-    {
-      id: "template1",
-      name: "Template 1 - Traditional GST Layout",
-      description: "Classic invoice layout with detailed GST breakdown, ideal for formal business transactions"
-    },
-    {
-      id: "template2",
-      name: "Template 2 - Modern Minimalist",
-      description: "Clean and simple design with essential details, perfect for modern businesses"
-    },
-    {
-      id: "template3",
-      name: "Template 3 - Professional Elegant",
-      description: "Sophisticated layout with elegant typography and organized sections"
-    },
     {
       id: "template4",
       name: "Template 4 - Green Accent Professional",
@@ -307,63 +292,7 @@ export default function InvoiceTemplateSelector() {
               </div>
             ))}
 
-            {/* Custom Templates */}
-            {customTemplates.map((template) => (
-              <div
-                key={template.id}
-                className={`relative border rounded-lg p-4 transition-all ${
-                  selectedTemplate === template.id ? "border-primary bg-primary/5" : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <RadioGroupItem 
-                    value={template.id} 
-                    id={template.id} 
-                    className="mt-1" 
-                    onClick={() => setSelectedTemplate(template.id)}
-                  />
-                  <div className="flex-1">
-                    <Label htmlFor={template.id} className="cursor-pointer" onClick={() => setSelectedTemplate(template.id)}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground">{template.name}</span>
-                        {selectedTemplate === template.id && (
-                          <Check className="w-4 h-4 text-primary" />
-                        )}
-                      </div>
-                      {template.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {template.description}
-                        </p>
-                      )}
-                    </Label>
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(template.template_file_url, '_blank');
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Preview Template
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCustomTemplate(template.id, template.template_file_url);
-                        }}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {/* Custom Templates disabled - Only official Template 4 allowed */}
           </RadioGroup>
 
           <Button
