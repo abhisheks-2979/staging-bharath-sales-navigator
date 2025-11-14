@@ -315,13 +315,20 @@ const Attendance = () => {
       const today = new Date().toISOString().split('T')[0];
       const timestamp = new Date().toISOString();
 
-      // Upload photo
-      const photoPath = `attendance/${user.id}/${today}_${attendanceType}_${Date.now()}.jpg`;
+      // Upload photo - path must start with user.id for RLS policy
+      const photoPath = `${user.id}/attendance/${today}_${attendanceType}_${Date.now()}.jpg`;
+      console.log('Uploading photo to path:', photoPath);
+      
       const { error: uploadError } = await supabase.storage
         .from('attendance-photos')
         .upload(photoPath, photoBlob);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Photo upload error:', uploadError);
+        throw uploadError;
+      }
+      
+      console.log('Photo uploaded successfully');
 
       // Get public URL for face matching
       const { data: urlData } = supabase.storage
