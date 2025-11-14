@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { LeaderboardTimeFilters } from "@/components/LeaderboardTimeFilters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -128,27 +129,40 @@ export default function Leaderboard() {
     if (!userProfile?.id) return;
 
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-    const yearStart = new Date(now.getFullYear(), 0, 1);
+    
+    // Calculate time ranges (timezone-aware)
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    
+    const currentQuarter = Math.floor(now.getMonth() / 3);
+    const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
+    
+    const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
 
     const { data } = await supabase
       .from("gamification_points")
       .select("points, earned_at")
-      .eq("user_id", userProfile.id);
+      .eq("user_id", userProfile.id)
+      .order("earned_at", { ascending: false });
 
     if (data) {
       const points: MyPoints = { today: 0, week: 0, month: 0, quarter: 0, year: 0, total: 0 };
       data.forEach(item => {
         const earnedDate = new Date(item.earned_at);
-        points.total += item.points;
-        if (earnedDate >= today) points.today += item.points;
-        if (earnedDate >= weekAgo) points.week += item.points;
-        if (earnedDate >= monthStart) points.month += item.points;
-        if (earnedDate >= quarterStart) points.quarter += item.points;
-        if (earnedDate >= yearStart) points.year += item.points;
+        const pointsValue = Number(item.points) || 0;
+        
+        points.total += pointsValue;
+        
+        if (earnedDate >= startOfToday) points.today += pointsValue;
+        if (earnedDate >= startOfWeek) points.week += pointsValue;
+        if (earnedDate >= startOfMonth) points.month += pointsValue;
+        if (earnedDate >= startOfQuarter) points.quarter += pointsValue;
+        if (earnedDate >= startOfYear) points.year += pointsValue;
       });
       setMyPoints(points);
     }
@@ -309,18 +323,10 @@ export default function Leaderboard() {
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
-                  <Select value={timeFilter} onValueChange={(v: any) => setTimeFilter(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="today">Today</SelectItem>
-                      <SelectItem value="week">This Week</SelectItem>
-                      <SelectItem value="month">This Month</SelectItem>
-                      <SelectItem value="quarter">This Quarter</SelectItem>
-                      <SelectItem value="year">This Year</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LeaderboardTimeFilters 
+                    timeFilter={timeFilter} 
+                    onFilterChange={(v: any) => setTimeFilter(v)}
+                  />
                 </div>
                 <div className="text-center">
                   <p className="text-5xl font-bold">{getDisplayPoints()}</p>
