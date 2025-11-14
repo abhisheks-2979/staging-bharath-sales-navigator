@@ -71,6 +71,7 @@ const LiveAttendanceMonitoring = () => {
     averageHours: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [showLocationId, setShowLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -670,20 +671,50 @@ const LiveAttendanceMonitoring = () => {
                       {getFaceMatchBadge(record.face_match_confidence_out)}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm max-w-xs truncate">
-                          {formatLocation(record.check_in_location, record.check_in_address)}
-                        </span>
-                      </div>
+                      {record.check_in_location ? (
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowLocationId(showLocationId === `${record.id}-checkin` ? null : `${record.id}-checkin`)}
+                            className="text-primary hover:text-primary/80 transition-colors"
+                          >
+                            <MapPin className="h-5 w-5" />
+                          </button>
+                          {showLocationId === `${record.id}-checkin` && (
+                            <div className="absolute z-10 mt-1 p-2 bg-popover border rounded-md shadow-lg text-xs whitespace-nowrap">
+                              <div className="font-medium">{record.check_in_address || 'Unknown Location'}</div>
+                              <div className="text-muted-foreground">
+                                Lat: {record.check_in_location.latitude?.toFixed(4)}, 
+                                Lng: {record.check_in_location.longitude?.toFixed(4)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">--</span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm max-w-xs truncate">
-                          {formatLocation(record.check_out_location, record.check_out_address)}
-                        </span>
-                      </div>
+                      {record.check_out_location ? (
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowLocationId(showLocationId === `${record.id}-checkout` ? null : `${record.id}-checkout`)}
+                            className="text-primary hover:text-primary/80 transition-colors"
+                          >
+                            <MapPin className="h-5 w-5" />
+                          </button>
+                          {showLocationId === `${record.id}-checkout` && (
+                            <div className="absolute z-10 mt-1 p-2 bg-popover border rounded-md shadow-lg text-xs whitespace-nowrap">
+                              <div className="font-medium">{record.check_out_address || 'Unknown Location'}</div>
+                              <div className="text-muted-foreground">
+                                Lat: {record.check_out_location.latitude?.toFixed(4)}, 
+                                Lng: {record.check_out_location.longitude?.toFixed(4)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">--</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
