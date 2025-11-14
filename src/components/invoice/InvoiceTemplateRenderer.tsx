@@ -66,15 +66,12 @@ export default function InvoiceTemplateRenderer({
     return <div className="text-sm text-destructive">Missing company or retailer data</div>;
   }
 
-  // Render the appropriate template based on company settings
-  const selectedTemplate = company.invoice_template || "template1";
+  // Force Template 4 everywhere regardless of company setting
+  const selectedTemplate = "template4";
   
   // Map template IDs to template styles
   const getTemplateStyle = (): "template1" | "template2" | "template3" | "template4" => {
-    if (["template1", "template2", "template3", "template4"].includes(selectedTemplate)) {
-      return selectedTemplate as "template1" | "template2" | "template3" | "template4";
-    }
-    return "template1"; // default
+    return "template4";
   };
 
   return (
