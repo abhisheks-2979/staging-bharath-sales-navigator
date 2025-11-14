@@ -630,9 +630,13 @@ const LiveAttendanceMonitoring = () => {
                           href={`https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/attendance-photos/${record.check_in_photo_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 underline"
+                          className="block"
                         >
-                          View Photo
+                          <img
+                            src={`https://etabpbfokzhhfuybeieu.supabase.co/storage/v1/object/public/attendance-photos/${record.check_in_photo_url}`}
+                            alt="Check-in photo"
+                            className="w-16 h-16 object-cover rounded border border-border hover:opacity-80 transition-opacity cursor-pointer"
+                          />
                         </a>
                       ) : (
                         <span className="text-muted-foreground">--</span>
