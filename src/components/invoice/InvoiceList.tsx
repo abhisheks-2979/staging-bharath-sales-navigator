@@ -50,13 +50,13 @@ export default function InvoiceList() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Templates ({invoices.length})</CardTitle>
+        <CardTitle>All Invoices ({invoices.length})</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice Template Number</TableHead>
+              <TableHead>Invoice Number</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -64,52 +64,23 @@ export default function InvoiceList() {
             {invoices.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
-                  No templates found. Create your first template!
+                  No invoices found.
                 </TableCell>
               </TableRow>
             ) : (
-              invoices.map((invoice) => {
-                const isSelected = getSelectedTemplate() === invoice.id;
-                
-                return (
-                  <TableRow key={invoice.id} className={isSelected ? "bg-primary/5" : ""}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {invoice.invoice_number}
-                        {isSelected && (
-                          <Badge variant="default" className="ml-2">
-                            <Check className="w-3 h-3 mr-1" />
-                            Active Template
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <InvoicePDFGenerator 
-                          invoiceId={invoice.id} 
-                          buttonLabel="View Template"
-                        />
-                        <Button
-                          size="sm"
-                          variant={isSelected ? "default" : "outline"}
-                          onClick={() => selectTemplate(invoice.id)}
-                          title="Use this template for all cart invoices"
-                        >
-                          {isSelected ? (
-                            <>
-                              <Check className="w-4 h-4 mr-1" />
-                              Selected
-                            </>
-                          ) : (
-                            "Select Template"
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              invoices.map((invoice) => (
+                <TableRow key={invoice.id}>
+                  <TableCell className="font-medium">
+                    {invoice.invoice_number || invoice.id}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <InvoicePDFGenerator 
+                      invoiceId={invoice.id}
+                      buttonLabel="View"
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
