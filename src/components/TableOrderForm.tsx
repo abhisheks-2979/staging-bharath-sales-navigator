@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 
 interface Product {
   id: string;
@@ -24,6 +25,10 @@ interface Product {
   conversion_factor?: number;
   closing_stock: number;
   is_focused_product?: boolean;
+  focused_type?: string | null;
+  focused_due_date?: string | null;
+  focused_recurring_config?: any;
+  focused_territories?: string[] | null;
   schemes?: { 
     name: string; 
     description: string; 
@@ -41,6 +46,11 @@ interface Product {
     discount_amount: number;
     discount_percentage: number;
     is_active: boolean;
+    is_focused_product?: boolean;
+    focused_type?: string | null;
+    focused_due_date?: string | null;
+    focused_recurring_config?: any;
+    focused_territories?: string[] | null;
   }[];
 }
 
@@ -579,7 +589,13 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           >
                             {row.product ? (
                               <div className="flex flex-col items-start w-full gap-2">
-                                <div className="flex items-center gap-2 w-full">
+                                <div className="flex items-center gap-1.5 w-full">
+                                  {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
+                                    <Star size={14} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                  )}
+                                  {hasActiveSchemes(row.product) && (
+                                    <Sparkles size={14} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                  )}
                                   <span className="truncate text-left flex-1 font-medium text-foreground">
                                     {row.variant ? (() => {
                                       let variantDisplayName = row.variant.variant_name;
@@ -590,11 +606,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                       return variantDisplayName || row.variant.variant_name;
                                     })() : row.product.name}
                                   </span>
-                                  {row.product.is_focused_product && (
-                                    <Badge className="text-[9px] bg-orange-500 hover:bg-orange-600 px-1.5 py-0 shrink-0">
-                                      Focused
-                                    </Badge>
-                                  )}
                                 </div>
                                 {row.product.base_unit ? (() => {
                                   const pricePerUnit = getPricePerUnit(row.product!, row.variant, row.unit);
@@ -646,10 +657,18 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                                           : "opacity-0"
                                       )}
                                     />
-                                    <div className="flex-1">
-                                      <div className="font-medium">{option.label}</div>
-                                      <div className="text-[10px] md:text-xs text-muted-foreground">
-                                        SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                    <div className="flex-1 flex items-center gap-1.5">
+                                      {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
+                                        <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                      )}
+                                      {hasActiveSchemes(option.product) && (
+                                        <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                      )}
+                                      <div className="flex-1">
+                                        <div className="font-medium">{option.label}</div>
+                                        <div className="text-[10px] md:text-xs text-muted-foreground">
+                                          SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                        </div>
                                       </div>
                                     </div>
                                   </CommandItem>
