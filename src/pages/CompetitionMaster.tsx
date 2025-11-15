@@ -25,6 +25,13 @@ interface Competitor {
   competitor_name: string;
   business_background: string;
   key_financial_stats: any;
+  focus: string;
+  strategy: string;
+  website: string;
+  sales_team_size: number;
+  supply_chain_info: string;
+  head_office: string;
+  regional_offices_count: number;
   created_at: string;
   sku_count?: number;
   contact_count?: number;
@@ -78,7 +85,14 @@ export default function CompetitionMaster() {
   const [formData, setFormData] = useState({
     competitor_name: "",
     business_background: "",
-    key_financial_stats: {}
+    key_financial_stats: {},
+    focus: "",
+    strategy: "",
+    website: "",
+    sales_team_size: 0,
+    supply_chain_info: "",
+    head_office: "",
+    regional_offices_count: 0
   });
 
   const [skuForm, setSKUForm] = useState({
@@ -233,7 +247,18 @@ export default function CompetitionMaster() {
       if (error) throw error;
       toast({ title: "Success", description: "Competitor added successfully" });
       setIsAddDialogOpen(false);
-      setFormData({ competitor_name: "", business_background: "", key_financial_stats: {} });
+      setFormData({ 
+        competitor_name: "", 
+        business_background: "", 
+        key_financial_stats: {},
+        focus: "",
+        strategy: "",
+        website: "",
+        sales_team_size: 0,
+        supply_chain_info: "",
+        head_office: "",
+        regional_offices_count: 0
+      });
       fetchCompetitors();
     } catch (error) {
       toast({ title: "Error", description: "Failed to add competitor", variant: "destructive" });
@@ -338,12 +363,19 @@ export default function CompetitionMaster() {
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" />Add Competitor</Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Add New Competitor</DialogTitle></DialogHeader>
-                <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
-                  <div><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
-                  <Button onClick={handleAddCompetitor} className="w-full">Add Competitor</Button>
+                  <div><Label>Website</Label><Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." /></div>
+                  <div className="col-span-2"><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
+                  <div className="col-span-2"><Label>Focus</Label><Textarea value={formData.focus} onChange={(e) => setFormData({ ...formData, focus: e.target.value })} placeholder="Key focus areas" /></div>
+                  <div className="col-span-2"><Label>Strategy</Label><Textarea value={formData.strategy} onChange={(e) => setFormData({ ...formData, strategy: e.target.value })} placeholder="Business strategy" /></div>
+                  <div><Label># of Sales Team</Label><Input type="number" value={formData.sales_team_size} onChange={(e) => setFormData({ ...formData, sales_team_size: parseInt(e.target.value) || 0 })} /></div>
+                  <div><Label># of Regional Offices</Label><Input type="number" value={formData.regional_offices_count} onChange={(e) => setFormData({ ...formData, regional_offices_count: parseInt(e.target.value) || 0 })} /></div>
+                  <div><Label>Head Office</Label><Input value={formData.head_office} onChange={(e) => setFormData({ ...formData, head_office: e.target.value })} placeholder="Location" /></div>
+                  <div className="col-span-2"><Label>Supply Chain Information</Label><Textarea value={formData.supply_chain_info} onChange={(e) => setFormData({ ...formData, supply_chain_info: e.target.value })} placeholder="Supply chain details" /></div>
+                  <div className="col-span-2"><Button onClick={handleAddCompetitor} className="w-full">Add Competitor</Button></div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -375,7 +407,22 @@ export default function CompetitionMaster() {
                   <TableCell>{competitor.contact_count || 0}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { setSelectedCompetitor(competitor); setFormData({ competitor_name: competitor.competitor_name, business_background: competitor.business_background, key_financial_stats: competitor.key_financial_stats }); setIsEditDialogOpen(true); }}>
+                      <Button variant="outline" size="sm" onClick={() => { 
+                        setSelectedCompetitor(competitor); 
+                        setFormData({ 
+                          competitor_name: competitor.competitor_name, 
+                          business_background: competitor.business_background, 
+                          key_financial_stats: competitor.key_financial_stats,
+                          focus: competitor.focus || "",
+                          strategy: competitor.strategy || "",
+                          website: competitor.website || "",
+                          sales_team_size: competitor.sales_team_size || 0,
+                          supply_chain_info: competitor.supply_chain_info || "",
+                          head_office: competitor.head_office || "",
+                          regional_offices_count: competitor.regional_offices_count || 0
+                        }); 
+                        setIsEditDialogOpen(true); 
+                      }}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       {userRole === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDeleteCompetitor(competitor.id)}><Trash2 className="h-4 w-4" /></Button>}
@@ -389,12 +436,19 @@ export default function CompetitionMaster() {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Competitor</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
-            <div><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
-            <Button onClick={handleUpdateCompetitor} className="w-full">Update Competitor</Button>
+            <div><Label>Website</Label><Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." /></div>
+            <div className="col-span-2"><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
+            <div className="col-span-2"><Label>Focus</Label><Textarea value={formData.focus} onChange={(e) => setFormData({ ...formData, focus: e.target.value })} placeholder="Key focus areas" /></div>
+            <div className="col-span-2"><Label>Strategy</Label><Textarea value={formData.strategy} onChange={(e) => setFormData({ ...formData, strategy: e.target.value })} placeholder="Business strategy" /></div>
+            <div><Label># of Sales Team</Label><Input type="number" value={formData.sales_team_size} onChange={(e) => setFormData({ ...formData, sales_team_size: parseInt(e.target.value) || 0 })} /></div>
+            <div><Label># of Regional Offices</Label><Input type="number" value={formData.regional_offices_count} onChange={(e) => setFormData({ ...formData, regional_offices_count: parseInt(e.target.value) || 0 })} /></div>
+            <div><Label>Head Office</Label><Input value={formData.head_office} onChange={(e) => setFormData({ ...formData, head_office: e.target.value })} placeholder="Location" /></div>
+            <div className="col-span-2"><Label>Supply Chain Information</Label><Textarea value={formData.supply_chain_info} onChange={(e) => setFormData({ ...formData, supply_chain_info: e.target.value })} placeholder="Supply chain details" /></div>
+            <div className="col-span-2"><Button onClick={handleUpdateCompetitor} className="w-full">Update Competitor</Button></div>
           </div>
         </DialogContent>
       </Dialog>
@@ -406,7 +460,7 @@ export default function CompetitionMaster() {
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="skus">SKUs</TabsTrigger>
               <TabsTrigger value="contacts">Contacts</TabsTrigger>
-              <TabsTrigger value="data">Competition Data</TabsTrigger>
+              <TabsTrigger value="data">Competition Stocks</TabsTrigger>
               <TabsTrigger value="ai-summary"><Sparkles className="h-4 w-4 mr-1" />AI Summary</TabsTrigger>
               <TabsTrigger value="analytics"><BarChart className="h-4 w-4 mr-1" />Analytics</TabsTrigger>
             </TabsList>
