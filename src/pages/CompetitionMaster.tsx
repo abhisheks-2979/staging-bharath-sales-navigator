@@ -343,132 +343,211 @@ export default function CompetitionMaster() {
     }
   };
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  const handleDeleteContact = async (id: string) => {
+    if (userRole !== 'admin') {
+      toast({ title: "Permission Denied", description: "Only admins can delete contacts", variant: "destructive" });
+      return;
+    }
+    if (!confirm("Are you sure?")) return;
+    try {
+      const { error } = await supabase.from('competition_contacts').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "Success", description: "Contact deleted successfully" });
+      if (selectedCompetitor) fetchCompetitorDetails(selectedCompetitor.id);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete contact", variant: "destructive" });
+    }
+  };
+
+  if (loading) return <div className="p-4 md:p-8">Loading...</div>;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4" /></Button>
+    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4" /></Button>
         <div>
-          <h1 className="text-3xl font-bold">Competition Master</h1>
-          <p className="text-muted-foreground">Manage competitor information and intelligence</p>
+          <h1 className="text-xl md:text-3xl font-bold">Competition Master</h1>
+          <p className="text-sm text-muted-foreground">Manage competitor information</p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Competitors</CardTitle>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardTitle className="text-lg md:text-xl">Competitors</CardTitle>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" />Add Competitor</Button>
+                <Button size="sm" className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Add Competitor</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Add New Competitor</DialogTitle></DialogHeader>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
-                  <div><Label>Website</Label><Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." /></div>
-                  <div className="col-span-2"><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
-                  <div className="col-span-2"><Label>Focus</Label><Textarea value={formData.focus} onChange={(e) => setFormData({ ...formData, focus: e.target.value })} placeholder="Key focus areas" /></div>
-                  <div className="col-span-2"><Label>Strategy</Label><Textarea value={formData.strategy} onChange={(e) => setFormData({ ...formData, strategy: e.target.value })} placeholder="Business strategy" /></div>
-                  <div><Label># of Sales Team</Label><Input type="number" value={formData.sales_team_size} onChange={(e) => setFormData({ ...formData, sales_team_size: parseInt(e.target.value) || 0 })} /></div>
-                  <div><Label># of Regional Offices</Label><Input type="number" value={formData.regional_offices_count} onChange={(e) => setFormData({ ...formData, regional_offices_count: parseInt(e.target.value) || 0 })} /></div>
-                  <div><Label>Head Office</Label><Input value={formData.head_office} onChange={(e) => setFormData({ ...formData, head_office: e.target.value })} placeholder="Location" /></div>
-                  <div className="col-span-2"><Label>Supply Chain Information</Label><Textarea value={formData.supply_chain_info} onChange={(e) => setFormData({ ...formData, supply_chain_info: e.target.value })} placeholder="Supply chain details" /></div>
-                  <div className="col-span-2"><Button onClick={handleAddCompetitor} className="w-full">Add Competitor</Button></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-1"><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
+                  <div className="md:col-span-1"><Label>Website</Label><Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." /></div>
+                  <div className="md:col-span-2"><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
+                  <div className="md:col-span-2"><Label>Focus</Label><Textarea value={formData.focus} onChange={(e) => setFormData({ ...formData, focus: e.target.value })} placeholder="Key focus areas" /></div>
+                  <div className="md:col-span-2"><Label>Strategy</Label><Textarea value={formData.strategy} onChange={(e) => setFormData({ ...formData, strategy: e.target.value })} placeholder="Business strategy" /></div>
+                  <div className="md:col-span-1"><Label># of Sales Team</Label><Input type="number" value={formData.sales_team_size} onChange={(e) => setFormData({ ...formData, sales_team_size: parseInt(e.target.value) || 0 })} /></div>
+                  <div className="md:col-span-1"><Label># of Regional Offices</Label><Input type="number" value={formData.regional_offices_count} onChange={(e) => setFormData({ ...formData, regional_offices_count: parseInt(e.target.value) || 0 })} /></div>
+                  <div className="md:col-span-1"><Label>Head Office</Label><Input value={formData.head_office} onChange={(e) => setFormData({ ...formData, head_office: e.target.value })} placeholder="Location" /></div>
+                  <div className="md:col-span-2"><Label>Supply Chain Information</Label><Textarea value={formData.supply_chain_info} onChange={(e) => setFormData({ ...formData, supply_chain_info: e.target.value })} placeholder="Supply chain details" /></div>
+                  <div className="md:col-span-2"><Button onClick={handleAddCompetitor} className="w-full">Add Competitor</Button></div>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Competitor Name</TableHead>
-                <TableHead># SKUs</TableHead>
-                <TableHead># Contacts</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {competitors.map((competitor) => (
-                <TableRow key={competitor.id}>
-                  <TableCell>
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto font-medium hover:underline"
-                      onClick={() => { setSelectedCompetitor(competitor); fetchCompetitorDetails(competitor.id); }}
-                    >
-                      {competitor.competitor_name}
-                    </Button>
-                  </TableCell>
-                  <TableCell>{competitor.sku_count || 0}</TableCell>
-                  <TableCell>{competitor.contact_count || 0}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { 
-                        setSelectedCompetitor(competitor); 
-                        setFormData({ 
-                          competitor_name: competitor.competitor_name, 
-                          business_background: competitor.business_background, 
-                          key_financial_stats: competitor.key_financial_stats,
-                          focus: competitor.focus || "",
-                          strategy: competitor.strategy || "",
-                          website: competitor.website || "",
-                          sales_team_size: competitor.sales_team_size || 0,
-                          supply_chain_info: competitor.supply_chain_info || "",
-                          head_office: competitor.head_office || "",
-                          regional_offices_count: competitor.regional_offices_count || 0
-                        }); 
-                        setIsEditDialogOpen(true); 
-                      }}>
+        <CardContent className="p-0 md:p-6">
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Competitor Name</TableHead>
+                  <TableHead># SKUs</TableHead>
+                  <TableHead># Contacts</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {competitors.map((competitor) => (
+                  <TableRow key={competitor.id}>
+                    <TableCell>
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto font-medium hover:underline"
+                        onClick={() => { setSelectedCompetitor(competitor); fetchCompetitorDetails(competitor.id); }}
+                      >
+                        {competitor.competitor_name}
+                      </Button>
+                    </TableCell>
+                    <TableCell>{competitor.sku_count || 0}</TableCell>
+                    <TableCell>{competitor.contact_count || 0}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => { 
+                          setSelectedCompetitor(competitor); 
+                          setFormData({ 
+                            competitor_name: competitor.competitor_name, 
+                            business_background: competitor.business_background, 
+                            key_financial_stats: competitor.key_financial_stats,
+                            focus: competitor.focus || "",
+                            strategy: competitor.strategy || "",
+                            website: competitor.website || "",
+                            sales_team_size: competitor.sales_team_size || 0,
+                            supply_chain_info: competitor.supply_chain_info || "",
+                            head_office: competitor.head_office || "",
+                            regional_offices_count: competitor.regional_offices_count || 0
+                          }); 
+                          setIsEditDialogOpen(true); 
+                        }}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {userRole === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDeleteCompetitor(competitor.id)}><Trash2 className="h-4 w-4" /></Button>}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3 p-3">
+            {competitors.map((competitor) => (
+              <Card key={competitor.id} className="cursor-pointer hover:bg-accent/50" onClick={() => { setSelectedCompetitor(competitor); fetchCompetitorDetails(competitor.id); }}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base truncate">{competitor.competitor_name}</h3>
+                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">{competitor.sku_count || 0} SKUs</Badge>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">{competitor.contact_count || 0} Contacts</Badge>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => { 
+                          e.stopPropagation();
+                          setSelectedCompetitor(competitor); 
+                          setFormData({ 
+                            competitor_name: competitor.competitor_name, 
+                            business_background: competitor.business_background, 
+                            key_financial_stats: competitor.key_financial_stats,
+                            focus: competitor.focus || "",
+                            strategy: competitor.strategy || "",
+                            website: competitor.website || "",
+                            sales_team_size: competitor.sales_team_size || 0,
+                            supply_chain_info: competitor.supply_chain_info || "",
+                            head_office: competitor.head_office || "",
+                            regional_offices_count: competitor.regional_offices_count || 0
+                          }); 
+                          setIsEditDialogOpen(true); 
+                        }}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      {userRole === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDeleteCompetitor(competitor.id)}><Trash2 className="h-4 w-4" /></Button>}
+                      {userRole === 'admin' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCompetitor(competitor.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Competitor</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
-            <div><Label>Website</Label><Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." /></div>
-            <div className="col-span-2"><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
-            <div className="col-span-2"><Label>Focus</Label><Textarea value={formData.focus} onChange={(e) => setFormData({ ...formData, focus: e.target.value })} placeholder="Key focus areas" /></div>
-            <div className="col-span-2"><Label>Strategy</Label><Textarea value={formData.strategy} onChange={(e) => setFormData({ ...formData, strategy: e.target.value })} placeholder="Business strategy" /></div>
-            <div><Label># of Sales Team</Label><Input type="number" value={formData.sales_team_size} onChange={(e) => setFormData({ ...formData, sales_team_size: parseInt(e.target.value) || 0 })} /></div>
-            <div><Label># of Regional Offices</Label><Input type="number" value={formData.regional_offices_count} onChange={(e) => setFormData({ ...formData, regional_offices_count: parseInt(e.target.value) || 0 })} /></div>
-            <div><Label>Head Office</Label><Input value={formData.head_office} onChange={(e) => setFormData({ ...formData, head_office: e.target.value })} placeholder="Location" /></div>
-            <div className="col-span-2"><Label>Supply Chain Information</Label><Textarea value={formData.supply_chain_info} onChange={(e) => setFormData({ ...formData, supply_chain_info: e.target.value })} placeholder="Supply chain details" /></div>
-            <div className="col-span-2"><Button onClick={handleUpdateCompetitor} className="w-full">Update Competitor</Button></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-1"><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
+            <div className="md:col-span-1"><Label>Website</Label><Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://..." /></div>
+            <div className="md:col-span-2"><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
+            <div className="md:col-span-2"><Label>Focus</Label><Textarea value={formData.focus} onChange={(e) => setFormData({ ...formData, focus: e.target.value })} placeholder="Key focus areas" /></div>
+            <div className="md:col-span-2"><Label>Strategy</Label><Textarea value={formData.strategy} onChange={(e) => setFormData({ ...formData, strategy: e.target.value })} placeholder="Business strategy" /></div>
+            <div className="md:col-span-1"><Label># of Sales Team</Label><Input type="number" value={formData.sales_team_size} onChange={(e) => setFormData({ ...formData, sales_team_size: parseInt(e.target.value) || 0 })} /></div>
+            <div className="md:col-span-1"><Label># of Regional Offices</Label><Input type="number" value={formData.regional_offices_count} onChange={(e) => setFormData({ ...formData, regional_offices_count: parseInt(e.target.value) || 0 })} /></div>
+            <div className="md:col-span-1"><Label>Head Office</Label><Input value={formData.head_office} onChange={(e) => setFormData({ ...formData, head_office: e.target.value })} placeholder="Location" /></div>
+            <div className="md:col-span-2"><Label>Supply Chain Information</Label><Textarea value={formData.supply_chain_info} onChange={(e) => setFormData({ ...formData, supply_chain_info: e.target.value })} placeholder="Supply chain details" /></div>
+            <div className="md:col-span-2"><Button onClick={handleUpdateCompetitor} className="w-full">Update Competitor</Button></div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={selectedCompetitor !== null && !isEditDialogOpen} onOpenChange={() => setSelectedCompetitor(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{selectedCompetitor?.competitor_name} - Intelligence Hub</DialogTitle></DialogHeader>
+        <DialogContent className="w-[95vw] max-w-6xl max-h-[90vh] overflow-y-auto p-3 md:p-6">
+          <DialogHeader><DialogTitle className="text-base md:text-lg">{selectedCompetitor?.competitor_name} - Intelligence Hub</DialogTitle></DialogHeader>
           <Tabs defaultValue="skus" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="skus">SKUs</TabsTrigger>
-              <TabsTrigger value="contacts">Contacts</TabsTrigger>
-              <TabsTrigger value="data">Competition Stocks</TabsTrigger>
-              <TabsTrigger value="ai-summary"><Sparkles className="h-4 w-4 mr-1" />AI Summary</TabsTrigger>
-              <TabsTrigger value="analytics"><BarChart className="h-4 w-4 mr-1" />Analytics</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 gap-1">
+              <TabsTrigger value="skus" className="text-xs md:text-sm">SKUs</TabsTrigger>
+              <TabsTrigger value="contacts" className="text-xs md:text-sm">Contacts</TabsTrigger>
+              <TabsTrigger value="data" className="text-xs md:text-sm">Stocks</TabsTrigger>
+              <TabsTrigger value="ai-summary" className="text-xs md:text-sm col-span-1 md:col-span-1"><Sparkles className="h-3 w-3 md:h-4 md:w-4 md:mr-1" /><span className="hidden md:inline">AI</span></TabsTrigger>
+              <TabsTrigger value="analytics" className="text-xs md:text-sm col-span-1 md:col-span-1"><BarChart className="h-3 w-3 md:h-4 md:w-4 md:mr-1" /><span className="hidden md:inline">Analytics</span></TabsTrigger>
             </TabsList>
 
             <TabsContent value="skus" className="space-y-4">
               <Dialog open={isSKUDialogOpen} onOpenChange={setIsSKUDialogOpen}>
-                <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-2" />Add SKU</Button></DialogTrigger>
-                <DialogContent>
+                <DialogTrigger asChild><Button size="sm" className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Add SKU</Button></DialogTrigger>
+                <DialogContent className="w-[95vw] max-w-md">
                   <DialogHeader><DialogTitle>Add SKU</DialogTitle></DialogHeader>
                   <div className="space-y-4">
                     <div><Label>SKU Name</Label><Input value={skuForm.sku_name} onChange={(e) => setSKUForm({ ...skuForm, sku_name: e.target.value })} /></div>
@@ -481,46 +560,74 @@ export default function CompetitionMaster() {
                   </div>
                 </DialogContent>
               </Dialog>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>SKU Name</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Demand</TableHead>
-                    <TableHead>Observations</TableHead>
-                    <TableHead>Avg Stock</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {skus.map((sku) => (
-                    <TableRow key={sku.id}>
-                      <TableCell>
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto font-medium hover:underline"
-                          onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}
-                        >
-                          {sku.sku_name}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{sku.unit}</TableCell>
-                      <TableCell><Badge variant={sku.is_active ? "default" : "secondary"}>{sku.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell><Badge variant={sku.demand === 'High' ? 'destructive' : sku.demand === 'Medium' ? 'default' : 'secondary'}>{sku.demand || 'Not Analyzed'}</Badge></TableCell>
-                      <TableCell>{sku.observations || 0}</TableCell>
-                      <TableCell>{sku.avgStock || '0'}</TableCell>
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SKU Name</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Demand</TableHead>
+                      <TableHead>Observations</TableHead>
+                      <TableHead>Avg Stock</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {skus.map((sku) => (
+                      <TableRow key={sku.id}>
+                        <TableCell>
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto font-medium hover:underline"
+                            onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}
+                          >
+                            {sku.sku_name}
+                          </Button>
+                        </TableCell>
+                        <TableCell>{sku.unit}</TableCell>
+                        <TableCell><Badge variant={sku.is_active ? "default" : "secondary"}>{sku.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                        <TableCell><Badge variant={sku.demand === 'High' ? 'destructive' : sku.demand === 'Medium' ? 'default' : 'secondary'}>{sku.demand || 'Not Analyzed'}</Badge></TableCell>
+                        <TableCell>{sku.observations || 0}</TableCell>
+                        <TableCell>{sku.avgStock || '0'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {skus.map((sku) => (
+                  <Card key={sku.id} className="cursor-pointer hover:bg-accent/50" onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}>
+                    <CardContent className="p-4">
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between">
+                          <h4 className="font-semibold text-sm">{sku.sku_name}</h4>
+                          <Badge variant={sku.is_active ? "default" : "secondary"} className="text-xs">
+                            {sku.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div><span className="font-medium">Unit:</span> {sku.unit}</div>
+                          <div><span className="font-medium">Observations:</span> {sku.observations || 0}</div>
+                          <div><span className="font-medium">Demand:</span> <Badge variant={sku.demand === 'High' ? 'destructive' : sku.demand === 'Medium' ? 'default' : 'secondary'} className="text-xs">{sku.demand || 'N/A'}</Badge></div>
+                          <div><span className="font-medium">Avg Stock:</span> {sku.avgStock || '0'}</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="contacts" className="space-y-4">
               <Dialog open={isContactDialogOpen} onOpenChange={(open) => { setIsContactDialogOpen(open); if (!open) { setIsEditingContact(false); setContactForm({ id: "", contact_name: "", contact_phone: "", contact_email: "", designation: "", hq: "", region_covered: "", reporting_to: "", level: "", skill: "", competitor_since: new Date().getFullYear(), role: "", is_active: true }); } }}>
-                <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-2" />Add Contact</Button></DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogTrigger asChild><Button size="sm" className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" />Add Contact</Button></DialogTrigger>
+                <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>{isEditingContact ? "Edit Contact" : "Add Contact"}</DialogTitle></DialogHeader>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><Label>Contact Name</Label><Input value={contactForm.contact_name} onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })} /></div>
                     <div><Label>Phone</Label><Input value={contactForm.contact_phone} onChange={(e) => setContactForm({ ...contactForm, contact_phone: e.target.value })} /></div>
                     <div><Label>Email</Label><Input value={contactForm.contact_email} onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })} /></div>
@@ -575,62 +682,124 @@ export default function CompetitionMaster() {
                   </div>
                 </DialogContent>
               </Dialog>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead>HQ</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contacts.map((contact) => (
-                    <TableRow key={contact.id}>
-                      <TableCell>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="link" className="p-0 h-auto font-medium hover:underline">
-                              {contact.contact_name}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader><DialogTitle>Contact Details</DialogTitle></DialogHeader>
-                            <div className="grid gap-4">
-                              <div><Label className="text-muted-foreground">Name</Label><p className="font-medium">{contact.contact_name}</p></div>
-                              <div><Label className="text-muted-foreground">Phone</Label><p>{contact.contact_phone}</p></div>
-                              <div><Label className="text-muted-foreground">Email</Label><p>{contact.contact_email}</p></div>
-                              <div><Label className="text-muted-foreground">Designation</Label><p>{contact.designation}</p></div>
-                              <div><Label className="text-muted-foreground">HQ</Label><p>{contact.hq}</p></div>
-                              <div><Label className="text-muted-foreground">Region Covered</Label><p>{contact.region_covered}</p></div>
-                              <div><Label className="text-muted-foreground">Reporting To</Label><p>{contact.reporting_to}</p></div>
-                              <div><Label className="text-muted-foreground">Level</Label><p>{contact.level}</p></div>
-                              <div><Label className="text-muted-foreground">Skill</Label><p>{contact.skill}</p></div>
-                              <div><Label className="text-muted-foreground">With Competitor Since</Label><p>{contact.competitor_since}</p></div>
-                              <div><Label className="text-muted-foreground">Role</Label><p>{contact.role}</p></div>
-                              <div><Label className="text-muted-foreground">Status</Label><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                      <TableCell>{contact.role}</TableCell>
-                      <TableCell>{contact.level}</TableCell>
-                      <TableCell>{contact.hq}</TableCell>
-                      <TableCell>{contact.contact_phone}</TableCell>
-                      <TableCell><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                          {userRole === 'admin' && <Button variant="outline" size="sm" onClick={async () => { if (confirm("Delete this contact?")) { await supabase.from('competition_contacts').delete().eq('id', contact.id); fetchCompetitorDetails(selectedCompetitor?.id || ''); toast({ title: "Success", description: "Contact deleted" }); } }}><Trash2 className="h-4 w-4" /></Button>}
-                        </div>
-                      </TableCell>
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Level</TableHead>
+                      <TableHead>HQ</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {contacts.map((contact) => (
+                      <TableRow key={contact.id}>
+                        <TableCell>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="link" className="p-0 h-auto font-medium hover:underline">
+                                {contact.contact_name}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[95vw] max-w-md">
+                              <DialogHeader><DialogTitle>Contact Details</DialogTitle></DialogHeader>
+                              <div className="grid gap-4">
+                                <div><Label className="text-muted-foreground">Name</Label><p className="font-medium">{contact.contact_name}</p></div>
+                                <div><Label className="text-muted-foreground">Phone</Label><p>{contact.contact_phone}</p></div>
+                                <div><Label className="text-muted-foreground">Email</Label><p>{contact.contact_email}</p></div>
+                                <div><Label className="text-muted-foreground">Designation</Label><p>{contact.designation}</p></div>
+                                <div><Label className="text-muted-foreground">HQ</Label><p>{contact.hq}</p></div>
+                                <div><Label className="text-muted-foreground">Region Covered</Label><p>{contact.region_covered}</p></div>
+                                <div><Label className="text-muted-foreground">Reporting To</Label><p>{contact.reporting_to}</p></div>
+                                <div><Label className="text-muted-foreground">Level</Label><p>{contact.level}</p></div>
+                                <div><Label className="text-muted-foreground">Skill</Label><p>{contact.skill}</p></div>
+                                <div><Label className="text-muted-foreground">With Competitor Since</Label><p>{contact.competitor_since}</p></div>
+                                <div><Label className="text-muted-foreground">Role</Label><p>{contact.role}</p></div>
+                                <div><Label className="text-muted-foreground">Status</Label><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                        <TableCell>{contact.role}</TableCell>
+                        <TableCell>{contact.level}</TableCell>
+                        <TableCell>{contact.hq}</TableCell>
+                        <TableCell>{contact.contact_phone}</TableCell>
+                        <TableCell><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                            {userRole === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDeleteContact(contact.id)}><Trash2 className="h-4 w-4" /></Button>}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {contacts.map((contact) => (
+                  <Card key={contact.id}>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="link" className="p-0 h-auto font-medium hover:underline text-left text-sm">
+                                  {contact.contact_name}
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="w-[95vw] max-w-md">
+                                <DialogHeader><DialogTitle className="text-base">Contact Details</DialogTitle></DialogHeader>
+                                <div className="grid gap-3 text-sm">
+                                  <div><Label className="text-xs text-muted-foreground">Name</Label><p className="font-medium">{contact.contact_name}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Phone</Label><p>{contact.contact_phone}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Email</Label><p className="break-all">{contact.contact_email}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Designation</Label><p>{contact.designation}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">HQ</Label><p>{contact.hq}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Region Covered</Label><p>{contact.region_covered}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Reporting To</Label><p>{contact.reporting_to}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Level</Label><p>{contact.level}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Skill</Label><p>{contact.skill}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Since</Label><p>{contact.competitor_since}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Role</Label><p>{contact.role}</p></div>
+                                  <div><Label className="text-xs text-muted-foreground">Status</Label><Badge variant={contact.is_active ? "default" : "secondary"} className="text-xs">{contact.is_active ? "Active" : "Inactive"}</Badge></div>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                            <p className="text-xs text-muted-foreground mt-1">{contact.role} • {contact.level}</p>
+                          </div>
+                          <Badge variant={contact.is_active ? "default" : "secondary"} className="text-xs shrink-0">
+                            {contact.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div><span className="font-medium">HQ:</span> {contact.hq}</div>
+                          <div><span className="font-medium">Phone:</span> {contact.contact_phone}</div>
+                        </div>
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}>
+                            <Edit className="h-3 w-3 mr-1" />Edit
+                          </Button>
+                          {userRole === 'admin' && (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => handleDeleteContact(contact.id)}>
+                              <Trash2 className="h-3 w-3 mr-1" />Delete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </TabsContent>
 
             <TabsContent value="data"><CompetitionDataList data={competitionData} skus={skus} /></TabsContent>
