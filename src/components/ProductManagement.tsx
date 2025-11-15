@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -123,6 +124,13 @@ const ProductManagement = () => {
   const [isSchemeDialogOpen, setIsSchemeDialogOpen] = useState(false);
   const [isVariantDialogOpen, setIsVariantDialogOpen] = useState(false);
   const [isVariantsViewOpen, setIsVariantsViewOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    type: 'product' | 'category' | 'scheme' | 'variant' | 'all-products' | null;
+    id: string;
+    name: string;
+  }>({ open: false, type: null, id: '', name: '' });
+  const [resetConfirm, setResetConfirm] = useState(false);
 
   // Form states
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '', description: '' });
@@ -198,6 +206,59 @@ const [productForm, setProductForm] = useState({
     barcode: '',
     qr_code: ''
   });
+
+  const executeDeleteAllProducts = async () => {
+    try {
+      toast.loading('Deleting all products and related data...');
+      
+      // Delete in order: child tables first, then parent
+      await supabase.from('van_live_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('van_inward_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('van_closing_stock_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('van_return_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('van_order_fulfillment').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('product_schemes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('product_variants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (error) throw error;
+      
+      toast.dismiss();
+      toast.success('All products and related data deleted successfully');
+      fetchData();
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
+    } catch (error) {
+      toast.dismiss();
+      console.error('Error deleting products:', error);
+      toast.error('Failed to delete products. Check console for details.');
+    }
+  };
+
+  const executeResetAndLoad = async () => {
+    const success = await migrateProducts();
+    if (success) {
+      fetchData();
+    }
+    setResetConfirm(false);
+  };
+
+  const handleConfirmAction = () => {
+    if (deleteConfirm.type === 'product') {
+      executeDeleteProduct(deleteConfirm.id);
+    } else if (deleteConfirm.type === 'category') {
+      executeDeleteCategory(deleteConfirm.id);
+    } else if (deleteConfirm.type === 'scheme') {
+      executeDeleteScheme(deleteConfirm.id);
+    } else if (deleteConfirm.type === 'variant') {
+      executeDeleteVariant(deleteConfirm.id);
+    } else if (deleteConfirm.type === 'all-products') {
+      executeDeleteAllProducts();
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -409,8 +470,10 @@ const [productForm, setProductForm] = useState({
   };
 
   const handleDeleteVariant = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this variant?')) return;
-    
+    setDeleteConfirm({ open: true, type: 'variant', id, name: 'this variant' });
+  };
+
+  const executeDeleteVariant = async (id: string) => {
     try {
       const { error } = await supabase
         .from('product_variants')
@@ -420,6 +483,7 @@ const [productForm, setProductForm] = useState({
       if (error) throw error;
       toast.success('Variant deleted successfully');
       fetchVariants();
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
       console.error('Error deleting variant:', error);
       toast.error('Failed to delete variant');
@@ -711,9 +775,11 @@ const [productForm, setProductForm] = useState({
     }
   };
 
-  const handleDeleteCategory = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this category?')) return;
-    
+  const handleDeleteCategory = async (id: string, name: string) => {
+    setDeleteConfirm({ open: true, type: 'category', id, name });
+  };
+
+  const executeDeleteCategory = async (id: string) => {
     try {
       const { error } = await supabase
         .from('product_categories')
@@ -723,15 +789,18 @@ const [productForm, setProductForm] = useState({
       if (error) throw error;
       toast.success('Category deleted successfully');
       fetchCategories();
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
       console.error('Error deleting category:', error);
       toast.error('Failed to delete category');
     }
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
-    
+  const handleDeleteProduct = async (id: string, name: string) => {
+    setDeleteConfirm({ open: true, type: 'product', id, name });
+  };
+
+  const executeDeleteProduct = async (id: string) => {
     try {
       const { error } = await supabase
         .from('products')
@@ -741,14 +810,18 @@ const [productForm, setProductForm] = useState({
       if (error) throw error;
       toast.success('Product deleted successfully');
       fetchProducts();
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
       console.error('Error deleting product:', error);
       toast.error('Failed to delete product');
     }
   };
 
-  const handleDeleteScheme = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this scheme?')) return;
+  const handleDeleteScheme = async (id: string, name: string) => {
+    setDeleteConfirm({ open: true, type: 'scheme', id, name });
+  };
+
+  const executeDeleteScheme = async (id: string) => {
     
     try {
       const { error } = await supabase
@@ -759,6 +832,7 @@ const [productForm, setProductForm] = useState({
       if (error) throw error;
       toast.success('Scheme deleted successfully');
       fetchSchemes();
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
       console.error('Error deleting scheme:', error);
       toast.error('Failed to delete scheme');
@@ -823,63 +897,14 @@ const [productForm, setProductForm] = useState({
                 <div className="flex gap-2">
                   <Button 
                     variant="destructive" 
-                    onClick={async () => {
-                      if (confirm('Are you sure you want to delete ALL products? This will also delete all related data (van inventory, schemes, variants). This action cannot be undone.')) {
-                        try {
-                          toast.loading('Deleting all products and related data...');
-                          
-                          // Delete in order: child tables first, then parent
-                          // 1. Delete van live inventory (current stock)
-                          await supabase.from('van_live_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 2. Delete van inward GRN items
-                          await supabase.from('van_inward_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 3. Delete van closing stock items
-                          await supabase.from('van_closing_stock_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 4. Delete van return GRN items
-                          await supabase.from('van_return_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 5. Delete van order fulfillment
-                          await supabase.from('van_order_fulfillment').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 6. Delete product schemes
-                          await supabase.from('product_schemes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 7. Delete product variants
-                          await supabase.from('product_variants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          // 7. Finally delete products
-                          const { error } = await supabase
-                            .from('products')
-                            .delete()
-                            .neq('id', '00000000-0000-0000-0000-000000000000');
-                          
-                          if (error) throw error;
-                          
-                          toast.dismiss();
-                          toast.success('All products and related data deleted successfully');
-                          fetchData();
-                        } catch (error) {
-                          toast.dismiss();
-                          console.error('Error deleting products:', error);
-                          toast.error('Failed to delete products. Check console for details.');
-                        }
-                      }
-                    }}
+                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL products and related data' })}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete All Products
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={async () => {
-                      const success = await migrateProducts();
-                      if (success) {
-                        fetchData();
-                      }
-                    }}
+                    onClick={() => setResetConfirm(true)}
                   >
                     Reset & Load Products
                   </Button>
@@ -1062,7 +1087,7 @@ const [productForm, setProductForm] = useState({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteProduct(product.id)}
+                              onClick={() => handleDeleteProduct(product.id, product.name)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1161,7 +1186,7 @@ const [productForm, setProductForm] = useState({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteCategory(category.id)}
+                              onClick={() => handleDeleteCategory(category.id, category.name)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1302,7 +1327,7 @@ const [productForm, setProductForm] = useState({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleDeleteScheme(scheme.id)}
+                              onClick={() => handleDeleteScheme(scheme.id, scheme.name)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1482,119 +1507,48 @@ const [productForm, setProductForm] = useState({
                     <Button onClick={handleVariantSubmit}>
                       {variantForm.id ? 'Update' : 'Create'}
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <ScrollArea className="h-[350px] rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Variant Name</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Discounts</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {variants
-                    .filter(variant => variant.product_id === selectedProductForVariants)
-                    .map((variant) => (
-                      <TableRow key={variant.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <span>{variant.variant_name}</span>
-                            {variant.is_focused_product && (
-                              <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
-                                Focused
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono">{variant.sku}</TableCell>
-                        <TableCell>₹{variant.price}</TableCell>
-                        <TableCell>{variant.stock_quantity}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {variant.discount_percentage > 0 && (
-                              <div>{variant.discount_percentage}% off</div>
-                            )}
-                            {variant.discount_amount > 0 && (
-                              <div>₹{variant.discount_amount} off</div>
-                            )}
-                            {variant.discount_percentage === 0 && variant.discount_amount === 0 && (
-                              <span className="text-muted-foreground">No discount</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={variant.is_active ? 'default' : 'secondary'}>
-                            {variant.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setVariantForm({
-                                  id: variant.id,
-                                  product_id: variant.product_id,
-                                  variant_name: variant.variant_name,
-                                  sku: variant.sku,
-                                  price: variant.price,
-                                  stock_quantity: variant.stock_quantity,
-                                  discount_percentage: variant.discount_percentage,
-                                  discount_amount: variant.discount_amount,
-                                  is_active: variant.is_active,
-                                  is_focused_product: variant.is_focused_product || false,
-                                  focused_due_date: variant.focused_due_date || '',
-                                  focused_target_quantity: variant.focused_target_quantity || 0,
-                                  focused_territories: variant.focused_territories || [],
-                                  barcode: variant.barcode || '',
-                                  qr_code: variant.qr_code || ''
-                                });
-                                setIsVariantDialogOpen(true);
-                              }}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteVariant(variant.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-            
-            {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No variants created yet</p>
-                <p className="text-sm">Create variants to manage different sizes and pricing</p>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsVariantsViewOpen(false)}>
-              Close
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm.open} onOpenChange={(open) => !open && setDeleteConfirm({ open: false, type: null, id: '', name: '' })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete <strong>{deleteConfirm.name}</strong>
+              {deleteConfirm.type === 'all-products' && ' including all related data (van inventory, schemes, variants)'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, type: null, id: '', name: '' })}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Confirmation Dialog */}
+      <AlertDialog open={resetConfirm} onOpenChange={setResetConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset and Load Products?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete ALL existing products and load default products. This action cannot be undone. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeResetAndLoad} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, Reset and Load
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
