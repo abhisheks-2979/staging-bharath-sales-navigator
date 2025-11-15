@@ -133,9 +133,15 @@ const [productForm, setProductForm] = useState({
   description: '',
   category_id: '',
   is_focused_product: false,
+  focused_type: undefined as 'fixed_date' | 'recurring' | 'keep_open' | undefined,
   focused_due_date: '',
   focused_target_quantity: 0,
   focused_territories: [] as string[],
+  focused_recurring_config: undefined as {
+    days_of_week?: number[];
+    weeks_of_month?: number[];
+    months_of_year?: number[];
+  } | undefined,
   rate: 0,
   unit: 'piece',
   base_unit: 'kg',
@@ -144,6 +150,7 @@ const [productForm, setProductForm] = useState({
   is_active: true,
   sku_image_url: '',
   barcode: '',
+  barcode_image_url: '',
   qr_code: ''
 });
   const [schemeForm, setSchemeForm] = useState({
@@ -513,27 +520,34 @@ const [productForm, setProductForm] = useState({
       }
       
       setIsProductDialogOpen(false);
-setProductForm({
-  id: '',
-  sku: '',
-  product_number: '',
-  name: '',
-  description: '',
-  category_id: '',
-  is_focused_product: false,
-  focused_due_date: '',
-  focused_target_quantity: 0,
-  focused_territories: [],
-  rate: 0,
-  unit: 'piece',
-  base_unit: 'kg',
-  conversion_factor: 1,
-  closing_stock: 0,
-  is_active: true,
-  sku_image_url: '',
-  barcode: '',
-  qr_code: ''
-});
+      setProductForm({
+        id: '',
+        sku: '',
+        product_number: '',
+        name: '',
+        description: '',
+        category_id: '',
+        is_focused_product: false,
+        focused_type: undefined,
+        focused_due_date: '',
+        focused_target_quantity: 0,
+        focused_territories: [],
+        focused_recurring_config: {
+          days_of_week: [],
+          weeks_of_month: [],
+          months_of_year: []
+        },
+        rate: 0,
+        unit: 'piece',
+        base_unit: 'kg',
+        conversion_factor: 1,
+        closing_stock: 0,
+        is_active: true,
+        sku_image_url: '',
+        barcode: '',
+        barcode_image_url: '',
+        qr_code: ''
+      });
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
@@ -870,27 +884,30 @@ setProductForm({
                   </Button>
                   <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                     <DialogTrigger asChild>
-<Button onClick={() => setProductForm({
-  id: '',
-  sku: '',
-  product_number: '',
-  name: '',
-  description: '',
-  category_id: '',
-  is_focused_product: false,
-  focused_due_date: '',
-  focused_target_quantity: 0,
-  focused_territories: [],
-  rate: 0,
-  unit: 'piece',
-  base_unit: 'kg',
-  conversion_factor: 1,
-  closing_stock: 0,
-  is_active: true,
-  sku_image_url: '',
-  barcode: '',
-  qr_code: ''
-})}>
+                      <Button onClick={() => setProductForm({
+                        id: '',
+                        sku: '',
+                        product_number: '',
+                        name: '',
+                        description: '',
+                        category_id: '',
+                        is_focused_product: false,
+                        focused_type: undefined,
+                        focused_due_date: '',
+                        focused_target_quantity: 0,
+                        focused_territories: [],
+                        focused_recurring_config: undefined,
+                        rate: 0,
+                        unit: 'piece',
+                        base_unit: 'kg',
+                        conversion_factor: 1,
+                        closing_stock: 0,
+                        is_active: true,
+                        sku_image_url: '',
+                        barcode: '',
+                        barcode_image_url: '',
+                        qr_code: ''
+                      })}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
                     </Button>
@@ -1012,27 +1029,30 @@ setProductForm({
                               variant="outline"
                               size="sm"
                               onClick={() => {
-setProductForm({
-  id: product.id,
-  sku: product.sku,
-  product_number: product.product_number || '',
-  name: product.name,
-  description: product.description || '',
-  category_id: product.category_id || '',
-  is_focused_product: product.is_focused_product || false,
-  focused_due_date: product.focused_due_date || '',
-  focused_target_quantity: product.focused_target_quantity || 0,
-  focused_territories: product.focused_territories || [],
-  rate: product.rate,
-  unit: product.unit,
-  base_unit: (product as any).base_unit || 'kg',
-  conversion_factor: (product as any).conversion_factor || 1,
-  closing_stock: product.closing_stock,
-  is_active: product.is_active,
-  sku_image_url: (product as any).sku_image_url || '',
-  barcode: (product as any).barcode || '',
-  qr_code: (product as any).qr_code || ''
-});
+                                setProductForm({
+                                  id: product.id,
+                                  sku: product.sku,
+                                  product_number: product.product_number || '',
+                                  name: product.name,
+                                  description: product.description || '',
+                                  category_id: product.category_id || '',
+                                  is_focused_product: product.is_focused_product || false,
+                                  focused_type: (product as any).focused_type || undefined,
+                                  focused_due_date: product.focused_due_date || '',
+                                  focused_target_quantity: product.focused_target_quantity || 0,
+                                  focused_territories: product.focused_territories || [],
+                                  focused_recurring_config: (product as any).focused_recurring_config || undefined,
+                                  rate: product.rate,
+                                  unit: product.unit,
+                                  base_unit: (product as any).base_unit || 'kg',
+                                  conversion_factor: (product as any).conversion_factor || 1,
+                                  closing_stock: product.closing_stock,
+                                  is_active: product.is_active,
+                                  sku_image_url: (product as any).sku_image_url || '',
+                                  barcode: (product as any).barcode || '',
+                                  barcode_image_url: (product as any).barcode_image_url || '',
+                                  qr_code: (product as any).qr_code || ''
+                                });
                                 setIsProductDialogOpen(true);
                               }}
                             >
