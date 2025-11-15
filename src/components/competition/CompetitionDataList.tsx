@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ interface CompetitionDataListProps {
 }
 
 export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
+  const navigate = useNavigate();
   const [filterRetailer, setFilterRetailer] = useState("");
   const [filterImpact, setFilterImpact] = useState("all");
   const [filterAttention, setFilterAttention] = useState("all");
@@ -146,7 +148,15 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                     <TableCell className="font-medium">
                       {skus.find(s => s.id === item.sku_id)?.sku_name || 'Unknown'}
                     </TableCell>
-                    <TableCell>{item.retailers?.name || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto hover:underline"
+                        onClick={() => navigate(`/retailer/${item.retailer_id}`)}
+                      >
+                        {item.retailers?.name || 'N/A'}
+                      </Button>
+                    </TableCell>
                     <TableCell>
                       {item.visits?.planned_date 
                         ? new Date(item.visits.planned_date).toLocaleDateString()

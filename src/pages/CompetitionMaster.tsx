@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Edit, Trash2, ArrowLeft, Users, Sparkles, BarChart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
@@ -16,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CompetitionDataList } from "@/components/competition/CompetitionDataList";
 import { CompetitionAISummary } from "@/components/competition/CompetitionAISummary";
 import { CompetitionRetailerAnalytics } from "@/components/competition/CompetitionRetailerAnalytics";
+import { SKUDetailModal } from "@/components/competition/SKUDetailModal";
 
 interface Competitor {
   id: string;
@@ -23,6 +26,8 @@ interface Competitor {
   business_background: string;
   key_financial_stats: any;
   created_at: string;
+  sku_count?: number;
+  contact_count?: number;
 }
 
 interface CompetitorSKU {
@@ -30,6 +35,7 @@ interface CompetitorSKU {
   competitor_id: string;
   sku_name: string;
   unit: string;
+  is_active: boolean;
   demand?: string;
   observations?: number;
   avgStock?: string;
@@ -42,6 +48,14 @@ interface CompetitorContact {
   contact_phone: string;
   contact_email: string;
   designation: string;
+  hq: string;
+  region_covered: string;
+  reporting_to: string;
+  level: string;
+  skill: string;
+  competitor_since: number;
+  role: string;
+  is_active: boolean;
 }
 
 export default function CompetitionMaster() {
@@ -57,6 +71,8 @@ export default function CompetitionMaster() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSKUDialogOpen, setIsSKUDialogOpen] = useState(false);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+  const [isSKUDetailOpen, setIsSKUDetailOpen] = useState(false);
+  const [selectedSKU, setSelectedSKU] = useState<{ id: string; name: string } | null>(null);
 
   const [formData, setFormData] = useState({
     competitor_name: "",
@@ -66,14 +82,23 @@ export default function CompetitionMaster() {
 
   const [skuForm, setSKUForm] = useState({
     sku_name: "",
-    unit: ""
+    unit: "",
+    is_active: true
   });
 
   const [contactForm, setContactForm] = useState({
     contact_name: "",
     contact_phone: "",
     contact_email: "",
-    designation: ""
+    designation: "",
+    hq: "",
+    region_covered: "",
+    reporting_to: "",
+    level: "",
+    skill: "",
+    competitor_since: new Date().getFullYear(),
+    role: "",
+    is_active: true
   });
 
   useEffect(() => {
@@ -89,7 +114,25 @@ export default function CompetitionMaster() {
         .order('competitor_name');
 
       if (error) throw error;
-      setCompetitors(data || []);
+      
+      // Get rollup counts for each competitor
+      if (data) {
+        const competitorsWithCounts = await Promise.all(
+          data.map(async (comp) => {
+            const [skusRes, contactsRes] = await Promise.all([
+              supabase.from('competition_skus').select('id', { count: 'exact', head: true }).eq('competitor_id', comp.id),
+              supabase.from('competition_contacts').select('id', { count: 'exact', head: true }).eq('competitor_id', comp.id)
+            ]);
+            
+            return {
+              ...comp,
+              sku_count: skusRes.count || 0,
+              contact_count: contactsRes.count || 0
+            };
+          })
+        );
+        setCompetitors(competitorsWithCounts);
+      }
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -231,7 +274,7 @@ export default function CompetitionMaster() {
       if (error) throw error;
       toast({ title: "Success", description: "SKU added successfully" });
       setIsSKUDialogOpen(false);
-      setSKUForm({ sku_name: "", unit: "" });
+      setSKUForm({ sku_name: "", unit: "", is_active: true });
       fetchCompetitorDetails(selectedCompetitor.id);
     } catch (error) {
       toast({ title: "Error", description: "Failed to add SKU", variant: "destructive" });
@@ -245,7 +288,20 @@ export default function CompetitionMaster() {
       if (error) throw error;
       toast({ title: "Success", description: "Contact added successfully" });
       setIsContactDialogOpen(false);
-      setContactForm({ contact_name: "", contact_phone: "", contact_email: "", designation: "" });
+      setContactForm({ 
+        contact_name: "", 
+        contact_phone: "", 
+        contact_email: "", 
+        designation: "",
+        hq: "",
+        region_covered: "",
+        reporting_to: "",
+        level: "",
+        skill: "",
+        competitor_since: new Date().getFullYear(),
+        role: "",
+        is_active: true
+      });
       fetchCompetitorDetails(selectedCompetitor.id);
     } catch (error) {
       toast({ title: "Error", description: "Failed to add contact", variant: "destructive" });
@@ -288,6 +344,8 @@ export default function CompetitionMaster() {
             <TableHeader>
               <TableRow>
                 <TableHead>Competitor Name</TableHead>
+                <TableHead># SKUs</TableHead>
+                <TableHead># Contacts</TableHead>
                 <TableHead>Business Background</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -296,7 +354,17 @@ export default function CompetitionMaster() {
             <TableBody>
               {competitors.map((competitor) => (
                 <TableRow key={competitor.id}>
-                  <TableCell className="font-medium">{competitor.competitor_name}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto font-medium hover:underline"
+                      onClick={() => { setSelectedCompetitor(competitor); fetchCompetitorDetails(competitor.id); }}
+                    >
+                      {competitor.competitor_name}
+                    </Button>
+                  </TableCell>
+                  <TableCell>{competitor.sku_count || 0}</TableCell>
+                  <TableCell>{competitor.contact_count || 0}</TableCell>
                   <TableCell>{competitor.business_background?.substring(0, 100)}</TableCell>
                   <TableCell>{new Date(competitor.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
