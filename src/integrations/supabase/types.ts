@@ -2210,12 +2210,15 @@ export type Database = {
       product_variants: {
         Row: {
           barcode: string | null
+          barcode_image_url: string | null
           created_at: string
           discount_amount: number | null
           discount_percentage: number | null
           focused_due_date: string | null
+          focused_recurring_config: Json | null
           focused_target_quantity: number | null
           focused_territories: string[] | null
+          focused_type: string | null
           id: string
           is_active: boolean | null
           is_focused_product: boolean | null
@@ -2229,12 +2232,15 @@ export type Database = {
         }
         Insert: {
           barcode?: string | null
+          barcode_image_url?: string | null
           created_at?: string
           discount_amount?: number | null
           discount_percentage?: number | null
           focused_due_date?: string | null
+          focused_recurring_config?: Json | null
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
+          focused_type?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
@@ -2248,12 +2254,15 @@ export type Database = {
         }
         Update: {
           barcode?: string | null
+          barcode_image_url?: string | null
           created_at?: string
           discount_amount?: number | null
           discount_percentage?: number | null
           focused_due_date?: string | null
+          focused_recurring_config?: Json | null
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
+          focused_type?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
@@ -2278,6 +2287,7 @@ export type Database = {
       products: {
         Row: {
           barcode: string | null
+          barcode_image_url: string | null
           base_unit: string | null
           category_id: string | null
           closing_stock: number | null
@@ -2285,8 +2295,10 @@ export type Database = {
           created_at: string
           description: string | null
           focused_due_date: string | null
+          focused_recurring_config: Json | null
           focused_target_quantity: number | null
           focused_territories: string[] | null
+          focused_type: string | null
           id: string
           is_active: boolean | null
           is_focused_product: boolean | null
@@ -2301,6 +2313,7 @@ export type Database = {
         }
         Insert: {
           barcode?: string | null
+          barcode_image_url?: string | null
           base_unit?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -2308,8 +2321,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           focused_due_date?: string | null
+          focused_recurring_config?: Json | null
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
+          focused_type?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
@@ -2324,6 +2339,7 @@ export type Database = {
         }
         Update: {
           barcode?: string | null
+          barcode_image_url?: string | null
           base_unit?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -2331,8 +2347,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           focused_due_date?: string | null
+          focused_recurring_config?: Json | null
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
+          focused_type?: string | null
           id?: string
           is_active?: boolean | null
           is_focused_product?: boolean | null
