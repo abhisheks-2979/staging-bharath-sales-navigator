@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Trophy } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Target } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -1553,7 +1553,7 @@ export const OrderEntry = () => {
               <div className="flex gap-1.5">
                 <Button variant={orderMode === "return-stock" ? "default" : "outline"} onClick={() => setOrderMode("return-stock")} className="flex-1 h-7 text-xs" size="sm">
                   <RotateCcw size={12} className="mr-0.5" />
-                  Return Stock
+                  Returns
                 </Button>
                 <Button variant={orderMode === "no-order" ? "default" : "outline"} onClick={() => setOrderMode("no-order")} className="flex-1 h-7 text-xs" size="sm">
                   <XCircle size={12} className="mr-0.5" />
@@ -1565,7 +1565,7 @@ export const OrderEntry = () => {
                   className={`flex-1 h-7 text-xs ${hasCompetitionData ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                   size="sm"
                 >
-                  <Trophy size={12} className="mr-0.5" />
+                  <Target size={12} className="mr-0.5" />
                   Competition
                 </Button>
               </div>
