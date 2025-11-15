@@ -200,12 +200,14 @@ const [productForm, setProductForm] = useState({
     discount_amount: 0,
     is_active: true,
     is_focused_product: false,
+    focused_type: undefined,
     focused_due_date: '',
     focused_target_quantity: 0,
     focused_territories: [] as string[],
+    focused_recurring_config: undefined,
     barcode: '',
     qr_code: ''
-  });
+  } as any);
 
   const executeDeleteAllProducts = async () => {
     try {
@@ -460,12 +462,14 @@ const [productForm, setProductForm] = useState({
         discount_amount: 0,
         is_active: true,
         is_focused_product: false,
+        focused_type: undefined,
         focused_due_date: '',
         focused_target_quantity: 0,
         focused_territories: [],
+        focused_recurring_config: undefined,
         barcode: '',
         qr_code: ''
-      });
+      } as any);
       fetchVariants();
     } catch (error) {
       console.error('Error saving variant:', error);
@@ -1381,12 +1385,14 @@ const [productForm, setProductForm] = useState({
                       discount_amount: 0,
                       is_active: true,
                       is_focused_product: false,
+                      focused_type: undefined,
                       focused_due_date: '',
                       focused_target_quantity: 0,
                       focused_territories: [],
+                      focused_recurring_config: undefined,
                       barcode: '',
                       qr_code: ''
-                    })}
+                    } as any)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Variant
@@ -1569,9 +1575,11 @@ const [productForm, setProductForm] = useState({
                               setVariantForm({
                                 ...variant,
                                 is_focused_product: variant.is_focused_product || false,
+                                focused_type: (variant as any).focused_type || undefined,
                                 focused_due_date: variant.focused_due_date || '',
                                 focused_target_quantity: variant.focused_target_quantity || 0,
                                 focused_territories: variant.focused_territories || [],
+                                focused_recurring_config: (variant as any).focused_recurring_config || undefined,
                                 barcode: variant.barcode || '',
                                 qr_code: variant.qr_code || ''
                               });
