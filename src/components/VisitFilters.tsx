@@ -23,6 +23,7 @@ export interface FilterOptions {
   avgSalesRange?: string;
   location?: string;
   priority?: string;
+  focusedProduct?: string;
 }
 
 interface VisitFiltersProps {
@@ -155,6 +156,24 @@ export const VisitFilters = ({
               </Select>
             </div>
 
+            {/* Focused Product Filter */}
+            <div className="space-y-2">
+              <Label className="text-xs sm:text-sm font-medium">Focused Products</Label>
+              <Select
+                value={filters.focusedProduct || "all"}
+                onValueChange={(value) => handleFilterChange("focusedProduct", value)}
+              >
+                <SelectTrigger className="h-9 text-xs sm:text-sm bg-background">
+                  <SelectValue placeholder="All products" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="all">All products</SelectItem>
+                  <SelectItem value="focused">Focused Products Only</SelectItem>
+                  <SelectItem value="non-focused">Non-Focused Products Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Priority Filter */}
             <div className="space-y-2">
               <Label className="text-xs sm:text-sm font-medium">Priority</Label>
@@ -253,6 +272,17 @@ export const VisitFilters = ({
               <button
                 onClick={() => handleFilterChange("location", "")}
                 className="ml-1 hover:text-primary-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.focusedProduct && (
+            <Badge variant="secondary" className="text-xs bg-orange-500/10 text-orange-600 border-orange-500/20">
+              {filters.focusedProduct === "focused" ? "Focused Products" : "Non-Focused Products"}
+              <button
+                onClick={() => handleFilterChange("focusedProduct", "")}
+                className="ml-1 hover:text-orange-700"
               >
                 <X className="h-3 w-3" />
               </button>
