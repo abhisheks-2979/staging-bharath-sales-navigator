@@ -19,6 +19,7 @@ interface CompetitionRow {
   skuId: string;
   stockQuantity: number;
   unit: string;
+  sellingPrice: number;
   insight: string;
   impactLevel: string;
   needsAttention: boolean;
@@ -35,7 +36,7 @@ interface CompetitionDataFormProps {
 export const CompetitionDataForm = ({ retailerId, visitId, onSave }: CompetitionDataFormProps) => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<CompetitionRow[]>([
-    { id: "1", competitorId: "", skuId: "", stockQuantity: 0, unit: "KGS", insight: "", impactLevel: "", needsAttention: false, photoUrls: [], voiceNoteUrls: [] }
+    { id: "1", competitorId: "", skuId: "", stockQuantity: 0, unit: "KGS", sellingPrice: 0, insight: "", impactLevel: "", needsAttention: false, photoUrls: [], voiceNoteUrls: [] }
   ]);
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [skus, setSkus] = useState<any[]>([]);
@@ -104,6 +105,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           skuId: item.sku_id || "",
           stockQuantity: item.stock_quantity || 0,
           unit: item.unit || "KGS",
+          sellingPrice: item.selling_price || 0,
           insight: item.insight || "",
           impactLevel: item.impact_level || "",
           needsAttention: item.needs_attention || false,
@@ -129,6 +131,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
       skuId: "",
       stockQuantity: 0,
       unit: "KGS",
+      sellingPrice: 0,
       insight: "",
       impactLevel: "",
       needsAttention: false,
@@ -293,6 +296,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           sku_id: row.skuId,
           stock_quantity: row.stockQuantity,
           unit: row.unit,
+          selling_price: row.sellingPrice,
           insight: row.insight,
           impact_level: row.impactLevel,
           needs_attention: row.needsAttention,
@@ -373,11 +377,11 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                     </div>
                     {row.impactLevel && (
                       <Badge variant={
-                        row.impactLevel === 'high' ? 'destructive' : 
-                        row.impactLevel === 'medium' ? 'default' : 
+                        row.impactLevel === 'positive' ? 'default' : 
+                        row.impactLevel === 'negative' ? 'destructive' : 
                         'secondary'
                       }>
-                        {row.impactLevel.toUpperCase()} Impact
+                        {row.impactLevel.charAt(0).toUpperCase() + row.impactLevel.slice(1)}
                       </Badge>
                     )}
                   </div>
@@ -389,6 +393,11 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                     <div>
                       <span className="text-muted-foreground">Stock:</span> {row.stockQuantity} {row.unit}
                     </div>
+                    {row.sellingPrice > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Price:</span> ₹{row.sellingPrice}
+                      </div>
+                    )}
                     {row.insight && (
                       <div className="col-span-2">
                         <span className="text-muted-foreground">Insight:</span> {row.insight}
@@ -430,8 +439,9 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                   <TableHead className="w-[120px]">SKU</TableHead>
                   <TableHead className="w-[80px]">Stock</TableHead>
                   <TableHead className="w-[80px]">Unit</TableHead>
+                  <TableHead className="w-[90px]">Price (₹)</TableHead>
                   <TableHead className="w-[100px]">Insight</TableHead>
-                  <TableHead className="w-[80px]">Impact</TableHead>
+                  <TableHead className="w-[120px]">Retailer Feedback</TableHead>
                   <TableHead className="w-[60px]">Alert</TableHead>
                   <TableHead className="w-[90px]">Media</TableHead>
                   <TableHead className="w-[50px]">Action</TableHead>
@@ -500,6 +510,15 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                       </Select>
                     </TableCell>
                     <TableCell>
+                      <Input
+                        type="number"
+                        value={row.sellingPrice}
+                        onChange={(e) => updateRow(row.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
+                        className="w-[80px]"
+                        placeholder="0"
+                      />
+                    </TableCell>
+                    <TableCell>
                       <Select
                         value={row.insight}
                         onValueChange={(value) => updateRow(row.id, 'insight', value)}
@@ -521,13 +540,13 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                         value={row.impactLevel}
                         onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
                       >
-                        <SelectTrigger className="w-[80px]">
+                        <SelectTrigger className="w-[110px]">
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="positive">Positive</SelectItem>
+                          <SelectItem value="neutral">Neutral</SelectItem>
+                          <SelectItem value="negative">Negative</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
