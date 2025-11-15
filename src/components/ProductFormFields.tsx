@@ -341,7 +341,7 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
               </TooltipProvider>
             </div>
             <RadioGroup
-              value={form.focused_type || 'fixed_date'}
+              value={form.focused_type}
               onValueChange={(value) => onFormChange({ focused_type: value as 'fixed_date' | 'recurring' | 'keep_open' })}
             >
               <div className="flex items-center space-x-2">
