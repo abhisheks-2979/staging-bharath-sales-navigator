@@ -71,6 +71,7 @@ export default function CompetitionMaster() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSKUDialogOpen, setIsSKUDialogOpen] = useState(false);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
   const [isSKUDetailOpen, setIsSKUDetailOpen] = useState(false);
   const [selectedSKU, setSelectedSKU] = useState<{ id: string; name: string } | null>(null);
 
@@ -87,6 +88,7 @@ export default function CompetitionMaster() {
   });
 
   const [contactForm, setContactForm] = useState({
+    id: "",
     contact_name: "",
     contact_phone: "",
     contact_email: "",
@@ -284,11 +286,19 @@ export default function CompetitionMaster() {
   const handleAddContact = async () => {
     if (!selectedCompetitor) return;
     try {
-      const { error } = await supabase.from('competition_contacts').insert([{ competitor_id: selectedCompetitor.id, ...contactForm }]);
-      if (error) throw error;
-      toast({ title: "Success", description: "Contact added successfully" });
+      if (isEditingContact && contactForm.id) {
+        const { error } = await supabase.from('competition_contacts').update(contactForm).eq('id', contactForm.id);
+        if (error) throw error;
+        toast({ title: "Success", description: "Contact updated successfully" });
+      } else {
+        const { error } = await supabase.from('competition_contacts').insert([{ competitor_id: selectedCompetitor.id, ...contactForm }]);
+        if (error) throw error;
+        toast({ title: "Success", description: "Contact added successfully" });
+      }
       setIsContactDialogOpen(false);
+      setIsEditingContact(false);
       setContactForm({ 
+        id: "",
         contact_name: "", 
         contact_phone: "", 
         contact_email: "", 
@@ -304,7 +314,7 @@ export default function CompetitionMaster() {
       });
       fetchCompetitorDetails(selectedCompetitor.id);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to add contact", variant: "destructive" });
+      toast({ title: "Error", description: isEditingContact ? "Failed to update contact" : "Failed to add contact", variant: "destructive" });
     }
   };
 
@@ -346,8 +356,6 @@ export default function CompetitionMaster() {
                 <TableHead>Competitor Name</TableHead>
                 <TableHead># SKUs</TableHead>
                 <TableHead># Contacts</TableHead>
-                <TableHead>Business Background</TableHead>
-                <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -365,13 +373,8 @@ export default function CompetitionMaster() {
                   </TableCell>
                   <TableCell>{competitor.sku_count || 0}</TableCell>
                   <TableCell>{competitor.contact_count || 0}</TableCell>
-                  <TableCell>{competitor.business_background?.substring(0, 100)}</TableCell>
-                  <TableCell>{new Date(competitor.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { setSelectedCompetitor(competitor); fetchCompetitorDetails(competitor.id); }}>
-                        <Users className="h-4 w-4 mr-1" />View Details
-                      </Button>
                       <Button variant="outline" size="sm" onClick={() => { setSelectedCompetitor(competitor); setFormData({ competitor_name: competitor.competitor_name, business_background: competitor.business_background, key_financial_stats: competitor.key_financial_stats }); setIsEditDialogOpen(true); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -416,6 +419,10 @@ export default function CompetitionMaster() {
                   <div className="space-y-4">
                     <div><Label>SKU Name</Label><Input value={skuForm.sku_name} onChange={(e) => setSKUForm({ ...skuForm, sku_name: e.target.value })} /></div>
                     <div><Label>Unit</Label><Input value={skuForm.unit} onChange={(e) => setSKUForm({ ...skuForm, unit: e.target.value })} /></div>
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={skuForm.is_active} onCheckedChange={(checked) => setSKUForm({ ...skuForm, is_active: checked })} />
+                      <Label>Active</Label>
+                    </div>
                     <Button onClick={handleAddSKU} className="w-full">Add SKU</Button>
                   </div>
                 </DialogContent>
@@ -425,6 +432,7 @@ export default function CompetitionMaster() {
                   <TableRow>
                     <TableHead>SKU Name</TableHead>
                     <TableHead>Unit</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Demand</TableHead>
                     <TableHead>Observations</TableHead>
                     <TableHead>Avg Stock</TableHead>
@@ -433,8 +441,17 @@ export default function CompetitionMaster() {
                 <TableBody>
                   {skus.map((sku) => (
                     <TableRow key={sku.id}>
-                      <TableCell className="font-medium">{sku.sku_name}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium hover:underline"
+                          onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}
+                        >
+                          {sku.sku_name}
+                        </Button>
+                      </TableCell>
                       <TableCell>{sku.unit}</TableCell>
+                      <TableCell><Badge variant={sku.is_active ? "default" : "secondary"}>{sku.is_active ? "Active" : "Inactive"}</Badge></TableCell>
                       <TableCell><Badge variant={sku.demand === 'High' ? 'destructive' : sku.demand === 'Medium' ? 'default' : 'secondary'}>{sku.demand || 'Not Analyzed'}</Badge></TableCell>
                       <TableCell>{sku.observations || 0}</TableCell>
                       <TableCell>{sku.avgStock || '0'}</TableCell>
@@ -445,30 +462,117 @@ export default function CompetitionMaster() {
             </TabsContent>
 
             <TabsContent value="contacts" className="space-y-4">
-              <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+              <Dialog open={isContactDialogOpen} onOpenChange={(open) => { setIsContactDialogOpen(open); if (!open) { setIsEditingContact(false); setContactForm({ id: "", contact_name: "", contact_phone: "", contact_email: "", designation: "", hq: "", region_covered: "", reporting_to: "", level: "", skill: "", competitor_since: new Date().getFullYear(), role: "", is_active: true }); } }}>
                 <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-2" />Add Contact</Button></DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Add Contact</DialogTitle></DialogHeader>
-                  <div className="space-y-4">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle>{isEditingContact ? "Edit Contact" : "Add Contact"}</DialogTitle></DialogHeader>
+                  <div className="grid grid-cols-2 gap-4">
                     <div><Label>Contact Name</Label><Input value={contactForm.contact_name} onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })} /></div>
                     <div><Label>Phone</Label><Input value={contactForm.contact_phone} onChange={(e) => setContactForm({ ...contactForm, contact_phone: e.target.value })} /></div>
                     <div><Label>Email</Label><Input value={contactForm.contact_email} onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })} /></div>
                     <div><Label>Designation</Label><Input value={contactForm.designation} onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })} /></div>
-                    <Button onClick={handleAddContact} className="w-full">Add Contact</Button>
+                    <div><Label>HQ (Base Location)</Label><Input value={contactForm.hq} onChange={(e) => setContactForm({ ...contactForm, hq: e.target.value })} /></div>
+                    <div><Label>Region Covered</Label><Input value={contactForm.region_covered} onChange={(e) => setContactForm({ ...contactForm, region_covered: e.target.value })} /></div>
+                    <div><Label>Reporting To</Label><Input value={contactForm.reporting_to} onChange={(e) => setContactForm({ ...contactForm, reporting_to: e.target.value })} /></div>
+                    <div>
+                      <Label>Level</Label>
+                      <Select value={contactForm.level} onValueChange={(value) => setContactForm({ ...contactForm, level: value })}>
+                        <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Junior">Junior</SelectItem>
+                          <SelectItem value="Middle">Middle</SelectItem>
+                          <SelectItem value="Senior">Senior</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Skill</Label>
+                      <Select value={contactForm.skill} onValueChange={(value) => setContactForm({ ...contactForm, skill: value })}>
+                        <SelectTrigger><SelectValue placeholder="Select skill" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Good">Good</SelectItem>
+                          <SelectItem value="Average">Average</SelectItem>
+                          <SelectItem value="Not sure">Not sure</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div><Label>Competitor Since (Year)</Label><Input type="number" value={contactForm.competitor_since} onChange={(e) => setContactForm({ ...contactForm, competitor_since: parseInt(e.target.value) || new Date().getFullYear() })} /></div>
+                    <div>
+                      <Label>Role</Label>
+                      <Select value={contactForm.role} onValueChange={(value) => setContactForm({ ...contactForm, role: value })}>
+                        <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Field Sales">Field Sales</SelectItem>
+                          <SelectItem value="Marketing">Marketing</SelectItem>
+                          <SelectItem value="Product Management">Product Management</SelectItem>
+                          <SelectItem value="Supply Chain">Supply Chain</SelectItem>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="Leadership">Leadership</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={contactForm.is_active} onCheckedChange={(checked) => setContactForm({ ...contactForm, is_active: checked })} />
+                      <Label>Active</Label>
+                    </div>
+                    <div className="col-span-2">
+                      <Button onClick={handleAddContact} className="w-full">{isEditingContact ? "Update Contact" : "Add Contact"}</Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Email</TableHead><TableHead>Designation</TableHead></TableRow>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Level</TableHead>
+                    <TableHead>HQ</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contacts.map((contact) => (
                     <TableRow key={contact.id}>
-                      <TableCell>{contact.contact_name}</TableCell>
+                      <TableCell>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="link" className="p-0 h-auto font-medium hover:underline">
+                              {contact.contact_name}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader><DialogTitle>Contact Details</DialogTitle></DialogHeader>
+                            <div className="grid gap-4">
+                              <div><Label className="text-muted-foreground">Name</Label><p className="font-medium">{contact.contact_name}</p></div>
+                              <div><Label className="text-muted-foreground">Phone</Label><p>{contact.contact_phone}</p></div>
+                              <div><Label className="text-muted-foreground">Email</Label><p>{contact.contact_email}</p></div>
+                              <div><Label className="text-muted-foreground">Designation</Label><p>{contact.designation}</p></div>
+                              <div><Label className="text-muted-foreground">HQ</Label><p>{contact.hq}</p></div>
+                              <div><Label className="text-muted-foreground">Region Covered</Label><p>{contact.region_covered}</p></div>
+                              <div><Label className="text-muted-foreground">Reporting To</Label><p>{contact.reporting_to}</p></div>
+                              <div><Label className="text-muted-foreground">Level</Label><p>{contact.level}</p></div>
+                              <div><Label className="text-muted-foreground">Skill</Label><p>{contact.skill}</p></div>
+                              <div><Label className="text-muted-foreground">With Competitor Since</Label><p>{contact.competitor_since}</p></div>
+                              <div><Label className="text-muted-foreground">Role</Label><p>{contact.role}</p></div>
+                              <div><Label className="text-muted-foreground">Status</Label><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
+                      <TableCell>{contact.role}</TableCell>
+                      <TableCell>{contact.level}</TableCell>
+                      <TableCell>{contact.hq}</TableCell>
                       <TableCell>{contact.contact_phone}</TableCell>
-                      <TableCell>{contact.contact_email}</TableCell>
-                      <TableCell>{contact.designation}</TableCell>
+                      <TableCell><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                          {userRole === 'admin' && <Button variant="outline" size="sm" onClick={async () => { if (confirm("Delete this contact?")) { await supabase.from('competition_contacts').delete().eq('id', contact.id); fetchCompetitorDetails(selectedCompetitor?.id || ''); toast({ title: "Success", description: "Contact deleted" }); } }}><Trash2 className="h-4 w-4" /></Button>}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -492,6 +596,16 @@ export default function CompetitionMaster() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {selectedSKU && (
+        <SKUDetailModal
+          open={isSKUDetailOpen}
+          onOpenChange={setIsSKUDetailOpen}
+          skuId={selectedSKU.id}
+          skuName={selectedSKU.name}
+          competitorName={selectedCompetitor?.competitor_name || ''}
+        />
+      )}
     </div>
   );
 }
