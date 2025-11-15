@@ -150,7 +150,7 @@ export default function CompetitionMaster() {
           ? supabase.from('retailers').select('id, name, address, location_tag').in('id', retailerIds)
           : Promise.resolve({ data: [], error: null }),
         visitIds.length > 0
-          ? supabase.from('visits').select('id, visit_date, user_id').in('id', visitIds)
+          ? supabase.from('visits').select('id, planned_date, user_id').in('id', visitIds)
           : Promise.resolve({ data: [], error: null })
       ]);
 

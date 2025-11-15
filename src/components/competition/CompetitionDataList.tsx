@@ -40,7 +40,7 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
     const exportData = filteredData.map(item => ({
       "SKU Name": skus.find(s => s.id === item.sku_id)?.sku_name || 'Unknown',
       "Retailer": item.retailers?.name || 'N/A',
-      "Date": item.visits?.visit_date ? new Date(item.visits.visit_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString(),
+      "Date": item.visits?.planned_date ? new Date(item.visits.planned_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString(),
       "Stock Quantity": item.stock_quantity,
       "Unit": item.unit,
       "Insight": item.insight || 'N/A',
@@ -146,8 +146,8 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                     </TableCell>
                     <TableCell>{item.retailers?.name || 'N/A'}</TableCell>
                     <TableCell>
-                      {item.visits?.visit_date 
-                        ? new Date(item.visits.visit_date).toLocaleDateString()
+                      {item.visits?.planned_date 
+                        ? new Date(item.visits.planned_date).toLocaleDateString()
                         : new Date(item.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>{item.stock_quantity} {item.unit}</TableCell>
