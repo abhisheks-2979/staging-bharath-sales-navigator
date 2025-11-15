@@ -1398,14 +1398,14 @@ const [productForm, setProductForm] = useState({
                     Add Variant
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                <DialogContent className="max-w-2xl max-h-[90vh]">
                   <DialogHeader>
                     <DialogTitle>{variantForm.id ? 'Edit Variant' : 'Add New Variant'}</DialogTitle>
                     <DialogDescription>
                       {variantForm.id ? 'Update variant details' : 'Create a new product variant'}
                     </DialogDescription>
                   </DialogHeader>
-                  <ScrollArea className="flex-1 px-1">
+                  <ScrollArea className="h-[calc(90vh-180px)]">
                     <div className="space-y-4 pr-4">
                     <div>
                       <Label htmlFor="variantName">Variant Name</Label>
