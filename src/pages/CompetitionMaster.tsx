@@ -803,7 +803,7 @@ export default function CompetitionMaster() {
             </TabsContent>
 
             <TabsContent value="data"><CompetitionDataList data={competitionData} skus={skus} /></TabsContent>
-            <TabsContent value="ai-summary"><CompetitionAISummary competitorId={selectedCompetitor?.id || ''} competitorName={selectedCompetitor?.competitor_name || ''} competitionData={competitionData} /></TabsContent>
+            <TabsContent value="ai-summary"><CompetitionAISummary competitorId={selectedCompetitor?.id || ''} competitorName={selectedCompetitor?.competitor_name || ''} competitionData={competitionData} competitorData={selectedCompetitor} /></TabsContent>
             <TabsContent value="analytics"><CompetitionRetailerAnalytics competitionData={competitionData} skus={skus} /></TabsContent>
           </Tabs>
         </DialogContent>
