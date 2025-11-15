@@ -137,17 +137,17 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">AI-Powered Competition Analysis</h3>
-          <p className="text-sm text-muted-foreground">
-            Insights generated from {competitionData.length} data points
+          <h3 className="text-base md:text-lg font-semibold">AI-Powered Competition Analysis</h3>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Insights from {competitionData.length} data points
           </p>
         </div>
-        <Button onClick={generateSummary} disabled={loading} variant="outline" size="sm">
+        <Button onClick={generateSummary} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Regenerate Summary
+          <span className="text-xs md:text-sm">Regenerate</span>
         </Button>
       </div>
 
@@ -155,9 +155,9 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
 
       {/* Overall Summary */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+            <TrendingUp className="h-4 w-4 md:h-5 md:w-5" />
             Overall Summary
           </CardTitle>
         </CardHeader>
@@ -170,7 +170,7 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
             </div>
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none">
-              <pre className="whitespace-pre-wrap font-sans text-sm">{summary}</pre>
+              <pre className="whitespace-pre-wrap font-sans text-xs md:text-sm break-words">{summary}</pre>
             </div>
           )}
         </CardContent>
@@ -179,19 +179,19 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
       {/* Monthly Breakdown */}
       {monthlySummaries.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Monthly Breakdown</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm md:text-base">Monthly Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
               {monthlySummaries.map((month, idx) => (
                 <Card key={idx} className="border">
-                  <CardContent className="pt-4">
-                    <div className="text-sm font-semibold mb-2">{month.month}</div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
+                  <CardContent className="pt-3 md:pt-4 p-3 md:p-6">
+                    <div className="text-xs md:text-sm font-semibold mb-2">{month.month}</div>
+                    <div className="space-y-1 text-xs md:text-sm text-muted-foreground">
                       <div>Observations: {month.totalObservations}</div>
                       <div>Avg Price: ₹{month.averagePrice}</div>
-                      <div className="text-xs">Top: {month.topSKUs.join(', ')}</div>
+                      <div className="text-[10px] md:text-xs break-words">Top: {month.topSKUs.join(', ')}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -203,35 +203,35 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
 
       {/* SWOT Analysis Section */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+            <Target className="h-4 w-4 md:h-5 md:w-5" />
             SWOT Analysis
           </CardTitle>
-          <CardDescription>AI-powered competitive intelligence analysis</CardDescription>
+          <CardDescription className="text-xs md:text-sm">AI-powered competitive intelligence analysis</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
             </div>
           ) : swot ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {/* Strengths */}
               <Card className="border-green-200 dark:border-green-900">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                <CardHeader className="pb-2 md:pb-3">
+                  <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600 shrink-0" />
                     Strengths
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-2 text-sm">
+                  <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
                     {swot.strengths.map((strength, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-green-600 mt-1">•</span>
-                        <span>{strength}</span>
+                        <span className="text-green-600 mt-0.5 shrink-0">•</span>
+                        <span className="break-words">{strength}</span>
                       </li>
                     ))}
                   </ul>
@@ -240,18 +240,18 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
 
               {/* Weaknesses */}
               <Card className="border-red-200 dark:border-red-900">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
+                <CardHeader className="pb-2 md:pb-3">
+                  <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+                    <AlertCircle className="h-3 w-3 md:h-4 md:w-4 text-red-600 shrink-0" />
                     Weaknesses
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-2 text-sm">
+                  <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
                     {swot.weaknesses.map((weakness, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-red-600 mt-1">•</span>
-                        <span>{weakness}</span>
+                        <span className="text-red-600 mt-0.5 shrink-0">•</span>
+                        <span className="break-words">{weakness}</span>
                       </li>
                     ))}
                   </ul>
@@ -260,18 +260,18 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
 
               {/* Opportunities */}
               <Card className="border-blue-200 dark:border-blue-900">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4 text-blue-600" />
+                <CardHeader className="pb-2 md:pb-3">
+                  <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+                    <Lightbulb className="h-3 w-3 md:h-4 md:w-4 text-blue-600 shrink-0" />
                     Opportunities
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-2 text-sm">
+                  <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
                     {swot.opportunities.map((opportunity, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-blue-600 mt-1">•</span>
-                        <span>{opportunity}</span>
+                        <span className="text-blue-600 mt-0.5 shrink-0">•</span>
+                        <span className="break-words">{opportunity}</span>
                       </li>
                     ))}
                   </ul>
@@ -280,18 +280,18 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
 
               {/* Threats */}
               <Card className="border-orange-200 dark:border-orange-900">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <CardHeader className="pb-2 md:pb-3">
+                  <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+                    <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-orange-600 shrink-0" />
                     Threats
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-2 text-sm">
+                  <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
                     {swot.threats.map((threat, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-orange-600 mt-1">•</span>
-                        <span>{threat}</span>
+                        <span className="text-orange-600 mt-0.5 shrink-0">•</span>
+                        <span className="break-words">{threat}</span>
                       </li>
                     ))}
                   </ul>
@@ -299,9 +299,9 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
               </Card>
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Click "Regenerate Summary" to generate SWOT analysis</p>
+            <div className="text-center py-6 md:py-8 text-muted-foreground">
+              <Target className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-2 opacity-50" />
+              <p className="text-xs md:text-sm">Click "Regenerate Summary" to generate SWOT analysis</p>
             </div>
           )}
         </CardContent>
@@ -309,50 +309,50 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
 
       {/* News Section */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Newspaper className="h-5 w-5" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+            <Newspaper className="h-4 w-4 md:h-5 md:w-5" />
             Latest Competitor News
           </CardTitle>
-          <CardDescription>Recent news and developments from external sources</CardDescription>
+          <CardDescription className="text-xs md:text-sm">Recent news and developments from external sources</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
             </div>
           ) : news.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {news.map((item, idx) => (
                 <Card key={idx} className="hover:bg-accent/50 transition-colors">
-                  <CardContent className="pt-4">
+                  <CardContent className="pt-3 md:pt-4 p-3 md:p-6">
                     <div className="flex flex-col gap-2">
-                      <div className="flex items-start justify-between gap-4 flex-wrap">
-                        <h4 className="font-semibold text-sm flex-1">
+                      <div className="flex items-start justify-between gap-2 md:gap-4">
+                        <h4 className="font-semibold text-xs md:text-sm flex-1 break-words">
                           {item.title}
                         </h4>
-                        <Badge variant="outline" className="text-xs whitespace-nowrap">
+                        <Badge variant="outline" className="text-[10px] md:text-xs whitespace-nowrap shrink-0">
                           {item.date}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs md:text-sm text-muted-foreground break-words">
                         {item.summary}
                       </p>
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-xs text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] md:text-xs text-muted-foreground break-all">
                           Source: {item.source}
                         </span>
                         {item.url && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-7 text-xs gap-1"
+                            className="h-6 md:h-7 text-[10px] md:text-xs gap-1 shrink-0"
                             onClick={() => window.open(item.url, '_blank')}
                           >
                             Read More
-                            <ExternalLink className="h-3 w-3" />
+                            <ExternalLink className="h-2.5 w-2.5 md:h-3 md:w-3" />
                           </Button>
                         )}
                       </div>
@@ -362,36 +362,36 @@ ${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs:
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Newspaper className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Click "Regenerate Summary" to fetch latest news</p>
+            <div className="text-center py-6 md:py-8 text-muted-foreground">
+              <Newspaper className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-2 opacity-50" />
+              <p className="text-xs md:text-sm">Click "Regenerate Summary" to fetch latest news</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{competitionData.length}</div>
-            <p className="text-xs text-muted-foreground">Total Observations</p>
+          <CardContent className="pt-4 md:pt-6 p-3 md:p-6">
+            <div className="text-lg md:text-2xl font-bold">{competitionData.length}</div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Total Observations</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-orange-600">
+          <CardContent className="pt-4 md:pt-6 p-3 md:p-6">
+            <div className="text-lg md:text-2xl font-bold text-orange-600">
               {competitionData.filter(d => d.impact_level === 'high').length}
             </div>
-            <p className="text-xs text-muted-foreground">High Impact</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">High Impact</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="pt-4 md:pt-6 p-3 md:p-6">
+            <div className="text-lg md:text-2xl font-bold text-red-600">
               {competitionData.filter(d => d.needs_attention).length}
             </div>
-            <p className="text-xs text-muted-foreground">Needs Attention</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Needs Attention</p>
           </CardContent>
         </Card>
       </div>
