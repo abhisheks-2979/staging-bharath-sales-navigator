@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, ArrowLeft, Users } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, Users, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,6 +45,7 @@ export default function CompetitionMaster() {
   const [selectedCompetitor, setSelectedCompetitor] = useState<Competitor | null>(null);
   const [skus, setSKUs] = useState<CompetitorSKU[]>([]);
   const [contacts, setContacts] = useState<CompetitorContact[]>([]);
+  const [competitionData, setCompetitionData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -70,12 +72,8 @@ export default function CompetitionMaster() {
   });
 
   useEffect(() => {
-    if (userRole !== 'admin') {
-      navigate('/');
-      return;
-    }
     fetchCompetitors();
-  }, [userRole, navigate]);
+  }, []);
 
   const fetchCompetitors = async () => {
     try {
@@ -101,16 +99,26 @@ export default function CompetitionMaster() {
 
   const fetchCompetitorDetails = async (competitorId: string) => {
     try {
-      const [skusRes, contactsRes] = await Promise.all([
+      const [skusRes, contactsRes, dataRes] = await Promise.all([
         supabase.from('competition_skus').select('*').eq('competitor_id', competitorId),
-        supabase.from('competition_contacts').select('*').eq('competitor_id', competitorId)
+        supabase.from('competition_contacts').select('*').eq('competitor_id', competitorId),
+        supabase.from('competition_data')
+          .select(`
+            *,
+            retailers(name),
+            visits(visit_date)
+          `)
+          .eq('competitor_id', competitorId)
+          .order('created_at', { ascending: false })
       ]);
 
       if (skusRes.error) throw skusRes.error;
       if (contactsRes.error) throw contactsRes.error;
+      if (dataRes.error) throw dataRes.error;
 
       setSKUs(skusRes.data || []);
       setContacts(contactsRes.data || []);
+      setCompetitionData(dataRes.data || []);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -356,6 +364,7 @@ export default function CompetitionMaster() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteCompetitor(competitor.id)}
+                        disabled={userRole !== 'admin'}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -404,6 +413,7 @@ export default function CompetitionMaster() {
             <TabsList>
               <TabsTrigger value="skus">SKUs</TabsTrigger>
               <TabsTrigger value="contacts">Contacts</TabsTrigger>
+              <TabsTrigger value="data">Competition Data</TabsTrigger>
             </TabsList>
             <TabsContent value="skus">
               <div className="space-y-4">
@@ -521,6 +531,85 @@ export default function CompetitionMaster() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            </TabsContent>
+            <TabsContent value="data">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Competition Intelligence
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    All competition data captured from visits
+                  </p>
+                </div>
+                
+                {competitionData.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No competition data captured yet
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                    {competitionData.map((data) => (
+                      <Card key={data.id}>
+                        <CardContent className="pt-6">
+                          <div className="grid gap-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {skus.find(s => s.id === data.sku_id)?.sku_name || 'Unknown SKU'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {data.retailers?.name} • {data.visits?.visit_date ? new Date(data.visits.visit_date).toLocaleDateString() : new Date(data.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {data.needs_attention && (
+                                  <Badge variant="destructive">Needs Attention</Badge>
+                                )}
+                                {data.impact_level && (
+                                  <Badge variant={
+                                    data.impact_level === 'high' ? 'destructive' :
+                                    data.impact_level === 'medium' ? 'default' : 'secondary'
+                                  }>
+                                    {data.impact_level} Impact
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="text-muted-foreground">Stock Quantity</p>
+                                <p className="font-medium">{data.stock_quantity} {data.unit}</p>
+                              </div>
+                              {data.insight && (
+                                <div>
+                                  <p className="text-muted-foreground">Insight</p>
+                                  <p className="font-medium capitalize">{data.insight.replace('_', ' ')}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2">
+                              {data.photo_urls && data.photo_urls.length > 0 && (
+                                <Badge variant="outline">
+                                  {data.photo_urls.length} Photo{data.photo_urls.length > 1 ? 's' : ''}
+                                </Badge>
+                              )}
+                              {data.voice_note_urls && data.voice_note_urls.length > 0 && (
+                                <Badge variant="outline">
+                                  {data.voice_note_urls.length} Voice Note{data.voice_note_urls.length > 1 ? 's' : ''}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

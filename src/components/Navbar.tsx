@@ -48,6 +48,7 @@ export const Navbar = () => {
     { icon: Paintbrush, label: t('nav.branding'), href: "/branding-requests", color: "from-fuchsia-500 to-fuchsia-600" },
     { icon: Users, label: t('nav.myBeats'), href: "/my-beats", color: "from-orange-500 to-orange-600" },
     { icon: Briefcase, label: "Distributor Mapping", href: "/add-records", color: "from-red-500 to-red-600" },
+    { icon: Trophy, label: "Competition Master", href: "/competition-master", color: "from-slate-500 to-slate-600" },
     { icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
     { icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
     { icon: BarChart, label: t('nav.performance'), href: "/performance", color: "from-cyan-500 to-cyan-600" },
