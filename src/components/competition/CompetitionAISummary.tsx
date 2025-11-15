@@ -63,15 +63,8 @@ Provide a comprehensive competition intelligence summary covering:
 
 Keep it concise and business-focused.`;
 
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: { 
-          messages: [{ role: 'user', content: prompt }]
-        }
-      });
-
-      if (error) throw error;
-
-      setSummary(data.response || "Summary generation failed");
+      // Generate basic summary since edge function doesn't exist
+      generateBasicSummary();
       setMonthlySummaries(Object.entries(monthlyData).map(([month, items]: [string, any]) => ({
         month,
         count: items.length,
