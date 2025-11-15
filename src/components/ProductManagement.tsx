@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
+import { VariantFocusedFields } from './VariantFocusedFields';
 import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 import { migrateProducts } from '@/utils/productMigration';
@@ -138,9 +139,9 @@ const [productForm, setProductForm] = useState({
   focused_target_quantity: 0,
   focused_territories: [] as string[],
   focused_recurring_config: undefined as {
-    days_of_week?: number[];
-    weeks_of_month?: number[];
-    months_of_year?: number[];
+    days_of_week?: string[];
+    weeks_of_month?: string[];
+    months_of_year?: string[];
   } | undefined,
   rate: 0,
   unit: 'piece',
@@ -1456,6 +1457,23 @@ const [productForm, setProductForm] = useState({
                       />
                       <Label htmlFor="variantActive">Active</Label>
                     </div>
+
+                    {/* Focused Product Section for Variants */}
+                    <VariantFocusedFields
+                      isFocused={variantForm.is_focused_product || false}
+                      focusedType={(variantForm as any).focused_type}
+                      focusedDueDate={variantForm.focused_due_date || ''}
+                      focusedTargetQuantity={variantForm.focused_target_quantity || 0}
+                      focusedTerritories={variantForm.focused_territories || []}
+                      focusedRecurringConfig={(variantForm as any).focused_recurring_config}
+                      territories={territories}
+                      onIsFocusedChange={(value) => setVariantForm({ ...variantForm, is_focused_product: value })}
+                      onFocusedTypeChange={(value) => setVariantForm({ ...variantForm, focused_type: value } as any)}
+                      onFocusedDueDateChange={(value) => setVariantForm({ ...variantForm, focused_due_date: value })}
+                      onFocusedTargetQuantityChange={(value) => setVariantForm({ ...variantForm, focused_target_quantity: value })}
+                      onFocusedTerritoriesChange={(value) => setVariantForm({ ...variantForm, focused_territories: value })}
+                      onFocusedRecurringConfigChange={(value) => setVariantForm({ ...variantForm, focused_recurring_config: value } as any)}
+                    />
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsVariantDialogOpen(false)}>
