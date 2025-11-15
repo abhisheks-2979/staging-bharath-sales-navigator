@@ -4,13 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, ArrowLeft, Sparkles, BarChart } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, BarChart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,9 +40,6 @@ interface CompetitorSKU {
   sku_name: string;
   unit: string;
   is_active: boolean;
-  demand?: string;
-  observations?: number;
-  avgStock?: string;
 }
 
 interface CompetitorContact {
@@ -113,9 +109,14 @@ export default function CompetitorDetail() {
         .from('competition_master')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (competitorError) throw competitorError;
+      if (!competitorData) {
+        toast({ title: "Error", description: "Competitor not found", variant: "destructive" });
+        navigate('/competition-master');
+        return;
+      }
       setCompetitor(competitorData);
 
       const [skusRes, contactsRes, dataRes] = await Promise.all([
@@ -212,51 +213,56 @@ export default function CompetitorDetail() {
   if (!competitor) return <div className="p-4 md:p-8">Competitor not found</div>;
 
   return (
-    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 pb-20">
-      <div className="flex items-center gap-3 md:gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/competition-master')}>
-          <ArrowLeft className="h-4 w-4" />
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/competition-master')}>
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-xl md:text-3xl font-bold">{competitor.competitor_name}</h1>
-          <p className="text-sm text-muted-foreground">Intelligence Hub</p>
-        </div>
+        <h1 className="text-2xl md:text-3xl font-bold">{competitor.competitor_name}</h1>
       </div>
 
       <Tabs defaultValue="skus" className="w-full">
-        <TabsList className="inline-flex w-full md:grid md:grid-cols-5 gap-1 overflow-x-auto flex-nowrap justify-start bg-muted">
-          <TabsTrigger value="skus" className="text-xs md:text-sm whitespace-nowrap shrink-0">SKUs</TabsTrigger>
-          <TabsTrigger value="contacts" className="text-xs md:text-sm whitespace-nowrap shrink-0">Contacts</TabsTrigger>
-          <TabsTrigger value="data" className="text-xs md:text-sm whitespace-nowrap shrink-0">Stocks</TabsTrigger>
-          <TabsTrigger value="ai-summary" className="text-xs md:text-sm whitespace-nowrap shrink-0 flex items-center gap-1">
-            <Sparkles className="h-3 w-3 md:h-4 md:w-4" />
-            <span>AI</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="text-xs md:text-sm whitespace-nowrap shrink-0 flex items-center gap-1">
-            <BarChart className="h-3 w-3 md:h-4 md:w-4" />
-            <span>Analytics</span>
-          </TabsTrigger>
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
+          <TabsTrigger value="skus">SKUs</TabsTrigger>
+          <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          <TabsTrigger value="stocks">Stocks</TabsTrigger>
+          <TabsTrigger value="ai-summary">AI Summary</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="skus" className="space-y-4 mt-4">
-          <div className="flex justify-end">
+        <TabsContent value="skus" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">SKUs</h2>
             <Dialog open={isSKUDialogOpen} onOpenChange={setIsSKUDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="w-full md:w-auto"><Plus className="h-4 w-4 mr-2" />Add SKU</Button>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add SKU
+                </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-md">
-                <DialogHeader><DialogTitle>Add New SKU</DialogTitle></DialogHeader>
-                <div className="grid gap-4">
-                  <div><Label>SKU Name</Label><Input value={skuForm.sku_name} onChange={(e) => setSKUForm({ ...skuForm, sku_name: e.target.value })} /></div>
-                  <div><Label>Unit</Label><Input value={skuForm.unit} onChange={(e) => setSKUForm({ ...skuForm, unit: e.target.value })} placeholder="e.g., Bottle, Packet" /></div>
-                  <div className="flex items-center gap-2"><Label>Active</Label><Switch checked={skuForm.is_active} onCheckedChange={(checked) => setSKUForm({ ...skuForm, is_active: checked })} /></div>
-                  <Button onClick={handleAddSKU}>Add SKU</Button>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New SKU</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>SKU Name *</Label>
+                    <Input value={skuForm.sku_name} onChange={(e) => setSKUForm({ ...skuForm, sku_name: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Unit</Label>
+                    <Input value={skuForm.unit} onChange={(e) => setSKUForm({ ...skuForm, unit: e.target.value })} />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch checked={skuForm.is_active} onCheckedChange={(checked) => setSKUForm({ ...skuForm, is_active: checked })} />
+                    <Label>Active</Label>
+                  </div>
+                  <Button onClick={handleAddSKU} disabled={!skuForm.sku_name}>Add SKU</Button>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
 
-          {/* Desktop Table View */}
           <div className="hidden md:block">
             <Table>
               <TableHeader>
@@ -264,133 +270,171 @@ export default function CompetitorDetail() {
                   <TableHead>SKU Name</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {skus.map((sku) => (
                   <TableRow key={sku.id}>
+                    <TableCell className="font-medium">{sku.sku_name}</TableCell>
+                    <TableCell>{sku.unit || '-'}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-medium hover:underline"
-                        onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}
-                      >
-                        {sku.sku_name}
+                      <Badge variant={sku.is_active ? "default" : "secondary"}>
+                        {sku.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}>
+                        <BarChart className="h-4 w-4" />
                       </Button>
                     </TableCell>
-                    <TableCell>{sku.unit}</TableCell>
-                    <TableCell><Badge variant={sku.is_active ? "default" : "secondary"}>{sku.is_active ? "Active" : "Inactive"}</Badge></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
 
-          {/* Mobile Card View */}
           <div className="md:hidden space-y-3">
             {skus.map((sku) => (
               <Card key={sku.id}>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-semibold hover:underline text-base text-left"
-                        onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}
-                      >
-                        {sku.sku_name}
-                      </Button>
-                      <Badge variant={sku.is_active ? "default" : "secondary"} className="text-xs">
-                        {sku.is_active ? "Active" : "Inactive"}
-                      </Badge>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{sku.sku_name}</p>
+                      <p className="text-sm text-muted-foreground">Unit: {sku.unit || '-'}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">Unit: {sku.unit}</p>
+                    <Badge variant={sku.is_active ? "default" : "secondary"}>
+                      {sku.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </div>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => { setSelectedSKU({ id: sku.id, name: sku.sku_name }); setIsSKUDetailOpen(true); }}>
+                    <BarChart className="h-4 w-4 mr-2" />
+                    View Analytics
+                  </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
+
+          {skus.length === 0 && <p className="text-muted-foreground text-center py-8">No SKUs added yet</p>}
         </TabsContent>
 
-        <TabsContent value="contacts" className="space-y-4 mt-4">
-          <div className="flex justify-end">
+        <TabsContent value="contacts" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Contacts</h2>
             <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="w-full md:w-auto"><Plus className="h-4 w-4 mr-2" />Add Contact</Button>
+                <Button onClick={() => { setIsEditingContact(false); setContactForm({ id: "", contact_name: "", contact_phone: "", contact_email: "", designation: "", hq: "", region_covered: "", reporting_to: "", level: "", skill: "", competitor_since: new Date().getFullYear(), role: "", is_active: true }); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Contact
+                </Button>
               </DialogTrigger>
-              <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>{isEditingContact ? "Edit Contact" : "Add New Contact"}</DialogTitle></DialogHeader>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{isEditingContact ? 'Edit Contact' : 'Add New Contact'}</DialogTitle>
+                </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-1"><Label>Name</Label><Input value={contactForm.contact_name} onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>Phone</Label><Input value={contactForm.contact_phone} onChange={(e) => setContactForm({ ...contactForm, contact_phone: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>Email</Label><Input type="email" value={contactForm.contact_email} onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>Designation</Label><Input value={contactForm.designation} onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>HQ</Label><Input value={contactForm.hq} onChange={(e) => setContactForm({ ...contactForm, hq: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>Region Covered</Label><Input value={contactForm.region_covered} onChange={(e) => setContactForm({ ...contactForm, region_covered: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>Reporting To</Label><Input value={contactForm.reporting_to} onChange={(e) => setContactForm({ ...contactForm, reporting_to: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>Level</Label><Input value={contactForm.level} onChange={(e) => setContactForm({ ...contactForm, level: e.target.value })} placeholder="e.g., Manager, Executive" /></div>
-                  <div className="md:col-span-1"><Label>Skill</Label><Input value={contactForm.skill} onChange={(e) => setContactForm({ ...contactForm, skill: e.target.value })} /></div>
-                  <div className="md:col-span-1"><Label>With Competitor Since</Label><Input type="number" value={contactForm.competitor_since} onChange={(e) => setContactForm({ ...contactForm, competitor_since: parseInt(e.target.value) || new Date().getFullYear() })} /></div>
-                  <div className="md:col-span-1"><Label>Role</Label><Input value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} /></div>
-                  <div className="md:col-span-1 flex items-center gap-2"><Label>Active</Label><Switch checked={contactForm.is_active} onCheckedChange={(checked) => setContactForm({ ...contactForm, is_active: checked })} /></div>
-                  <div className="md:col-span-2"><Button onClick={handleAddContact} className="w-full">{isEditingContact ? "Update Contact" : "Add Contact"}</Button></div>
+                  <div>
+                    <Label>Name *</Label>
+                    <Input value={contactForm.contact_name} onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input value={contactForm.contact_phone} onChange={(e) => setContactForm({ ...contactForm, contact_phone: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input type="email" value={contactForm.contact_email} onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Designation</Label>
+                    <Input value={contactForm.designation} onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>HQ</Label>
+                    <Input value={contactForm.hq} onChange={(e) => setContactForm({ ...contactForm, hq: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Region Covered</Label>
+                    <Input value={contactForm.region_covered} onChange={(e) => setContactForm({ ...contactForm, region_covered: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Reporting To</Label>
+                    <Input value={contactForm.reporting_to} onChange={(e) => setContactForm({ ...contactForm, reporting_to: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Level</Label>
+                    <Select value={contactForm.level} onValueChange={(value) => setContactForm({ ...contactForm, level: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="senior">Senior</SelectItem>
+                        <SelectItem value="mid">Mid</SelectItem>
+                        <SelectItem value="junior">Junior</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Skill</Label>
+                    <Input value={contactForm.skill} onChange={(e) => setContactForm({ ...contactForm, skill: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Competitor Since</Label>
+                    <Input type="number" value={contactForm.competitor_since} onChange={(e) => setContactForm({ ...contactForm, competitor_since: parseInt(e.target.value) || new Date().getFullYear() })} />
+                  </div>
+                  <div>
+                    <Label>Role</Label>
+                    <Input value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch checked={contactForm.is_active} onCheckedChange={(checked) => setContactForm({ ...contactForm, is_active: checked })} />
+                    <Label>Active</Label>
+                  </div>
                 </div>
+                <Button onClick={handleAddContact} disabled={!contactForm.contact_name} className="w-full mt-4">
+                  {isEditingContact ? 'Update Contact' : 'Add Contact'}
+                </Button>
               </DialogContent>
             </Dialog>
           </div>
 
-          {/* Desktop Table View */}
           <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Level</TableHead>
-                  <TableHead>HQ</TableHead>
+                  <TableHead>Designation</TableHead>
                   <TableHead>Phone</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>HQ</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {contacts.map((contact) => (
                   <TableRow key={contact.id}>
+                    <TableCell className="font-medium">{contact.contact_name}</TableCell>
+                    <TableCell>{contact.designation || '-'}</TableCell>
+                    <TableCell>{contact.contact_phone || '-'}</TableCell>
+                    <TableCell>{contact.contact_email || '-'}</TableCell>
+                    <TableCell>{contact.hq || '-'}</TableCell>
                     <TableCell>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="link" className="p-0 h-auto font-medium hover:underline">
-                            {contact.contact_name}
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="w-[95vw] max-w-md">
-                          <DialogHeader><DialogTitle>Contact Details</DialogTitle></DialogHeader>
-                          <div className="grid gap-4">
-                            <div><Label className="text-muted-foreground">Name</Label><p className="font-medium">{contact.contact_name}</p></div>
-                            <div><Label className="text-muted-foreground">Phone</Label><p>{contact.contact_phone}</p></div>
-                            <div><Label className="text-muted-foreground">Email</Label><p>{contact.contact_email}</p></div>
-                            <div><Label className="text-muted-foreground">Designation</Label><p>{contact.designation}</p></div>
-                            <div><Label className="text-muted-foreground">HQ</Label><p>{contact.hq}</p></div>
-                            <div><Label className="text-muted-foreground">Region Covered</Label><p>{contact.region_covered}</p></div>
-                            <div><Label className="text-muted-foreground">Reporting To</Label><p>{contact.reporting_to}</p></div>
-                            <div><Label className="text-muted-foreground">Level</Label><p>{contact.level}</p></div>
-                            <div><Label className="text-muted-foreground">Skill</Label><p>{contact.skill}</p></div>
-                            <div><Label className="text-muted-foreground">With Competitor Since</Label><p>{contact.competitor_since}</p></div>
-                            <div><Label className="text-muted-foreground">Role</Label><p>{contact.role}</p></div>
-                            <div><Label className="text-muted-foreground">Status</Label><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                      <Badge variant={contact.is_active ? "default" : "secondary"}>
+                        {contact.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
                     </TableCell>
-                    <TableCell>{contact.role}</TableCell>
-                    <TableCell>{contact.level}</TableCell>
-                    <TableCell>{contact.hq}</TableCell>
-                    <TableCell>{contact.contact_phone}</TableCell>
-                    <TableCell><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                        {userRole === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDeleteContact(contact.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {userRole === 'admin' && (
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteContact(contact.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -399,93 +443,49 @@ export default function CompetitorDetail() {
             </Table>
           </div>
 
-          {/* Mobile Card View */}
           <div className="md:hidden space-y-3">
             {contacts.map((contact) => (
               <Card key={contact.id}>
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="link" className="p-0 h-auto font-medium hover:underline text-left text-sm">
-                              {contact.contact_name}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="w-[95vw] max-w-md">
-                            <DialogHeader><DialogTitle>Contact Details</DialogTitle></DialogHeader>
-                            <div className="grid gap-4">
-                              <div><Label className="text-muted-foreground">Name</Label><p className="font-medium">{contact.contact_name}</p></div>
-                              <div><Label className="text-muted-foreground">Phone</Label><p>{contact.contact_phone}</p></div>
-                              <div><Label className="text-muted-foreground">Email</Label><p>{contact.contact_email}</p></div>
-                              <div><Label className="text-muted-foreground">Designation</Label><p>{contact.designation}</p></div>
-                              <div><Label className="text-muted-foreground">HQ</Label><p>{contact.hq}</p></div>
-                              <div><Label className="text-muted-foreground">Region Covered</Label><p>{contact.region_covered}</p></div>
-                              <div><Label className="text-muted-foreground">Reporting To</Label><p>{contact.reporting_to}</p></div>
-                              <div><Label className="text-muted-foreground">Level</Label><p>{contact.level}</p></div>
-                              <div><Label className="text-muted-foreground">Skill</Label><p>{contact.skill}</p></div>
-                              <div><Label className="text-muted-foreground">With Competitor Since</Label><p>{contact.competitor_since}</p></div>
-                              <div><Label className="text-muted-foreground">Role</Label><p>{contact.role}</p></div>
-                              <div><Label className="text-muted-foreground">Status</Label><Badge variant={contact.is_active ? "default" : "secondary"}>{contact.is_active ? "Active" : "Inactive"}</Badge></div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                        <p className="text-xs text-muted-foreground mt-1">{contact.role}</p>
-                      </div>
-                      <Badge variant={contact.is_active ? "default" : "secondary"} className="text-xs shrink-0">
-                        {contact.is_active ? "Active" : "Inactive"}
-                      </Badge>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{contact.contact_name}</p>
+                      <p className="text-sm text-muted-foreground">{contact.designation || 'No designation'}</p>
                     </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p>Level: {contact.level}</p>
-                      <p>HQ: {contact.hq}</p>
-                      <p>Phone: {contact.contact_phone}</p>
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setContactForm(contact);
-                          setIsEditingContact(true);
-                          setIsContactDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
+                    <Badge variant={contact.is_active ? "default" : "secondary"}>
+                      {contact.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><strong>Phone:</strong> {contact.contact_phone || '-'}</p>
+                    <p><strong>Email:</strong> {contact.contact_email || '-'}</p>
+                    <p><strong>HQ:</strong> {contact.hq || '-'}</p>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { setContactForm(contact); setIsEditingContact(true); setIsContactDialogOpen(true); }}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    {userRole === 'admin' && (
+                      <Button variant="outline" size="sm" onClick={() => handleDeleteContact(contact.id)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                      {userRole === 'admin' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteContact(contact.id);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+
+          {contacts.length === 0 && <p className="text-muted-foreground text-center py-8">No contacts added yet</p>}
         </TabsContent>
 
-        <TabsContent value="data" className="mt-4">
-          <CompetitionDataList
-            data={competitionData}
-            skus={skus}
-          />
+        <TabsContent value="stocks">
+          <CompetitionDataList data={competitionData} skus={skus} />
         </TabsContent>
 
-        <TabsContent value="ai-summary" className="mt-4">
-          <CompetitionAISummary
+        <TabsContent value="ai-summary">
+          <CompetitionAISummary 
             competitorId={competitor.id}
             competitorName={competitor.competitor_name}
             competitionData={competitionData}
@@ -493,8 +493,8 @@ export default function CompetitorDetail() {
           />
         </TabsContent>
 
-        <TabsContent value="analytics" className="mt-4">
-          <CompetitionRetailerAnalytics
+        <TabsContent value="analytics">
+          <CompetitionRetailerAnalytics 
             competitionData={competitionData}
             skus={skus}
           />
@@ -504,8 +504,8 @@ export default function CompetitorDetail() {
       <SKUDetailModal
         open={isSKUDetailOpen}
         onOpenChange={setIsSKUDetailOpen}
-        skuId={selectedSKU?.id || ""}
-        skuName={selectedSKU?.name || ""}
+        skuId={selectedSKU?.id || ''}
+        skuName={selectedSKU?.name || ''}
         competitorName={competitor.competitor_name}
       />
     </div>
