@@ -195,6 +195,49 @@ const [productForm, setProductForm] = useState({
     fetchData();
   }, []);
 
+  // Auto-uncheck focused products when due date passes or target is met
+  useEffect(() => {
+    const checkFocusedProducts = async () => {
+      const now = new Date();
+      
+      try {
+        // Check products
+        const productsToUpdate = products.filter(p => 
+          p.is_focused_product && p.focused_due_date && new Date(p.focused_due_date) < now
+        );
+        
+        for (const product of productsToUpdate) {
+          await supabase
+            .from('products')
+            .update({ is_focused_product: false })
+            .eq('id', product.id);
+        }
+        
+        // Check variants
+        const variantsToUpdate = variants.filter(v => 
+          v.is_focused_product && v.focused_due_date && new Date(v.focused_due_date) < now
+        );
+        
+        for (const variant of variantsToUpdate) {
+          await supabase
+            .from('product_variants')
+            .update({ is_focused_product: false })
+            .eq('id', variant.id);
+        }
+        
+        if (productsToUpdate.length > 0 || variantsToUpdate.length > 0) {
+          fetchData(); // Refresh data if any updates were made
+        }
+      } catch (error) {
+        console.error('Error checking focused products:', error);
+      }
+    };
+    
+    checkFocusedProducts();
+    const interval = setInterval(checkFocusedProducts, 3600000); // Check hourly
+    return () => clearInterval(interval);
+  }, [products, variants]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -860,268 +903,14 @@ setProductForm({
                       </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="h-[400px] overflow-y-auto">
-                      <div className="space-y-4 p-4">
-                      <div>
-                        <Label htmlFor="sku">SKU</Label>
-                        <Input
-                          id="sku"
-                          value={productForm.sku}
-                          onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
-                          placeholder="Enter SKU"
+                      <div className="p-4">
+                        <ProductFormFields
+                          form={productForm}
+                          categories={categories}
+                          territories={territories}
+                          onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="productNumber">Product Number</Label>
-                        <Input
-                          id="productNumber"
-                          value={productForm.product_number}
-                          onChange={(e) => setProductForm({ ...productForm, product_number: e.target.value })}
-                          placeholder="Enter product number"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="name">Product Name</Label>
-                        <Input
-                          id="name"
-                          value={productForm.name}
-                          onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                          placeholder="Enter product name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea
-                          id="description"
-                          value={productForm.description}
-                          onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                          placeholder="Enter product description"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="category">Category</Label>
-                        <Select
-                          value={productForm.category_id}
-                          onValueChange={(value) => setProductForm({ ...productForm, category_id: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="is_focused" 
-                          checked={productForm.is_focused_product}
-                          onCheckedChange={(checked) => setProductForm({ ...productForm, is_focused_product: checked as boolean })}
-                        />
-                        <Label htmlFor="is_focused" className="text-sm font-medium cursor-pointer">
-                          Focused Product
-                        </Label>
-                      </div>
-                      
-                      {productForm.is_focused_product && (
-                        <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-                          <div>
-                            <Label htmlFor="focused_due_date">Due Date <span className="text-xs text-muted-foreground">(This is a focused product until this date)</span></Label>
-                            <Input
-                              id="focused_due_date"
-                              type="date"
-                              value={productForm.focused_due_date}
-                              onChange={(e) => setProductForm({ ...productForm, focused_due_date: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="focused_target_quantity">Target Quantity</Label>
-                            <Input
-                              id="focused_target_quantity"
-                              type="number"
-                              value={productForm.focused_target_quantity}
-                              onChange={(e) => setProductForm({ ...productForm, focused_target_quantity: parseInt(e.target.value) || 0 })}
-                              placeholder="Target quantity to achieve"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="base_unit">Base Unit</Label>
-                            <Select
-                              value={productForm.base_unit}
-                              onValueChange={(value) => setProductForm({ ...productForm, base_unit: value })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="kg">KG</SelectItem>
-                                <SelectItem value="piece">Piece</SelectItem>
-                                <SelectItem value="liter">Liter</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground mt-1">Base unit for pricing</p>
-                          </div>
-                          <div>
-                            <Label htmlFor="unit">Selling Unit</Label>
-                            <Select
-                              value={productForm.unit}
-                              onValueChange={(value) => {
-                                // Auto-set conversion factor based on unit
-                                let conversionFactor = 1;
-                                if (productForm.base_unit === 'kg') {
-                                  if (value === 'grams') conversionFactor = 0.001;
-                                  else if (value === 'kg') conversionFactor = 1;
-                                  else if (value === 'piece') conversionFactor = 1; // Custom, user can edit
-                                }
-                                setProductForm({ ...productForm, unit: value, conversion_factor: conversionFactor });
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="piece">Piece</SelectItem>
-                                <SelectItem value="kg">Kg</SelectItem>
-                                <SelectItem value="grams">Grams</SelectItem>
-                                <SelectItem value="liter">Liter</SelectItem>
-                                <SelectItem value="packet">Packet</SelectItem>
-                                <SelectItem value="bottle">Bottle</SelectItem>
-                                <SelectItem value="box">Box</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground mt-1">Unit for selling</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor="rate">Rate per {productForm.base_unit.toUpperCase()}</Label>
-                            <Input
-                              id="rate"
-                              type="number"
-                              step="0.01"
-                              value={productForm.rate}
-                              onChange={(e) => setProductForm({ ...productForm, rate: parseFloat(e.target.value) || 0 })}
-                              placeholder="0.00"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              All base prices stored per {productForm.base_unit.toUpperCase()}
-                            </p>
-                          </div>
-                          <div>
-                            <Label htmlFor="conversion_factor">Conversion Factor</Label>
-                            <Input
-                              id="conversion_factor"
-                              type="number"
-                              step="0.001"
-                              value={productForm.conversion_factor}
-                              onChange={(e) => setProductForm({ ...productForm, conversion_factor: parseFloat(e.target.value) || 0 })}
-                              placeholder="1"
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {productForm.unit} to {productForm.base_unit} (e.g., 0.001 for grams to kg)
-                            </p>
-                          </div>
-                        </div>
-                        {productForm.conversion_factor !== 1 && (
-                          <div className="p-3 bg-muted rounded-lg">
-                            <p className="text-sm font-medium">Calculated Rate per {productForm.unit}:</p>
-                            <p className="text-lg font-bold text-primary">
-                              ₹{(productForm.rate * productForm.conversion_factor).toFixed(2)}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Product Photo</Label>
-                        <div className="space-y-2">
-                          {productForm.sku_image_url && (
-                            <div className="relative w-32 h-32 mx-auto">
-                              <img 
-                                src={productForm.sku_image_url} 
-                                alt="Product" 
-                                className="w-full h-full object-cover rounded border"
-                              />
-                            </div>
-                          )}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setShowPhotoOptions(!showPhotoOptions)}
-                            className="w-full"
-                            disabled={uploadingPhoto}
-                          >
-                            <Camera className="h-4 w-4 mr-2" />
-                            {productForm.sku_image_url ? 'Change Photo' : 'Add Photo'}
-                          </Button>
-                          
-                          {showPhotoOptions && (
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={handleCameraCapture}
-                                className="flex-1"
-                              >
-                                <Camera className="h-4 w-4 mr-2" />
-                                Camera
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={handleGalleryUpload}
-                                className="flex-1"
-                              >
-                                Gallery
-                              </Button>
-                            </div>
-                          )}
-                          
-                          <Input
-                            id="sku-image"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleSkuImageUpload}
-                            className="hidden"
-                          />
-                          
-                          {uploadingPhoto && (
-                            <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              <span className="text-sm text-muted-foreground">Uploading photo...</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Capture or upload a product photo (used for AI stock counting)
-                        </p>
-                      </div>
-                      <div>
-                        <Label htmlFor="stock">Closing Stock</Label>
-                        <Input
-                          id="stock"
-                          type="number"
-                          value={productForm.closing_stock}
-                          onChange={(e) => setProductForm({ ...productForm, closing_stock: parseInt(e.target.value) || 0 })}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="active"
-                          checked={productForm.is_active}
-                          onCheckedChange={(checked) => setProductForm({ ...productForm, is_active: checked })}
-                        />
-                        <Label htmlFor="active">Active</Label>
-                       </div>
-                       </div>
                      </ScrollArea>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
@@ -1678,7 +1467,16 @@ setProductForm({
                     .filter(variant => variant.product_id === selectedProductForVariants)
                     .map((variant) => (
                       <TableRow key={variant.id}>
-                        <TableCell className="font-medium">{variant.variant_name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <span>{variant.variant_name}</span>
+                            {variant.is_focused_product && (
+                              <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                                Focused
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-mono">{variant.sku}</TableCell>
                         <TableCell>₹{variant.price}</TableCell>
                         <TableCell>{variant.stock_quantity}</TableCell>
