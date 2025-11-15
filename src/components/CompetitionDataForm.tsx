@@ -3,13 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Camera, Check, Mic, Square, Edit, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Camera, Mic, Square, Edit } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 
 interface CompetitionRow {
   id: string;
@@ -32,12 +31,11 @@ interface CompetitionDataFormProps {
 }
 
 export const CompetitionDataForm = ({ retailerId, visitId, onSave }: CompetitionDataFormProps) => {
-  const navigate = useNavigate();
   const [rows, setRows] = useState<CompetitionRow[]>([
     { id: "1", competitorId: "", skuId: "", stockQuantity: 0, unit: "KGS", sellingPrice: 0, insight: "", impactLevel: "", needsAttention: false, photoUrls: [], voiceNoteUrls: [] }
   ]);
   const [competitors, setCompetitors] = useState<any[]>([]);
-  const [skus, setSkus] = useState<any[]>([]);
+  const [skus, setSkus] = useState<{ [key: string]: any[] }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [recording, setRecording] = useState<string | null>(null);
@@ -72,15 +70,16 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
     }
   };
 
-  const fetchSKUs = async (competitorId: string) => {
+  const fetchSKUs = async (competitorId: string, rowId: string) => {
     try {
       const { data, error } = await supabase
         .from('competition_skus')
         .select('*')
-        .eq('competitor_id', competitorId);
+        .eq('competitor_id', competitorId)
+        .eq('is_active', true);
 
       if (error) throw error;
-      setSkus(data || []);
+      setSkus(prev => ({ ...prev, [rowId]: data || [] }));
     } catch (error) {
       console.error('Error fetching SKUs:', error);
     }
@@ -112,11 +111,13 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
         }));
         setRows(loadedRows);
         setSavedData(loadedRows);
-
-        const uniqueCompetitorIds = [...new Set(data.map(item => item.competitor_id))];
-        for (const compId of uniqueCompetitorIds) {
-          await fetchSKUs(compId);
-        }
+        
+        // Load SKUs for each competitor
+        loadedRows.forEach(row => {
+          if (row.competitorId) {
+            fetchSKUs(row.competitorId, row.id);
+          }
+        });
       }
     } catch (error) {
       console.error('Error loading saved data:', error);
@@ -124,20 +125,17 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
   };
 
   const updateRow = (id: string, field: keyof CompetitionRow, value: any) => {
-    setRows(prevRows => {
-      const updatedRows = prevRows.map(row => {
-        if (row.id === id) {
-          const updated = { ...row, [field]: value };
-          if (field === 'competitorId') {
-            fetchSKUs(value);
-            updated.skuId = "";
-          }
-          return updated;
+    setRows(prev => prev.map(row => {
+      if (row.id === id) {
+        // If competitor is changing, fetch new SKUs and reset SKU selection
+        if (field === 'competitorId') {
+          fetchSKUs(value, id);
+          return { ...row, [field]: value, skuId: "" };
         }
-        return row;
-      });
-      return updatedRows;
-    });
+        return { ...row, [field]: value };
+      }
+      return row;
+    }));
   };
 
   const addRow = () => {
@@ -163,29 +161,27 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
     }
   };
 
-  const handlePhotoUpload = async (rowId: string, file: File) => {
+  const handlePhotoUpload = async (id: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `competition-photos/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('competition-photos')
+        .from('visits')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('competition-photos')
+        .from('visits')
         .getPublicUrl(filePath);
 
-      setRows(prevRows => prevRows.map(row => {
-        if (row.id === rowId) {
-          return { ...row, photoUrls: [...row.photoUrls, publicUrl] };
-        }
-        return row;
-      }));
-
+      updateRow(id, 'photoUrls', [...rows.find(r => r.id === id)!.photoUrls, publicUrl]);
+      
       toast({
         title: "Success",
         description: "Photo uploaded successfully"
@@ -200,27 +196,32 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
     }
   };
 
-  const startRecording = async (rowId: string) => {
+  const startRecording = async (id: string) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await uploadVoiceNote(rowId, audioBlob);
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        await uploadVoiceNote(id, blob);
         stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
-      setRecording(rowId);
+      setRecording(id);
+      
+      toast({
+        title: "Recording",
+        description: "Voice recording started"
+      });
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
@@ -232,43 +233,38 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
       setRecording(null);
     }
   };
 
-  const uploadVoiceNote = async (rowId: string, blob: Blob) => {
+  const uploadVoiceNote = async (id: string, blob: Blob) => {
     try {
       const fileName = `${Date.now()}.webm`;
-      const filePath = `competition-photos/${fileName}`;
+      const filePath = `voice-notes/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('competition-photos')
+        .from('visits')
         .upload(filePath, blob);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('competition-photos')
+        .from('visits')
         .getPublicUrl(filePath);
 
-      setRows(prevRows => prevRows.map(row => {
-        if (row.id === rowId) {
-          return { ...row, voiceNoteUrls: [...row.voiceNoteUrls, publicUrl] };
-        }
-        return row;
-      }));
-
+      updateRow(id, 'voiceNoteUrls', [...rows.find(r => r.id === id)!.voiceNoteUrls, publicUrl]);
+      
       toast({
         title: "Success",
-        description: "Voice note saved successfully"
+        description: "Voice note uploaded successfully"
       });
     } catch (error) {
       console.error('Error uploading voice note:', error);
       toast({
         title: "Error",
-        description: "Failed to save voice note",
+        description: "Failed to upload voice note",
         variant: "destructive"
       });
     }
@@ -278,20 +274,19 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      if (!user) throw new Error("Not authenticated");
 
+      // Delete existing entries for this visit
       await supabase
         .from('competition_data')
         .delete()
         .eq('visit_id', visitId)
         .eq('retailer_id', retailerId);
 
-      const dataToInsert = rows
+      // Insert new entries
+      const entries = rows
         .filter(row => row.competitorId && row.skuId)
         .map(row => ({
-          retailer_id: retailerId,
-          visit_id: visitId,
-          user_id: user.id,
           competitor_id: row.competitorId,
           sku_id: row.skuId,
           stock_quantity: row.stockQuantity,
@@ -301,31 +296,28 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           impact_level: row.impactLevel,
           needs_attention: row.needsAttention,
           photo_urls: row.photoUrls,
-          voice_note_urls: row.voiceNoteUrls
+          voice_note_urls: row.voiceNoteUrls,
+          retailer_id: retailerId,
+          visit_id: visitId,
+          user_id: user.id
         }));
 
-      if (dataToInsert.length > 0) {
+      if (entries.length > 0) {
         const { error } = await supabase
           .from('competition_data')
-          .insert(dataToInsert);
+          .insert(entries);
 
         if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: "Competition data saved successfully"
-        });
-        
-        setSavedData(rows.filter(row => row.competitorId && row.skuId));
-        setIsEditMode(false);
-        onSave();
-      } else {
-        toast({
-          title: "Warning",
-          description: "Please fill in at least one complete row",
-          variant: "destructive"
-        });
       }
+
+      toast({
+        title: "Success",
+        description: "Competition data saved successfully"
+      });
+      
+      setSavedData(rows);
+      setIsEditMode(false);
+      onSave();
     } catch (error) {
       console.error('Error saving data:', error);
       toast({
@@ -339,307 +331,311 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div className="p-4">Loading...</div>;
   }
 
-  // Display mode - show saved data as read-only cards
+  // Display mode - show saved data
   if (!isEditMode && savedData.length > 0) {
     return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Competition Tracking</CardTitle>
-          <Button onClick={() => setIsEditMode(true)} size="sm" variant="outline">
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">Competition Data</h3>
+          <Button onClick={() => setIsEditMode(true)} variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {savedData.map((row) => {
-              const competitor = competitors.find(c => c.id === row.competitorId);
-              const sku = skus.find(s => s.id === row.skuId);
-              
-              return (
-                <div key={row.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-semibold text-primary hover:underline"
-                        onClick={() => navigate('/competition-master')}
-                      >
-                        {competitor?.competitor_name || 'Unknown'}
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
+        </div>
+        
+        <div className="space-y-4">
+          {savedData.map((row) => {
+            const competitor = competitors.find(c => c.id === row.competitorId);
+            const sku = skus[row.id]?.find(s => s.id === row.skuId);
+            
+            return (
+              <Card key={row.id}>
+                <CardContent className="pt-6 space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Competitor</p>
+                    <p className="font-medium">{competitor?.competitor_name || 'Unknown'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">SKU</p>
+                      <p className="font-medium">{sku?.sku_name || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Unit</p>
+                      <p className="font-medium">{row.unit}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Stock Quantity</p>
+                      <p className="font-medium">{row.stockQuantity}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Selling Price</p>
+                      <p className="font-medium">₹{row.sellingPrice}</p>
+                    </div>
+                  </div>
+                  {(row.insight || row.impactLevel || row.needsAttention) && (
+                    <div className="pt-4 border-t space-y-2">
+                      {row.insight && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Retailer Feedback</p>
+                          <p className="font-medium">{row.insight}</p>
+                        </div>
+                      )}
+                      {row.impactLevel && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Impact Level</p>
+                          <p className="font-medium">{row.impactLevel}</p>
+                        </div>
+                      )}
                       {row.needsAttention && (
-                        <Badge variant="destructive">Needs Attention</Badge>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-muted-foreground">Needs Attention</p>
+                          <span className="text-destructive font-medium">Yes</span>
+                        </div>
                       )}
                     </div>
-                    {row.impactLevel && (
-                      <Badge variant={
-                        row.impactLevel === 'positive' ? 'default' : 
-                        row.impactLevel === 'negative' ? 'destructive' : 
-                        'secondary'
-                      }>
-                        {row.impactLevel.charAt(0).toUpperCase() + row.impactLevel.slice(1)}
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">SKU:</span> {sku?.sku_name || 'Unknown'}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Stock:</span> {row.stockQuantity} {row.unit}
-                    </div>
-                    {row.sellingPrice > 0 && (
-                      <div>
-                        <span className="text-muted-foreground">Price:</span> ₹{row.sellingPrice}
-                      </div>
-                    )}
-                    {row.insight && (
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Insight:</span> {row.insight}
-                      </div>
-                    )}
-                  </div>
-
-                  {(row.photoUrls.length > 0 || row.voiceNoteUrls.length > 0) && (
-                    <div className="flex gap-2 pt-2">
-                      {row.photoUrls.map((url, idx) => (
-                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                          <img src={url} alt="Competition" className="h-16 w-16 object-cover rounded border" />
-                        </a>
-                      ))}
-                      {row.voiceNoteUrls.map((url, idx) => (
-                        <audio key={idx} controls src={url} className="h-8" />
-                      ))}
-                    </div>
                   )}
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
     );
   }
 
-  // Edit mode - mobile-friendly card layout
+  // Edit mode - show form with two sections
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Competition Tracking</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-4">
-          {rows.map((row, index) => (
-            <div key={row.id} className="border rounded-lg p-4 space-y-3 bg-card">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-muted-foreground">Entry #{index + 1}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteRow(row.id)}
-                  disabled={rows.length === 1}
-                  className="h-8 w-8"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+    <div className="space-y-6">
+      {/* Section 1: Competition Stock */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>1. Competition Stock</span>
+            <Button onClick={addRow} size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Row
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left text-sm font-medium">Competitor</th>
+                  <th className="p-2 text-left text-sm font-medium">SKU</th>
+                  <th className="p-2 text-left text-sm font-medium">Unit</th>
+                  <th className="p-2 text-left text-sm font-medium">Stock Qty</th>
+                  <th className="p-2 text-left text-sm font-medium">Price (₹)</th>
+                  <th className="p-2 text-center text-sm font-medium w-[50px]">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-b">
+                    <td className="p-2">
+                      <Select
+                        value={row.competitorId}
+                        onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select competitor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {competitors.map((comp) => (
+                            <SelectItem key={comp.id} value={comp.id}>
+                              {comp.competitor_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-2">
+                      <Select
+                        value={row.skuId}
+                        onValueChange={(value) => updateRow(row.id, 'skuId', value)}
+                        disabled={!row.competitorId}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select SKU" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(skus[row.id] || []).map((sku) => (
+                            <SelectItem key={sku.id} value={sku.id}>
+                              {sku.sku_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-2">
+                      <Select
+                        value={row.unit}
+                        onValueChange={(value) => updateRow(row.id, 'unit', value)}
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="KGS">KGS</SelectItem>
+                          <SelectItem value="LTRS">LTRS</SelectItem>
+                          <SelectItem value="UNITS">UNITS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-2">
+                      <Input
+                        type="number"
+                        value={row.stockQuantity}
+                        onChange={(e) => updateRow(row.id, 'stockQuantity', parseFloat(e.target.value) || 0)}
+                        className="w-[100px]"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <Input
+                        type="number"
+                        value={row.sellingPrice}
+                        onChange={(e) => updateRow(row.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
+                        className="w-[120px]"
+                      />
+                    </td>
+                    <td className="p-2 text-center">
+                      <Button
+                        onClick={() => deleteRow(row.id)}
+                        variant="ghost"
+                        size="sm"
+                        disabled={rows.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
-              <div className="space-y-3">
-                {/* Competitor */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Competitor</Label>
-                  <Select
-                    value={row.competitorId}
-                    onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Competitor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {competitors.map((comp) => (
-                        <SelectItem key={comp.id} value={comp.id}>
-                          {comp.competitor_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {/* Section 2: Retailer Feedback on Competition */}
+      <Card>
+        <CardHeader>
+          <CardTitle>2. Retailer Feedback on Competition</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {rows.map((row, index) => {
+            const competitor = competitors.find(c => c.id === row.competitorId);
+            const sku = skus[row.id]?.find(s => s.id === row.skuId);
+            
+            return (
+              <div key={row.id} className="p-4 border rounded-lg space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">
+                    Entry {index + 1}: {competitor?.competitor_name || 'Select competitor'} - {sku?.sku_name || 'Select SKU'}
+                  </h4>
                 </div>
 
-                {/* SKU */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm">SKU</Label>
-                  <Select
-                    value={row.skuId}
-                    onValueChange={(value) => updateRow(row.id, 'skuId', value)}
-                    disabled={!row.competitorId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select SKU" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {skus
-                        .filter(sku => sku.competitor_id === row.competitorId)
-                        .map((sku) => (
-                          <SelectItem key={sku.id} value={sku.id}>
-                            {sku.sku_name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Stock and Unit */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm">Stock Quantity</Label>
-                    <Input
-                      type="number"
-                      value={row.stockQuantity}
-                      onChange={(e) => updateRow(row.id, 'stockQuantity', parseInt(e.target.value) || 0)}
-                      placeholder="0"
+                <div className="space-y-4">
+                  <div>
+                    <Label>Retailer Feedback / Insight</Label>
+                    <Textarea
+                      value={row.insight}
+                      onChange={(e) => updateRow(row.id, 'insight', e.target.value)}
+                      placeholder="Enter retailer feedback about this competition product..."
+                      className="mt-1"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm">Unit</Label>
-                    <Select
-                      value={row.unit}
-                      onValueChange={(value) => updateRow(row.id, 'unit', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="KGS">KGS</SelectItem>
-                        <SelectItem value="Grams">Grams</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                {/* Selling Price */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Selling Price (₹)</Label>
-                  <Input
-                    type="number"
-                    value={row.sellingPrice}
-                    onChange={(e) => updateRow(row.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Impact Level</Label>
+                      <Select
+                        value={row.impactLevel}
+                        onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select impact level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {/* Insight */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Insight</Label>
-                  <Select
-                    value={row.insight}
-                    onValueChange={(value) => updateRow(row.id, 'insight', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Insight" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pricing">Pricing</SelectItem>
-                      <SelectItem value="promotion">Promotion</SelectItem>
-                      <SelectItem value="shelf_space">Shelf Space</SelectItem>
-                      <SelectItem value="new_product">New Product</SelectItem>
-                      <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Retailer Feedback */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Retailer Feedback</Label>
-                  <Select
-                    value={row.impactLevel}
-                    onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Feedback" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="positive">Positive</SelectItem>
-                      <SelectItem value="neutral">Neutral</SelectItem>
-                      <SelectItem value="negative">Negative</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Needs Attention */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`attention-${row.id}`}
-                    checked={row.needsAttention}
-                    onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
-                  />
-                  <Label htmlFor={`attention-${row.id}`} className="text-sm font-normal cursor-pointer">
-                    Needs Attention
-                  </Label>
-                </div>
-
-                {/* Media */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Media</Label>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`photo-${row.id}`} className="cursor-pointer">
-                        <div className="flex items-center gap-1 px-3 py-2 border rounded-md hover:bg-accent">
-                          <Camera className="h-4 w-4" />
-                          <span className="text-sm">Photo ({row.photoUrls.length})</span>
-                        </div>
+                    <div className="flex items-center space-x-2 pt-6">
+                      <Checkbox
+                        id={`attention-${row.id}`}
+                        checked={row.needsAttention}
+                        onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
+                      />
+                      <Label htmlFor={`attention-${row.id}`}>
+                        Action Required / Needs Attention
                       </Label>
-                      <Input
-                        id={`photo-${row.id}`}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <div>
+                      <input
                         type="file"
                         accept="image/*"
+                        onChange={(e) => handlePhotoUpload(row.id, e)}
                         className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handlePhotoUpload(row.id, file);
-                        }}
+                        id={`photo-${row.id}`}
                       />
+                      <Button
+                        onClick={() => document.getElementById(`photo-${row.id}`)?.click()}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Camera className="h-4 w-4 mr-2" />
+                        Add Photo ({row.photoUrls.length})
+                      </Button>
                     </div>
+
                     <Button
-                      variant="outline"
-                      size="sm"
                       onClick={() => recording === row.id ? stopRecording() : startRecording(row.id)}
-                      className="gap-1"
+                      variant={recording === row.id ? "destructive" : "outline"}
+                      size="sm"
                     >
                       {recording === row.id ? (
                         <>
-                          <Square className="h-4 w-4 text-red-500" />
-                          <span>Stop</span>
+                          <Square className="h-4 w-4 mr-2" />
+                          Stop Recording
                         </>
                       ) : (
                         <>
-                          <Mic className="h-4 w-4" />
-                          <span>Voice ({row.voiceNoteUrls.length})</span>
+                          <Mic className="h-4 w-4 mr-2" />
+                          Voice Note ({row.voiceNoteUrls.length})
                         </>
                       )}
                     </Button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
-        <div className="flex gap-2">
-          <Button onClick={addRow} variant="outline" size="sm" className="flex-1">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Entry
+      {/* Action Buttons */}
+      <div className="flex gap-2 justify-end">
+        {savedData.length > 0 && (
+          <Button onClick={() => setIsEditMode(false)} variant="outline">
+            Cancel
           </Button>
-          <Button onClick={saveData} disabled={saving} size="sm" className="flex-1">
-            <Check className="h-4 w-4 mr-2" />
-            {saving ? "Saving..." : "Save All"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+        <Button onClick={saveData} disabled={saving}>
+          {saving ? "Saving..." : "Save All Data"}
+        </Button>
+      </div>
+    </div>
   );
-};
+}
