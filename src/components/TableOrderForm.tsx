@@ -169,6 +169,11 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           conversion_factor,
           closing_stock,
           is_active,
+          is_focused_product,
+          focused_type,
+          focused_due_date,
+          focused_recurring_config,
+          focused_territories,
           category_id,
           category:product_categories(name)
         `)

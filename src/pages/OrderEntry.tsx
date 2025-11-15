@@ -578,6 +578,11 @@ export const OrderEntry = () => {
             hasScheme: productSchemes.length > 0,
             schemeDetails: productSchemes.length > 0 ? productSchemes.map(s => `${s.name}: ${getSchemeDescription(s)}`).join('; ') : undefined,
             closingStock: p.closing_stock || 0,
+            is_focused_product: p.is_focused_product || false,
+            focused_type: p.focused_type,
+            focused_due_date: p.focused_due_date,
+            focused_recurring_config: p.focused_recurring_config,
+            focused_territories: p.focused_territories,
             variants: productVariants.map((v: any) => ({
               id: v.id,
               variant_name: v.variant_name,
@@ -586,7 +591,12 @@ export const OrderEntry = () => {
               stock_quantity: v.stock_quantity,
               discount_percentage: v.discount_percentage,
               discount_amount: v.discount_amount,
-              is_active: v.is_active
+              is_active: v.is_active,
+              is_focused_product: v.is_focused_product || false,
+              focused_type: v.focused_type,
+              focused_due_date: v.focused_due_date,
+              focused_recurring_config: v.focused_recurring_config,
+              focused_territories: v.focused_territories
             })),
             sku: p.sku
           };
