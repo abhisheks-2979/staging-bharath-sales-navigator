@@ -8,11 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, ArrowLeft, Users, TrendingUp } from "lucide-react";
+import { Plus, Edit, Trash2, ArrowLeft, Users, Sparkles, BarChart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { CompetitionDataList } from "@/components/competition/CompetitionDataList";
+import { CompetitionAISummary } from "@/components/competition/CompetitionAISummary";
+import { CompetitionRetailerAnalytics } from "@/components/competition/CompetitionRetailerAnalytics";
 
 interface Competitor {
   id: string;
@@ -27,6 +30,9 @@ interface CompetitorSKU {
   competitor_id: string;
   sku_name: string;
   unit: string;
+  demand?: string;
+  observations?: number;
+  avgStock?: string;
 }
 
 interface CompetitorContact {
@@ -52,7 +58,6 @@ export default function CompetitionMaster() {
   const [isSKUDialogOpen, setIsSKUDialogOpen] = useState(false);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
 
-  // Form states
   const [formData, setFormData] = useState({
     competitor_name: "",
     business_background: "",
@@ -97,6 +102,31 @@ export default function CompetitionMaster() {
     }
   };
 
+  const analyzeSKUDemand = (skus: any[], competitionData: any[]) => {
+    const skuDemandData = skus.map(sku => {
+      const skuData = competitionData.filter(d => d.sku_id === sku.id);
+      const totalStock = skuData.reduce((sum, d) => sum + (d.stock_quantity || 0), 0);
+      const avgStock = skuData.length > 0 ? totalStock / skuData.length : 0;
+      const observations = skuData.length;
+
+      let demand = 'Low';
+      if (observations >= 5 && avgStock > 50) {
+        demand = 'High';
+      } else if (observations >= 3 && avgStock > 20) {
+        demand = 'Medium';
+      }
+
+      return {
+        ...sku,
+        demand,
+        observations,
+        avgStock: avgStock.toFixed(1)
+      };
+    });
+
+    setSKUs(skuDemandData);
+  };
+
   const fetchCompetitorDetails = async (competitorId: string) => {
     try {
       const [skusRes, contactsRes, dataRes] = await Promise.all([
@@ -112,33 +142,36 @@ export default function CompetitionMaster() {
       if (contactsRes.error) throw contactsRes.error;
       if (dataRes.error) throw dataRes.error;
 
-      // Fetch retailer and visit details separately
       const retailerIds = [...new Set(dataRes.data?.map(d => d.retailer_id).filter(Boolean) || [])];
       const visitIds = [...new Set(dataRes.data?.map(d => d.visit_id).filter(Boolean) || [])];
 
       const [retailersRes, visitsRes] = await Promise.all([
         retailerIds.length > 0 
-          ? supabase.from('retailers').select('id, name').in('id', retailerIds)
+          ? supabase.from('retailers').select('id, name, address, location_tag').in('id', retailerIds)
           : Promise.resolve({ data: [], error: null }),
         visitIds.length > 0
-          ? supabase.from('visits').select('id, visit_date').in('id', visitIds)
+          ? supabase.from('visits').select('id, visit_date, user_id').in('id', visitIds)
           : Promise.resolve({ data: [], error: null })
       ]);
 
-      // Create maps for easy lookup
       const retailersMap = new Map((retailersRes.data || []).map(r => [r.id, r]));
       const visitsMap = new Map((visitsRes.data || []).map(v => [v.id, v]));
 
-      // Enhance competition data with retailer and visit info
       const enhancedData = dataRes.data?.map(d => ({
         ...d,
+        sku_name: skusRes.data?.find(s => s.id === d.sku_id)?.sku_name || 'Unknown',
         retailers: d.retailer_id ? retailersMap.get(d.retailer_id) : null,
         visits: d.visit_id ? visitsMap.get(d.visit_id) : null
       })) || [];
 
-      setSKUs(skusRes.data || []);
       setContacts(contactsRes.data || []);
       setCompetitionData(enhancedData);
+      
+      if (skusRes.data && skusRes.data.length > 0) {
+        analyzeSKUDemand(skusRes.data, enhancedData);
+      } else {
+        setSKUs([]);
+      }
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -151,204 +184,104 @@ export default function CompetitionMaster() {
 
   const handleAddCompetitor = async () => {
     try {
-      const { error } = await supabase
-        .from('competition_master')
-        .insert([formData]);
-
+      const { error } = await supabase.from('competition_master').insert([formData]);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Competitor added successfully"
-      });
-
+      toast({ title: "Success", description: "Competitor added successfully" });
       setIsAddDialogOpen(false);
       setFormData({ competitor_name: "", business_background: "", key_financial_stats: {} });
       fetchCompetitors();
     } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add competitor",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to add competitor", variant: "destructive" });
     }
   };
 
   const handleUpdateCompetitor = async () => {
     if (!selectedCompetitor) return;
-
     try {
-      const { error } = await supabase
-        .from('competition_master')
-        .update(formData)
-        .eq('id', selectedCompetitor.id);
-
+      const { error } = await supabase.from('competition_master').update(formData).eq('id', selectedCompetitor.id);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Competitor updated successfully"
-      });
-
+      toast({ title: "Success", description: "Competitor updated successfully" });
       setIsEditDialogOpen(false);
-      setSelectedCompetitor(null);
-      setFormData({ competitor_name: "", business_background: "", key_financial_stats: {} });
       fetchCompetitors();
     } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update competitor",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to update competitor", variant: "destructive" });
     }
   };
 
   const handleDeleteCompetitor = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this competitor?')) return;
-
+    if (userRole !== 'admin') {
+      toast({ title: "Permission Denied", description: "Only admins can delete competitors", variant: "destructive" });
+      return;
+    }
+    if (!confirm("Are you sure?")) return;
     try {
-      const { error } = await supabase
-        .from('competition_master')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('competition_master').delete().eq('id', id);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Competitor deleted successfully"
-      });
-
+      toast({ title: "Success", description: "Competitor deleted successfully" });
       fetchCompetitors();
     } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete competitor",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to delete competitor", variant: "destructive" });
     }
   };
 
   const handleAddSKU = async () => {
     if (!selectedCompetitor) return;
-
     try {
-      const { error } = await supabase
-        .from('competition_skus')
-        .insert([{ ...skuForm, competitor_id: selectedCompetitor.id }]);
-
+      const { error } = await supabase.from('competition_skus').insert([{ competitor_id: selectedCompetitor.id, ...skuForm }]);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "SKU added successfully"
-      });
-
+      toast({ title: "Success", description: "SKU added successfully" });
       setIsSKUDialogOpen(false);
       setSKUForm({ sku_name: "", unit: "" });
       fetchCompetitorDetails(selectedCompetitor.id);
     } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add SKU",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to add SKU", variant: "destructive" });
     }
   };
 
   const handleAddContact = async () => {
     if (!selectedCompetitor) return;
-
     try {
-      const { error } = await supabase
-        .from('competition_contacts')
-        .insert([{ ...contactForm, competitor_id: selectedCompetitor.id }]);
-
+      const { error } = await supabase.from('competition_contacts').insert([{ competitor_id: selectedCompetitor.id, ...contactForm }]);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Contact added successfully"
-      });
-
+      toast({ title: "Success", description: "Contact added successfully" });
       setIsContactDialogOpen(false);
       setContactForm({ contact_name: "", contact_phone: "", contact_email: "", designation: "" });
       fetchCompetitorDetails(selectedCompetitor.id);
     } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add contact",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to add contact", variant: "destructive" });
     }
   };
 
-  const openEditDialog = (competitor: Competitor) => {
-    setSelectedCompetitor(competitor);
-    setFormData({
-      competitor_name: competitor.competitor_name,
-      business_background: competitor.business_background || "",
-      key_financial_stats: competitor.key_financial_stats || {}
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  const openDetailsDialog = (competitor: Competitor) => {
-    setSelectedCompetitor(competitor);
-    fetchCompetitorDetails(competitor.id);
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  if (loading) return <div className="p-8">Loading...</div>;
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-3xl font-bold">Competition Master</h1>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4" /></Button>
+        <div>
+          <h1 className="text-3xl font-bold">Competition Master</h1>
+          <p className="text-muted-foreground">Manage competitor information and intelligence</p>
+        </div>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Competitors</CardTitle>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Competitor
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Competitor</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Competitor Name</Label>
-                  <Input
-                    value={formData.competitor_name}
-                    onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })}
-                  />
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Competitors</CardTitle>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="h-4 w-4 mr-2" />Add Competitor</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Add New Competitor</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
+                  <div><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
+                  <Button onClick={handleAddCompetitor} className="w-full">Add Competitor</Button>
                 </div>
-                <div>
-                  <Label>Business Background</Label>
-                  <Textarea
-                    value={formData.business_background}
-                    onChange={(e) => setFormData({ ...formData, business_background: e.target.value })}
-                  />
-                </div>
-                <Button onClick={handleAddCompetitor} className="w-full">Add Competitor</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -356,38 +289,25 @@ export default function CompetitionMaster() {
               <TableRow>
                 <TableHead>Competitor Name</TableHead>
                 <TableHead>Business Background</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {competitors.map((competitor) => (
                 <TableRow key={competitor.id}>
                   <TableCell className="font-medium">{competitor.competitor_name}</TableCell>
-                  <TableCell>{competitor.business_background || '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openDetailsDialog(competitor)}
-                      >
-                        <Users className="h-4 w-4" />
+                  <TableCell>{competitor.business_background?.substring(0, 100)}</TableCell>
+                  <TableCell>{new Date(competitor.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedCompetitor(competitor); fetchCompetitorDetails(competitor.id); }}>
+                        <Users className="h-4 w-4 mr-1" />View Details
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(competitor)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedCompetitor(competitor); setFormData({ competitor_name: competitor.competitor_name, business_background: competitor.business_background, key_financial_stats: competitor.key_financial_stats }); setIsEditDialogOpen(true); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteCompetitor(competitor.id)}
-                        disabled={userRole !== 'admin'}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {userRole === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDeleteCompetitor(competitor.id)}><Trash2 className="h-4 w-4" /></Button>}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -397,242 +317,111 @@ export default function CompetitionMaster() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Competitor</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Competitor</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Competitor Name</Label>
-              <Input
-                value={formData.competitor_name}
-                onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Business Background</Label>
-              <Textarea
-                value={formData.business_background}
-                onChange={(e) => setFormData({ ...formData, business_background: e.target.value })}
-              />
-            </div>
+            <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
+            <div><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
             <Button onClick={handleUpdateCompetitor} className="w-full">Update Competitor</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Details Dialog */}
       <Dialog open={selectedCompetitor !== null && !isEditDialogOpen} onOpenChange={() => setSelectedCompetitor(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{selectedCompetitor?.competitor_name} - Details</DialogTitle>
-          </DialogHeader>
-          <Tabs defaultValue="skus">
-            <TabsList>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{selectedCompetitor?.competitor_name} - Intelligence Hub</DialogTitle></DialogHeader>
+          <Tabs defaultValue="skus" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="skus">SKUs</TabsTrigger>
               <TabsTrigger value="contacts">Contacts</TabsTrigger>
               <TabsTrigger value="data">Competition Data</TabsTrigger>
+              <TabsTrigger value="ai-summary"><Sparkles className="h-4 w-4 mr-1" />AI Summary</TabsTrigger>
+              <TabsTrigger value="analytics"><BarChart className="h-4 w-4 mr-1" />Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="skus">
-              <div className="space-y-4">
-                <Dialog open={isSKUDialogOpen} onOpenChange={setIsSKUDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add SKU
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add SKU</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>SKU Name</Label>
-                        <Input
-                          value={skuForm.sku_name}
-                          onChange={(e) => setSKUForm({ ...skuForm, sku_name: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Unit</Label>
-                        <Input
-                          value={skuForm.unit}
-                          onChange={(e) => setSKUForm({ ...skuForm, unit: e.target.value })}
-                        />
-                      </div>
-                      <Button onClick={handleAddSKU} className="w-full">Add SKU</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU Name</TableHead>
-                      <TableHead>Unit</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {skus.map((sku) => (
-                      <TableRow key={sku.id}>
-                        <TableCell>{sku.sku_name}</TableCell>
-                        <TableCell>{sku.unit}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-            <TabsContent value="contacts">
-              <div className="space-y-4">
-                <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Contact
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Contact</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Name</Label>
-                        <Input
-                          value={contactForm.contact_name}
-                          onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Phone</Label>
-                        <Input
-                          value={contactForm.contact_phone}
-                          onChange={(e) => setContactForm({ ...contactForm, contact_phone: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Email</Label>
-                        <Input
-                          value={contactForm.contact_email}
-                          onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Designation</Label>
-                        <Input
-                          value={contactForm.designation}
-                          onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })}
-                        />
-                      </div>
-                      <Button onClick={handleAddContact} className="w-full">Add Contact</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Designation</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {contacts.map((contact) => (
-                      <TableRow key={contact.id}>
-                        <TableCell>{contact.contact_name}</TableCell>
-                        <TableCell>{contact.contact_phone}</TableCell>
-                        <TableCell>{contact.contact_email}</TableCell>
-                        <TableCell>{contact.designation}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-            <TabsContent value="data">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Competition Intelligence
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    All competition data captured from visits
-                  </p>
-                </div>
-                
-                {competitionData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No competition data captured yet
-                  </div>
-                ) : (
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                    {competitionData.map((data) => (
-                      <Card key={data.id}>
-                        <CardContent className="pt-6">
-                          <div className="grid gap-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">
-                                  {skus.find(s => s.id === data.sku_id)?.sku_name || 'Unknown SKU'}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {data.retailers?.name} • {data.visits?.visit_date ? new Date(data.visits.visit_date).toLocaleDateString() : new Date(data.created_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                {data.needs_attention && (
-                                  <Badge variant="destructive">Needs Attention</Badge>
-                                )}
-                                {data.impact_level && (
-                                  <Badge variant={
-                                    data.impact_level === 'high' ? 'destructive' :
-                                    data.impact_level === 'medium' ? 'default' : 'secondary'
-                                  }>
-                                    {data.impact_level} Impact
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">Stock Quantity</p>
-                                <p className="font-medium">{data.stock_quantity} {data.unit}</p>
-                              </div>
-                              {data.insight && (
-                                <div>
-                                  <p className="text-muted-foreground">Insight</p>
-                                  <p className="font-medium capitalize">{data.insight.replace('_', ' ')}</p>
-                                </div>
-                              )}
-                            </div>
 
-                            <div className="flex gap-2">
-                              {data.photo_urls && data.photo_urls.length > 0 && (
-                                <Badge variant="outline">
-                                  {data.photo_urls.length} Photo{data.photo_urls.length > 1 ? 's' : ''}
-                                </Badge>
-                              )}
-                              {data.voice_note_urls && data.voice_note_urls.length > 0 && (
-                                <Badge variant="outline">
-                                  {data.voice_note_urls.length} Voice Note{data.voice_note_urls.length > 1 ? 's' : ''}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+            <TabsContent value="skus" className="space-y-4">
+              <Dialog open={isSKUDialogOpen} onOpenChange={setIsSKUDialogOpen}>
+                <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-2" />Add SKU</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Add SKU</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <div><Label>SKU Name</Label><Input value={skuForm.sku_name} onChange={(e) => setSKUForm({ ...skuForm, sku_name: e.target.value })} /></div>
+                    <div><Label>Unit</Label><Input value={skuForm.unit} onChange={(e) => setSKUForm({ ...skuForm, unit: e.target.value })} /></div>
+                    <Button onClick={handleAddSKU} className="w-full">Add SKU</Button>
                   </div>
-                )}
-              </div>
+                </DialogContent>
+              </Dialog>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>SKU Name</TableHead>
+                    <TableHead>Unit</TableHead>
+                    <TableHead>Demand</TableHead>
+                    <TableHead>Observations</TableHead>
+                    <TableHead>Avg Stock</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {skus.map((sku) => (
+                    <TableRow key={sku.id}>
+                      <TableCell className="font-medium">{sku.sku_name}</TableCell>
+                      <TableCell>{sku.unit}</TableCell>
+                      <TableCell><Badge variant={sku.demand === 'High' ? 'destructive' : sku.demand === 'Medium' ? 'default' : 'secondary'}>{sku.demand || 'Not Analyzed'}</Badge></TableCell>
+                      <TableCell>{sku.observations || 0}</TableCell>
+                      <TableCell>{sku.avgStock || '0'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </TabsContent>
+
+            <TabsContent value="contacts" className="space-y-4">
+              <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+                <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-2" />Add Contact</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Add Contact</DialogTitle></DialogHeader>
+                  <div className="space-y-4">
+                    <div><Label>Contact Name</Label><Input value={contactForm.contact_name} onChange={(e) => setContactForm({ ...contactForm, contact_name: e.target.value })} /></div>
+                    <div><Label>Phone</Label><Input value={contactForm.contact_phone} onChange={(e) => setContactForm({ ...contactForm, contact_phone: e.target.value })} /></div>
+                    <div><Label>Email</Label><Input value={contactForm.contact_email} onChange={(e) => setContactForm({ ...contactForm, contact_email: e.target.value })} /></div>
+                    <div><Label>Designation</Label><Input value={contactForm.designation} onChange={(e) => setContactForm({ ...contactForm, designation: e.target.value })} /></div>
+                    <Button onClick={handleAddContact} className="w-full">Add Contact</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Table>
+                <TableHeader>
+                  <TableRow><TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Email</TableHead><TableHead>Designation</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contacts.map((contact) => (
+                    <TableRow key={contact.id}>
+                      <TableCell>{contact.contact_name}</TableCell>
+                      <TableCell>{contact.contact_phone}</TableCell>
+                      <TableCell>{contact.contact_email}</TableCell>
+                      <TableCell>{contact.designation}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TabsContent>
+
+            <TabsContent value="data"><CompetitionDataList data={competitionData} skus={skus} /></TabsContent>
+            <TabsContent value="ai-summary"><CompetitionAISummary competitorId={selectedCompetitor?.id || ''} competitorName={selectedCompetitor?.competitor_name || ''} competitionData={competitionData} /></TabsContent>
+            <TabsContent value="analytics"><CompetitionRetailerAnalytics competitionData={competitionData} skus={skus} /></TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Competitor</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Competitor Name</Label><Input value={formData.competitor_name} onChange={(e) => setFormData({ ...formData, competitor_name: e.target.value })} /></div>
+            <div><Label>Business Background</Label><Textarea value={formData.business_background} onChange={(e) => setFormData({ ...formData, business_background: e.target.value })} /></div>
+            <Button onClick={handleUpdateCompetitor} className="w-full">Update Competitor</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
