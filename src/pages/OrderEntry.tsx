@@ -55,6 +55,7 @@ interface GridProduct {
   variants?: ProductVariant[];
   selectedVariantId?: string;
   sku?: string;
+  is_focused_product?: boolean;
 }
 interface ProductVariant {
   id: string;
@@ -1652,13 +1653,18 @@ export const OrderEntry = () => {
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-sm cursor-pointer text-primary hover:underline" onClick={() => {
+                      <h3 className="font-semibold text-sm cursor-pointer text-primary hover:underline flex items-center gap-2" onClick={() => {
                         // Close all other products and open this one
                         setExpandedProducts({
                           [product.id]: true
                         });
                       }}>
                         {product.name}
+                        {product.is_focused_product && (
+                          <Badge className="text-[10px] bg-orange-500 hover:bg-orange-600 px-1.5 py-0">
+                            Focused
+                          </Badge>
+                        )}
                       </h3>
                       <p className="text-xs text-muted-foreground">{product.category}</p>
                       {displayProduct.sku && <p className="text-xs text-blue-600 font-mono">SKU: {displayProduct.sku}</p>}
@@ -1728,7 +1734,14 @@ export const OrderEntry = () => {
                           
                           {/* Base Product Row */}
                           <div className="grid grid-cols-5 gap-1 p-2 text-xs border-t">
-                            <div className="text-xs">{product.name}</div>
+                            <div className="text-xs flex items-center gap-1">
+                              <span>{product.name}</span>
+                              {product.is_focused_product && (
+                                <Badge className="text-[9px] bg-orange-500 hover:bg-orange-600 px-1 py-0">
+                                  Focused
+                                </Badge>
+                              )}
+                            </div>
                             <div className="font-medium">
                               {(() => {
                                 const selectedUnit = selectedUnits[product.id] || product.unit || 'kg';

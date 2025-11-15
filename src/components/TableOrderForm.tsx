@@ -579,16 +579,23 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
                           >
                             {row.product ? (
                               <div className="flex flex-col items-start w-full gap-2">
-                                <span className="truncate text-left w-full font-medium text-foreground">
-                                  {row.variant ? (() => {
-                                    let variantDisplayName = row.variant.variant_name;
-                                    if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
-                                      variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                      variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-                                    }
-                                    return variantDisplayName || row.variant.variant_name;
-                                  })() : row.product.name}
-                                 </span>
+                                <div className="flex items-center gap-2 w-full">
+                                  <span className="truncate text-left flex-1 font-medium text-foreground">
+                                    {row.variant ? (() => {
+                                      let variantDisplayName = row.variant.variant_name;
+                                      if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
+                                        variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
+                                        variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
+                                      }
+                                      return variantDisplayName || row.variant.variant_name;
+                                    })() : row.product.name}
+                                  </span>
+                                  {row.product.is_focused_product && (
+                                    <Badge className="text-[9px] bg-orange-500 hover:bg-orange-600 px-1.5 py-0 shrink-0">
+                                      Focused
+                                    </Badge>
+                                  )}
+                                </div>
                                 {row.product.base_unit ? (() => {
                                   const pricePerUnit = getPricePerUnit(row.product!, row.variant, row.unit);
                                   const baseUnit = (row.product!.base_unit || row.product!.unit || '').toLowerCase();
