@@ -1,21 +1,45 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useEffect, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Lightbulb, Target, AlertCircle, Newspaper, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, TrendingUp, AlertTriangle, Calendar } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface CompetitionAISummaryProps {
   competitorId: string;
   competitorName: string;
   competitionData: any[];
+  competitorData?: any;
 }
 
-export function CompetitionAISummary({ competitorId, competitorName, competitionData }: CompetitionAISummaryProps) {
+interface SWOTAnalysis {
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
+interface NewsItem {
+  title: string;
+  summary: string;
+  source: string;
+  date: string;
+  url: string;
+}
+
+export const CompetitionAISummary: React.FC<CompetitionAISummaryProps> = ({
+  competitorId,
+  competitorName,
+  competitionData,
+  competitorData,
+}) => {
   const [summary, setSummary] = useState<string>("");
   const [monthlySummaries, setMonthlySummaries] = useState<any[]>([]);
+  const [swot, setSwot] = useState<SWOTAnalysis | null>(null);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -27,224 +51,350 @@ export function CompetitionAISummary({ competitorId, competitorName, competition
   const generateSummary = async () => {
     setLoading(true);
     try {
-      // Prepare data for AI analysis
-      const dataForAnalysis = competitionData.map(d => ({
-        sku: d.sku_name,
-        retailer: d.retailers?.name,
-        date: d.visits?.planned_date || d.created_at,
-        stockQty: d.stock_quantity,
-        unit: d.unit,
-        insight: d.insight,
-        impactLevel: d.impact_level,
-        needsAttention: d.needs_attention
-      }));
-
-      // Group by month
-      const monthlyData = groupByMonth(dataForAnalysis);
-
-      const prompt = `Analyze the following competition data for ${competitorName}:
-
-Total data points: ${competitionData.length}
-High impact observations: ${competitionData.filter(d => d.impact_level === 'high').length}
-Items needing attention: ${competitionData.filter(d => d.needs_attention).length}
-
-Monthly breakdown:
-${Object.entries(monthlyData).map(([month, data]: [string, any]) => 
-  `${month}: ${data.length} observations, ${data.filter((d: any) => d.needsAttention).length} needing attention`
-).join('\n')}
-
-Provide a comprehensive competition intelligence summary covering:
-1. Overall competitive threat assessment
-2. Key trends and patterns observed
-3. Most concerning findings (high impact items)
-4. Product-wise insights
-5. Geographic patterns if multiple retailers
-6. Actionable recommendations
-
-Keep it concise and business-focused.`;
-
-      // Generate basic summary since edge function doesn't exist
-      generateBasicSummary();
-      setMonthlySummaries(Object.entries(monthlyData).map(([month, items]: [string, any]) => ({
-        month,
-        count: items.length,
-        highImpact: items.filter((d: any) => d.impactLevel === 'high').length,
-        needsAttention: items.filter((d: any) => d.needsAttention).length,
-        topSKUs: getTopSKUs(items)
-      })));
-
-    } catch (error: any) {
-      console.error('Error generating summary:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate AI summary",
-        variant: "destructive"
+      // Generate basic summary
+      const grouped = groupByMonth(competitionData);
+      const summaries = Object.entries(grouped).map(([month, data]) => {
+        const dataArray = data as any[];
+        return {
+          month,
+          totalObservations: dataArray.length,
+          topSKUs: getTopSKUs(dataArray),
+          averagePrice: (dataArray.reduce((sum: number, item: any) => sum + (item.selling_price || 0), 0) / dataArray.length).toFixed(2),
+        };
       });
-      
-      // Fallback to basic summary
-      generateBasicSummary();
+
+      setMonthlySummaries(summaries);
+      const basicSummary = generateBasicSummary(competitionData, summaries);
+      setSummary(basicSummary);
+
+      // Generate SWOT and News using edge function
+      console.log('Calling generate-competition-ai-summary...');
+      const { data, error } = await supabase.functions.invoke('generate-competition-ai-summary', {
+        body: {
+          competitorId,
+          competitorName,
+          competitorData: competitorData || {}
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Failed to generate AI insights');
+      } else if (data) {
+        console.log('AI summary generated:', data);
+        if (data.swot) setSwot(data.swot);
+        if (data.news) setNews(data.news);
+        toast.success('AI insights generated successfully');
+      }
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      setSummary("Failed to generate AI summary. Please try again.");
+      toast.error('Error generating summary');
     } finally {
       setLoading(false);
     }
   };
 
+  const generateBasicSummary = (data: any[], summaries: any[]): string => {
+    const highImpact = data.filter(d => d.impact_level === 'high').length;
+    const needsAttention = data.filter(d => d.needs_attention).length;
+    
+    return `
+**Overall Analysis**
+- Total Observations: ${data.length}
+- High Impact Items: ${highImpact}
+- Items Needing Attention: ${needsAttention}
+
+**Monthly Trend**
+${summaries.map(s => `${s.month}: ${s.totalObservations} observations, Top SKUs: ${s.topSKUs.join(', ')}`).join('\n')}
+
+**Key Insights**
+- Competitor showing ${highImpact > 5 ? 'strong' : 'moderate'} market presence
+- ${needsAttention > 0 ? `${needsAttention} items require immediate attention` : 'No critical items identified'}
+    `.trim();
+  };
+
   const groupByMonth = (data: any[]) => {
-    return data.reduce((acc, item) => {
-      const date = new Date(item.date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!acc[monthKey]) acc[monthKey] = [];
-      acc[monthKey].push(item);
+    return data.reduce((acc: any, item: any) => {
+      const date = new Date(item.created_at);
+      const month = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+      if (!acc[month]) acc[month] = [];
+      acc[month].push(item);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {});
   };
 
-  const getTopSKUs = (data: any[]) => {
-    const skuCounts = data.reduce((acc, item) => {
-      acc[item.sku] = (acc[item.sku] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(skuCounts)
-      .sort(([, a], [, b]) => (b as number) - (a as number))
+  const getTopSKUs = (data: any[]): string[] => {
+    const skuCount: any = {};
+    data.forEach((item: any) => {
+      const sku = item.sku_id || 'Unknown';
+      skuCount[sku] = (skuCount[sku] || 0) + 1;
+    });
+    return Object.entries(skuCount)
+      .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 3)
-      .map(([sku]) => sku);
+      .map((entry: any) => entry[0]);
   };
-
-  const generateBasicSummary = () => {
-    const total = competitionData.length;
-    const highImpact = competitionData.filter(d => d.impact_level === 'high').length;
-    const needsAttention = competitionData.filter(d => d.needs_attention).length;
-
-    setSummary(`Competition Intelligence Summary for ${competitorName}:
-
-📊 Data Overview:
-• Total observations: ${total}
-• High impact items: ${highImpact} (${((highImpact/total)*100).toFixed(1)}%)
-• Items needing attention: ${needsAttention}
-
-⚠️ Key Findings:
-${highImpact > 0 ? `• ${highImpact} high-impact competitive activities detected that require immediate attention.` : '• No high-impact activities detected.'}
-${needsAttention > 0 ? `• ${needsAttention} situations flagged for management review.` : ''}
-• High impact rate: ${total > 0 ? ((Number(highImpact)/Number(total))*100).toFixed(1) : '0'}%
-
-📈 Recommendations:
-• Monitor high-impact items closely for market share implications
-• Review attention-flagged items for potential strategic response
-• Continue systematic data collection for trend analysis`);
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">AI-Powered Competition Analysis</h3>
+          <p className="text-sm text-muted-foreground">
+            Insights generated from {competitionData.length} data points
+          </p>
+        </div>
+        <Button onClick={generateSummary} disabled={loading} variant="outline" size="sm">
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Regenerate Summary
+        </Button>
+      </div>
+
+      <Separator />
+
       {/* Overall Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            AI Competition Intelligence Summary
+            <TrendingUp className="h-5 w-5" />
+            Overall Summary
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-            {summary || "No data available for analysis"}
-          </div>
-          <Button 
-            onClick={generateSummary} 
-            variant="outline" 
-            size="sm" 
-            className="mt-4"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Regenerate Summary
-          </Button>
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-5/6" />
+            </div>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <pre className="whitespace-pre-wrap font-sans text-sm">{summary}</pre>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Monthly Summaries */}
+      {/* Monthly Breakdown */}
       {monthlySummaries.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Monthly Breakdown
-            </CardTitle>
+            <CardTitle>Monthly Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {monthlySummaries.map((monthly) => (
-                <div key={monthly.month} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold">
-                      {new Date(monthly.month + '-01').toLocaleDateString('en-US', { 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}
-                    </h4>
-                    <div className="flex gap-2">
-                      <Badge variant="outline">{monthly.count} observations</Badge>
-                      {monthly.highImpact > 0 && (
-                        <Badge variant="destructive">{monthly.highImpact} high impact</Badge>
-                      )}
-                      {monthly.needsAttention > 0 && (
-                        <Badge variant="secondary">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {monthly.needsAttention}
-                        </Badge>
-                      )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {monthlySummaries.map((month, idx) => (
+                <Card key={idx} className="border">
+                  <CardContent className="pt-4">
+                    <div className="text-sm font-semibold mb-2">{month.month}</div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <div>Observations: {month.totalObservations}</div>
+                      <div>Avg Price: ₹{month.averagePrice}</div>
+                      <div className="text-xs">Top: {month.topSKUs.join(', ')}</div>
                     </div>
-                  </div>
-                  {monthly.topSKUs.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Top SKUs: {monthly.topSKUs.join(', ')}
-                    </p>
-                  )}
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* SWOT Analysis Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            SWOT Analysis
+          </CardTitle>
+          <CardDescription>AI-powered competitive intelligence analysis</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : swot ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Strengths */}
+              <Card className="border-green-200 dark:border-green-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Strengths
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    {swot.strengths.map((strength, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-green-600 mt-1">•</span>
+                        <span>{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Weaknesses */}
+              <Card className="border-red-200 dark:border-red-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    Weaknesses
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    {swot.weaknesses.map((weakness, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-red-600 mt-1">•</span>
+                        <span>{weakness}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Opportunities */}
+              <Card className="border-blue-200 dark:border-blue-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4 text-blue-600" />
+                    Opportunities
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    {swot.opportunities.map((opportunity, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-1">•</span>
+                        <span>{opportunity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Threats */}
+              <Card className="border-orange-200 dark:border-orange-900">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    Threats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    {swot.threats.map((threat, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-orange-600 mt-1">•</span>
+                        <span>{threat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Click "Regenerate Summary" to generate SWOT analysis</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* News Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Newspaper className="h-5 w-5" />
+            Latest Competitor News
+          </CardTitle>
+          <CardDescription>Recent news and developments from external sources</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : news.length > 0 ? (
+            <div className="space-y-4">
+              {news.map((item, idx) => (
+                <Card key={idx} className="hover:bg-accent/50 transition-colors">
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <h4 className="font-semibold text-sm flex-1">
+                          {item.title}
+                        </h4>
+                        <Badge variant="outline" className="text-xs whitespace-nowrap">
+                          {item.date}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {item.summary}
+                      </p>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          Source: {item.source}
+                        </span>
+                        {item.url && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-xs gap-1"
+                            onClick={() => window.open(item.url, '_blank')}
+                          >
+                            Read More
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Newspaper className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Click "Regenerate Summary" to fetch latest news</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Observations</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="text-2xl font-bold">{competitionData.length}</div>
+            <p className="text-xs text-muted-foreground">Total Observations</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">High Impact</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-orange-600">
               {competitionData.filter(d => d.impact_level === 'high').length}
             </div>
+            <p className="text-xs text-muted-foreground">High Impact</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Needs Attention</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold text-red-600">
               {competitionData.filter(d => d.needs_attention).length}
             </div>
+            <p className="text-xs text-muted-foreground">Needs Attention</p>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-}
+};
