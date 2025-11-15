@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Camera, Check, Mic, Square } from "lucide-react";
+import { Trash2, Plus, Camera, Check, Mic, Square, Edit, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 interface CompetitionRow {
   id: string;
@@ -31,6 +33,7 @@ interface CompetitionDataFormProps {
 }
 
 export const CompetitionDataForm = ({ retailerId, visitId, onSave }: CompetitionDataFormProps) => {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<CompetitionRow[]>([
     { id: "1", competitorId: "", skuId: "", stockQuantity: 0, unit: "KGS", insight: "", impactLevel: "", needsAttention: false, photoUrls: [], voiceNoteUrls: [] }
   ]);
@@ -39,6 +42,8 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [recording, setRecording] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [savedData, setSavedData] = useState<CompetitionRow[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -106,6 +111,10 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           voiceNoteUrls: item.voice_note_urls || []
         }));
         setRows(loadedRows);
+        setSavedData(loadedRows);
+        setIsEditMode(false);
+      } else {
+        setIsEditMode(true);
       }
     } catch (error) {
       console.error('Error loading saved data:', error);
@@ -303,6 +312,8 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           description: "Competition data saved successfully"
         });
         
+        setSavedData(rows.filter(row => row.competitorId && row.skuId));
+        setIsEditMode(false);
         onSave();
       } else {
         toast({
@@ -327,26 +338,103 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
     return <div>Loading...</div>;
   }
 
+  // Display mode - show saved data as read-only table
+  if (!isEditMode && savedData.length > 0) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Competition Tracking</CardTitle>
+          <Button onClick={() => setIsEditMode(true)} size="sm" variant="outline">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {savedData.map((row, index) => {
+              const competitor = competitors.find(c => c.id === row.competitorId);
+              const sku = skus.find(s => s.id === row.skuId);
+              
+              return (
+                <div key={row.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto font-semibold text-primary hover:underline"
+                        onClick={() => navigate('/competition-master')}
+                      >
+                        {competitor?.competitor_name || 'Unknown'}
+                        <ExternalLink className="h-3 w-3 ml-1" />
+                      </Button>
+                      {row.needsAttention && (
+                        <Badge variant="destructive">Needs Attention</Badge>
+                      )}
+                    </div>
+                    {row.impactLevel && (
+                      <Badge variant={
+                        row.impactLevel === 'high' ? 'destructive' : 
+                        row.impactLevel === 'medium' ? 'default' : 
+                        'secondary'
+                      }>
+                        {row.impactLevel.toUpperCase()} Impact
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">SKU:</span> {sku?.sku_name || 'Unknown'}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Stock:</span> {row.stockQuantity} {row.unit}
+                    </div>
+                    {row.insight && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Insight:</span> {row.insight}
+                      </div>
+                    )}
+                    {row.photoUrls.length > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Photos:</span> {row.photoUrls.length}
+                      </div>
+                    )}
+                    {row.voiceNoteUrls.length > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Voice Notes:</span> {row.voiceNoteUrls.length}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Edit mode - show editable table
   return (
     <Card>
       <CardHeader>
         <CardTitle>Competition Tracking</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <ScrollArea className="h-[400px] w-full" type="always">
-          <div className="min-w-max pr-4">
+        <div className="overflow-x-auto">
+          <div className="min-w-max">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[140px]">Competitor</TableHead>
-                  <TableHead className="w-[140px]">SKU</TableHead>
-                  <TableHead className="w-[70px]">Stock</TableHead>
-                  <TableHead className="w-[90px]">Unit</TableHead>
-                  <TableHead className="w-[110px]">Insight</TableHead>
-                  <TableHead className="w-[90px]">Impact</TableHead>
+                  <TableHead className="w-[120px]">Competitor</TableHead>
+                  <TableHead className="w-[120px]">SKU</TableHead>
+                  <TableHead className="w-[80px]">Stock</TableHead>
+                  <TableHead className="w-[80px]">Unit</TableHead>
+                  <TableHead className="w-[100px]">Insight</TableHead>
+                  <TableHead className="w-[80px]">Impact</TableHead>
                   <TableHead className="w-[60px]">Alert</TableHead>
-                  <TableHead className="w-[80px]">Media</TableHead>
-                  <TableHead className="w-[60px]">Action</TableHead>
+                  <TableHead className="w-[90px]">Media</TableHead>
+                  <TableHead className="w-[50px]">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -357,7 +445,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                         value={row.competitorId}
                         onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
                       >
-                        <SelectTrigger className="w-[130px]">
+                        <SelectTrigger className="w-[110px]">
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
@@ -375,7 +463,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                         onValueChange={(value) => updateRow(row.id, 'skuId', value)}
                         disabled={!row.competitorId}
                       >
-                        <SelectTrigger className="w-[130px]">
+                        <SelectTrigger className="w-[110px]">
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
@@ -394,7 +482,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                         type="number"
                         value={row.stockQuantity}
                         onChange={(e) => updateRow(row.id, 'stockQuantity', parseInt(e.target.value) || 0)}
-                        className="w-[60px]"
+                        className="w-[70px]"
                       />
                     </TableCell>
                     <TableCell>
@@ -495,8 +583,8 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
               </TableBody>
             </Table>
           </div>
-        </ScrollArea>
-        <div className="flex justify-between gap-4">
+        </div>
+        <div className="flex justify-between gap-2 pt-2">
           <Button onClick={addRow} variant="outline">
             <Plus className="h-4 w-4 mr-2" />
             Add Row
