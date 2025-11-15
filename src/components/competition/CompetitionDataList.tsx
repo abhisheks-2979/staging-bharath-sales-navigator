@@ -128,18 +128,15 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                 <TableHead>SKU Name</TableHead>
                 <TableHead>Retailer</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Stock Qty</TableHead>
-                <TableHead>Price (₹)</TableHead>
-                <TableHead>Insight</TableHead>
+                <TableHead>Competition Stock</TableHead>
                 <TableHead>Retailer Feedback</TableHead>
-                <TableHead>Attention</TableHead>
                 <TableHead>Media</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No data found
                   </TableCell>
                 </TableRow>
@@ -163,25 +160,35 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                         ? new Date(item.visits.planned_date).toLocaleDateString()
                         : new Date(item.created_at).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>{item.stock_quantity} {item.unit}</TableCell>
-                    <TableCell>₹{item.selling_price || 0}</TableCell>
-                    <TableCell className="capitalize">
-                      {item.insight ? item.insight.replace('_', ' ') : 'N/A'}
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm">
+                          <span className="font-medium">{item.stock_quantity}</span> {item.unit}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ₹{item.selling_price || 0}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {item.impact_level && (
-                        <Badge variant={
-                          item.impact_level === 'positive' ? 'default' :
-                          item.impact_level === 'negative' ? 'destructive' : 'secondary'
-                        }>
-                          {item.impact_level.charAt(0).toUpperCase() + item.impact_level.slice(1)}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {item.needs_attention && (
-                        <Badge variant="destructive">Yes</Badge>
-                      )}
+                      <div className="space-y-1 max-w-[200px]">
+                        {item.impact_level && (
+                          <Badge variant={
+                            item.impact_level === 'positive' ? 'default' :
+                            item.impact_level === 'negative' ? 'destructive' : 'secondary'
+                          }>
+                            {item.impact_level.charAt(0).toUpperCase() + item.impact_level.slice(1)}
+                          </Badge>
+                        )}
+                        {item.insight && (
+                          <div className="text-xs text-muted-foreground capitalize">
+                            {item.insight.replace('_', ' ')}
+                          </div>
+                        )}
+                        {item.needs_attention && (
+                          <Badge variant="destructive" className="text-xs">Action Required</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -253,36 +260,43 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Stock:</span>
-                    <span className="ml-1 font-medium">{item.stock_quantity} {item.unit}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Price:</span>
-                    <span className="ml-1 font-medium">₹{item.selling_price || 0}</span>
+                {/* Competition Stock Section */}
+                <div className="space-y-1 bg-muted/30 p-2 rounded">
+                  <div className="text-xs font-medium text-muted-foreground">Competition Stock</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Stock:</span>
+                      <span className="ml-1 font-medium">{item.stock_quantity} {item.unit}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Price:</span>
+                      <span className="ml-1 font-medium">₹{item.selling_price || 0}</span>
+                    </div>
                   </div>
                 </div>
 
-                {item.insight && (
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">Insight:</span>
-                    <span className="ml-1 capitalize">{item.insight.replace('_', ' ')}</span>
+                {/* Retailer Feedback Section */}
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground">Retailer Feedback</div>
+                  {item.insight && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Insight:</span>
+                      <span className="ml-1 capitalize">{item.insight.replace('_', ' ')}</span>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.impact_level && (
+                      <Badge variant={
+                        item.impact_level === 'positive' ? 'default' :
+                        item.impact_level === 'negative' ? 'destructive' : 'secondary'
+                      } className="text-xs">
+                        {item.impact_level.charAt(0).toUpperCase() + item.impact_level.slice(1)}
+                      </Badge>
+                    )}
+                    {item.needs_attention && (
+                      <Badge variant="destructive" className="text-xs">Action Required</Badge>
+                    )}
                   </div>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {item.impact_level && (
-                    <Badge variant={
-                      item.impact_level === 'positive' ? 'default' :
-                      item.impact_level === 'negative' ? 'destructive' : 'secondary'
-                    } className="text-xs">
-                      {item.impact_level.charAt(0).toUpperCase() + item.impact_level.slice(1)}
-                    </Badge>
-                  )}
-                  {item.needs_attention && (
-                    <Badge variant="destructive" className="text-xs">Needs Attention</Badge>
-                  )}
                 </div>
 
                 {((item.photo_urls && item.photo_urls.length > 0) || (item.voice_note_urls && item.voice_note_urls.length > 0)) && (
