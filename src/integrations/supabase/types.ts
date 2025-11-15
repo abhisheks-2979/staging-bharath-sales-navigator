@@ -654,6 +654,113 @@ export type Database = {
         }
         Relationships: []
       }
+      competition_contacts: {
+        Row: {
+          competitor_id: string
+          contact_email: string | null
+          contact_name: string
+          contact_phone: string | null
+          created_at: string
+          designation: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          competitor_id: string
+          contact_email?: string | null
+          contact_name: string
+          contact_phone?: string | null
+          created_at?: string
+          designation?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          competitor_id?: string
+          contact_email?: string | null
+          contact_name?: string
+          contact_phone?: string | null
+          created_at?: string
+          designation?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_contacts_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competition_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_data: {
+        Row: {
+          competitor_id: string
+          created_at: string
+          id: string
+          impact_level: string | null
+          insight: string | null
+          needs_attention: boolean | null
+          photo_urls: string[] | null
+          retailer_id: string
+          sku_id: string | null
+          stock_quantity: number | null
+          unit: string | null
+          updated_at: string
+          user_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          competitor_id: string
+          created_at?: string
+          id?: string
+          impact_level?: string | null
+          insight?: string | null
+          needs_attention?: boolean | null
+          photo_urls?: string[] | null
+          retailer_id: string
+          sku_id?: string | null
+          stock_quantity?: number | null
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          competitor_id?: string
+          created_at?: string
+          id?: string
+          impact_level?: string | null
+          insight?: string | null
+          needs_attention?: boolean | null
+          photo_urls?: string[] | null
+          retailer_id?: string
+          sku_id?: string | null
+          stock_quantity?: number | null
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_data_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competition_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competition_data_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "competition_skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competition_insights: {
         Row: {
           action_required: boolean | null
@@ -719,6 +826,68 @@ export type Database = {
           visit_id?: string | null
         }
         Relationships: []
+      }
+      competition_master: {
+        Row: {
+          business_background: string | null
+          competitor_name: string
+          created_at: string
+          id: string
+          key_financial_stats: Json | null
+          updated_at: string
+        }
+        Insert: {
+          business_background?: string | null
+          competitor_name: string
+          created_at?: string
+          id?: string
+          key_financial_stats?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          business_background?: string | null
+          competitor_name?: string
+          created_at?: string
+          id?: string
+          key_financial_stats?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      competition_skus: {
+        Row: {
+          competitor_id: string
+          created_at: string
+          id: string
+          sku_name: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          competitor_id: string
+          created_at?: string
+          id?: string
+          sku_name: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          competitor_id?: string
+          created_at?: string
+          id?: string
+          sku_name?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_skus_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competition_master"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       custom_invoice_templates: {
         Row: {

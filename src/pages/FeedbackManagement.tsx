@@ -54,7 +54,6 @@ export default function FeedbackManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const [retailerFeedback, setRetailerFeedback] = useState<any[]>([]);
-  const [competitionInsights, setCompetitionInsights] = useState<any[]>([]);
   const [brandingRequests, setBrandingRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -92,28 +91,6 @@ export default function FeedbackManagement() {
       })) || [];
 
       setRetailerFeedback(enrichedFeedback);
-
-      // Fetch competition insights
-      const { data: insightsData, error: insightsError } = await supabase
-        .from('competition_insights')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (insightsError) throw insightsError;
-
-      const insightRetailerIds = [...new Set(insightsData?.map(i => i.retailer_id) || [])];
-      const { data: insightRetailers } = await supabase
-        .from('retailers')
-        .select('id, name')
-        .in('id', insightRetailerIds);
-
-      const insightRetailerMap = new Map(insightRetailers?.map(r => [r.id, r.name]));
-      const enrichedInsights = insightsData?.map(i => ({
-        ...i,
-        retailer_name: insightRetailerMap.get(i.retailer_id) || 'Unknown'
-      })) || [];
-
-      setCompetitionInsights(enrichedInsights);
 
       // Fetch branding requests
       const { data: brandingData, error: brandingError } = await supabase
@@ -240,83 +217,6 @@ export default function FeedbackManagement() {
                         </TableCell>
                         <TableCell>
                           {new Date(feedback.created_at).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </Card>
-          </TabsContent>
-
-          {/* Competition Insights Tab */}
-          <TabsContent value="competition">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Competition Insights</h2>
-              {loading ? (
-                <p className="text-center py-8 text-muted-foreground">Loading...</p>
-              ) : competitionInsights.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">No competition insights found</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Retailer</TableHead>
-                      <TableHead>Competitor</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Impact</TableHead>
-                      <TableHead>Action Required</TableHead>
-                      <TableHead>Photo</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {competitionInsights.map((insight) => (
-                      <TableRow key={insight.id}>
-                        <TableCell className="font-medium">
-                          {insight.retailer_name}
-                        </TableCell>
-                        <TableCell>{insight.competitor_name}</TableCell>
-                        <TableCell>{insight.product_category || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{insight.insight_type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {insight.impact_level && (
-                            <Badge className={getImpactBadge(insight.impact_level)}>
-                              {insight.impact_level}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {insight.action_required ? (
-                            <Badge className="bg-red-500 text-white">Yes</Badge>
-                          ) : (
-                            <Badge variant="outline">No</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {insight.competitor_image_url ? (
-                            <a 
-                              href={insight.competitor_image_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-primary hover:underline flex items-center gap-1"
-                            >
-                              <Image className="h-4 w-4" />
-                              View Photo
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">No Photo</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="max-w-md truncate">
-                          {insight.description}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(insight.created_at).toLocaleDateString()}
                         </TableCell>
                       </TableRow>
                     ))}
