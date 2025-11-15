@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Trophy } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { ImageStockCapture } from "@/components/ImageStockCapture";
 import { ReturnStockForm } from "@/components/ReturnStockForm";
+import { CompetitionDataForm } from "@/components/CompetitionDataForm";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 interface Product {
@@ -109,9 +110,10 @@ export const OrderEntry = () => {
   const [selectedUnits, setSelectedUnits] = useState<{
     [key: string]: string;
   }>({});
-  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock">("table");
+  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock" | "competition">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [noOrderReason, setNoOrderReason] = useState<string>("");
+  const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -248,6 +250,32 @@ export const OrderEntry = () => {
     };
     checkDayStarted();
   }, [isCheckInMandatory, checkInMandatoryLoading, navigate]);
+
+  // Check if competition data exists for this visit
+  useEffect(() => {
+    const checkCompetitionData = async () => {
+      if (!visitId || !retailerId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('competition_data')
+          .select('id')
+          .eq('visit_id', visitId)
+          .eq('retailer_id', retailerId)
+          .limit(1);
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setHasCompetitionData(true);
+        }
+      } catch (error) {
+        console.error('Error checking competition data:', error);
+      }
+    };
+
+    checkCompetitionData();
+  }, [visitId, retailerId]);
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -1521,7 +1549,7 @@ export const OrderEntry = () => {
                 </Button>
               </div>
               
-              {/* Second Row: Return Stock, No Order */}
+              {/* Second Row: Return Stock, No Order, Competition */}
               <div className="flex gap-1.5">
                 <Button variant={orderMode === "return-stock" ? "default" : "outline"} onClick={() => setOrderMode("return-stock")} className="flex-1 h-7 text-xs" size="sm">
                   <RotateCcw size={12} className="mr-0.5" />
@@ -1530,6 +1558,15 @@ export const OrderEntry = () => {
                 <Button variant={orderMode === "no-order" ? "default" : "outline"} onClick={() => setOrderMode("no-order")} className="flex-1 h-7 text-xs" size="sm">
                   <XCircle size={12} className="mr-0.5" />
                   No Order
+                </Button>
+                <Button 
+                  variant={orderMode === "competition" ? "default" : "outline"} 
+                  onClick={() => setOrderMode("competition")} 
+                  className={`flex-1 h-7 text-xs ${hasCompetitionData ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                  size="sm"
+                >
+                  <Trophy size={12} className="mr-0.5" />
+                  Competition
                 </Button>
               </div>
             </div>
@@ -1634,6 +1671,19 @@ export const OrderEntry = () => {
             })}
               </CardContent>
             </Card>
+          </> : orderMode === "competition" ? <>
+            {/* Competition Section */}
+            <CompetitionDataForm 
+              retailerId={retailerId} 
+              visitId={visitId} 
+              onSave={() => {
+                setHasCompetitionData(true);
+                toast({
+                  title: "Success",
+                  description: "Competition data saved successfully"
+                });
+              }} 
+            />
           </> : orderMode === "grid" ? <>
             {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>

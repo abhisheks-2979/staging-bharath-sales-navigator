@@ -47,6 +47,7 @@ import FeatureManagement from "./pages/FeatureManagement";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import FeedbackManagement from "./pages/FeedbackManagement";
+import CompetitionMaster from "./pages/CompetitionMaster";
 import NotFound from "./pages/NotFound";
 import { MyRetailers } from "./pages/MyRetailers";
 import UserRoles from "./pages/UserRoles";
@@ -164,6 +165,11 @@ const App = () => (
           <Route path="/feedback-management" element={
             <ProtectedRoute>
               <FeedbackManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/competition-master" element={
+            <ProtectedRoute>
+              <CompetitionMaster />
             </ProtectedRoute>
           } />
           <Route path="/retailer/:id" element={<RetailerDetail />} />
