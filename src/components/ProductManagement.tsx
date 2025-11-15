@@ -1507,6 +1507,92 @@ const [productForm, setProductForm] = useState({
                     <Button onClick={handleVariantSubmit}>
                       {variantForm.id ? 'Update' : 'Create'}
                     </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Variants Table */}
+            <ScrollArea className="h-[400px] rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Variant Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Discount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {variants.filter(v => v.product_id === selectedProductForVariants).map((variant) => (
+                    <TableRow key={variant.id}>
+                      <TableCell className="font-mono">{variant.sku}</TableCell>
+                      <TableCell>{variant.variant_name}</TableCell>
+                      <TableCell>₹{variant.price.toFixed(2)}</TableCell>
+                      <TableCell>{variant.stock_quantity}</TableCell>
+                      <TableCell>
+                        {variant.discount_percentage > 0 && (
+                          <Badge variant="secondary">
+                            {variant.discount_percentage}% (₹{variant.discount_amount})
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={variant.is_active ? 'default' : 'secondary'}>
+                          {variant.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setVariantForm({
+                                ...variant,
+                                is_focused_product: variant.is_focused_product || false,
+                                focused_due_date: variant.focused_due_date || '',
+                                focused_target_quantity: variant.focused_target_quantity || 0,
+                                focused_territories: variant.focused_territories || [],
+                                barcode: variant.barcode || '',
+                                qr_code: variant.qr_code || ''
+                              });
+                              setIsVariantDialogOpen(true);
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteVariant(variant.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+            
+            {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No variants created yet</p>
+                <p className="text-sm">Create variants to manage different sizes and pricing</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsVariantsViewOpen(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
