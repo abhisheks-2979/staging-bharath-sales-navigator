@@ -43,8 +43,9 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
       "Date": item.visits?.planned_date ? new Date(item.visits.planned_date).toLocaleDateString() : new Date(item.created_at).toLocaleDateString(),
       "Stock Quantity": item.stock_quantity,
       "Unit": item.unit,
+      "Selling Price": item.selling_price || 0,
       "Insight": item.insight || 'N/A',
-      "Impact Level": item.impact_level || 'N/A',
+      "Retailer Feedback": item.impact_level || 'N/A',
       "Needs Attention": item.needs_attention ? 'Yes' : 'No',
       "Photos": item.photo_urls?.length || 0,
       "Voice Notes": item.voice_note_urls?.length || 0
@@ -77,16 +78,16 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
           />
         </div>
         <div className="w-[150px]">
-          <label className="text-sm font-medium mb-1 block">Impact Level</label>
+          <label className="text-sm font-medium mb-1 block">Retailer Feedback</label>
           <Select value={filterImpact} onValueChange={setFilterImpact}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="positive">Positive</SelectItem>
+              <SelectItem value="neutral">Neutral</SelectItem>
+              <SelectItem value="negative">Negative</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -125,8 +126,9 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                 <TableHead>Retailer</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Stock Qty</TableHead>
+                <TableHead>Price (₹)</TableHead>
                 <TableHead>Insight</TableHead>
-                <TableHead>Impact</TableHead>
+                <TableHead>Retailer Feedback</TableHead>
                 <TableHead>Attention</TableHead>
                 <TableHead>Media</TableHead>
               </TableRow>
@@ -134,7 +136,7 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No data found
                   </TableCell>
                 </TableRow>
@@ -151,16 +153,17 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
                         : new Date(item.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>{item.stock_quantity} {item.unit}</TableCell>
+                    <TableCell>₹{item.selling_price || 0}</TableCell>
                     <TableCell className="capitalize">
                       {item.insight ? item.insight.replace('_', ' ') : 'N/A'}
                     </TableCell>
                     <TableCell>
                       {item.impact_level && (
                         <Badge variant={
-                          item.impact_level === 'high' ? 'destructive' :
-                          item.impact_level === 'medium' ? 'default' : 'secondary'
+                          item.impact_level === 'positive' ? 'default' :
+                          item.impact_level === 'negative' ? 'destructive' : 'secondary'
                         }>
-                          {item.impact_level}
+                          {item.impact_level.charAt(0).toUpperCase() + item.impact_level.slice(1)}
                         </Badge>
                       )}
                     </TableCell>

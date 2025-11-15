@@ -729,6 +729,7 @@ export type Database = {
           needs_attention: boolean | null
           photo_urls: string[] | null
           retailer_id: string
+          selling_price: number | null
           sku_id: string | null
           stock_quantity: number | null
           unit: string | null
@@ -746,6 +747,7 @@ export type Database = {
           needs_attention?: boolean | null
           photo_urls?: string[] | null
           retailer_id: string
+          selling_price?: number | null
           sku_id?: string | null
           stock_quantity?: number | null
           unit?: string | null
@@ -763,6 +765,7 @@ export type Database = {
           needs_attention?: boolean | null
           photo_urls?: string[] | null
           retailer_id?: string
+          selling_price?: number | null
           sku_id?: string | null
           stock_quantity?: number | null
           unit?: string | null
