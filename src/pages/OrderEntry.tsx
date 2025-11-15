@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ImageStockCapture } from "@/components/ImageStockCapture";
 import { ReturnStockForm } from "@/components/ReturnStockForm";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
+import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 interface Product {
   id: string;
   name: string;
@@ -27,6 +28,10 @@ interface Product {
   schemeDetails?: string;
   closingStock?: number;
   is_focused_product?: boolean;
+  focused_type?: string | null;
+  focused_due_date?: string | null;
+  focused_recurring_config?: any;
+  focused_territories?: string[] | null;
 }
 interface CartItem extends Product {
   quantity: number;
@@ -56,6 +61,10 @@ interface GridProduct {
   selectedVariantId?: string;
   sku?: string;
   is_focused_product?: boolean;
+  focused_type?: string | null;
+  focused_due_date?: string | null;
+  focused_recurring_config?: any;
+  focused_territories?: string[] | null;
 }
 interface ProductVariant {
   id: string;
@@ -66,6 +75,11 @@ interface ProductVariant {
   discount_amount: number;
   discount_percentage: number;
   is_active: boolean;
+  is_focused_product?: boolean;
+  focused_type?: string | null;
+  focused_due_date?: string | null;
+  focused_recurring_config?: any;
+  focused_territories?: string[] | null;
 }
 export const OrderEntry = () => {
   const {
@@ -1653,18 +1667,19 @@ export const OrderEntry = () => {
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-sm cursor-pointer text-primary hover:underline flex items-center gap-2" onClick={() => {
+                      <h3 className="font-semibold text-sm cursor-pointer text-primary hover:underline flex items-center gap-1.5" onClick={() => {
                         // Close all other products and open this one
                         setExpandedProducts({
                           [product.id]: true
                         });
                       }}>
-                        {product.name}
-                        {product.is_focused_product && (
-                          <Badge className="text-[10px] bg-orange-500 hover:bg-orange-600 px-1.5 py-0">
-                            Focused
-                          </Badge>
+                        {isFocusedProductActive(product) && (
+                          <Star size={14} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
                         )}
+                        {product.hasScheme && (
+                          <Sparkles size={14} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                        )}
+                        <span className="flex-1">{product.name}</span>
                       </h3>
                       <p className="text-xs text-muted-foreground">{product.category}</p>
                       {displayProduct.sku && <p className="text-xs text-blue-600 font-mono">SKU: {displayProduct.sku}</p>}
@@ -1735,12 +1750,13 @@ export const OrderEntry = () => {
                           {/* Base Product Row */}
                           <div className="grid grid-cols-5 gap-1 p-2 text-xs border-t">
                             <div className="text-xs flex items-center gap-1">
-                              <span>{product.name}</span>
-                              {product.is_focused_product && (
-                                <Badge className="text-[9px] bg-orange-500 hover:bg-orange-600 px-1 py-0">
-                                  Focused
-                                </Badge>
+                              {isFocusedProductActive(product) && (
+                                <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
                               )}
+                              {product.hasScheme && (
+                                <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                              )}
+                              <span>{product.name}</span>
                             </div>
                             <div className="font-medium">
                               {(() => {
@@ -1820,11 +1836,19 @@ export const OrderEntry = () => {
                             // Get variant-specific schemes
                             const variantSchemes = schemes.filter(scheme => scheme.product_id === product.id && scheme.variant_id === variant.id && scheme.is_active && (!scheme.start_date || new Date(scheme.start_date) <= new Date()) && (!scheme.end_date || new Date(scheme.end_date) >= new Date()));
                             return <div key={variant.id} className={`grid grid-cols-4 gap-1 p-2 text-xs border-t ${hasVariantScheme ? 'bg-green-50 border-green-200' : ''}`}>
-                                 <div className="text-xs">
-                                   <div>{variant.variant_name}</div>
-                                   {variantSchemes.length > 0 && <div className="text-orange-500 font-medium mt-1">
-                                       {variantSchemes.map(scheme => scheme.description).join(', ')}
-                                     </div>}
+                                 <div className="text-xs flex items-center gap-1">
+                                   {isFocusedProductActive(variant) && (
+                                     <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                   )}
+                                   {hasVariantScheme && (
+                                     <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                   )}
+                                   <div>
+                                     <div>{variant.variant_name}</div>
+                                     {variantSchemes.length > 0 && <div className="text-orange-500 font-medium mt-1">
+                                         {variantSchemes.map(scheme => scheme.description).join(', ')}
+                                       </div>}
+                                   </div>
                                  </div>
                                  <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
                                 <div>
