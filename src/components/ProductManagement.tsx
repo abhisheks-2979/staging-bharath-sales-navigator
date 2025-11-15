@@ -410,9 +410,11 @@ const [productForm, setProductForm] = useState({
             discount_amount: variantForm.discount_amount,
             is_active: variantForm.is_active,
             is_focused_product: variantForm.is_focused_product,
+            focused_type: (variantForm as any).focused_type || null,
             focused_due_date: variantForm.focused_due_date || null,
             focused_target_quantity: variantForm.focused_target_quantity || 0,
             focused_territories: variantForm.focused_territories || [],
+            focused_recurring_config: (variantForm as any).focused_recurring_config || null,
             barcode: variantForm.barcode || null,
             qr_code: qrCode
           })
@@ -433,9 +435,11 @@ const [productForm, setProductForm] = useState({
             discount_amount: variantForm.discount_amount,
             is_active: variantForm.is_active,
             is_focused_product: variantForm.is_focused_product,
+            focused_type: (variantForm as any).focused_type || null,
             focused_due_date: variantForm.focused_due_date || null,
             focused_target_quantity: variantForm.focused_target_quantity || 0,
             focused_territories: variantForm.focused_territories || [],
+            focused_recurring_config: (variantForm as any).focused_recurring_config || null,
             barcode: variantForm.barcode || null,
             qr_code: qrCode
           });
@@ -1388,14 +1392,15 @@ const [productForm, setProductForm] = useState({
                     Add Variant
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
                   <DialogHeader>
                     <DialogTitle>{variantForm.id ? 'Edit Variant' : 'Add New Variant'}</DialogTitle>
                     <DialogDescription>
                       {variantForm.id ? 'Update variant details' : 'Create a new product variant'}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <ScrollArea className="flex-1 px-1">
+                    <div className="space-y-4 pr-4">
                     <div>
                       <Label htmlFor="variantName">Variant Name</Label>
                       <Input
@@ -1499,7 +1504,8 @@ const [productForm, setProductForm] = useState({
                       onFocusedTerritoriesChange={(value) => setVariantForm({ ...variantForm, focused_territories: value })}
                       onFocusedRecurringConfigChange={(value) => setVariantForm({ ...variantForm, focused_recurring_config: value } as any)}
                     />
-                  </div>
+                    </div>
+                  </ScrollArea>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsVariantDialogOpen(false)}>
                       Cancel
@@ -1530,7 +1536,16 @@ const [productForm, setProductForm] = useState({
                   {variants.filter(v => v.product_id === selectedProductForVariants).map((variant) => (
                     <TableRow key={variant.id}>
                       <TableCell className="font-mono">{variant.sku}</TableCell>
-                      <TableCell>{variant.variant_name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>{variant.variant_name}</span>
+                          {variant.is_focused_product && (
+                            <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                              Focused
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>₹{variant.price.toFixed(2)}</TableCell>
                       <TableCell>{variant.stock_quantity}</TableCell>
                       <TableCell>

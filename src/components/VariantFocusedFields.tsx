@@ -116,7 +116,7 @@ export const VariantFocusedFields: React.FC<VariantFocusedFieldsProps> = ({
             </TooltipProvider>
           </div>
           <RadioGroup
-            value={focusedType || 'fixed_date'}
+            value={focusedType}
             onValueChange={(value) => onFocusedTypeChange(value as 'fixed_date' | 'recurring' | 'keep_open')}
           >
             <div className="flex items-center space-x-2">
