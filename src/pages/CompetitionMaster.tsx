@@ -103,11 +103,7 @@ export default function CompetitionMaster() {
         supabase.from('competition_skus').select('*').eq('competitor_id', competitorId),
         supabase.from('competition_contacts').select('*').eq('competitor_id', competitorId),
         supabase.from('competition_data')
-          .select(`
-            *,
-            retailers(name),
-            visits(visit_date)
-          `)
+          .select('*')
           .eq('competitor_id', competitorId)
           .order('created_at', { ascending: false })
       ]);
@@ -116,9 +112,33 @@ export default function CompetitionMaster() {
       if (contactsRes.error) throw contactsRes.error;
       if (dataRes.error) throw dataRes.error;
 
+      // Fetch retailer and visit details separately
+      const retailerIds = [...new Set(dataRes.data?.map(d => d.retailer_id).filter(Boolean) || [])];
+      const visitIds = [...new Set(dataRes.data?.map(d => d.visit_id).filter(Boolean) || [])];
+
+      const [retailersRes, visitsRes] = await Promise.all([
+        retailerIds.length > 0 
+          ? supabase.from('retailers').select('id, name').in('id', retailerIds)
+          : Promise.resolve({ data: [], error: null }),
+        visitIds.length > 0
+          ? supabase.from('visits').select('id, visit_date').in('id', visitIds)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+
+      // Create maps for easy lookup
+      const retailersMap = new Map((retailersRes.data || []).map(r => [r.id, r]));
+      const visitsMap = new Map((visitsRes.data || []).map(v => [v.id, v]));
+
+      // Enhance competition data with retailer and visit info
+      const enhancedData = dataRes.data?.map(d => ({
+        ...d,
+        retailers: d.retailer_id ? retailersMap.get(d.retailer_id) : null,
+        visits: d.visit_id ? visitsMap.get(d.visit_id) : null
+      })) || [];
+
       setSKUs(skusRes.data || []);
       setContacts(contactsRes.data || []);
-      setCompetitionData(dataRes.data || []);
+      setCompetitionData(enhancedData);
     } catch (error) {
       console.error('Error:', error);
       toast({

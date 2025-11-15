@@ -332,9 +332,9 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
       <CardHeader>
         <CardTitle>Competition Tracking</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[600px]">
-          <div className="min-w-max">
+      <CardContent className="space-y-3">
+        <ScrollArea className="h-[400px] w-full" type="always">
+          <div className="min-w-max pr-4">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -496,7 +496,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
             </Table>
           </div>
         </ScrollArea>
-        <div className="flex justify-between mt-4">
+        <div className="flex justify-between gap-4">
           <Button onClick={addRow} variant="outline">
             <Plus className="h-4 w-4 mr-2" />
             Add Row
