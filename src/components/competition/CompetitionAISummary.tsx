@@ -31,7 +31,7 @@ export function CompetitionAISummary({ competitorId, competitorName, competition
       const dataForAnalysis = competitionData.map(d => ({
         sku: d.sku_name,
         retailer: d.retailers?.name,
-        date: d.visits?.visit_date || d.created_at,
+        date: d.visits?.planned_date || d.created_at,
         stockQty: d.stock_quantity,
         unit: d.unit,
         insight: d.insight,

@@ -123,7 +123,7 @@ export function CompetitionRetailerAnalytics({ competitionData, skus }: Competit
         unit: d.unit,
         impactLevel: d.impact_level,
         insight: d.insight,
-        date: d.visits?.visit_date || d.created_at
+        date: d.visits?.planned_date || d.created_at
       }));
 
     // High Impact Items
@@ -137,7 +137,7 @@ export function CompetitionRetailerAnalytics({ competitionData, skus }: Competit
         unit: d.unit,
         needsAttention: d.needs_attention,
         insight: d.insight,
-        date: d.visits?.visit_date || d.created_at
+        date: d.visits?.planned_date || d.created_at
       }));
 
     return {
