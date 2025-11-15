@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Camera, Check } from "lucide-react";
+import { Trash2, Plus, Camera, Check, Mic, Square } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CompetitionRow {
   id: string;
@@ -20,6 +21,7 @@ interface CompetitionRow {
   impactLevel: string;
   needsAttention: boolean;
   photoUrls: string[];
+  voiceNoteUrls: string[];
 }
 
 interface CompetitionDataFormProps {
@@ -30,12 +32,15 @@ interface CompetitionDataFormProps {
 
 export const CompetitionDataForm = ({ retailerId, visitId, onSave }: CompetitionDataFormProps) => {
   const [rows, setRows] = useState<CompetitionRow[]>([
-    { id: "1", competitorId: "", skuId: "", stockQuantity: 0, unit: "", insight: "", impactLevel: "", needsAttention: false, photoUrls: [] }
+    { id: "1", competitorId: "", skuId: "", stockQuantity: 0, unit: "KGS", insight: "", impactLevel: "", needsAttention: false, photoUrls: [], voiceNoteUrls: [] }
   ]);
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [skus, setSkus] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [recording, setRecording] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     fetchCompetitors();
@@ -93,11 +98,12 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           competitorId: item.competitor_id,
           skuId: item.sku_id || "",
           stockQuantity: item.stock_quantity || 0,
-          unit: item.unit || "",
+          unit: item.unit || "KGS",
           insight: item.insight || "",
           impactLevel: item.impact_level || "",
           needsAttention: item.needs_attention || false,
-          photoUrls: item.photo_urls || []
+          photoUrls: item.photo_urls || [],
+          voiceNoteUrls: item.voice_note_urls || []
         }));
         setRows(loadedRows);
       }
@@ -113,11 +119,12 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
       competitorId: "",
       skuId: "",
       stockQuantity: 0,
-      unit: "",
+      unit: "KGS",
       insight: "",
       impactLevel: "",
       needsAttention: false,
-      photoUrls: []
+      photoUrls: [],
+      voiceNoteUrls: []
     }]);
   };
 
@@ -138,6 +145,80 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
       }
       return row;
     }));
+  };
+
+  const startRecording = async (rowId: string) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        chunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        await uploadVoiceNote(rowId, blob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setRecording(rowId);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start recording",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      setRecording(null);
+    }
+  };
+
+  const uploadVoiceNote = async (rowId: string, blob: Blob) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const fileName = `${user.id}/${Date.now()}.webm`;
+      
+      const { data, error } = await supabase.storage
+        .from('competition-photos')
+        .upload(fileName, blob);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('competition-photos')
+        .getPublicUrl(fileName);
+
+      setRows(rows.map(row => {
+        if (row.id === rowId) {
+          return { ...row, voiceNoteUrls: [...row.voiceNoteUrls, publicUrl] };
+        }
+        return row;
+      }));
+
+      toast({
+        title: "Voice note saved",
+        description: "Voice note added successfully"
+      });
+    } catch (error) {
+      console.error('Error uploading voice note:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload voice note",
+        variant: "destructive"
+      });
+    }
   };
 
   const handlePhotoUpload = async (rowId: string, file: File) => {
@@ -206,7 +287,8 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           insight: row.insight,
           impact_level: row.impactLevel,
           needs_attention: row.needsAttention,
-          photo_urls: row.photoUrls
+          photo_urls: row.photoUrls,
+          voice_note_urls: row.voiceNoteUrls
         }));
 
       if (dataToInsert.length > 0) {
@@ -251,148 +333,169 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
         <CardTitle>Competition Tracking</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Competitor</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead>Insight</TableHead>
-                <TableHead>Impact</TableHead>
-                <TableHead>Needs Attention</TableHead>
-                <TableHead>Photos</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <Select
-                      value={row.competitorId}
-                      onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
-                    >
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {competitors.map((comp) => (
-                          <SelectItem key={comp.id} value={comp.id}>
-                            {comp.competitor_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={row.skuId}
-                      onValueChange={(value) => updateRow(row.id, 'skuId', value)}
-                      disabled={!row.competitorId}
-                    >
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {skus
-                          .filter(sku => sku.competitor_id === row.competitorId)
-                          .map((sku) => (
-                            <SelectItem key={sku.id} value={sku.id}>
-                              {sku.sku_name}
+        <ScrollArea className="h-[600px]">
+          <div className="min-w-max">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[140px]">Competitor</TableHead>
+                  <TableHead className="w-[140px]">SKU</TableHead>
+                  <TableHead className="w-[70px]">Stock</TableHead>
+                  <TableHead className="w-[90px]">Unit</TableHead>
+                  <TableHead className="w-[110px]">Insight</TableHead>
+                  <TableHead className="w-[90px]">Impact</TableHead>
+                  <TableHead className="w-[60px]">Alert</TableHead>
+                  <TableHead className="w-[80px]">Media</TableHead>
+                  <TableHead className="w-[60px]">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>
+                      <Select
+                        value={row.competitorId}
+                        onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {competitors.map((comp) => (
+                            <SelectItem key={comp.id} value={comp.id}>
+                              {comp.competitor_name}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={row.stockQuantity}
-                      onChange={(e) => updateRow(row.id, 'stockQuantity', parseInt(e.target.value) || 0)}
-                      className="w-[80px]"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={row.unit}
-                      onChange={(e) => updateRow(row.id, 'unit', e.target.value)}
-                      className="w-[80px]"
-                      placeholder="Unit"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={row.insight}
-                      onValueChange={(value) => updateRow(row.id, 'insight', value)}
-                    >
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pricing">Pricing</SelectItem>
-                        <SelectItem value="promotion">Promotion</SelectItem>
-                        <SelectItem value="shelf_space">Shelf Space</SelectItem>
-                        <SelectItem value="new_product">New Product</SelectItem>
-                        <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={row.impactLevel}
-                      onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
-                    >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Checkbox
-                      checked={row.needsAttention}
-                      onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`photo-${row.id}`} className="cursor-pointer">
-                        <Camera className="h-4 w-4" />
-                      </Label>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.skuId}
+                        onValueChange={(value) => updateRow(row.id, 'skuId', value)}
+                        disabled={!row.competitorId}
+                      >
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {skus
+                            .filter(sku => sku.competitor_id === row.competitorId)
+                            .map((sku) => (
+                              <SelectItem key={sku.id} value={sku.id}>
+                                {sku.sku_name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
                       <Input
-                        id={`photo-${row.id}`}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handlePhotoUpload(row.id, file);
-                        }}
+                        type="number"
+                        value={row.stockQuantity}
+                        onChange={(e) => updateRow(row.id, 'stockQuantity', parseInt(e.target.value) || 0)}
+                        className="w-[60px]"
                       />
-                      <span className="text-sm">{row.photoUrls.length}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteRow(row.id)}
-                      disabled={rows.length === 1}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.unit}
+                        onValueChange={(value) => updateRow(row.id, 'unit', value)}
+                      >
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="KGS">KGS</SelectItem>
+                          <SelectItem value="Grams">Grams</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.insight}
+                        onValueChange={(value) => updateRow(row.id, 'insight', value)}
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pricing">Pricing</SelectItem>
+                          <SelectItem value="promotion">Promotion</SelectItem>
+                          <SelectItem value="shelf_space">Shelf Space</SelectItem>
+                          <SelectItem value="new_product">New Product</SelectItem>
+                          <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.impactLevel}
+                        onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
+                      >
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={row.needsAttention}
+                        onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Label htmlFor={`photo-${row.id}`} className="cursor-pointer">
+                          <Camera className="h-4 w-4" />
+                        </Label>
+                        <Input
+                          id={`photo-${row.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handlePhotoUpload(row.id, file);
+                          }}
+                        />
+                        <span className="text-xs">{row.photoUrls.length}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => recording === row.id ? stopRecording() : startRecording(row.id)}
+                        >
+                          {recording === row.id ? (
+                            <Square className="h-3 w-3 text-red-500" />
+                          ) : (
+                            <Mic className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <span className="text-xs">{row.voiceNoteUrls.length}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteRow(row.id)}
+                        disabled={rows.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </ScrollArea>
         <div className="flex justify-between mt-4">
           <Button onClick={addRow} variant="outline">
             <Plus className="h-4 w-4 mr-2" />

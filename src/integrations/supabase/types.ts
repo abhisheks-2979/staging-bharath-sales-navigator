@@ -711,6 +711,7 @@ export type Database = {
           updated_at: string
           user_id: string
           visit_id: string | null
+          voice_note_urls: string[] | null
         }
         Insert: {
           competitor_id: string
@@ -727,6 +728,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           visit_id?: string | null
+          voice_note_urls?: string[] | null
         }
         Update: {
           competitor_id?: string
@@ -743,6 +745,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visit_id?: string | null
+          voice_note_urls?: string[] | null
         }
         Relationships: [
           {
