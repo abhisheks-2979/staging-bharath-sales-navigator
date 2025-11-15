@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, Eye, Volume2, Filter, X } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -118,8 +119,8 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
         </Button>
       </div>
 
-      {/* Data Table */}
-      <div className="border rounded-lg">
+      {/* Desktop Data Table */}
+      <div className="border rounded-lg hidden md:block">
         <div className="max-h-[500px] overflow-auto">
           <Table>
             <TableHeader>
@@ -218,6 +219,108 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
             </TableBody>
           </Table>
         </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredData.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              No data found
+            </CardContent>
+          </Card>
+        ) : (
+          filteredData.map((item) => (
+            <Card key={item.id}>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm break-words">
+                      {skus.find(s => s.id === item.sku_id)?.sku_name || 'Unknown'}
+                    </div>
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto hover:underline text-xs"
+                      onClick={() => navigate(`/retailer/${item.retailer_id}`)}
+                    >
+                      {item.retailers?.name || 'N/A'}
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground shrink-0">
+                    {item.visits?.planned_date 
+                      ? new Date(item.visits.planned_date).toLocaleDateString()
+                      : new Date(item.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Stock:</span>
+                    <span className="ml-1 font-medium">{item.stock_quantity} {item.unit}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Price:</span>
+                    <span className="ml-1 font-medium">₹{item.selling_price || 0}</span>
+                  </div>
+                </div>
+
+                {item.insight && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Insight:</span>
+                    <span className="ml-1 capitalize">{item.insight.replace('_', ' ')}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {item.impact_level && (
+                    <Badge variant={
+                      item.impact_level === 'positive' ? 'default' :
+                      item.impact_level === 'negative' ? 'destructive' : 'secondary'
+                    } className="text-xs">
+                      {item.impact_level.charAt(0).toUpperCase() + item.impact_level.slice(1)}
+                    </Badge>
+                  )}
+                  {item.needs_attention && (
+                    <Badge variant="destructive" className="text-xs">Needs Attention</Badge>
+                  )}
+                </div>
+
+                {((item.photo_urls && item.photo_urls.length > 0) || (item.voice_note_urls && item.voice_note_urls.length > 0)) && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    {item.photo_urls && item.photo_urls.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setSelectedImages(item.photo_urls);
+                          setShowImageDialog(true);
+                        }}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        {item.photo_urls.length} Photo{item.photo_urls.length > 1 ? 's' : ''}
+                      </Button>
+                    )}
+                    {item.voice_note_urls && item.voice_note_urls.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setSelectedAudio(item.voice_note_urls[0]);
+                          setShowAudioDialog(true);
+                        }}
+                      >
+                        <Volume2 className="h-3 w-3 mr-1" />
+                        {item.voice_note_urls.length} Audio
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Image Viewer Dialog */}

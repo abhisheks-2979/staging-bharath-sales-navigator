@@ -536,12 +536,12 @@ export default function CompetitionMaster() {
         <DialogContent className="w-[95vw] max-w-6xl max-h-[90vh] overflow-y-auto p-3 md:p-6">
           <DialogHeader><DialogTitle className="text-base md:text-lg">{selectedCompetitor?.competitor_name} - Intelligence Hub</DialogTitle></DialogHeader>
           <Tabs defaultValue="skus" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 gap-1">
-              <TabsTrigger value="skus" className="text-xs md:text-sm">SKUs</TabsTrigger>
-              <TabsTrigger value="contacts" className="text-xs md:text-sm">Contacts</TabsTrigger>
-              <TabsTrigger value="data" className="text-xs md:text-sm">Stocks</TabsTrigger>
-              <TabsTrigger value="ai-summary" className="text-xs md:text-sm col-span-1 md:col-span-1"><Sparkles className="h-3 w-3 md:h-4 md:w-4 md:mr-1" /><span className="hidden md:inline">AI</span></TabsTrigger>
-              <TabsTrigger value="analytics" className="text-xs md:text-sm col-span-1 md:col-span-1"><BarChart className="h-3 w-3 md:h-4 md:w-4 md:mr-1" /><span className="hidden md:inline">Analytics</span></TabsTrigger>
+            <TabsList className="inline-flex w-full md:grid md:grid-cols-5 gap-1 overflow-x-auto flex-nowrap justify-start">
+              <TabsTrigger value="skus" className="text-xs md:text-sm whitespace-nowrap shrink-0">SKUs</TabsTrigger>
+              <TabsTrigger value="contacts" className="text-xs md:text-sm whitespace-nowrap shrink-0">Contacts</TabsTrigger>
+              <TabsTrigger value="data" className="text-xs md:text-sm whitespace-nowrap shrink-0">Stocks</TabsTrigger>
+              <TabsTrigger value="ai-summary" className="text-xs md:text-sm whitespace-nowrap shrink-0 flex items-center gap-1"><Sparkles className="h-3 w-3 md:h-4 md:w-4" /><span>AI</span></TabsTrigger>
+              <TabsTrigger value="analytics" className="text-xs md:text-sm whitespace-nowrap shrink-0 flex items-center gap-1"><BarChart className="h-3 w-3 md:h-4 md:w-4" /><span>Analytics</span></TabsTrigger>
             </TabsList>
 
             <TabsContent value="skus" className="space-y-4">

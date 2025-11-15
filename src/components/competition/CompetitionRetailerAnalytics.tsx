@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Store, Package, MapPin, User, AlertTriangle, TrendingUp } from "lucide-react";
+import { CompetitionRetailerAnalyticsMobile } from "./CompetitionRetailerAnalyticsMobile";
 
 interface CompetitionRetailerAnalyticsProps {
   competitionData: any[];
@@ -151,9 +152,14 @@ export function CompetitionRetailerAnalytics({ competitionData, skus }: Competit
   }, [competitionData, skus]);
 
   return (
-    <div className="space-y-6">
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <>
+      {/* Mobile View */}
+      <CompetitionRetailerAnalyticsMobile analytics={analytics} />
+      
+      {/* Desktop View */}
+      <div className="hidden md:block space-y-6">
+        {/* Overview Cards */}
+        <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -429,6 +435,7 @@ export function CompetitionRetailerAnalytics({ competitionData, skus }: Competit
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }
