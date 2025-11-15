@@ -862,25 +862,46 @@ export type Database = {
           business_background: string | null
           competitor_name: string
           created_at: string
+          focus: string | null
+          head_office: string | null
           id: string
           key_financial_stats: Json | null
+          regional_offices_count: number | null
+          sales_team_size: number | null
+          strategy: string | null
+          supply_chain_info: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           business_background?: string | null
           competitor_name: string
           created_at?: string
+          focus?: string | null
+          head_office?: string | null
           id?: string
           key_financial_stats?: Json | null
+          regional_offices_count?: number | null
+          sales_team_size?: number | null
+          strategy?: string | null
+          supply_chain_info?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           business_background?: string | null
           competitor_name?: string
           created_at?: string
+          focus?: string | null
+          head_office?: string | null
           id?: string
           key_financial_stats?: Json | null
+          regional_offices_count?: number | null
+          sales_team_size?: number | null
+          strategy?: string | null
+          supply_chain_info?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
