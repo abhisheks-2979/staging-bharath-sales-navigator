@@ -1,0 +1,308 @@
+import { supabase } from "@/integrations/supabase/client";
+import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
+
+interface OrderContext {
+  userId: string;
+  retailerId: string;
+  orderValue: number;
+  orderItems: { product_id: string; quantity: number }[];
+  isFirstOrder?: boolean;
+}
+
+interface VisitContext {
+  userId: string;
+  retailerId: string;
+  hasOrder: boolean;
+}
+
+export async function awardPointsForOrder(context: OrderContext) {
+  const { userId, retailerId, orderValue, orderItems, isFirstOrder } = context;
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+
+  // Fetch user's territories
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("territories_covered, work_location")
+    .eq("id", userId)
+    .single();
+
+  const userTerritories = userProfile?.territories_covered || [];
+  const userLocation = userProfile?.work_location;
+
+  // Fetch active games
+  const { data: activeGames } = await supabase
+    .from("gamification_games")
+    .select("*")
+    .eq("is_active", true)
+    .lte("start_date", today.toISOString())
+    .gte("end_date", today.toISOString());
+
+  if (!activeGames || activeGames.length === 0) return;
+
+  // Filter games applicable to user's territory
+  const applicableGames = activeGames.filter((game: any) => 
+    game.is_all_territories || 
+    (game.territories && game.territories.some((t: string) => 
+      userTerritories.includes(t) || t === userLocation
+    ))
+  );
+
+  // Fetch actions for applicable games
+  const gameIds = applicableGames.map(g => g.id);
+  const { data: actions } = await supabase
+    .from("gamification_actions")
+    .select("*")
+    .in("game_id", gameIds)
+    .eq("is_enabled", true);
+
+  if (!actions || actions.length === 0) return;
+
+  for (const action of actions) {
+    const game = applicableGames.find(g => g.id === action.game_id);
+    if (!game) continue;
+
+      let shouldAward = false;
+      let pointsToAward = action.points;
+      let metadata: any = { order_value: orderValue, retailer_id: retailerId };
+
+      switch (action.action_type) {
+        case "first_order_new_retailer":
+          if (isFirstOrder) {
+            // Check if max activities limit reached
+            if (action.max_awardable_activities) {
+              const { count } = await supabase
+                .from("gamification_points")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", userId)
+                .eq("action_id", action.id)
+                .eq("game_id", game.id);
+
+              if (count !== null && count < action.max_awardable_activities) {
+                shouldAward = true;
+              }
+            } else {
+              shouldAward = true;
+            }
+          }
+          break;
+
+        case "daily_target":
+          // Check if user has met daily target
+          const targetValue = action.base_daily_target || 0;
+          const targetType = action.target_type || "orders";
+
+          if (targetType === "sales_value") {
+            // Get today's total sales
+            const { data: todaysOrders } = await supabase
+              .from("orders")
+              .select("total_amount")
+              .eq("user_id", userId)
+              .gte("created_at", todayStart.toISOString())
+              .lte("created_at", todayEnd.toISOString());
+
+            const totalSales = todaysOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+
+            if (totalSales >= targetValue) {
+              // Check if already awarded today
+              const { count } = await supabase
+                .from("gamification_points")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", userId)
+                .eq("action_id", action.id)
+                .eq("game_id", game.id)
+                .gte("earned_at", todayStart.toISOString())
+                .lte("earned_at", todayEnd.toISOString());
+
+              if (count === 0) {
+                shouldAward = true;
+                metadata.target_achieved = totalSales;
+              }
+            }
+          } else {
+            // Count orders
+            const { count: orderCount } = await supabase
+              .from("orders")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .gte("created_at", todayStart.toISOString())
+              .lte("created_at", todayEnd.toISOString());
+
+            if (orderCount !== null && orderCount >= targetValue) {
+              const { count: awardedCount } = await supabase
+                .from("gamification_points")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", userId)
+                .eq("action_id", action.id)
+                .eq("game_id", game.id)
+                .gte("earned_at", todayStart.toISOString())
+                .lte("earned_at", todayEnd.toISOString());
+
+              if (awardedCount === 0) {
+                shouldAward = true;
+                metadata.orders_count = orderCount;
+              }
+            }
+          }
+          break;
+
+        case "focused_product_sales":
+          // Check if order contains focused products
+          const focusedProducts = action.focused_products || [];
+          const hasFocusedProduct = orderItems.some(item => 
+            focusedProducts.includes(item.product_id)
+          );
+
+          if (hasFocusedProduct && action.max_daily_awards) {
+            // Check daily limit
+            const { count } = await supabase
+              .from("gamification_points")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("action_id", action.id)
+              .eq("game_id", game.id)
+              .gte("earned_at", todayStart.toISOString())
+              .lte("earned_at", todayEnd.toISOString());
+
+            if (count !== null && count < action.max_daily_awards) {
+              shouldAward = true;
+              metadata.focused_products = orderItems
+                .filter(i => focusedProducts.includes(i.product_id))
+                .map(i => i.product_id);
+            }
+          } else if (hasFocusedProduct) {
+            shouldAward = true;
+          }
+          break;
+
+        case "productive_visit":
+          // Award points for productive visit (visit with order)
+          if (action.max_daily_awards) {
+            const { count } = await supabase
+              .from("gamification_points")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("action_id", action.id)
+              .eq("game_id", game.id)
+              .gte("earned_at", todayStart.toISOString())
+              .lte("earned_at", todayEnd.toISOString());
+
+            if (count !== null && count < action.max_daily_awards) {
+              shouldAward = true;
+            }
+          } else {
+            shouldAward = true;
+          }
+          break;
+
+        case "consecutive_orders":
+          // Check sequence tracking
+          const { data: sequence } = await supabase
+            .from("gamification_retailer_sequences")
+            .select("consecutive_orders")
+            .eq("user_id", userId)
+            .eq("retailer_id", retailerId)
+            .single();
+
+          const consecutiveCount = (sequence?.consecutive_orders || 0) + 1;
+          const requiredCount = action.consecutive_orders_required || 3;
+
+          if (consecutiveCount >= requiredCount) {
+            shouldAward = true;
+            metadata.consecutive_count = consecutiveCount;
+          }
+          break;
+
+        case "monthly_growth":
+          // Calculate month-over-month growth
+          const currentMonth = startOfMonth(today);
+          const { data: currentMonthOrders } = await supabase
+            .from("orders")
+            .select("total_amount")
+            .eq("user_id", userId)
+            .gte("created_at", currentMonth.toISOString());
+
+          const currentTotal = currentMonthOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+
+          // Compare with previous month (simplified - would need proper implementation)
+          const minGrowth = action.min_growth_percentage || 10;
+          // For now, award if total > 0 (needs proper previous month comparison)
+          if (currentTotal > 0) {
+            const { count } = await supabase
+              .from("gamification_points")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("action_id", action.id)
+              .eq("game_id", game.id)
+              .gte("earned_at", currentMonth.toISOString());
+
+            if (count === 0) {
+              shouldAward = true;
+              metadata.current_month_total = currentTotal;
+            }
+          }
+          break;
+      }
+
+    // Award points if conditions met
+    if (shouldAward) {
+      const { error } = await supabase.from("gamification_points").insert({
+        user_id: userId,
+        game_id: game.id,
+        action_id: action.id,
+        points: pointsToAward,
+        reference_type: "order",
+        reference_id: retailerId,
+        metadata,
+      });
+
+      if (!error) {
+        console.log(`Awarded ${pointsToAward} points for ${action.action_name}`);
+      }
+    }
+  }
+}
+
+export async function updateRetailerSequence(userId: string, retailerId: string) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  const { data: existing } = await supabase
+    .from("gamification_retailer_sequences")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("retailer_id", retailerId)
+    .single();
+
+  if (existing) {
+    const lastOrderDate = existing.last_order_date ? existing.last_order_date.split('T')[0] : null;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    let newCount = 1;
+    if (lastOrderDate === yesterdayStr) {
+      // Consecutive day
+      newCount = (existing.consecutive_orders || 0) + 1;
+    } else if (lastOrderDate === today) {
+      // Already ordered today
+      newCount = existing.consecutive_orders || 1;
+    }
+
+    await supabase
+      .from("gamification_retailer_sequences")
+      .update({
+        consecutive_orders: newCount,
+        last_order_date: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    await supabase.from("gamification_retailer_sequences").insert({
+      user_id: userId,
+      retailer_id: retailerId,
+      consecutive_orders: 1,
+      last_order_date: new Date().toISOString(),
+    });
+  }
+}
