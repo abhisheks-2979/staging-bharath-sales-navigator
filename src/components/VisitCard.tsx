@@ -713,6 +713,16 @@ export const VisitCard = ({
             status: finalStatus
           }).eq('id', prevVisit.id);
           console.log(`Auto checked out visit ${prevVisit.id} at ${checkOutTime} with status ${finalStatus}`);
+
+          // Award gamification points for visit completion
+          if (finalStatus === 'productive') {
+            const { awardPointsForVisitCompletion } = await import('@/utils/gamificationPointsAwarder');
+            await awardPointsForVisitCompletion({
+              userId,
+              retailerId: prevVisit.retailer_id,
+              hasOrder: true
+            });
+          }
         }
       }
     } catch (error) {
@@ -852,6 +862,29 @@ export const VisitCard = ({
             total_hours: totalHours
           }).eq('user_id', user.id).eq('date', today);
           if (attendanceError) console.error('Attendance check-out error:', attendanceError);
+        }
+
+        // Check if there are orders for this visit to award points
+        const { data: ordersForVisit } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('retailer_id', retailerId)
+          .eq('status', 'confirmed')
+          .gte('created_at', `${today}T00:00:00.000Z`)
+          .lte('created_at', `${today}T23:59:59.999Z`)
+          .limit(1);
+        
+        const hasOrder = ordersForVisit && ordersForVisit.length > 0;
+        
+        // Award gamification points for visit completion
+        if (hasOrder) {
+          const { awardPointsForVisitCompletion } = await import('@/utils/gamificationPointsAwarder');
+          await awardPointsForVisitCompletion({
+            userId: user.id,
+            retailerId,
+            hasOrder: true
+          });
         }
 
         // Update UI state

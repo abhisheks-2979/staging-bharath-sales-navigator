@@ -308,6 +308,10 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
           .insert(entries);
 
         if (error) throw error;
+
+        // Award gamification points for competition data
+        const { awardPointsForCompetitionData } = await import('@/utils/gamificationPointsAwarder');
+        await awardPointsForCompetitionData(user.id, retailerId);
       }
 
       toast({

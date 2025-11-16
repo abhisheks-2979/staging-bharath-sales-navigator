@@ -306,3 +306,164 @@ export async function updateRetailerSequence(userId: string, retailerId: string)
     });
   }
 }
+
+export async function awardPointsForVisitCompletion(context: VisitContext) {
+  const { userId, retailerId, hasOrder } = context;
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+
+  // Fetch user's territories
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("territories_covered, work_location")
+    .eq("id", userId)
+    .single();
+
+  const userTerritories = userProfile?.territories_covered || [];
+  const userLocation = userProfile?.work_location;
+
+  // Fetch active games
+  const { data: activeGames } = await supabase
+    .from("gamification_games")
+    .select("*")
+    .eq("is_active", true)
+    .lte("start_date", today.toISOString())
+    .gte("end_date", today.toISOString());
+
+  if (!activeGames || activeGames.length === 0) return;
+
+  // Filter games applicable to user's territory
+  const applicableGames = activeGames.filter((game: any) => 
+    game.is_all_territories || 
+    (game.territories && game.territories.some((t: string) => 
+      userTerritories.includes(t) || t === userLocation
+    ))
+  );
+
+  // Fetch actions for applicable games
+  const gameIds = applicableGames.map(g => g.id);
+  const { data: actions } = await supabase
+    .from("gamification_actions")
+    .select("*")
+    .in("game_id", gameIds)
+    .eq("is_enabled", true)
+    .eq("action_type", "productive_visit");
+
+  if (!actions || actions.length === 0) return;
+
+  for (const action of actions) {
+    const game = applicableGames.find(g => g.id === action.game_id);
+    if (!game) continue;
+
+    // Award points for productive visit (only if has order)
+    if (hasOrder && action.max_daily_awards) {
+      const { count } = await supabase
+        .from("gamification_points")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("action_id", action.id)
+        .eq("game_id", game.id)
+        .gte("earned_at", todayStart.toISOString())
+        .lte("earned_at", todayEnd.toISOString());
+
+      if (count !== null && count < action.max_daily_awards) {
+        await supabase.from("gamification_points").insert({
+          user_id: userId,
+          game_id: game.id,
+          action_id: action.id,
+          points: action.points,
+          reference_type: "visit",
+          reference_id: retailerId,
+          metadata: { retailer_id: retailerId, has_order: hasOrder },
+        });
+        console.log(`Awarded ${action.points} points for productive visit`);
+      }
+    } else if (hasOrder) {
+      await supabase.from("gamification_points").insert({
+        user_id: userId,
+        game_id: game.id,
+        action_id: action.id,
+        points: action.points,
+        reference_type: "visit",
+        reference_id: retailerId,
+        metadata: { retailer_id: retailerId, has_order: hasOrder },
+      });
+      console.log(`Awarded ${action.points} points for productive visit`);
+    }
+  }
+}
+
+export async function awardPointsForCompetitionData(userId: string, retailerId: string) {
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+
+  // Fetch user's territories
+  const { data: userProfile } = await supabase
+    .from("profiles")
+    .select("territories_covered, work_location")
+    .eq("id", userId)
+    .single();
+
+  const userTerritories = userProfile?.territories_covered || [];
+  const userLocation = userProfile?.work_location;
+
+  // Fetch active games
+  const { data: activeGames } = await supabase
+    .from("gamification_games")
+    .select("*")
+    .eq("is_active", true)
+    .lte("start_date", today.toISOString())
+    .gte("end_date", today.toISOString());
+
+  if (!activeGames || activeGames.length === 0) return;
+
+  // Filter games applicable to user's territory
+  const applicableGames = activeGames.filter((game: any) => 
+    game.is_all_territories || 
+    (game.territories && game.territories.some((t: string) => 
+      userTerritories.includes(t) || t === userLocation
+    ))
+  );
+
+  // Fetch actions for applicable games
+  const gameIds = applicableGames.map(g => g.id);
+  const { data: actions } = await supabase
+    .from("gamification_actions")
+    .select("*")
+    .in("game_id", gameIds)
+    .eq("is_enabled", true)
+    .eq("action_type", "competition_data");
+
+  if (!actions || actions.length === 0) return;
+
+  for (const action of actions) {
+    const game = applicableGames.find(g => g.id === action.game_id);
+    if (!game) continue;
+
+    // Check if already awarded today for this retailer
+    const { count } = await supabase
+      .from("gamification_points")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("action_id", action.id)
+      .eq("game_id", game.id)
+      .eq("reference_id", retailerId)
+      .gte("earned_at", todayStart.toISOString())
+      .lte("earned_at", todayEnd.toISOString());
+
+    if (count === 0) {
+      await supabase.from("gamification_points").insert({
+        user_id: userId,
+        game_id: game.id,
+        action_id: action.id,
+        points: action.points,
+        reference_type: "competition",
+        reference_id: retailerId,
+        metadata: { retailer_id: retailerId },
+      });
+      console.log(`Awarded ${action.points} points for competition data capture`);
+    }
+  }
+}
