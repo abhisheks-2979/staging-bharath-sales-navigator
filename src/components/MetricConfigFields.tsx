@@ -29,6 +29,9 @@ export function MetricConfigFields({ metricType, config, onConfigChange }: Metri
     
     if (data) {
       setProducts(data);
+      // Auto-save focused product IDs to config
+      const productIds = data.map(p => p.id);
+      handleConfigUpdate("focused_products", productIds);
     }
   };
 
@@ -74,7 +77,7 @@ export function MetricConfigFields({ metricType, config, onConfigChange }: Metri
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="orders">Total Orders</SelectItem>
-                <SelectItem value="sales_value">Sales Value ($)</SelectItem>
+                <SelectItem value="sales_value">Sales Value (Rs.)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -90,7 +93,7 @@ export function MetricConfigFields({ metricType, config, onConfigChange }: Metri
             />
             <p className="text-xs text-muted-foreground mt-1">
               {config?.target_type === "sales_value" 
-                ? "Target sales value ($) to achieve daily"
+                ? "Target sales value (Rs.) to achieve daily"
                 : "Target number of orders to achieve daily"}
             </p>
           </div>
