@@ -45,6 +45,9 @@ interface Retailer {
   avg_order_per_visit_3m?: number | null;
   total_visits_3m?: number | null;
   productive_visits_3m?: number | null;
+  total_lifetime_order_value?: number | null;
+  revenue_growth_12m?: number | null;
+  total_order_value_fy?: number | null;
 }
 
 interface RetailerDetailModalProps {

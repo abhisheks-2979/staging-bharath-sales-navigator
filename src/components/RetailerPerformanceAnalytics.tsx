@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Calendar, ShoppingCart, Target } from "lucide-react";
+import { TrendingUp, Calendar, ShoppingCart, Target, DollarSign, Wallet } from "lucide-react";
 
 interface RetailerPerformanceAnalyticsProps {
   lastOrderDate?: string | null;
@@ -8,6 +8,9 @@ interface RetailerPerformanceAnalyticsProps {
   avgOrderPerVisit?: number | null;
   totalVisits?: number | null;
   productiveVisits?: number | null;
+  totalLifetimeOrderValue?: number | null;
+  revenueGrowth12m?: number | null;
+  totalOrderValueFy?: number | null;
 }
 
 export const RetailerPerformanceAnalytics = ({
@@ -16,7 +19,10 @@ export const RetailerPerformanceAnalytics = ({
   avgMonthlyOrders,
   avgOrderPerVisit,
   totalVisits,
-  productiveVisits
+  productiveVisits,
+  totalLifetimeOrderValue,
+  revenueGrowth12m,
+  totalOrderValueFy
 }: RetailerPerformanceAnalyticsProps) => {
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A";
@@ -33,12 +39,19 @@ export const RetailerPerformanceAnalytics = ({
     return value.toFixed(decimals);
   };
 
+  const formatPercentage = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return "0%";
+    const color = value >= 0 ? "text-green-600" : "text-red-600";
+    const sign = value >= 0 ? "+" : "";
+    return <span className={color}>{sign}{value.toFixed(1)}%</span>;
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Performance Analytics (Last 3 Months)
+          Performance Analytics
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -98,6 +111,31 @@ export const RetailerPerformanceAnalytics = ({
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Lifetime & FY Metrics */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <DollarSign className="h-4 w-4" />
+              Total Lifetime Order Value
+            </div>
+            <div className="text-lg font-semibold">{formatCurrency(totalLifetimeOrderValue)}</div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Wallet className="h-4 w-4" />
+              Total Order Value FY
+            </div>
+            <div className="text-lg font-semibold">{formatCurrency(totalOrderValueFy)}</div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <TrendingUp className="h-4 w-4" />
+              Revenue Growth (Last 12 Months)
+            </div>
+            <div className="text-lg font-semibold">{formatPercentage(revenueGrowth12m)}</div>
           </div>
         </div>
       </CardContent>
