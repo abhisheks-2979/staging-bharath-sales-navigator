@@ -42,6 +42,9 @@ interface Retailer {
   avg_order_per_visit_3m?: number;
   total_visits_3m?: number;
   productive_visits_3m?: number;
+  total_lifetime_order_value?: number;
+  revenue_growth_12m?: number;
+  total_order_value_fy?: number;
 }
 
 export const RetailerDetail = () => {
@@ -353,6 +356,9 @@ export const RetailerDetail = () => {
               avgOrderPerVisit={retailer.avg_order_per_visit_3m}
               totalVisits={retailer.total_visits_3m}
               productiveVisits={retailer.productive_visits_3m}
+              totalLifetimeOrderValue={retailer.total_lifetime_order_value}
+              revenueGrowth12m={retailer.revenue_growth_12m}
+              totalOrderValueFy={retailer.total_order_value_fy}
             />
 
             {/* Notes */}
