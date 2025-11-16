@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
+import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificationPointsAwarder";
 interface CartItem {
   id: string;
   name: string;
@@ -707,6 +708,36 @@ export const Cart = () => {
         error: itemsError
       } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
+
+      // Check if this is the first order from this retailer
+      const { count: previousOrdersCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('retailer_id', validRetailerId)
+        .neq('id', order.id);
+
+      const isFirstOrder = previousOrdersCount === 0;
+
+      // Award gamification points
+      try {
+        await awardPointsForOrder({
+          userId: user.id,
+          retailerId: validRetailerId,
+          orderValue: totalAmount,
+          orderItems: orderItems.map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity
+          })),
+          isFirstOrder
+        });
+
+        // Update retailer sequence for consecutive order tracking
+        await updateRetailerSequence(user.id, validRetailerId);
+      } catch (pointsError) {
+        console.error('Error awarding gamification points:', pointsError);
+        // Don't fail the order if points awarding fails
+      }
 
       // Create invoice record with auto-generated invoice number
       const invoiceDate = new Date().toISOString().split('T')[0];
