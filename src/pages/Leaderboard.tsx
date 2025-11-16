@@ -70,7 +70,7 @@ export default function Leaderboard() {
   const [games, setGames] = useState<GameWithPoints[]>([]);
   const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("month");
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("today");
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState("");
 
@@ -390,10 +390,20 @@ export default function Leaderboard() {
                 <p className="text-muted-foreground">Track performance, earn points, and compete</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => navigate("/game-policy")}>
-              <Info className="mr-2 h-4 w-4" />
-              Game Policy
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate("/activities-info")}>
+                <Trophy className="mr-2 h-4 w-4" />
+                Activities
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/badges-info")}>
+                <Award className="mr-2 h-4 w-4" />
+                Badges
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate("/game-policy")}>
+                <Info className="mr-2 h-4 w-4" />
+                Game Policy
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -481,12 +491,8 @@ export default function Leaderboard() {
           </Card>
         )}
 
-        <Tabs defaultValue="leaderboard" className="space-y-4">
+        <Tabs defaultValue="games" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="leaderboard">
-              <Trophy className="mr-2 h-4 w-4" />
-              Rankings
-            </TabsTrigger>
             <TabsTrigger value="games">
               <Award className="mr-2 h-4 w-4" />
               My Games
@@ -494,6 +500,10 @@ export default function Leaderboard() {
             <TabsTrigger value="badges">
               <Medal className="mr-2 h-4 w-4" />
               Badges
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard">
+              <Trophy className="mr-2 h-4 w-4" />
+              Rankings
             </TabsTrigger>
             <TabsTrigger value="redemptions">
               <Gift className="mr-2 h-4 w-4" />

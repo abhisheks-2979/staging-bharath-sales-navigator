@@ -46,6 +46,8 @@ import AdminControls from "./pages/AdminControls";
 import FeatureManagement from "./pages/FeatureManagement";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
+import ActivitiesInfo from "./pages/ActivitiesInfo";
+import BadgesInfo from "./pages/BadgesInfo";
 import FeedbackManagement from "./pages/FeedbackManagement";
 import CompetitionMaster from "./pages/CompetitionMaster";
 import CompetitorDetail from "./pages/CompetitorDetail";
@@ -308,6 +310,16 @@ const App = () => (
             <Route path="/game-policy" element={
               <ProtectedRoute>
                 <GamePolicy />
+              </ProtectedRoute>
+            } />
+            <Route path="/activities-info" element={
+              <ProtectedRoute>
+                <ActivitiesInfo />
+              </ProtectedRoute>
+            } />
+            <Route path="/badges-info" element={
+              <ProtectedRoute>
+                <BadgesInfo />
               </ProtectedRoute>
             } />
             <Route path="/performance" element={
