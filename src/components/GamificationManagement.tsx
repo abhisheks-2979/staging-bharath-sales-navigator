@@ -160,6 +160,7 @@ export function GamificationManagement() {
   const [selectedActivity, setSelectedActivity] = useState("");
   const [rewardPoints, setRewardPoints] = useState("");
   const [metricConfig, setMetricConfig] = useState<any>({});
+  const [isActive, setIsActive] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [actionToDelete, setActionToDelete] = useState<GameAction | null>(null);
 
@@ -316,6 +317,7 @@ export function GamificationManagement() {
         end_date: endDate || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
         territories: isAllTerritories ? [] : selectedTerritories,
         is_all_territories: isAllTerritories,
+        is_active: isActive,
         baseline_target: 0,
       })
       .select()
@@ -331,7 +333,7 @@ export function GamificationManagement() {
       action_type: selectedActivity,
       action_name: activity?.label || selectedActivity,
       points: parseFloat(rewardPoints),
-      is_enabled: true,
+      is_enabled: isActive,
       max_awardable_activities: metricConfig.max_awardable_activities || null,
       base_daily_target: metricConfig.base_daily_target || null,
       focused_products: metricConfig.focused_products || null,
@@ -404,6 +406,7 @@ export function GamificationManagement() {
         end_date: endDate,
         territories: isAllTerritories ? [] : selectedTerritories,
         is_all_territories: isAllTerritories,
+        is_active: isActive,
       })
       .eq("id", editingAction.game_id);
 
@@ -419,6 +422,7 @@ export function GamificationManagement() {
         action_type: selectedActivity,
         action_name: activity?.label || selectedActivity,
         points: parseFloat(rewardPoints),
+        is_enabled: isActive,
         max_awardable_activities: metricConfig.max_awardable_activities || null,
         base_daily_target: metricConfig.base_daily_target || null,
         focused_products: metricConfig.focused_products || null,
@@ -497,6 +501,7 @@ export function GamificationManagement() {
 
     setSelectedActivity(action.action_type);
     setRewardPoints(action.points.toString());
+    setIsActive(action.is_enabled);
     setMetricConfig({
       max_awardable_activities: action.max_awardable_activities,
       base_daily_target: action.base_daily_target,
@@ -553,10 +558,11 @@ export function GamificationManagement() {
     setStartDate("");
     setEndDate("");
     setSelectedTerritories([]);
-    setIsAllTerritories(false);
+    setIsAllTerritories(true);
     setSelectedActivity("");
     setRewardPoints("");
     setMetricConfig({});
+    setIsActive(true);
   };
 
   const getConfigSummary = (action: GameAction) => {
@@ -649,6 +655,15 @@ export function GamificationManagement() {
                   onConfigChange={setMetricConfig}
                 />
               )}
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="gameActive"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                />
+                <Label htmlFor="gameActive">Game Active</Label>
+              </div>
 
               <div>
                 <Label htmlFor="gameDescription">Description</Label>
@@ -781,6 +796,15 @@ export function GamificationManagement() {
                   onConfigChange={setMetricConfig}
                 />
               )}
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="editGameActive"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                />
+                <Label htmlFor="editGameActive">Game Active</Label>
+              </div>
 
               <div>
                 <Label htmlFor="editGameDescription">Description</Label>
