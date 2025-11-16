@@ -945,42 +945,51 @@ export type Database = {
       }
       credit_management_config: {
         Row: {
+          config_name: string | null
           created_at: string | null
           credit_multiplier: number
           id: string
+          is_active: boolean | null
           is_enabled: boolean
           lookback_period_months: number
           new_retailer_starting_score: number
           payment_term_days: number
           scoring_mode: string
+          territory_ids: string[]
           updated_at: string | null
           weight_growth_rate: number
           weight_order_frequency: number
           weight_repayment_dso: number
         }
         Insert: {
+          config_name?: string | null
           created_at?: string | null
           credit_multiplier?: number
           id?: string
+          is_active?: boolean | null
           is_enabled?: boolean
           lookback_period_months?: number
           new_retailer_starting_score?: number
           payment_term_days?: number
           scoring_mode?: string
+          territory_ids?: string[]
           updated_at?: string | null
           weight_growth_rate?: number
           weight_order_frequency?: number
           weight_repayment_dso?: number
         }
         Update: {
+          config_name?: string | null
           created_at?: string | null
           credit_multiplier?: number
           id?: string
+          is_active?: boolean | null
           is_enabled?: boolean
           lookback_period_months?: number
           new_retailer_starting_score?: number
           payment_term_days?: number
           scoring_mode?: string
+          territory_ids?: string[]
           updated_at?: string | null
           weight_growth_rate?: number
           weight_order_frequency?: number
