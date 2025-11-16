@@ -979,22 +979,32 @@ export function GamificationManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Activity Name</TableHead>
+                    <TableHead>Game</TableHead>
                     <TableHead>Reward</TableHead>
+                    <TableHead>Points to Rs.</TableHead>
                     <TableHead>Configuration</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {actions.map((action) => (
+                  {actions.map((action) => {
+                    const game = games.find(g => g.id === action.game_id);
+                    return (
                     <TableRow
                       key={action.id}
                       className="cursor-pointer hover:bg-muted"
                       onClick={() => openEditDialog(action)}
                     >
                       <TableCell className="font-medium">{action.action_name}</TableCell>
+                      <TableCell className="text-sm">
+                        {game?.name || "N/A"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="default">{action.points} points</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">1 pt = ₹{game?.points_to_rupee_conversion || 1}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {getConfigSummary(action)}
@@ -1030,7 +1040,8 @@ export function GamificationManagement() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
