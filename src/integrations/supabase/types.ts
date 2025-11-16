@@ -943,6 +943,51 @@ export type Database = {
           },
         ]
       }
+      credit_management_config: {
+        Row: {
+          created_at: string | null
+          credit_multiplier: number
+          id: string
+          is_enabled: boolean
+          lookback_period_months: number
+          new_retailer_starting_score: number
+          payment_term_days: number
+          scoring_mode: string
+          updated_at: string | null
+          weight_growth_rate: number
+          weight_order_frequency: number
+          weight_repayment_dso: number
+        }
+        Insert: {
+          created_at?: string | null
+          credit_multiplier?: number
+          id?: string
+          is_enabled?: boolean
+          lookback_period_months?: number
+          new_retailer_starting_score?: number
+          payment_term_days?: number
+          scoring_mode?: string
+          updated_at?: string | null
+          weight_growth_rate?: number
+          weight_order_frequency?: number
+          weight_repayment_dso?: number
+        }
+        Update: {
+          created_at?: string | null
+          credit_multiplier?: number
+          id?: string
+          is_enabled?: boolean
+          lookback_period_months?: number
+          new_retailer_starting_score?: number
+          payment_term_days?: number
+          scoring_mode?: string
+          updated_at?: string | null
+          weight_growth_rate?: number
+          weight_order_frequency?: number
+          weight_repayment_dso?: number
+        }
+        Relationships: []
+      }
       custom_invoice_templates: {
         Row: {
           created_at: string | null
@@ -2834,6 +2879,68 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_credit_scores: {
+        Row: {
+          avg_dso: number | null
+          avg_growth_rate: number | null
+          avg_order_frequency: number | null
+          calculated_at: string | null
+          created_at: string | null
+          credit_limit: number
+          growth_rate_score: number | null
+          id: string
+          last_month_revenue: number | null
+          order_frequency_score: number | null
+          repayment_dso_score: number | null
+          retailer_id: string
+          score: number
+          score_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          avg_dso?: number | null
+          avg_growth_rate?: number | null
+          avg_order_frequency?: number | null
+          calculated_at?: string | null
+          created_at?: string | null
+          credit_limit?: number
+          growth_rate_score?: number | null
+          id?: string
+          last_month_revenue?: number | null
+          order_frequency_score?: number | null
+          repayment_dso_score?: number | null
+          retailer_id: string
+          score: number
+          score_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          avg_dso?: number | null
+          avg_growth_rate?: number | null
+          avg_order_frequency?: number | null
+          calculated_at?: string | null
+          created_at?: string | null
+          credit_limit?: number
+          growth_rate_score?: number | null
+          id?: string
+          last_month_revenue?: number | null
+          order_frequency_score?: number | null
+          repayment_dso_score?: number | null
+          retailer_id?: string
+          score?: number
+          score_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_credit_scores_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: true
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_feedback: {
         Row: {
           comments: string | null
@@ -2956,6 +3063,7 @@ export type Database = {
           latitude: number | null
           location_tag: string | null
           longitude: number | null
+          manual_credit_score: number | null
           name: string
           notes: string | null
           order_value: number | null
@@ -2987,6 +3095,7 @@ export type Database = {
           latitude?: number | null
           location_tag?: string | null
           longitude?: number | null
+          manual_credit_score?: number | null
           name: string
           notes?: string | null
           order_value?: number | null
@@ -3018,6 +3127,7 @@ export type Database = {
           latitude?: number | null
           location_tag?: string | null
           longitude?: number | null
+          manual_credit_score?: number | null
           name?: string
           notes?: string | null
           order_value?: number | null

@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { format } from "date-fns";
 import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
 import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificationPointsAwarder";
+import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 interface CartItem {
   id: string;
   name: string;
@@ -1093,6 +1094,11 @@ export const Cart = () => {
             {/* Order Summary */}
             <Card>
               <CardContent className="p-3 space-y-2">
+                {validRetailerId && (
+                  <div className="pb-2 border-b">
+                    <CreditScoreDisplay retailerId={validRetailerId} variant="compact" showCreditLimit={true} />
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal:</span>
                   <span className="font-semibold">₹{formatINRTrunc2(getSubtotal())}</span>
