@@ -29,6 +29,7 @@ import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { useLocationFeature } from "@/hooks/useLocationFeature";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
+import { CreditScoreDisplay } from "./CreditScoreDisplay";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -1161,6 +1162,11 @@ export const VisitCard = ({
                   {distributorName || visit.distributor}
                 </span>
               </div>}
+            {visit.retailerId && (
+              <div className="mt-2">
+                <CreditScoreDisplay retailerId={visit.retailerId} variant="compact" />
+              </div>
+            )}
           </div>
           <div className="flex sm:flex-col items-start sm:items-end gap-2 sm:gap-1">
             <div className="flex flex-wrap gap-1">

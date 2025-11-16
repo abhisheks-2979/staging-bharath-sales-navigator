@@ -77,6 +77,7 @@ import CompleteProfile from "./pages/CompleteProfile";
 import GamificationAdmin from "./pages/GamificationAdmin";
 import InvoiceManagement from "./pages/InvoiceManagement";
 import GamePolicy from "./pages/GamePolicy";
+import CreditManagement from "./pages/CreditManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -380,6 +381,11 @@ const App = () => (
             <Route path="/gamification-admin" element={
               <ProtectedRoute>
                 <GamificationAdmin />
+              </ProtectedRoute>
+            } />
+            <Route path="/credit-management" element={
+              <ProtectedRoute>
+                <CreditManagement />
               </ProtectedRoute>
             } />
             <Route path="/invoice-management" element={

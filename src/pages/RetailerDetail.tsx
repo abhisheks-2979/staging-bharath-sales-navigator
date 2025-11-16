@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 
 interface Retailer {
   id: string;
@@ -279,6 +280,10 @@ export const RetailerDetail = () => {
                 </div>
               </div>
             </div>
+
+            {/* Credit Score Section */}
+            <Separator />
+            <CreditScoreDisplay retailerId={retailer.id} variant="full" showCreditLimit={true} />
 
             {/* Distributor Information */}
             {distributorName && (
