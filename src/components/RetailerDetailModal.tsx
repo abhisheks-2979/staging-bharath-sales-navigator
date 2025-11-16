@@ -38,6 +38,7 @@ interface Retailer {
   longitude?: number | null;
   photo_url?: string | null;
   order_value?: number | null;
+  manual_credit_score?: number | null;
 }
 
 interface RetailerDetailModalProps {
@@ -57,6 +58,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [beats, setBeats] = useState<{ beat_id: string; beat_name: string }[]>([]);
   const [territories, setTerritories] = useState<{ id: string; name: string; region: string }[]>([]);
   const [territoryOpen, setTerritoryOpen] = useState(false);
+  const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
 
   useEffect(() => {
     if (retailer) {
@@ -69,8 +71,24 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     if (user && isOpen) {
       loadBeats();
       loadTerritories();
+      loadCreditConfig();
     }
   }, [user, isOpen]);
+
+  const loadCreditConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('credit_management_config')
+        .select('is_enabled, scoring_mode')
+        .single();
+      
+      if (!error && data) {
+        setCreditConfig(data);
+      }
+    } catch (error) {
+      console.error('Error loading credit config:', error);
+    }
+  };
 
   const loadBeats = async () => {
     if (!user) return;
@@ -133,6 +151,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           beat_id: formData.beat_id,
           beat_name: selectedBeat?.beat_name || formData.beat_id,
           territory_id: formData.territory_id || null,
+          manual_credit_score: formData.manual_credit_score,
         })
         .eq('id', formData.id)
         .eq('user_id', user.id);
@@ -445,6 +464,29 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       )}
                     </div>
                   </div>
+
+                  {/* Manual Credit Score - Only show when credit management is enabled and mode is manual */}
+                  {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Credit Score (Manual)</Label>
+                      <div className="flex items-center justify-between group">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="0.1"
+                            value={formData.manual_credit_score || ''}
+                            onChange={(e) => setFormData({...formData, manual_credit_score: e.target.value ? parseFloat(e.target.value) : null})}
+                            className="h-8 text-sm"
+                            placeholder="Enter score (0-10)"
+                          />
+                        ) : (
+                          <span className="text-sm">{formData.manual_credit_score ? `${formData.manual_credit_score} / 10` : '-'}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Potential</Label>

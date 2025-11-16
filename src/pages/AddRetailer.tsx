@@ -41,7 +41,8 @@ export const AddRetailer = () => {
     competitor3: "",
     latitude: "",
     longitude: "",
-    photo_url: ""
+    photo_url: "",
+    manual_credit_score: ""
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -58,6 +59,7 @@ export const AddRetailer = () => {
   const [territories, setTerritories] = useState<{id: string, name: string, region: string}[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
+  const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
@@ -115,8 +117,24 @@ export const AddRetailer = () => {
       loadDistributors();
       loadBeats();
       loadTerritories();
+      loadCreditConfig();
     }
   }, [user]);
+
+  const loadCreditConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('credit_management_config')
+        .select('is_enabled, scoring_mode')
+        .single();
+      
+      if (!error && data) {
+        setCreditConfig(data);
+      }
+    } catch (error) {
+      console.error('Error loading credit config:', error);
+    }
+  };
 
   const handleInputChange = (field: string, value: string | string[]) => {
     setRetailerData(prev => ({ ...prev, [field]: value }));
@@ -375,6 +393,7 @@ export const AddRetailer = () => {
       photo_url: retailerData.photo_url || null,
       latitude: retailerData.latitude ? parseFloat(retailerData.latitude) : null,
       longitude: retailerData.longitude ? parseFloat(retailerData.longitude) : null,
+      manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
     };
 
     const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();
@@ -934,6 +953,25 @@ export const AddRetailer = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Manual Credit Score - Only show when credit management is enabled and mode is manual */}
+              {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
+                <div className="space-y-2">
+                  <Label htmlFor="manual_credit_score">Credit Score (Manual)</Label>
+                  <Input
+                    id="manual_credit_score"
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    placeholder="Enter credit score (0-10)"
+                    value={retailerData.manual_credit_score}
+                    onChange={(e) => handleInputChange("manual_credit_score", e.target.value)}
+                    className="bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground">Manual credit score out of 10</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
