@@ -420,7 +420,7 @@ export default function Leaderboard() {
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => navigate("/activities-info")}>
                 <Trophy className="mr-2 h-4 w-4" />
-                Activities
+                Game Configurations
               </Button>
               <Button variant="outline" size="sm" onClick={() => navigate("/badges-info")}>
                 <Award className="mr-2 h-4 w-4" />
@@ -489,12 +489,12 @@ export default function Leaderboard() {
           </Card>
         </div>
 
-        {/* Points Breakdown */}
+        {/* Activity Performance */}
         {pointsBreakdown.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Points Breakdown ({timeFilter})</CardTitle>
-              <CardDescription>See where your points are coming from</CardDescription>
+              <CardTitle>Activity Performance ({timeFilter})</CardTitle>
+              <CardDescription>Your points breakdown by activity</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
