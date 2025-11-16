@@ -59,6 +59,44 @@ const numberToWords = (num: number): string => {
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
   const { orderId, company, retailer, cartItems } = data;
   
+  // Helper functions for consistent display (matches preview component)
+  const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+  
+  const getDisplayRate = (item: any) => {
+    const baseRate = Number(item.rate || item.price) || 0;
+    const baseUnit = normalizeUnit(item.base_unit || item.unit);
+    const targetUnit = normalizeUnit(item.unit);
+    if (!baseUnit || !item.base_unit) return baseRate;
+
+    // KG ↔ Gram conversions
+    if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
+      if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
+      if (targetUnit === "kg") return baseRate;
+    } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
+      if (targetUnit === "kg") return baseRate * 1000;
+      if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
+    }
+    return baseRate;
+  };
+
+  // Get display name - show only variant name if it's a variant, or base product name
+  const getDisplayName = (item: any) => {
+    const fullName = item.product_name || item.name || "";
+    // Check if this is a variant (contains " - ")
+    if (fullName.includes(" - ")) {
+      const parts = fullName.split(" - ");
+      const variantPart = parts[1];
+      // If variant is "Base variant", show only the base product name
+      if (variantPart.toLowerCase() === "base variant") {
+        return parts[0];
+      }
+      // Otherwise show only the variant name
+      return variantPart;
+    }
+    // If no variant, return the full name
+    return fullName;
+  };
+  
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -161,12 +199,12 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Items table with green header
   const tableData = cartItems.map((item, index) => {
-    const rate = item.rate || item.price || 0;
+    const rate = getDisplayRate(item);
     const qty = item.quantity || 0;
     const total = rate * qty;
     return [
       (index + 1).toString(),
-      item.product_name || item.name || "Item",
+      getDisplayName(item),
       item.hsn_code || "-",
       item.unit || "Piece",
       qty.toString(),
@@ -207,10 +245,10 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   });
 
   // Calculate totals
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + (item.rate || item.price || 0) * (item.quantity || 0),
-    0
-  );
+  const subtotal = cartItems.reduce((sum, item) => {
+    const displayRate = getDisplayRate(item);
+    return sum + (item.quantity || 0) * displayRate;
+  }, 0);
   const sgst = subtotal * 0.025; // 2.5%
   const cgst = subtotal * 0.025; // 2.5%
   const total = subtotal + sgst + cgst;
