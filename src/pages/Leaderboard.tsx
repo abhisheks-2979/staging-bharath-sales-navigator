@@ -73,6 +73,7 @@ export default function Leaderboard() {
   const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("today");
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState("");
+  const [conversionRate, setConversionRate] = useState(1);
 
   useEffect(() => {
     fetchLeaderboardData();
@@ -80,6 +81,7 @@ export default function Leaderboard() {
     fetchRedemptions();
     fetchGames();
     fetchPointsBreakdown();
+    fetchConversionRate();
   }, [timeFilter]);
 
   const fetchLeaderboardData = async () => {
@@ -167,6 +169,20 @@ export default function Leaderboard() {
     }
 
     return { startDate, endDate: now };
+  };
+
+  const fetchConversionRate = async () => {
+    const { data } = await supabase
+      .from("gamification_games")
+      .select("points_to_rupee_conversion")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data) {
+      setConversionRate(data.points_to_rupee_conversion || 1);
+    }
   };
 
   const fetchMyPoints = async () => {
@@ -318,10 +334,21 @@ export default function Leaderboard() {
       return;
     }
 
+    // Fetch active game to get conversion rate
+    const { data: gamesData } = await supabase
+      .from("gamification_games")
+      .select("points_to_rupee_conversion")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const conversionRate = gamesData?.points_to_rupee_conversion || 1;
+
     const { error } = await supabase.from("gamification_redemptions").insert({
       user_id: userProfile.id,
       points_redeemed: points,
-      voucher_amount: points, // 1 point = ₹1
+      voucher_amount: points * conversionRate,
       status: "pending",
     });
 
@@ -683,9 +710,12 @@ export default function Leaderboard() {
           <div className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm text-blue-600 dark:text-blue-400">
-                <strong>Conversion Rate:</strong> 1 Point = ₹1
+                <strong>Available Points:</strong> {myPoints.total}
               </p>
-              <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                <strong>Conversion Rate:</strong> 1 point = ₹{conversionRate}
+              </p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">
                 <strong>Minimum:</strong> 100 points
               </p>
             </div>
@@ -707,7 +737,10 @@ export default function Leaderboard() {
             {redeemPoints && parseFloat(redeemPoints) >= 100 && (
               <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-600 dark:text-green-400">
-                  You will receive: <strong>₹{parseFloat(redeemPoints)}</strong> voucher
+                  You will receive: <strong>₹{(parseFloat(redeemPoints) * conversionRate).toFixed(2)}</strong> voucher
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  (Conversion: 1 point = ₹{conversionRate})
                 </p>
               </div>
             )}

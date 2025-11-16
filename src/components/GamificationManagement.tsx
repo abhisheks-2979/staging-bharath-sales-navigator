@@ -26,6 +26,7 @@ interface Game {
   is_all_territories: boolean;
   baseline_target: number;
   is_active: boolean;
+  points_to_rupee_conversion: number;
 }
 
 interface GameStats {
@@ -163,6 +164,7 @@ export function GamificationManagement() {
   const [isActive, setIsActive] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [actionToDelete, setActionToDelete] = useState<GameAction | null>(null);
+  const [pointsToRupeeConversion, setPointsToRupeeConversion] = useState("1");
 
   useEffect(() => {
     fetchActions();
@@ -319,6 +321,7 @@ export function GamificationManagement() {
         is_all_territories: isAllTerritories,
         is_active: isActive,
         baseline_target: 0,
+        points_to_rupee_conversion: parseFloat(pointsToRupeeConversion) || 1,
       })
       .select()
       .single();
@@ -407,6 +410,7 @@ export function GamificationManagement() {
         territories: isAllTerritories ? [] : selectedTerritories,
         is_all_territories: isAllTerritories,
         is_active: isActive,
+        points_to_rupee_conversion: parseFloat(pointsToRupeeConversion) || 1,
       })
       .eq("id", editingAction.game_id);
 
@@ -497,6 +501,7 @@ export function GamificationManagement() {
       setEndDate(data.end_date);
       setSelectedTerritories(data.territories);
       setIsAllTerritories(data.is_all_territories);
+      setPointsToRupeeConversion(data.points_to_rupee_conversion?.toString() || "1");
     }
 
     setSelectedActivity(action.action_type);
@@ -563,6 +568,7 @@ export function GamificationManagement() {
     setRewardPoints("");
     setMetricConfig({});
     setIsActive(true);
+    setPointsToRupeeConversion("1");
   };
 
   const getConfigSummary = (action: GameAction) => {
@@ -694,6 +700,22 @@ export function GamificationManagement() {
                     onChange={(e) => setEndDate(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="pointsConversion">Points to Rupee Conversion</Label>
+                <Input
+                  id="pointsConversion"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={pointsToRupeeConversion}
+                  onChange={(e) => setPointsToRupeeConversion(e.target.value)}
+                  placeholder="1 point = ? rupees (e.g., 1 or 0.5)"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Set how many rupees equals 1 point (e.g., 1 point = ₹{pointsToRupeeConversion || "1"})
+                </p>
               </div>
 
               <div className="flex items-center space-x-2">
@@ -835,6 +857,22 @@ export function GamificationManagement() {
                     onChange={(e) => setEndDate(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="editPointsConversion">Points to Rupee Conversion</Label>
+                <Input
+                  id="editPointsConversion"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={pointsToRupeeConversion}
+                  onChange={(e) => setPointsToRupeeConversion(e.target.value)}
+                  placeholder="1 point = ? rupees (e.g., 1 or 0.5)"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Set how many rupees equals 1 point (e.g., 1 point = ₹{pointsToRupeeConversion || "1"})
+                </p>
               </div>
 
               <div className="flex items-center space-x-2">
