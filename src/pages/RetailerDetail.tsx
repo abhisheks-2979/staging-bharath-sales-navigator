@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
+import { RetailerPerformanceAnalytics } from "@/components/RetailerPerformanceAnalytics";
 
 interface Retailer {
   id: string;
@@ -35,6 +36,12 @@ interface Retailer {
   created_at: string;
   updated_at: string;
   verified?: boolean;
+  last_order_date?: string;
+  last_order_value?: number;
+  avg_monthly_orders_3m?: number;
+  avg_order_per_visit_3m?: number;
+  total_visits_3m?: number;
+  productive_visits_3m?: number;
 }
 
 export const RetailerDetail = () => {
@@ -337,28 +344,16 @@ export const RetailerDetail = () => {
               </>
             )}
 
-            {/* Performance Metrics */}
+            {/* Performance Analytics */}
             <Separator />
-            <div>
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Performance Metrics
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Last Visit</label>
-                  <p className="text-sm mt-1">
-                    {retailer.last_visit_date ? new Date(retailer.last_visit_date).toLocaleDateString() : 'Never visited'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Order Value</label>
-                  <p className="text-sm mt-1">
-                    {retailer.order_value ? `₹${retailer.order_value.toLocaleString()}` : '₹0'}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <RetailerPerformanceAnalytics
+              lastOrderDate={retailer.last_order_date}
+              lastOrderValue={retailer.last_order_value}
+              avgMonthlyOrders={retailer.avg_monthly_orders_3m}
+              avgOrderPerVisit={retailer.avg_order_per_visit_3m}
+              totalVisits={retailer.total_visits_3m}
+              productiveVisits={retailer.productive_visits_3m}
+            />
 
             {/* Notes */}
             {retailer.notes && (

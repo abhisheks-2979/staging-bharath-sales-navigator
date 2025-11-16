@@ -39,6 +39,12 @@ interface Retailer {
   photo_url?: string | null;
   order_value?: number | null;
   manual_credit_score?: number | null;
+  last_order_date?: string | null;
+  last_order_value?: number | null;
+  avg_monthly_orders_3m?: number | null;
+  avg_order_per_visit_3m?: number | null;
+  total_visits_3m?: number | null;
+  productive_visits_3m?: number | null;
 }
 
 interface RetailerDetailModalProps {
@@ -680,22 +686,58 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <p className="text-2xl font-bold text-primary">
-                      ₹{(formData.order_value || 0).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground">3-Month Avg Orders</p>
+                <div className="space-y-4 pt-2">
+                  {/* Last Order Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Last Order Date</p>
+                      <p className="text-lg font-semibold">
+                        {formData.last_order_date 
+                          ? new Date(formData.last_order_date).toLocaleDateString() 
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">Last Order Value</p>
+                      <p className="text-lg font-semibold text-primary">
+                        ₹{(formData.last_order_value || 0).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <p className="text-2xl font-bold text-primary">
-                      ₹{(formData.order_value || 0).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Avg Order per Visit</p>
+
+                  {/* 3 Month Analytics */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {(formData.avg_monthly_orders_3m || 0).toFixed(1)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Avg Monthly Orders</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {(formData.avg_order_per_visit_3m || 0).toFixed(2)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Avg Order per Visit</p>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <p className="text-2xl font-bold text-primary">
+                        {formData.total_visits_3m || 0}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Total Visits (3M)</p>
+                    </div>
                   </div>
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <p className="text-2xl font-bold text-primary">-</p>
-                    <p className="text-sm text-muted-foreground">Visits in 3 Months</p>
+
+                  {/* Productive Visits */}
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Productive Visits (3 Months)</p>
+                    <p className="text-lg font-semibold">
+                      {formData.productive_visits_3m || 0}
+                      {formData.total_visits_3m && formData.total_visits_3m > 0 && (
+                        <span className="text-sm text-muted-foreground ml-2">
+                          ({((formData.productive_visits_3m || 0) / formData.total_visits_3m * 100).toFixed(0)}%)
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </div>
               </AccordionContent>
