@@ -22,22 +22,7 @@ serve(async (req) => {
       throw new Error("retailer_id is required");
     }
 
-    // Get configuration
-    const { data: config, error: configError } = await supabase
-      .from("credit_management_config")
-      .select("*")
-      .single();
-
-    if (configError) throw configError;
-
-    if (!config.is_enabled || config.scoring_mode !== 'ai_driven') {
-      return new Response(
-        JSON.stringify({ error: "AI-driven scoring is not enabled" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
-    }
-
-    // Get retailer data
+    // Get retailer data first
     const { data: retailer, error: retailerError } = await supabase
       .from("retailers")
       .select("*")
@@ -45,6 +30,39 @@ serve(async (req) => {
       .single();
 
     if (retailerError) throw retailerError;
+
+    // Get all active configurations
+    const { data: configs, error: configsError } = await supabase
+      .from("credit_management_config")
+      .select("*")
+      .eq("is_active", true)
+      .eq("is_enabled", true)
+      .eq("scoring_mode", "ai_driven");
+
+    if (configsError) throw configsError;
+
+    if (!configs || configs.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No active AI-driven scoring configurations found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+
+    // Find the configuration that matches the retailer's territory
+    let config = null;
+    if (retailer.territory_id) {
+      config = configs.find(c => c.territory_ids && c.territory_ids.includes(retailer.territory_id));
+    }
+
+    // If no territory-specific config found, check for a default config (empty territory_ids)
+    if (!config) {
+      config = configs.find(c => !c.territory_ids || c.territory_ids.length === 0);
+    }
+
+    // If still no config found, use the first active config as fallback
+    if (!config) {
+      config = configs[0];
+    }
 
     // Calculate cutoff date based on lookback period
     const cutoffDate = new Date();
