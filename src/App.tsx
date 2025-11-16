@@ -74,6 +74,7 @@ import UserProfile from "./pages/UserProfile";
 import CompleteProfile from "./pages/CompleteProfile";
 import GamificationAdmin from "./pages/GamificationAdmin";
 import InvoiceManagement from "./pages/InvoiceManagement";
+import GamePolicy from "./pages/GamePolicy";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -302,6 +303,11 @@ const App = () => (
             <Route path="/leaderboard" element={
               <ProtectedRoute>
                 <Leaderboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/game-policy" element={
+              <ProtectedRoute>
+                <GamePolicy />
               </ProtectedRoute>
             } />
             <Route path="/performance" element={

@@ -1,16 +1,15 @@
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LeaderboardTimeFilters } from "@/components/LeaderboardTimeFilters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal } from "lucide-react";
+import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal, TrendingUp, Target, Star } from "lucide-react";
 import { BadgesDisplay } from "@/components/BadgesDisplay";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -43,19 +42,23 @@ interface Redemption {
   rejection_reason: string | null;
 }
 
-interface Game {
+interface GameWithPoints {
   id: string;
   name: string;
   description: string;
   start_date: string;
   end_date: string;
   is_active: boolean;
-  baseline_target: number;
-}
-
-interface GameWithPoints extends Game {
   activity_name: string;
   earned_points: number;
+  total_possible_points: number;
+  action_type: string;
+}
+
+interface PointsBreakdown {
+  activity_name: string;
+  points: number;
+  count: number;
 }
 
 export default function Leaderboard() {
@@ -65,25 +68,30 @@ export default function Leaderboard() {
   const [myPoints, setMyPoints] = useState<MyPoints>({ today: 0, week: 0, month: 0, quarter: 0, year: 0, total: 0 });
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [games, setGames] = useState<GameWithPoints[]>([]);
+  const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("month");
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState("");
-  const [showPolicyDialog, setShowPolicyDialog] = useState(false);
-  const [policyType, setPolicyType] = useState<"points" | "redemption">("points");
 
   useEffect(() => {
     fetchLeaderboardData();
     fetchMyPoints();
     fetchRedemptions();
     fetchGames();
-  }, []);
+    fetchPointsBreakdown();
+  }, [timeFilter]);
 
   const fetchLeaderboardData = async () => {
     setLoading(true);
+    
+    // Get date range based on timeFilter
+    const { startDate } = getDateRange();
+    
     const { data, error } = await supabase
       .from("gamification_points")
       .select("user_id, points, earned_at")
+      .gte("earned_at", startDate.toISOString())
       .order("earned_at", { ascending: false });
 
     if (error) {
@@ -101,6 +109,12 @@ export default function Leaderboard() {
 
     // Get user profiles
     const userIds = Array.from(userPointsMap.keys());
+    if (userIds.length === 0) {
+      setLeaderboard([]);
+      setLoading(false);
+      return;
+    }
+
     const { data: profilesData } = await supabase
       .from("profiles")
       .select("id, full_name, profile_picture_url")
@@ -125,23 +139,49 @@ export default function Leaderboard() {
     setLoading(false);
   };
 
+  const getDateRange = () => {
+    const now = new Date();
+    let startDate: Date;
+
+    switch (timeFilter) {
+      case "today":
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        break;
+      case "week":
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - now.getDay());
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case "month":
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        break;
+      case "quarter":
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
+        break;
+      case "year":
+        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    }
+
+    return { startDate, endDate: now };
+  };
+
   const fetchMyPoints = async () => {
     if (!userProfile?.id) return;
 
     const now = new Date();
     
-    // Calculate time ranges (timezone-aware)
+    // Calculate time ranges
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
-    
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    
     const currentQuarter = Math.floor(now.getMonth() / 3);
     const startOfQuarter = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
-    
     const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
 
     const { data } = await supabase
@@ -157,7 +197,6 @@ export default function Leaderboard() {
         const pointsValue = Number(item.points) || 0;
         
         points.total += pointsValue;
-        
         if (earnedDate >= startOfToday) points.today += pointsValue;
         if (earnedDate >= startOfWeek) points.week += pointsValue;
         if (earnedDate >= startOfMonth) points.month += pointsValue;
@@ -182,7 +221,6 @@ export default function Leaderboard() {
   const fetchGames = async () => {
     if (!userProfile?.id) return;
     
-    // Fetch all active games
     const { data: gamesData } = await supabase
       .from("gamification_games")
       .select("*")
@@ -191,18 +229,15 @@ export default function Leaderboard() {
 
     if (!gamesData) return;
 
-    // For each game, fetch actions and calculate earned points
     const gamesWithPoints: GameWithPoints[] = await Promise.all(
       gamesData.map(async (game) => {
-        // Fetch actions for this game
         const { data: actionsData } = await supabase
           .from("gamification_actions")
-          .select("action_name")
+          .select("action_name, action_type, points")
           .eq("game_id", game.id)
           .eq("is_enabled", true)
           .limit(1);
 
-        // Fetch user's points for this game
         const { data: pointsData } = await supabase
           .from("gamification_points")
           .select("points")
@@ -211,16 +246,58 @@ export default function Leaderboard() {
 
         const earnedPoints = pointsData?.reduce((sum, p) => sum + p.points, 0) || 0;
         const activityName = actionsData?.[0]?.action_name || "N/A";
+        const actionType = actionsData?.[0]?.action_type || "";
+        const basePoints = actionsData?.[0]?.points || 0;
+        
+        // Estimate possible points (this is a simplified calculation)
+        const totalPossiblePoints = basePoints * 100; // Estimate
 
         return {
           ...game,
           activity_name: activityName,
-          earned_points: earnedPoints
+          action_type: actionType,
+          earned_points: earnedPoints,
+          total_possible_points: totalPossiblePoints
         };
       })
     );
 
     setGames(gamesWithPoints);
+  };
+
+  const fetchPointsBreakdown = async () => {
+    if (!userProfile?.id) return;
+
+    const { startDate } = getDateRange();
+
+    const { data } = await supabase
+      .from("gamification_points")
+      .select("action_id, points, gamification_actions(action_name)")
+      .eq("user_id", userProfile.id)
+      .gte("earned_at", startDate.toISOString());
+
+    if (data) {
+      const breakdown = new Map<string, { points: number; count: number }>();
+      
+      data.forEach((item: any) => {
+        const activityName = item.gamification_actions?.action_name || "Unknown";
+        const current = breakdown.get(activityName) || { points: 0, count: 0 };
+        breakdown.set(activityName, {
+          points: current.points + item.points,
+          count: current.count + 1
+        });
+      });
+
+      const breakdownArray: PointsBreakdown[] = Array.from(breakdown.entries())
+        .map(([activity_name, data]) => ({
+          activity_name,
+          points: data.points,
+          count: data.count
+        }))
+        .sort((a, b) => b.points - a.points);
+
+      setPointsBreakdown(breakdownArray);
+    }
   };
 
   const requestRedemption = async () => {
@@ -230,26 +307,28 @@ export default function Leaderboard() {
       toast.error("Please enter valid points");
       return;
     }
+
     if (points > myPoints.total) {
       toast.error("Insufficient points");
       return;
     }
 
-    const voucherAmount = Math.floor(points / 100) * 10; // 100 points = ₹10
+    if (points < 100) {
+      toast.error("Minimum redemption is 100 points");
+      return;
+    }
 
-    const { error } = await supabase
-      .from("gamification_redemptions")
-      .insert({
-        user_id: userProfile.id,
-        points_redeemed: points,
-        voucher_amount: voucherAmount,
-        status: "pending"
-      });
+    const { error } = await supabase.from("gamification_redemptions").insert({
+      user_id: userProfile.id,
+      points_redeemed: points,
+      voucher_amount: points, // 1 point = ₹1
+      status: "pending",
+    });
 
     if (error) {
-      toast.error("Failed to request redemption");
+      toast.error("Failed to submit redemption request");
     } else {
-      toast.success("Redemption requested successfully");
+      toast.success("Redemption request submitted successfully");
       setShowRedeemDialog(false);
       setRedeemPoints("");
       fetchRedemptions();
@@ -257,23 +336,32 @@ export default function Leaderboard() {
     }
   };
 
-  const getRankIcon = (rank: number) => {
-    switch(rank) {
-      case 1: return "🥇";
-      case 2: return "🥈";
-      case 3: return "🥉";
-      default: return rank;
-    }
-  };
-
   const getDisplayPoints = () => {
-    switch(timeFilter) {
+    switch (timeFilter) {
       case "today": return myPoints.today;
       case "week": return myPoints.week;
       case "month": return myPoints.month;
       case "quarter": return myPoints.quarter;
       case "year": return myPoints.year;
       default: return myPoints.total;
+    }
+  };
+
+  const getRankIcon = (rank: number) => {
+    if (rank === 1) return "🥇";
+    if (rank === 2) return "🥈";
+    if (rank === 3) return "🥉";
+    return `#${rank}`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "approved":
+        return <Badge className="bg-green-600">Approved</Badge>;
+      case "rejected":
+        return <Badge variant="destructive">Rejected</Badge>;
+      default:
+        return <Badge variant="secondary">Pending</Badge>;
     }
   };
 
@@ -289,344 +377,331 @@ export default function Leaderboard() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className="flex items-center justify-between mb-6">
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-                <ArrowLeft className="h-5 w-5" />
+              <Button variant="ghost" onClick={() => navigate(-1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
               </Button>
               <div>
                 <h1 className="text-3xl font-bold">Leaderboard</h1>
-                <p className="text-muted-foreground">Track your performance and compete</p>
+                <p className="text-muted-foreground">Track performance, earn points, and compete</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { setPolicyType("points"); setShowPolicyDialog(true); }}>
-                <Info className="mr-2 h-4 w-4" />
-                Point Policy
-              </Button>
-              <Button variant="outline" onClick={() => { setPolicyType("redemption"); setShowPolicyDialog(true); }}>
-                <Info className="mr-2 h-4 w-4" />
-                Redemption Policy
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => navigate("/game-policy")}>
+              <Info className="mr-2 h-4 w-4" />
+              Game Policy
+            </Button>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="bg-gradient-to-br from-yellow-100 to-yellow-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5" />
-                  My Points
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <LeaderboardTimeFilters 
-                    timeFilter={timeFilter} 
-                    onFilterChange={(v: any) => setTimeFilter(v)}
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-5xl font-bold">{getDisplayPoints()}</p>
-                  <p className="text-sm text-muted-foreground mt-2">Total Points: {myPoints.total}</p>
-                </div>
-                <Button className="w-full mt-4" onClick={() => setShowRedeemDialog(true)}>
-                  <Gift className="mr-2 h-4 w-4" />
-                  Redeem Points
-                </Button>
-              </CardContent>
-            </Card>
+        {/* My Points Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/20 dark:to-yellow-800/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <Trophy className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+                <LeaderboardTimeFilters 
+                  timeFilter={timeFilter} 
+                  onFilterChange={(v: any) => setTimeFilter(v)}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">My Points</p>
+              <p className="text-4xl font-bold">{getDisplayPoints()}</p>
+              <p className="text-xs text-muted-foreground mt-1">Total: {myPoints.total}</p>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <p className="text-sm text-muted-foreground">My Rank</p>
+              </div>
+              <p className="text-4xl font-bold">
+                #{leaderboard.findIndex(l => l.user_id === userProfile?.id) + 1 || "N/A"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">of {leaderboard.length} participants</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <p className="text-sm text-muted-foreground">Active Games</p>
+              </div>
+              <p className="text-4xl font-bold">{games.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">Currently participating</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Gift className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                <p className="text-sm text-muted-foreground">Available to Redeem</p>
+              </div>
+              <p className="text-4xl font-bold">{myPoints.total}</p>
+              <Button className="w-full mt-3" size="sm" onClick={() => setShowRedeemDialog(true)}>
+                Redeem Now
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Points Breakdown */}
+        {pointsBreakdown.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Points Breakdown ({timeFilter})</CardTitle>
+              <CardDescription>See where your points are coming from</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {pointsBreakdown.map((item, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        <span className="text-sm font-medium">{item.activity_name}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-muted-foreground">{item.count} activities</span>
+                        <Badge variant="secondary">{item.points} pts</Badge>
+                      </div>
+                    </div>
+                    <Progress value={(item.points / myPoints.total) * 100} className="h-2" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Tabs defaultValue="leaderboard" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="leaderboard">
+              <Trophy className="mr-2 h-4 w-4" />
+              Rankings
+            </TabsTrigger>
+            <TabsTrigger value="games">
+              <Award className="mr-2 h-4 w-4" />
+              My Games
+            </TabsTrigger>
+            <TabsTrigger value="badges">
+              <Medal className="mr-2 h-4 w-4" />
+              Badges
+            </TabsTrigger>
+            <TabsTrigger value="redemptions">
+              <Gift className="mr-2 h-4 w-4" />
+              Redemptions
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="leaderboard" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>My Rank</CardTitle>
+                <CardTitle>Top Performers</CardTitle>
+                <CardDescription>Rankings for {timeFilter}</CardDescription>
               </CardHeader>
               <CardContent>
-                {userProfile && (
-                  <div className="text-center">
-                    <p className="text-4xl font-bold">
-                      #{leaderboard.findIndex(l => l.user_id === userProfile.id) + 1 || "N/A"}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-2">out of {leaderboard.length} participants</p>
-                  </div>
-                )}
+                <div className="space-y-3">
+                  {leaderboard.slice(0, 3).map((item, index) => (
+                    <div key={item.user_id} className={`flex items-center gap-4 p-4 rounded-lg ${
+                      item.user_id === userProfile?.id 
+                        ? "bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-500" 
+                        : "bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950/10 dark:to-orange-950/10"
+                    }`}>
+                      <div className="text-3xl">{getRankIcon(index + 1)}</div>
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback>{item.profiles.full_name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-semibold">{item.profiles.full_name}</p>
+                        <p className="text-sm text-muted-foreground">{item.total_points} points</p>
+                      </div>
+                      {item.user_id === userProfile?.id && (
+                        <Badge variant="default">You</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 space-y-2">
+                  <p className="text-sm font-medium">All Participants</p>
+                  {leaderboard.slice(3).map((item, index) => (
+                    <div key={item.user_id} className={`flex items-center gap-3 p-3 rounded-md ${
+                      item.user_id === userProfile?.id 
+                        ? "bg-blue-100 dark:bg-blue-950/20 border border-blue-500" 
+                        : "bg-muted/50"
+                    }`}>
+                      <span className="text-sm font-medium w-8">#{index + 4}</span>
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs">{item.profiles.full_name[0]}</AvatarFallback>
+                      </Avatar>
+                      <p className="flex-1 text-sm">{item.profiles.full_name}</p>
+                      <Badge variant="outline">{item.total_points} pts</Badge>
+                      {item.user_id === userProfile?.id && (
+                        <Badge variant="default" className="text-xs">You</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
-          </div>
+          </TabsContent>
 
-          <Tabs defaultValue="leaderboard" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="leaderboard">
-                <Trophy className="mr-2 h-4 w-4" />
-                Leaderboard
-              </TabsTrigger>
-              <TabsTrigger value="games">
-                <Award className="mr-2 h-4 w-4" />
-                My Games
-              </TabsTrigger>
-              <TabsTrigger value="badges">
-                <Medal className="mr-2 h-4 w-4" />
-                Badges
-              </TabsTrigger>
-              <TabsTrigger value="redemptions">
-                <Gift className="mr-2 h-4 w-4" />
-                My Redemptions
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="leaderboard" className="space-y-4">
+          <TabsContent value="games" className="space-y-4">
+            {games.length === 0 ? (
               <Card>
-                <CardHeader>
-                  <CardTitle>Top Performers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {leaderboard.slice(0, 3).map((item, index) => (
-                      <div key={item.user_id} className="flex items-center gap-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg">
-                        <div className="text-3xl">{getRankIcon(index + 1)}</div>
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback>{item.profiles.full_name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-semibold">{item.profiles.full_name}</p>
-                          <p className="text-sm text-muted-foreground">{item.total_points} points</p>
-                        </div>
+                <CardContent className="p-12 text-center">
+                  <Award className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No active games at the moment</p>
+                </CardContent>
+              </Card>
+            ) : (
+              games.map((game) => (
+                <Card key={game.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>{game.activity_name}</CardTitle>
+                        <CardDescription>{game.description || "No description"}</CardDescription>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Rankings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {leaderboard.map((item, index) => (
-                      <div
-                        key={item.user_id}
-                        className={`flex items-center gap-4 p-3 rounded-lg ${
-                          item.user_id === userProfile?.id ? "bg-blue-50 border-2 border-blue-200" : "bg-gray-50"
-                        }`}
-                      >
-                        <div className="w-8 text-center font-bold text-muted-foreground">
-                          {getRankIcon(index + 1)}
-                        </div>
-                        <Avatar>
-                          <AvatarFallback>{item.profiles.full_name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium">{item.profiles.full_name}</p>
-                        </div>
-                        <Badge variant="secondary">{item.total_points} pts</Badge>
+                      <Badge variant={game.is_active ? "default" : "secondary"}>
+                        {game.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Your Progress</span>
+                      <span className="font-semibold">{game.earned_points} / {game.total_possible_points} points</span>
+                    </div>
+                    <Progress 
+                      value={(game.earned_points / game.total_possible_points) * 100} 
+                      className="h-3"
+                    />
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div className="text-center p-3 bg-muted/50 rounded-lg">
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{game.earned_points}</p>
+                        <p className="text-xs text-muted-foreground">Points Earned</p>
                       </div>
-                    ))}
-                  </div>
+                      <div className="text-center p-3 bg-muted/50 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {Math.round((game.earned_points / game.total_possible_points) * 100)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">Completion</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="badges">
+            <Card>
+              <CardHeader>
+                <CardTitle>My Badges</CardTitle>
+                <CardDescription>Achievements and milestones</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BadgesDisplay />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="redemptions" className="space-y-4">
+            {redemptions.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <Gift className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No redemption requests yet</p>
+                  <Button className="mt-4" onClick={() => setShowRedeemDialog(true)}>
+                    Redeem Points Now
+                  </Button>
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="games" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>My Active Games</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {games.map(game => {
-                      const completionPercentage = game.baseline_target > 0 
-                        ? Math.min((game.earned_points / game.baseline_target) * 100, 100)
-                        : 0;
-                      const isCompleted = game.earned_points >= game.baseline_target;
-                      
-                      return (
-                        <div key={game.id} className="p-4 border rounded-lg bg-card">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-lg">{game.name}</h3>
-                              {game.description && (
-                                <p className="text-sm text-muted-foreground mt-1">{game.description}</p>
-                              )}
-                            </div>
-                            <Badge variant={isCompleted ? "default" : "secondary"}>
-                              {isCompleted ? "Target Achieved" : "Active"}
-                            </Badge>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                            <div className="p-3 bg-muted/50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Activity</p>
-                              <p className="font-medium">{game.activity_name}</p>
-                            </div>
-                            <div className="p-3 bg-muted/50 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Base Target</p>
-                              <p className="font-medium">{game.baseline_target} points</p>
-                            </div>
-                            <div className="p-3 bg-primary/10 rounded-lg">
-                              <p className="text-sm text-muted-foreground">Earned Points</p>
-                              <p className="font-bold text-primary text-xl">{game.earned_points}</p>
-                            </div>
-                          </div>
-                          
-                          {/* Progress Bar Section */}
-                          <div className="mt-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">Progress to Target</span>
-                              <span className={`text-sm font-bold ${isCompleted ? 'text-green-600' : 'text-primary'}`}>
-                                {completionPercentage.toFixed(1)}%
-                              </span>
-                            </div>
-                            <Progress 
-                              value={completionPercentage} 
-                              className="h-3"
-                            />
-                            <p className="text-xs text-muted-foreground text-right">
-                              {game.earned_points} / {game.baseline_target} points
-                              {!isCompleted && ` (${game.baseline_target - game.earned_points} points to go)`}
-                            </p>
-                          </div>
-                          
-                          <div className="mt-3 text-sm text-muted-foreground">
-                            <p>Period: {new Date(game.start_date).toLocaleDateString()} - {new Date(game.end_date).toLocaleDateString()}</p>
-                          </div>
+            ) : (
+              redemptions.map((redemption) => (
+                <Card key={redemption.id}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{redemption.points_redeemed} Points</p>
+                          <Badge variant="outline">₹{redemption.voucher_amount}</Badge>
                         </div>
-                      );
-                    })}
-                    {games.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">No active games available</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="badges" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Achievements & Badges</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BadgesDisplay />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="redemptions" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Redemption History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {redemptions.map(redemption => (
-                      <div key={redemption.id} className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <p className="font-semibold">₹{redemption.voucher_amount} Amazon Voucher</p>
-                            <p className="text-sm text-muted-foreground">
-                              {redemption.points_redeemed} points • {new Date(redemption.requested_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Badge variant={
-                            redemption.status === "approved" ? "default" :
-                            redemption.status === "rejected" ? "destructive" : "secondary"
-                          }>
-                            {redemption.status}
-                          </Badge>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Requested: {new Date(redemption.requested_at).toLocaleDateString()}
+                        </p>
                         {redemption.status === "approved" && redemption.voucher_code && (
-                          <div className="mt-2 p-2 bg-green-50 rounded">
-                            <p className="text-sm font-medium">Voucher Code: {redemption.voucher_code}</p>
+                          <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-md border border-green-200 dark:border-green-800">
+                            <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">Voucher Code</p>
+                            <p className="text-lg font-mono font-bold text-green-600 dark:text-green-400">
+                              {redemption.voucher_code}
+                            </p>
                           </div>
                         )}
                         {redemption.status === "rejected" && redemption.rejection_reason && (
-                          <div className="mt-2 p-2 bg-red-50 rounded">
-                            <p className="text-sm">{redemption.rejection_reason}</p>
+                          <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-md border border-red-200 dark:border-red-800">
+                            <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">Rejection Reason</p>
+                            <p className="text-sm text-red-600 dark:text-red-400">{redemption.rejection_reason}</p>
                           </div>
                         )}
                       </div>
-                    ))}
-                    {redemptions.length === 0 && (
-                      <p className="text-center text-muted-foreground py-8">No redemptions yet</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+                      {getStatusBadge(redemption.status)}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
+      {/* Redeem Points Dialog */}
       <Dialog open={showRedeemDialog} onOpenChange={setShowRedeemDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Redeem Points</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Available Points: {myPoints.total}</Label>
+            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-600 dark:text-blue-400">
+                <strong>Conversion Rate:</strong> 1 Point = ₹1
+              </p>
+              <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                <strong>Minimum:</strong> 100 points
+              </p>
             </div>
             <div>
-              <Label htmlFor="points">Points to Redeem</Label>
+              <Label htmlFor="redeemPoints">Points to Redeem</Label>
               <Input
-                id="points"
+                id="redeemPoints"
                 type="number"
                 value={redeemPoints}
                 onChange={(e) => setRedeemPoints(e.target.value)}
                 placeholder="Enter points"
+                min="100"
+                max={myPoints.total}
               />
-              <p className="text-sm text-muted-foreground mt-1">
-                100 points = ₹10 Amazon voucher
+              <p className="text-xs text-muted-foreground mt-1">
+                Available: {myPoints.total} points
               </p>
             </div>
-            <Button onClick={requestRedemption} className="w-full">Submit Request</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showPolicyDialog} onOpenChange={setShowPolicyDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{policyType === "points" ? "Game Point Policy" : "Redemption Policy"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {policyType === "points" ? (
-              <>
-                <h3 className="font-semibold text-lg">How to Earn Points</h3>
-                <ul className="space-y-2 list-disc list-inside">
-                  <li>Adding a new retailer</li>
-                  <li>First order from a new retailer</li>
-                  <li>Total order value (points per ₹100)</li>
-                  <li>Order quantity</li>
-                  <li>Focused product sales</li>
-                  <li>Productive visits (visits with orders)</li>
-                  <li>Frequency of orders from retailers</li>
-                  <li>Average growth of business in a beat</li>
-                  <li>Capturing competition information</li>
-                  <li>Product feedback capture</li>
-                </ul>
-                <p className="text-sm text-muted-foreground">
-                  Points are awarded automatically when you complete these actions. Check with your admin for specific point values.
+            {redeemPoints && parseFloat(redeemPoints) >= 100 && (
+              <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  You will receive: <strong>₹{parseFloat(redeemPoints)}</strong> voucher
                 </p>
-              </>
-            ) : (
-              <>
-                <h3 className="font-semibold text-lg">Redemption Process</h3>
-                <ol className="space-y-2 list-decimal list-inside">
-                  <li>Accumulate points through your daily activities</li>
-                  <li>Click "Redeem Points" when you have sufficient points</li>
-                  <li>Enter the number of points you want to redeem (100 points = ₹10 Amazon voucher)</li>
-                  <li>Submit your redemption request</li>
-                  <li>Wait for admin approval (usually within 2-3 business days)</li>
-                  <li>Once approved, you'll receive your voucher code in the redemption history</li>
-                </ol>
-                <p className="text-sm text-muted-foreground mt-4">
-                  <strong>Note:</strong> Minimum redemption is 100 points. Redemption requests cannot be cancelled once submitted.
-                </p>
-              </>
+              </div>
             )}
+            <Button onClick={requestRedemption} className="w-full">Submit Request</Button>
           </div>
         </DialogContent>
       </Dialog>
