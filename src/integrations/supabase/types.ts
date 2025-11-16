@@ -1564,6 +1564,7 @@ export type Database = {
           is_active: boolean | null
           is_all_territories: boolean | null
           name: string
+          points_to_rupee_conversion: number
           start_date: string
           territories: string[] | null
           updated_at: string
@@ -1578,6 +1579,7 @@ export type Database = {
           is_active?: boolean | null
           is_all_territories?: boolean | null
           name: string
+          points_to_rupee_conversion?: number
           start_date: string
           territories?: string[] | null
           updated_at?: string
@@ -1592,6 +1594,7 @@ export type Database = {
           is_active?: boolean | null
           is_all_territories?: boolean | null
           name?: string
+          points_to_rupee_conversion?: number
           start_date?: string
           territories?: string[] | null
           updated_at?: string

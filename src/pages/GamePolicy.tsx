@@ -5,9 +5,30 @@ import { ArrowLeft, Trophy, Target, TrendingUp, Users, ShoppingCart, Award, Mess
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function GamePolicy() {
   const navigate = useNavigate();
+  const [conversionRate, setConversionRate] = useState(1);
+
+  useEffect(() => {
+    fetchConversionRate();
+  }, []);
+
+  const fetchConversionRate = async () => {
+    const { data } = await supabase
+      .from("gamification_games")
+      .select("points_to_rupee_conversion")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data) {
+      setConversionRate(data.points_to_rupee_conversion || 1);
+    }
+  };
 
   const activities = [
     {
@@ -387,7 +408,7 @@ export default function GamePolicy() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="border rounded-lg p-4">
                         <p className="font-medium mb-2">Conversion Rate</p>
-                        <p className="text-2xl font-bold text-primary">1 Point = ₹1</p>
+                        <p className="text-2xl font-bold text-primary">1 Point = ₹{conversionRate}</p>
                       </div>
                       <div className="border rounded-lg p-4">
                         <p className="font-medium mb-2">Minimum Redemption</p>
