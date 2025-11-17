@@ -7,6 +7,8 @@ interface InvoiceData {
   company: any;
   retailer: any;
   cartItems: any[];
+  displayInvoiceNumber?: string;
+  displayInvoiceDate?: string;
 }
 
 // Helper function to convert number to words (Indian system)
@@ -57,7 +59,7 @@ const numberToWords = (num: number): string => {
  * This is the ONLY template used throughout the application
  */
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
-  const { orderId, company, retailer, cartItems } = data;
+  const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate } = data;
   
   // Helper functions for consistent display (matches preview component)
   const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
@@ -103,7 +105,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Dark header background - matching template4 (bg-gray-800: rgb(31, 41, 55))
   doc.setFillColor(31, 41, 55);
-  doc.rect(0, 0, pageWidth, 45, "F");
+  doc.rect(0, 0, pageWidth, 52, "F");
 
   // Logo image (no background circle, to match template4 preview)
   let companyNameX = 15;
@@ -119,8 +121,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       });
       const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
       // Larger logo for better visibility
-      doc.addImage(base64, imgFormat, 15, 6, 38, 38);
-      companyNameX = 60;
+      doc.addImage(base64, imgFormat, 15, 6, 42, 42);
+      companyNameX = 70;
     } catch (e) {
       console.warn("Failed to load logo image for invoice PDF:", e);
       companyNameX = 15;
@@ -191,10 +193,10 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Invoice details (right side)
   let invoiceY = 55;
-  const invoiceNum = orderId?.slice(0, 8).toUpperCase() || "INV001";
+  const invoiceNum = (displayInvoiceNumber && displayInvoiceNumber.trim()) || orderId?.slice(0, 8).toUpperCase() || "INV001";
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(255, 255, 255);
   doc.text("INVOICE #", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
@@ -203,7 +205,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "bold");
   doc.text("INVOICE DATE", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
-  doc.text(new Date().toLocaleDateString("en-GB"), pageWidth - 15, invoiceY, { align: "right" });
+  doc.text((displayInvoiceDate || new Date().toLocaleDateString("en-GB")), pageWidth - 15, invoiceY, { align: "right" });
 
   // Items table with green header
   const tableData = cartItems.map((item, index) => {
@@ -457,7 +459,9 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     retailer = { name: "Customer", address: "", phone: "", gst_number: "" };
   }
 
-  const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
+  const displayInvoiceNumber = (order as any).invoice_number || `INV-${order.id.substring(0, 8).toUpperCase()}`;
+  const displayInvoiceDate = order.created_at ? new Date(order.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
+  const invoiceNumber = displayInvoiceNumber;
   
   // Get the selected template from company settings (default to template4)
   const selectedTemplate = company.invoice_template || 'template4';
@@ -481,7 +485,9 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
         orderId: order.id,
         company,
         retailer,
-        cartItems: order.order_items
+        cartItems: order.order_items,
+        displayInvoiceNumber,
+        displayInvoiceDate
       });
       break;
   }
