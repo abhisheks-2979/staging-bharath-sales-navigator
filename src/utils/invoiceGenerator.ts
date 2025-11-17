@@ -101,14 +101,14 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
 
-  // Dark header background
-  doc.setFillColor(52, 52, 52);
+  // Dark header background - matching template4 (bg-gray-800: rgb(31, 41, 55))
+  doc.setFillColor(31, 41, 55);
   doc.rect(0, 0, pageWidth, 45, "F");
 
-  // Logo circle background (green)
+  // Logo circle background (green - matching template4 bg-green-600)
   let companyNameX = 15;
   if (company.logo_url) {
-    doc.setFillColor(139, 195, 74);
+    doc.setFillColor(22, 163, 74); // bg-green-600
     doc.circle(22, 17, 10, "F");
     
     try {
@@ -219,7 +219,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     body: tableData,
     theme: "plain",
     headStyles: {
-      fillColor: [139, 195, 74],
+      fillColor: [22, 163, 74], // bg-green-600 - matching template4
       textColor: [255, 255, 255],
       fontStyle: "bold",
       fontSize: 8,
@@ -233,13 +233,13 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       fillColor: [250, 250, 250],
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: "center" },
-      1: { cellWidth: 50, halign: "left" },
-      2: { cellWidth: 20, halign: "center" },
-      3: { cellWidth: 15, halign: "center" },
-      4: { cellWidth: 12, halign: "center" },
-      5: { cellWidth: 25, halign: "right" },
-      6: { cellWidth: 26, halign: "right" },
+      0: { cellWidth: 10, halign: "center" },
+      1: { cellWidth: 'auto', halign: "left" },
+      2: { cellWidth: 18, halign: "center" },
+      3: { cellWidth: 12, halign: "center" },
+      4: { cellWidth: 10, halign: "center" },
+      5: { cellWidth: 22, halign: "right" },
+      6: { cellWidth: 24, halign: "right" },
     },
     margin: { left: 15, right: 15 },
   });
@@ -277,9 +277,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.text("CGST (2.5%)", labelCol, yPos);
   doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
 
-  // Total Due box (green background)
+  // Total Due box (green background - matching template4 bg-green-600)
   yPos += 8;
-  doc.setFillColor(139, 195, 74);
+  doc.setFillColor(22, 163, 74); // bg-green-600
   doc.rect(labelCol - 5, yPos - 4, rightCol - labelCol + 20, 9, "F");
   
   doc.setTextColor(255, 255, 255);
@@ -382,8 +382,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(0, 100, 200); // Blue
   doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, yPos, { align: "center" });
 
-  // Dark footer
-  doc.setFillColor(52, 52, 52);
+  // Dark footer - matching template4 (bg-gray-800: rgb(31, 41, 55))
+  doc.setFillColor(31, 41, 55);
   doc.rect(0, pageHeight - 23, pageWidth, 23, "F");
 
   doc.setTextColor(255, 255, 255);
@@ -442,13 +442,21 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   // Get the selected template from company settings (default to template4)
   const selectedTemplate = company.invoice_template || 'template4';
   
+  console.log('Generating invoice with template:', selectedTemplate);
+  console.log('Company data:', { name: company.name, template: company.invoice_template });
+  
   // Currently, only template4 is implemented for PDF generation
   // When other templates are added, extend this switch statement
   let blob: Blob;
   
   switch (selectedTemplate) {
+    case 'template1':
+    case 'template2':
+    case 'template3':
     case 'template4':
     default:
+      // All templates currently use template4 PDF generation
+      // The template4 design matches the preview in Invoice Management
       blob = await generateTemplate4Invoice({
         orderId: order.id,
         company,
