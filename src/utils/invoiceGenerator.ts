@@ -105,18 +105,26 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFillColor(31, 41, 55);
   doc.rect(0, 0, pageWidth, 45, "F");
 
-  // Logo circle background (green - matching template4 bg-green-600)
+  // Logo image (no background circle, to match template4 preview)
   let companyNameX = 15;
   if (company.logo_url) {
-    doc.setFillColor(22, 163, 74); // bg-green-600
-    doc.circle(22, 17, 10, "F");
-    
     try {
-      doc.addImage(company.logo_url, "PNG", 15, 10, 14, 14);
+      const response = await fetch(company.logo_url);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
+      // Slightly larger logo to match preview proportions
+      doc.addImage(base64, imgFormat, 15, 8, 28, 28);
+      companyNameX = 50;
     } catch (e) {
-      console.log("Logo load failed");
+      console.warn("Failed to load logo image for invoice PDF:", e);
+      companyNameX = 15;
     }
-    companyNameX = 35;
   }
 
   // Company name and details (left side)
@@ -215,7 +223,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   autoTable(doc, {
     startY: 95,
-    head: [["NO", "DESCRIPTION", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]],
+    head: [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]],
     body: tableData,
     theme: "plain",
     headStyles: {
