@@ -400,7 +400,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 }
 
 /**
- * Fetch order data and generate Template 4 invoice
+ * Fetch order data and generate invoice using the selected template from Invoice Management
  */
 export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: Blob; invoiceNumber: string }> {
   // Fetch order
@@ -412,7 +412,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
 
   if (orderError) throw orderError;
 
-  // Fetch company
+  // Fetch company with template selection
   const { data: company } = await supabase
     .from("companies")
     .select("*")
@@ -439,12 +439,24 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
 
   const invoiceNumber = `INV-${order.id.substring(0, 8).toUpperCase()}`;
   
-  const blob = await generateTemplate4Invoice({
-    orderId: order.id,
-    company,
-    retailer,
-    cartItems: order.order_items
-  });
+  // Get the selected template from company settings (default to template4)
+  const selectedTemplate = company.invoice_template || 'template4';
+  
+  // Currently, only template4 is implemented for PDF generation
+  // When other templates are added, extend this switch statement
+  let blob: Blob;
+  
+  switch (selectedTemplate) {
+    case 'template4':
+    default:
+      blob = await generateTemplate4Invoice({
+        orderId: order.id,
+        company,
+        retailer,
+        cartItems: order.order_items
+      });
+      break;
+  }
 
   return { blob, invoiceNumber };
 }
