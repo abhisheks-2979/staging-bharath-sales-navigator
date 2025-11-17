@@ -92,6 +92,7 @@ export const VisitCard = ({
   const [hasStockRecords, setHasStockRecords] = useState(false);
   const [stockRecordCount, setStockRecordCount] = useState(0);
   const [pendingAmount, setPendingAmount] = useState<number>(0);
+  const [pendingSinceDate, setPendingSinceDate] = useState<string | null>(null);
   const [isCreditOrder, setIsCreditOrder] = useState(false);
   const [creditPendingAmount, setCreditPendingAmount] = useState<number>(0);
   const [creditPaidAmount, setCreditPaidAmount] = useState<number>(0);
@@ -239,8 +240,23 @@ export const VisitCard = ({
           } = await supabase.from('retailers').select('pending_amount').eq('id', visitRetailerId).maybeSingle();
           if (!retailerError && retailerData?.pending_amount) {
             setPendingAmount(Number(retailerData.pending_amount));
+            
+            // Fetch the oldest order with pending amount to get "pending since" date
+            const { data: oldestOrder } = await supabase
+              .from('orders')
+              .select('created_at')
+              .eq('retailer_id', visitRetailerId)
+              .gt('pending_amount', 0)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            
+            if (oldestOrder) {
+              setPendingSinceDate(oldestOrder.created_at);
+            }
           } else {
             setPendingAmount(0);
+            setPendingSinceDate(null);
           }
 
           // Check if stock records exist for this retailer today
@@ -1190,10 +1206,21 @@ export const VisitCard = ({
         <div className="mb-4">
           {pendingAmount > 0 && <div className="mb-3 p-2 bg-warning/10 border border-warning/30 rounded-md space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs sm:text-sm font-medium text-warning flex items-center gap-1">
-                  <span>⚠️</span>
-                  Pending Amount: ₹{pendingAmount.toLocaleString()}
-                </p>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-xs sm:text-sm font-medium text-warning flex items-center gap-1">
+                    <span>⚠️</span>
+                    Pending Amount: ₹{pendingAmount.toLocaleString()}
+                  </p>
+                  {pendingSinceDate && (
+                    <p className="text-[10px] sm:text-xs text-warning/70">
+                      Since: {new Date(pendingSinceDate).toLocaleDateString('en-IN', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        year: 'numeric' 
+                      })}
+                    </p>
+                  )}
+                </div>
                 <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setShowPaymentModal(true)}>
                   <IndianRupee className="w-3 h-3" />
                   Make Payment
