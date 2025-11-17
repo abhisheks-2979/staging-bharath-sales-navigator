@@ -196,14 +196,14 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const invoiceNum = (displayInvoiceNumber && displayInvoiceNumber.trim()) || orderId?.slice(0, 8).toUpperCase() || "INV001";
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("INVOICE #", pageWidth - 60, invoiceY);
+  doc.setTextColor(0, 0, 0);
+  doc.text("INVOICE #:", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
   
   invoiceY += 6;
   doc.setFont("helvetica", "bold");
-  doc.text("INVOICE DATE", pageWidth - 60, invoiceY);
+  doc.text("DATE:", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
   doc.text((displayInvoiceDate || new Date().toLocaleDateString("en-GB")), pageWidth - 15, invoiceY, { align: "right" });
 
@@ -320,7 +320,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   yPos += 14;
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("PAYMENT METHOD", 15, yPos);
+  doc.text("BANK DETAILS", 15, yPos);
   
   yPos += 6;
   doc.setFontSize(8);
@@ -349,17 +349,17 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   // QR Code and Signature section with proper spacing
   const sectionStartY = yPos;
   
-  // Signature area (left side) - moved to avoid QR code overlap
+  // Signature (right aligned)
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  doc.text("For " + (company.name || "Company"), 80, sectionStartY);
-  doc.line(65, sectionStartY + 12, 95, sectionStartY + 12);
+  doc.text("For " + (company.name || "Company"), pageWidth - 15, sectionStartY, { align: "right" });
+  doc.line(pageWidth - 60, sectionStartY + 12, pageWidth - 15, sectionStartY + 12);
   doc.setFont("helvetica", "italic");
   doc.setFontSize(7);
-  doc.text("Authorized Signatory", 80, sectionStartY + 16, { align: "center" });
+  doc.text("Authorized Signatory", pageWidth - 37.5, sectionStartY + 16, { align: "center" });
   
-  // Add QR Code (right side) with proper spacing
+  // QR Code box (right side)
   if (company.qr_code_url) {
     try {
       const response = await fetch(company.qr_code_url);
@@ -371,13 +371,35 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         reader.readAsDataURL(blob);
       });
       
-      const imgFormat = company.qr_code_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      // Position QR code on the right with clear spacing
-      doc.addImage(base64, imgFormat, pageWidth - 45, sectionStartY - 8, 32, 32);
-      doc.setFontSize(7);
+      const boxX = pageWidth - 95;
+      const boxY = sectionStartY - 10;
+      const boxW = 80;
+      const boxH = 60;
+
+      doc.setDrawColor(203, 213, 225); // slate-300
+      doc.setLineWidth(0.3);
+      if ((doc as any).roundedRect) {
+        (doc as any).roundedRect(boxX, boxY, boxW, boxH, 3, 3);
+      } else {
+        doc.rect(boxX, boxY, boxW, boxH);
+      }
+
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 0, 0);
-      doc.text("Scan to Pay", pageWidth - 29, sectionStartY + 26, { align: "center" });
+      doc.setTextColor(55, 65, 81);
+      doc.text("Scan QR for Payment", boxX + boxW / 2, boxY + 8, { align: "center" });
+
+      const imgFormat = company.qr_code_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
+      doc.addImage(base64, imgFormat, boxX + (boxW - 34) / 2, boxY + 14, 34, 34);
+
+      if (company.qr_upi) {
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(55, 65, 81);
+        doc.text(`UPI: ${company.qr_upi}`, boxX + boxW / 2, boxY + 50, { align: "center" });
+      }
+      // ensure yPos goes below the QR box
+      yPos = Math.max(yPos, boxY + boxH);
     } catch (error) {
       console.error("Error loading QR code:", error);
     }
