@@ -118,9 +118,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         reader.readAsDataURL(blob);
       });
       const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      // Slightly larger logo to match preview proportions
-      doc.addImage(base64, imgFormat, 15, 8, 28, 28);
-      companyNameX = 50;
+      // Larger logo for better visibility
+      doc.addImage(base64, imgFormat, 15, 6, 38, 38);
+      companyNameX = 60;
     } catch (e) {
       console.warn("Failed to load logo image for invoice PDF:", e);
       companyNameX = 15;
@@ -344,7 +344,20 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     yPos += 4;
   }
   
-  // Add QR Code if available
+  // QR Code and Signature section with proper spacing
+  const sectionStartY = yPos;
+  
+  // Signature area (left side) - moved to avoid QR code overlap
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text("For " + (company.name || "Company"), 80, sectionStartY);
+  doc.line(65, sectionStartY + 12, 95, sectionStartY + 12);
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7);
+  doc.text("Authorized Signatory", 80, sectionStartY + 16, { align: "center" });
+  
+  // Add QR Code (right side) with proper spacing
   if (company.qr_code_url) {
     try {
       const response = await fetch(company.qr_code_url);
@@ -357,23 +370,16 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       });
       
       const imgFormat = company.qr_code_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      doc.addImage(base64, imgFormat, pageWidth - 50, yPos - 30, 30, 30);
+      // Position QR code on the right with clear spacing
+      doc.addImage(base64, imgFormat, pageWidth - 45, sectionStartY - 8, 32, 32);
       doc.setFontSize(7);
-      doc.text("Scan to Pay", pageWidth - 35, yPos + 2, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text("Scan to Pay", pageWidth - 29, sectionStartY + 26, { align: "center" });
     } catch (error) {
       console.error("Error loading QR code:", error);
     }
   }
-
-  // Signature area (right side)
-  const sigYPos = yPos - 22;
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("For " + (company.name || "Company"), pageWidth - 40, sigYPos + 18, { align: "center" });
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(7);
-  doc.text("Authorized Signatory", pageWidth - 40, sigYPos + 30, { align: "center" });
-  doc.line(pageWidth - 55, sigYPos + 28, pageWidth - 25, sigYPos + 28);
 
   // Terms and Conditions
   yPos += 12;
