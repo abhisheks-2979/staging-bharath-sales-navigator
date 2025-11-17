@@ -2251,6 +2251,7 @@ export type Database = {
           id: string
           invoice_number: string | null
           is_credit_order: boolean | null
+          order_date: string | null
           payment_method: string | null
           payment_proof_url: string | null
           previous_pending_cleared: number | null
@@ -2274,6 +2275,7 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           is_credit_order?: boolean | null
+          order_date?: string | null
           payment_method?: string | null
           payment_proof_url?: string | null
           previous_pending_cleared?: number | null
@@ -2297,6 +2299,7 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           is_credit_order?: boolean | null
+          order_date?: string | null
           payment_method?: string | null
           payment_proof_url?: string | null
           previous_pending_cleared?: number | null
