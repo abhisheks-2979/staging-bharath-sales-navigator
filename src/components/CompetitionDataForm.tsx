@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CompetitionRow {
   id: string;
@@ -411,223 +412,234 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
     );
   }
 
-  // Edit mode - show form with two sections
+  // Edit mode - show form with tabs
   return (
     <div className="space-y-6">
-      {/* Section 1: Competition Stock */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>1. Competition Stock</span>
-            <Button onClick={addRow} size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Row
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-2 text-left text-sm font-medium">Competitor</th>
-                  <th className="p-2 text-left text-sm font-medium">SKU</th>
-                  <th className="p-2 text-left text-sm font-medium">Unit</th>
-                  <th className="p-2 text-left text-sm font-medium">Stock Qty</th>
-                  <th className="p-2 text-left text-sm font-medium">Price (₹)</th>
-                  <th className="p-2 text-center text-sm font-medium w-[50px]">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">
-                      <Select
-                        value={row.competitorId}
-                        onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select competitor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {competitors.map((comp) => (
-                            <SelectItem key={comp.id} value={comp.id}>
-                              {comp.competitor_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-2">
-                      <Select
-                        value={row.skuId}
-                        onValueChange={(value) => updateRow(row.id, 'skuId', value)}
-                        disabled={!row.competitorId}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select SKU" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(skus[row.id] || []).map((sku) => (
-                            <SelectItem key={sku.id} value={sku.id}>
-                              {sku.sku_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-2">
-                      <Select
-                        value={row.unit}
-                        onValueChange={(value) => updateRow(row.id, 'unit', value)}
-                      >
-                        <SelectTrigger className="w-[100px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="KGS">KGS</SelectItem>
-                          <SelectItem value="LTRS">LTRS</SelectItem>
-                          <SelectItem value="UNITS">UNITS</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number"
-                        value={row.stockQuantity}
-                        onChange={(e) => updateRow(row.id, 'stockQuantity', parseFloat(e.target.value) || 0)}
-                        className="w-[100px]"
-                      />
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number"
-                        value={row.sellingPrice}
-                        onChange={(e) => updateRow(row.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
-                        className="w-[120px]"
-                      />
-                    </td>
-                    <td className="p-2 text-center">
-                      <Button
-                        onClick={() => deleteRow(row.id)}
-                        variant="ghost"
-                        size="sm"
-                        disabled={rows.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="stock" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="stock">Competition Stock</TabsTrigger>
+          <TabsTrigger value="feedback">Retailer Feedback</TabsTrigger>
+        </TabsList>
 
-      {/* Section 2: Retailer Feedback on Competition */}
-      <Card>
-        <CardHeader>
-          <CardTitle>2. Retailer Feedback on Competition</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {rows.map((row, index) => {
-            const competitor = competitors.find(c => c.id === row.competitorId);
-            const sku = skus[row.id]?.find(s => s.id === row.skuId);
-            
-            return (
-              <div key={row.id} className="p-4 border rounded-lg space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">
-                    Entry {index + 1}: {competitor?.competitor_name || 'Select competitor'} - {sku?.sku_name || 'Select SKU'}
-                  </h4>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label>Retailer Feedback / Insight</Label>
-                    <Textarea
-                      value={row.insight}
-                      onChange={(e) => updateRow(row.id, 'insight', e.target.value)}
-                      placeholder="Enter retailer feedback about this competition product..."
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Impact Level</Label>
-                      <Select
-                        value={row.impactLevel}
-                        onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select impact level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center space-x-2 pt-6">
-                      <Checkbox
-                        id={`attention-${row.id}`}
-                        checked={row.needsAttention}
-                        onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
-                      />
-                      <Label htmlFor={`attention-${row.id}`}>
-                        Action Required / Needs Attention
-                      </Label>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handlePhotoUpload(row.id, e)}
-                        className="hidden"
-                        id={`photo-${row.id}`}
-                      />
-                      <Button
-                        onClick={() => document.getElementById(`photo-${row.id}`)?.click()}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Camera className="h-4 w-4 mr-2" />
-                        Add Photo ({row.photoUrls.length})
-                      </Button>
-                    </div>
-
-                    <Button
-                      onClick={() => recording === row.id ? stopRecording() : startRecording(row.id)}
-                      variant={recording === row.id ? "destructive" : "outline"}
-                      size="sm"
-                    >
-                      {recording === row.id ? (
-                        <>
-                          <Square className="h-4 w-4 mr-2" />
-                          Stop Recording
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="h-4 w-4 mr-2" />
-                          Voice Note ({row.voiceNoteUrls.length})
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
+        {/* Tab 1: Competition Stock */}
+        <TabsContent value="stock">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Competition Stock</span>
+                <Button onClick={addRow} size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Row
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="p-2 text-left text-sm font-medium">Competitor</th>
+                      <th className="p-2 text-left text-sm font-medium">Competition Name</th>
+                      <th className="p-2 text-left text-sm font-medium">Unit</th>
+                      <th className="p-2 text-left text-sm font-medium">Stock Qty</th>
+                      <th className="p-2 text-left text-sm font-medium">Price (₹)</th>
+                      <th className="p-2 text-center text-sm font-medium w-[50px]">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.id} className="border-b">
+                        <td className="p-2">
+                          <Select
+                            value={row.competitorId}
+                            onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select competitor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {competitors.map((comp) => (
+                                <SelectItem key={comp.id} value={comp.id}>
+                                  {comp.competitor_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="p-2">
+                          <Select
+                            value={row.skuId}
+                            onValueChange={(value) => updateRow(row.id, 'skuId', value)}
+                            disabled={!row.competitorId}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Competition name" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(skus[row.id] || []).map((sku) => (
+                                <SelectItem key={sku.id} value={sku.id}>
+                                  {sku.sku_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="p-2">
+                          <Select
+                            value={row.unit}
+                            onValueChange={(value) => updateRow(row.id, 'unit', value)}
+                          >
+                            <SelectTrigger className="w-[100px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="KGS">KGS</SelectItem>
+                              <SelectItem value="LTRS">LTRS</SelectItem>
+                              <SelectItem value="UNITS">UNITS</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="p-2">
+                          <Input
+                            type="number"
+                            value={row.stockQuantity}
+                            onChange={(e) => updateRow(row.id, 'stockQuantity', parseFloat(e.target.value) || 0)}
+                            className="w-[100px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <Input
+                            type="number"
+                            value={row.sellingPrice}
+                            onChange={(e) => updateRow(row.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
+                            className="w-[120px]"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          <Button
+                            onClick={() => deleteRow(row.id)}
+                            variant="ghost"
+                            size="sm"
+                            disabled={rows.length === 1}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Retailer Feedback on Competition */}
+        <TabsContent value="feedback">
+          <Card>
+            <CardHeader>
+              <CardTitle>Retailer Feedback on Competition</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {rows.map((row, index) => {
+                const competitor = competitors.find(c => c.id === row.competitorId);
+                const sku = skus[row.id]?.find(s => s.id === row.skuId);
+                
+                return (
+                  <div key={row.id} className="p-4 border rounded-lg space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-medium">
+                        Entry {index + 1}: {competitor?.competitor_name || 'Select competitor'} - {sku?.sku_name || 'Select competition name'}
+                      </h4>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Retailer Feedback / Insight</Label>
+                        <Textarea
+                          value={row.insight}
+                          onChange={(e) => updateRow(row.id, 'insight', e.target.value)}
+                          placeholder="Enter retailer feedback about this competition product..."
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Impact Level</Label>
+                          <Select
+                            value={row.impactLevel}
+                            onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Select impact level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Low">Low</SelectItem>
+                              <SelectItem value="Medium">Medium</SelectItem>
+                              <SelectItem value="High">High</SelectItem>
+                              <SelectItem value="Critical">Critical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-6">
+                          <Checkbox
+                            id={`attention-${row.id}`}
+                            checked={row.needsAttention}
+                            onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
+                          />
+                          <Label htmlFor={`attention-${row.id}`}>
+                            Action Required / Needs Attention
+                          </Label>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handlePhotoUpload(row.id, e)}
+                            className="hidden"
+                            id={`photo-${row.id}`}
+                          />
+                          <Button
+                            onClick={() => document.getElementById(`photo-${row.id}`)?.click()}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Camera className="h-4 w-4 mr-2" />
+                            Add Photo ({row.photoUrls.length})
+                          </Button>
+                        </div>
+
+                        <Button
+                          onClick={() => recording === row.id ? stopRecording() : startRecording(row.id)}
+                          variant={recording === row.id ? "destructive" : "outline"}
+                          size="sm"
+                        >
+                          {recording === row.id ? (
+                            <>
+                              <Square className="h-4 w-4 mr-2" />
+                              Stop Recording
+                            </>
+                          ) : (
+                            <>
+                              <Mic className="h-4 w-4 mr-2" />
+                              Voice Note ({row.voiceNoteUrls.length})
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Action Buttons */}
       <div className="flex gap-2 justify-end">
