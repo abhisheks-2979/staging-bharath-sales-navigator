@@ -83,6 +83,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   // Create storage key for table form persistence
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -441,6 +442,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   };
 
   const addToCart = () => {
+    if (isAddingToCart) return;
+    
     const validRows = orderRows.filter(row => row.product && row.quantity > 0);
     
     if (validRows.length === 0) {
@@ -451,6 +454,12 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       });
       return;
     }
+
+    setIsAddingToCart(true);
+    toast({
+      title: "Preparing Order",
+      description: "Loading order preview...",
+    });
 
     try {
       const cartItems = validRows.map(row => {
@@ -512,6 +521,8 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
         description: "Failed to add items to cart. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -769,9 +780,19 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       <Button 
         onClick={addToCart}
         className="w-full"
-        disabled={getTotalValue() === 0}
+        disabled={getTotalValue() === 0 || isAddingToCart}
       >
-        Preview Order
+        {isAddingToCart ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Loading...
+          </>
+        ) : (
+          "Preview Order"
+        )}
       </Button>
       
       <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
