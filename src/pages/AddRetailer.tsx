@@ -272,16 +272,23 @@ export const AddRetailer = () => {
             const base64Image = e.target?.result as string;
 
             try {
-              // Call edge function to extract data
-              const { data, error } = await supabase.functions.invoke('scan-board', {
+              // Create timeout promise for internet detection (5 seconds)
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('TIMEOUT')), 5000);
+              });
+
+              // Call edge function with timeout
+              const scanPromise = supabase.functions.invoke('scan-board', {
                 body: { imageBase64: base64Image }
               });
+
+              const { data, error } = await Promise.race([scanPromise, timeoutPromise]) as any;
 
               if (error) {
                 throw error;
               }
 
-              if (data.error) {
+              if (data?.error) {
                 throw new Error(data.error);
               }
 
@@ -315,14 +322,25 @@ export const AddRetailer = () => {
                   duration: 5000
                 });
               }
-            } catch (scanError) {
+            } catch (scanError: any) {
               console.error('Scan error:', scanError);
-              toast({ 
-                title: 'Scan Failed', 
-                description: scanError instanceof Error ? scanError.message : 'Could not extract information from image', 
-                variant: 'destructive',
-                duration: 5000
-              });
+              
+              // Check if timeout occurred (slow/no internet)
+              if (scanError.message === 'TIMEOUT') {
+                toast({ 
+                  title: 'Internet is Low', 
+                  description: 'Please enter the name manually instead.',
+                  variant: 'destructive',
+                  duration: 6000
+                });
+              } else {
+                toast({ 
+                  title: 'Scan Failed', 
+                  description: scanError instanceof Error ? scanError.message : 'Could not extract information from image', 
+                  variant: 'destructive',
+                  duration: 5000
+                });
+              }
             } finally {
               setIsScanningBoard(false);
             }
@@ -343,7 +361,7 @@ export const AddRetailer = () => {
       input.click();
     } catch (error) {
       console.error('Camera access error:', error);
-      toast({ 
+      toast({
         title: 'Camera Error', 
         description: 'Could not access camera. Please check permissions.', 
         variant: 'destructive' 
@@ -789,11 +807,17 @@ export const AddRetailer = () => {
                             }
                           }
 
-                          // Fallback to OpenStreetMap Nominatim
-                          const response = await fetch(
+                          // Fallback to OpenStreetMap Nominatim with timeout
+                          const geocodeTimeout = new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('Geocoding timeout')), 3000);
+                          });
+                          
+                          const geocodePromise = fetch(
                             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
                             { headers: { 'User-Agent': 'FieldSalesNavigator/1.0' } }
                           );
+                          
+                          const response = await Promise.race([geocodePromise, geocodeTimeout]) as Response;
                           if (!response.ok) throw new Error('Geocoding service unavailable');
                           const data = await response.json();
                           const address = data.address || {};
