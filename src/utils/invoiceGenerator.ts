@@ -171,7 +171,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   yPos += 6;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(0, 100, 200); // Blue for retailer name
+  doc.setTextColor(0, 0, 0); // Retailer name in black for professional look
   doc.text(retailer.name || "Customer Name", 15, yPos);
   
   doc.setTextColor(0, 0, 0);
@@ -216,8 +216,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       item.hsn_code || "-",
       item.unit || "Piece",
       qty.toString(),
-      `₹${rate.toFixed(2)}`,
-      `₹${total.toFixed(2)}`,
+      `Rs ${(rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      `Rs ${(total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
     ];
   });
 
@@ -225,7 +225,13 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     startY: 95,
     head: [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]],
     body: tableData,
-    theme: "plain",
+    theme: "grid",
+    styles: {
+      lineColor: [229, 231, 235],
+      lineWidth: 0.2,
+      fontSize: 8,
+      textColor: [0, 0, 0]
+    },
     headStyles: {
       fillColor: [22, 163, 74], // bg-green-600 - matching template4
       textColor: [255, 255, 255],
@@ -275,15 +281,15 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(0, 0, 0);
   
   doc.text("SUB-TOTAL", labelCol, yPos);
-  doc.text(`₹${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs ${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("SGST (2.5%)", labelCol, yPos);
-  doc.text(`₹${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs ${sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("CGST (2.5%)", labelCol, yPos);
-  doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs ${cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, rightCol, yPos, { align: "right" });
 
   // Total Due box (green background - matching template4 bg-green-600)
   yPos += 8;
@@ -294,7 +300,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("Total Due", labelCol, yPos);
-  doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`Rs ${total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, rightCol, yPos, { align: "right" });
   
   doc.setTextColor(0, 0, 0);
   
@@ -378,7 +384,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   yPos += 5;
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(0, 100, 200); // Blue text for terms
+  doc.setTextColor(55, 65, 81); // Muted gray for terms
   const terms = company.terms_conditions || "Please pay within 15 days from the date of invoice. Late payment is subject to fees of 5% per month.";
   const termsLines = doc.splitTextToSize(terms, pageWidth - 30);
   doc.text(termsLines, 15, yPos);
@@ -387,7 +393,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   yPos = pageHeight - 32;
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 100, 200); // Blue
+  doc.setTextColor(22, 163, 74); // Green accent to match template4
   doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, yPos, { align: "center" });
 
   // Dark footer - matching template4 (bg-gray-800: rgb(31, 41, 55))
