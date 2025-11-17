@@ -561,6 +561,100 @@ export type Database = {
           },
         ]
       }
+      chat_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          message_id: string
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          message_id: string
+          rating?: number | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          message_id?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           account_holder_name: string | null
@@ -3214,6 +3308,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      saved_reports: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          parameters: Json | null
+          query: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          parameters?: Json | null
+          query: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          parameters?: Json | null
+          query?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_reports_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sensitive_data_access_log: {
         Row: {
