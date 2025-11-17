@@ -176,10 +176,12 @@ export const CreateBeat = () => {
   
   // Recurrence settings
   const [repeatEnabled, setRepeatEnabled] = useState(false);
-  const [repeatType, setRepeatType] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [repeatType, setRepeatType] = useState<"daily" | "weekly" | "monthly" | "custom">("weekly");
   const [repeatDays, setRepeatDays] = useState<number[]>([1]); // 0=Sunday, 1=Monday, etc.
   const [repeatEndDate, setRepeatEndDate] = useState<Date | undefined>(undefined);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [customIntervalDays, setCustomIntervalDays] = useState<number>(15);
+  const [repeatUntilMode, setRepeatUntilMode] = useState<"date" | "permanent">("date");
 
   const weekDays = [
     { label: "Mon", value: 1 },
@@ -253,7 +255,7 @@ export const CreateBeat = () => {
       return;
     }
 
-    if (repeatEnabled && !repeatEndDate) {
+    if (repeatEnabled && repeatUntilMode === "date" && !repeatEndDate) {
       toast({
         title: "End Date Required",
         description: "Please select an end date for the recurring beat",
@@ -266,6 +268,15 @@ export const CreateBeat = () => {
       toast({
         title: "Days Required",
         description: `Please select at least one day for ${repeatType} recurring beats`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (repeatEnabled && repeatType === "custom" && (!customIntervalDays || customIntervalDays < 1)) {
+      toast({
+        title: "Invalid Interval",
+        description: "Please enter a valid number of days (minimum 1)",
         variant: "destructive"
       });
       return;
@@ -298,19 +309,23 @@ export const CreateBeat = () => {
       if (updateError) throw updateError;
 
       // Create beat plans based on recurrence settings
-      if (repeatEnabled && repeatEndDate) {
-        const beatPlans = generateBeatPlans(beatId, beatName, repeatEndDate);
-        
-        const { error: planError } = await supabase
-          .from('beat_plans')
-          .insert(beatPlans);
+      if (repeatEnabled) {
+        const endDate = repeatUntilMode === "permanent" ? addDays(new Date(), 365) : repeatEndDate;
+        if (endDate) {
+          const beatPlans = generateBeatPlans(beatId, beatName, endDate);
+          
+          const { error: planError } = await supabase
+            .from('beat_plans')
+            .insert(beatPlans);
 
-        if (planError) throw planError;
+          if (planError) throw planError;
 
-        toast({
-          title: "Beat Created Successfully",
-          description: `"${beatName}" created with ${selectedRetailers.length} retailers and scheduled visits`,
-        });
+          const untilText = repeatUntilMode === "permanent" ? "permanently" : `until ${format(endDate, 'PP')}`;
+          toast({
+            title: "Beat Created Successfully",
+            description: `"${beatName}" created with ${selectedRetailers.length} retailers and scheduled ${untilText}`,
+          });
+        }
       } else {
         toast({
           title: "Beat Created Successfully",
@@ -353,6 +368,10 @@ export const CreateBeat = () => {
         // For monthly, use the first selected day of each month
         const dayOfWeek = currentDate.getDay();
         shouldInclude = repeatDays.includes(dayOfWeek);
+      } else if (repeatType === "custom") {
+        // For custom interval, include every Nth day
+        const daysDiff = Math.floor((currentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        shouldInclude = daysDiff % customIntervalDays === 0;
       }
 
       if (shouldInclude) {
@@ -373,6 +392,8 @@ export const CreateBeat = () => {
       } else if (repeatType === "weekly") {
         currentDate = addDays(currentDate, 1);
       } else if (repeatType === "monthly") {
+        currentDate = addDays(currentDate, 1);
+      } else if (repeatType === "custom") {
         currentDate = addDays(currentDate, 1);
       }
     }
@@ -516,7 +537,7 @@ export const CreateBeat = () => {
                 {repeatEnabled && (
                   <div className="space-y-3 pl-6">
                     <div className="space-y-2">
-                      <Label>Repeat</Label>
+                      <Label>Repeat Frequency</Label>
                       <RadioGroup value={repeatType} onValueChange={(val: any) => setRepeatType(val)}>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="daily" id="daily" />
@@ -530,8 +551,29 @@ export const CreateBeat = () => {
                           <RadioGroupItem value="monthly" id="monthly" />
                           <Label htmlFor="monthly" className="cursor-pointer">Monthly</Label>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="custom" id="custom" />
+                          <Label htmlFor="custom" className="cursor-pointer">Custom Interval</Label>
+                        </div>
                       </RadioGroup>
                     </div>
+
+                    {repeatType === "custom" && (
+                      <div className="space-y-2">
+                        <Label>Repeat Every (Days) *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={customIntervalDays}
+                          onChange={(e) => setCustomIntervalDays(parseInt(e.target.value) || 1)}
+                          placeholder="Enter number of days"
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Visit will repeat every {customIntervalDays} day(s)
+                        </p>
+                      </div>
+                    )}
 
                     {repeatType === "weekly" && (
                       <div className="space-y-2">
@@ -580,34 +622,56 @@ export const CreateBeat = () => {
                     )}
 
                     <div className="space-y-2">
-                      <Label>End Date *</Label>
-                      <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !repeatEndDate && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarDays className="mr-2 h-4 w-4" />
-                            {repeatEndDate ? format(repeatEndDate, "PPP") : "Select end date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={repeatEndDate}
-                            onSelect={(date) => {
-                              setRepeatEndDate(date);
-                              setIsCalendarOpen(false);
-                            }}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <Label>Repeat Until</Label>
+                      <RadioGroup value={repeatUntilMode} onValueChange={(val: any) => setRepeatUntilMode(val)}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="date" id="until-date" />
+                          <Label htmlFor="until-date" className="cursor-pointer">Until Date</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="permanent" id="permanent" />
+                          <Label htmlFor="permanent" className="cursor-pointer">Permanent</Label>
+                        </div>
+                      </RadioGroup>
                     </div>
+
+                    {repeatUntilMode === "date" && (
+                      <div className="space-y-2">
+                        <Label>End Date *</Label>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !repeatEndDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarDays className="mr-2 h-4 w-4" />
+                              {repeatEndDate ? format(repeatEndDate, "PPP") : "Select end date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={repeatEndDate}
+                              onSelect={(date) => {
+                                setRepeatEndDate(date);
+                                setIsCalendarOpen(false);
+                              }}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+
+                    {repeatUntilMode === "permanent" && (
+                      <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                        Visits will repeat indefinitely for this beat
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
