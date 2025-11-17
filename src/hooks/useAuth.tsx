@@ -51,6 +51,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Idle timeout: 1 hour = 3600000 ms
+  const IDLE_TIMEOUT = 3600000;
 
   const fetchUserRole = async (userId: string): Promise<'admin' | 'user' | null> => {
     try {
@@ -114,6 +117,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
     }
   };
+
+  // Auto-logout on idle (1 hour of inactivity)
+  useEffect(() => {
+    if (!user) return;
+
+    let idleTimer: NodeJS.Timeout;
+
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        console.log('User idle for 1 hour, logging out...');
+        toast.info('You have been logged out due to inactivity');
+        signOut();
+      }, IDLE_TIMEOUT);
+    };
+
+    // Activity events to reset the timer
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    
+    events.forEach(event => {
+      window.addEventListener(event, resetIdleTimer);
+    });
+
+    // Start the timer
+    resetIdleTimer();
+
+    return () => {
+      clearTimeout(idleTimer);
+      events.forEach(event => {
+        window.removeEventListener(event, resetIdleTimer);
+      });
+    };
+  }, [user]);
 
   useEffect(() => {
     // Load cached auth state for offline support
