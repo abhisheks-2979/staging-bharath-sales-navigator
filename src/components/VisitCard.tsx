@@ -307,7 +307,7 @@ export const VisitCard = ({
           todayEnd.setHours(23, 59, 59, 999);
           const {
             data: ordersToday
-          } = await supabase.from('orders').select('id, created_at, total_amount, is_credit_order, credit_pending_amount, credit_paid_amount, previous_pending_cleared').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('status', 'confirmed').gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()).order('created_at', {
+          } = await supabase.from('orders').select('*').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('status', 'confirmed').gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()).order('created_at', {
             ascending: false
           });
           if (ordersToday && ordersToday.length > 0) {
