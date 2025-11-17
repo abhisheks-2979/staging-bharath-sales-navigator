@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Navbar } from "./Navbar";
+import { ChatWidget } from "./chat/ChatWidget";
 
 interface LayoutProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ export const Layout = ({ children }: LayoutProps) => {
       <main className="pb-20">
         {children}
       </main>
+      <ChatWidget />
     </div>
   );
 };

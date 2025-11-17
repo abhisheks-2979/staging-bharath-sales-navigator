@@ -32,3 +32,6 @@ verify_jwt = true
 
 [functions.send-invoice-whatsapp]
 verify_jwt = true
+
+[functions.chat-assistant]
+verify_jwt = true
