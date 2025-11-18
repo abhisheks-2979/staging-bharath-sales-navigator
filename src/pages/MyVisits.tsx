@@ -201,6 +201,12 @@ export const MyVisits = () => {
   // Set up real-time updates for visits and orders with debouncing
   useEffect(() => {
     if (!user || !selectedDate) return;
+    
+    // Skip real-time subscriptions when offline
+    if (!navigator.onLine) {
+      console.log('📴 Skipping real-time subscriptions - offline mode');
+      return;
+    }
 
     let debounceTimer: NodeJS.Timeout;
     const debouncedReload = () => {
@@ -276,14 +282,18 @@ export const MyVisits = () => {
         const startIso = weekDays[0]?.isoDate;
         const endIso = weekDays[weekDays.length - 1]?.isoDate;
         if (!startIso || !endIso) return;
+        
         const {
           data,
           error
         } = await supabase.from('beat_plans').select('plan_date').eq('user_id', user.id).gte('plan_date', startIso).lte('plan_date', endIso);
+        
         if (error) throw error;
         setPlannedDates(new Set((data || []).map((d: any) => d.plan_date)));
       } catch (err) {
-        console.error('Error loading week plans:', err);
+        if (!shouldSuppressError(err)) {
+          console.error('Error loading week plans:', err);
+        }
       }
     };
     loadWeekPlans();

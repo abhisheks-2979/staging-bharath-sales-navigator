@@ -17,7 +17,17 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  // When offline, allow access if user data exists in local storage or cache
+  // This prevents blocking authenticated users when offline
   if (!user) {
+    // Check if we're offline - if so, try to get user from localStorage
+    if (!navigator.onLine) {
+      const cachedUser = localStorage.getItem('sb-user');
+      if (cachedUser) {
+        // User was authenticated, allow access in offline mode
+        return <>{children}</>;
+      }
+    }
     return <Navigate to="/auth" replace />;
   }
 
