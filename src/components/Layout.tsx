@@ -22,7 +22,6 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <Navbar />
-      <OfflineModeBanner />
       <main className="pb-20">
         {children}
       </main>

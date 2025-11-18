@@ -40,8 +40,23 @@ export function useOfflineOrderEntry() {
     try {
       setLoading(true);
 
+      // 1. Load from cache immediately for instant display
+      const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
+      const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
+      const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
+
+      if (cachedProducts.length > 0) {
+        const enrichedProducts = (cachedProducts || []).map((product: any) => ({
+          ...product,
+          variants: (cachedVariants || []).filter((v: any) => v.product_id === product.id),
+          schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
+        }));
+        setProducts(enrichedProducts);
+        setLoading(false);
+      }
+
+      // 2. If online, fetch fresh data in background
       if (isOnline) {
-        // Online: Fetch from Supabase and cache
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select(`
@@ -53,19 +68,16 @@ export function useOfflineOrderEntry() {
 
         if (productsError) throw productsError;
 
-        // Fetch schemes
         const { data: schemesData } = await supabase
           .from('product_schemes')
           .select('*')
           .eq('is_active', true);
 
-        // Fetch variants
         const { data: variantsData } = await supabase
           .from('product_variants')
           .select('*')
           .eq('is_active', true);
 
-        // Enrich products
         const enrichedProducts = (productsData || []).map((product: any) => ({
           ...product,
           schemes: (schemesData || []).filter((s: any) => s.product_id === product.id),
@@ -75,6 +87,10 @@ export function useOfflineOrderEntry() {
         setProducts(enrichedProducts);
 
         // Cache for offline use
+        await offlineStorage.clear(STORES.PRODUCTS);
+        await offlineStorage.clear(STORES.VARIANTS);
+        await offlineStorage.clear(STORES.SCHEMES);
+        
         for (const product of enrichedProducts) {
           await offlineStorage.save(STORES.PRODUCTS, product);
         }
@@ -90,41 +106,23 @@ export function useOfflineOrderEntry() {
         }
 
         console.log(`Cached ${enrichedProducts.length} products for offline use`);
-      } else {
-        // Offline: Load from cache
-        console.log('Loading products from offline cache');
-        const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
-        const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
-        const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      
+      // Fallback to cache on error
+      const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
+      const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
+      const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
+      if (cachedProducts.length > 0) {
         const enrichedProducts = (cachedProducts || []).map((product: any) => ({
           ...product,
           variants: (cachedVariants || []).filter((v: any) => v.product_id === product.id),
           schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
         }));
-
         setProducts(enrichedProducts);
-
-        if (enrichedProducts.length === 0) {
-          toast({
-            title: "Working Offline",
-            description: "No cached products. Please go online to load products first.",
-            variant: "default"
-          });
-        } else {
-          toast({
-            title: "Working Offline",
-            description: `Loaded ${enrichedProducts.length} products from cache`,
-          });
-        }
       }
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load products",
-        variant: "destructive"
-      });
     } finally {
       setLoading(false);
     }

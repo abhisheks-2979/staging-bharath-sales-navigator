@@ -195,6 +195,68 @@ export function useOfflineSync() {
         if (beatPlanError) throw beatPlanError;
         break;
         
+      case 'DELETE_RETAILER':
+        console.log('Syncing retailer deletion:', data);
+        const { error: deleteRetailerError } = await supabase
+          .from('retailers')
+          .delete()
+          .eq('id', data.id);
+        if (deleteRetailerError) throw deleteRetailerError;
+        break;
+        
+      case 'DELETE_BEAT':
+        console.log('Syncing beat deletion:', data);
+        const { error: deleteBeatError } = await supabase
+          .from('beats')
+          .delete()
+          .eq('beat_id', data.beat_id);
+        if (deleteBeatError) throw deleteBeatError;
+        break;
+        
+      case 'UPDATE_BEAT_PLAN':
+        console.log('Syncing beat plan update:', data);
+        const { error: updateBeatPlanError } = await supabase
+          .from('beat_plans')
+          .update(data.updates)
+          .eq('id', data.id);
+        if (updateBeatPlanError) throw updateBeatPlanError;
+        break;
+        
+      case 'NO_ORDER':
+        console.log('Syncing no order visit:', data);
+        const { error: noOrderError } = await supabase
+          .from('visits')
+          .update({
+            status: 'no_order',
+            no_order_reason: data.reason,
+            notes: data.notes,
+            visit_date: data.visit_date
+          })
+          .eq('id', data.visit_id);
+        if (noOrderError) throw noOrderError;
+        break;
+        
+      case 'CREATE_COMPETITION_DATA':
+        console.log('Syncing competition data:', data);
+        const { error: competitionError } = await supabase
+          .from('competition_data')
+          .insert(data);
+        if (competitionError) throw competitionError;
+        break;
+        
+      case 'CREATE_RETURN_STOCK':
+        console.log('Syncing return stock:', data);
+        // Return stock is typically part of orders table or a separate returns table
+        // Update this based on your schema
+        const { error: returnStockError } = await supabase
+          .from('orders')
+          .insert({
+            ...data,
+            order_type: 'return'
+          });
+        if (returnStockError) throw returnStockError;
+        break;
+        
       default:
         console.warn('Unknown sync action:', action);
     }

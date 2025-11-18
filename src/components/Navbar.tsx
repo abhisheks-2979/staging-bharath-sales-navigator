@@ -1,4 +1,4 @@
-import { Menu, X, LogOut, Home, ArrowLeft } from "lucide-react";
+import { Menu, X, LogOut, Home, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -94,15 +94,26 @@ export const Navbar = () => {
                 </div>
                 <div>
                   <h1 className="text-lg font-semibold">Bharath Beverages</h1>
-                  <p className="text-xs opacity-80">
-                    {connectivityStatus === 'online' ? 'Online' : connectivityStatus === 'offline' ? 'Offline' : 'Field Sales App'}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {connectivityStatus === 'online' ? (
+                      <>
+                        <Wifi className="h-3 w-3 opacity-80" />
+                        <p className="text-xs opacity-80">Online</p>
+                      </>
+                    ) : connectivityStatus === 'offline' ? (
+                      <>
+                        <WifiOff className="h-3 w-3 opacity-80" />
+                        <p className="text-xs opacity-80">Offline</p>
+                      </>
+                    ) : (
+                      <p className="text-xs opacity-80">Field Sales App</p>
+                    )}
+                  </div>
                 </div>
               </NavLink>
             </div>
             
             <div className="flex items-center gap-2">
-              <SyncStatusIndicator />
               <LanguageSelector />
               <button
                 onClick={() => setIsOpen(!isOpen)}
