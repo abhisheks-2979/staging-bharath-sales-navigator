@@ -15,8 +15,8 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v11';
-const PRECACHE_VERSION = 'v11';
+const RUNTIME_CACHE_VERSION = 'v12';
+const PRECACHE_VERSION = 'v12';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
@@ -87,38 +87,52 @@ self.addEventListener('activate', (event) => {
 // Fallback to index.html for SPA routes - CRITICAL for PWA navigation
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  async ({ event }) => {
+  async () => {
     try {
-      // Try to get from precache first
-      const precachedResponse = await caches.match('/index.html');
-      if (precachedResponse) {
-        console.log('✅ Serving precached index.html for navigation');
-        return precachedResponse;
-      }
-
-      // Try network if precache fails
-      console.log('⚠️ Precache miss, trying network for index.html');
+      // Try network first for fresh content
       const networkResponse = await fetch('/index.html');
       
       // Cache the network response
       const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
       cache.put('/index.html', networkResponse.clone());
       
+      console.log('✅ Serving fresh index.html from network');
       return networkResponse;
     } catch (error) {
-      console.error('❌ Navigation failed, serving app shell:', error);
+      // Network failed, serve from cache
+      console.log('⚠️ Network unavailable, serving from cache');
       
-      // Last resort: try any cached version of index.html
-      const anyCache = await caches.match('/index.html');
-      if (anyCache) {
-        return anyCache;
+      // Try precached version first
+      const precachedResponse = await caches.match('/index.html');
+      if (precachedResponse) {
+        console.log('✅ Serving precached index.html');
+        return precachedResponse;
       }
       
-      // If everything fails, return offline page or error
-      const offlinePage = await caches.match('/offline.html');
-      return offlinePage || new Response('App offline', { 
-        status: 503, 
-        statusText: 'Service Unavailable' 
+      // Try navigation cache
+      const cachedResponse = await caches.match('/index.html', { ignoreSearch: true });
+      if (cachedResponse) {
+        console.log('✅ Serving cached index.html');
+        return cachedResponse;
+      }
+      
+      // Last resort: return a basic HTML response with the app
+      console.error('❌ No cached version found, returning basic app shell');
+      return new Response(`
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Bharath Sales Navigator - Offline</title>
+          </head>
+          <body>
+            <div id="root"></div>
+            <script type="module" src="/src/main.tsx"></script>
+          </body>
+        </html>
+      `, {
+        headers: { 'Content-Type': 'text/html' }
       });
     }
   }
