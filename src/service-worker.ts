@@ -84,35 +84,49 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fallback to index.html for SPA routes - serve from cache when offline
+// Fallback to index.html for SPA routes - always serve app when offline
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  async ({ event }) => {
+  async ({ event, request }) => {
     try {
-      // Try network first, fallback to cache
-      const networkResponse = await new NetworkFirst({
-        cacheName: `navigation-cache-${RUNTIME_CACHE_VERSION}`,
-        networkTimeoutSeconds: 3,
-        plugins: [
-          new ExpirationPlugin({
-            maxEntries: 50,
-            maxAgeSeconds: 60 * 60 * 24 * 7, // 1 week
-            purgeOnQuotaError: true,
-          }),
-        ],
-      }).handle({ event: event as any, request: (event as any).request });
-      if (networkResponse) return networkResponse;
-    } catch (e) {
-      // Ignore and try cache fallbacks
+      // Try network first for freshness
+      const networkResponse = await fetch(request, { 
+        signal: AbortSignal.timeout(3000) 
+      });
+      
+      // Cache successful responses
+      const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
+      cache.put(request, networkResponse.clone());
+      
+      return networkResponse;
+    } catch (error) {
+      // When offline or network fails, ALWAYS serve the cached app
+      console.log('Network failed, serving cached app for navigation');
+      
+      // Try to get cached response for this specific route
+      const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
+      const cachedResponse = await cache.match(request);
+      
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      
+      // Fallback to cached index.html (app shell)
+      const cachedIndex = await cache.match('/index.html');
+      if (cachedIndex) {
+        return cachedIndex;
+      }
+      
+      // Last resort: check precache for index.html
+      const precachedIndex = await caches.match('/index.html');
+      if (precachedIndex) {
+        return precachedIndex;
+      }
+      
+      // Only show offline.html if app genuinely not cached (shouldn't happen in PWA)
+      const offline = await caches.match('/offline.html');
+      return offline || Response.error();
     }
-
-    // Try cached app shell first
-    const cachedIndex = await caches.match('/index.html');
-    if (cachedIndex) return cachedIndex;
-
-    // Finally, show offline page if available
-    const offline = await caches.match('/offline.html');
-    return offline || Response.error();
   }
 );
 
