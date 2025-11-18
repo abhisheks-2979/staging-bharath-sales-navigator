@@ -166,33 +166,55 @@ export const MyBeats = () => {
     try {
       setLoading(true);
       
-      // Get user's own beats
-      const { data: beatsData, error: beatsError } = await supabase
-        .from('beats')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
+      let beatsData: any[] = [];
+      let retailersData: any[] = [];
+      
+      // Try online first, fallback to cache
+      if (isOnline) {
+        try {
+          const { data: onlineBeats, error: beatsError } = await supabase
+            .from('beats')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: true });
 
-      if (beatsError) {
-        console.error('Error fetching beats:', beatsError);
-        throw beatsError;
+          if (beatsError) throw beatsError;
+          beatsData = onlineBeats || [];
+          
+          // Cache beats for offline use
+          for (const beat of beatsData) {
+            await offlineStorage.save(STORES.BEATS, { ...beat, id: beat.beat_id });
+          }
+
+          const { data: onlineRetailers, error: retailersError } = await supabase
+            .from('retailers')
+            .select('beat_id')
+            .eq('user_id', user.id)
+            .not('beat_id', 'is', null)
+            .neq('beat_id', '')
+            .neq('beat_id', 'unassigned');
+
+          if (retailersError) throw retailersError;
+          retailersData = onlineRetailers || [];
+        } catch (error) {
+          console.log('Online fetch failed, loading from cache:', error);
+          // Load from cache on error
+          beatsData = await offlineStorage.getAll(STORES.BEATS);
+          const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+          retailersData = allRetailers.filter((r: any) => 
+            r.user_id === user.id && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
+          ).map((r: any) => ({ beat_id: r.beat_id }));
+        }
+      } else {
+        // Load from cache when offline
+        beatsData = await offlineStorage.getAll(STORES.BEATS);
+        const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+        retailersData = allRetailers.filter((r: any) => 
+          r.user_id === user.id && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
+        ).map((r: any) => ({ beat_id: r.beat_id }));
       }
 
-      // Get retailer counts for each beat for the current user
-      const { data: retailersData, error: retailersError } = await supabase
-        .from('retailers')
-        .select('beat_id')
-        .eq('user_id', user.id)
-        .not('beat_id', 'is', null)
-        .neq('beat_id', '')
-        .neq('beat_id', 'unassigned');
-
-      if (retailersError) {
-        console.error('Error fetching retailers:', retailersError);
-        throw retailersError;
-      }
-
-      // Count retailers per beat for this user
+      // Count retailers per beat
       const retailerCountMap = new Map<string, number>();
       (retailersData || []).forEach((item) => {
         const beatId = item.beat_id;
@@ -233,21 +255,43 @@ export const MyBeats = () => {
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
-        .from('retailers')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('name');
+      let data: any[] = [];
+      
+      // Try online first, fallback to cache
+      if (isOnline) {
+        try {
+          const { data: onlineData, error } = await supabase
+            .from('retailers')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('name');
 
-      if (error) throw error;
+          if (error) throw error;
+          data = onlineData || [];
+          
+          // Cache retailers for offline use
+          for (const retailer of data) {
+            await offlineStorage.save(STORES.RETAILERS, retailer);
+          }
+        } catch (error) {
+          console.log('Online fetch failed, loading from cache:', error);
+          // Load from cache on error
+          const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+          data = allRetailers.filter((r: any) => r.user_id === user.id);
+        }
+      } else {
+        // Load from cache when offline
+        const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+        data = allRetailers.filter((r: any) => r.user_id === user.id);
+      }
 
       const retailersWithMetrics = (data || []).map(retailer => ({
         id: retailer.id,
         name: retailer.name,
         address: retailer.address,
-        phone: retailer.phone || 'N/A', // Ensure phone is always a string
+        phone: retailer.phone || 'N/A',
         category: retailer.category,
-        type: retailer.retail_type || 'General Store', // Add type field
+        type: retailer.retail_type || 'General Store',
         beat_id: retailer.beat_id,
         isSelected: false,
         metrics: {
