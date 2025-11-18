@@ -64,10 +64,25 @@ export function useOfflineSync() {
     switch (action) {
       case 'CREATE_ORDER':
         console.log('Syncing order creation:', data);
-        const { error: orderError } = await supabase
-          .from('orders')
-          .insert(data);
-        if (orderError) throw orderError;
+        // Handle both old format (single data) and new format (order + items)
+        if (data.order && data.items) {
+          // New format with separate order and items
+          const { error: orderError } = await supabase
+            .from('orders')
+            .insert(data.order);
+          if (orderError) throw orderError;
+          
+          const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(data.items);
+          if (itemsError) throw itemsError;
+        } else {
+          // Old format - just the order data
+          const { error: orderError } = await supabase
+            .from('orders')
+            .insert(data);
+          if (orderError) throw orderError;
+        }
         break;
         
       case 'UPDATE_ORDER':

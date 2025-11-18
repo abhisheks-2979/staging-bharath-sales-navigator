@@ -1,0 +1,158 @@
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Submit an order with offline support
+ * @param orderData - The order data to insert
+ * @param orderItems - The order items to insert
+ * @param options - Additional options
+ * @returns Result with success status and order data
+ */
+export async function submitOrderWithOfflineSupport(
+  orderData: any,
+  orderItems: any[],
+  options: { 
+    onOffline?: () => void;
+    onOnline?: () => void;
+  } = {}
+) {
+  const isOnline = navigator.onLine;
+  
+  if (!isOnline) {
+    // Offline: Queue for sync
+    const orderId = crypto.randomUUID();
+    const offlineOrder = {
+      ...orderData,
+      id: orderId,
+      created_at: new Date().toISOString(),
+      order_date: new Date().toISOString().split('T')[0]
+    };
+
+    const offlineItems = orderItems.map(item => ({
+      ...item,
+      order_id: orderId
+    }));
+
+    // Save to offline storage
+    await offlineStorage.save(STORES.ORDERS, { ...offlineOrder, items: offlineItems });
+    
+    // Queue for sync
+    await offlineStorage.addToSyncQueue('CREATE_ORDER', {
+      order: offlineOrder,
+      items: offlineItems
+    });
+
+    options.onOffline?.();
+
+    return { 
+      success: true, 
+      offline: true, 
+      order: offlineOrder 
+    };
+  } else {
+    // Online: Submit directly
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert(orderData)
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    const itemsWithOrderId = orderItems.map(item => ({
+      ...item,
+      order_id: order.id
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(itemsWithOrderId);
+
+    if (itemsError) throw itemsError;
+
+    options.onOnline?.();
+
+    return { 
+      success: true, 
+      offline: false, 
+      order 
+    };
+  }
+}
+
+/**
+ * Fetch products with offline caching support
+ * @returns Products data from online or cache
+ */
+export async function fetchProductsWithOfflineSupport() {
+  const isOnline = navigator.onLine;
+  
+  if (isOnline) {
+    // Online: Fetch from Supabase and cache
+    const { data: productsData, error: productsError } = await supabase
+      .from('products')
+      .select(`
+        *,
+        category:product_categories(name)
+      `)
+      .eq('is_active', true)
+      .order('name');
+
+    if (productsError) throw productsError;
+
+    // Fetch schemes
+    const { data: schemesData } = await supabase
+      .from('product_schemes')
+      .select('*')
+      .eq('is_active', true);
+
+    // Fetch variants
+    const { data: variantsData } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('is_active', true);
+
+    // Enrich products
+    const enrichedProducts = (productsData || []).map((product: any) => ({
+      ...product,
+      schemes: (schemesData || []).filter((s: any) => s.product_id === product.id),
+      variants: (variantsData || []).filter((v: any) => v.product_id === product.id)
+    }));
+
+    // Cache for offline use
+    for (const product of enrichedProducts) {
+      await offlineStorage.save(STORES.PRODUCTS, product);
+    }
+    if (variantsData) {
+      for (const variant of variantsData) {
+        await offlineStorage.save(STORES.VARIANTS, variant);
+      }
+    }
+    if (schemesData) {
+      for (const scheme of schemesData) {
+        await offlineStorage.save(STORES.SCHEMES, scheme);
+      }
+    }
+
+    return {
+      products: enrichedProducts,
+      fromCache: false
+    };
+  } else {
+    // Offline: Load from cache
+    const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
+    const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
+    const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
+
+    const enrichedProducts = (cachedProducts || []).map((product: any) => ({
+      ...product,
+      variants: (cachedVariants || []).filter((v: any) => v.product_id === product.id),
+      schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
+    }));
+
+    return {
+      products: enrichedProducts,
+      fromCache: true
+    };
+  }
+}
