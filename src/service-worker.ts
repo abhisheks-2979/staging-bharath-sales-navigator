@@ -84,11 +84,44 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fallback to index.html for SPA routes - always serve app when offline
+// Fallback to index.html for SPA routes - CRITICAL for PWA navigation
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  // Always return the precached app shell for SPA routes (robust offline support)
-  createHandlerBoundToURL('/index.html')
+  async ({ event }) => {
+    try {
+      // Try to get from precache first
+      const precachedResponse = await caches.match('/index.html');
+      if (precachedResponse) {
+        console.log('✅ Serving precached index.html for navigation');
+        return precachedResponse;
+      }
+
+      // Try network if precache fails
+      console.log('⚠️ Precache miss, trying network for index.html');
+      const networkResponse = await fetch('/index.html');
+      
+      // Cache the network response
+      const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
+      cache.put('/index.html', networkResponse.clone());
+      
+      return networkResponse;
+    } catch (error) {
+      console.error('❌ Navigation failed, serving app shell:', error);
+      
+      // Last resort: try any cached version of index.html
+      const anyCache = await caches.match('/index.html');
+      if (anyCache) {
+        return anyCache;
+      }
+      
+      // If everything fails, return offline page or error
+      const offlinePage = await caches.match('/offline.html');
+      return offlinePage || new Response('App offline', { 
+        status: 503, 
+        statusText: 'Service Unavailable' 
+      });
+    }
+  }
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with very short cache
