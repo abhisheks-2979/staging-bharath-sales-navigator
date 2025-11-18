@@ -1250,81 +1250,131 @@ export const VisitCard = ({
         <div className="space-y-2">
           {/* First row - Check In, Order, Feedback, AI */}
           <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isLocationEnabled ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            {!locationFeatureLoading && isLocationEnabled && <Button size="sm" className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`} onClick={handleLocationClick} title={getLocationBtnTitle()}>
-              <MapPin size={12} className="sm:size-3.5" />
-              <span className="text-xs">Check-In/Out</span>
-            </Button>}
-            
-            
-            <Button variant={hasOrderToday ? "default" : "outline"} size="sm" className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${hasOrderToday ? "bg-success text-success-foreground" : ""} ${isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn || !isTodaysVisit ? "opacity-50 cursor-not-allowed" : ""}`} onClick={async () => {
-            console.log('Order button clicked - Debug info:', {
-              isCheckInMandatory,
-              isCheckedIn,
-              proceedWithoutCheckIn,
-              isTodaysVisit,
-              selectedDate,
-              currentDate: new Date().toISOString().split('T')[0]
-            });
+            {!locationFeatureLoading && isLocationEnabled && (
+              <Button
+                size="sm"
+                className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
+                onClick={handleLocationClick}
+                title={getLocationBtnTitle()}
+              >
+                <MapPin size={12} className="sm:size-3.5" />
+                <span className="text-xs">Check-In/Out</span>
+              </Button>
+            )}
 
-            // Check if it's not today's visit
-            if (!isTodaysVisit) {
-              toast({
-                title: 'Cannot Place Order',
-                description: 'You can only place orders for today\'s visits. Please select today\'s date.',
-                variant: 'destructive'
-              });
-              return;
-            }
-
-            // Check if check-in is required but not done (only if location feature is enabled)
-            if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
-              toast({
-                title: 'Check-in Required',
-                description: 'Please check in first to place an order.',
-                variant: 'destructive'
-              });
-              return;
-            }
-            try {
-              const {
-                data: {
-                  user
-                }
-              } = await supabase.auth.getUser();
-              if (!user) {
-                toast({
-                  title: 'Login required',
-                  description: 'Please sign in to place orders.',
-                  variant: 'destructive'
+            <Button
+              variant={hasOrderToday ? "default" : "outline"}
+              size="sm"
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
+                hasOrderToday ? "bg-success text-success-foreground" : ""
+              } ${
+                (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isLocationEnabled) || !isTodaysVisit
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+              onClick={async () => {
+                console.log("Order button clicked - Debug info:", {
+                  isCheckInMandatory,
+                  isCheckedIn,
+                  proceedWithoutCheckIn,
+                  isTodaysVisit,
+                  selectedDate,
+                  currentDate: new Date().toISOString().split("T")[0],
                 });
-                return;
-              }
-              const today = new Date().toISOString().split('T')[0];
-              const retailerId = (visit.retailerId || visit.id) as string;
-              console.log('Creating/ensuring visit before navigation...', {
-                retailerId,
-                today
-              });
-              const visitId = await ensureVisit(user.id, retailerId, today);
-              console.log('Visit ensured, navigating to order-entry with visitId:', visitId);
-              setCurrentVisitId(visitId);
 
-              // Start tracking visit time and location
-              await startTracking('order', skipCheckInReason === 'phone-order');
-              navigate(`/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(visitId)}&retailer=${encodeURIComponent(visit.retailerName)}`);
-            } catch (err: any) {
-              console.error('Open order entry error:', err);
-              toast({
-                title: 'Unable to open order entry',
-                description: err.message || 'Please try again.',
-                variant: 'destructive'
-              });
-            }
-          }} title={`${isLocationEnabled && !isCheckedIn && !proceedWithoutCheckIn ? "Check in first to place order" : `Order${visit.orderValue || hasOrderToday ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : 'Order Placed'})` : ""}`}`}>
+                // Check if it's not today's visit
+                if (!isTodaysVisit) {
+                  toast({
+                    title: "Cannot Place Order",
+                    description: "You can only place orders for today's visits. Please select today's date.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                // When completely offline, allow direct navigation to OrderEntry using offline order flow
+                if (typeof navigator !== "undefined" && navigator.onLine === false) {
+                  const retailerId = (visit.retailerId || visit.id) as string;
+                  console.log("Offline mode: navigating directly to OrderEntry without ensuring visit", {
+                    retailerId,
+                  });
+                  navigate(
+                    `/order-entry?retailerId=${encodeURIComponent(retailerId)}&retailer=${encodeURIComponent(
+                      visit.retailerName,
+                    )}`,
+                  );
+                  return;
+                }
+
+                // Check if check-in is required but not done (only if location feature is enabled)
+                if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
+                  toast({
+                    title: "Check-in Required",
+                    description: "Please check in first to place an order.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                try {
+                  const {
+                    data: { user },
+                  } = await supabase.auth.getUser();
+
+                  if (!user) {
+                    toast({
+                      title: "Login required",
+                      description: "Please sign in to place orders.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  const today = new Date().toISOString().split("T")[0];
+                  const retailerId = (visit.retailerId || visit.id) as string;
+
+                  console.log("Creating/ensuring visit before navigation...", {
+                    retailerId,
+                    today,
+                  });
+
+                  const visitId = await ensureVisit(user.id, retailerId, today);
+                  console.log("Visit ensured, navigating to order-entry with visitId:", visitId);
+                  setCurrentVisitId(visitId);
+
+                  // Start tracking visit time and location
+                  await startTracking("order", skipCheckInReason === "phone-order");
+
+                  navigate(
+                    `/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(
+                      visitId,
+                    )}&retailer=${encodeURIComponent(visit.retailerName)}`,
+                  );
+                } catch (err: any) {
+                  console.error("Open order entry error:", err);
+                  toast({
+                    title: "Unable to open order entry",
+                    description: err?.message || "Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              title={
+                isLocationEnabled && !isCheckedIn && !proceedWithoutCheckIn
+                  ? "Check in first to place order"
+                  : `Order${
+                      visit.orderValue || hasOrderToday
+                        ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : "Order Placed"})`
+                        : ""
+                    }`
+              }
+            >
               <ShoppingCart size={12} className="sm:size-3.5" />
               <span className="text-xs">Order</span>
             </Button>
-            
+
+            ...
+
             <Button variant="outline" size="sm" className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5" onClick={async () => {
             // Start tracking visit time and location
             await startTracking('feedback', skipCheckInReason === 'phone-order');
