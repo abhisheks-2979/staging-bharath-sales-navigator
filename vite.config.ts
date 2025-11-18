@@ -18,10 +18,11 @@ export default defineConfig(({ mode }) => ({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'service-worker.ts',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
       injectManifest: {
         globPatterns: [
@@ -33,6 +34,8 @@ export default defineConfig(({ mode }) => ({
           '**/lovable-uploads/**/*',
         ],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        // Ensure service worker updates immediately
+        dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
       },
       manifest: {
         name: 'Bharath Sales Navigator',
