@@ -12,7 +12,8 @@ export const STORES = {
   PRODUCTS: 'products',
   BEATS: 'beats',
   CATEGORIES: 'categories',
-  SCHEMES: 'schemes'
+  SCHEMES: 'schemes',
+  BEAT_PLANS: 'beatPlans'
 } as const;
 
 class OfflineStorage {
@@ -75,6 +76,12 @@ class OfflineStorage {
         if (!db.objectStoreNames.contains(STORES.SCHEMES)) {
           const schemesStore = db.createObjectStore(STORES.SCHEMES, { keyPath: 'id' });
           schemesStore.createIndex('productId', 'productId', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.BEAT_PLANS)) {
+          const beatPlansStore = db.createObjectStore(STORES.BEAT_PLANS, { keyPath: 'id' });
+          beatPlansStore.createIndex('userId', 'user_id', { unique: false });
+          beatPlansStore.createIndex('planDate', 'plan_date', { unique: false });
         }
       };
     });

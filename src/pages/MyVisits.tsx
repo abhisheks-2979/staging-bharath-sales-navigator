@@ -25,6 +25,8 @@ import { useRecommendations } from "@/hooks/useRecommendations";
 import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
 import { VanStockManagement } from "@/components/VanStockManagement";
 import { useLocationFeature } from "@/hooks/useLocationFeature";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 interface Visit {
   id: string;
   retailerName: string;
@@ -289,27 +291,51 @@ export const MyVisits = () => {
   const loadPlannedBeats = async (date: string, preserveOrder: boolean = false) => {
     if (!user) return;
     try {
-      const {
-        data: beatPlans,
-        error
-      } = await supabase.from('beat_plans').select('*').eq('user_id', user.id).eq('plan_date', date);
-      if (error) throw error;
-      setPlannedBeats(beatPlans || []);
+      let beatPlans: any[] = [];
+      
+      // Try online first, fallback to cache
+      try {
+        const { data, error } = await supabase
+          .from('beat_plans')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('plan_date', date);
+        
+        if (error) throw error;
+        beatPlans = data || [];
+        
+        // Cache for offline use
+        for (const plan of beatPlans) {
+          await offlineStorage.save(STORES.BEAT_PLANS, plan);
+        }
+      } catch (error) {
+        if (shouldSuppressError(error)) {
+          // Load from cache when offline
+          console.log('📦 Loading beat plans from cache');
+          const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+          beatPlans = cachedPlans.filter((p: any) => 
+            p.user_id === user.id && p.plan_date === date
+          );
+        } else {
+          throw error;
+        }
+      }
+
+      setPlannedBeats(beatPlans);
 
       // Update beat name based on planned beats
-      if (beatPlans && beatPlans.length > 0) {
+      if (beatPlans.length > 0) {
         const beatNames = beatPlans.map(plan => plan.beat_name).join(', ');
         setCurrentBeatName(beatNames);
-
-        // Load all visits and retailers for this date
         await loadAllVisitsForDate(date, beatPlans, preserveOrder);
       } else {
         setCurrentBeatName("No beats planned");
-        // Still load unplanned visits even if no beats are planned
         await loadAllVisitsForDate(date, [], preserveOrder);
       }
     } catch (error) {
-      console.error('Error loading beat plans:', error);
+      if (!shouldSuppressError(error)) {
+        console.error('Error loading beat plans:', error);
+      }
     }
   };
   const loadTimelineVisits = async (date: Date) => {
