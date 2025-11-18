@@ -170,6 +170,31 @@ export function useOfflineSync() {
         if (updateAttendanceError) throw updateAttendanceError;
         break;
         
+      case 'CREATE_BEAT':
+        console.log('Syncing beat creation:', data);
+        const { error: beatError } = await supabase
+          .from('beats')
+          .insert(data);
+        if (beatError) throw beatError;
+        break;
+        
+      case 'UPDATE_BEAT':
+        console.log('Syncing beat update:', data);
+        const { error: updateBeatError } = await supabase
+          .from('beats')
+          .update(data.updates)
+          .eq('beat_id', data.beat_id);
+        if (updateBeatError) throw updateBeatError;
+        break;
+        
+      case 'CREATE_BEAT_PLAN':
+        console.log('Syncing beat plan creation:', data);
+        const { error: beatPlanError } = await supabase
+          .from('beat_plans')
+          .insert(data);
+        if (beatPlanError) throw beatPlanError;
+        break;
+        
       default:
         console.warn('Unknown sync action:', action);
     }

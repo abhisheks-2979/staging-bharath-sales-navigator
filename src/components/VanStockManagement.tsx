@@ -122,16 +122,39 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const loadProducts = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, unit')
-      .eq('is_active', true)
-      .order('name');
-    
-    if (error) {
+    try {
+      // Try loading from IndexedDB first (offline-first)
+      const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+      let cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
+      
+      if (cachedProducts && cachedProducts.length > 0) {
+        setProducts(cachedProducts.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          unit: p.unit
+        })));
+      }
+      
+      // Try online fetch to update cache
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, unit')
+          .eq('is_active', true)
+          .order('name');
+        
+        if (!error && data) {
+          setProducts(data);
+          // Update cache
+          for (const product of data) {
+            await offlineStorage.save(STORES.PRODUCTS, product);
+          }
+        }
+      } catch (onlineError) {
+        console.log('Online fetch failed, using cached products');
+      }
+    } catch (error) {
       console.error('Error loading products:', error);
-    } else {
-      setProducts(data || []);
     }
   };
 
