@@ -1,6 +1,6 @@
 // IndexedDB setup for offline storage
 const DB_NAME = 'OfflineAppDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // Object store names
 export const STORES = {
