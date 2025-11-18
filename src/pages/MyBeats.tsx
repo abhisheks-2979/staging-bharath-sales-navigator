@@ -24,6 +24,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AddRetailerInlineToBeat } from "@/components/AddRetailerInlineToBeat";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { useConnectivity } from "@/hooks/useConnectivity";
 
 interface Beat {
   id: string;
@@ -83,6 +85,10 @@ export const MyBeats = () => {
   const [selectedRetailerId, setSelectedRetailerId] = useState<string | null>(null);
   const [isAddRetailerModalOpen, setIsAddRetailerModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Connectivity for offline-first behavior
+  const connectivityStatus = useConnectivity();
+  const isOnline = connectivityStatus === 'online';
   
   // Recurrence state
   const [repeatEnabled, setRepeatEnabled] = useState(false);
