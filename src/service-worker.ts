@@ -100,30 +100,23 @@ registerRoute(
       
       return networkResponse;
     } catch (error) {
-      // When offline or network fails, ALWAYS serve the cached app
-      console.log('Network failed, serving cached app for navigation');
+      // When offline or network fails, ALWAYS serve index.html for SPA routing
+      console.log('Network failed, serving app shell for navigation');
       
-      // Try to get cached response for this specific route
+      // ALWAYS serve index.html for navigation requests (let React Router handle routes)
       const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
-      const cachedResponse = await cache.match(request);
-      
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
-      // Fallback to cached index.html (app shell)
       const cachedIndex = await cache.match('/index.html');
       if (cachedIndex) {
         return cachedIndex;
       }
       
-      // Last resort: check precache for index.html
+      // Check precache for index.html
       const precachedIndex = await caches.match('/index.html');
       if (precachedIndex) {
         return precachedIndex;
       }
       
-      // Only show offline.html if app genuinely not cached (shouldn't happen in PWA)
+      // Only show offline.html if app genuinely not cached
       const offline = await caches.match('/offline.html');
       return offline || Response.error();
     }
