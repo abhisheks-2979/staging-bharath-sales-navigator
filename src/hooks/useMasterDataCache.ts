@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { useConnectivity } from './useConnectivity';
+import { useAuth } from './useAuth';
 
 /**
  * Hook to cache master data (products, beats, retailers, categories, schemes)
@@ -10,6 +11,7 @@ import { useConnectivity } from './useConnectivity';
 export function useMasterDataCache() {
   const connectivityStatus = useConnectivity();
   const isOnline = connectivityStatus === 'online';
+  const { user } = useAuth();
 
   // Cache products and related data
   const cacheProducts = useCallback(async () => {
@@ -119,6 +121,40 @@ export function useMasterDataCache() {
     }
   }, []);
 
+  // Cache beat plans for the current week
+  const cacheBeatPlans = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      console.log('Caching beat plans...');
+      
+      // Get current week's beat plans
+      const today = new Date();
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - 7); // Last 7 days
+      const weekEnd = new Date(today);
+      weekEnd.setDate(today.getDate() + 7); // Next 7 days
+      
+      const { data: beatPlans, error } = await supabase
+        .from('beat_plans')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('plan_date', weekStart.toISOString().split('T')[0])
+        .lte('plan_date', weekEnd.toISOString().split('T')[0]);
+
+      if (error) throw error;
+
+      if (beatPlans) {
+        for (const plan of beatPlans) {
+          await offlineStorage.save(STORES.BEAT_PLANS, plan);
+        }
+        console.log(`Cached ${beatPlans.length} beat plans`);
+      }
+    } catch (error) {
+      console.error('Error caching beat plans:', error);
+    }
+  }, [user]);
+
   // Cache all master data
   const cacheAllMasterData = useCallback(async () => {
     if (!isOnline) {
@@ -130,13 +166,14 @@ export function useMasterDataCache() {
       await Promise.all([
         cacheProducts(),
         cacheBeats(),
-        cacheRetailers()
+        cacheRetailers(),
+        cacheBeatPlans()
       ]);
       console.log('✅ All master data cached successfully');
     } catch (error) {
       console.error('Error caching master data:', error);
     }
-  }, [isOnline, cacheProducts, cacheBeats, cacheRetailers]);
+  }, [isOnline, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans]);
 
   // Load cached data (used when offline)
   const loadCachedData = useCallback(async (storeName: string) => {
@@ -170,6 +207,7 @@ export function useMasterDataCache() {
     cacheProducts,
     cacheBeats,
     cacheRetailers,
+    cacheBeatPlans,
     cacheAllMasterData,
     loadCachedData,
     isOnline

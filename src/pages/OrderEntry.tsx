@@ -19,6 +19,8 @@ import { ReturnStockForm } from "@/components/ReturnStockForm";
 import { CompetitionDataForm } from "@/components/CompetitionDataForm";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
+import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
+import { WifiOff, Wifi } from "lucide-react";
 interface Product {
   id: string;
   name: string;
@@ -96,6 +98,15 @@ export const OrderEntry = () => {
     isCheckInMandatory,
     loading: checkInMandatoryLoading
   } = useCheckInMandatory();
+  
+  // Offline order entry hook
+  const {
+    products: cachedProducts,
+    loading: offlineLoading,
+    isOnline,
+    fetchProducts: fetchOfflineProducts
+  } = useOfflineOrderEntry();
+  
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [quantities, setQuantities] = useState<{
@@ -1484,6 +1495,16 @@ export const OrderEntry = () => {
                     {isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry')}
                   </CardTitle>
                   <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {isOnline ? (
+                      <Wifi className="h-2.5 w-2.5 text-primary-foreground/60" />
+                    ) : (
+                      <WifiOff className="h-2.5 w-2.5 text-orange-400" />
+                    )}
+                    <span className="text-[9px] text-primary-foreground/60">
+                      {isOnline ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
                 </div>
               </div>
               
