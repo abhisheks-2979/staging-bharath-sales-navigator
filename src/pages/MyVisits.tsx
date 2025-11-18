@@ -499,23 +499,50 @@ export const MyVisits = () => {
       // Get planned beat IDs
       const plannedBeatIds = beatPlans.map(plan => plan.beat_id);
 
-      // Fetch visits and plannedRetailers in parallel
-      const [visitsResult, plannedRetailersResult] = await Promise.all([
-        supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
-        plannedBeatIds.length > 0 
-          ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
-          : Promise.resolve({ data: [], error: null })
-      ]);
+      let visits: any[] = [];
+      let plannedRetailersData: any[] = [];
 
-      if (visitsResult.error) throw visitsResult.error;
-      const visits = visitsResult.data || [];
+      // Try online first, fallback to cache for visits and retailers
+      try {
+        const [visitsResult, plannedRetailersResult] = await Promise.all([
+          supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
+          plannedBeatIds.length > 0 
+            ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
+            : Promise.resolve({ data: [], error: null })
+        ]);
+
+        if (visitsResult.error) throw visitsResult.error;
+        visits = visitsResult.data || [];
+        plannedRetailersData = plannedRetailersResult.data || [];
+
+        // Cache visits for offline use
+        for (const visit of visits) {
+          await offlineStorage.save(STORES.VISITS, visit);
+        }
+      } catch (error) {
+        if (shouldSuppressError(error)) {
+          // Load from cache when offline
+          console.log('📦 Loading visits and retailers from cache');
+          const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
+          visits = cachedVisits.filter((v: any) => 
+            v.user_id === user.id && v.planned_date === date
+          );
+          
+          const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+          plannedRetailersData = cachedRetailers.filter((r: any) =>
+            r.user_id === user.id && plannedBeatIds.includes(r.beat_id)
+          );
+        } else {
+          throw error;
+        }
+      }
 
       // Get all retailer IDs (visits + planned beats)
       const visitRetailerIds = visits.map(v => v.retailer_id);
       const allRetailerIds = new Set([...visitRetailerIds]);
       
-      if (plannedRetailersResult.data) {
-        plannedRetailersResult.data.forEach(r => allRetailerIds.add(r.id));
+      if (plannedRetailersData) {
+        plannedRetailersData.forEach(r => allRetailerIds.add(r.id));
       }
 
       if (allRetailerIds.size === 0) {
@@ -531,41 +558,69 @@ export const MyVisits = () => {
       const dateEnd = new Date(date);
       dateEnd.setHours(23, 59, 59, 999);
 
-      // Fetch retailers, current day orders, and historical data in parallel
-      const [retailersResult, ordersForDateResult, allOrdersResult, allVisitsResult] = await Promise.all([
-        supabase.from('retailers').select('*').eq('user_id', user.id).in('id', Array.from(allRetailerIds)),
-        !isFutureDate 
-          ? supabase.from('orders')
-              .select('id, retailer_id, total_amount, created_at')
-              .eq('user_id', user.id)
-              .eq('status', 'confirmed')
-              .in('retailer_id', Array.from(allRetailerIds))
-              .gte('created_at', dateStart.toISOString())
-              .lte('created_at', dateEnd.toISOString())
-          : Promise.resolve({ data: [], error: null }),
-        !isFutureDate
-          ? supabase.from('orders')
-              .select('retailer_id, total_amount, created_at')
-              .eq('user_id', user.id)
-              .eq('status', 'confirmed')
-              .in('retailer_id', Array.from(allRetailerIds))
-              .lte('created_at', date + 'T23:59:59.999Z')
-          : Promise.resolve({ data: [], error: null }),
-        !isFutureDate
-          ? supabase.from('visits')
-              .select('retailer_id, planned_date')
-              .eq('user_id', user.id)
-              .in('retailer_id', Array.from(allRetailerIds))
-              .lte('planned_date', date)
-          : Promise.resolve({ data: [], error: null })
-      ]);
+      let retailersData: any[] = [];
+      let ordersForDate: any[] = [];
+      let allOrders: any[] = [];
+      let allVisits: any[] = [];
 
-      if (retailersResult.error) throw retailersResult.error;
-      
-      const retailersData = retailersResult.data || [];
-      const ordersForDate = ordersForDateResult.data || [];
-      const allOrders = allOrdersResult.data || [];
-      const allVisits = allVisitsResult.data || [];
+      // Try online first, fallback to cache
+      try {
+        const [retailersResult, ordersForDateResult, allOrdersResult, allVisitsResult] = await Promise.all([
+          supabase.from('retailers').select('*').eq('user_id', user.id).in('id', Array.from(allRetailerIds)),
+          !isFutureDate 
+            ? supabase.from('orders')
+                .select('id, retailer_id, total_amount, created_at')
+                .eq('user_id', user.id)
+                .eq('status', 'confirmed')
+                .in('retailer_id', Array.from(allRetailerIds))
+                .gte('created_at', dateStart.toISOString())
+                .lte('created_at', dateEnd.toISOString())
+            : Promise.resolve({ data: [], error: null }),
+          !isFutureDate
+            ? supabase.from('orders')
+                .select('retailer_id, total_amount, created_at')
+                .eq('user_id', user.id)
+                .eq('status', 'confirmed')
+                .in('retailer_id', Array.from(allRetailerIds))
+                .lte('created_at', date + 'T23:59:59.999Z')
+            : Promise.resolve({ data: [], error: null }),
+          !isFutureDate
+            ? supabase.from('visits')
+                .select('retailer_id, planned_date')
+                .eq('user_id', user.id)
+                .in('retailer_id', Array.from(allRetailerIds))
+                .lte('planned_date', date)
+            : Promise.resolve({ data: [], error: null })
+        ]);
+
+        if (retailersResult.error) throw retailersResult.error;
+        
+        retailersData = retailersResult.data || [];
+        ordersForDate = ordersForDateResult.data || [];
+        allOrders = allOrdersResult.data || [];
+        allVisits = allVisitsResult.data || [];
+
+        // Cache retailers for offline use
+        for (const retailer of retailersData) {
+          await offlineStorage.save(STORES.RETAILERS, retailer);
+        }
+      } catch (error) {
+        if (shouldSuppressError(error)) {
+          // Load from cache when offline
+          console.log('📦 Loading retailers from cache');
+          const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+          retailersData = cachedRetailers.filter((r: any) =>
+            r.user_id === user.id && allRetailerIds.has(r.id)
+          );
+          
+          // For offline, we can't get orders, so set empty arrays
+          ordersForDate = [];
+          allOrders = [];
+          allVisits = [];
+        } else {
+          throw error;
+        }
+      }
 
       // Create retailer map
       const retailerMap = new Map();
