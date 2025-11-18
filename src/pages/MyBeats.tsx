@@ -168,67 +168,23 @@ export const MyBeats = () => {
     try {
       setLoading(true);
       
-      let beatsData: any[] = [];
-      let retailersData: any[] = [];
+      // STEP 1: ALWAYS load from cache FIRST (instant display, sub-1-second)
+      const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
+      const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
       
-      // Try online first, fallback to cache
-      if (isOnline) {
-        try {
-          const { data: onlineBeats, error: beatsError } = await supabase
-            .from('beats')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: true });
-
-          if (beatsError) throw beatsError;
-          beatsData = onlineBeats || [];
-          
-          // Cache beats for offline use
-          for (const beat of beatsData) {
-            await offlineStorage.save(STORES.BEATS, { ...beat, id: beat.beat_id });
-          }
-
-          const { data: onlineRetailers, error: retailersError } = await supabase
-            .from('retailers')
-            .select('beat_id')
-            .eq('user_id', user.id)
-            .not('beat_id', 'is', null)
-            .neq('beat_id', '')
-            .neq('beat_id', 'unassigned');
-
-          if (retailersError) throw retailersError;
-          retailersData = onlineRetailers || [];
-        } catch (error) {
-          console.log('Online fetch failed, loading from cache:', error);
-          // Load from cache on error
-          beatsData = await offlineStorage.getAll(STORES.BEATS);
-          const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-          retailersData = allRetailers.filter((r: any) => 
-            r.user_id === user.id && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
-          ).map((r: any) => ({ beat_id: r.beat_id }));
-        }
-      } else {
-        // Load from cache when offline
-        beatsData = await offlineStorage.getAll(STORES.BEATS);
-        const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-        retailersData = allRetailers.filter((r: any) => 
+      if (cachedBeats.length > 0) {
+        // Display cached data IMMEDIATELY
+        const cachedRetailersData = cachedRetailers.filter((r: any) => 
           r.user_id === user.id && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
         ).map((r: any) => ({ beat_id: r.beat_id }));
-      }
-
-      // Count retailers per beat
-      const retailerCountMap = new Map<string, number>();
-      (retailersData || []).forEach((item) => {
-        const beatId = item.beat_id;
-        retailerCountMap.set(beatId, (retailerCountMap.get(beatId) || 0) + 1);
-      });
-
-      console.log('Beats data:', beatsData);
-      console.log('Retailer counts:', Array.from(retailerCountMap.entries()));
-
-      // Map beats data with retailer counts
-      const beatsArray = (beatsData || [])
-        .map((beat: any, index) => ({
+        
+        const retailerCountMap = new Map<string, number>();
+        cachedRetailersData.forEach((item: any) => {
+          const beatId = item.beat_id;
+          retailerCountMap.set(beatId, (retailerCountMap.get(beatId) || 0) + 1);
+        });
+        
+        const beatsArray = cachedBeats.map((beat: any, index) => ({
           id: beat.beat_id,
           name: beat.beat_name,
           retailer_count: retailerCountMap.get(beat.beat_id) || 0,
@@ -240,15 +196,73 @@ export const MyBeats = () => {
           average_time_minutes: beat.average_time_minutes || 0,
           beat_number: index + 1,
           retailers: []
-        }))
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        
+        setBeats(beatsArray);
+        setLoading(false); // Stop loading immediately
+      } else {
+        setLoading(false);
+      }
+      
+      // STEP 2: If online, fetch fresh data in BACKGROUND and update cache
+      if (navigator.onLine) {
+        try {
+          const { data: onlineBeats, error: beatsError } = await supabase
+            .from('beats')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: true });
 
-      console.log('Processed beats array:', beatsArray);
-      setBeats(beatsArray);
+          if (!beatsError && onlineBeats) {
+            const beatsData = onlineBeats || [];
+            
+            // Update cache
+            await offlineStorage.clear(STORES.BEATS);
+            for (const beat of beatsData) {
+              await offlineStorage.save(STORES.BEATS, { ...beat, id: beat.beat_id });
+            }
+
+            const { data: onlineRetailers, error: retailersError } = await supabase
+              .from('retailers')
+              .select('beat_id')
+              .eq('user_id', user.id)
+              .not('beat_id', 'is', null)
+              .neq('beat_id', '')
+              .neq('beat_id', 'unassigned');
+
+            if (!retailersError && onlineRetailers) {
+              const retailersData = onlineRetailers || [];
+              
+              // Update UI with fresh data
+              const retailerCountMap = new Map<string, number>();
+              retailersData.forEach((item: any) => {
+                const beatId = item.beat_id;
+                retailerCountMap.set(beatId, (retailerCountMap.get(beatId) || 0) + 1);
+              });
+
+              const beatsArray = beatsData.map((beat: any, index) => ({
+                id: beat.beat_id,
+                name: beat.beat_name,
+                retailer_count: retailerCountMap.get(beat.beat_id) || 0,
+                total_retailers: retailerCountMap.get(beat.beat_id) || 0,
+                category: beat.category || 'General',
+                created_at: beat.created_at,
+                travel_allowance: beat.travel_allowance || 0,
+                average_km: beat.average_km || 0,
+                average_time_minutes: beat.average_time_minutes || 0,
+                beat_number: index + 1,
+                retailers: []
+              })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+              setBeats(beatsArray);
+            }
+          }
+        } catch (error) {
+          console.log('Background sync failed, using cached data:', error);
+        }
+      }
     } catch (error) {
       console.error('Error loading beats:', error);
-      toast.error('Failed to load beats');
-    } finally {
       setLoading(false);
     }
   };
@@ -257,10 +271,33 @@ export const MyBeats = () => {
     if (!user) return;
     
     try {
-      let data: any[] = [];
+      // STEP 1: ALWAYS load from cache FIRST (instant display)
+      const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+      const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
       
-      // Try online first, fallback to cache
-      if (isOnline) {
+      if (userRetailers.length > 0) {
+        // Display cached data IMMEDIATELY
+        const retailersWithMetrics = userRetailers.map((retailer: any) => ({
+          id: retailer.id,
+          name: retailer.name,
+          address: retailer.address,
+          phone: retailer.phone || 'N/A',
+          category: retailer.category,
+          type: retailer.retail_type || 'General Store',
+          beat_id: retailer.beat_id,
+          isSelected: false,
+          metrics: {
+            avgOrders3Months: Math.floor(Math.random() * 20) + 5,
+            avgOrderPerVisit: Math.floor(Math.random() * 5000) + 1000,
+            visitsIn3Months: Math.floor(Math.random() * 12) + 3
+          }
+        }));
+        
+        setAllRetailers(retailersWithMetrics);
+      }
+      
+      // STEP 2: If online, fetch fresh data in BACKGROUND and update cache
+      if (navigator.onLine) {
         try {
           const { data: onlineData, error } = await supabase
             .from('retailers')
@@ -268,50 +305,38 @@ export const MyBeats = () => {
             .eq('user_id', user.id)
             .order('name');
 
-          if (error) throw error;
-          data = onlineData || [];
-          
-          // Cache retailers for offline use
-          for (const retailer of data) {
-            await offlineStorage.save(STORES.RETAILERS, retailer);
+          if (!error && onlineData) {
+            // Update cache
+            await offlineStorage.clear(STORES.RETAILERS);
+            for (const retailer of onlineData) {
+              await offlineStorage.save(STORES.RETAILERS, retailer);
+            }
+            
+            // Update UI with fresh data
+            const retailersWithMetrics = onlineData.map((retailer: any) => ({
+              id: retailer.id,
+              name: retailer.name,
+              address: retailer.address,
+              phone: retailer.phone || 'N/A',
+              category: retailer.category,
+              type: retailer.retail_type || 'General Store',
+              beat_id: retailer.beat_id,
+              isSelected: false,
+              metrics: {
+                avgOrders3Months: Math.floor(Math.random() * 20) + 5,
+                avgOrderPerVisit: Math.floor(Math.random() * 5000) + 1000,
+                visitsIn3Months: Math.floor(Math.random() * 12) + 3
+              }
+            }));
+            
+            setAllRetailers(retailersWithMetrics);
           }
         } catch (error) {
-          console.log('Online fetch failed, loading from cache:', error);
-          // Load from cache on error
-          const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-          data = allRetailers.filter((r: any) => r.user_id === user.id);
+          console.log('Background sync failed for retailers, using cached data:', error);
         }
-      } else {
-        // Load from cache when offline
-        const allRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-        data = allRetailers.filter((r: any) => r.user_id === user.id);
-      }
-
-      const retailersWithMetrics = (data || []).map(retailer => ({
-        id: retailer.id,
-        name: retailer.name,
-        address: retailer.address,
-        phone: retailer.phone || 'N/A',
-        category: retailer.category,
-        type: retailer.retail_type || 'General Store',
-        beat_id: retailer.beat_id,
-        isSelected: false,
-        metrics: {
-          avgOrders3Months: Math.floor(Math.random() * 20) + 5,
-          avgOrderPerVisit: Math.floor(Math.random() * 5000) + 1000,
-          visitsIn3Months: Math.floor(Math.random() * 12) + 3
-        }
-      }));
-
-      setAllRetailers(retailersWithMetrics);
-      
-      // If the create beat modal is open, refresh its retailer list
-      if (isCreateBeatOpen) {
-        setTimeout(() => loadRetailersForCreateBeat(), 100);
       }
     } catch (error) {
       console.error('Error loading retailers:', error);
-      toast.error('Failed to load retailers');
     }
   };
 
