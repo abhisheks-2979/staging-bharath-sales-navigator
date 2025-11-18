@@ -87,40 +87,8 @@ self.addEventListener('activate', (event) => {
 // Fallback to index.html for SPA routes - always serve app when offline
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  async ({ event, request }) => {
-    try {
-      // Try network first for freshness
-      const networkResponse = await fetch(request, { 
-        signal: AbortSignal.timeout(3000) 
-      });
-      
-      // Cache successful responses
-      const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
-      cache.put(request, networkResponse.clone());
-      
-      return networkResponse;
-    } catch (error) {
-      // When offline or network fails, ALWAYS serve index.html for SPA routing
-      console.log('Network failed, serving app shell for navigation');
-      
-      // ALWAYS serve index.html for navigation requests (let React Router handle routes)
-      const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
-      const cachedIndex = await cache.match('/index.html');
-      if (cachedIndex) {
-        return cachedIndex;
-      }
-      
-      // Check precache for index.html
-      const precachedIndex = await caches.match('/index.html');
-      if (precachedIndex) {
-        return precachedIndex;
-      }
-      
-      // Only show offline.html if app genuinely not cached
-      const offline = await caches.match('/offline.html');
-      return offline || Response.error();
-    }
-  }
+  // Always return the precached app shell for SPA routes (robust offline support)
+  createHandlerBoundToURL('/index.html')
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with very short cache
