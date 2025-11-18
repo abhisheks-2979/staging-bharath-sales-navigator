@@ -91,8 +91,8 @@ registerRoute(
     // Try cache first for instant offline loading
     const cachedResponse = await caches.match('/index.html');
     
-    // If offline and cache exists, serve immediately
-    if (self.navigator.onLine === false && cachedResponse) {
+    // If browser reports offline and cache exists, serve immediately
+    if (typeof navigator !== 'undefined' && !navigator.onLine && cachedResponse) {
       console.log('✅ Offline: Serving cached index.html');
       return cachedResponse;
     }
