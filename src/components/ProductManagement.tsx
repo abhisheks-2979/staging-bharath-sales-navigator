@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Gift, Search, Grid3X3, Camera, Loader2, RefreshCw } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
@@ -130,7 +130,6 @@ const ProductManagement = () => {
     id: string;
     name: string;
   }>({ open: false, type: null, id: '', name: '' });
-  const [resetConfirm, setResetConfirm] = useState(false);
 
   // Form states
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '', description: '' });
@@ -240,13 +239,6 @@ const [productForm, setProductForm] = useState({
     }
   };
 
-  const executeResetAndLoad = async () => {
-    const success = await migrateProducts();
-    if (success) {
-      fetchData();
-    }
-    setResetConfirm(false);
-  };
 
   const handleConfirmAction = () => {
     if (deleteConfirm.type === 'product') {
@@ -912,9 +904,13 @@ const [productForm, setProductForm] = useState({
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => setResetConfirm(true)}
+                    onClick={() => {
+                      toast.loading('Syncing products...');
+                      fetchData();
+                    }}
                   >
-                    Reset & Load Products
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sync Products
                   </Button>
                   <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                     <DialogTrigger asChild>
@@ -1636,24 +1632,6 @@ const [productForm, setProductForm] = useState({
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reset Confirmation Dialog */}
-      <AlertDialog open={resetConfirm} onOpenChange={setResetConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset and Load Products?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will delete ALL existing products and load default products. This action cannot be undone. Are you sure you want to continue?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={executeResetAndLoad} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, Reset and Load
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
