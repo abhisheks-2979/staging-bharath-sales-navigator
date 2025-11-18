@@ -36,7 +36,7 @@ class OfflineStorage {
         if (!db.objectStoreNames.contains(STORES.ORDERS)) {
           const ordersStore = db.createObjectStore(STORES.ORDERS, { keyPath: 'id' });
           ordersStore.createIndex('retailerId', 'retailerId', { unique: false });
-          ordersStore.createIndex('createdAt', 'createdAt', { unique: false });
+          ordersStore.createIndex('createdAt', 'created_at', { unique: false });
         }
 
         if (!db.objectStoreNames.contains(STORES.VARIANTS)) {
@@ -47,12 +47,13 @@ class OfflineStorage {
         if (!db.objectStoreNames.contains(STORES.RETAILERS)) {
           const retailersStore = db.createObjectStore(STORES.RETAILERS, { keyPath: 'id' });
           retailersStore.createIndex('beatId', 'beatId', { unique: false });
+          retailersStore.createIndex('userId', 'user_id', { unique: false });
         }
 
         if (!db.objectStoreNames.contains(STORES.VISITS)) {
           const visitsStore = db.createObjectStore(STORES.VISITS, { keyPath: 'id' });
           visitsStore.createIndex('retailerId', 'retailerId', { unique: false });
-          visitsStore.createIndex('visitDate', 'visitDate', { unique: false });
+          visitsStore.createIndex('visitDate', 'planned_date', { unique: false });
         }
 
         if (!db.objectStoreNames.contains(STORES.SYNC_QUEUE)) {
@@ -66,7 +67,8 @@ class OfflineStorage {
         }
 
         if (!db.objectStoreNames.contains(STORES.BEATS)) {
-          db.createObjectStore(STORES.BEATS, { keyPath: 'id' });
+          const beatsStore = db.createObjectStore(STORES.BEATS, { keyPath: 'id' });
+          beatsStore.createIndex('beatId', 'beat_id', { unique: false });
         }
 
         if (!db.objectStoreNames.contains(STORES.CATEGORIES)) {
@@ -127,13 +129,26 @@ class OfflineStorage {
     });
   }
 
-  async delete(storeName: string, id: string): Promise<void> {
+  async delete(storeName: string, id: string | number): Promise<void> {
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([storeName], 'readwrite');
       const store = transaction.objectStore(storeName);
       const request = store.delete(id);
+      
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async clear(storeName: string): Promise<void> {
+    if (!this.db) await this.init();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.clear();
       
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
@@ -157,16 +172,7 @@ class OfflineStorage {
   }
 
   async clearSyncQueue(): Promise<void> {
-    if (!this.db) await this.init();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORES.SYNC_QUEUE], 'readwrite');
-      const store = transaction.objectStore(STORES.SYNC_QUEUE);
-      const request = store.clear();
-      
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    return this.clear(STORES.SYNC_QUEUE);
   }
 }
 

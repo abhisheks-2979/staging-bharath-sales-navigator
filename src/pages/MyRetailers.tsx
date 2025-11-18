@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -119,17 +120,43 @@ export const MyRetailers = () => {
   const loadRetailers = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("retailers")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("name");
-    if (error) {
-      toast({ title: "Failed to load", description: error.message, variant: "destructive" });
-    } else {
-      setRetailers(data || []);
+    
+    try {
+      // 1. Load from cache FIRST for instant display
+      console.log('📦 Loading retailers from cache...');
+      let cachedRetailers: any[] = await offlineStorage.getAll(STORES.RETAILERS);
+      cachedRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
+      
+      if (cachedRetailers.length > 0) {
+        console.log('✅ Displaying cached retailers:', cachedRetailers.length);
+        setRetailers(cachedRetailers.sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      
+      // 2. If online, fetch fresh data and update cache
+      if (navigator.onLine) {
+        const { data, error } = await supabase
+          .from("retailers")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("name");
+          
+        if (error) {
+          toast({ title: "Failed to sync retailers", description: error.message, variant: "destructive" });
+        } else {
+          // Update cache
+          console.log('🔄 Updating retailers cache...');
+          for (const retailer of data || []) {
+            await offlineStorage.save(STORES.RETAILERS, retailer);
+          }
+          setRetailers(data || []);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error loading retailers:', error);
+      toast({ title: "Error loading retailers", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
