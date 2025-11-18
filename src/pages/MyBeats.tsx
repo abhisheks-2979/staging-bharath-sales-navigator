@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { AddRetailerInlineToBeat } from "@/components/AddRetailerInlineToBeat";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 interface Beat {
   id: string;
@@ -89,6 +90,7 @@ export const MyBeats = () => {
   // Connectivity for offline-first behavior
   const connectivityStatus = useConnectivity();
   const isOnline = connectivityStatus === 'online';
+  const { saveWithOfflineSupport } = useOfflineSync();
   
   // Recurrence state
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -407,50 +409,59 @@ export const MyBeats = () => {
       // Generate unique beat ID
       const beatId = `beat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // First, create the beat in the shared beats table
-      const { error: beatError } = await supabase
-        .from('beats')
-        .insert({
-          beat_id: beatId,
-          beat_name: beatName.trim(),
-          category: 'General',
-          travel_allowance: parseFloat(travelAllowance) || 0,
-          average_km: parseFloat(averageKm) || 0,
-          average_time_minutes: parseInt(averageTimeMinutes) || 0,
-          created_by: user.id,
-          is_active: true
-        });
-
-      if (beatError) throw beatError;
-
+      const beatData = {
+        beat_id: beatId,
+        beat_name: beatName.trim(),
+        category: 'General',
+        travel_allowance: parseFloat(travelAllowance) || 0,
+        average_km: parseFloat(averageKm) || 0,
+        average_time_minutes: parseInt(averageTimeMinutes) || 0,
+        created_by: user.id,
+        is_active: true,
+        created_at: new Date().toISOString()
+      };
+      
+      // Save beat with offline support
+      await saveWithOfflineSupport(STORES.BEATS, { ...beatData, id: beatId }, 'CREATE_BEAT');
+      
       // Update selected retailers with beat information (only if retailers are selected)
       if (selectedRetailers.size > 0) {
-        const { error } = await supabase
-          .from('retailers')
-          .update({ 
-            beat_id: beatId,
-            beat_name: beatName.trim()
-          })
-          .in('id', Array.from(selectedRetailers));
-
-        if (error) throw error;
+        for (const retailerId of Array.from(selectedRetailers)) {
+          const retailer = retailers.find(r => r.id === retailerId);
+          if (retailer) {
+            const updatedRetailer = {
+              ...retailer,
+              beat_id: beatId,
+              beat_name: beatName.trim()
+            };
+            await saveWithOfflineSupport(
+              STORES.RETAILERS,
+              updatedRetailer,
+              'UPDATE_RETAILER'
+            );
+          }
+        }
       }
 
-      // Create beat allowance record for the current user
-      const { error: allowanceError } = await supabase
-        .from('beat_allowances')
-        .insert({
-          user_id: user.id,
-          beat_id: beatId,
-          beat_name: beatName.trim(),
-          daily_allowance: 0,
-          travel_allowance: parseFloat(travelAllowance) || 0,
-          average_km: parseFloat(averageKm) || 0,
-          average_time_minutes: parseInt(averageTimeMinutes) || 0
-        });
-
-      if (allowanceError) {
-        console.error('Error creating beat allowance:', allowanceError);
+      // Create beat allowance record
+      const allowanceData = {
+        id: `allowance_${Date.now()}`,
+        user_id: user.id,
+        beat_id: beatId,
+        beat_name: beatName.trim(),
+        daily_allowance: 0,
+        travel_allowance: parseFloat(travelAllowance) || 0,
+        average_km: parseFloat(averageKm) || 0,
+        average_time_minutes: parseInt(averageTimeMinutes) || 0,
+        created_at: new Date().toISOString()
+      };
+      
+      if (isOnline) {
+        try {
+          await supabase.from('beat_allowances').insert(allowanceData);
+        } catch (error) {
+          console.error('Error creating beat allowance:', error);
+        }
       }
 
       // Create beat plans if recurrence is enabled
@@ -465,7 +476,7 @@ export const MyBeats = () => {
       const scheduleMessage = repeatEnabled 
         ? ` and scheduled ${repeatUntilMode === "permanent" ? "permanently" : `until ${format(repeatEndDate, 'PP')}`}`
         : '';
-      toast.success(`Beat "${beatName}" created successfully ${retailerMessage}${scheduleMessage}`);
+      toast.success(`Beat "${beatName}" created successfully ${retailerMessage}${scheduleMessage}${!isOnline ? ' (will sync when online)' : ''}`);
       setIsCreateBeatOpen(false);
       setBeatName("");
       setTravelAllowance("");
@@ -527,13 +538,21 @@ export const MyBeats = () => {
       }
 
       if (beatPlans.length > 0) {
-        const { error: planError } = await supabase
-          .from('beat_plans')
-          .insert(beatPlans);
-
-        if (planError) {
-          console.error('Error creating beat plans:', planError);
-          toast.error('Beat created but failed to create visit schedule');
+        // Save beat plans with offline support
+        for (const plan of beatPlans) {
+          const planWithId = {
+            ...plan,
+            id: `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            beat_name: beatName,
+            beat_data: {},
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          await saveWithOfflineSupport(STORES.BEAT_PLANS, planWithId, 'CREATE_BEAT_PLAN');
+        }
+        
+        if (!isOnline) {
+          toast.success(`Created ${beatPlans.length} scheduled visits (will sync when online)`);
         } else {
           toast.success(`Created ${beatPlans.length} scheduled visits`);
         }
