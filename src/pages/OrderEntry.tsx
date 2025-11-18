@@ -549,144 +549,118 @@ export const OrderEntry = () => {
       }
     }
   }, [activeStorageKey, products.length]);
+  // Load products from offline hook on mount
   useEffect(() => {
-    const fetchData = async () => {
+    fetchOfflineProducts();
+  }, []);
+
+  // Map cached products to the format needed by OrderEntry
+  useEffect(() => {
+    if (cachedProducts && cachedProducts.length > 0) {
       try {
         setLoading(true);
-        console.log('🔄 OrderEntry: Starting to fetch products and categories...');
+        console.log('📦 Mapping cached products:', cachedProducts.length);
 
-        // Fetch categories first
-        const {
-          data: categoriesData,
-          error: categoriesError
-        } = await supabase.from('product_categories').select('name').order('name');
-        if (categoriesError) {
-          console.error('❌ Categories Error:', categoriesError);
-        }
+        // Extract unique categories
+        const uniqueCategories = new Set<string>();
+        cachedProducts.forEach((p: any) => {
+          const categoryName = p.category?.name || 'Uncategorized';
+          uniqueCategories.add(categoryName);
+        });
+        setCategories(['All', ...Array.from(uniqueCategories)]);
 
-        // Fetch products with a simpler query
-        const {
-          data: productsData,
-          error: productsError
-        } = await supabase.from('products').select('*').eq('is_active', true).order('name');
-        if (productsError) {
-          console.error('❌ Products Error:', productsError);
-          throw productsError;
-        }
+        // Map products to GridProduct format
+        const mapped: GridProduct[] = cachedProducts.map((p: any) => {
+          const categoryName = p.category?.name || 'Uncategorized';
+          const productSchemes = p.schemes || [];
+          const productVariants = p.variants || [];
 
-        // Fetch product categories separately
-        const {
-          data: productCategoriesData
-        } = await supabase.from('product_categories').select('*');
-
-        // Fetch schemes separately  
-        const {
-          data: schemesData
-        } = await supabase.from('product_schemes').select('*').eq('is_active', true);
-
-        // Fetch variants separately
-        const {
-          data: variantsData
-        } = await supabase.from('product_variants').select('*').eq('is_active', true);
-        console.log('📊 Categories Response:', categoriesData);
-        console.log('🛍️ Products Response:', productsData);
-        console.log('🎯 Schemes Response:', schemesData);
-        console.log('🎨 Variants Response:', variantsData);
-        setCategories(["All", ...(categoriesData || []).map((c: any) => c.name)]);
-        console.log('🏷️ Categories set:', ["All", ...(categoriesData || []).map((c: any) => c.name)]);
-        const mapped: GridProduct[] = [];
-        const allSchemes: any[] = schemesData || [];
-        console.log('🔍 Processing products:', productsData?.length || 0);
-        (productsData || []).forEach((p: any) => {
-          // Find category name
-          const categoryData = productCategoriesData?.find(cat => cat.id === p.category_id);
-
-          // Find schemes for this product
-          const productSchemes = (schemesData || []).filter((s: any) => s.product_id === p.id && s.is_active && (!s.start_date || new Date(s.start_date) <= new Date()) && (!s.end_date || new Date(s.end_date) >= new Date()));
-
-          // Find variants for this product
-          const productVariants = (variantsData || []).filter((v: any) => v.product_id === p.id && v.is_active);
-          const baseProduct: GridProduct = {
+          return {
             id: p.id,
             name: p.name,
-            category: categoryData?.name || 'Uncategorized',
-            rate: p.rate || 0,
-            unit: p.unit || 'piece',
-            base_unit: p.base_unit || 'kg',
-            conversion_factor: p.conversion_factor || 1,
-            hasScheme: productSchemes.length > 0,
-            schemeDetails: productSchemes.length > 0 ? productSchemes.map(s => `${s.name}: ${getSchemeDescription(s)}`).join('; ') : undefined,
+            category: categoryName,
+            rate: p.rate,
+            unit: p.unit,
+            base_unit: p.base_unit,
+            conversion_factor: p.conversion_factor,
             closingStock: p.closing_stock || 0,
-            is_focused_product: p.is_focused_product || false,
-            focused_type: p.focused_type,
-            focused_due_date: p.focused_due_date,
-            focused_recurring_config: p.focused_recurring_config,
-            focused_territories: p.focused_territories,
+            sku: p.sku,
+            hasScheme: productSchemes.length > 0,
+            schemeDetails: productSchemes.length > 0 ? 
+              `Buy ${productSchemes[0].condition_quantity} get ${productSchemes[0].discount_percentage}% off` : 
+              undefined,
+            schemeConditionQuantity: productSchemes[0]?.condition_quantity,
+            schemeDiscountPercentage: productSchemes[0]?.discount_percentage,
             variants: productVariants.map((v: any) => ({
               id: v.id,
               variant_name: v.variant_name,
               sku: v.sku,
               price: v.price,
               stock_quantity: v.stock_quantity,
-              discount_percentage: v.discount_percentage,
               discount_amount: v.discount_amount,
+              discount_percentage: v.discount_percentage,
               is_active: v.is_active,
-              is_focused_product: v.is_focused_product || false,
+              is_focused_product: v.is_focused_product,
               focused_type: v.focused_type,
               focused_due_date: v.focused_due_date,
               focused_recurring_config: v.focused_recurring_config,
               focused_territories: v.focused_territories
             })),
-            sku: p.sku
+            is_focused_product: p.is_focused_product,
+            focused_type: p.focused_type,
+            focused_due_date: p.focused_due_date,
+            focused_recurring_config: p.focused_recurring_config,
+            focused_territories: p.focused_territories
           };
-          mapped.push(baseProduct);
         });
-        console.log('✅ Mapped products:', mapped.length, mapped);
+
         setProducts(mapped);
-        setSchemes(allSchemes);
-        console.log('🏪 Products state updated with', mapped.length, 'products');
-        console.log('🎯 Schemes state updated with', allSchemes.length, 'schemes');
+        setSchemes(cachedProducts.flatMap((p: any) => p.schemes || []));
+        console.log('✅ Mapped products:', mapped.length);
       } catch (error) {
-        console.error('💥 Error loading products', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load products',
-          variant: 'destructive'
-        });
+        console.error('💥 Error mapping cached products:', error);
       } finally {
         setLoading(false);
-        console.log('✅ OrderEntry: Finished loading products');
       }
-    };
-    fetchData();
+    } else if (!offlineLoading) {
+      setLoading(false);
+    }
+  }, [cachedProducts, offlineLoading]);
 
-    // Set up real-time subscriptions for automatic updates
+  // Set up real-time subscriptions only when online
+  useEffect(() => {
+    if (!isOnline) {
+      console.log('Skipping realtime subscriptions - offline mode');
+      return;
+    }
+
     const channel = supabase.channel('order-entry-changes').on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'products'
     }, () => {
       console.log('Product change detected, refreshing...');
-      fetchData();
+      fetchOfflineProducts();
     }).on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'product_schemes'
     }, () => {
       console.log('Product scheme change detected, refreshing...');
-      fetchData();
+      fetchOfflineProducts();
     }).on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'product_variants'
     }, () => {
       console.log('Product variant change detected, refreshing...');
-      fetchData();
+      fetchOfflineProducts();
     }).subscribe();
+    
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isOnline, fetchOfflineProducts]);
 
   // Filter products by category and search term
   const filteredProducts = products.filter(product => {
