@@ -15,8 +15,8 @@ import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v14';
-const PRECACHE_VERSION = 'v14';
+const RUNTIME_CACHE_VERSION = 'v15';
+const PRECACHE_VERSION = 'v15';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
@@ -87,10 +87,25 @@ self.addEventListener('activate', (event) => {
 // Fallback to index.html for SPA routes - CRITICAL for PWA navigation
 registerRoute(
   ({ request }) => request.mode === 'navigate',
-  async () => {
+  async ({ url }) => {
+    // Try cache first for instant offline loading
+    const cachedResponse = await caches.match('/index.html');
+    
+    // If offline and cache exists, serve immediately
+    if (!navigator.onLine && cachedResponse) {
+      console.log('✅ Offline: Serving cached index.html');
+      return cachedResponse;
+    }
+    
+    // Try network with timeout
     try {
-      // Try network first for fresh content
-      const networkResponse = await fetch('/index.html');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const networkResponse = await fetch('/index.html', {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       
       // Cache the network response
       const cache = await caches.open(`navigation-cache-${RUNTIME_CACHE_VERSION}`);
@@ -102,33 +117,61 @@ registerRoute(
       // Network failed, serve from cache
       console.log('⚠️ Network unavailable, serving from cache');
       
-      // Try precached version first
+      if (cachedResponse) {
+        console.log('✅ Serving cached index.html');
+        return cachedResponse;
+      }
+      
+      // Try precached version
       const precachedResponse = await caches.match('/index.html');
       if (precachedResponse) {
         console.log('✅ Serving precached index.html');
         return precachedResponse;
       }
       
-      // Try navigation cache
-      const cachedResponse = await caches.match('/index.html', { ignoreSearch: true });
-      if (cachedResponse) {
-        console.log('✅ Serving cached index.html');
-        return cachedResponse;
-      }
-      
-      // Last resort: return a basic HTML response with the app
-      console.error('❌ No cached version found, returning basic app shell');
+      // Last resort: return offline page
+      console.error('❌ No cached version found - First time offline');
       return new Response(`
         <!DOCTYPE html>
         <html lang="en">
           <head>
             <meta charset="UTF-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Bharath Sales Navigator - Offline</title>
+            <title>Bharath Sales Navigator</title>
+            <style>
+              body {
+                margin: 0;
+                font-family: system-ui, -apple-system, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                text-align: center;
+              }
+              .container {
+                max-width: 400px;
+              }
+              h1 { font-size: 24px; margin-bottom: 16px; }
+              p { font-size: 16px; line-height: 1.6; opacity: 0.9; }
+              .icon { font-size: 64px; margin-bottom: 20px; }
+            </style>
           </head>
           <body>
-            <div id="root"></div>
-            <script type="module" src="/src/main.tsx"></script>
+            <div class="container">
+              <div class="icon">📱</div>
+              <h1>Connect to Internet</h1>
+              <p>Please connect to the internet for the first time to download the app. After that, you can use it offline.</p>
+              <p style="margin-top: 20px; font-size: 14px;">The app will automatically load once you're online.</p>
+            </div>
+            <script>
+              // Auto reload when online
+              window.addEventListener('online', () => {
+                window.location.reload();
+              });
+            </script>
           </body>
         </html>
       `, {
