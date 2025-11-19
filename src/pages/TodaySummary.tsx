@@ -201,7 +201,7 @@ export const TodaySummary = () => {
       if (retailerIds.length > 0) {
         const { data } = await supabase
           .from('retailers')
-          .select('id, name, address, phone_number')
+          .select('id, name, address, phone')
           .in('id', retailerIds);
         retailers = data || [];
       }
@@ -582,7 +582,7 @@ export const TodaySummary = () => {
         // Use retailer data from the map, with fallbacks
         const retailerName = retailer?.name || 'Unknown Retailer';
         const retailerAddress = retailer?.address || 'Address not available';
-        const retailerPhone = retailer?.phone_number || 'Phone not available';
+        const retailerPhone = retailer?.phone || 'Phone not available';
         
         console.log('Report row data:', {
           visitId: visit.id,
