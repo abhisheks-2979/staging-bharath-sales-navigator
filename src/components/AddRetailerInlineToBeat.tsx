@@ -57,7 +57,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
-  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlor"];
+  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour"];
   const potentials = ["High", "Medium", "Low"];
 
   useEffect(() => {
