@@ -661,7 +661,10 @@ export const OrderEntry = () => {
     }
   }, [cachedProducts]);
 
-  // Set up real-time subscriptions only when online
+  // Real-time subscriptions DISABLED for performance
+  // Products load from cache instantly and sync in background
+  // No need to re-fetch on every database change
+  /*
   useEffect(() => {
     if (!isOnline) {
       console.log('Skipping realtime subscriptions - offline mode');
@@ -695,6 +698,7 @@ export const OrderEntry = () => {
       supabase.removeChannel(channel);
     };
   }, [isOnline, fetchOfflineProducts]);
+  */
 
   // Filter products by category and search term
   const filteredProducts = products.filter(product => {
