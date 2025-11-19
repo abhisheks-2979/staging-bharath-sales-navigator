@@ -208,9 +208,9 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
         try {
           toast({ 
-            title: 'Scanning Board', 
-            description: 'Processing image... This may take a moment.',
-            duration: 10000
+            title: 'Scanning...', 
+            description: 'Reading board information',
+            duration: 15000
           });
 
           const reader = new FileReader();
@@ -222,40 +222,48 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
                 body: { imageBase64: base64Image }
               });
 
-              if (error) throw error;
-              if (data.error) throw new Error(data.error);
+              if (error) {
+                console.error('Scan error:', error);
+                setIsScanningBoard(false);
+                return;
+              }
 
-              if (data.name) handleInputChange('name', data.name);
-              if (data.address) handleInputChange('address', data.address);
-              if (data.phone) handleInputChange('phone', data.phone);
+              if (data?.error) {
+                console.error('Scan data error:', data.error);
+                setIsScanningBoard(false);
+                return;
+              }
 
-              const fieldsFound = [];
-              if (data.name) fieldsFound.push('name');
-              if (data.address) fieldsFound.push('address');
-              if (data.phone) fieldsFound.push('phone');
+              // Auto-fill form fields with extracted data
+              let fieldsFound = [];
+              if (data?.name && data.name.trim()) {
+                handleInputChange('name', data.name);
+                fieldsFound.push('name');
+              }
+              if (data?.address && data.address.trim()) {
+                handleInputChange('address', data.address);
+                fieldsFound.push('address');
+              }
+              if (data?.phone && data.phone.trim()) {
+                handleInputChange('phone', data.phone);
+                fieldsFound.push('phone');
+              }
 
               if (fieldsFound.length > 0) {
                 toast({ 
-                  title: 'Board Scanned Successfully!', 
-                  description: `Auto-filled: ${fieldsFound.join(', ')}`,
-                  duration: 5000
+                  title: 'Success!', 
+                  description: `Found ${fieldsFound.join(', ')} from the board`,
+                  duration: 3000
                 });
               } else {
                 toast({ 
-                  title: 'No Information Found', 
-                  description: 'Could not extract information from the image.',
-                  variant: 'destructive',
-                  duration: 5000
+                  title: 'Scan Complete', 
+                  description: 'No clear information found. Please enter details manually.',
+                  duration: 3000
                 });
               }
             } catch (scanError) {
-              console.error('Scan error:', scanError);
-              toast({ 
-                title: 'Scan Failed', 
-                description: scanError instanceof Error ? scanError.message : 'Could not extract information', 
-                variant: 'destructive',
-                duration: 5000
-              });
+              console.error('Scan processing error:', scanError);
             } finally {
               setIsScanningBoard(false);
             }
@@ -264,11 +272,6 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
           reader.readAsDataURL(file);
         } catch (error) {
           console.error('File read error:', error);
-          toast({ 
-            title: 'Error', 
-            description: 'Could not read image file', 
-            variant: 'destructive' 
-          });
           setIsScanningBoard(false);
         }
       };
@@ -276,11 +279,6 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       input.click();
     } catch (error) {
       console.error('Camera access error:', error);
-      toast({ 
-        title: 'Camera Error', 
-        description: 'Could not access camera. Please check permissions.', 
-        variant: 'destructive' 
-      });
       setIsScanningBoard(false);
     }
   };
