@@ -997,10 +997,66 @@ const [productForm, setProductForm] = useState({
                             <img 
                               src={(product as any).sku_image_url} 
                               alt={product.name}
-                              className="w-12 h-12 object-cover rounded border"
+                              className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => {
+                                setProductForm({
+                                  id: '',
+                                  sku: '',
+                                  product_number: '',
+                                  name: '',
+                                  description: '',
+                                  category_id: '',
+                                  rate: 0,
+                                  unit: 'kg',
+                                  base_unit: 'kg',
+                                  conversion_factor: 1,
+                                  closing_stock: 0,
+                                  is_active: true,
+                                  sku_image_url: '',
+                                  is_focused_product: false,
+                                  focused_type: undefined,
+                                  focused_due_date: '',
+                                  focused_target_quantity: 0,
+                                  focused_territories: [],
+                                  focused_recurring_config: undefined,
+                                  barcode: '',
+                                  barcode_image_url: '',
+                                  qr_code: ''
+                                });
+                                setIsProductDialogOpen(true);
+                              }}
                             />
                           ) : (
-                            <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
+                            <div 
+                              className="w-12 h-12 bg-muted rounded border flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors"
+                              onClick={() => {
+                                setProductForm({
+                                  id: '',
+                                  sku: '',
+                                  product_number: '',
+                                  name: '',
+                                  description: '',
+                                  category_id: '',
+                                  rate: 0,
+                                  unit: 'kg',
+                                  base_unit: 'kg',
+                                  conversion_factor: 1,
+                                  closing_stock: 0,
+                                  is_active: true,
+                                  sku_image_url: '',
+                                  is_focused_product: false,
+                                  focused_type: undefined,
+                                  focused_due_date: '',
+                                  focused_target_quantity: 0,
+                                  focused_territories: [],
+                                  focused_recurring_config: undefined,
+                                  barcode: '',
+                                  barcode_image_url: '',
+                                  qr_code: ''
+                                });
+                                setIsProductDialogOpen(true);
+                              }}
+                            >
                               <Package className="h-6 w-6 text-muted-foreground" />
                             </div>
                           )}
