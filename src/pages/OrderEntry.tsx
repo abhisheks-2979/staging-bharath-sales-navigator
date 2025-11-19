@@ -127,7 +127,6 @@ export const OrderEntry = () => {
   const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [loggedInUserName, setLoggedInUserName] = useState<string>("User");
   const [schemes, setSchemes] = useState<any[]>([]);
@@ -615,11 +614,9 @@ export const OrderEntry = () => {
 
         setProducts(mapped);
         setSchemes(cachedProducts.flatMap((p: any) => p.schemes || []));
-        setLoading(false);
         console.log('✅ Mapped products:', mapped.length);
       } catch (error) {
         console.error('💥 Error mapping cached products:', error);
-        setLoading(false);
       }
     }
   }, [cachedProducts]);
@@ -1695,7 +1692,7 @@ export const OrderEntry = () => {
         <div className="space-y-3">
           {/* Products Grid */}
           <div className="space-y-3">
-          {loading ? <div className="text-center py-8">
+          {offlineLoading ? <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
               <p className="text-sm text-muted-foreground">Loading products...</p>
             </div> : filteredProducts.length === 0 ? <div className="text-center py-8">
