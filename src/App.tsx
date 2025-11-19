@@ -10,6 +10,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import Index from "./pages/Index";
 
 // Lazy load feature pages
@@ -393,12 +394,12 @@ const App = () => (
                 <InvoiceManagement />
               </ProtectedRoute>
             } />
-            <Route path="/features/beat-planning" element={<Suspense fallback={<div>Loading...</div>}><BeatPlanningFeature /></Suspense>} />
-            <Route path="/features/retailer-management" element={<Suspense fallback={<div>Loading...</div>}><RetailerManagementFeature /></Suspense>} />
-            <Route path="/features/visit-scheduling" element={<Suspense fallback={<div>Loading...</div>}><VisitSchedulingFeature /></Suspense>} />
-            <Route path="/features/sales-analytics" element={<Suspense fallback={<div>Loading...</div>}><SalesAnalyticsFeature /></Suspense>} />
-            <Route path="/features/performance-tracking" element={<Suspense fallback={<div>Loading...</div>}><PerformanceTrackingFeature /></Suspense>} />
-            <Route path="/features/growth-analytics" element={<Suspense fallback={<div>Loading...</div>}><GrowthAnalyticsFeature /></Suspense>} />
+            <Route path="/features/beat-planning" element={<Suspense fallback={<LoadingScreen />}><BeatPlanningFeature /></Suspense>} />
+            <Route path="/features/retailer-management" element={<Suspense fallback={<LoadingScreen />}><RetailerManagementFeature /></Suspense>} />
+            <Route path="/features/visit-scheduling" element={<Suspense fallback={<LoadingScreen />}><VisitSchedulingFeature /></Suspense>} />
+            <Route path="/features/sales-analytics" element={<Suspense fallback={<LoadingScreen />}><SalesAnalyticsFeature /></Suspense>} />
+            <Route path="/features/performance-tracking" element={<Suspense fallback={<LoadingScreen />}><PerformanceTrackingFeature /></Suspense>} />
+            <Route path="/features/growth-analytics" element={<Suspense fallback={<LoadingScreen />}><GrowthAnalyticsFeature /></Suspense>} />
             <Route path="/onboarding" element={<ProtectedRoute><EmployeeOnboarding /></ProtectedRoute>} />
             <Route path="/employee-profile" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
             <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
