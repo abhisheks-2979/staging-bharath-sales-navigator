@@ -844,31 +844,6 @@ export const Cart = () => {
     }
   };
 
-  const handleCameraCapture = async (blob: Blob) => {
-    try {
-      const fileName = `payment-${Date.now()}.jpg`;
-      const { data, error } = await supabase.storage.from('expense-bills').upload(fileName, blob);
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('expense-bills').getPublicUrl(data.path);
-      
-      if (captureType === 'cheque') {
-        setChequePhotoUrl(publicUrl);
-        setShowChequeCamera(false);
-      } else if (captureType === 'upi') {
-        setUpiPhotoUrl(publicUrl);
-        setShowUpiCamera(false);
-      } else if (captureType === 'neft') {
-        setNeftPhotoUrl(publicUrl);
-        setShowNeftCamera(false);
-      }
-      
-      toast({ title: "Success", description: "Payment proof captured successfully" });
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({ title: "Error", description: "Failed to upload payment proof", variant: "destructive" });
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Fixed Header */}
@@ -1222,7 +1197,5 @@ export const Cart = () => {
     </div>
   );
 };
-
-export default Cart;
 
 export default Cart;
