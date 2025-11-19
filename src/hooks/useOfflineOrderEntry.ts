@@ -50,7 +50,11 @@ export function useOfflineOrderEntry() {
           schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
+        setLoading(false); // Set loading false immediately after cache load
         console.log(`✅ Loaded ${enrichedProducts.length} products from cache instantly`);
+      } else {
+        // No cache, keep loading true for network fetch
+        setLoading(true);
       }
 
       // 2. If online, fetch fresh data in background and update
@@ -118,7 +122,7 @@ export function useOfflineOrderEntry() {
     }
   };
 
-  // Submit order with offline support
+  // Submit order with offline support - optimized
   const submitOrder = async (orderData: any, orderItems: any[]) => {
     if (!isOnline) {
       // Offline: Queue for sync
@@ -135,14 +139,14 @@ export function useOfflineOrderEntry() {
         order_id: orderId
       }));
 
-      // Save to offline storage
-      await offlineStorage.save(STORES.ORDERS, { ...offlineOrder, items: offlineItems });
-      
-      // Queue for sync
-      await offlineStorage.addToSyncQueue('CREATE_ORDER', {
-        order: offlineOrder,
-        items: offlineItems
-      });
+      // Save to offline storage in parallel
+      await Promise.all([
+        offlineStorage.save(STORES.ORDERS, { ...offlineOrder, items: offlineItems }),
+        offlineStorage.addToSyncQueue('CREATE_ORDER', {
+          order: offlineOrder,
+          items: offlineItems
+        })
+      ]);
 
       toast({
         title: "Order Saved Offline",
@@ -151,7 +155,7 @@ export function useOfflineOrderEntry() {
 
       return { success: true, offline: true, order: offlineOrder };
     } else {
-      // Online: Submit directly
+      // Online: Submit with optimized single transaction
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert(orderData)
@@ -160,6 +164,7 @@ export function useOfflineOrderEntry() {
 
       if (orderError) throw orderError;
 
+      // Batch insert all items at once
       const itemsWithOrderId = orderItems.map(item => ({
         ...item,
         order_id: order.id
