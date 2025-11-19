@@ -564,29 +564,30 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       </Button>
                     </Card>
                   ) : (
-                    stockItems.map((item, index) => (
-                      <Card key={index} className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                          <div className="md:col-span-2">
-                            <Label className="text-xs">Product</Label>
-                            <Select
-                              value={item.product_id}
-                              onValueChange={(value) => handleProductChange(index, 'product_id', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select product" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <ScrollArea className="h-[300px]">
-                                  {products.map(product => (
-                                    <SelectItem key={product.id} value={product.id}>
-                                      {product.name} ({product.unit})
-                                    </SelectItem>
-                                  ))}
-                                </ScrollArea>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                    <div className="space-y-4">
+                      {stockItems.map((item, index) => (
+                        <Card key={index} className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div className="md:col-span-2">
+                              <Label className="text-xs">Product</Label>
+                              <Select
+                                value={item.product_id}
+                                onValueChange={(value) => handleProductChange(index, 'product_id', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select product" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                  <ScrollArea className="h-[280px]">
+                                    {products.map(product => (
+                                      <SelectItem key={product.id} value={product.id}>
+                                        {product.name} ({product.unit})
+                                      </SelectItem>
+                                    ))}
+                                  </ScrollArea>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           <div>
                             <Label className="text-xs">Unit</Label>
                             <Select
@@ -624,7 +625,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           </div>
                         </div>
                       </Card>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </div>
 
