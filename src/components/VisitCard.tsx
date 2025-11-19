@@ -1273,6 +1273,7 @@ export const VisitCard = ({
                   : ""
               }`}
               onClick={async () => {
+                console.time('⚡ Order button to navigation');
                 console.log("Order button clicked - Debug info:", {
                   isCheckInMandatory,
                   isCheckedIn,
@@ -1292,9 +1293,10 @@ export const VisitCard = ({
                   return;
                 }
 
+                const retailerId = (visit.retailerId || visit.id) as string;
+
                 // When completely offline, allow direct navigation to OrderEntry using offline order flow
                 if (typeof navigator !== "undefined" && navigator.onLine === false) {
-                  const retailerId = (visit.retailerId || visit.id) as string;
                   console.log("Offline mode: navigating directly to OrderEntry without ensuring visit", {
                     retailerId,
                   });
@@ -1303,6 +1305,7 @@ export const VisitCard = ({
                       visit.retailerName,
                     )}`,
                   );
+                  console.timeEnd('⚡ Order button to navigation');
                   return;
                 }
 
@@ -1331,25 +1334,47 @@ export const VisitCard = ({
                   }
 
                   const today = new Date().toISOString().split("T")[0];
-                  const retailerId = (visit.retailerId || visit.id) as string;
 
-                  console.log("Creating/ensuring visit before navigation...", {
-                    retailerId,
-                    today,
-                  });
+                  // Navigate immediately for instant feedback
+                  // Try to get cached visitId first for instant navigation
+                  const cachedVisitKey = `visit_${user.id}_${retailerId}_${today}`;
+                  const cachedVisitId = localStorage.getItem(cachedVisitKey);
+                  
+                  if (cachedVisitId) {
+                    console.log("Using cached visitId for instant navigation:", cachedVisitId);
+                    navigate(
+                      `/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(
+                        cachedVisitId,
+                      )}}&retailer=${encodeURIComponent(visit.retailerName)}`,
+                    );
+                    console.timeEnd('⚡ Order button to navigation');
+                    
+                    // Run tracking in background (non-blocking)
+                    startTracking("order", skipCheckInReason === "phone-order").catch(err => 
+                      console.error("Background tracking failed:", err)
+                    );
+                  } else {
+                    // No cached visit, need to ensure visit first
+                    console.log("No cached visit, ensuring visit exists...");
+                    const visitId = await ensureVisit(user.id, retailerId, today);
+                    console.log("Visit ensured, caching and navigating with visitId:", visitId);
+                    
+                    // Cache for next time
+                    localStorage.setItem(cachedVisitKey, visitId);
+                    setCurrentVisitId(visitId);
 
-                  const visitId = await ensureVisit(user.id, retailerId, today);
-                  console.log("Visit ensured, navigating to order-entry with visitId:", visitId);
-                  setCurrentVisitId(visitId);
-
-                  // Start tracking visit time and location
-                  await startTracking("order", skipCheckInReason === "phone-order");
-
-                  navigate(
-                    `/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(
-                      visitId,
-                    )}&retailer=${encodeURIComponent(visit.retailerName)}`,
-                  );
+                    navigate(
+                      `/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(
+                        visitId,
+                      )}}&retailer=${encodeURIComponent(visit.retailerName)}`,
+                    );
+                    console.timeEnd('⚡ Order button to navigation');
+                    
+                    // Run tracking in background (non-blocking)
+                    startTracking("order", skipCheckInReason === "phone-order").catch(err => 
+                      console.error("Background tracking failed:", err)
+                    );
+                  }
                 } catch (err: any) {
                   console.error("Open order entry error:", err);
                   toast({

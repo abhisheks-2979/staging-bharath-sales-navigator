@@ -200,6 +200,14 @@ export const MyVisits = () => {
     }
   }, [optimizedBeatPlans]);
 
+  // Prefetch products in background after initial data loads for faster Order Entry
+  useEffect(() => {
+    if (!dataLoading && optimizedRetailers.length > 0) {
+      console.log('📦 Scheduling product prefetch for faster Order Entry...');
+      schedulePrefetch(1000); // Prefetch after 1 second
+    }
+  }, [dataLoading, optimizedRetailers.length]);
+
   useEffect(() => {
     // Process retailers with visit and order data
     if (optimizedRetailers.length > 0) {
