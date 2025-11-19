@@ -581,7 +581,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               <SelectTrigger>
                                 <SelectValue placeholder="Select product" />
                               </SelectTrigger>
-                              <SelectContent position="popper" className="max-h-[200px] overflow-y-auto">
+                              <SelectContent 
+                                position="popper" 
+                                className="max-h-[300px] overflow-y-auto z-50 bg-background"
+                                sideOffset={4}
+                              >
                                 {products.map(product => (
                                   <SelectItem key={product.id} value={product.id}>
                                     {product.name} ({product.unit})
