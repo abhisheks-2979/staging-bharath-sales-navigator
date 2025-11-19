@@ -1336,45 +1336,54 @@ export const VisitCard = ({
                   const today = new Date().toISOString().split("T")[0];
 
                   // Navigate immediately for instant feedback
-                  // Try to get cached visitId first for instant navigation
-                  const cachedVisitKey = `visit_${user.id}_${retailerId}_${today}`;
-                  const cachedVisitId = localStorage.getItem(cachedVisitKey);
-                  
-                  if (cachedVisitId) {
-                    console.log("Using cached visitId for instant navigation:", cachedVisitId);
-                    navigate(
-                      `/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(
-                        cachedVisitId,
-                      )}}&retailer=${encodeURIComponent(visit.retailerName)}`,
-                    );
-                    console.timeEnd('⚡ Order button to navigation');
-                    
-                    // Run tracking in background (non-blocking)
-                    startTracking("order", skipCheckInReason === "phone-order").catch(err => 
-                      console.error("Background tracking failed:", err)
-                    );
-                  } else {
-                    // No cached visit, need to ensure visit first
-                    console.log("No cached visit, ensuring visit exists...");
-                    const visitId = await ensureVisit(user.id, retailerId, today);
-                    console.log("Visit ensured, caching and navigating with visitId:", visitId);
-                    
-                    // Cache for next time
-                    localStorage.setItem(cachedVisitKey, visitId);
-                    setCurrentVisitId(visitId);
+                  const retailerNameEncoded = encodeURIComponent(visit.retailerName);
+                  const retailerIdEncoded = encodeURIComponent(retailerId);
 
-                    navigate(
-                      `/order-entry?retailerId=${encodeURIComponent(retailerId)}&visitId=${encodeURIComponent(
-                        visitId,
-                      )}}&retailer=${encodeURIComponent(visit.retailerName)}`,
-                    );
-                    console.timeEnd('⚡ Order button to navigation');
-                    
-                    // Run tracking in background (non-blocking)
-                    startTracking("order", skipCheckInReason === "phone-order").catch(err => 
-                      console.error("Background tracking failed:", err)
-                    );
-                  }
+                  navigate(
+                    `/order-entry?retailerId=${retailerIdEncoded}&retailer=${retailerNameEncoded}`,
+                  );
+                  console.timeEnd('⚡ Order button to navigation');
+
+                  // In the background (non-blocking), ensure visit exists and cache visitId for future
+                  (async () => {
+                    try {
+                      const {
+                        data: { user },
+                      } = await supabase.auth.getUser();
+
+                      if (!user) {
+                        return;
+                      }
+
+                      const today = new Date().toISOString().split("T")[0];
+                      const cachedVisitKey = `visit_${user.id}_${retailerId}_${today}`;
+
+                      // If already cached, no need to hit Supabase again
+                      if (localStorage.getItem(cachedVisitKey)) {
+                        return;
+                      }
+
+                      const visitId = await ensureVisit(user.id, retailerId, today);
+                      localStorage.setItem(cachedVisitKey, visitId);
+                      setCurrentVisitId(visitId);
+
+                      // Optionally update URL with visitId without blocking initial navigation
+                      const visitIdEncoded = encodeURIComponent(visitId);
+                      navigate(
+                        `/order-entry?retailerId=${retailerIdEncoded}&visitId=${visitIdEncoded}&retailer=${retailerNameEncoded}`,
+                        { replace: true },
+                      );
+                    } catch (err) {
+                      console.error('Background ensureVisit failed:', err);
+                    }
+
+                    // Run tracking in background (still non-blocking for UI)
+                    try {
+                      await startTracking('order', skipCheckInReason === 'phone-order');
+                    } catch (err) {
+                      console.error('Background tracking failed:', err);
+                    }
+                  })();
                 } catch (err: any) {
                   console.error("Open order entry error:", err);
                   toast({
