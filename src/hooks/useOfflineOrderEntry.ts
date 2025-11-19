@@ -96,7 +96,7 @@ export function useOfflineOrderEntry() {
     }
 
     // Don't refetch if we already have products loaded
-    if (hasFetchedRef.current && products.length > 0) {
+    if (hasFetchedRef.current) {
       console.log('✅ Products already loaded, skipping refetch');
       return;
     }
@@ -153,7 +153,7 @@ export function useOfflineOrderEntry() {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [isOnline, products.length]);
+  }, [isOnline]);
 
   // Submit order with offline support - optimized
   const submitOrder = async (orderData: any, orderItems: any[]) => {
