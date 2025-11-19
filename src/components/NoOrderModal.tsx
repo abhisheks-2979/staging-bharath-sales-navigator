@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Package, UserX, DoorClosed, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Package, UserX, DoorClosed, XCircle, MessageSquare } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface NoOrderModalProps {
@@ -14,6 +16,7 @@ interface NoOrderModalProps {
 
 export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }: NoOrderModalProps) => {
   const [selectedReason, setSelectedReason] = useState<string>(currentReason || "");
+  const [otherReason, setOtherReason] = useState<string>("");
 
   const reasons = [
     {
@@ -43,23 +46,51 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
       description: "Store has shut down permanently",
       icon: XCircle,
       color: "text-destructive"
+    },
+    {
+      value: "other",
+      label: "Other",
+      description: "Specify a custom reason",
+      icon: MessageSquare,
+      color: "text-primary"
     }
   ];
 
-  const handleReasonSelect = (reason: string) => {
+  const handleReasonClick = (reason: string) => {
     setSelectedReason(reason);
     if (reason === "over-stocked") {
-      // Show notification instead of selecting
       toast({
         title: "Information",
         description: "Update stock quantities in Order Entry page - this option will auto-select",
         duration: 4000
       });
-      return;
-    } else {
-      onReasonSelect(reason);
-      onClose();
     }
+  };
+
+  const handleSubmit = () => {
+    if (!selectedReason) {
+      toast({
+        title: "Error",
+        description: "Please select a reason",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedReason === "other" && !otherReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter the reason in the text field",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const finalReason = selectedReason === "other" ? otherReason.trim() : selectedReason;
+    onReasonSelect(finalReason);
+    onClose();
+    setSelectedReason("");
+    setOtherReason("");
   };
 
   return (
@@ -77,7 +108,7 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
                 className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
                   selectedReason === reason.value ? 'ring-2 ring-primary' : ''
                 }`}
-                onClick={() => handleReasonSelect(reason.value)}
+                onClick={() => handleReasonClick(reason.value)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -91,10 +122,26 @@ export const NoOrderModal = ({ isOpen, onClose, onReasonSelect, currentReason }:
               </Card>
             );
           })}
+          
+          {selectedReason === "other" && (
+            <div className="space-y-2 mt-2">
+              <Label htmlFor="other-reason">Enter Reason</Label>
+              <Input
+                id="other-reason"
+                placeholder="Type your reason here..."
+                value={otherReason}
+                onChange={(e) => setOtherReason(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>
             Cancel
+          </Button>
+          <Button onClick={handleSubmit}>
+            Submit
           </Button>
         </div>
       </DialogContent>
