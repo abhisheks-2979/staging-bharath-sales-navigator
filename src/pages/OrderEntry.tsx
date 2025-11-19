@@ -588,10 +588,10 @@ export const OrderEntry = () => {
       }
     }
   }, [activeStorageKey, products.length]);
-  // Load products from offline hook on mount
+  // Load products from offline hook on mount - only once
   useEffect(() => {
     fetchOfflineProducts();
-  }, []);
+  }, [fetchOfflineProducts]);
 
   // Map cached products to the format needed by OrderEntry
   useEffect(() => {
