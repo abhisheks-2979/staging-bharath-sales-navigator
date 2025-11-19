@@ -2279,7 +2279,12 @@ export const OrderEntry = () => {
 
         </div>
         </> : (/* Table Order Form */
-      <TableOrderForm onCartUpdate={handleBulkCartUpdate} />)}
+      <TableOrderForm 
+        products={cachedProducts}
+        loading={offlineLoading}
+        onReloadProducts={fetchOfflineProducts}
+        onCartUpdate={handleBulkCartUpdate} 
+      />)}
 
         
         {/* Order Summary Modal */}
