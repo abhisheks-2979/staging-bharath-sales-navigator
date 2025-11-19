@@ -28,6 +28,7 @@ import { useLocationFeature } from "@/hooks/useLocationFeature";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
+import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 interface Visit {
   id: string;
   retailerName: string;

@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
 import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificationPointsAwarder";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
+import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 interface CartItem {
   id: string;
   name: string;
@@ -653,6 +654,8 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
+      console.time('⚡ Order Submission');
+
       // For phone orders, create a visit first
       let actualVisitId = validVisitId;
       if (isPhoneOrder && !validVisitId && validRetailerId) {
@@ -680,11 +683,8 @@ export const Cart = () => {
         actualVisitId = newVisit.id;
       }
 
-      // Create order with payment details
-      const {
-        data: order,
-        error: orderError
-      } = await supabase.from('orders').insert({
+      // Prepare order data
+      const orderData = {
         user_id: user.id,
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
@@ -701,20 +701,9 @@ export const Cart = () => {
         payment_method: orderPaymentMethod,
         payment_proof_url: paymentProofUrl,
         upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
-      }).select().single();
-      if (orderError) {
-        console.error('Order creation error:', orderError);
-        toast({
-          title: "Order Creation Failed",
-          description: orderError.message || "Failed to create order",
-          variant: "destructive"
-        });
-        throw orderError;
-      }
+      };
 
-      // Create order items
       const orderItems = cartItems.map(item => ({
-        order_id: order.id,
         product_id: item.id,
         product_name: item.name,
         category: item.category,
@@ -723,293 +712,165 @@ export const Cart = () => {
         quantity: item.quantity,
         total: computeItemTotal(item)
       }));
-      const {
-        error: itemsError
-      } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) {
-        console.error('Order items creation error:', itemsError);
-        toast({
-          title: "Order Items Failed",
-          description: itemsError.message || "Failed to add items to order",
-          variant: "destructive"
-        });
-        throw itemsError;
-      }
 
-      // Check if this is the first order from this retailer
-      const { count: previousOrdersCount } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('retailer_id', validRetailerId)
-        .neq('id', order.id);
-
-      const isFirstOrder = previousOrdersCount === 0;
-
-      // Award gamification points
-      try {
-        await awardPointsForOrder({
-          userId: user.id,
-          retailerId: validRetailerId,
-          orderValue: totalAmount,
-          orderItems: orderItems.map(item => ({
-            product_id: item.product_id,
-            quantity: item.quantity
-          })),
-          isFirstOrder
-        });
-
-        // Update retailer sequence for consecutive order tracking
-        await updateRetailerSequence(user.id, validRetailerId);
-      } catch (pointsError) {
-        console.error('Error awarding gamification points:', pointsError);
-        // Don't fail the order if points awarding fails
-      }
-
-      // Create invoice record with auto-generated invoice number
-      const invoiceDate = new Date().toISOString().split('T')[0];
-      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 30 days from now
-
-      // Fetch company_id to associate with invoice
-      const { data: companyData } = await supabase
-        .from('companies')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-
-      const { data: invoiceRecord, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert([{
-          company_id: companyData?.id || null,
-          customer_id: validRetailerId,
-          invoice_date: invoiceDate,
-          due_date: dueDate,
-          sub_total: subtotal,
-          total_tax: cgstAmount + sgstAmount,
-          total_amount: totalAmount,
-          created_by: user.id,
-          status: 'issued',
-          place_of_supply: '29-Karnataka'
-        }] as any)
-        .select()
-        .single();
-
-      if (invoiceError) {
-        console.error('Error creating invoice:', invoiceError);
-      } else if (invoiceRecord) {
-        // Create invoice items
-        const invoiceItems = cartItems.map(item => {
-          const quantity = Number(item.quantity || 0);
-          const rate = Number(getDisplayRate(item));
-          const taxableAmount = quantity * rate;
-          const gstRate = 5; // 2.5% CGST + 2.5% SGST
-          const cgst = (taxableAmount * 2.5) / 100;
-          const sgst = (taxableAmount * 2.5) / 100;
-          const totalAmount = taxableAmount + cgst + sgst;
-
-          return {
-            invoice_id: invoiceRecord.id,
-            description: item.name,
-            quantity: quantity,
-            price_per_unit: rate,
-            gst_rate: gstRate,
-            taxable_amount: taxableAmount,
-            cgst_amount: cgst,
-            sgst_amount: sgst,
-            total_amount: totalAmount,
-            unit: item.unit,
-            hsn_sac: '090230'
-          };
-        });
-
-        const { error: invoiceItemsError } = await supabase
-          .from('invoice_items')
-          .insert(invoiceItems);
-
-        if (invoiceItemsError) {
-          console.error('Error creating invoice items:', invoiceItemsError);
-        }
-      }
-
-      // Update retailer's pending amount based on order type
-      if (validRetailerId) {
-        await supabase.from('retailers').update({
-          pending_amount: newTotalPending
-        }).eq('id', validRetailerId);
-      }
-
-      // Mark visit as productive if available
-      if (actualVisitId) {
-        await supabase.from('visits').update({
-          status: 'productive'
-        }).eq('id', actualVisitId);
-
-        // Dispatch event to notify VisitCard components to refresh
-        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-          detail: {
-            visitId: actualVisitId,
-            status: 'productive',
-            retailerId: validRetailerId
-          }
-        }));
-      }
-
-      // Create invoice and send via SMS automatically - using proper PDF generation matching preview
-      let invoiceSentViaSMS = false;
-      try {
-        const { data: retailerDataForSMS } = await supabase
-          .from('retailers')
-          .select('phone, name, address, gst_number')
-          .eq('id', validRetailerId)
-          .single();
-        
-        const retailerPhone = retailerDataForSMS?.phone;
-
-        if (validRetailerId && retailerPhone && order.id) {
-          // Fetch selected template
-          // Fetch selected template from company settings
-          let selectedTemplateId: string = 'template1';
-          let customTemplate: any = null;
-          let companyData: any = null;
-
-          const { data: company } = await supabase
-            .from('companies')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (company) {
-            selectedTemplateId = company.invoice_template || 'template1';
-            companyData = company;
-          }
-
-          if (!['template1','template2','template3','template4'].includes(selectedTemplateId)) {
-            const { data: ct } = await supabase
-              .from('custom_invoice_templates')
-              .select('*')
-              .eq('id', selectedTemplateId)
-              .eq('is_active', true)
-              .single();
-            if (ct) customTemplate = ct;
-          }
-
-          // Ensure company data
-          if (!companyData) {
-            const { data: defaultCompany } = await supabase
-              .from('companies')
-              .select('*')
-              .limit(1)
-              .maybeSingle();
-            companyData = defaultCompany;
-          }
-
-          const customerData = {
-            name: retailerDataForSMS.name,
-            address: retailerDataForSMS.address,
-            contact_phone: retailerDataForSMS.phone,
-            gstin: retailerDataForSMS.gst_number,
-            state: "29-Karnataka",
-          };
-
-          // Generate PDF using same logic as VisitInvoicePDFGenerator
-          // Determine invoice number for messaging
-          const invoiceNumberForSend = `INV-${order.id.substring(0, 8).toUpperCase()}`;
-
-          // Always generate Template 4 invoice using unified generator
-          const { generateTemplate4Invoice } = await import('@/utils/invoiceGenerator');
-          
-          const invoiceBlob = await generateTemplate4Invoice({
-            orderId: order.id,
-            company: companyData,
-            retailer: {
-              name: retailerDataForSMS.name,
-              address: retailerDataForSMS.address,
-              phone: retailerDataForSMS.phone,
-              gst_number: retailerDataForSMS.gst_number
-            },
-            cartItems: orderItems.map(item => ({
-              ...item,
-              price: item.rate,
-              product_name: item.product_name,
-              hsn_code: '-'
-            }))
+      // Submit order using offline-capable utility
+      const result = await submitOrderWithOfflineSupport(orderData, orderItems, {
+        onOffline: () => {
+          toast({
+            title: "Order Saved Offline",
+            description: "Your order will be synced when you're back online",
           });
-
-          // Upload to storage
-          const fileName = `invoice-${invoiceNumberForSend}.pdf`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('invoices')
-            .upload(fileName, invoiceBlob, {
-              contentType: 'application/pdf',
-              upsert: true
-            });
-
-          if (uploadError) {
-            console.error('Error uploading PDF:', uploadError);
-            throw uploadError;
-          }
-
-          const { data: { publicUrl } } = await supabase.storage
-            .from('invoices')
-            .getPublicUrl(uploadData.path);
-
-          console.log('PDF uploaded to:', publicUrl);
-          console.log('Sending invoice via SMS to:', retailerPhone);
-
-          // Send via SMS/WhatsApp
-          const { data: smsData, error: smsError } = await supabase.functions.invoke('send-invoice-whatsapp', {
-            body: {
-              invoiceId: order.id,
-              customerPhone: retailerPhone,
-              pdfUrl: publicUrl,
-              invoiceNumber: invoiceNumberForSend
-            }
+        },
+        onOnline: () => {
+          toast({
+            title: "Order Placed Successfully",
+            description: `Order for ${retailerName} has been confirmed`,
           });
-
-          if (smsError) {
-            console.error('SMS send error:', smsError);
-          } else if (smsData?.success) {
-            console.log('Invoice sent via SMS successfully');
-            invoiceSentViaSMS = true;
-          }
         }
-      } catch (invoiceError) {
-        console.error('Error sending invoice via SMS:', invoiceError);
-        // Don't block order submission if SMS fails
-      }
-      const orderType = isCreditOrder ? "Credit Order" : "Order";
-      const smsMsg = invoiceSentViaSMS ? " Invoice link sent via SMS." : "";
-      toast({
-        title: `${orderType} Submitted`,
-        description: isCreditOrder ? `${orderType} for ${retailerName} submitted with ₹${creditPending.toLocaleString()} pending!${smsMsg}` : `Order for ${retailerName} submitted successfully!${smsMsg}`
       });
 
-      // Clear cart and all order entry form data
-      localStorage.removeItem(activeStorageKey);
-      // Also clear the quantities, variants, and stocks storage for order entry
-      const quantityKey = activeStorageKey.replace('order_cart:', 'order_quantities:');
-      const variantKey = activeStorageKey.replace('order_cart:', 'order_variants:');
-      const stockKey = activeStorageKey.replace('order_cart:', 'order_stocks:');
-      const tableFormKey = activeStorageKey.replace('order_cart:', 'table_form:');
-      localStorage.removeItem(quantityKey);
-      localStorage.removeItem(variantKey);
-      localStorage.removeItem(stockKey);
-      localStorage.removeItem(tableFormKey);
+      console.timeEnd('⚡ Order Submission');
+
+      // Clear cart immediately - user sees success
+      localStorage.removeItem('cart');
       setCartItems([]);
-      navigate(isPhoneOrder ? '/my-retailers' : '/visits/retailers');
+
+      // BACKGROUND WORK - Don't block user navigation
+      // Fire and forget - runs after user has navigated away
+      (async () => {
+        try {
+          // Only run background tasks if online
+          if (!result.offline) {
+            const order = result.order;
+
+            // Check if this is the first order
+            const { count: previousOrdersCount } = await supabase
+              .from('orders')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', user.id)
+              .eq('retailer_id', validRetailerId)
+              .neq('id', order.id);
+
+            const isFirstOrder = previousOrdersCount === 0;
+
+            // Award gamification points
+            await awardPointsForOrder({
+              userId: user.id,
+              retailerId: validRetailerId,
+              orderValue: totalAmount,
+              orderItems: orderItems.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+              })),
+              isFirstOrder
+            });
+
+            // Update retailer sequence
+            await updateRetailerSequence(user.id, validRetailerId);
+
+            // Create invoice record
+            const invoiceDate = new Date().toISOString().split('T')[0];
+            const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            const { data: companyData } = await supabase
+              .from('companies')
+              .select('id')
+              .limit(1)
+              .maybeSingle();
+
+            const { data: invoiceRecord, error: invoiceError } = await supabase
+              .from('invoices')
+              .insert([{
+                company_id: companyData?.id || null,
+                customer_id: validRetailerId,
+                invoice_date: invoiceDate,
+                due_date: dueDate,
+                sub_total: subtotal,
+                total_tax: cgstAmount + sgstAmount,
+                total_amount: totalAmount,
+                created_by: user.id,
+                status: 'issued',
+                place_of_supply: '29-Karnataka',
+                order_id: order.id
+              }] as any)
+              .select()
+              .single();
+
+            if (!invoiceError && invoiceRecord) {
+              // Create invoice items
+              const invoiceItems = cartItems.map(item => {
+                const quantity = Number(item.quantity || 0);
+                const rate = Number(getDisplayRate(item));
+                const taxableAmount = quantity * rate;
+                const cgst = (taxableAmount * 2.5) / 100;
+                const sgst = (taxableAmount * 2.5) / 100;
+                const totalWithTax = taxableAmount + cgst + sgst;
+                return {
+                  invoice_id: invoiceRecord.id,
+                  description: item.name,
+                  quantity,
+                  unit_price: rate,
+                  taxable_amount: taxableAmount,
+                  cgst_rate: 2.5,
+                  cgst_amount: cgst,
+                  sgst_rate: 2.5,
+                  sgst_amount: sgst,
+                  total_amount: totalWithTax
+                };
+              });
+
+              await supabase.from('invoice_items').insert(invoiceItems);
+            }
+
+            console.log('✅ Background post-order processing completed');
+          }
+        } catch (error) {
+          console.error('Background post-order processing failed:', error);
+          // Don't fail the order - it's already saved
+        }
+      })();
+
+      // Navigate away immediately - user doesn't wait for background work
+      navigate(-1);
     } catch (error: any) {
       console.error('Error submitting order:', error);
       toast({
         title: "Error Submitting Order",
-        description: error?.message || "Failed to submit order. Please try again.",
+        description: error.message || "Failed to submit order. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-  return <div className="min-h-screen bg-background pb-20">
+
+  const handleCameraCapture = async (blob: Blob) => {
+    try {
+      const fileName = `payment-${Date.now()}.jpg`;
+      const { data, error } = await supabase.storage.from('expense-bills').upload(fileName, blob);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('expense-bills').getPublicUrl(data.path);
+      
+      if (captureType === 'cheque') {
+        setChequePhotoUrl(publicUrl);
+        setShowChequeCamera(false);
+      } else if (captureType === 'upi') {
+        setUpiPhotoUrl(publicUrl);
+        setShowUpiCamera(false);
+      } else if (captureType === 'neft') {
+        setNeftPhotoUrl(publicUrl);
+        setShowNeftCamera(false);
+      }
+      
+      toast({ title: "Success", description: "Payment proof captured successfully" });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({ title: "Error", description: "Failed to upload payment proof", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
         <div className="w-full px-2 sm:px-4 py-2 sm:py-4">
@@ -1358,5 +1219,10 @@ export const Cart = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </div>;
+    </div>
+  );
 };
+
+export default Cart;
+
+export default Cart;
