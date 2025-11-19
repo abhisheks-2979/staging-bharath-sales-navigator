@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
@@ -20,6 +20,8 @@ export function useOfflineOrderEntry() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const hasFetchedRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
   // Monitor online status
   useEffect(() => {
@@ -86,7 +88,21 @@ export function useOfflineOrderEntry() {
   };
 
   // Fetch products with offline support - instant cache load
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('⏸️ Fetch already in progress, skipping...');
+      return;
+    }
+
+    // Don't refetch if we already have products loaded
+    if (hasFetchedRef.current && products.length > 0) {
+      console.log('✅ Products already loaded, skipping refetch');
+      return;
+    }
+
+    isFetchingRef.current = true;
+
     try {
       // 1. Load from cache INSTANTLY - no loading state
       const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
@@ -100,19 +116,21 @@ export function useOfflineOrderEntry() {
           schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
-        setLoading(false); // Set loading false immediately after cache load
+        setLoading(false);
+        hasFetchedRef.current = true;
         console.log(`✅ Loaded ${enrichedProducts.length} products from cache instantly`);
         
         // 2. Background sync if online - don't await, don't block UI
         if (isOnline) {
           setTimeout(() => {
             syncProductsInBackground();
-          }, 2000); // Sync after 2 seconds to not block initial load
+          }, 2000);
         }
       } else {
         // No cache, fetch from network immediately
         setLoading(true);
         await syncProductsInBackground();
+        hasFetchedRef.current = true;
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -129,11 +147,13 @@ export function useOfflineOrderEntry() {
           schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
+        hasFetchedRef.current = true;
       }
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [isOnline, products.length]);
 
   // Submit order with offline support - optimized
   const submitOrder = async (orderData: any, orderItems: any[]) => {
