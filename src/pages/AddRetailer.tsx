@@ -262,8 +262,8 @@ export const AddRetailer = () => {
         try {
           toast({ 
             title: 'Scanning Board', 
-            description: 'Extracting information from image...',
-            duration: 3000
+            description: 'Processing image... This may take a moment.',
+            duration: 10000
           });
 
           // Convert image to base64
@@ -272,17 +272,10 @@ export const AddRetailer = () => {
             const base64Image = e.target?.result as string;
 
             try {
-              // Create timeout promise for internet detection (5 seconds)
-              const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('TIMEOUT')), 5000);
-              });
-
-              // Call edge function with timeout
-              const scanPromise = supabase.functions.invoke('scan-board', {
+              // Call edge function (no timeout, let it complete)
+              const { data, error } = await supabase.functions.invoke('scan-board', {
                 body: { imageBase64: base64Image }
               });
-
-              const { data, error } = await Promise.race([scanPromise, timeoutPromise]) as any;
 
               if (error) {
                 throw error;
@@ -324,23 +317,12 @@ export const AddRetailer = () => {
               }
             } catch (scanError: any) {
               console.error('Scan error:', scanError);
-              
-              // Check if timeout occurred (slow/no internet)
-              if (scanError.message === 'TIMEOUT') {
-                toast({ 
-                  title: 'Internet is Low', 
-                  description: 'Please enter the name manually instead.',
-                  variant: 'destructive',
-                  duration: 6000
-                });
-              } else {
-                toast({ 
-                  title: 'Scan Failed', 
-                  description: scanError instanceof Error ? scanError.message : 'Could not extract information from image', 
-                  variant: 'destructive',
-                  duration: 5000
-                });
-              }
+              toast({ 
+                title: 'Scan Failed', 
+                description: scanError instanceof Error ? scanError.message : 'Could not extract information from image. Please try again.', 
+                variant: 'destructive',
+                duration: 5000
+              });
             } finally {
               setIsScanningBoard(false);
             }
