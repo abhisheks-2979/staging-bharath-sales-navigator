@@ -2,7 +2,6 @@ import { ReactNode, useEffect } from "react";
 import { Navbar } from "./Navbar";
 import { ChatWidget } from "./chat/ChatWidget";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
-import { OfflineModeBanner } from "./OfflineModeBanner";
 
 interface LayoutProps {
   children: ReactNode;
