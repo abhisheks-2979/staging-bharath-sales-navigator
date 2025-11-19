@@ -712,7 +712,6 @@ export const Cart = () => {
         category: item.category,
         rate: item.rate,
         unit: item.unit,
-        base_unit: item.base_unit || item.unit, // Include base_unit for conversion calculations
         quantity: item.quantity,
         total: computeItemTotal(item)
       }));
