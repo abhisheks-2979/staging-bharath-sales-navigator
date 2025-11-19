@@ -546,10 +546,18 @@ export const TodaySummary = () => {
 
       setVisitsByStatus(visitsByStatusData);
 
-      // Prepare retailer-based report data
-      const retailerReportMap = new Map();
+      // Prepare retailer-based report data - fetch additional retailer details if needed
+      const retailerReportDataArray: Array<{
+        retailerName: string;
+        address: string;
+        phoneNumber: string;
+        visitStatus: string;
+        orderPerKG: number;
+        totalValue: number;
+      }> = [];
       
-      visits?.forEach(visit => {
+      // Process each visit to build comprehensive report data
+      for (const visit of (visits || [])) {
         const retailer = retailerMap.get(visit.retailer_id);
         const retailerOrders = todayOrders?.filter(o => o.retailer_id === visit.retailer_id) || [];
         
@@ -569,19 +577,36 @@ export const TodaySummary = () => {
         else if (visit.status === 'unproductive') visitStatus = 'Non-Productive';
         else if (visit.status === 'store_closed') visitStatus = 'Store Closed';
         else if (visit.status === 'canceled') visitStatus = 'Canceled';
+        else if (visit.status === 'planned') visitStatus = 'Planned';
         
-        retailerReportMap.set(visit.retailer_id, {
-          retailerName: retailer?.name || 'Unknown',
-          address: retailer?.address || 'N/A',
-          phoneNumber: retailer?.phone_number || 'N/A',
-          visitStatus: visitStatus,
+        // Use retailer data from the map, with fallbacks
+        const retailerName = retailer?.name || 'Unknown Retailer';
+        const retailerAddress = retailer?.address || 'Address not available';
+        const retailerPhone = retailer?.phone_number || 'Phone not available';
+        
+        console.log('Report row data:', {
+          visitId: visit.id,
+          retailerId: visit.retailer_id,
+          retailerName,
+          retailerAddress,
+          retailerPhone,
+          visitStatus,
+          totalKgForRetailer,
+          totalValueForRetailer
+        });
+        
+        retailerReportDataArray.push({
+          retailerName,
+          address: retailerAddress,
+          phoneNumber: retailerPhone,
+          visitStatus,
           orderPerKG: totalKgForRetailer,
           totalValue: totalValueForRetailer
         });
-      });
+      }
       
-      const reportData = Array.from(retailerReportMap.values());
-      setRetailerReportData(reportData);
+      console.log('Final report data:', retailerReportDataArray);
+      setRetailerReportData(retailerReportDataArray);
 
     } catch (error) {
       console.error('Error fetching today\'s data:', error);
