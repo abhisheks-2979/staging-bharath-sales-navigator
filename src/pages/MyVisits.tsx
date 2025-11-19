@@ -208,12 +208,21 @@ export const MyVisits = () => {
         const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
         
         return {
-          ...retailer,
-          visitId: visit?.id,
+          id: retailer.id,
+          retailerId: retailer.id,
+          retailerName: retailer.name || '',
+          address: retailer.address || '',
+          phone: retailer.phone || '',
+          retailerCategory: retailer.category || '',
           status: visit?.status || 'planned',
+          visitType: 'Regular Visit',
+          visitId: visit?.id,
           hasOrder: orders.length > 0,
           orderValue: totalOrderValue,
           visitStatus: visit?.status,
+          noOrderReason: visit?.no_order_reason,
+          distributor: retailer.parent_name,
+          priority: retailer.potential,
         };
       });
       setRetailers(processedRetailers);
