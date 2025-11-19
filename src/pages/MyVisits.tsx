@@ -27,6 +27,7 @@ import { VanStockManagement } from "@/components/VanStockManagement";
 import { useLocationFeature } from "@/hooks/useLocationFeature";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
+import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
 interface Visit {
   id: string;
   retailerName: string;
@@ -177,6 +178,48 @@ export const MyVisits = () => {
   
   const { isLocationEnabled } = useLocationFeature();
 
+  // Use optimized hook for cache-first data loading
+  const {
+    beatPlans: optimizedBeatPlans,
+    visits: optimizedVisits,
+    retailers: optimizedRetailers,
+    orders: optimizedOrders,
+    isLoading: dataLoading,
+  } = useVisitsDataOptimized({
+    userId: user?.id,
+    selectedDate,
+  });
+
+  // Update local state when optimized data loads
+  useEffect(() => {
+    if (optimizedBeatPlans.length > 0) {
+      setPlannedBeats(optimizedBeatPlans);
+      const beatNames = optimizedBeatPlans.map(plan => plan.beat_name).join(', ');
+      setCurrentBeatName(beatNames);
+    }
+  }, [optimizedBeatPlans]);
+
+  useEffect(() => {
+    // Process retailers with visit and order data
+    if (optimizedRetailers.length > 0) {
+      const processedRetailers = optimizedRetailers.map(retailer => {
+        const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
+        const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
+        const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+        
+        return {
+          ...retailer,
+          visitId: visit?.id,
+          status: visit?.status || 'planned',
+          hasOrder: orders.length > 0,
+          orderValue: totalOrderValue,
+          visitStatus: visit?.status,
+        };
+      });
+      setRetailers(processedRetailers);
+    }
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders]);
+
   // Initialize selected day to today
   useEffect(() => {
     const today = weekDays.find(d => d.isToday);
@@ -191,88 +234,26 @@ export const MyVisits = () => {
     setWeekDays(getWeekDays(selectedWeek));
   }, [selectedWeek]);
 
-  // Load beat plans and retailers when user or date changes
+  // Lightweight real-time updates - just refresh data when changes occur
   useEffect(() => {
-    if (user && selectedDate) {
-      loadPlannedBeats(selectedDate);
-    }
-  }, [user, selectedDate]);
+    if (!user || !selectedDate || !navigator.onLine) return;
 
-  // Set up real-time updates for visits and orders with debouncing
-  useEffect(() => {
-    if (!user || !selectedDate) return;
-    
-    // Skip real-time subscriptions when offline
-    if (!navigator.onLine) {
-      console.log('📴 Skipping real-time subscriptions - offline mode');
-      return;
-    }
-
-    let debounceTimer: NodeJS.Timeout;
-    const debouncedReload = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        loadPlannedBeats(selectedDate, true);
-      }, 500); // Debounce for 500ms to avoid multiple rapid reloads
-    };
-
-    const channel = supabase.channel('visit-updates')
+    const channel = supabase.channel('visit-updates-lightweight')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'visits',
         filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        console.log('Visit updated:', payload);
-        // Only reload if the update is for the current date
-        if (payload.new && 'planned_date' in payload.new && payload.new.planned_date === selectedDate) {
-          debouncedReload();
-        }
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'orders',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        console.log('Order updated:', payload);
-        debouncedReload();
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'beat_plans',
-        filter: `user_id=eq.${user.id}`
-      }, async (payload) => {
-        console.log('Beat plan updated:', payload);
-        // Refresh planned dates for the week
-        const startIso = weekDays[0]?.isoDate;
-        const endIso = weekDays[weekDays.length - 1]?.isoDate;
-        if (startIso && endIso) {
-          const { data } = await supabase
-            .from('beat_plans')
-            .select('plan_date')
-            .eq('user_id', user.id)
-            .gte('plan_date', startIso)
-            .lte('plan_date', endIso);
-          setPlannedDates(new Set((data || []).map((d: any) => d.plan_date)));
-        }
-        debouncedReload();
+      }, () => {
+        // Trigger background refresh in optimized hook
+        window.dispatchEvent(new Event('visitDataChanged'));
       })
       .subscribe();
 
-    // Also listen for custom events from VisitCard components
-    const handleVisitStatusChange = () => {
-      debouncedReload();
-    };
-    window.addEventListener('visitStatusChanged', handleVisitStatusChange);
-
     return () => {
-      clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
-      window.removeEventListener('visitStatusChanged', handleVisitStatusChange);
     };
-  }, [user, selectedDate, weekDays]);
+  }, [user, selectedDate]);
 
   // Load week plan markers for calendar
   useEffect(() => {
@@ -298,56 +279,7 @@ export const MyVisits = () => {
     };
     loadWeekPlans();
   }, [user, weekDays]);
-  const loadPlannedBeats = async (date: string, preserveOrder: boolean = false) => {
-    if (!user) return;
-    try {
-      let beatPlans: any[] = [];
-      
-      // Try online first, fallback to cache
-      try {
-        const { data, error } = await supabase
-          .from('beat_plans')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('plan_date', date);
-        
-        if (error) throw error;
-        beatPlans = data || [];
-        
-        // Cache for offline use
-        for (const plan of beatPlans) {
-          await offlineStorage.save(STORES.BEAT_PLANS, plan);
-        }
-      } catch (error) {
-        if (shouldSuppressError(error)) {
-          // Load from cache when offline
-          console.log('📦 Loading beat plans from cache');
-          const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
-          beatPlans = cachedPlans.filter((p: any) => 
-            p.user_id === user.id && p.plan_date === date
-          );
-        } else {
-          throw error;
-        }
-      }
-
-      setPlannedBeats(beatPlans);
-
-      // Update beat name based on planned beats
-      if (beatPlans.length > 0) {
-        const beatNames = beatPlans.map(plan => plan.beat_name).join(', ');
-        setCurrentBeatName(beatNames);
-        await loadAllVisitsForDate(date, beatPlans, preserveOrder);
-      } else {
-        setCurrentBeatName("No beats planned");
-        await loadAllVisitsForDate(date, [], preserveOrder);
-      }
-    } catch (error) {
-      if (!shouldSuppressError(error)) {
-        console.error('Error loading beat plans:', error);
-      }
-    }
-  };
+  // Removed - now using useVisitsDataOptimized hook for better performance
   const loadTimelineVisits = async (date: Date) => {
     if (!user) return;
     try {
@@ -496,7 +428,7 @@ export const MyVisits = () => {
       loadTimelineVisits(timelineDate);
     }
   }, [timelineDate, isTimelineOpen, user]);
-  const loadAllVisitsForDate = async (date: string, beatPlans: any[], preserveOrder: boolean = false) => {
+  const loadAllVisitsForDate = async (date: string, beatPlans: any[] = optimizedBeatPlans, preserveOrder: boolean = false) => {
     if (!user) return;
     try {
       // Check if this is a future date
@@ -793,6 +725,7 @@ export const MyVisits = () => {
   // Show visits for selected date based on planned beats
   const allVisits = retailers;
   const filteredVisits = useMemo(() => {
+    if (dataLoading) return [];
     const filtered = allVisits.filter(visit => {
       const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) || visit.phone.includes(searchTerm);
       let matchesStatus = true;
@@ -1108,10 +1041,8 @@ export const MyVisits = () => {
 
         {/* Create New Visit Modal */}
         <CreateNewVisitModal isOpen={isCreateVisitModalOpen} onClose={() => setIsCreateVisitModalOpen(false)} initialDate={selectedDate} onVisitCreated={() => {
-        // Reload data after visit is created
-        if (selectedDate) {
-          loadPlannedBeats(selectedDate);
-        }
+        // Trigger data refresh
+        window.dispatchEvent(new Event('visitDataChanged'));
       }} />
 
         {/* Orders Dialog */}

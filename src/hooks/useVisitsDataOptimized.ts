@@ -71,23 +71,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // STEP 2: Background sync from network if online
     if (navigator.onLine) {
       try {
-        // Fetch beat plans
-        const { data: beatPlansData, error: beatPlansError } = await supabase
-          .from('beat_plans')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('plan_date', selectedDate);
+        // Fetch all initial data in parallel for speed
+        const [beatPlansResult, visitsResult] = await Promise.all([
+          supabase
+            .from('beat_plans')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('plan_date', selectedDate),
+          supabase
+            .from('visits')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('planned_date', selectedDate)
+        ]);
 
-        if (beatPlansError) throw beatPlansError;
+        if (beatPlansResult.error) throw beatPlansResult.error;
+        if (visitsResult.error) throw visitsResult.error;
 
-        // Fetch visits
-        const { data: visitsData, error: visitsError } = await supabase
-          .from('visits')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('planned_date', selectedDate);
-
-        if (visitsError) throw visitsError;
+        const beatPlansData = beatPlansResult.data || [];
+        const visitsData = visitsResult.data || [];
 
         // Get all retailer IDs we need
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
@@ -110,58 +112,47 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let ordersData: any[] = [];
 
         if (allRetailerIds.length > 0) {
-          // Fetch retailers with pending amount calculation
-          const { data: fetchedRetailers, error: retailersError } = await supabase
-            .from('retailers')
-            .select(`
-              *,
-              orders!inner(pending_amount, created_at)
-            `)
-            .eq('user_id', userId)
-            .in('id', allRetailerIds);
+          // Fetch retailers and orders in parallel
+          const [retailersResult, ordersResult] = await Promise.all([
+            supabase
+              .from('retailers')
+              .select('*')
+              .in('id', allRetailerIds),
+            supabase
+              .from('orders')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('status', 'confirmed')
+              .in('retailer_id', allRetailerIds)
+              .gte('created_at', `${selectedDate}T00:00:00.000Z`)
+              .lte('created_at', `${selectedDate}T23:59:59.999Z`)
+          ]);
 
-          if (retailersError) throw retailersError;
-          retailersData = fetchedRetailers || [];
+          if (retailersResult.error) throw retailersResult.error;
+          if (ordersResult.error) throw ordersResult.error;
 
-          // Fetch orders for the selected date
-          const dateStart = new Date(selectedDate);
-          dateStart.setHours(0, 0, 0, 0);
-          const dateEnd = new Date(selectedDate);
-          dateEnd.setHours(23, 59, 59, 999);
-
-          const { data: fetchedOrders, error: ordersError } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('status', 'confirmed')
-            .in('retailer_id', allRetailerIds)
-            .gte('created_at', dateStart.toISOString())
-            .lte('created_at', dateEnd.toISOString());
-
-          if (ordersError) throw ordersError;
-          ordersData = fetchedOrders || [];
+          retailersData = retailersResult.data || [];
+          ordersData = ordersResult.data || [];
         }
 
-        // Cache the fresh data
-        for (const plan of beatPlansData || []) {
-          await offlineStorage.save(STORES.BEAT_PLANS, plan);
-        }
-        for (const visit of visitsData || []) {
-          await offlineStorage.save(STORES.VISITS, visit);
-        }
-        for (const retailer of retailersData) {
-          await offlineStorage.save(STORES.RETAILERS, retailer);
-        }
-        for (const order of ordersData) {
-          await offlineStorage.save(STORES.ORDERS, order);
-        }
+        // Cache all data in parallel
+        await Promise.all([
+          ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
+          ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit)),
+          ...retailersData.map(retailer => offlineStorage.save(STORES.RETAILERS, retailer)),
+          ...ordersData.map(order => offlineStorage.save(STORES.ORDERS, order))
+        ]);
 
         // Update state with fresh data
-        setBeatPlans(beatPlansData || []);
-        setVisits(visitsData || []);
+        setBeatPlans(beatPlansData);
+        setVisits(visitsData);
         setRetailers(retailersData);
         setOrders(ordersData);
-        setIsLoading(false);
+        
+        if (!hasLoadedFromCache) {
+          setIsLoading(false);
+        }
+        
         setError(null);
         console.log('🔄 Updated with fresh data from network');
       } catch (networkError) {
@@ -182,6 +173,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
   useEffect(() => {
     loadData();
+
+    // Listen for manual refresh events
+    const handleRefresh = () => {
+      console.log('🔄 Manual refresh triggered');
+      loadData();
+    };
+    
+    window.addEventListener('visitDataChanged', handleRefresh);
+    
+    return () => {
+      window.removeEventListener('visitDataChanged', handleRefresh);
+    };
   }, [loadData]);
 
   const invalidateData = useCallback(() => {
