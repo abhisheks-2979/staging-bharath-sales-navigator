@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Target } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Target, MessageSquare } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -124,6 +124,7 @@ export const OrderEntry = () => {
   const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock" | "competition">("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [noOrderReason, setNoOrderReason] = useState<string>("");
+  const [customNoOrderReason, setCustomNoOrderReason] = useState<string>("");
   const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [products, setProducts] = useState<GridProduct[]>([]);
@@ -1605,6 +1606,12 @@ export const OrderEntry = () => {
               description: "Store has shut down permanently",
               icon: XCircle,
               color: "text-destructive"
+            }, {
+              value: "other",
+              label: "Other",
+              description: "Specify a custom reason",
+              icon: MessageSquare,
+              color: "text-primary"
             }].map(reason => {
               const IconComponent = reason.icon;
               return <Card key={reason.value} className={`cursor-pointer transition-all duration-200 hover:shadow-md ${noOrderReason === reason.value ? 'ring-2 ring-primary' : ''}`} onClick={async () => {
@@ -1616,6 +1623,13 @@ export const OrderEntry = () => {
                   });
                   return;
                 }
+                
+                // If "Other" is selected, just mark it as selected without saving immediately
+                if (reason.value === "other") {
+                  setNoOrderReason(reason.value);
+                  return;
+                }
+                
                 setNoOrderReason(reason.value);
 
                 // Save no order reason to database
@@ -1658,6 +1672,64 @@ export const OrderEntry = () => {
                       </CardContent>
                     </Card>;
             })}
+            
+            {/* Show input field and submit button when "Other" is selected */}
+            {noOrderReason === "other" && (
+              <div className="space-y-3 mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Enter Reason</label>
+                  <Input
+                    placeholder="Type your reason here..."
+                    value={customNoOrderReason}
+                    onChange={(e) => setCustomNoOrderReason(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <Button 
+                  onClick={async () => {
+                    if (!customNoOrderReason.trim()) {
+                      toast({
+                        title: "Error",
+                        description: "Please enter a reason",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    
+                    if (visitId) {
+                      try {
+                        const {
+                          error
+                        } = await supabase.from('visits').update({
+                          status: 'unproductive',
+                          no_order_reason: customNoOrderReason.trim()
+                        }).eq('id', visitId);
+                        if (error) throw error;
+                        toast({
+                          title: "No Order Marked",
+                          description: `Reason: ${customNoOrderReason.trim()}`
+                        });
+
+                        // Navigate back after a short delay
+                        setTimeout(() => {
+                          navigate("/visits/retailers");
+                        }, 1000);
+                      } catch (error) {
+                        console.error('Error saving no order reason:', error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to save no order reason",
+                          variant: "destructive"
+                        });
+                      }
+                    }
+                  }}
+                  className="w-full"
+                >
+                  Submit
+                </Button>
+              </div>
+            )}
               </CardContent>
             </Card>
           </> : orderMode === "competition" ? <>
