@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -67,9 +66,12 @@ interface OrderRow {
 
 interface TableOrderFormProps {
   onCartUpdate: (items: any[]) => void;
+  products: Product[];
+  loading: boolean;
+  onReloadProducts?: () => void;
 }
 
-export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
+export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProducts }: TableOrderFormProps) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
@@ -78,8 +80,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
     { id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }
   ]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
@@ -116,119 +116,6 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
       localStorage.setItem(tableFormStorageKey, JSON.stringify(orderRows));
     }
   }, [orderRows, tableFormStorageKey]);
-
-  useEffect(() => {
-    fetchProducts();
-    
-    // Set up real-time subscription for product changes
-    const channel = supabase
-      .channel('product-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'products' },
-        () => {
-          console.log('Product change detected, refreshing...');
-          fetchProducts();
-        }
-      )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'product_schemes' },
-        () => {
-          console.log('Product scheme change detected, refreshing...');
-          fetchProducts();
-        }
-      )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'product_variants' },
-        () => {
-          console.log('Product variant change detected, refreshing...');
-          fetchProducts();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      console.log('Fetching products for order entry...');
-      
-      // Fetch products with better error handling
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select(`
-          id,
-          sku,
-          name,
-          description,
-          rate,
-          unit,
-          base_unit,
-          conversion_factor,
-          closing_stock,
-          is_active,
-          is_focused_product,
-          focused_type,
-          focused_due_date,
-          focused_recurring_config,
-          focused_territories,
-          category_id,
-          category:product_categories(name)
-        `)
-        .eq('is_active', true)
-        .order('name');
-      
-      if (productsError) {
-        console.error('Error fetching products:', productsError);
-        throw productsError;
-      }
-
-      // Fetch schemes separately
-      const { data: schemesData, error: schemesError } = await supabase
-        .from('product_schemes')
-        .select('*')
-        .eq('is_active', true);
-      
-      if (schemesError) {
-        console.error('Error fetching schemes:', schemesError);
-        // Don't throw, just log the error and continue without schemes
-      }
-
-      // Fetch variants separately
-      const { data: variantsData, error: variantsError } = await supabase
-        .from('product_variants')
-        .select('*')
-        .eq('is_active', true);
-      
-      if (variantsError) {
-        console.error('Error fetching variants:', variantsError);
-        // Don't throw, just log the error and continue without variants
-      }
-
-      // Combine the data
-      const enrichedProducts = (productsData || []).map(product => ({
-        ...product,
-        schemes: (schemesData || []).filter(scheme => scheme.product_id === product.id),
-        variants: (variantsData || []).filter(variant => variant.product_id === product.id)
-      }));
-
-      console.log('Fetched products:', enrichedProducts.length);
-      setProducts(enrichedProducts);
-    } catch (error) {
-      console.error('Error in fetchProducts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load products. Please try again.",
-        variant: "destructive"
-      });
-      setProducts([]); // Set empty array on error
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const findProductByCode = (code: string): { product: Product; variant?: any } | undefined => {
     // First check base products
@@ -559,7 +446,7 @@ export const TableOrderForm = ({ onCartUpdate }: TableOrderFormProps) => {
           <p>No products available</p>
           <p className="text-sm">Please contact admin to add products to the system</p>
         </div>
-        <Button onClick={fetchProducts} variant="outline">
+        <Button onClick={() => onReloadProducts?.()} variant="outline">
           Retry Loading Products
         </Button>
       </div>
