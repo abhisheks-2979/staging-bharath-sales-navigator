@@ -195,97 +195,136 @@ export const OrderEntry = () => {
       console.error('Error in handleAutoSelectOverStocked:', error);
     }
   };
+  // Load user data from cache first, then sync in background
   useEffect(() => {
     const fetchUserData = async () => {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-
-        // Fetch user profile to get the name
-        const {
-          data: profile
-        } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).single();
-        if (profile) {
-          setLoggedInUserName(profile.full_name || profile.username || user.email?.split('@')[0] || "User");
-        } else {
-          // Fallback to email username if no profile
-          setLoggedInUserName(user.email?.split('@')[0] || "User");
-        }
+      // Get from cache first (localStorage)
+      const cachedUserId = localStorage.getItem('cached_user_id');
+      const cachedUserName = localStorage.getItem('cached_user_name');
+      
+      if (cachedUserId) {
+        setUserId(cachedUserId);
       }
-    };
-    fetchUserData();
-  }, []);
-
-  // Check if user has started their day when feature is enabled
-  useEffect(() => {
-    const checkDayStarted = async () => {
-      // Skip check if feature is loading or not mandatory
-      if (checkInMandatoryLoading || !isCheckInMandatory) {
-        return;
+      if (cachedUserName) {
+        setLoggedInUserName(cachedUserName);
       }
+
+      // Then fetch fresh data in background
       try {
         const {
           data: {
             user
           }
         } = await supabase.auth.getUser();
-        if (!user) return;
-        const today = new Date().toISOString().split('T')[0];
+        if (user) {
+          setUserId(user.id);
+          localStorage.setItem('cached_user_id', user.id);
 
-        // Check if user has started their day (attendance check-in)
-        const {
-          data: attendance,
-          error
-        } = await supabase.from('attendance').select('check_in_time').eq('user_id', user.id).eq('date', today).maybeSingle();
-        if (error) {
-          console.error('Error checking attendance:', error);
+          // Fetch user profile to get the name
+          const {
+            data: profile
+          } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).maybeSingle();
+          if (profile) {
+            const userName = profile.full_name || profile.username || user.email?.split('@')[0] || "User";
+            setLoggedInUserName(userName);
+            localStorage.setItem('cached_user_name', userName);
+          } else {
+            // Fallback to email username if no profile
+            const userName = user.email?.split('@')[0] || "User";
+            setLoggedInUserName(userName);
+            localStorage.setItem('cached_user_name', userName);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+    fetchUserData();
+  }, []);
+
+  // Check if user has started their day when feature is enabled (non-blocking)
+  useEffect(() => {
+    // Don't block UI, run check in background with delay
+    const timeoutId = setTimeout(() => {
+      const checkDayStarted = async () => {
+        // Skip check if feature is loading or not mandatory
+        if (checkInMandatoryLoading || !isCheckInMandatory) {
           return;
         }
+        try {
+          const cachedUserId = localStorage.getItem('cached_user_id');
+          const userId = cachedUserId || (await supabase.auth.getUser()).data.user?.id;
+          if (!userId) return;
+          
+          const today = new Date().toISOString().split('T')[0];
+          const cacheKey = `attendance_check_${userId}_${today}`;
+          const cachedCheck = localStorage.getItem(cacheKey);
+          
+          // Use cached check if available
+          if (cachedCheck === 'checked') return;
 
-        // If no attendance record or no check-in time, redirect to attendance page
-        if (!attendance || !attendance.check_in_time) {
-          toast({
-            title: "Start Your Day First",
-            description: "Please start your day from the Attendance page before entering orders.",
-            variant: "destructive"
-          });
-          navigate('/attendance');
+          // Check if user has started their day (attendance check-in)
+          const {
+            data: attendance,
+            error
+          } = await supabase.from('attendance').select('check_in_time').eq('user_id', userId).eq('date', today).maybeSingle();
+          
+          if (error) {
+            console.error('Error checking attendance:', error);
+            return;
+          }
+
+          // If no attendance record or no check-in time, redirect to attendance page
+          if (!attendance || !attendance.check_in_time) {
+            toast({
+              title: "Start Your Day First",
+              description: "Please start your day from the Attendance page before entering orders.",
+              variant: "destructive"
+            });
+            navigate('/attendance');
+          } else {
+            // Cache successful check
+            localStorage.setItem(cacheKey, 'checked');
+          }
+        } catch (error) {
+          console.error('Error in day start validation:', error);
         }
-      } catch (error) {
-        console.error('Error in day start validation:', error);
-      }
-    };
-    checkDayStarted();
+      };
+      checkDayStarted();
+    }, 500); // Delay check by 500ms to not block initial render
+
+    return () => clearTimeout(timeoutId);
   }, [isCheckInMandatory, checkInMandatoryLoading, navigate]);
 
-  // Check if competition data exists for this visit
+  // Check if competition data exists for this visit (non-blocking, low priority)
   useEffect(() => {
-    const checkCompetitionData = async () => {
-      if (!visitId || !retailerId) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('competition_data')
-          .select('id')
-          .eq('visit_id', visitId)
-          .eq('retailer_id', retailerId)
-          .limit(1);
-
-        if (error) throw error;
+    // Run in background, don't block UI
+    const timeoutId = setTimeout(() => {
+      const checkCompetitionData = async () => {
+        if (!visitId || !retailerId) return;
         
-        if (data && data.length > 0) {
-          setHasCompetitionData(true);
-        }
-      } catch (error) {
-        console.error('Error checking competition data:', error);
-      }
-    };
+        try {
+          const { data, error } = await supabase
+            .from('competition_data')
+            .select('id')
+            .eq('visit_id', visitId)
+            .eq('retailer_id', retailerId)
+            .limit(1);
 
-    checkCompetitionData();
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            setHasCompetitionData(true);
+          }
+        } catch (error) {
+          console.error('Error checking competition data:', error);
+        }
+      };
+
+      checkCompetitionData();
+    }, 1000); // Low priority check after 1s
+
+    return () => clearTimeout(timeoutId);
   }, [visitId, retailerId]);
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
