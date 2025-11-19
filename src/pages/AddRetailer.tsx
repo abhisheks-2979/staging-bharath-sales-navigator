@@ -261,9 +261,9 @@ export const AddRetailer = () => {
 
         try {
           toast({ 
-            title: 'Scanning Board', 
-            description: 'Processing image... This may take a moment.',
-            duration: 10000
+            title: 'Scanning...', 
+            description: 'Reading board information',
+            duration: 15000
           });
 
           // Convert image to base64
@@ -272,57 +272,53 @@ export const AddRetailer = () => {
             const base64Image = e.target?.result as string;
 
             try {
-              // Call edge function (no timeout, let it complete)
+              // Call edge function
               const { data, error } = await supabase.functions.invoke('scan-board', {
                 body: { imageBase64: base64Image }
               });
 
               if (error) {
-                throw error;
+                console.error('Scan error:', error);
+                setIsScanningBoard(false);
+                return;
               }
 
               if (data?.error) {
-                throw new Error(data.error);
+                console.error('Scan data error:', data.error);
+                setIsScanningBoard(false);
+                return;
               }
 
               // Auto-fill form fields with extracted data
-              if (data.name) {
+              let fieldsFound = [];
+              if (data?.name && data.name.trim()) {
                 handleInputChange('name', data.name);
+                fieldsFound.push('name');
               }
-              if (data.address) {
+              if (data?.address && data.address.trim()) {
                 handleInputChange('address', data.address);
+                fieldsFound.push('address');
               }
-              if (data.phone) {
+              if (data?.phone && data.phone.trim()) {
                 handleInputChange('phone', data.phone);
+                fieldsFound.push('phone');
               }
-
-              const fieldsFound = [];
-              if (data.name) fieldsFound.push('name');
-              if (data.address) fieldsFound.push('address');
-              if (data.phone) fieldsFound.push('phone');
 
               if (fieldsFound.length > 0) {
                 toast({ 
-                  title: 'Board Scanned Successfully!', 
-                  description: `Auto-filled: ${fieldsFound.join(', ')}`,
-                  duration: 5000
+                  title: 'Success!', 
+                  description: `Found ${fieldsFound.join(', ')} from the board`,
+                  duration: 3000
                 });
               } else {
                 toast({ 
-                  title: 'No Information Found', 
-                  description: 'Could not extract name, address, or phone from the image. Please try a clearer photo.',
-                  variant: 'destructive',
-                  duration: 5000
+                  title: 'Scan Complete', 
+                  description: 'No clear information found. Please enter details manually.',
+                  duration: 3000
                 });
               }
             } catch (scanError: any) {
               console.error('Scan error:', scanError);
-              toast({ 
-                title: 'Scan Failed', 
-                description: scanError instanceof Error ? scanError.message : 'Could not extract information from image. Please try again.', 
-                variant: 'destructive',
-                duration: 5000
-              });
             } finally {
               setIsScanningBoard(false);
             }
