@@ -347,7 +347,11 @@ const [productForm, setProductForm] = useState({
       `)
       .order('name');
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching products in ProductManagement:', error);
+      throw error;
+    }
+    console.log('Fetched products in ProductManagement:', data?.length || 0);
     setProducts(data || []);
   };
 

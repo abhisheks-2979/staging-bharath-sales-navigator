@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2 } from 'lucide-react';
@@ -129,6 +128,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       let cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
       
       if (cachedProducts && cachedProducts.length > 0) {
+        console.log('Loaded products from cache:', cachedProducts.length);
         setProducts(cachedProducts.map((p: any) => ({
           id: p.id,
           name: p.name,
@@ -144,7 +144,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           .eq('is_active', true)
           .order('name');
         
-        if (!error && data) {
+        if (error) {
+          console.error('Error fetching products:', error);
+        } else if (data) {
+          console.log('Loaded products from database:', data.length);
           setProducts(data);
           // Update cache
           for (const product of data) {
@@ -152,10 +155,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           }
         }
       } catch (onlineError) {
-        console.log('Online fetch failed, using cached products');
+        console.log('Online fetch failed, using cached products:', onlineError);
       }
     } catch (error) {
       console.error('Error loading products:', error);
+      toast.error('Failed to load products');
     }
   };
 
@@ -570,23 +574,21 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div className="md:col-span-2">
                               <Label className="text-xs">Product</Label>
-                              <Select
-                                value={item.product_id}
-                                onValueChange={(value) => handleProductChange(index, 'product_id', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select product" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px]">
-                                  <ScrollArea className="h-[280px]">
-                                    {products.map(product => (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.name} ({product.unit})
-                                      </SelectItem>
-                                    ))}
-                                  </ScrollArea>
-                                </SelectContent>
-                              </Select>
+                            <Select
+                              value={item.product_id}
+                              onValueChange={(value) => handleProductChange(index, 'product_id', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select product" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" className="max-h-[200px] overflow-y-auto">
+                                {products.map(product => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.name} ({product.unit})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             </div>
                           <div>
                             <Label className="text-xs">Unit</Label>
