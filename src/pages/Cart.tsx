@@ -693,6 +693,9 @@ export const Cart = () => {
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
+        cgst_amount: cgstAmount,
+        sgst_amount: sgstAmount,
+        net_amount: totalAmount,
         status: 'confirmed',
         is_credit_order: isCreditOrder,
         credit_pending_amount: creditPending,
@@ -702,7 +705,15 @@ export const Cart = () => {
         payment_proof_url: paymentProofUrl,
         upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
       }).select().single();
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Order creation error:', orderError);
+        toast({
+          title: "Order Creation Failed",
+          description: orderError.message || "Failed to create order",
+          variant: "destructive"
+        });
+        throw orderError;
+      }
 
       // Create order items
       const orderItems = cartItems.map(item => ({
@@ -718,7 +729,15 @@ export const Cart = () => {
       const {
         error: itemsError
       } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error('Order items creation error:', itemsError);
+        toast({
+          title: "Order Items Failed",
+          description: itemsError.message || "Failed to add items to order",
+          variant: "destructive"
+        });
+        throw itemsError;
+      }
 
       // Check if this is the first order from this retailer
       const { count: previousOrdersCount } = await supabase
@@ -982,11 +1001,11 @@ export const Cart = () => {
       localStorage.removeItem(tableFormKey);
       setCartItems([]);
       navigate(isPhoneOrder ? '/my-retailers' : '/visits/retailers');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting order:', error);
       toast({
-        title: "Error",
-        description: "Failed to submit order. Please try again.",
+        title: "Error Submitting Order",
+        description: error?.message || "Failed to submit order. Please try again.",
         variant: "destructive"
       });
     } finally {
