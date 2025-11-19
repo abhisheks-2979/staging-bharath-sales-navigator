@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 import { AddRetailerInlineToBeat } from "@/components/AddRetailerInlineToBeat";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
-import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 interface Beat {
   id: string;
@@ -87,10 +86,9 @@ export const MyBeats = () => {
   const [isAddRetailerModalOpen, setIsAddRetailerModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
-  // Connectivity for offline-first behavior
+  // Connectivity status
   const connectivityStatus = useConnectivity();
   const isOnline = connectivityStatus === 'online';
-  const { saveWithOfflineSupport } = useOfflineSync();
   
   // Recurrence state
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -446,26 +444,24 @@ export const MyBeats = () => {
         created_at: new Date().toISOString()
       };
       
-      // Save beat with offline support
-      await saveWithOfflineSupport(STORES.BEATS, { ...beatData, id: beatId }, 'CREATE_BEAT');
+      // Insert beat into database
+      const { error: beatError } = await supabase
+        .from('beats')
+        .insert([beatData]);
+      
+      if (beatError) throw beatError;
       
       // Update selected retailers with beat information (only if retailers are selected)
       if (selectedRetailers.size > 0) {
-        for (const retailerId of Array.from(selectedRetailers)) {
-          const retailer = retailers.find(r => r.id === retailerId);
-          if (retailer) {
-            const updatedRetailer = {
-              ...retailer,
-              beat_id: beatId,
-              beat_name: beatName.trim()
-            };
-            await saveWithOfflineSupport(
-              STORES.RETAILERS,
-              updatedRetailer,
-              'UPDATE_RETAILER'
-            );
-          }
-        }
+        const { error: retailerError } = await supabase
+          .from('retailers')
+          .update({ 
+            beat_id: beatId,
+            beat_name: beatName.trim()
+          })
+          .in('id', Array.from(selectedRetailers));
+        
+        if (retailerError) throw retailerError;
       }
 
       // Create beat allowance record
@@ -481,12 +477,10 @@ export const MyBeats = () => {
         created_at: new Date().toISOString()
       };
       
-      if (isOnline) {
-        try {
-          await supabase.from('beat_allowances').insert(allowanceData);
-        } catch (error) {
-          console.error('Error creating beat allowance:', error);
-        }
+      try {
+        await supabase.from('beat_allowances').insert(allowanceData);
+      } catch (error) {
+        console.error('Error creating beat allowance:', error);
       }
 
       // Create beat plans if recurrence is enabled
@@ -501,7 +495,7 @@ export const MyBeats = () => {
       const scheduleMessage = repeatEnabled 
         ? ` and scheduled ${repeatUntilMode === "permanent" ? "permanently" : `until ${format(repeatEndDate, 'PP')}`}`
         : '';
-      toast.success(`Beat "${beatName}" created successfully ${retailerMessage}${scheduleMessage}${!isOnline ? ' (will sync when online)' : ''}`);
+      toast.success(`Beat "${beatName}" created successfully ${retailerMessage}${scheduleMessage}`);
       setIsCreateBeatOpen(false);
       setBeatName("");
       setTravelAllowance("");
@@ -573,14 +567,17 @@ export const MyBeats = () => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
-          await saveWithOfflineSupport(STORES.BEAT_PLANS, planWithId, 'CREATE_BEAT_PLAN');
+          // Insert beat plan into database
+          const { error: planError } = await supabase
+            .from('beat_plans')
+            .insert([planWithId]);
+          
+          if (planError) {
+            console.error('Error creating beat plan:', planError);
+          }
         }
         
-        if (!isOnline) {
-          toast.success(`Created ${beatPlans.length} scheduled visits (will sync when online)`);
-        } else {
-          toast.success(`Created ${beatPlans.length} scheduled visits`);
-        }
+        toast.success(`Created ${beatPlans.length} scheduled visits`);
       }
     } catch (error: any) {
       console.error('Error generating beat plans:', error);
