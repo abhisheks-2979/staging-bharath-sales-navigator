@@ -186,6 +186,40 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     }
   };
 
+  // Compress image before scanning to speed up processing
+  const compressImage = (dataUrl: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Compress to JPEG with 0.8 quality
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const handleScanBoard = async () => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'Please sign in to scan boards', variant: 'destructive' });
@@ -216,10 +250,13 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
           const reader = new FileReader();
           reader.onload = async (e) => {
             const base64Image = e.target?.result as string;
+            
+            // Compress image before sending
+            const compressedImage = await compressImage(base64Image);
 
             try {
               const { data, error } = await supabase.functions.invoke('scan-board', {
-                body: { imageBase64: base64Image }
+                body: { imageBase64: compressedImage }
               });
 
               if (error) {
