@@ -209,8 +209,8 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
         try {
           toast({ 
             title: 'Scanning Board', 
-            description: 'Extracting information from image...',
-            duration: 3000
+            description: 'Processing image... This may take a moment.',
+            duration: 10000
           });
 
           const reader = new FileReader();
