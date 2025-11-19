@@ -63,7 +63,7 @@ export const AddRetailer = () => {
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
-  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store"];
+  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlor"];
   const potentials = ["High", "Medium", "Low"];
 
   // Load distributors from vendors table (Distributor Management)
