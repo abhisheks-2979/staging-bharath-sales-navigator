@@ -689,6 +689,7 @@ export const Cart = () => {
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
         retailer_name: retailerName,
+        order_date: new Date().toISOString().split('T')[0],
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
