@@ -120,14 +120,15 @@ export function useOfflineOrderEntry() {
         hasFetchedRef.current = true;
         console.log(`✅ Loaded ${enrichedProducts.length} products from cache instantly`);
         
-        // 2. Background sync if online - don't await, don't block UI
+        // Background sync if online (no delay, no await)
         if (isOnline) {
-          setTimeout(() => {
-            syncProductsInBackground();
-          }, 2000);
+          syncProductsInBackground().catch(err => 
+            console.error('Background sync failed:', err)
+          );
         }
       } else {
         // No cache, fetch from network immediately
+        console.log('📦 No cached products, fetching from network...');
         setLoading(true);
         await syncProductsInBackground();
         hasFetchedRef.current = true;
