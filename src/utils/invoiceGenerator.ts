@@ -445,8 +445,82 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
 /**
  * Fetch order data and generate invoice using the selected template from Invoice Management
+ * Checks for edited invoices first, falls back to generating from order data
  */
 export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: Blob; invoiceNumber: string }> {
+  // First check if an edited invoice exists for this order
+  const { data: editedInvoice } = await supabase
+    .from("invoices")
+    .select("*, invoice_items(*)")
+    .eq("order_id", orderId)
+    .eq("is_edited", true)
+    .single();
+
+  if (editedInvoice) {
+    // Use edited invoice data
+    console.log("📝 Using edited invoice data");
+    
+    // Fetch company details
+    const { data: company } = await supabase
+      .from("companies")
+      .select("*")
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!company) throw new Error("Company not found");
+
+    // Fetch retailer details from the original order
+    const { data: order } = await supabase
+      .from("orders")
+      .select("retailer_id")
+      .eq("id", orderId)
+      .single();
+
+    let retailer: any = null;
+    if (order?.retailer_id) {
+      const { data: retailerData } = await supabase
+        .from("retailers")
+        .select("name, address, phone, gst_number")
+        .eq("id", order.retailer_id)
+        .single();
+      retailer = retailerData;
+    }
+
+    if (!retailer) {
+      retailer = { name: "Customer", address: "", phone: "", gst_number: "" };
+    }
+
+    // Transform invoice_items to cartItems format
+    const cartItems = editedInvoice.invoice_items.map((item: any) => ({
+      id: item.id,
+      product_name: item.description,
+      quantity: item.quantity,
+      unit: item.unit,
+      rate: item.price_per_unit,
+      price: item.price_per_unit,
+      total: item.total_amount,
+      category: "",
+    }));
+
+    const displayInvoiceNumber = editedInvoice.invoice_number;
+    const displayInvoiceDate = new Date(editedInvoice.invoice_date).toLocaleDateString("en-GB");
+
+    const blob = await generateTemplate4Invoice({
+      orderId,
+      company,
+      retailer,
+      cartItems,
+      displayInvoiceNumber,
+      displayInvoiceDate
+    });
+
+    return { blob, invoiceNumber: editedInvoice.invoice_number };
+  }
+
+  // Fallback to generating from order data (original behavior)
+  console.log("📦 Generating invoice from order data");
+  
   // Fetch order
   const { data: order, error: orderError } = await supabase
     .from("orders")

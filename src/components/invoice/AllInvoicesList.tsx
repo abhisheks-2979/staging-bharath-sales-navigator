@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
+import EditInvoiceDialog from "./EditInvoiceDialog";
 
 interface Invoice {
   id: string;
@@ -20,6 +21,7 @@ export default function AllInvoicesList() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<{ orderId: string; invoiceNumber: string } | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -141,24 +143,34 @@ export default function AllInvoicesList() {
                       ₹{invoice.total_amount?.toFixed(2) || "0.00"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={downloadingId === invoice.id}
-                        onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)}
-                      >
-                        {downloadingId === invoice.id ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingInvoice({ orderId: invoice.id, invoiceNumber: invoice.invoice_number })}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingId === invoice.id}
+                          onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)}
+                        >
+                          {downloadingId === invoice.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="mr-2 h-4 w-4" />
+                              Download
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -167,6 +179,16 @@ export default function AllInvoicesList() {
           </div>
         )}
       </CardContent>
+
+      {editingInvoice && (
+        <EditInvoiceDialog
+          orderId={editingInvoice.orderId}
+          invoiceNumber={editingInvoice.invoiceNumber}
+          open={!!editingInvoice}
+          onOpenChange={(open) => !open && setEditingInvoice(null)}
+          onSaved={fetchInvoices}
+        />
+      )}
     </Card>
   );
 }
