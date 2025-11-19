@@ -558,7 +558,6 @@ export const OrderEntry = () => {
   useEffect(() => {
     if (cachedProducts && cachedProducts.length > 0) {
       try {
-        setLoading(true);
         console.log('📦 Mapping cached products:', cachedProducts.length);
 
         // Extract unique categories
@@ -616,16 +615,14 @@ export const OrderEntry = () => {
 
         setProducts(mapped);
         setSchemes(cachedProducts.flatMap((p: any) => p.schemes || []));
+        setLoading(false);
         console.log('✅ Mapped products:', mapped.length);
       } catch (error) {
         console.error('💥 Error mapping cached products:', error);
-      } finally {
         setLoading(false);
       }
-    } else if (!offlineLoading) {
-      setLoading(false);
     }
-  }, [cachedProducts, offlineLoading]);
+  }, [cachedProducts]);
 
   // Set up real-time subscriptions only when online
   useEffect(() => {

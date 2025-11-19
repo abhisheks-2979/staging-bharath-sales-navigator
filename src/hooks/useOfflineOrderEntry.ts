@@ -35,12 +35,10 @@ export function useOfflineOrderEntry() {
     };
   }, []);
 
-  // Fetch products with offline support
+  // Fetch products with offline support - instant cache load
   const fetchProducts = async () => {
     try {
-      setLoading(true);
-
-      // 1. Load from cache immediately for instant display
+      // 1. Load from cache INSTANTLY - no loading state
       const cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
       const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
@@ -52,10 +50,10 @@ export function useOfflineOrderEntry() {
           schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
-        setLoading(false);
+        console.log(`✅ Loaded ${enrichedProducts.length} products from cache instantly`);
       }
 
-      // 2. If online, fetch fresh data in background
+      // 2. If online, fetch fresh data in background and update
       if (isOnline) {
         const { data: productsData, error: productsError } = await supabase
           .from('products')
@@ -86,26 +84,18 @@ export function useOfflineOrderEntry() {
 
         setProducts(enrichedProducts);
 
-        // Cache for offline use
-        await offlineStorage.clear(STORES.PRODUCTS);
-        await offlineStorage.clear(STORES.VARIANTS);
-        await offlineStorage.clear(STORES.SCHEMES);
-        
-        for (const product of enrichedProducts) {
-          await offlineStorage.save(STORES.PRODUCTS, product);
-        }
-        if (variantsData) {
-          for (const variant of variantsData) {
-            await offlineStorage.save(STORES.VARIANTS, variant);
-          }
-        }
-        if (schemesData) {
-          for (const scheme of schemesData) {
-            await offlineStorage.save(STORES.SCHEMES, scheme);
-          }
-        }
+        // Cache for offline use - do this in background
+        offlineStorage.clear(STORES.PRODUCTS).then(() => {
+          enrichedProducts.forEach(product => offlineStorage.save(STORES.PRODUCTS, product));
+        });
+        offlineStorage.clear(STORES.VARIANTS).then(() => {
+          variantsData?.forEach(variant => offlineStorage.save(STORES.VARIANTS, variant));
+        });
+        offlineStorage.clear(STORES.SCHEMES).then(() => {
+          schemesData?.forEach(scheme => offlineStorage.save(STORES.SCHEMES, scheme));
+        });
 
-        console.log(`Cached ${enrichedProducts.length} products for offline use`);
+        console.log(`✅ Synced ${enrichedProducts.length} products from network`);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
