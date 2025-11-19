@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2 } from 'lucide-react';
@@ -576,11 +577,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                 <SelectValue placeholder="Select product" />
                               </SelectTrigger>
                               <SelectContent>
-                                {products.map(product => (
-                                  <SelectItem key={product.id} value={product.id}>
-                                    {product.name} ({product.unit})
-                                  </SelectItem>
-                                ))}
+                                <ScrollArea className="h-[300px]">
+                                  {products.map(product => (
+                                    <SelectItem key={product.id} value={product.id}>
+                                      {product.name} ({product.unit})
+                                    </SelectItem>
+                                  ))}
+                                </ScrollArea>
                               </SelectContent>
                             </Select>
                           </div>
