@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ReportGenerator } from "@/components/ReportGenerator";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -70,6 +71,16 @@ export const TodaySummary = () => {
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
+  
+  // Retailer-based report data
+  const [retailerReportData, setRetailerReportData] = useState<Array<{
+    retailerName: string;
+    address: string;
+    phoneNumber: string;
+    visitStatus: string;
+    orderPerKG: number;
+    totalValue: number;
+  }>>([]);
 
   // Dialog state and data sources for details
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -190,7 +201,7 @@ export const TodaySummary = () => {
       if (retailerIds.length > 0) {
         const { data } = await supabase
           .from('retailers')
-          .select('id, name, address')
+          .select('id, name, address, phone_number')
           .in('id', retailerIds);
         retailers = data || [];
       }
@@ -534,6 +545,43 @@ export const TodaySummary = () => {
       };
 
       setVisitsByStatus(visitsByStatusData);
+
+      // Prepare retailer-based report data
+      const retailerReportMap = new Map();
+      
+      visits?.forEach(visit => {
+        const retailer = retailerMap.get(visit.retailer_id);
+        const retailerOrders = todayOrders?.filter(o => o.retailer_id === visit.retailer_id) || [];
+        
+        let totalKgForRetailer = 0;
+        let totalValueForRetailer = 0;
+        
+        retailerOrders.forEach(order => {
+          order.order_items?.forEach((item: any) => {
+            totalKgForRetailer += convertToKg(item.quantity, item.unit || 'piece');
+          });
+          totalValueForRetailer += Number(order.total_amount || 0);
+        });
+        
+        // Determine visit status
+        let visitStatus = 'Pending';
+        if (visit.status === 'productive') visitStatus = 'Productive';
+        else if (visit.status === 'unproductive') visitStatus = 'Non-Productive';
+        else if (visit.status === 'store_closed') visitStatus = 'Store Closed';
+        else if (visit.status === 'canceled') visitStatus = 'Canceled';
+        
+        retailerReportMap.set(visit.retailer_id, {
+          retailerName: retailer?.name || 'Unknown',
+          address: retailer?.address || 'N/A',
+          phoneNumber: retailer?.phone_number || 'N/A',
+          visitStatus: visitStatus,
+          orderPerKG: totalKgForRetailer,
+          totalValue: totalValueForRetailer
+        });
+      });
+      
+      const reportData = Array.from(retailerReportMap.values());
+      setRetailerReportData(reportData);
 
     } catch (error) {
       console.error('Error fetching today\'s data:', error);
@@ -958,22 +1006,35 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <Button 
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-xs sm:text-sm"
           >
             <Download size={16} />
-            Download PDF
+            <span className="hidden sm:inline">Download PDF</span>
+            <span className="sm:hidden">PDF</span>
           </Button>
           <Button 
             variant="outline"
             onClick={handleShare}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-xs sm:text-sm"
           >
             <Share size={16} />
-            Share Summary
+            <span className="hidden sm:inline">Share</span>
+            <span className="sm:hidden">Share</span>
           </Button>
+          <ReportGenerator 
+            data={retailerReportData}
+            dateRange={
+              filterType === 'today' ? format(selectedDate, 'MMM dd, yyyy') :
+              filterType === 'week' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+              filterType === 'lastWeek' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+              filterType === 'month' ? format(selectedDate, 'MMMM yyyy') :
+              filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+              format(selectedDate, 'MMM dd, yyyy')
+            }
+          />
         </div>
 
         {/* Beat Information */}
