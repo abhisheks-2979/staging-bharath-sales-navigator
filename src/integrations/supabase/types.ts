@@ -2052,6 +2052,8 @@ export type Database = {
           id: string
           invoice_date: string
           invoice_number: string
+          is_edited: boolean | null
+          order_id: string | null
           place_of_supply: string | null
           status: string | null
           sub_total: number | null
@@ -2071,6 +2073,8 @@ export type Database = {
           id?: string
           invoice_date: string
           invoice_number: string
+          is_edited?: boolean | null
+          order_id?: string | null
           place_of_supply?: string | null
           status?: string | null
           sub_total?: number | null
@@ -2090,6 +2094,8 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_number?: string
+          is_edited?: boolean | null
+          order_id?: string | null
           place_of_supply?: string | null
           status?: string | null
           sub_total?: number | null
@@ -2112,6 +2118,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
