@@ -490,36 +490,20 @@ export const CreateBeat = () => {
                 </Button>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="beatName">Beat Name</Label>
-                <Input
-                  id="beatName"
-                  placeholder="Enter beat name (e.g., North Zone Beat)"
-                  value={beatName}
-                  onChange={(e) => setBeatName(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Selected Retailers ({selectedRetailers.length})</Label>
-                <div className="flex flex-wrap gap-2">
-                  {retailers
-                    .filter(r => selectedRetailers.includes(r.id))
-                    .map(retailer => (
-                      <Badge
-                        key={retailer.id}
-                        variant="secondary"
-                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => handleRemoveRetailer(retailer.id)}
-                      >
-                        {retailer.name} ×
-                      </Badge>
-                    ))}
+              {/* Beat Name and Recurrence Scheduling in Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="beatName">Beat Name</Label>
+                  <Input
+                    id="beatName"
+                    placeholder="Enter beat name (e.g., North Zone Beat)"
+                    value={beatName}
+                    onChange={(e) => setBeatName(e.target.value)}
+                  />
                 </div>
-              </div>
-              
-              {/* Recurrence Scheduling */}
-              <div className="space-y-3 p-3 border rounded-lg bg-background">
+                
+                {/* Recurrence Scheduling */}
+                <div className="space-y-3 p-3 border rounded-lg bg-background">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -674,6 +658,25 @@ export const CreateBeat = () => {
                     )}
                   </div>
                 )}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Selected Retailers ({selectedRetailers.length})</Label>
+                <div className="flex flex-wrap gap-2">
+                  {retailers
+                    .filter(r => selectedRetailers.includes(r.id))
+                    .map(retailer => (
+                      <Badge
+                        key={retailer.id}
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => handleRemoveRetailer(retailer.id)}
+                      >
+                        {retailer.name} ×
+                      </Badge>
+                    ))}
+                </div>
               </div>
               
               <Button onClick={handleCreateBeat} className="w-full" disabled={isCreating}>
