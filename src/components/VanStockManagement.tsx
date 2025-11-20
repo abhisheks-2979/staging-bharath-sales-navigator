@@ -680,7 +680,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                                 handleProductChange(index, 'product_id', product.id);
                                                 setOpenProductPopovers(prev => ({ ...prev, [index]: false }));
                                               }}
-                                              className="text-xs bg-background hover:bg-accent py-2"
+                                              className="text-xs bg-background hover:bg-accent py-1"
                                             >
                                               <Check
                                                 className={cn(
@@ -688,9 +688,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                                   item.product_id === product.id ? "opacity-100" : "opacity-0"
                                                 )}
                                               />
-                                              <div className="flex-1">
-                                                <div className="font-medium">{product.name}</div>
-                                                <div className="text-[10px] text-muted-foreground">
+                                              <div className="flex-1 leading-tight">
+                                                <div className="font-medium leading-tight">{product.name}</div>
+                                                <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
                                                   ₹{product.rate.toFixed(2)} per {product.unit}
                                                 </div>
                                               </div>
