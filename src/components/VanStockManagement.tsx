@@ -20,6 +20,7 @@ interface Product {
   id: string;
   name: string;
   unit: string;
+  rate: number;
 }
 
 interface StockItem {
@@ -132,7 +133,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         setProducts(cachedProducts.map((p: any) => ({
           id: p.id,
           name: p.name,
-          unit: p.unit
+          unit: p.unit,
+          rate: p.rate || 0
         })));
       }
       
@@ -140,7 +142,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, unit')
+          .select('id, name, unit, rate')
           .eq('is_active', true)
           .order('name');
         
@@ -553,76 +555,102 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   </div>
 
                   {stockItems.length === 0 ? (
-                    <Card className="p-8 text-center">
-                      <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-                      <p className="text-muted-foreground">No products added yet</p>
-                      <Button size="sm" onClick={handleAddProduct} className="mt-3">
-                        <Plus className="h-4 w-4 mr-1" /> Add Your First Product
+                    <Card className="p-6 text-center">
+                      <Package className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No products added yet</p>
+                      <Button size="sm" onClick={handleAddProduct} className="mt-2 h-8 text-xs">
+                        <Plus className="h-3 w-3 mr-1" /> Add First Product
                       </Button>
                     </Card>
                   ) : (
-                    <div className="space-y-2">
-                      {stockItems.map((item, index) => (
-                        <Card key={index} className="p-2">
-                          <div className="flex items-end gap-1.5">
-                            <div className="flex-1 min-w-0">
-                              <Label className="text-[10px]">Product</Label>
-                            <Select
-                              value={item.product_id}
-                              onValueChange={(value) => handleProductChange(index, 'product_id', value)}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent 
-                                position="popper" 
-                                className="z-50 bg-background border shadow-md max-h-[250px] overflow-y-auto"
-                                sideOffset={4}
+                    <div className="space-y-1.5">
+                      {stockItems.map((item, index) => {
+                        const selectedProduct = products.find(p => p.id === item.product_id);
+                        const pricePerUnit = selectedProduct?.rate || 0;
+                        
+                        return (
+                          <Card key={index} className="p-1.5">
+                            <div className="flex items-end gap-1">
+                              <div className="flex-1 min-w-0">
+                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">Product</Label>
+                                <Select
+                                  value={item.product_id}
+                                  onValueChange={(value) => handleProductChange(index, 'product_id', value)}
+                                >
+                                  <SelectTrigger className="h-8 text-[11px] px-2">
+                                    <SelectValue placeholder="Select product">
+                                      {selectedProduct && (
+                                        <div className="flex flex-col items-start">
+                                          <span className="font-medium">{selectedProduct.name}</span>
+                                          <span className="text-[9px] text-muted-foreground">
+                                            ₹{pricePerUnit.toFixed(2)} per {selectedProduct.unit}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent 
+                                    position="popper" 
+                                    className="z-[100] bg-popover border shadow-lg max-h-[200px] w-[var(--radix-select-trigger-width)]"
+                                    sideOffset={4}
+                                  >
+                                    <div className="max-h-[200px] overflow-y-auto">
+                                      {products.map(product => (
+                                        <SelectItem key={product.id} value={product.id} className="text-[11px] py-2">
+                                          <div className="flex flex-col">
+                                            <span className="font-medium">{product.name}</span>
+                                            <span className="text-[9px] text-muted-foreground">
+                                              ₹{product.rate.toFixed(2)} per {product.unit}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </div>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="w-12">
+                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">Unit</Label>
+                                <Select
+                                  value={item.unit}
+                                  onValueChange={(value) => handleProductChange(index, 'unit', value)}
+                                >
+                                  <SelectTrigger className="h-8 text-[11px] px-1.5">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="z-[100]">
+                                    <SelectItem value="kg" className="text-[11px]">KG</SelectItem>
+                                    <SelectItem value="grams" className="text-[11px]">g</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="w-14">
+                                <Label className="text-[9px] text-muted-foreground mb-0.5 block">Qty</Label>
+                                <Input
+                                  type="number"
+                                  value={item.start_qty}
+                                  onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                  className="h-8 text-[11px] px-1.5"
+                                  min="0"
+                                />
+                              </div>
+                              
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={() => handleRemoveProduct(index)}
+                                className="h-7 w-7 p-0 shrink-0"
+                                title="Remove product"
                               >
-                                {products.map(product => (
-                                  <SelectItem key={product.id} value={product.id} className="text-xs">
-                                    {product.name} ({product.unit})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
                             </div>
-                          <div className="w-12">
-                            <Label className="text-[10px]">Unit</Label>
-                            <Select
-                              value={item.unit}
-                              onValueChange={(value) => handleProductChange(index, 'unit', value)}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="kg" className="text-xs">kg</SelectItem>
-                                <SelectItem value="grams" className="text-xs">g</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="w-14">
-                            <Label className="text-[10px]">Qty</Label>
-                            <Input
-                              type="number"
-                              value={item.start_qty}
-                              onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
-                              placeholder="0"
-                              className="h-8 text-xs"
-                            />
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={() => handleRemoveProduct(index)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                          </div>
-                        </Card>
-                      ))}
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
