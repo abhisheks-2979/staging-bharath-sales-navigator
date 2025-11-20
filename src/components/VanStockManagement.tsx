@@ -562,17 +562,17 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       </Button>
                     </Card>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {stockItems.map((item, index) => (
-                        <Card key={index} className="p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                            <div className="md:col-span-2">
+                        <Card key={index} className="p-3">
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
                               <Label className="text-xs">Product</Label>
                             <Select
                               value={item.product_id}
                               onValueChange={(value) => handleProductChange(index, 'product_id', value)}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger className="h-9">
                                 <SelectValue placeholder="Select product" />
                               </SelectTrigger>
                               <SelectContent 
@@ -588,14 +588,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </SelectContent>
                             </Select>
                             </div>
-                          <div>
+                          <div className="w-24">
                             <Label className="text-xs">Unit</Label>
                             <Select
                               value={item.unit}
                               onValueChange={(value) => handleProductChange(index, 'unit', value)}
                             >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select unit" />
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Unit" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="kg">kg</SelectItem>
@@ -603,28 +603,26 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="flex gap-2">
-                            <div className="flex-1">
-                              <Label className="text-xs">Quantity</Label>
-                              <Input
-                                type="number"
-                                value={item.start_qty}
-                                onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
-                            </div>
-                            <div className="flex items-end">
-                              <Button 
-                                size="sm" 
-                                variant="destructive" 
-                                onClick={() => handleRemoveProduct(index)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                          <div className="w-24">
+                            <Label className="text-xs">Quantity</Label>
+                            <Input
+                              type="number"
+                              value={item.start_qty}
+                              onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                              placeholder="0"
+                              className="h-9"
+                            />
                           </div>
-                        </div>
-                      </Card>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => handleRemoveProduct(index)}
+                            className="h-9 w-9 p-0"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                          </div>
+                        </Card>
                       ))}
                     </div>
                   )}
