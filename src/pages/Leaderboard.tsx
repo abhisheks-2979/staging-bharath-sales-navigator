@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal, TrendingUp, Target, Star } from "lucide-react";
+import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal, TrendingUp, Target, Star, FileSpreadsheet } from "lucide-react";
 import { BadgesDisplay } from "@/components/BadgesDisplay";
+import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +73,7 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("today");
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState("");
   const [conversionRate, setConversionRate] = useState(1);
 
@@ -447,7 +449,18 @@ export default function Leaderboard() {
               </div>
               <p className="text-sm text-muted-foreground">My Points</p>
               <p className="text-4xl font-bold">{getDisplayPoints()}</p>
-              <p className="text-xs text-muted-foreground mt-1">Total: {myPoints.total}</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-xs text-muted-foreground">Total: {myPoints.total}</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 text-xs"
+                  onClick={() => setShowDetailsModal(true)}
+                >
+                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                  View Details
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -748,6 +761,16 @@ export default function Leaderboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Points Details Modal */}
+      {userProfile?.id && (
+        <PointsDetailsModal
+          open={showDetailsModal}
+          onOpenChange={setShowDetailsModal}
+          userId={userProfile.id}
+          timeFilter={timeFilter}
+        />
+      )}
     </Layout>
   );
 }
