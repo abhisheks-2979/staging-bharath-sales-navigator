@@ -71,7 +71,9 @@ export default function Leaderboard() {
   const [games, setGames] = useState<GameWithPoints[]>([]);
   const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year">("today");
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year" | "custom">("today");
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState("");
@@ -84,7 +86,7 @@ export default function Leaderboard() {
     fetchGames();
     fetchPointsBreakdown();
     fetchConversionRate();
-  }, [timeFilter]);
+  }, [timeFilter, customStartDate, customEndDate]);
 
   const fetchLeaderboardData = async () => {
     setLoading(true);
@@ -146,31 +148,43 @@ export default function Leaderboard() {
   const getDateRange = () => {
     const now = new Date();
     let startDate: Date;
+    let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-    switch (timeFilter) {
-      case "today":
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-        break;
-      case "week":
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - now.getDay());
+    if (timeFilter === "custom") {
+      if (customStartDate && customEndDate) {
+        startDate = new Date(customStartDate);
         startDate.setHours(0, 0, 0, 0);
-        break;
-      case "month":
+        endDate = new Date(customEndDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        break;
-      case "quarter":
-        const currentQuarter = Math.floor(now.getMonth() / 3);
-        startDate = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
-        break;
-      case "year":
-        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      }
+    } else {
+      switch (timeFilter) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          break;
+        case "week":
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - now.getDay());
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          break;
+        case "quarter":
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
+          break;
+        case "year":
+          startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      }
     }
 
-    return { startDate, endDate: now };
+    return { startDate, endDate };
   };
 
   const fetchConversionRate = async () => {
@@ -445,6 +459,10 @@ export default function Leaderboard() {
                 <LeaderboardTimeFilters 
                   timeFilter={timeFilter} 
                   onFilterChange={(v: any) => setTimeFilter(v)}
+                  customStartDate={customStartDate}
+                  customEndDate={customEndDate}
+                  onCustomStartDateChange={setCustomStartDate}
+                  onCustomEndDateChange={setCustomEndDate}
                 />
               </div>
               <p className="text-sm text-muted-foreground">My Points</p>
