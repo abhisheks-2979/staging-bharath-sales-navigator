@@ -65,10 +65,10 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
   useEffect(() => {
     if (open) {
       loadVans();
-      loadBeats();
       loadProducts();
+      loadBeatForDate();
     }
-  }, [open]);
+  }, [open, selectedDate]);
 
   const loadVans = async () => {
     const { data, error } = await supabase
@@ -85,19 +85,29 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
     setVans(data || []);
   };
 
-  const loadBeats = async () => {
+  const loadBeatForDate = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session?.user) return;
+
+    const formattedDate = selectedDate.toISOString().split('T')[0];
+    
     const { data, error } = await supabase
-      .from('beats')
-      .select('id, beat_name, beat_id')
-      .eq('is_active', true)
-      .order('beat_name');
+      .from('beat_plans')
+      .select('beat_id, beat_name')
+      .eq('user_id', session.session.user.id)
+      .eq('plan_date', formattedDate)
+      .single();
 
     if (error) {
-      console.error('Error loading beats:', error);
-      toast.error('Failed to load beats');
+      console.error('Error loading beat plan:', error);
+      toast.error('No beat plan found for this date');
       return;
     }
-    setBeats(data || []);
+    
+    if (data) {
+      setBeats([{ id: data.beat_id, beat_name: data.beat_name, beat_id: data.beat_id }]);
+      setSelectedBeat(data.beat_id);
+    }
   };
 
   const loadProducts = async () => {
@@ -324,10 +334,10 @@ export function VanMorningInventory({ open, onOpenChange, selectedDate }: VanMor
             </div>
 
             <div className="space-y-2">
-              <Label>Select Beat *</Label>
-              <Select value={selectedBeat} onValueChange={setSelectedBeat}>
+              <Label>Beat (Auto-selected from plan) *</Label>
+              <Select value={selectedBeat} disabled>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose beat" />
+                  <SelectValue placeholder="Beat will be auto-selected based on date" />
                 </SelectTrigger>
                 <SelectContent>
                   {beats.map(beat => (
