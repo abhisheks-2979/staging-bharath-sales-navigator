@@ -131,33 +131,101 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       // Try loading from IndexedDB first (offline-first)
       const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
       let cachedProducts = await offlineStorage.getAll(STORES.PRODUCTS);
+      let cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
       
       if (cachedProducts && cachedProducts.length > 0) {
         console.log('Loaded products from cache:', cachedProducts.length);
-        setProducts(cachedProducts.map((p: any) => ({
+        
+        // Enrich products with their variants
+        const enrichedProducts = cachedProducts.map((p: any) => ({
           id: p.id,
           name: p.name,
           unit: p.unit,
-          rate: p.rate || 0
-        })));
+          rate: p.rate || 0,
+          variants: (cachedVariants || []).filter((v: any) => v.product_id === p.id && v.is_active)
+        }));
+        
+        // Flatten to include both base products and active variants
+        const allProducts: Product[] = [];
+        enrichedProducts.forEach((p: any) => {
+          // Add base product
+          allProducts.push(p);
+          // Add active variants as separate entries
+          if (p.variants && p.variants.length > 0) {
+            p.variants.forEach((v: any) => {
+              allProducts.push({
+                id: v.id,
+                name: `${p.name} - ${v.variant_name}`,
+                unit: p.unit,
+                rate: v.price || p.rate
+              });
+            });
+          }
+        });
+        
+        setProducts(allProducts);
       }
       
       // Try online fetch to update cache
       try {
-        const { data, error } = await supabase
+        const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('id, name, unit, rate')
           .eq('is_active', true)
           .order('name');
         
-        if (error) {
-          console.error('Error fetching products:', error);
-        } else if (data) {
-          console.log('Loaded products from database:', data.length);
-          setProducts(data);
+        if (productsError) {
+          console.error('Error fetching products:', productsError);
+        } else if (productsData) {
+          // Fetch active variants
+          const { data: variantsData } = await supabase
+            .from('product_variants')
+            .select('*')
+            .eq('is_active', true);
+          
+          console.log('Loaded products from database:', productsData.length);
+          console.log('Loaded variants from database:', variantsData?.length || 0);
+          
+          // Enrich products with their variants
+          const enrichedProducts = productsData.map((p: any) => ({
+            ...p,
+            variants: (variantsData || []).filter((v: any) => v.product_id === p.id)
+          }));
+          
+          // Flatten to include both base products and active variants
+          const allProducts: Product[] = [];
+          enrichedProducts.forEach((p: any) => {
+            // Add base product
+            allProducts.push({
+              id: p.id,
+              name: p.name,
+              unit: p.unit,
+              rate: p.rate
+            });
+            // Add active variants as separate entries
+            if (p.variants && p.variants.length > 0) {
+              p.variants.forEach((v: any) => {
+                allProducts.push({
+                  id: v.id,
+                  name: `${p.name} - ${v.variant_name}`,
+                  unit: p.unit,
+                  rate: v.price || p.rate
+                });
+              });
+            }
+          });
+          
+          setProducts(allProducts);
+          
           // Update cache
-          for (const product of data) {
+          const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+          for (const product of productsData) {
             await offlineStorage.save(STORES.PRODUCTS, product);
+          }
+          if (variantsData) {
+            for (const variant of variantsData) {
+              await offlineStorage.save(STORES.VARIANTS, variant);
+            }
           }
         }
       } catch (onlineError) {
