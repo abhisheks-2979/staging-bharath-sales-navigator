@@ -404,20 +404,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto w-[95vw]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Van Stock Management - {new Date(selectedDate).toLocaleDateString('en-IN', { 
-                weekday: 'long', 
+            <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+              <Truck className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="truncate">Van Stock - {new Date(selectedDate).toLocaleDateString('en-IN', { 
                 day: 'numeric', 
                 month: 'short',
                 year: 'numeric' 
-              })}
+              })}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Select Van</Label>
@@ -514,31 +513,31 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
                 {/* KM Tracking */}
                 <Card className="p-2.5 bg-blue-50 dark:bg-blue-950">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <Label className="text-xs font-semibold">Start KM</Label>
+                      <Label className="text-[10px] font-semibold">Start KM</Label>
                       <Input
                         type="number"
                         value={startKm}
                         onChange={(e) => setStartKm(parseFloat(e.target.value) || 0)}
-                        placeholder="Enter start km"
-                        className="mt-0.5 h-8 text-sm"
+                        placeholder="Start"
+                        className="mt-0.5 h-8 text-xs"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-semibold">End KM</Label>
+                      <Label className="text-[10px] font-semibold">End KM</Label>
                       <Input
                         type="number"
                         value={endKm}
                         onChange={(e) => setEndKm(parseFloat(e.target.value) || 0)}
-                        placeholder="Enter end km"
-                        className="mt-0.5 h-8 text-sm"
+                        placeholder="End"
+                        className="mt-0.5 h-8 text-xs"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-semibold">Total KM (Day)</Label>
-                      <div className="mt-0.5 h-8 px-2 py-1 bg-primary/10 rounded-md border border-primary/20 flex items-center">
-                        <span className="text-sm font-bold text-primary">{totalKm.toFixed(2)} km</span>
+                      <Label className="text-[10px] font-semibold">Total KM</Label>
+                      <div className="mt-0.5 h-8 px-2 py-1 bg-primary/10 rounded-md border border-primary/20 flex items-center justify-center">
+                        <span className="text-xs font-bold text-primary">{totalKm.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -546,10 +545,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
                 {/* Stock Items Management */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-lg font-semibold">Stock Items</Label>
-                    <Button size="sm" onClick={handleAddProduct}>
-                      <Plus className="h-4 w-4 mr-1" /> Add Product
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-sm sm:text-lg font-semibold">Stock Items</Label>
+                    <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
                     </Button>
                   </div>
 
@@ -564,16 +563,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   ) : (
                     <div className="space-y-2">
                       {stockItems.map((item, index) => (
-                        <Card key={index} className="p-3">
-                          <div className="flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label className="text-xs">Product</Label>
+                        <Card key={index} className="p-2">
+                          <div className="flex items-end gap-1.5">
+                            <div className="flex-1 min-w-0">
+                              <Label className="text-[10px]">Product</Label>
                             <Select
                               value={item.product_id}
                               onValueChange={(value) => handleProductChange(index, 'product_id', value)}
                             >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Select product" />
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent 
                                 position="popper" 
@@ -581,45 +580,45 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                 sideOffset={4}
                               >
                                 {products.map(product => (
-                                  <SelectItem key={product.id} value={product.id}>
+                                  <SelectItem key={product.id} value={product.id} className="text-xs">
                                     {product.name} ({product.unit})
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                             </div>
-                          <div className="w-24">
-                            <Label className="text-xs">Unit</Label>
+                          <div className="w-16">
+                            <Label className="text-[10px]">Unit</Label>
                             <Select
                               value={item.unit}
                               onValueChange={(value) => handleProductChange(index, 'unit', value)}
                             >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Unit" />
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="kg">kg</SelectItem>
-                                <SelectItem value="grams">grams</SelectItem>
+                                <SelectItem value="kg" className="text-xs">kg</SelectItem>
+                                <SelectItem value="grams" className="text-xs">g</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="w-24">
-                            <Label className="text-xs">Quantity</Label>
+                          <div className="w-16">
+                            <Label className="text-[10px]">Qty</Label>
                             <Input
                               type="number"
                               value={item.start_qty}
                               onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
                               placeholder="0"
-                              className="h-9"
+                              className="h-8 text-xs"
                             />
                           </div>
                           <Button 
                             size="sm" 
                             variant="ghost" 
                             onClick={() => handleRemoveProduct(index)}
-                            className="h-9 w-9 p-0"
+                            className="h-8 w-8 p-0"
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                           </div>
                         </Card>
@@ -629,11 +628,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t">
-                  <Button onClick={handleSaveStock} disabled={loading} className="flex-1">
-                    {loading ? 'Saving...' : 'Save Van Stock'}
+                <div className="flex gap-2 pt-3 border-t">
+                  <Button onClick={handleSaveStock} disabled={loading} className="flex-1 h-9 text-sm">
+                    {loading ? 'Saving...' : 'Save Stock'}
                   </Button>
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  <Button variant="outline" onClick={() => onOpenChange(false)} className="h-9 text-sm">
                     Close
                   </Button>
                 </div>
