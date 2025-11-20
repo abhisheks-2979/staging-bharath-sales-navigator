@@ -21,6 +21,8 @@ interface PointDetail {
   action_type: string;
   reference_type: string | null;
   reference_id: string | null;
+  retailer_id: string | null;
+  retailer_name: string | null;
   metadata: any;
 }
 
@@ -99,17 +101,51 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
       return;
     }
 
-    const formattedData: PointDetail[] = (data || []).map((item: any) => ({
-      id: item.id,
-      earned_at: item.earned_at,
-      points: item.points,
-      game_name: item.gamification_games?.name || "Unknown Game",
-      action_name: item.gamification_actions?.action_name || "Unknown Action",
-      action_type: item.gamification_actions?.action_type || "",
-      reference_type: item.reference_type,
-      reference_id: item.reference_id,
-      metadata: item.metadata
-    }));
+    // Fetch retailer info for points with order references
+    const orderIds = (data || [])
+      .filter(item => item.reference_type === "order")
+      .map(item => item.reference_id)
+      .filter(Boolean);
+
+    let retailerMap = new Map<string, { id: string; name: string }>();
+
+    if (orderIds.length > 0) {
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("id, retailer_id, retailers(id, name)")
+        .in("id", orderIds);
+
+      if (orders) {
+        orders.forEach((order: any) => {
+          if (order.retailers) {
+            retailerMap.set(order.id, {
+              id: order.retailers.id,
+              name: order.retailers.name
+            });
+          }
+        });
+      }
+    }
+
+    const formattedData: PointDetail[] = (data || []).map((item: any) => {
+      const retailerInfo = item.reference_type === "order" && item.reference_id 
+        ? retailerMap.get(item.reference_id) 
+        : null;
+
+      return {
+        id: item.id,
+        earned_at: item.earned_at,
+        points: item.points,
+        game_name: item.gamification_games?.name || "Unknown Game",
+        action_name: item.gamification_actions?.action_name || "Unknown Action",
+        action_type: item.gamification_actions?.action_type || "",
+        reference_type: item.reference_type,
+        reference_id: item.reference_id,
+        retailer_id: retailerInfo?.id || null,
+        retailer_name: retailerInfo?.name || null,
+        metadata: item.metadata
+      };
+    });
 
     setPointDetails(formattedData);
     setLoading(false);
@@ -131,13 +167,11 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
   const handleExportExcel = () => {
     try {
       const exportData = filteredPoints.map(point => ({
-        "Date": format(new Date(point.earned_at), "dd MMM yyyy, HH:mm"),
+        "Date & Time": format(new Date(point.earned_at), "dd MMM yyyy, HH:mm"),
         "Game Name": point.game_name,
-        "Activity": point.action_name,
-        "Activity Type": point.action_type,
-        "Points Earned": point.points,
-        "Reference Type": point.reference_type || "-",
-        "Reference ID": point.reference_id || "-"
+        "Retailer Name": point.retailer_name || "-",
+        "Reference": point.reference_id || "-",
+        "Points": point.points
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -235,16 +269,15 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
                         <TableRow>
                           <TableHead>Date & Time</TableHead>
                           <TableHead>Game Name</TableHead>
-                          <TableHead>Activity</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead className="text-right">Points</TableHead>
+                          <TableHead>Retailer Name</TableHead>
                           <TableHead>Reference</TableHead>
+                          <TableHead className="text-right">Points</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredPoints.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                               No points earned in this period
                             </TableCell>
                           </TableRow>
@@ -255,24 +288,36 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
                                 {format(new Date(point.earned_at), "dd MMM yyyy, HH:mm")}
                               </TableCell>
                               <TableCell>{point.game_name}</TableCell>
-                              <TableCell>{point.action_name}</TableCell>
                               <TableCell>
-                                <span className="text-xs bg-secondary px-2 py-1 rounded">
-                                  {point.action_type}
-                                </span>
+                                {point.retailer_name && point.retailer_id ? (
+                                  <a
+                                    href={`/retailer/${point.retailer_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline font-medium"
+                                  >
+                                    {point.retailer_name}
+                                  </a>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {point.reference_type === "order" && point.reference_id ? (
+                                  <a
+                                    href={`/visit-detail/${point.reference_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline text-xs"
+                                  >
+                                    {point.reference_id.substring(0, 8)}...
+                                  </a>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-right font-bold text-primary">
                                 +{point.points}
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                {point.reference_type ? (
-                                  <div>
-                                    <div>{point.reference_type}</div>
-                                    <div className="truncate max-w-[100px]">{point.reference_id}</div>
-                                  </div>
-                                ) : (
-                                  "-"
-                                )}
                               </TableCell>
                             </TableRow>
                           ))
