@@ -303,7 +303,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
           const baseProduct = {
             ...row.product!,
             rate: row.variant ? row.variant.price : row.product!.rate,
-            name: row.variant ? `${row.product!.name} - ${row.variant.variant_name}` : row.product!.name,
+            name: row.variant ? row.variant.variant_name : row.product!.name,
             sku: row.variant ? row.variant.sku : row.product!.sku,
             closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
           };
@@ -353,7 +353,7 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         const baseProduct = {
           ...row.product!,
           rate: row.variant ? row.variant.price : row.product!.rate,
-          name: row.variant ? `${row.product!.name} - ${row.variant.variant_name}` : row.product!.name,
+          name: row.variant ? row.variant.variant_name : row.product!.name,
           sku: row.variant ? row.variant.sku : row.product!.sku,
           closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
         };
