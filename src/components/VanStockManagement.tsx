@@ -461,54 +461,54 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   <Card 
-                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
+                    className="p-2.5 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('start')}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <Package className="h-5 w-5 text-primary" />
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center justify-between mb-1">
+                      <Package className="h-4 w-4 text-primary" />
+                      <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">Product Stock in Van</p>
-                    <p className="text-2xl font-bold">{totals.totalStart}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">Product Stock in Van</p>
+                    <p className="text-xl font-bold">{totals.totalStart}</p>
                   </Card>
 
                   <Card 
-                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
+                    className="p-2.5 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('ordered')}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <ShoppingCart className="h-5 w-5 text-amber-500" />
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center justify-between mb-1">
+                      <ShoppingCart className="h-4 w-4 text-amber-500" />
+                      <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">Retailer Ordered Qty</p>
-                    <p className="text-2xl font-bold">{totals.totalOrdered}</p>
-                    <Badge variant="secondary" className="mt-2 text-[10px] px-1 py-0">Auto-calculated</Badge>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">Retailer Ordered Qty</p>
+                    <p className="text-xl font-bold">{totals.totalOrdered}</p>
+                    <Badge variant="secondary" className="mt-1 text-[9px] px-1 py-0">Auto-calculated</Badge>
                   </Card>
 
                   <Card 
-                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
+                    className="p-2.5 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('returned')}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <Package className="h-5 w-5 text-blue-600" />
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center justify-between mb-1">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">Returned Qty</p>
-                    <p className="text-2xl font-bold">{totals.totalReturned}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">Returned Qty</p>
+                    <p className="text-xl font-bold">{totals.totalReturned}</p>
                   </Card>
 
                   <Card 
-                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
+                    className="p-2.5 cursor-pointer hover:bg-accent transition-colors"
                     onClick={() => setShowDetailModal('left')}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <TrendingDown className="h-5 w-5 text-green-600" />
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center justify-between mb-1">
+                      <TrendingDown className="h-4 w-4 text-green-600" />
+                      <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">Left in the Van</p>
-                    <p className="text-2xl font-bold">{totals.totalLeft}</p>
+                    <p className="text-[10px] text-muted-foreground mb-0.5">Left in the Van</p>
+                    <p className="text-xl font-bold">{totals.totalLeft}</p>
                   </Card>
                 </div>
 
