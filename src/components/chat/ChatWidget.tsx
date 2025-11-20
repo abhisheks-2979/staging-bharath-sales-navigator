@@ -1,10 +1,24 @@
 import { useState } from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ChatDialog } from './ChatDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 export const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   return (
     <>
@@ -19,28 +33,32 @@ export const ChatWidget = () => {
         </Button>
       )}
 
-      {/* Chat Dialog */}
-      {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col bg-background border rounded-lg shadow-2xl w-[400px] h-[600px] max-h-[80vh]">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-primary text-primary-foreground rounded-t-lg">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" />
-              <h3 className="font-semibold">AI Assistant</h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="h-8 w-8 text-primary-foreground hover:bg-primary/80"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Chat Content */}
-          <ChatDialog onClose={() => setIsOpen(false)} />
-        </div>
+      {/* Mobile: Drawer from bottom */}
+      {isMobile ? (
+        <Drawer open={isOpen} onOpenChange={setIsOpen}>
+          <DrawerContent className="h-[85vh] max-h-[85vh]">
+            <DrawerHeader className="border-b bg-primary text-primary-foreground">
+              <DrawerTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                AI Assistant
+              </DrawerTitle>
+            </DrawerHeader>
+            <ChatDialog onClose={() => setIsOpen(false)} />
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        /* Desktop: Sheet from right */
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetContent side="right" className="w-[400px] sm:w-[500px] p-0 flex flex-col">
+            <SheetHeader className="border-b bg-primary text-primary-foreground p-4">
+              <SheetTitle className="flex items-center gap-2 text-primary-foreground">
+                <MessageCircle className="h-5 w-5" />
+                AI Assistant
+              </SheetTitle>
+            </SheetHeader>
+            <ChatDialog onClose={() => setIsOpen(false)} />
+          </SheetContent>
+        </Sheet>
       )}
     </>
   );

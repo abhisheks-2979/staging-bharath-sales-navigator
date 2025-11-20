@@ -21,7 +21,7 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hello! I\'m your AI assistant. I can help you with reports, analytics, creating orders, and more. What would you like to know?'
+      content: 'Hi! I\'m your AI assistant. I can help you with sales reports, visit tracking, inventory management, and more. What can I help you with today?'
     }
   ]);
   const [input, setInput] = useState('');
@@ -29,6 +29,7 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -198,14 +199,14 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 overflow-hidden h-full">
       {/* Messages Area */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 p-3 sm:p-4" ref={scrollRef}>
+        <div className="space-y-3 sm:space-y-4 max-w-full">
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+          {isLoading && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Thinking...</span>
@@ -215,55 +216,59 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="border-t p-4">
-        <div className="flex gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask me anything... (e.g., 'Show my sales for last week')"
-            className="min-h-[60px] resize-none"
-            disabled={isLoading}
-          />
-          <Button
-            onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
-            size="icon"
-            className="h-[60px] w-[60px]"
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
-        
+      <div className="border-t p-3 sm:p-4 bg-background shrink-0">
         {/* Quick Actions */}
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setInput('Show my visits for today')}
             disabled={isLoading}
+            className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
-            Today's Visits
+            📍 Visits
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setInput('Show pending payments')}
             disabled={isLoading}
+            className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
-            Pending Payments
+            💰 Payments
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setInput('My performance this month')}
             disabled={isLoading}
+            className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
-            Performance
+            📊 Performance
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Ask anything..."
+            className="min-h-[50px] sm:min-h-[60px] resize-none text-sm"
+            disabled={isLoading}
+            rows={2}
+          />
+          <Button
+            onClick={sendMessage}
+            disabled={!input.trim() || isLoading}
+            size="icon"
+            className="shrink-0 h-[50px] w-[50px] sm:h-[60px] sm:w-[60px]"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
