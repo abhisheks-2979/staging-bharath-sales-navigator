@@ -4,13 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileSpreadsheet, TrendingUp } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { FileSpreadsheet, TrendingUp, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { format } from "date-fns";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { cn } from "@/lib/utils";
 
 interface PointDetail {
   id: string;
@@ -21,6 +26,7 @@ interface PointDetail {
   action_type: string;
   reference_type: string | null;
   reference_id: string | null;
+  visit_id: string | null;
   retailer_id: string | null;
   retailer_name: string | null;
   metadata: any;
@@ -30,54 +36,75 @@ interface PointsDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string;
-  timeFilter: "today" | "week" | "month" | "quarter" | "year";
+  timeFilter: "today" | "week" | "month" | "quarter" | "year" | "custom";
 }
 
-export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: PointsDetailsModalProps) {
+export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: initialTimeFilter }: PointsDetailsModalProps) {
   const [pointDetails, setPointDetails] = useState<PointDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState<string>("all");
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year" | "custom">(initialTimeFilter);
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+
+  useEffect(() => {
+    if (open && userId) {
+      setTimeFilter(initialTimeFilter);
+    }
+  }, [open, initialTimeFilter]);
 
   useEffect(() => {
     if (open && userId) {
       fetchPointDetails();
     }
-  }, [open, userId, timeFilter]);
+  }, [open, userId, timeFilter, customStartDate, customEndDate]);
 
   const getDateRange = () => {
     const now = new Date();
     let startDate: Date;
+    let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-    switch (timeFilter) {
-      case "today":
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-        break;
-      case "week":
-        const dayOfWeek = now.getDay();
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - dayOfWeek);
+    if (timeFilter === "custom") {
+      if (customStartDate && customEndDate) {
+        startDate = new Date(customStartDate);
         startDate.setHours(0, 0, 0, 0);
-        break;
-      case "month":
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        break;
-      case "quarter":
-        const currentQuarter = Math.floor(now.getMonth() / 3);
-        startDate = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
-        break;
-      case "year":
-        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-        break;
-      default:
+        endDate = new Date(customEndDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
         startDate = new Date(0);
+      }
+    } else {
+      switch (timeFilter) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          break;
+        case "week":
+          const dayOfWeek = now.getDay();
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - dayOfWeek);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          break;
+        case "quarter":
+          const currentQuarter = Math.floor(now.getMonth() / 3);
+          startDate = new Date(now.getFullYear(), currentQuarter * 3, 1, 0, 0, 0, 0);
+          break;
+        case "year":
+          startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+          break;
+        default:
+          startDate = new Date(0);
+      }
     }
 
-    return { startDate };
+    return { startDate, endDate };
   };
 
   const fetchPointDetails = async () => {
     setLoading(true);
-    const { startDate } = getDateRange();
+    const { startDate, endDate } = getDateRange();
 
     const { data, error } = await supabase
       .from("gamification_points")
@@ -93,6 +120,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
       `)
       .eq("user_id", userId)
       .gte("earned_at", startDate.toISOString())
+      .lte("earned_at", endDate.toISOString())
       .order("earned_at", { ascending: false });
 
     if (error) {
@@ -101,24 +129,34 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
       return;
     }
 
-    // Fetch retailer info for points with order references
+    // Fetch visit and retailer info for points with order/visit references
     const orderIds = (data || [])
       .filter(item => item.reference_type === "order")
       .map(item => item.reference_id)
       .filter(Boolean);
 
-    let retailerMap = new Map<string, { id: string; name: string }>();
+    const visitIds = (data || [])
+      .filter(item => item.reference_type === "visit")
+      .map(item => item.reference_id)
+      .filter(Boolean);
 
+    let orderToVisitMap = new Map<string, string>();
+    let visitToRetailerMap = new Map<string, { id: string; name: string }>();
+
+    // Fetch orders with visit_id and retailer info
     if (orderIds.length > 0) {
       const { data: orders } = await supabase
         .from("orders")
-        .select("id, retailer_id, retailers(id, name)")
+        .select("id, visit_id, retailer_id, retailers(id, name)")
         .in("id", orderIds);
 
       if (orders) {
         orders.forEach((order: any) => {
+          if (order.visit_id) {
+            orderToVisitMap.set(order.id, order.visit_id);
+          }
           if (order.retailers) {
-            retailerMap.set(order.id, {
+            visitToRetailerMap.set(order.visit_id || order.id, {
               id: order.retailers.id,
               name: order.retailers.name
             });
@@ -127,10 +165,36 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
       }
     }
 
+    // Fetch visits with retailer info
+    if (visitIds.length > 0) {
+      const { data: visits } = await supabase
+        .from("visits")
+        .select("id, retailer_id, retailers(id, name)")
+        .in("id", visitIds);
+
+      if (visits) {
+        visits.forEach((visit: any) => {
+          if (visit.retailers) {
+            visitToRetailerMap.set(visit.id, {
+              id: visit.retailers.id,
+              name: visit.retailers.name
+            });
+          }
+        });
+      }
+    }
+
     const formattedData: PointDetail[] = (data || []).map((item: any) => {
-      const retailerInfo = item.reference_type === "order" && item.reference_id 
-        ? retailerMap.get(item.reference_id) 
-        : null;
+      let visitId: string | null = null;
+      let retailerInfo: { id: string; name: string } | null = null;
+
+      if (item.reference_type === "order" && item.reference_id) {
+        visitId = orderToVisitMap.get(item.reference_id) || null;
+        retailerInfo = visitToRetailerMap.get(visitId || item.reference_id) || null;
+      } else if (item.reference_type === "visit" && item.reference_id) {
+        visitId = item.reference_id;
+        retailerInfo = visitToRetailerMap.get(visitId) || null;
+      }
 
       return {
         id: item.id,
@@ -141,6 +205,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
         action_type: item.gamification_actions?.action_type || "",
         reference_type: item.reference_type,
         reference_id: item.reference_id,
+        visit_id: visitId,
         retailer_id: retailerInfo?.id || null,
         retailer_name: retailerInfo?.name || null,
         metadata: item.metadata
@@ -229,34 +294,109 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <Tabs defaultValue="table" className="w-full">
+          <>
+            {/* Time Period and Date Range Selection */}
+            <div className="flex flex-wrap items-end gap-4 mb-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex-1 min-w-[200px]">
+                <Label htmlFor="timeFilter" className="text-sm mb-2 block">Time Period</Label>
+                <Select value={timeFilter} onValueChange={(value: any) => setTimeFilter(value)}>
+                  <SelectTrigger id="timeFilter" className="w-full">
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                    <SelectItem value="quarter">This Quarter</SelectItem>
+                    <SelectItem value="year">This Year</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {timeFilter === "custom" && (
+                <>
+                  <div className="flex-1 min-w-[200px]">
+                    <Label className="text-sm mb-2 block">Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !customStartDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {customStartDate ? format(customStartDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={customStartDate}
+                          onSelect={setCustomStartDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="flex-1 min-w-[200px]">
+                    <Label className="text-sm mb-2 block">End Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !customEndDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {customEndDate ? format(customEndDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={customEndDate}
+                          onSelect={setCustomEndDate}
+                          initialFocus
+                          disabled={(date) => customStartDate ? date < customStartDate : false}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <Tabs defaultValue="table" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="table">Detailed Table</TabsTrigger>
               <TabsTrigger value="chart">Chart View</TabsTrigger>
             </TabsList>
 
             <TabsContent value="table" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    variant={selectedGame === "all" ? "default" : "outline"}
-                    onClick={() => setSelectedGame("all")}
-                  >
-                    All Games
-                  </Button>
-                  {uniqueGames.map(gameName => (
-                    <Button
-                      key={gameName}
-                      size="sm"
-                      variant={selectedGame === gameName ? "default" : "outline"}
-                      onClick={() => setSelectedGame(gameName)}
-                    >
-                      {gameName}
-                    </Button>
-                  ))}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                  <Label htmlFor="gameFilter" className="text-sm whitespace-nowrap">Filter by Game:</Label>
+                  <Select value={selectedGame} onValueChange={setSelectedGame}>
+                    <SelectTrigger id="gameFilter" className="w-[250px]">
+                      <SelectValue placeholder="Select game" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Games</SelectItem>
+                      {uniqueGames.map(gameName => (
+                        <SelectItem key={gameName} value={gameName}>
+                          {gameName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="text-sm font-semibold">
+                <div className="text-sm font-semibold whitespace-nowrap">
                   Total Points: <span className="text-primary text-lg">{totalPoints}</span>
                 </div>
               </div>
@@ -303,14 +443,14 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
                                 )}
                               </TableCell>
                               <TableCell>
-                                {point.reference_type === "order" && point.reference_id ? (
+                                {point.visit_id ? (
                                   <a
-                                    href={`/visit-detail/${point.reference_id}`}
+                                    href={`/visit-detail/${point.visit_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-primary hover:underline text-xs"
                                   >
-                                    {point.reference_id.substring(0, 8)}...
+                                    View Visit
                                   </a>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">-</span>
@@ -399,6 +539,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter }: P
               </div>
             </TabsContent>
           </Tabs>
+          </>
         )}
       </DialogContent>
     </Dialog>
