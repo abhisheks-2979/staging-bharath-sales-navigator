@@ -120,6 +120,10 @@ export default function VanSalesManagement() {
 
     const payload = {
       ...formData,
+      purchase_date: formData.purchase_date || null,
+      rc_expiry_date: formData.rc_expiry_date || null,
+      insurance_expiry_date: formData.insurance_expiry_date || null,
+      pollution_expiry_date: formData.pollution_expiry_date || null,
       is_active: true,
     };
 
