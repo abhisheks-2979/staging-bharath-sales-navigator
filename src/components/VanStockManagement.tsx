@@ -541,11 +541,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                         <span className="text-lg font-bold text-primary">{totalKm.toFixed(2)} km</span>
                       </div>
                     </div>
-                    <div className="flex items-end">
-                      <Badge variant={isMorning ? "default" : "secondary"} className="h-10 flex items-center justify-center w-full">
-                        {isMorning ? "Morning - Add Start Stock" : "Evening - Update Orders & Left Stock"}
-                      </Badge>
-                    </div>
                   </div>
                 </Card>
 
