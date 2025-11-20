@@ -3,15 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Camera, Mic, Square, Edit, Check, ChevronsUpDown } from "lucide-react";
+import { Trash2, Plus, Camera, Mic, Square, Edit, Check, ChevronsUpDown, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface CompetitionRow {
@@ -45,6 +45,8 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
   const [recording, setRecording] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [savedData, setSavedData] = useState<CompetitionRow[]>([]);
+  const [notes, setNotes] = useState("");
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -418,15 +420,7 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
   // Edit mode - show form with tabs
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="stock" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="stock">Competition Stock</TabsTrigger>
-          <TabsTrigger value="feedback">Retailer Feedback</TabsTrigger>
-        </TabsList>
-
-        {/* Tab 1: Competition Stock */}
-        <TabsContent value="stock">
-          <Card>
+      <Card>
             <CardHeader>
               <CardTitle>Competition Stock</CardTitle>
             </CardHeader>
@@ -617,114 +611,6 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Tab 2: Retailer Feedback on Competition */}
-        <TabsContent value="feedback">
-          <Card>
-            <CardHeader>
-              <CardTitle>Retailer Feedback on Competition</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {rows.map((row, index) => {
-                const competitor = competitors.find(c => c.id === row.competitorId);
-                const sku = skus[row.id]?.find(s => s.id === row.skuId);
-                
-                return (
-                  <div key={row.id} className="p-4 border rounded-lg space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">
-                        Entry {index + 1}: {competitor?.competitor_name || 'Select competitor'} - {sku?.sku_name || 'Select competition name'}
-                      </h4>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Retailer Feedback / Insight</Label>
-                        <Textarea
-                          value={row.insight}
-                          onChange={(e) => updateRow(row.id, 'insight', e.target.value)}
-                          placeholder="Enter retailer feedback about this competition product..."
-                          className="mt-1"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Impact Level</Label>
-                          <Select
-                            value={row.impactLevel}
-                            onValueChange={(value) => updateRow(row.id, 'impactLevel', value)}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select impact level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Low">Low</SelectItem>
-                              <SelectItem value="Medium">Medium</SelectItem>
-                              <SelectItem value="High">High</SelectItem>
-                              <SelectItem value="Critical">Critical</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex items-center space-x-2 pt-6">
-                          <Checkbox
-                            id={`attention-${row.id}`}
-                            checked={row.needsAttention}
-                            onCheckedChange={(checked) => updateRow(row.id, 'needsAttention', checked)}
-                          />
-                          <Label htmlFor={`attention-${row.id}`}>
-                            Action Required / Needs Attention
-                          </Label>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handlePhotoUpload(row.id, e)}
-                            className="hidden"
-                            id={`photo-${row.id}`}
-                          />
-                          <Button
-                            onClick={() => document.getElementById(`photo-${row.id}`)?.click()}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Camera className="h-4 w-4 mr-2" />
-                            Add Photo ({row.photoUrls.length})
-                          </Button>
-                        </div>
-
-                        <Button
-                          onClick={() => recording === row.id ? stopRecording() : startRecording(row.id)}
-                          variant={recording === row.id ? "destructive" : "outline"}
-                          size="sm"
-                        >
-                          {recording === row.id ? (
-                            <>
-                              <Square className="h-4 w-4 mr-2" />
-                              Stop Recording
-                            </>
-                          ) : (
-                            <>
-                              <Mic className="h-4 w-4 mr-2" />
-                              Voice Note ({row.voiceNoteUrls.length})
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
 
       {/* Action Buttons */}
       <div className="flex gap-2 justify-end">
@@ -733,6 +619,31 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
             Cancel
           </Button>
         )}
+        <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <FileText className="h-4 w-4 mr-2" />
+              Add Notes
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Notes</DialogTitle>
+              <DialogDescription>
+                Add any notes for all competitors
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Enter your notes here..."
+              className="min-h-[150px]"
+            />
+            <Button onClick={() => setNotesDialogOpen(false)}>
+              Done
+            </Button>
+          </DialogContent>
+        </Dialog>
         <Button onClick={saveData} disabled={saving}>
           {saving ? "Saving..." : "Save All Data"}
         </Button>
