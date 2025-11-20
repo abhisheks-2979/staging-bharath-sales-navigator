@@ -155,7 +155,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             p.variants.forEach((v: any) => {
               allProducts.push({
                 id: v.id,
-                name: `${p.name} - ${v.variant_name}`,
+                name: v.variant_name,
                 unit: p.unit,
                 rate: v.price || p.rate
               });
@@ -207,7 +207,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               p.variants.forEach((v: any) => {
                 allProducts.push({
                   id: v.id,
-                  name: `${p.name} - ${v.variant_name}`,
+                  name: v.variant_name,
                   unit: p.unit,
                   rate: v.price || p.rate
                 });

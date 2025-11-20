@@ -803,7 +803,7 @@ export const OrderEntry = () => {
 
         // Check if variant name is "Base variant" or "Base Variant" - if so, just use product name
         const isBaseVariant = variant.variant_name.toLowerCase() === 'base variant';
-        const displayName = isBaseVariant ? product.name : `${product.name} - ${variant.variant_name}`;
+        const displayName = isBaseVariant ? product.name : variant.variant_name;
         return {
           ...product,
           id: `${product.id}_variant_${variant.id}`,
@@ -1302,7 +1302,7 @@ export const OrderEntry = () => {
             items.push({
               id: `${product.id}_variant_${variant.id}`,
               variantName: variant.variant_name,
-              selectedItem: `${product.name} - ${variant.variant_name}`,
+              selectedItem: variant.variant_name,
               quantity: variantQty,
               rate: variant.price,
               // Use original price, not discounted
@@ -2138,7 +2138,7 @@ export const OrderEntry = () => {
                             const finalTotal = baseTotal - totalDiscount;
                             selectedItems.push({
                               id: `${product.id}_variant_${variant.id}`,
-                              name: `${product.name} - ${variant.variant_name}`,
+                              name: variant.variant_name,
                               category: product.category,
                               rate: variantPrice,
                               unit: product.unit,
@@ -2151,7 +2151,7 @@ export const OrderEntry = () => {
                             // Only stock, no quantity
                             stockOnlyItems.push({
                               id: `${product.id}_variant_${variant.id}`,
-                              name: `${product.name} - ${variant.variant_name}`,
+                              name: variant.variant_name,
                               stock: variantStock
                             });
                           }
