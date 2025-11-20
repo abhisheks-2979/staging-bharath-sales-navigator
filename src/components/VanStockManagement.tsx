@@ -727,7 +727,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                   value={item.start_qty}
                                   onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
                                   placeholder="0"
-                                  className="h-8 text-[11px] px-1.5"
+                                  className="h-8 text-[11px] px-1.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   min="0"
                                 />
                               </div>
