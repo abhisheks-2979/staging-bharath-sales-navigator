@@ -114,7 +114,7 @@ export default function VanSalesManagement() {
 
   const handleSubmit = async () => {
     if (!formData.registration_number || !formData.make_model) {
-      toast.error('Please fill in required fields');
+      toast.error('Please enter Van Registration Number and Make/Model');
       return;
     }
 
