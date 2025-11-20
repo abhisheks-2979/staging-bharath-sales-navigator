@@ -62,10 +62,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     if (open) {
       loadVans();
       loadProducts();
-      loadBeats();
+      loadBeatForDate();
       checkTime();
     }
-  }, [open]);
+  }, [open, selectedDate]);
 
   useEffect(() => {
     if (selectedVan && selectedDate && selectedBeat) {
@@ -163,28 +163,27 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
   };
 
-  const loadBeats = async () => {
+  const loadBeatForDate = async () => {
     const { data: session } = await supabase.auth.getSession();
     if (!session.session?.user) return;
 
+    // selectedDate is a string, use it directly
     const { data, error } = await supabase
-      .from('retailers')
+      .from('beat_plans')
       .select('beat_id, beat_name')
       .eq('user_id', session.session.user.id)
-      .not('beat_id', 'is', null)
-      .order('beat_name');
-    
+      .eq('plan_date', selectedDate)
+      .single();
+
     if (error) {
-      console.error('Error loading beats:', error);
-    } else {
-      // Remove duplicates
-      const uniqueBeats = Array.from(
-        new Map(data?.map(item => [item.beat_id, { id: item.beat_id, beat_name: item.beat_name }])).values()
-      );
-      setBeats(uniqueBeats);
-      if (uniqueBeats.length > 0) {
-        setSelectedBeat(uniqueBeats[0].id);
-      }
+      console.error('Error loading beat plan:', error);
+      toast.error('No beat plan found for this date');
+      return;
+    }
+    
+    if (data) {
+      setBeats([{ id: data.beat_id, beat_name: data.beat_name }]);
+      setSelectedBeat(data.beat_id);
     }
   };
 
@@ -437,10 +436,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               </div>
 
               <div>
-                <Label>Select Beat</Label>
-                <Select value={selectedBeat} onValueChange={setSelectedBeat}>
+                <Label>Beat (Auto-selected from plan)</Label>
+                <Select value={selectedBeat} disabled>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a beat" />
+                    <SelectValue placeholder="Beat will be auto-selected based on date" />
                   </SelectTrigger>
                   <SelectContent>
                     {beats.map(beat => (
