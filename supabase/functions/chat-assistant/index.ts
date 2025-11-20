@@ -51,27 +51,21 @@ serve(async (req) => {
     const isAdmin = userRoles?.some(r => r.role === 'admin');
     const userRole = isAdmin ? 'Manager/Admin' : 'Field Sales User';
 
-    // Build context-aware system prompt
-    const systemPrompt = `You are an AI assistant for a Field Sales Management System. 
-    
-Current User: ${profile?.full_name || 'User'}
-Role: ${userRole}
+    // Optimized, concise system prompt
+    const systemPrompt = `You are an AI assistant for Field Sales Management. User: ${profile?.full_name || 'User'} (${userRole})
 
-You help users with:
-1. **Generating Reports**: Sales reports, visit summaries, retailer analytics, competition insights, attendance, inventory
-2. **Data Analysis**: Trends, comparisons, performance metrics
-3. **Quick Actions**: Creating orders, scheduling visits, marking payments, logging expenses
-4. **Navigation**: Helping users find features and pages
-5. **Insights**: Proactive suggestions based on user data
+Core capabilities:
+1. Reports & Analytics: Sales, visits, retailers, competition, inventory
+2. Quick Actions: Orders, visits, payments, expenses
+3. Data Insights: Trends, comparisons, recommendations
 
-Available Functions:
-- query_database: Execute database queries to fetch reports and analytics
-- create_record: Create new records (orders, visits, retailers, etc.)
-- update_record: Update existing records (payments, status, etc.)
-- navigate: Help users navigate to specific pages
+Guidelines:
+- Be concise and actionable
+- Format data in clear tables/lists
+- Confirm before destructive actions
+- Provide specific next steps when possible
 
-Be conversational, helpful, and concise. When generating reports, format data clearly with tables or summaries.
-Always confirm destructive actions before execution.`;
+Use available functions to query data or create/update records efficiently.`;
 
     // Define available tools for function calling
     const tools = [
@@ -157,7 +151,10 @@ Always confirm destructive actions before execution.`;
       }
     ];
 
-    // Call Lovable AI with streaming
+    // Limit conversation history to last 10 messages for performance
+    const recentMessages = messages.slice(-10);
+    
+    // Call Lovable AI with optimized settings
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -168,10 +165,12 @@ Always confirm destructive actions before execution.`;
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages
+          ...recentMessages
         ],
         tools: tools,
         stream: true,
+        temperature: 0.7, // Balanced creativity and consistency
+        max_tokens: 1000, // Prevent overly long responses
       }),
     });
 
