@@ -449,15 +449,15 @@ export default function Leaderboard() {
               </div>
               <p className="text-sm text-muted-foreground">My Points</p>
               <p className="text-4xl font-bold">{getDisplayPoints()}</p>
-              <div className="flex items-center justify-between mt-1">
+              <div className="flex flex-col gap-2 mt-3">
                 <p className="text-xs text-muted-foreground">Total: {myPoints.total}</p>
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="h-6 text-xs"
+                  variant="default"
+                  className="w-full font-semibold"
                   onClick={() => setShowDetailsModal(true)}
                 >
-                  <FileSpreadsheet className="h-3 w-3 mr-1" />
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
                   View Details
                 </Button>
               </div>
