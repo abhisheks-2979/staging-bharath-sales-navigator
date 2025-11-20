@@ -485,12 +485,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       const priceWithGST = product?.rate || 0;
       // Calculate price without GST (5% GST = 2.5% CGST + 2.5% SGST)
       const priceWithoutGST = priceWithGST / 1.05;
+      const totalValue = priceWithoutGST * item.start_qty;
       
       return {
         'Product': item.product_name,
         'Price (without GST)': `₹${priceWithoutGST.toFixed(2)}`,
         'Unit': item.unit,
-        'Quantity': item.start_qty
+        'Quantity': item.start_qty,
+        'Total Value': `₹${totalValue.toFixed(2)}`
       };
     });
 
