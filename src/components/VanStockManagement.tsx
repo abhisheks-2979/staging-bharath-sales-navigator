@@ -654,14 +654,15 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                       variant="outline"
                                       role="combobox"
                                       aria-expanded={openProductPopovers[index]}
-                                      className="w-full justify-between h-8 text-[11px] px-2 font-normal"
+                                      className="w-full justify-between h-auto py-1.5 px-2 font-normal"
                                     >
                                       {selectedProduct ? (
-                                        <span className="truncate text-left">
-                                          {selectedProduct.name} - ₹{pricePerUnit.toFixed(2)} per {selectedProduct.unit}
-                                        </span>
+                                        <div className="flex flex-col items-start text-left flex-1 min-w-0">
+                                          <span className="truncate text-[11px] leading-tight w-full">{selectedProduct.name}</span>
+                                          <span className="text-[9px] text-muted-foreground leading-tight">₹{pricePerUnit.toFixed(2)} per {selectedProduct.unit}</span>
+                                        </div>
                                       ) : (
-                                        <span className="text-muted-foreground">Select...</span>
+                                        <span className="text-muted-foreground text-[11px]">Select...</span>
                                       )}
                                       <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
                                     </Button>
