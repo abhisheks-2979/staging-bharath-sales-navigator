@@ -19,10 +19,10 @@ interface ChatDialogProps {
 
 export const ChatDialog = ({ onClose }: ChatDialogProps) => {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: 'Hi! I\'m your AI assistant. I can help you with sales reports, visit tracking, inventory management, and more. What can I help you with today?'
-    }
+      {
+        role: 'assistant',
+        content: 'Hi! 👋 I\'m your AI assistant for Bharath Beverages.\n\nI can help you with:\n• Today\'s visits & beat plans\n• Sales reports & analytics\n• Retailer information\n• Stock levels & inventory\n• Payment tracking\n\nTry asking: "my visits" or "sales summary"'
+      }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +96,9 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
       // Create placeholder for streaming response
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
+      // Limit message history to last 10 messages before sending
+      const recentMessages = [...messages, userMessage].slice(-10);
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`,
         {
@@ -105,7 +108,7 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
             'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            messages: [...messages, userMessage].map(m => ({
+            messages: recentMessages.map(m => ({
               role: m.role,
               content: m.content
             })),
@@ -222,29 +225,38 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('Show my visits for today')}
+            onClick={() => setInput('my visits')}
             disabled={isLoading}
             className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
-            📍 Visits
+            📍 My Visits
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('Show pending payments')}
+            onClick={() => setInput('sales summary')}
             disabled={isLoading}
             className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
-            💰 Payments
+            💰 Sales
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setInput('My performance this month')}
+            onClick={() => setInput('top retailers')}
             disabled={isLoading}
             className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
-            📊 Performance
+            ⭐ Retailers
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setInput('stock levels')}
+            disabled={isLoading}
+            className="text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
+          >
+            📦 Stock
           </Button>
         </div>
 
