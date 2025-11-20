@@ -669,7 +669,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                   <PopoverContent className="w-[280px] p-0 bg-background z-[100]" align="start">
                                     <Command className="bg-background">
                                       <CommandInput placeholder="Search products..." className="h-9 text-xs" />
-                                      <CommandList className="bg-background max-h-[250px]">
+                                      <CommandList className="bg-background max-h-[250px] overflow-y-auto overscroll-contain">
                                         <CommandEmpty>No product found.</CommandEmpty>
                                         <CommandGroup className="bg-background">
                                           {products.map((product) => (
