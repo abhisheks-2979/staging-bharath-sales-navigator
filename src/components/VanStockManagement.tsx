@@ -455,9 +455,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             {selectedVan && selectedBeat && (
               <>
                 {/* Summary Cards */}
-                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800 mb-3">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>Note:</strong> Retailer Ordered Qty is automatically calculated from orders placed by retailers in the selected beat for today.
+                <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded-lg border border-blue-200 dark:border-blue-800 mb-3">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    <strong>Note:</strong> Orders from today's beat are auto-counted here.
                   </p>
                 </div>
 
