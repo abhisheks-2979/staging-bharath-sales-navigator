@@ -7,8 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2 } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface Van {
   id: string;
@@ -48,6 +51,7 @@ interface VanStockManagementProps {
 export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStockManagementProps) {
   const [vans, setVans] = useState<Van[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [openProductPopovers, setOpenProductPopovers] = useState<{ [key: number]: boolean }>({});
   const [beats, setBeats] = useState<Beat[]>([]);
   const [selectedVan, setSelectedVan] = useState<string>('');
   const [selectedBeat, setSelectedBeat] = useState<string>('');
@@ -573,41 +577,62 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                             <div className="flex items-end gap-1">
                               <div className="flex-1 min-w-0">
                                 <Label className="text-[9px] text-muted-foreground mb-0.5 block">Product</Label>
-                                <Select
-                                  value={item.product_id}
-                                  onValueChange={(value) => handleProductChange(index, 'product_id', value)}
+                                <Popover 
+                                  open={openProductPopovers[index]} 
+                                  onOpenChange={(open) => setOpenProductPopovers(prev => ({ ...prev, [index]: open }))}
                                 >
-                                  <SelectTrigger className="h-8 text-[11px] px-2">
-                                    <SelectValue placeholder="Select product">
-                                      {selectedProduct && (
-                                        <div className="flex flex-col items-start">
-                                          <span className="font-medium">{selectedProduct.name}</span>
-                                          <span className="text-[9px] text-muted-foreground">
-                                            ₹{pricePerUnit.toFixed(2)} per {selectedProduct.unit}
-                                          </span>
-                                        </div>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      aria-expanded={openProductPopovers[index]}
+                                      className="w-full justify-between h-8 text-[11px] px-2 font-normal"
+                                    >
+                                      {selectedProduct ? (
+                                        <span className="truncate text-left">
+                                          {selectedProduct.name} - ₹{pricePerUnit.toFixed(2)} per {selectedProduct.unit}
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted-foreground">Select...</span>
                                       )}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent 
-                                    position="popper" 
-                                    className="z-[100] bg-popover border shadow-lg max-h-[200px] w-[var(--radix-select-trigger-width)]"
-                                    sideOffset={4}
-                                  >
-                                    <div className="max-h-[200px] overflow-y-auto">
-                                      {products.map(product => (
-                                        <SelectItem key={product.id} value={product.id} className="text-[11px] py-2">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium">{product.name}</span>
-                                            <span className="text-[9px] text-muted-foreground">
-                                              ₹{product.rate.toFixed(2)} per {product.unit}
-                                            </span>
-                                          </div>
-                                        </SelectItem>
-                                      ))}
-                                    </div>
-                                  </SelectContent>
-                                </Select>
+                                      <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[280px] p-0 bg-background z-[100]" align="start">
+                                    <Command className="bg-background">
+                                      <CommandInput placeholder="Search products..." className="h-9 text-xs" />
+                                      <CommandList className="bg-background max-h-[250px]">
+                                        <CommandEmpty>No product found.</CommandEmpty>
+                                        <CommandGroup className="bg-background">
+                                          {products.map((product) => (
+                                            <CommandItem
+                                              key={product.id}
+                                              value={`${product.name} ${product.rate}`}
+                                              onSelect={() => {
+                                                handleProductChange(index, 'product_id', product.id);
+                                                setOpenProductPopovers(prev => ({ ...prev, [index]: false }));
+                                              }}
+                                              className="text-xs bg-background hover:bg-accent py-2"
+                                            >
+                                              <Check
+                                                className={cn(
+                                                  "mr-2 h-3 w-3",
+                                                  item.product_id === product.id ? "opacity-100" : "opacity-0"
+                                                )}
+                                              />
+                                              <div className="flex-1">
+                                                <div className="font-medium">{product.name}</div>
+                                                <div className="text-[10px] text-muted-foreground">
+                                                  ₹{product.rate.toFixed(2)} per {product.unit}
+                                                </div>
+                                              </div>
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
                               </div>
                               
                               <div className="w-12">
