@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import * as XLSX from 'xlsx';
 
 interface Van {
   id: string;
@@ -472,6 +473,43 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }), { totalStart: 0, totalOrdered: 0, totalReturned: 0, totalLeft: 0 });
   };
 
+  const handleExportToExcel = () => {
+    if (stockItems.length === 0) {
+      toast.error('No stock items to export');
+      return;
+    }
+
+    // Prepare data for export
+    const exportData = stockItems.map(item => {
+      const product = products.find(p => p.id === item.product_id);
+      const priceWithGST = product?.rate || 0;
+      // Calculate price without GST (5% GST = 2.5% CGST + 2.5% SGST)
+      const priceWithoutGST = priceWithGST / 1.05;
+      
+      return {
+        'Product': item.product_name,
+        'Price (without GST)': `₹${priceWithoutGST.toFixed(2)}`,
+        'Unit': item.unit,
+        'Quantity': item.start_qty
+      };
+    });
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Van Stock');
+    
+    // Generate filename with date
+    const fileName = `Van_Stock_${selectedDate}.xlsx`;
+    
+    // Save file
+    XLSX.writeFile(wb, fileName);
+    
+    toast.success('Stock items exported successfully');
+  };
+
   const totals = calculateTotals();
   const totalKm = endKm - startKm;
 
@@ -621,9 +659,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <Label className="text-sm sm:text-lg font-semibold">Stock Items</Label>
-                    <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleExportToExcel} variant="outline" className="h-8 text-xs">
+                        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Export
+                      </Button>
+                      <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
+                        <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
+                      </Button>
+                    </div>
                   </div>
 
                   {stockItems.length === 0 ? (
