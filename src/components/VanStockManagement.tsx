@@ -587,7 +587,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </SelectContent>
                             </Select>
                             </div>
-                          <div className="w-16">
+                          <div className="w-12">
                             <Label className="text-[10px]">Unit</Label>
                             <Select
                               value={item.unit}
@@ -602,7 +602,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="w-16">
+                          <div className="w-14">
                             <Label className="text-[10px]">Qty</Label>
                             <Input
                               type="number"
@@ -616,9 +616,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                             size="sm" 
                             variant="ghost" 
                             onClick={() => handleRemoveProduct(index)}
-                            className="h-8 w-8 p-0"
+                            className="h-6 w-6 p-0"
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            <Trash2 className="h-3 w-3 text-destructive" />
                           </Button>
                           </div>
                         </Card>
