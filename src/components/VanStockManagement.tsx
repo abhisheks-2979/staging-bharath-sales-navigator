@@ -513,32 +513,32 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 </div>
 
                 {/* KM Tracking */}
-                <Card className="p-4 bg-blue-50 dark:bg-blue-950">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="p-2.5 bg-blue-50 dark:bg-blue-950">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     <div>
-                      <Label className="text-sm font-semibold">Start KM</Label>
+                      <Label className="text-xs font-semibold">Start KM</Label>
                       <Input
                         type="number"
                         value={startKm}
                         onChange={(e) => setStartKm(parseFloat(e.target.value) || 0)}
                         placeholder="Enter start km"
-                        className="mt-1"
+                        className="mt-0.5 h-8 text-sm"
                       />
                     </div>
                     <div>
-                      <Label className="text-sm font-semibold">End KM</Label>
+                      <Label className="text-xs font-semibold">End KM</Label>
                       <Input
                         type="number"
                         value={endKm}
                         onChange={(e) => setEndKm(parseFloat(e.target.value) || 0)}
                         placeholder="Enter end km"
-                        className="mt-1"
+                        className="mt-0.5 h-8 text-sm"
                       />
                     </div>
                     <div>
-                      <Label className="text-sm font-semibold">Total KM (Day)</Label>
-                      <div className="mt-1 h-10 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 flex items-center">
-                        <span className="text-lg font-bold text-primary">{totalKm.toFixed(2)} km</span>
+                      <Label className="text-xs font-semibold">Total KM (Day)</Label>
+                      <div className="mt-0.5 h-8 px-2 py-1 bg-primary/10 rounded-md border border-primary/20 flex items-center">
+                        <span className="text-sm font-bold text-primary">{totalKm.toFixed(2)} km</span>
                       </div>
                     </div>
                   </div>
