@@ -189,9 +189,8 @@ export default function InvoicePreview({
             <span className="font-bold text-xs">CGST (2.5%)</span>
             <span className="text-xs">₹{cgst.toFixed(2)}</span>
           </div>
-          <div className={`${styles.totalBox} p-2 rounded flex justify-between`}>
-            <span className="font-bold text-sm">Total Paid amount</span>
-            <span className="font-bold text-sm">₹{total.toFixed(2)}</span>
+          <div className={`${styles.totalBox} p-2 rounded flex justify-center items-center`}>
+            <span className="font-bold text-sm">Total amount: ₹{total.toFixed(2)}</span>
           </div>
         </div>
       </div>

@@ -191,8 +191,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     doc.text(`GSTIN: ${retailer.gst_number}`, 15, yPos);
   }
 
-  // Invoice details (right side)
-  let invoiceY = 55;
+  // Invoice details (right side) - add more space after header
+  let invoiceY = 62;
   const invoiceNum = (displayInvoiceNumber && displayInvoiceNumber.trim()) || orderId?.slice(0, 8).toUpperCase() || "INV001";
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
@@ -329,7 +329,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.text("CGST (2.5%)", labelCol, yPos);
   doc.text(`Rs.${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
 
-  // Total Due box (green background - matching preview)
+  // Total amount box (green background - centered text)
   yPos += 6;
   const totalBoxWidth = 65;
   const totalBoxX = pageWidth - 15 - totalBoxWidth;
@@ -339,8 +339,11 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("Total Paid amount", totalBoxX + 3, yPos);
-  doc.text(`Rs.${total.toFixed(2)}`, rightCol - 3, yPos, { align: "right" });
+  // Center the text in the box
+  const totalText = `Total amount: Rs.${total.toFixed(2)}`;
+  const textWidth = doc.getTextWidth(totalText);
+  const centerX = totalBoxX + (totalBoxWidth / 2) - (textWidth / 2);
+  doc.text(totalText, centerX, yPos);
   
   doc.setTextColor(0, 0, 0);
   
