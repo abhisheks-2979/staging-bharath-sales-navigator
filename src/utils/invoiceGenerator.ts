@@ -376,12 +376,14 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       const boxW = 80;
       const boxH = 60;
 
-      doc.setDrawColor(203, 213, 225); // slate-300
+      // Light gray rounded background box for QR, matching preview
+      doc.setFillColor(248, 250, 252); // slate-50 style background
+      doc.setDrawColor(203, 213, 225); // slate-300 border
       doc.setLineWidth(0.3);
       if ((doc as any).roundedRect) {
-        (doc as any).roundedRect(boxX, boxY, boxW, boxH, 3, 3);
+        (doc as any).roundedRect(boxX, boxY, boxW, boxH, 3, 3, "FD");
       } else {
-        doc.rect(boxX, boxY, boxW, boxH);
+        doc.rect(boxX, boxY, boxW, boxH, "FD");
       }
 
       doc.setFontSize(8);
@@ -419,26 +421,28 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const termsLines = doc.splitTextToSize(terms, pageWidth - 30);
   doc.text(termsLines, 15, yPos);
 
-  // Thank you message
-  yPos = pageHeight - 32;
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(22, 163, 74); // Green accent to match template4
-  doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, yPos, { align: "center" });
-
-  // Dark footer - matching template4 (bg-gray-800: rgb(31, 41, 55))
+  // Dark footer bar with thank you message, matching preview header style
+  const footerHeight = 23;
+  const footerY = pageHeight - footerHeight;
   doc.setFillColor(31, 41, 55);
-  doc.rect(0, pageHeight - 23, pageWidth, 23, "F");
+  doc.rect(0, footerY, pageWidth, footerHeight, "F");
 
   doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, footerY + 14, { align: "center" });
+
+  // Optional footer contact line in smaller font below (single line for cleanliness)
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  const footerParts = [];
+  const footerParts = [] as string[];
   if (company.address) footerParts.push(company.address);
   if (company.contact_phone) footerParts.push(company.contact_phone);
   if (company.email) footerParts.push(company.email);
   const footerText = footerParts.join(" - ");
-  doc.text(footerText, pageWidth / 2, pageHeight - 12, { align: "center" });
+  if (footerText) {
+    doc.text(footerText, pageWidth / 2, footerY + 19, { align: "center" });
+  }
 
   return doc.output('blob');
 }
