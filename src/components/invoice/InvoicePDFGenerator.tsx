@@ -61,6 +61,10 @@ export const InvoicePDFGenerator = ({
         hsn_code: it.hsn_sac || "-",
         unit: it.unit || "Piece",
         base_unit: it.base_unit || it.unit || "Piece",
+        taxable_amount: it.taxable_amount,
+        sgst_amount: it.sgst_amount,
+        cgst_amount: it.cgst_amount,
+        total_amount: it.total_amount,
       }));
 
       // Prepare company data
