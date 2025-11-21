@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Check, Eye, Upload, X } from "lucide-react";
+import { Check, Eye, Upload, X, Download } from "lucide-react";
 import { toast } from "sonner";
 import InvoicePreview from "./InvoicePreview";
+import { generateTemplate4Invoice } from "@/utils/invoiceGenerator";
 
 export default function InvoiceTemplateSelector() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("template1");
@@ -241,6 +242,32 @@ export default function InvoiceTemplateSelector() {
     }
   };
 
+  const handleDownloadSample = async (templateId: string) => {
+    try {
+      const company = companyData || sampleCompany;
+      const blob = await generateTemplate4Invoice({
+        orderId: "SAMPLE-INV-001",
+        company,
+        retailer: sampleRetailer,
+        cartItems: sampleCart,
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `sample-invoice-${templateId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Sample invoice downloaded successfully!");
+    } catch (error: any) {
+      console.error("Error generating sample invoice:", error);
+      toast.error(error.message || "Failed to generate invoice");
+    }
+  };
+
   return (
     <>
       <Card>
@@ -275,18 +302,30 @@ export default function InvoiceTemplateSelector() {
                         {template.description}
                       </p>
                     </Label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePreview(template.id);
-                      }}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Preview Template
-                    </Button>
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePreview(template.id);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Preview Template
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadSample(template.id);
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Sample
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
