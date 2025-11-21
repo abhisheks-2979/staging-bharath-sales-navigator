@@ -107,7 +107,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFillColor(31, 41, 55);
   doc.rect(0, 0, pageWidth, 52, "F");
 
-  // Logo image (no background circle, to match template4 preview)
+  // Logo image - smaller size to match preview
   let companyNameX = 15;
   if (company.logo_url) {
     try {
@@ -120,9 +120,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         reader.readAsDataURL(blob);
       });
       const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      // Larger logo for better visibility
-      doc.addImage(base64, imgFormat, 15, 6, 42, 42);
-      companyNameX = 70;
+      // Compact logo to match preview (smaller size)
+      doc.addImage(base64, imgFormat, 15, 10, 30, 30);
+      companyNameX = 50;
     } catch (e) {
       console.warn("Failed to load logo image for invoice PDF:", e);
       companyNameX = 15;
@@ -163,8 +163,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   // Reset text color
   doc.setTextColor(0, 0, 0);
 
-  // Bill To section
-  let yPos = 55;
+  // Bill To section - add gap after header
+  let yPos = 62;
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
@@ -224,38 +224,42 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   });
 
   autoTable(doc, {
-    startY: 95,
+    startY: 102,
     head: [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]],
     body: tableData,
     theme: "grid",
     styles: {
-      lineColor: [229, 231, 235],
-      lineWidth: 0.2,
-      fontSize: 8,
-      textColor: [0, 0, 0]
+      lineColor: [200, 200, 200],
+      lineWidth: 0.5,
+      fontSize: 9,
+      textColor: [0, 0, 0],
+      cellPadding: 3,
     },
     headStyles: {
-      fillColor: [22, 163, 74], // bg-green-600 - matching template4
+      fillColor: [22, 163, 74], // Green header matching preview
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 8,
+      fontSize: 9,
       halign: "center",
+      lineWidth: 0.5,
+      lineColor: [22, 163, 74],
     },
     bodyStyles: {
-      fontSize: 8,
+      fontSize: 9,
       textColor: [0, 0, 0],
+      lineWidth: 0.5,
     },
     alternateRowStyles: {
-      fillColor: [250, 250, 250],
+      fillColor: [247, 247, 247],
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: "center" },
+      0: { cellWidth: 15, halign: "center" },
       1: { cellWidth: 'auto', halign: "left" },
-      2: { cellWidth: 18, halign: "center" },
-      3: { cellWidth: 12, halign: "center" },
-      4: { cellWidth: 10, halign: "center" },
-      5: { cellWidth: 22, halign: "right" },
-      6: { cellWidth: 24, halign: "right" },
+      2: { cellWidth: 20, halign: "center" },
+      3: { cellWidth: 18, halign: "center" },
+      4: { cellWidth: 15, halign: "center" },
+      5: { cellWidth: 25, halign: "right" },
+      6: { cellWidth: 28, halign: "right" },
     },
     margin: { left: 15, right: 15 },
   });
@@ -273,13 +277,13 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const totalInWords = numberToWords(Math.floor(total)) + " Rupees" + 
     (total % 1 > 0 ? " and " + numberToWords(Math.round((total % 1) * 100)) + " Paise" : "") + " Only";
 
-  // Totals section (right-aligned)
-  yPos = (doc as any).lastAutoTable.finalY + 12;
+  // Totals section (right-aligned) - matching preview exactly
+  yPos = (doc as any).lastAutoTable.finalY + 10;
   const rightCol = pageWidth - 15;
-  const labelCol = pageWidth - 60;
+  const labelCol = pageWidth - 55;
 
   doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
+  doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
   
   doc.text("SUB-TOTAL", labelCol, yPos);
@@ -293,16 +297,18 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.text("CGST (2.5%)", labelCol, yPos);
   doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
 
-  // Total Due box (green background - matching template4 bg-green-600)
-  yPos += 8;
-  doc.setFillColor(22, 163, 74); // bg-green-600
-  doc.rect(labelCol - 5, yPos - 4, rightCol - labelCol + 20, 9, "F");
+  // Total Due box (green background - matching preview)
+  yPos += 6;
+  const totalBoxWidth = 65;
+  const totalBoxX = pageWidth - 15 - totalBoxWidth;
+  doc.setFillColor(22, 163, 74); // Green background
+  doc.rect(totalBoxX, yPos - 3, totalBoxWidth, 8, "F");
   
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("Total Due", labelCol, yPos);
-  doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text("Total Due", totalBoxX + 3, yPos);
+  doc.text(`₹${total.toFixed(2)}`, rightCol - 3, yPos, { align: "right" });
   
   doc.setTextColor(0, 0, 0);
   
@@ -349,15 +355,22 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   // QR Code and Signature section with proper spacing
   const sectionStartY = yPos;
   
-  // Signature (right aligned)
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
+  // Signature (right aligned) - matching preview
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
-  doc.text("For " + (company.name || "Company"), pageWidth - 15, sectionStartY, { align: "right" });
-  doc.line(pageWidth - 60, sectionStartY + 12, pageWidth - 15, sectionStartY + 12);
+  doc.text("For " + (company.name || "Company").toUpperCase(), pageWidth - 15, sectionStartY, { align: "right" });
+  
+  // Signature line
+  const sigLineY = sectionStartY + 16;
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(pageWidth - 55, sigLineY, pageWidth - 15, sigLineY);
+  
+  // Authorized Signatory text in italics
   doc.setFont("helvetica", "italic");
-  doc.setFontSize(7);
-  doc.text("Authorized Signatory", pageWidth - 37.5, sectionStartY + 16, { align: "center" });
+  doc.setFontSize(8);
+  doc.text("Authorized Signatory", pageWidth - 35, sigLineY + 4, { align: "center" });
   
   // QR Code box (right side)
   if (company.qr_code_url) {
@@ -421,28 +434,16 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const termsLines = doc.splitTextToSize(terms, pageWidth - 30);
   doc.text(termsLines, 15, yPos);
 
-  // Dark footer bar with thank you message, matching preview header style
-  const footerHeight = 23;
+  // Dark footer bar with only thank you message - matching preview
+  const footerHeight = 18;
   const footerY = pageHeight - footerHeight;
   doc.setFillColor(31, 41, 55);
   doc.rect(0, footerY, pageWidth, footerHeight, "F");
 
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
+  doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, footerY + 14, { align: "center" });
-
-  // Optional footer contact line in smaller font below (single line for cleanliness)
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  const footerParts = [] as string[];
-  if (company.address) footerParts.push(company.address);
-  if (company.contact_phone) footerParts.push(company.contact_phone);
-  if (company.email) footerParts.push(company.email);
-  const footerText = footerParts.join(" - ");
-  if (footerText) {
-    doc.text(footerText, pageWidth / 2, footerY + 19, { align: "center" });
-  }
+  doc.text("THANK YOU FOR YOUR BUSINESS", pageWidth / 2, footerY + 12, { align: "center" });
 
   return doc.output('blob');
 }
