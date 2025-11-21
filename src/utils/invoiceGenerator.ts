@@ -332,18 +332,21 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   // Total amount box (green background - centered text)
   yPos += 6;
   const totalBoxWidth = 65;
+  const totalBoxHeight = 10;
   const totalBoxX = pageWidth - 15 - totalBoxWidth;
+  const totalBoxY = yPos - 3;
   doc.setFillColor(22, 163, 74); // Green background
-  doc.rect(totalBoxX, yPos - 3, totalBoxWidth, 10, "F");
+  doc.rect(totalBoxX, totalBoxY, totalBoxWidth, totalBoxHeight, "F");
   
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  // Center the text in the box
+  // Center the text horizontally and vertically in the box
   const totalText = `Total amount: Rs.${total.toFixed(2)}`;
   const textWidth = doc.getTextWidth(totalText);
-  const centerX = totalBoxX + (totalBoxWidth / 2) - (textWidth / 2);
-  doc.text(totalText, centerX, yPos);
+  const centerX = totalBoxX + totalBoxWidth / 2 - textWidth / 2;
+  const centerY = totalBoxY + totalBoxHeight / 2 + 3; // +3 to account for text baseline
+  doc.text(totalText, centerX, centerY);
   
   doc.setTextColor(0, 0, 0);
   
