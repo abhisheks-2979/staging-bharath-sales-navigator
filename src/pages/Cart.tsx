@@ -707,10 +707,9 @@ export const Cart = () => {
         product_id: item.id,
         product_name: item.name,
         category: item.category,
-        // Store base rate and units so KG ↔ grams conversion works in invoices
-        rate: item.rate,
+        // Store rate per selected unit (KG or grams) so invoices match cart
+        rate: getDisplayRate(item),
         unit: item.unit,
-        base_unit: item.base_unit || item.unit,
         quantity: item.quantity,
         total: computeItemTotal(item)
       }));
