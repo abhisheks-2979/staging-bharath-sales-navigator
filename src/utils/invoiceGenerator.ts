@@ -209,17 +209,26 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Items table with green header
   const tableData = cartItems.map((item, index) => {
-    const rate = getDisplayRate(item);
-    const qty = item.quantity || 0;
-    const total = rate * qty;
+    const qty = Number(item.quantity) || 0;
+
+    // Prefer stored taxable_amount/quantity from invoice_items when available
+    const storedTaxable = item.taxable_amount != null ? Number(item.taxable_amount) : null;
+    const effectiveRate = storedTaxable !== null && qty > 0
+      ? storedTaxable / qty
+      : getDisplayRate(item);
+
+    const rowTotal = storedTaxable !== null
+      ? storedTaxable
+      : effectiveRate * qty;
+
     return [
       (index + 1).toString(),
       getDisplayName(item),
       item.hsn_code || "-",
       item.unit || "Piece",
       qty.toString(),
-      `Rs.${rate.toFixed(2)}`,
-      `Rs.${total.toFixed(2)}`,
+      `Rs.${effectiveRate.toFixed(2)}`,
+      `Rs.${rowTotal.toFixed(2)}`,
     ];
   });
 
@@ -264,14 +273,26 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     margin: { left: 15, right: 15 },
   });
 
-  // Calculate totals
+  // Calculate totals - prefer stored invoice values when present
   const subtotal = cartItems.reduce((sum, item) => {
+    const qty = Number(item.quantity) || 0;
+    const storedTaxable = item.taxable_amount != null ? Number(item.taxable_amount) : null;
+    if (storedTaxable !== null) return sum + storedTaxable;
     const displayRate = getDisplayRate(item);
-    return sum + (item.quantity || 0) * displayRate;
+    return sum + qty * displayRate;
   }, 0);
-  const sgst = subtotal * 0.025; // 2.5%
-  const cgst = subtotal * 0.025; // 2.5%
-  const total = subtotal + sgst + cgst;
+
+  const sgst = cartItems.reduce((sum, item) => {
+    return sum + (item.sgst_amount != null ? Number(item.sgst_amount) : 0);
+  }, 0) || subtotal * 0.025;
+
+  const cgst = cartItems.reduce((sum, item) => {
+    return sum + (item.cgst_amount != null ? Number(item.cgst_amount) : 0);
+  }, 0) || subtotal * 0.025;
+
+  const total = cartItems.reduce((sum, item) => {
+    return sum + (item.total_amount != null ? Number(item.total_amount) : 0);
+  }, 0) || (subtotal + sgst + cgst);
   
   // Convert total to words
   const totalInWords = numberToWords(Math.floor(total)) + " Rupees" + 
@@ -302,11 +323,11 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const totalBoxWidth = 65;
   const totalBoxX = pageWidth - 15 - totalBoxWidth;
   doc.setFillColor(22, 163, 74); // Green background
-  doc.rect(totalBoxX, yPos - 3, totalBoxWidth, 8, "F");
+  doc.rect(totalBoxX, yPos - 3, totalBoxWidth, 10, "F");
   
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.text("Total Due", totalBoxX + 3, yPos);
   doc.text(`Rs.${total.toFixed(2)}`, rightCol - 3, yPos, { align: "right" });
   
