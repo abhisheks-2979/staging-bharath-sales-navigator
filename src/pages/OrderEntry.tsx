@@ -1043,6 +1043,12 @@ export const OrderEntry = () => {
     });
     const cartItem = {
       ...displayProduct,
+      // Preserve original rate as base rate (e.g. per KG) for consistent conversions
+      rate: displayProduct.rate,
+      // Store the unit the user actually selected (KG or grams)
+      unit: selectedUnit,
+      // Store base_unit for correct KG 2 gram conversion in cart and invoice
+      base_unit: (product as GridProduct).base_unit || displayProduct.base_unit || displayProduct.unit,
       quantity,
       total: finalTotal,
       closingStock: closingStocks[displayProduct.id] || displayProduct.closingStock
