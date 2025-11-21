@@ -107,7 +107,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFillColor(31, 41, 55);
   doc.rect(0, 0, pageWidth, 52, "F");
 
-  // Logo image - smaller size to match preview
+  // Logo image - compact size to match preview
   let companyNameX = 15;
   if (company.logo_url) {
     try {
@@ -120,9 +120,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         reader.readAsDataURL(blob);
       });
       const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      // Compact logo to match preview (smaller size)
-      doc.addImage(base64, imgFormat, 15, 10, 30, 30);
-      companyNameX = 50;
+      // Smaller, more compact logo matching preview
+      doc.addImage(base64, imgFormat, 15, 12, 25, 25);
+      companyNameX = 45;
     } catch (e) {
       console.warn("Failed to load logo image for invoice PDF:", e);
       companyNameX = 15;
@@ -131,25 +131,25 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Company name and details (left side)
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text((company.name || "COMPANY NAME").toUpperCase(), companyNameX, 15);
+  doc.text((company.name || "COMPANY NAME").toUpperCase(), companyNameX, 16);
   
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  let headerY = 20;
+  let headerY = 21;
   if (company.address) {
     const addressLines = doc.splitTextToSize(company.address, 90);
     doc.text(addressLines.slice(0, 2), companyNameX, headerY);
-    headerY += addressLines.slice(0, 2).length * 3;
+    headerY += addressLines.slice(0, 2).length * 3.5;
   }
   if (company.contact_phone) {
     doc.text(`Tel: ${company.contact_phone}`, companyNameX, headerY);
-    headerY += 3;
+    headerY += 3.5;
   }
   if (company.email) {
     doc.text(`Email: ${company.email}`, companyNameX, headerY);
-    headerY += 3;
+    headerY += 3.5;
   }
   if (company.gstin) {
     doc.text(`GSTIN: ${company.gstin}`, companyNameX, headerY);
@@ -201,7 +201,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "normal");
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
   
-  invoiceY += 6;
+  invoiceY += 5;
   doc.setFont("helvetica", "bold");
   doc.text("DATE:", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
