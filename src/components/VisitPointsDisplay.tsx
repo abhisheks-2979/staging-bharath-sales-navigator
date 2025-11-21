@@ -14,7 +14,7 @@ export function VisitPointsDisplay({ visitId, userId, selectedDate }: VisitPoint
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!visitId || !userId) {
+    if (!visitId || !userId || !selectedDate) {
       setLoading(false);
       return;
     }
@@ -23,13 +23,34 @@ export function VisitPointsDisplay({ visitId, userId, selectedDate }: VisitPoint
       try {
         setLoading(true);
         
-        // Get points earned for this visit
+        // First get the visit to find the retailer_id
+        const { data: visitData, error: visitError } = await supabase
+          .from('visits')
+          .select('retailer_id, planned_date')
+          .eq('id', visitId)
+          .single();
+
+        if (visitError) throw visitError;
+        if (!visitData?.retailer_id) {
+          setPoints(0);
+          return;
+        }
+
+        // Points are stored with reference_type='order' and reference_id=retailer_id
+        // Filter by date to get only points for this specific visit date
+        const dateStart = new Date(visitData.planned_date);
+        dateStart.setHours(0, 0, 0, 0);
+        const dateEnd = new Date(visitData.planned_date);
+        dateEnd.setHours(23, 59, 59, 999);
+
         const { data, error } = await supabase
           .from('gamification_points')
           .select('points')
           .eq('user_id', userId)
-          .eq('reference_type', 'visit')
-          .eq('reference_id', visitId);
+          .eq('reference_type', 'order')
+          .eq('reference_id', visitData.retailer_id)
+          .gte('earned_at', dateStart.toISOString())
+          .lte('earned_at', dateEnd.toISOString());
 
         if (error) throw error;
 
