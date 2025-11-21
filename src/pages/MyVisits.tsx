@@ -162,7 +162,7 @@ export const MyVisits = () => {
   const [isVanStockOpen, setIsVanStockOpen] = useState(false);
   const [initialRetailerOrder, setInitialRetailerOrder] = useState<string[]>([]);
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
-  const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string }>>([]);
+  const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string | null }>>([]);
   const [isPointsDialogOpen, setIsPointsDialogOpen] = useState(false);
   const {
     user
@@ -294,15 +294,12 @@ export const MyVisits = () => {
         const dateEnd = new Date(selectedDate);
         dateEnd.setHours(23, 59, 59, 999);
 
+        // Fetch points - they are stored with reference_type='order' and reference_id=retailer_id
         const { data: pointsData, error } = await supabase
           .from('gamification_points')
-          .select(`
-            points,
-            reference_id,
-            reference_type,
-            visits(id, retailer_id, retailers(name))
-          `)
+          .select('points, reference_id, reference_type')
           .eq('user_id', user.id)
+          .eq('reference_type', 'order')
           .gte('earned_at', dateStart.toISOString())
           .lte('earned_at', dateEnd.toISOString());
 
@@ -311,25 +308,37 @@ export const MyVisits = () => {
         const totalPoints = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
         setPointsEarnedToday(totalPoints);
 
-        // Group points by retailer
-        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string }>();
+        // Group points by retailer (reference_id is retailer_id for order-type points)
+        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
         
-        pointsData?.forEach((item: any) => {
-          const visit = item.visits;
-          if (visit?.retailers?.name) {
+        // Get unique retailer IDs from points
+        const retailerIds = Array.from(new Set(pointsData?.map((item: any) => item.reference_id) || []));
+        
+        if (retailerIds.length > 0) {
+          // Fetch retailer details and their visits for the selected date
+          const { data: visitsData } = await supabase
+            .from('visits')
+            .select('id, retailer_id, retailers(name)')
+            .eq('user_id', user.id)
+            .eq('planned_date', selectedDate)
+            .in('retailer_id', retailerIds);
+
+          // Build map of retailer info
+          visitsData?.forEach((visit: any) => {
             const retailerId = visit.retailer_id;
-            const existing = retailerPointsMap.get(retailerId);
-            if (existing) {
-              existing.points += item.points;
-            } else {
+            const retailerPoints = pointsData
+              ?.filter((p: any) => p.reference_id === retailerId)
+              .reduce((sum, p) => sum + p.points, 0) || 0;
+            
+            if (retailerPoints > 0) {
               retailerPointsMap.set(retailerId, {
-                name: visit.retailers.name,
-                points: item.points,
+                name: visit.retailers?.name || 'Unknown Retailer',
+                points: retailerPoints,
                 visitId: visit.id
               });
             }
-          }
-        });
+          });
+        }
 
         const detailsList = Array.from(retailerPointsMap.values())
           .map(item => ({
@@ -1228,12 +1237,16 @@ export const MyVisits = () => {
                       <CardContent className="p-4">
                         <div className="flex justify-between items-center">
                           <div>
-                            <a
-                              href={`/visit-detail/${item.visitId}`}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {item.retailerName}
-                            </a>
+                            {item.visitId ? (
+                              <a
+                                href={`/visit-detail/${item.visitId}`}
+                                className="font-medium text-primary hover:underline"
+                              >
+                                {item.retailerName}
+                              </a>
+                            ) : (
+                              <span className="font-medium">{item.retailerName}</span>
+                            )}
                           </div>
                           <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">
                             +{item.points} pts
