@@ -328,7 +328,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("Total Due", totalBoxX + 3, yPos);
+  doc.text("Total Paid amount", totalBoxX + 3, yPos);
   doc.text(`Rs.${total.toFixed(2)}`, rightCol - 3, yPos, { align: "right" });
   
   doc.setTextColor(0, 0, 0);
@@ -527,6 +527,10 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
       price: item.price_per_unit,
       total: item.total_amount,
       category: "",
+      taxable_amount: item.taxable_amount,
+      sgst_amount: item.sgst_amount,
+      cgst_amount: item.cgst_amount,
+      total_amount: item.total_amount,
     }));
 
     const displayInvoiceNumber = editedInvoice.invoice_number;
