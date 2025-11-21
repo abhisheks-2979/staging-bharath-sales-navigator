@@ -35,8 +35,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const filteredVisits = cachedVisits.filter(
         (v: any) => v.user_id === userId && v.planned_date === selectedDate
       );
+
+      // Get retailer IDs from visits and planned beats only
+      const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
+      const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+      const plannedRetailerIds = cachedRetailers
+        .filter((r: any) => r.user_id === userId && plannedBeatIds.includes(r.beat_id))
+        .map((r: any) => r.id);
+      
+      const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds]));
+      
       const filteredRetailers = cachedRetailers.filter(
-        (r: any) => r.user_id === userId
+        (r: any) => allRetailerIds.includes(r.id)
       );
 
       // Filter orders by date
@@ -53,8 +63,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Display cached data immediately
       if (
         filteredBeatPlans.length > 0 ||
-        filteredVisits.length > 0 ||
-        filteredRetailers.length > 0
+        filteredVisits.length > 0
       ) {
         setBeatPlans(filteredBeatPlans);
         setVisits(filteredVisits);
