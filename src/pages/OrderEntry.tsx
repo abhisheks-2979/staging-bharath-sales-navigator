@@ -27,6 +27,7 @@ interface Product {
   category: string;
   rate: number;
   unit: string;
+  base_unit?: string;
   hasScheme?: boolean;
   schemeDetails?: string;
   closingStock?: number;
@@ -1423,6 +1424,7 @@ export const OrderEntry = () => {
         category: product?.category || "Unknown",
         rate: item.rate,
         unit: product?.unit || "piece",
+        base_unit: product?.base_unit, // Include base_unit for proper invoice calculations
         quantity: item.quantity,
         total: item.totalPrice,
         // Add scheme information for discount calculations
