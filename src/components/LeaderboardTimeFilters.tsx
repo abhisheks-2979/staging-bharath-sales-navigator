@@ -8,8 +8,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface LeaderboardTimeFiltersProps {
-  timeFilter: "today" | "week" | "month" | "quarter" | "year" | "custom";
-  onFilterChange: (filter: "today" | "week" | "month" | "quarter" | "year" | "custom") => void;
+  timeFilter: "today" | "yesterday" | "week" | "month" | "quarter" | "year" | "custom";
+  onFilterChange: (filter: "today" | "yesterday" | "week" | "month" | "quarter" | "year" | "custom") => void;
   customStartDate?: Date;
   customEndDate?: Date;
   onCustomStartDateChange?: (date: Date | undefined) => void;
@@ -32,6 +32,7 @@ export function LeaderboardTimeFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="today">Today's Points</SelectItem>
+          <SelectItem value="yesterday">Yesterday</SelectItem>
           <SelectItem value="week">This Week</SelectItem>
           <SelectItem value="month">This Month</SelectItem>
           <SelectItem value="quarter">This Quarter</SelectItem>

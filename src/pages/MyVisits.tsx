@@ -161,6 +161,9 @@ export const MyVisits = () => {
   const [timelineDayStart, setTimelineDayStart] = useState<string>('08:00 AM');
   const [isVanStockOpen, setIsVanStockOpen] = useState(false);
   const [initialRetailerOrder, setInitialRetailerOrder] = useState<string[]>([]);
+  const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
+  const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string }>>([]);
+  const [isPointsDialogOpen, setIsPointsDialogOpen] = useState(false);
   const {
     user
   } = useAuth();
@@ -271,6 +274,71 @@ export const MyVisits = () => {
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [user, selectedDate]);
+
+  // Load points earned today
+  useEffect(() => {
+    const fetchPointsForDate = async () => {
+      if (!user || !selectedDate) return;
+      
+      try {
+        const dateStart = new Date(selectedDate);
+        dateStart.setHours(0, 0, 0, 0);
+        const dateEnd = new Date(selectedDate);
+        dateEnd.setHours(23, 59, 59, 999);
+
+        const { data: pointsData, error } = await supabase
+          .from('gamification_points')
+          .select(`
+            points,
+            reference_id,
+            reference_type,
+            visits(id, retailer_id, retailers(name))
+          `)
+          .eq('user_id', user.id)
+          .gte('earned_at', dateStart.toISOString())
+          .lte('earned_at', dateEnd.toISOString());
+
+        if (error) throw error;
+
+        const totalPoints = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
+        setPointsEarnedToday(totalPoints);
+
+        // Group points by retailer
+        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string }>();
+        
+        pointsData?.forEach((item: any) => {
+          const visit = item.visits;
+          if (visit?.retailers?.name) {
+            const retailerId = visit.retailer_id;
+            const existing = retailerPointsMap.get(retailerId);
+            if (existing) {
+              existing.points += item.points;
+            } else {
+              retailerPointsMap.set(retailerId, {
+                name: visit.retailers.name,
+                points: item.points,
+                visitId: visit.id
+              });
+            }
+          }
+        });
+
+        const detailsList = Array.from(retailerPointsMap.values())
+          .map(item => ({
+            retailerName: item.name,
+            points: item.points,
+            visitId: item.visitId
+          }))
+          .sort((a, b) => b.points - a.points);
+
+        setPointsDetailsList(detailsList);
+      } catch (error) {
+        console.error('Error fetching points:', error);
+      }
+    };
+
+    fetchPointsForDate();
   }, [user, selectedDate]);
 
   // Load week plan markers for calendar
@@ -999,6 +1067,10 @@ export const MyVisits = () => {
                  <div className="text-sm sm:text-xl font-bold">{unproductiveVisits}</div>
                  <div className="text-[10px] sm:text-xs font-medium opacity-80 mt-0.5">{t('visits.unproductive')}</div>
                </button>
+               <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-1.5 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center min-h-[60px] sm:min-h-[85px]">
+                 <div className="text-sm sm:text-xl font-bold text-amber-600">{pointsEarnedToday}</div>
+                 <div className="text-[10px] sm:text-xs text-amber-600/80 font-medium mt-0.5">Points Earned</div>
+               </button>
              </div>
            </CardContent>
         </Card>
@@ -1118,6 +1190,53 @@ export const MyVisits = () => {
                       </CardContent>
                     </Card>)}
                 </div>}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Points Dialog */}
+        <Dialog open={isPointsDialogOpen} onOpenChange={setIsPointsDialogOpen}>
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-amber-600" />
+                Points Earned - {format(new Date(selectedDate), 'MMM dd, yyyy')}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="mt-4">
+              {pointsDetailsList.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No points earned on this date</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+                    <span className="font-medium">Total Points</span>
+                    <span className="text-2xl font-bold text-amber-600">{pointsEarnedToday}</span>
+                  </div>
+                  
+                  {pointsDetailsList.map((item, index) => (
+                    <Card key={index} className="border-l-4 border-l-amber-500">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <a
+                              href={`/visit-detail/${item.visitId}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {item.retailerName}
+                            </a>
+                          </div>
+                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                            +{item.points} pts
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

@@ -82,6 +82,8 @@ export const TodaySummary = () => {
     totalValue: number;
   }>>([]);
 
+  const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
+
   // Dialog state and data sources for details
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState<string>("");
@@ -205,6 +207,19 @@ export const TodaySummary = () => {
           .in('id', retailerIds);
         retailers = data || [];
       }
+
+      // Fetch points earned for the date range
+      const fromDate = filterType === 'today' || filterType === 'custom' ? dateRange.from : dateRange.from;
+      const toDate = filterType === 'today' || filterType === 'custom' ? dateRange.to : dateRange.to;
+      const { data: pointsData } = await supabase
+        .from('gamification_points')
+        .select('points')
+        .eq('user_id', user.id)
+        .gte('earned_at', new Date(fromDate).toISOString())
+        .lte('earned_at', new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59, 999).toISOString());
+      
+      const totalPointsEarned = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
+      setPointsEarnedToday(totalPointsEarned);
 
       // Fetch beat plans for the date range
       let beatPlansQuery = supabase
@@ -1175,6 +1190,20 @@ export const TodaySummary = () => {
                   {loading ? "Loading..." : `₹${summaryData.avgOrderValue.toLocaleString()}`}
                 </div>
                 <div className="text-sm text-muted-foreground">Avg Order Value</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div
+                role="button"
+                onClick={() => navigate('/leaderboard')}
+                className="text-center p-4 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 rounded-lg cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition border border-amber-500/20"
+              >
+                <div className="text-2xl font-bold text-amber-600">
+                  {loading ? "Loading..." : pointsEarnedToday}
+                </div>
+                <div className="text-sm text-amber-600/80 font-medium">Points Earned Today</div>
+                <div className="text-xs text-muted-foreground mt-1">Tap to view details in Leaderboard</div>
               </div>
             </div>
           </CardContent>
