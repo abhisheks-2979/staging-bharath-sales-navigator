@@ -71,7 +71,7 @@ export default function Leaderboard() {
   const [games, setGames] = useState<GameWithPoints[]>([]);
   const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year" | "custom">("today");
+  const [timeFilter, setTimeFilter] = useState<"today" | "yesterday" | "week" | "month" | "quarter" | "year" | "custom">("today");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   const [showRedeemDialog, setShowRedeemDialog] = useState(false);
@@ -163,6 +163,10 @@ export default function Leaderboard() {
       switch (timeFilter) {
         case "today":
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          break;
+        case "yesterday":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
           break;
         case "week":
           startDate = new Date(now);

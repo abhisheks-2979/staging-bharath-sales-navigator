@@ -36,14 +36,14 @@ interface PointsDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string;
-  timeFilter: "today" | "week" | "month" | "quarter" | "year" | "custom";
+  timeFilter: "today" | "yesterday" | "week" | "month" | "quarter" | "year" | "custom";
 }
 
 export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: initialTimeFilter }: PointsDetailsModalProps) {
   const [pointDetails, setPointDetails] = useState<PointDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState<string>("all");
-  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "quarter" | "year" | "custom">(initialTimeFilter);
+  const [timeFilter, setTimeFilter] = useState<"today" | "yesterday" | "week" | "month" | "quarter" | "year" | "custom">(initialTimeFilter);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
 
@@ -77,6 +77,10 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
       switch (timeFilter) {
         case "today":
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          break;
+        case "yesterday":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
           break;
         case "week":
           const dayOfWeek = now.getDay();
@@ -305,6 +309,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
                     <SelectItem value="week">This Week</SelectItem>
                     <SelectItem value="month">This Month</SelectItem>
                     <SelectItem value="quarter">This Quarter</SelectItem>
@@ -448,9 +453,10 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                                     href={`/visit-detail/${point.visit_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-primary hover:underline text-xs"
+                                    className="text-primary hover:underline text-xs font-mono"
+                                    title={`Visit: ${point.visit_id}`}
                                   >
-                                    View Visit
+                                    #{point.visit_id.slice(0, 8)}...
                                   </a>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">-</span>
