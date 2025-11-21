@@ -281,6 +281,13 @@ export const MyVisits = () => {
     const fetchPointsForDate = async () => {
       if (!user || !selectedDate) return;
       
+      // Validate selectedDate is a valid date string
+      const testDate = new Date(selectedDate);
+      if (isNaN(testDate.getTime())) {
+        console.warn('Invalid selectedDate:', selectedDate);
+        return;
+      }
+      
       try {
         const dateStart = new Date(selectedDate);
         dateStart.setHours(0, 0, 0, 0);
@@ -1200,7 +1207,7 @@ export const MyVisits = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-amber-600" />
-                Points Earned - {format(new Date(selectedDate), 'MMM dd, yyyy')}
+                Points Earned - {selectedDate ? format(new Date(selectedDate), 'MMM dd, yyyy') : 'Today'}
               </DialogTitle>
             </DialogHeader>
             
