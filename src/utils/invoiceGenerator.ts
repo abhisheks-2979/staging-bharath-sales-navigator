@@ -120,9 +120,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         reader.readAsDataURL(blob);
       });
       const imgFormat = company.logo_url.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
-      // Smaller, more compact logo matching preview
-      doc.addImage(base64, imgFormat, 15, 12, 25, 25);
-      companyNameX = 45;
+      // Logo size approximately 120x80 px (42x28 points)
+      doc.addImage(base64, imgFormat, 15, 10, 42, 28);
+      companyNameX = 60;
     } catch (e) {
       console.warn("Failed to load logo image for invoice PDF:", e);
       companyNameX = 15;
@@ -201,7 +201,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "normal");
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
   
-  invoiceY += 5;
+  invoiceY += 7;
   doc.setFont("helvetica", "bold");
   doc.text("DATE:", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
