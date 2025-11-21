@@ -218,8 +218,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       item.hsn_code || "-",
       item.unit || "Piece",
       qty.toString(),
-      `Rs ${rate.toFixed(2)}`,
-      `Rs ${total.toFixed(2)}`,
+      `₹${rate.toFixed(2)}`,
+      `₹${total.toFixed(2)}`,
     ];
   });
 
@@ -283,15 +283,15 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setTextColor(0, 0, 0);
   
   doc.text("SUB-TOTAL", labelCol, yPos);
-  doc.text(`Rs ${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`₹${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("SGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs ${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`₹${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
   
   yPos += 5;
   doc.text("CGST (2.5%)", labelCol, yPos);
-  doc.text(`Rs ${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
 
   // Total Due box (green background - matching template4 bg-green-600)
   yPos += 8;
@@ -302,7 +302,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("Total Due", labelCol, yPos);
-  doc.text(`Rs ${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
+  doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
   
   doc.setTextColor(0, 0, 0);
   
