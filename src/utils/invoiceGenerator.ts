@@ -201,7 +201,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "normal");
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
   
-  invoiceY += 7;
+  invoiceY += 8;
   doc.setFont("helvetica", "bold");
   doc.text("DATE:", pageWidth - 60, invoiceY);
   doc.setFont("helvetica", "normal");
