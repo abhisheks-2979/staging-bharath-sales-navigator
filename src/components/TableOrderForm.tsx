@@ -343,10 +343,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     }
 
     setIsAddingToCart(true);
-    toast({
-      title: "Preparing Order",
-      description: "Loading order preview...",
-    });
 
     try {
       const cartItems = validRows.map(row => {
