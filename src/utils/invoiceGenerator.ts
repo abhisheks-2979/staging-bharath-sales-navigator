@@ -211,15 +211,21 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const tableData = cartItems.map((item, index) => {
     const qty = Number(item.quantity) || 0;
 
-    // Prefer stored taxable_amount/quantity from invoice_items when available
-    const storedTaxable = item.taxable_amount != null ? Number(item.taxable_amount) : null;
-    const effectiveRate = storedTaxable !== null && qty > 0
-      ? storedTaxable / qty
-      : getDisplayRate(item);
-
-    const rowTotal = storedTaxable !== null
-      ? storedTaxable
-      : effectiveRate * qty;
+    // If we have stored invoice values (from edited invoices), use them directly without conversion
+    const hasStoredValues = item.taxable_amount != null && item.sgst_amount != null && item.cgst_amount != null;
+    
+    let effectiveRate: number;
+    let rowTotal: number;
+    
+    if (hasStoredValues) {
+      // Use stored values directly - they're already correct, no conversion needed
+      effectiveRate = Number(item.price || item.rate) || 0;
+      rowTotal = Number(item.taxable_amount) || 0;
+    } else {
+      // Calculate from base values with unit conversion
+      effectiveRate = getDisplayRate(item);
+      rowTotal = effectiveRate * qty;
+    }
 
     return [
       (index + 1).toString(),
@@ -274,25 +280,30 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   });
 
   // Calculate totals - prefer stored invoice values when present
+  const hasStoredTotals = cartItems.some(item => 
+    item.taxable_amount != null && item.sgst_amount != null && item.cgst_amount != null
+  );
+
   const subtotal = cartItems.reduce((sum, item) => {
+    if (hasStoredTotals && item.taxable_amount != null) {
+      return sum + Number(item.taxable_amount);
+    }
     const qty = Number(item.quantity) || 0;
-    const storedTaxable = item.taxable_amount != null ? Number(item.taxable_amount) : null;
-    if (storedTaxable !== null) return sum + storedTaxable;
     const displayRate = getDisplayRate(item);
     return sum + qty * displayRate;
   }, 0);
 
-  const sgst = cartItems.reduce((sum, item) => {
-    return sum + (item.sgst_amount != null ? Number(item.sgst_amount) : 0);
-  }, 0) || subtotal * 0.025;
+  const sgst = hasStoredTotals
+    ? cartItems.reduce((sum, item) => sum + (Number(item.sgst_amount) || 0), 0)
+    : subtotal * 0.025;
 
-  const cgst = cartItems.reduce((sum, item) => {
-    return sum + (item.cgst_amount != null ? Number(item.cgst_amount) : 0);
-  }, 0) || subtotal * 0.025;
+  const cgst = hasStoredTotals
+    ? cartItems.reduce((sum, item) => sum + (Number(item.cgst_amount) || 0), 0)
+    : subtotal * 0.025;
 
-  const total = cartItems.reduce((sum, item) => {
-    return sum + (item.total_amount != null ? Number(item.total_amount) : 0);
-  }, 0) || (subtotal + sgst + cgst);
+  const total = hasStoredTotals && cartItems.some(item => item.total_amount != null)
+    ? cartItems.reduce((sum, item) => sum + (Number(item.total_amount) || 0), 0)
+    : (subtotal + sgst + cgst);
   
   // Convert total to words
   const totalInWords = numberToWords(Math.floor(total)) + " Rupees" + 
