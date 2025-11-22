@@ -362,14 +362,30 @@ export default function CompetitionMaster() {
   if (loading) return <div className="p-4 md:p-8">Loading...</div>;
 
   return (
-    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4" /></Button>
-        <div>
-          <h1 className="text-xl md:text-3xl font-bold">Competition Master</h1>
-          <p className="text-sm text-muted-foreground">Manage competitor information</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      {/* Header Section */}
+      <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+        <div className="relative p-4 sm:p-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => navigate(-1)} 
+              variant="ghost" 
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Competition Master</h1>
+              <p className="text-primary-foreground/80 text-sm sm:text-base mt-1">Manage competitor information</p>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Content */}
+      <div className="p-4 max-w-7xl mx-auto space-y-4 md:space-y-6">
 
       <Card>
         <CardHeader>
@@ -541,6 +557,7 @@ export default function CompetitionMaster() {
           competitorName={selectedCompetitor?.competitor_name || ''}
         />
       )}
+      </div>
     </div>
   );
 }

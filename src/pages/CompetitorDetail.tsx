@@ -213,13 +213,30 @@ export default function CompetitorDetail() {
   if (!competitor) return <div className="p-4 md:p-8">Competitor not found</div>;
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/competition-master')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl md:text-3xl font-bold">{competitor.competitor_name}</h1>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      {/* Header Section */}
+      <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+        <div className="relative p-4 sm:p-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => navigate('/competition-master')} 
+              variant="ghost" 
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">{competitor.competitor_name}</h1>
+              <p className="text-primary-foreground/80 text-sm sm:text-base mt-1">Competitor details and analytics</p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Content */}
+      <div className="p-4 max-w-7xl mx-auto space-y-6">
 
       <Tabs defaultValue="skus" className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
@@ -508,6 +525,7 @@ export default function CompetitorDetail() {
         skuName={selectedSKU?.name || ''}
         competitorName={competitor.competitor_name}
       />
+      </div>
     </div>
   );
 }
