@@ -80,6 +80,7 @@ import GamePolicy from "./pages/GamePolicy";
 import CreditManagement from "./pages/CreditManagement";
 import RetailerLoyaltyAdmin from "./pages/RetailerLoyaltyAdmin";
 import RetailerLoyalty from "./pages/RetailerLoyalty";
+import SecurityManagement from "./pages/SecurityManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -156,6 +157,11 @@ const App = () => (
             <Route path="/user_roles" element={
               <ProtectedRoute>
                 <UserRoles />
+              </ProtectedRoute>
+            } />
+            <Route path="/security-management" element={
+              <ProtectedRoute>
+                <SecurityManagement />
               </ProtectedRoute>
             } />
           <Route path="/product-management" element={

@@ -2780,6 +2780,53 @@ export type Database = {
           },
         ]
       }
+      profile_object_permissions: {
+        Row: {
+          can_create: boolean | null
+          can_delete: boolean | null
+          can_edit: boolean | null
+          can_modify_all: boolean | null
+          can_read: boolean | null
+          can_view_all: boolean | null
+          created_at: string | null
+          id: string
+          object_name: string
+          profile_id: string | null
+        }
+        Insert: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_modify_all?: boolean | null
+          can_read?: boolean | null
+          can_view_all?: boolean | null
+          created_at?: string | null
+          id?: string
+          object_name: string
+          profile_id?: string | null
+        }
+        Update: {
+          can_create?: boolean | null
+          can_delete?: boolean | null
+          can_edit?: boolean | null
+          can_modify_all?: boolean | null
+          can_read?: boolean | null
+          can_view_all?: boolean | null
+          created_at?: string | null
+          id?: string
+          object_name?: string
+          profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_object_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           anniversary_date: string | null
@@ -3687,6 +3734,33 @@ export type Database = {
           },
         ]
       }
+      security_profiles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sensitive_data_access_log: {
         Row: {
           accessed_at: string
@@ -4058,6 +4132,35 @@ export type Database = {
           status?: string | null
         }
         Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          assigned_at: string | null
+          id: string
+          profile_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          id?: string
+          profile_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          id?: string
+          profile_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -5068,6 +5171,14 @@ export type Database = {
         Args: { _invitation_token: string }
         Returns: boolean
       }
+      can_access_object: {
+        Args: {
+          object_name_param: string
+          permission_type: string
+          user_id_param: string
+        }
+        Returns: boolean
+      }
       can_view_employee: { Args: { _target_user_id: string }; Returns: boolean }
       can_view_profile: { Args: { _target_user_id: string }; Returns: boolean }
       check_duplicate_competitor: {
@@ -5128,6 +5239,12 @@ export type Database = {
           region_pincodes: string[]
           skills: string[]
           state: string
+        }[]
+      }
+      get_subordinate_users: {
+        Args: { user_id_param: string }
+        Returns: {
+          subordinate_user_id: string
         }[]
       }
       get_suspicious_access_attempts: {
