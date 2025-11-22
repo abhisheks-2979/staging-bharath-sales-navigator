@@ -270,6 +270,21 @@ const AdminControls = () => {
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/retailer-loyalty-admin')}
+          >
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 bg-pink-100 rounded-full w-16 h-16 flex items-center justify-center">
+                <Trophy className="h-8 w-8 text-pink-600" />
+              </div>
+              <CardTitle>Retailer Loyalty</CardTitle>
+              <CardDescription>
+                Manage retailer loyalty programs, points, and redemptions
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => navigate('/invoice-management')}
           >
             <CardHeader className="text-center">
