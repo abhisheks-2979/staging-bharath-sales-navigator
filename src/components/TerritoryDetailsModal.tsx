@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ShoppingCart, Building, Navigation } from 'lucide-react';
+import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import TerritoryPerformanceReport from './TerritoryPerformanceReport';
 
 interface TerritoryDetailsModalProps {
   open: boolean;
@@ -22,6 +24,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [retailers, setRetailers] = useState<any[]>([]);
   const [pincodeSales, setPincodeSales] = useState<any[]>([]);
   const [salesSummary, setSalesSummary] = useState({ totalSales: 0, totalOrders: 0, totalRetailers: 0 });
+  const [assignmentHistory, setAssignmentHistory] = useState<any[]>([]);
 
   const modalTitle = useMemo(() => territory ? `${territory.name} - Territory Details` : 'Territory Details', [territory]);
 
@@ -63,6 +66,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     });
 
     setPincodeSales(Array.from(pincodeMap.entries()).map(([pincode, data]) => ({ pincode, ...data })));
+    
+    // Get assignment history
+    const { data: historyData } = await supabase
+      .from('territory_assignment_history')
+      .select('*, profiles(full_name)')
+      .eq('territory_id', territory.id)
+      .order('assigned_from', { ascending: false });
+    setAssignmentHistory(historyData || []);
+    
     setLoading(false);
   };
 
@@ -95,9 +107,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
             )}
 
             <Tabs defaultValue="retailers">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="retailers">Retailers ({retailers.length})</TabsTrigger>
                 <TabsTrigger value="distributors">Distributors ({distributors.length})</TabsTrigger>
+                <TabsTrigger value="history">Assignment History</TabsTrigger>
+                <TabsTrigger value="performance">Performance Report</TabsTrigger>
               </TabsList>
               <TabsContent value="retailers">
                 <Card><CardContent className="pt-6">
@@ -109,8 +123,60 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </TabsContent>
               <TabsContent value="distributors">
                 <Card><CardContent className="pt-6">
-                  {distributors.map(d => <div key={d.id} className="flex justify-between p-3 border rounded mb-2"><span className="font-medium">{d.name}</span><Badge variant="outline">{d.contact_person}</Badge></div>)}
+                  {distributors.length > 0 ? (
+                    distributors.map(d => <div key={d.id} className="flex justify-between p-3 border rounded mb-2"><span className="font-medium">{d.name}</span><Badge variant="outline">{d.contact_person}</Badge></div>)
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No distributors assigned</p>
+                  )}
                 </CardContent></Card>
+              </TabsContent>
+              
+              <TabsContent value="history">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Territory Assignment History</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {assignmentHistory.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Team Member</TableHead>
+                            <TableHead>Assigned From</TableHead>
+                            <TableHead>Assigned To</TableHead>
+                            <TableHead>Duration</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {assignmentHistory.map((assignment) => (
+                            <TableRow key={assignment.id}>
+                              <TableCell className="font-medium">{assignment.profiles?.full_name || 'Unknown'}</TableCell>
+                              <TableCell>{format(new Date(assignment.assigned_from), 'MMM dd, yyyy')}</TableCell>
+                              <TableCell>
+                                {assignment.assigned_to 
+                                  ? format(new Date(assignment.assigned_to), 'MMM dd, yyyy')
+                                  : <Badge variant="secondary">Current</Badge>
+                                }
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                {assignment.assigned_to 
+                                  ? `${Math.ceil((new Date(assignment.assigned_to).getTime() - new Date(assignment.assigned_from).getTime()) / (1000 * 60 * 60 * 24))} days`
+                                  : 'Ongoing'
+                                }
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">No assignment history available</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="performance">
+                <TerritoryPerformanceReport territoryId={territory.id} territoryName={territory.name} />
               </TabsContent>
             </Tabs>
           </div>

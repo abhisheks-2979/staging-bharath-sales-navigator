@@ -21,9 +21,15 @@ interface Territory {
   id: string;
   name: string;
   region: string;
-  zone?: string;
+  territory_type?: string;
   pincode_ranges: string[];
   assigned_user_id?: string;
+  parent_id?: string;
+  child_territories_count?: number;
+  population?: number;
+  target_market_size?: number;
+  retailer_count?: number;
+  competitor_ids?: string[];
   description?: string;
   created_at: string;
   updated_at: string;
@@ -39,11 +45,17 @@ const TerritoriesManagement = () => {
   
   const [territoryName, setTerritoryName] = useState('');
   const [region, setRegion] = useState('');
-  const [zone, setZone] = useState('');
+  const [territoryType, setTerritoryType] = useState('');
   const [pincodes, setPincodes] = useState('');
   const [assignedUserIds, setAssignedUserIds] = useState<string[]>([]);
   const [assignedDistributorIds, setAssignedDistributorIds] = useState<string[]>([]);
   const [description, setDescription] = useState('');
+  const [parentId, setParentId] = useState('');
+  const [population, setPopulation] = useState('');
+  const [targetMarketSize, setTargetMarketSize] = useState('');
+  const [retailerCount, setRetailerCount] = useState('');
+  const [competitorIds, setCompetitorIds] = useState<string[]>([]);
+  const [competitors, setCompetitors] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterUser, setFilterUser] = useState('all');
@@ -56,6 +68,7 @@ const TerritoriesManagement = () => {
     loadTerritories();
     loadUsers();
     loadDistributors();
+    loadCompetitors();
 
     // Set up real-time subscription for orders to update territory stats
     const channel = supabase
@@ -87,6 +100,11 @@ const TerritoriesManagement = () => {
   const loadDistributors = async () => {
     const { data } = await supabase.from('distributors').select('id, name, contact_person');
     setDistributors(data || []);
+  };
+
+  const loadCompetitors = async () => {
+    const { data } = await supabase.from('competition_master').select('id, competitor_name');
+    setCompetitors(data || []);
   };
 
   const loadTerritories = async () => {
@@ -194,10 +212,15 @@ const TerritoriesManagement = () => {
     const { error } = await supabase.from('territories').insert({
       name: territoryName,
       region,
-      zone: zone || null,
+      territory_type: territoryType || null,
       pincode_ranges: pincodeArray,
       assigned_user_ids: assignedUserIds,
       assigned_distributor_ids: assignedDistributorIds,
+      parent_id: parentId || null,
+      population: population ? parseInt(population) : null,
+      target_market_size: targetMarketSize ? parseFloat(targetMarketSize) : null,
+      retailer_count: retailerCount ? parseInt(retailerCount) : null,
+      competitor_ids: competitorIds.length > 0 ? competitorIds : null,
       description: description || null,
     });
 
@@ -210,11 +233,16 @@ const TerritoriesManagement = () => {
     toast.success('Territory added successfully!');
     setTerritoryName('');
     setRegion('');
-    setZone('');
+    setTerritoryType('');
     setPincodes('');
     setAssignedUserIds([]);
     setAssignedDistributorIds([]);
     setDescription('');
+    setParentId('');
+    setPopulation('');
+    setTargetMarketSize('');
+    setRetailerCount('');
+    setCompetitorIds([]);
     setShowForm(false);
     loadTerritories();
   };
@@ -248,9 +276,128 @@ const TerritoriesManagement = () => {
             <CardContent>
               <form onSubmit={handleAddTerritory} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Territory Name *</Label><Input value={territoryName} onChange={(e) => setTerritoryName(e.target.value)} required /></div>
-                  <div><Label>Region *</Label><Input value={region} onChange={(e) => setRegion(e.target.value)} required /></div>
-                  <div><Label>Zone</Label><Input value={zone} onChange={(e) => setZone(e.target.value)} /></div>
+                  <div>
+                    <Label>Territory Name *</Label>
+                    <Input value={territoryName} onChange={(e) => setTerritoryName(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label>Region *</Label>
+                    <Select value={region} onValueChange={setRegion} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="State">State</SelectItem>
+                        <SelectItem value="District">District</SelectItem>
+                        <SelectItem value="Taluk">Taluk</SelectItem>
+                        <SelectItem value="Gram Panchayat">Gram Panchayat</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Territory Type</Label>
+                    <Select value={territoryType} onValueChange={setTerritoryType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="City">City</SelectItem>
+                        <SelectItem value="Town">Town</SelectItem>
+                        <SelectItem value="Village">Village</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Parent Territory</Label>
+                    <Select value={parentId} onValueChange={setParentId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select parent (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {territories.map(t => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Population</Label>
+                    <Input 
+                      type="number" 
+                      value={population} 
+                      onChange={(e) => setPopulation(e.target.value)} 
+                      placeholder="Total population"
+                    />
+                  </div>
+                  <div>
+                    <Label>Target Market Size (₹)</Label>
+                    <Input 
+                      type="number" 
+                      value={targetMarketSize} 
+                      onChange={(e) => setTargetMarketSize(e.target.value)} 
+                      placeholder="Market size in rupees"
+                    />
+                  </div>
+                  <div>
+                    <Label># of Retailers</Label>
+                    <Input 
+                      type="number" 
+                      value={retailerCount} 
+                      onChange={(e) => setRetailerCount(e.target.value)} 
+                      placeholder="Total retailers"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Key Competitors (Multiple)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between">
+                        {competitorIds.length > 0 ? `${competitorIds.length} competitor(s) selected` : "Select competitors..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search competitors..." />
+                        <CommandList>
+                          <CommandEmpty>No competitor found.</CommandEmpty>
+                          <CommandGroup>
+                            {competitors.map((competitor) => (
+                              <CommandItem
+                                key={competitor.id}
+                                onSelect={() => {
+                                  setCompetitorIds(prev => 
+                                    prev.includes(competitor.id) 
+                                      ? prev.filter(id => id !== competitor.id)
+                                      : [...prev, competitor.id]
+                                  );
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", competitorIds.includes(competitor.id) ? "opacity-100" : "opacity-0")} />
+                                {competitor.competitor_name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {competitorIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {competitorIds.map(compId => {
+                        const competitor = competitors.find(c => c.id === compId);
+                        return (
+                          <Badge key={compId} variant="secondary" className="gap-1">
+                            {competitor?.competitor_name}
+                            <X className="h-3 w-3 cursor-pointer" onClick={() => setCompetitorIds(prev => prev.filter(id => id !== compId))} />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -406,48 +553,68 @@ const TerritoriesManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Territory Name</TableHead>
-                    <TableHead>Region/Zone</TableHead>
-                    <TableHead>PIN Codes Covered</TableHead>
-                    <TableHead>Assigned Sales User</TableHead>
-                    <TableHead className="text-right">Total Retailers</TableHead>
-                    <TableHead className="text-right">Total Sales (Month)</TableHead>
-                    <TableHead>Last Updated</TableHead>
+                    <TableHead>Region/Type</TableHead>
+                    <TableHead>Parent</TableHead>
+                    <TableHead>Sub-Territories</TableHead>
+                    <TableHead>PIN Codes</TableHead>
+                    <TableHead>Assigned User</TableHead>
+                    <TableHead className="text-right">Retailers</TableHead>
+                    <TableHead className="text-right">Sales (Month)</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTerritories.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.name}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm">{t.region}</span>
-                          {t.zone && <Badge variant="outline" className="w-fit">{t.zone}</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {t.pincode_ranges?.slice(0, 3).map((p, i) => (
-                            <Badge key={i} variant="secondary">{p}</Badge>
-                          ))}
-                          {t.pincode_ranges?.length > 3 && (
-                            <Badge variant="outline">+{t.pincode_ranges.length - 3} more</Badge>
+                  {filteredTerritories.map((t) => {
+                    const parentTerritory = territories.find(pt => pt.id === t.parent_id);
+                    return (
+                      <TableRow key={t.id}>
+                        <TableCell className="font-medium">{t.name}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge variant="outline">{t.region}</Badge>
+                            {t.territory_type && <Badge variant="secondary" className="ml-1">{t.territory_type}</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {parentTerritory ? (
+                            <Badge variant="outline">{parentTerritory.name}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{t.assigned_user_name}</TableCell>
-                      <TableCell className="text-right font-medium">{t.total_retailers}</TableCell>
-                      <TableCell className="text-right font-medium">₹{t.total_sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(t.updated_at), 'MMM dd, yyyy')}
-                      </TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedTerritory(t); setDetailsModalOpen(true); }}>
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{t.child_territories_count || 0}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {t.pincode_ranges?.slice(0, 2).map((pin, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
+                            ))}
+                            {t.pincode_ranges?.length > 2 && (
+                              <Badge variant="outline" className="text-xs">+{t.pincode_ranges.length - 2}</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{t.assigned_user_name || 'Unassigned'}</TableCell>
+                        <TableCell className="text-right font-medium">{t.total_retailers}</TableCell>
+                        <TableCell className="text-right font-medium text-primary">
+                          ₹{t.total_sales?.toFixed(2) || '0.00'}
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTerritory(t);
+                              setDetailsModalOpen(true);
+                            }}
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

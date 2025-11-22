@@ -3521,12 +3521,19 @@ export type Database = {
           assigned_distributor_ids: Json | null
           assigned_user_id: string | null
           assigned_user_ids: Json | null
+          child_territories_count: number | null
+          competitor_ids: string[] | null
           created_at: string
           description: string | null
           id: string
           name: string
+          parent_id: string | null
           pincode_ranges: string[] | null
+          population: number | null
           region: string
+          retailer_count: number | null
+          target_market_size: number | null
+          territory_type: string | null
           updated_at: string
           zone: string | null
         }
@@ -3534,12 +3541,19 @@ export type Database = {
           assigned_distributor_ids?: Json | null
           assigned_user_id?: string | null
           assigned_user_ids?: Json | null
+          child_territories_count?: number | null
+          competitor_ids?: string[] | null
           created_at?: string
           description?: string | null
           id?: string
           name: string
+          parent_id?: string | null
           pincode_ranges?: string[] | null
+          population?: number | null
           region: string
+          retailer_count?: number | null
+          target_market_size?: number | null
+          territory_type?: string | null
           updated_at?: string
           zone?: string | null
         }
@@ -3547,16 +3561,69 @@ export type Database = {
           assigned_distributor_ids?: Json | null
           assigned_user_id?: string | null
           assigned_user_ids?: Json | null
+          child_territories_count?: number | null
+          competitor_ids?: string[] | null
           created_at?: string
           description?: string | null
           id?: string
           name?: string
+          parent_id?: string | null
           pincode_ranges?: string[] | null
+          population?: number | null
           region?: string
+          retailer_count?: number | null
+          target_market_size?: number | null
+          territory_type?: string | null
           updated_at?: string
           zone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "territories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      territory_assignment_history: {
+        Row: {
+          assigned_from: string
+          assigned_to: string | null
+          assigned_user_id: string
+          created_at: string
+          id: string
+          territory_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_from: string
+          assigned_to?: string | null
+          assigned_user_id: string
+          created_at?: string
+          id?: string
+          territory_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_from?: string
+          assigned_to?: string | null
+          assigned_user_id?: string
+          created_at?: string
+          id?: string
+          territory_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "territory_assignment_history_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_approvals: {
         Row: {
