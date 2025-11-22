@@ -176,7 +176,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </TabsContent>
 
               <TabsContent value="performance">
-                <TerritoryPerformanceReport territoryId={territory.id} territoryName={territory.name} />
+                {territory ? (
+                  <TerritoryPerformanceReport territoryId={territory.id} territoryName={territory.name} />
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No territory selected</div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
