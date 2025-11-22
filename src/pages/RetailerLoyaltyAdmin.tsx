@@ -2,16 +2,27 @@ import { Layout } from "@/components/Layout";
 import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
-import { Loader2, Gift } from "lucide-react";
+import { Loader2, Gift, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { ProgramsManagement } from "@/components/loyalty/ProgramsManagement";
 import { ActionsManagement } from "@/components/loyalty/ActionsManagement";
 import { RetailerPointsDashboard } from "@/components/loyalty/RetailerPointsDashboard";
 import { RedemptionsManagement } from "@/components/loyalty/RedemptionsManagement";
 import { LoyaltyAnalytics } from "@/components/loyalty/LoyaltyAnalytics";
+import { seedLoyaltyData } from "@/utils/seedLoyaltyData";
+import { useState } from "react";
 
 export default function RetailerLoyaltyAdmin() {
   const { userRole, loading } = useAuth();
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    await seedLoyaltyData();
+    setIsSeeding(false);
+    window.location.reload();
+  };
 
   if (loading) {
     return (
@@ -34,18 +45,33 @@ export default function RetailerLoyaltyAdmin() {
         <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-gradient-primary rounded-lg">
-                <Gift className="h-6 w-6 text-primary-foreground" />
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-primary rounded-lg">
+                  <Gift className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">
+                    Retailer Loyalty Program
+                  </h1>
+                  <p className="text-muted-foreground mt-1">
+                    Manage programs, actions, points, and redemptions
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">
-                  Retailer Loyalty Program
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Manage programs, actions, points, and redemptions
-                </p>
-              </div>
+              <Button
+                onClick={handleSeedData}
+                disabled={isSeeding}
+                variant="outline"
+                size="sm"
+              >
+                {isSeeding ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Create Sample Data
+              </Button>
             </div>
           </div>
 
