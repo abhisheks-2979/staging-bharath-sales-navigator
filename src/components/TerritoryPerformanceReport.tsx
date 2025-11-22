@@ -35,7 +35,15 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
       return;
     }
 
-    const { data: allRetailers } = await supabase.from('retailers').select('id, name, address, category');
+    // Fetch beats in this territory
+    const { data: territoryBeats } = await supabase
+      .from('beats')
+      .select('beat_id, beat_name, average_km, is_active, created_at')
+      .eq('territory_id', territoryId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    const { data: allRetailers } = await supabase.from('retailers').select('id, name, address, category, beat_id');
     const territoryRetailers = allRetailers?.filter(r => 
       territory.pincode_ranges?.some((pin: string) => r.address?.includes(pin))
     ) || [];
@@ -151,7 +159,8 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
       topRetailers,
       bottomRetailers,
       monthlySalesData,
-      competitionActivities: competitionData || []
+      competitionActivities: competitionData || [],
+      beats: territoryBeats || []
     });
 
     setLoading(false);
@@ -318,6 +327,39 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
           </CardContent>
         </Card>
       </div>
+
+      {/* Beats in Territory */}
+      {performanceData.beats && performanceData.beats.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+              Beats in Territory ({performanceData.beats.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {performanceData.beats.map((beat: any) => (
+                <div key={beat.beat_id} className="p-3 border rounded-lg hover:border-primary transition-colors">
+                  <div className="flex items-start justify-between mb-2">
+                    <p className="font-medium text-sm">{beat.beat_name}</p>
+                    <Badge variant="outline" className="text-xs">Active</Badge>
+                  </div>
+                  {beat.average_km && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {beat.average_km} km avg
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Created: {format(new Date(beat.created_at), 'MMM dd, yyyy')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top & Bottom Retailers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
