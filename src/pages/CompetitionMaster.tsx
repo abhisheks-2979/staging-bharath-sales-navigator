@@ -19,6 +19,7 @@ import { CompetitionDataList } from "@/components/competition/CompetitionDataLis
 import { CompetitionAISummary } from "@/components/competition/CompetitionAISummary";
 import { CompetitionRetailerAnalytics } from "@/components/competition/CompetitionRetailerAnalytics";
 import { SKUDetailModal } from "@/components/competition/SKUDetailModal";
+import { Navbar } from "@/components/Navbar";
 
 interface Competitor {
   id: string;
@@ -362,27 +363,29 @@ export default function CompetitionMaster() {
   if (loading) return <div className="p-4 md:p-8">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      {/* Header Section */}
-      <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
-        <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
-        <div className="relative p-4 sm:p-6">
-          <div className="flex items-center gap-4">
-            <Button 
-              onClick={() => navigate(-1)} 
-              variant="ghost" 
-              size="sm"
-              className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">Competition Master</h1>
-              <p className="text-primary-foreground/80 text-sm sm:text-base mt-1">Manage competitor information</p>
+    <>
+      <Navbar />
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        {/* Header Section */}
+        <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+          <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+          <div className="relative p-4 sm:p-6">
+            <div className="flex items-center gap-4">
+              <Button 
+                onClick={() => navigate(-1)} 
+                variant="ghost" 
+                size="sm"
+                className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
+              >
+                <ArrowLeft size={20} />
+              </Button>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold">Competition Master</h1>
+                <p className="text-primary-foreground/80 text-sm sm:text-base mt-1">Manage competitor information</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* Content */}
       <div className="p-4 max-w-7xl mx-auto space-y-4 md:space-y-6">
@@ -559,5 +562,6 @@ export default function CompetitionMaster() {
       )}
       </div>
     </div>
+    </>
   );
 }
