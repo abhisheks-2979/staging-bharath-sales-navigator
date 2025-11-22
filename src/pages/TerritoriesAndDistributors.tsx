@@ -23,38 +23,47 @@ const TerritoriesAndDistributors = () => {
   // Allow all authenticated users to view territories
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate('/dashboard')} 
-            variant="ghost" 
-            size="sm"
-            className="p-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Territories & Distributors</h1>
-            <p className="text-muted-foreground">Manage your territory assignments and distributor network</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      {/* Header Section */}
+      <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+        <div className="relative p-4 sm:p-6">
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={() => navigate('/dashboard')} 
+              variant="ghost" 
+              size="sm"
+              className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Territories & Distributors</h1>
+              <p className="text-primary-foreground/80 text-sm sm:text-base mt-1">Manage your territory assignments and distributor network</p>
+            </div>
           </div>
         </div>
+      </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="territories">Territories</TabsTrigger>
-            <TabsTrigger value="distributors">Distributors</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="territories" className="mt-6">
-            <TerritoriesManagement />
-          </TabsContent>
-          
-          <TabsContent value="distributors" className="mt-6">
-            <DistributorsManagement />
-          </TabsContent>
-        </Tabs>
+      {/* Content */}
+      <div className="p-4">
+        <div className="max-w-7xl mx-auto space-y-6">
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="territories">Territories</TabsTrigger>
+              <TabsTrigger value="distributors">Distributors</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="territories" className="mt-6">
+              <TerritoriesManagement />
+            </TabsContent>
+            
+            <TabsContent value="distributors" className="mt-6">
+              <DistributorsManagement />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
