@@ -335,7 +335,7 @@ export const RetailerDetail = () => {
 
             {/* Loyalty Points Section */}
             <Separator />
-            <RetailerLoyaltyCard retailerId={retailer.id} fseUserId={userId || ""} />
+            <RetailerLoyaltyCard retailerId={retailer.id} fseUserId={user?.id || ""} />
 
             {/* Competition */}
             {retailer.competitors && retailer.competitors.length > 0 && (
