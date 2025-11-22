@@ -38,7 +38,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [parentTerritory, setParentTerritory] = useState<any>(null);
   const [grandparentTerritory, setGrandparentTerritory] = useState<any>(null);
 
-  const modalTitle = useMemo(() => territory ? `${territory.name} - Territory Details` : 'Territory Details', [territory]);
+  const modalTitle = useMemo(() => territory ? `${territory.name} - Territory Analytics` : 'Territory Analytics', [territory]);
 
   useEffect(() => {
     if (open && territory) loadTerritoryData();
@@ -60,11 +60,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         }
       }
 
-      const { data: distributorsData } = await supabase.from('distributors').select('id, name, contact_person').eq('territory_id', territory.id);
+      const { data: distributorsData } = await supabase.from('distributors').select('id, name, contact_person, phone, status, outstanding_amount').eq('territory_id', territory.id);
       setDistributors(distributorsData || []);
 
-      const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address');
-      const matchingRetailers = retailersData?.filter(r => territory.pincode_ranges?.some(p => r.address?.includes(p))) || [];
+      const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address, phone, last_visit_date, last_order_value, last_order_date').eq('territory_id', territory.id);
+      const matchingRetailers = retailersData || [];
       setRetailers(matchingRetailers);
 
       const startOfMonth = new Date();
@@ -167,10 +167,17 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       territory.pincode_ranges?.forEach(pincode => {
         const pincodeOrders = ordersData?.filter(o => o.retailers?.address?.includes(pincode)) || [];
         const pincodeRetailers = matchingRetailers.filter(r => r.address?.includes(pincode));
+        
+        // Extract location name (text before the pincode)
+        const sampleAddress = pincodeRetailers[0]?.address || '';
+        const locationMatch = sampleAddress.match(new RegExp(`(.+?)\\s*${pincode}`));
+        const locationName = locationMatch ? locationMatch[1].split(',').pop()?.trim() : '';
+        
         pincodeMap.set(pincode, {
           sales: pincodeOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
           orders: pincodeOrders.length,
           retailers: pincodeRetailers.length,
+          locationName,
         });
       });
 
@@ -204,8 +211,19 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
         <div className="sticky top-0 z-10 bg-background border-b px-4 sm:px-6 py-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">{modalTitle}</DialogTitle>
+          <DialogHeader className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute -right-2 -top-2 h-8 w-8 rounded-full"
+              onClick={() => onOpenChange(false)}
+            >
+              <span className="sr-only">Close</span>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
+            <DialogTitle className="text-lg sm:text-xl pr-8">{modalTitle}</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">Comprehensive territory analytics and performance insights</DialogDescription>
           </DialogHeader>
         </div>
@@ -457,7 +475,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
             {pincodeSales.length > 0 && (
               <Card className="shadow-lg">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base">Sales by PIN Code</CardTitle>
+                  <CardTitle className="text-sm sm:text-base">Sales by PIN Code & Location</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4">
                   <div className="overflow-x-auto -mx-3 sm:mx-0">
@@ -465,6 +483,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs sm:text-sm">PIN Code</TableHead>
+                          <TableHead className="text-xs sm:text-sm">Location</TableHead>
                           <TableHead className="text-right text-xs sm:text-sm">Sales</TableHead>
                           <TableHead className="text-right text-xs sm:text-sm hidden sm:table-cell">Orders</TableHead>
                           <TableHead className="text-right text-xs sm:text-sm hidden sm:table-cell">Retailers</TableHead>
@@ -474,6 +493,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                         {pincodeSales.map(d => (
                           <TableRow key={d.pincode}>
                             <TableCell><Badge className="text-xs">{d.pincode}</Badge></TableCell>
+                            <TableCell className="text-xs sm:text-sm text-muted-foreground truncate max-w-[100px] sm:max-w-none">{d.locationName || '-'}</TableCell>
                             <TableCell className="text-right text-xs sm:text-sm font-medium whitespace-nowrap">₹{d.sales.toLocaleString()}</TableCell>
                             <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{d.orders}</TableCell>
                             <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{d.retailers}</TableCell>
@@ -508,17 +528,36 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                           <TableRow>
                             <TableHead className="text-xs sm:text-sm">Name</TableHead>
                             <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
-                            <TableHead className="text-xs sm:text-sm">Address</TableHead>
+                            <TableHead className="text-xs sm:text-sm">Last Order</TableHead>
+                            <TableHead className="text-xs sm:text-sm hidden md:table-cell">Last Visit</TableHead>
+                            <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Phone</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {retailers.map(r => (
-                            <TableRow key={r.id}>
-                              <TableCell className="text-xs sm:text-sm font-medium">{r.name}</TableCell>
+                            <TableRow 
+                              key={r.id} 
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => navigate(`/retailer/${r.id}`)}
+                            >
+                              <TableCell className="text-xs sm:text-sm font-medium text-primary hover:underline">{r.name}</TableCell>
                               <TableCell className="hidden sm:table-cell">
-                                <Badge variant="outline" className="text-xs">{r.category}</Badge>
+                                <Badge variant="outline" className="text-xs">{r.category || '-'}</Badge>
                               </TableCell>
-                              <TableCell className="text-xs sm:text-sm truncate max-w-[150px] sm:max-w-md">{r.address}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">
+                                {r.last_order_value ? (
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-green-600">₹{Number(r.last_order_value).toLocaleString()}</span>
+                                    <span className="text-[10px] text-muted-foreground">{r.last_order_date ? format(new Date(r.last_order_date), 'dd MMM') : '-'}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
+                                {r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM yyyy') : '-'}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">{r.phone || '-'}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -532,13 +571,35 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 <Card className="shadow-lg">
                   <CardContent className="p-3 sm:p-4">
                     {distributors.length > 0 ? (
-                      <div className="space-y-2">
-                        {distributors.map(d => (
-                          <div key={d.id} className="flex flex-col sm:flex-row sm:justify-between gap-2 p-3 border rounded">
-                            <span className="font-medium text-xs sm:text-sm">{d.name}</span>
-                            <Badge variant="outline" className="text-xs w-fit">{d.contact_person}</Badge>
-                          </div>
-                        ))}
+                      <div className="overflow-x-auto -mx-3 sm:mx-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                              <TableHead className="text-xs sm:text-sm">Contact Person</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Phone</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden md:table-cell">Status</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Outstanding</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {distributors.map(d => (
+                              <TableRow key={d.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                                <TableCell className="text-xs sm:text-sm font-medium text-primary hover:underline">{d.name}</TableCell>
+                                <TableCell className="text-xs sm:text-sm">{d.contact_person}</TableCell>
+                                <TableCell className="text-xs sm:text-sm text-muted-foreground hidden sm:table-cell">{d.phone || '-'}</TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                  <Badge variant={d.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                                    {d.status || 'active'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs sm:text-sm font-medium text-orange-600 hidden lg:table-cell">
+                                  {d.outstanding_amount ? `₹${Number(d.outstanding_amount).toLocaleString()}` : '-'}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
                     ) : (
                       <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No distributors assigned</p>
