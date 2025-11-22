@@ -216,7 +216,7 @@ const TerritoriesManagement = () => {
       pincode_ranges: pincodeArray,
       assigned_user_ids: assignedUserIds,
       assigned_distributor_ids: assignedDistributorIds,
-      parent_id: parentId || null,
+      parent_id: parentId && parentId !== 'none' ? parentId : null,
       population: population ? parseInt(population) : null,
       target_market_size: targetMarketSize ? parseFloat(targetMarketSize) : null,
       retailer_count: retailerCount ? parseInt(retailerCount) : null,
@@ -309,12 +309,12 @@ const TerritoriesManagement = () => {
                   </div>
                   <div>
                     <Label>Parent Territory</Label>
-                    <Select value={parentId} onValueChange={setParentId}>
+                    <Select value={parentId || "none"} onValueChange={setParentId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select parent (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {territories.map(t => (
                           <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                         ))}
