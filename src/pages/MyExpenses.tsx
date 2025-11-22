@@ -20,64 +20,80 @@ const MyExpenses = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button 
-              onClick={() => navigate('/')} 
-              variant="ghost" 
-              size="sm"
-              className="text-white hover:bg-white/20 p-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold">My Expenses</h1>
-              <p className="text-blue-100 mt-1">Track your TA & DA expenses</p>
+      <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+        <div className="relative p-4 sm:p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-6">
+              <Button 
+                onClick={() => navigate('/')} 
+                variant="ghost" 
+                size="sm"
+                className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
+              >
+                <ArrowLeft size={20} />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold">My Expenses</h1>
+                <p className="text-primary-foreground/80 mt-1 text-sm sm:text-base">Track your TA & DA expenses</p>
+              </div>
+              <Button 
+                variant="secondary"
+                size="sm"
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30 hidden sm:flex"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+              <Button 
+                variant="secondary"
+                size="icon"
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30 sm:hidden"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-            <Button 
-              variant="secondary"
-              size="sm"
-              className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
-            </Button>
-          </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card className="bg-white/10 border-white/20">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-white">₹1080</div>
-                <div className="text-sm text-blue-100">This Month</div>
+            {/* Quick Stats - Moved to -mt-6 section */}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards - Overlapping Header */}
+      <div className="p-4 -mt-6 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+            <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-1">₹1080</div>
+                <div className="text-[10px] sm:text-xs text-blue-700 font-medium leading-tight">This Month</div>
               </CardContent>
             </Card>
-            <Card className="bg-white/10 border-white/20">
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-white">₹320</div>
-                <div className="text-sm text-blue-100">Pending</div>
+            <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <div className="text-xl sm:text-2xl font-bold text-purple-600 mb-1">₹320</div>
+                <div className="text-[10px] sm:text-xs text-purple-700 font-medium leading-tight">Pending</div>
               </CardContent>
             </Card>
           </div>
 
           {/* Allowance Cards */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
-              <CardContent className="p-4 text-center">
-                <div className="text-blue-600 text-sm mb-2">🚗</div>
-                <div className="text-2xl font-bold text-blue-700">₹720</div>
-                <div className="text-sm text-blue-600">Travel Allowance</div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+            <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
+              <CardContent className="p-3 sm:p-4 text-center">
+                <div className="text-green-600 text-sm mb-2">🚗</div>
+                <div className="text-xl sm:text-2xl font-bold text-green-700">₹720</div>
+                <div className="text-[10px] sm:text-xs text-green-600 font-medium leading-tight">Travel Allowance</div>
               </CardContent>
             </Card>
             
-            <Card className="bg-orange-50 border-orange-200 dark:bg-orange-950 dark:border-orange-800">
-              <CardContent className="p-4 text-center">
+            <Card className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border-orange-200 shadow-lg">
+              <CardContent className="p-3 sm:p-4 text-center">
                 <div className="text-orange-600 text-sm mb-2">☕</div>
-                <div className="text-2xl font-bold text-orange-700">₹360</div>
-                <div className="text-sm text-orange-600">Daily Allowance</div>
+                <div className="text-xl sm:text-2xl font-bold text-orange-700">₹360</div>
+                <div className="text-[10px] sm:text-xs text-orange-600 font-medium leading-tight">Daily Allowance</div>
               </CardContent>
             </Card>
           </div>
@@ -86,37 +102,37 @@ const MyExpenses = () => {
 
       {/* Content Section */}
       <div className="p-4">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
           {/* Monthly Overview */}
-          <Card className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+          <Card className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 border-emerald-200 shadow-lg">
             <CardHeader>
-              <CardTitle className="text-green-800 dark:text-green-200 flex items-center gap-2">
+              <CardTitle className="text-emerald-800 flex items-center gap-2 text-base sm:text-lg">
                 📊 Monthly Overview
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-lg font-bold text-green-700 dark:text-green-300">Approved</div>
-                  <div className="text-2xl font-bold text-green-800 dark:text-green-200">₹760</div>
+                  <div className="text-sm sm:text-base font-bold text-emerald-700">Approved</div>
+                  <div className="text-xl sm:text-2xl font-bold text-emerald-800">₹760</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-green-700 dark:text-green-300">Success Rate</div>
-                  <div className="text-2xl font-bold text-green-800 dark:text-green-200">70%</div>
+                  <div className="text-sm sm:text-base font-bold text-emerald-700">Success Rate</div>
+                  <div className="text-xl sm:text-2xl font-bold text-emerald-800">70%</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Recent Expenses */}
-          <Card>
+          <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 📋 Recent Expenses
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center text-muted-foreground py-8">
+              <div className="text-center text-muted-foreground py-8 text-sm sm:text-base">
                 No recent expenses found
               </div>
             </CardContent>

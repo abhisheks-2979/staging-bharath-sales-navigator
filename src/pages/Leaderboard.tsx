@@ -424,161 +424,188 @@ export default function Leaderboard() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6">
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => navigate(-1)}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        {/* Header Section */}
+        <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
+          <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
+          <div className="relative p-4 sm:p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate(-1)}
+                className="text-primary-foreground hover:bg-primary-foreground/20 p-2"
+              >
+                <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div>
-                <h1 className="text-3xl font-bold">Leaderboard</h1>
-                <p className="text-muted-foreground">Track performance, earn points, and compete</p>
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold">Leaderboard</h1>
+                <p className="text-primary-foreground/80 text-sm sm:text-base mt-1">Track performance, earn points, and compete</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => navigate("/activities-info")}>
-                <Trophy className="mr-2 h-4 w-4" />
-                Game Configurations
+            
+            {/* Quick Action Buttons - Mobile Friendly */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => navigate("/activities-info")}
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30 text-xs sm:text-sm"
+              >
+                <Trophy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Game Config</span>
+                <span className="sm:hidden">Config</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate("/badges-info")}>
-                <Award className="mr-2 h-4 w-4" />
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => navigate("/badges-info")}
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30 text-xs sm:text-sm"
+              >
+                <Award className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Badges
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate("/game-policy")}>
-                <Info className="mr-2 h-4 w-4" />
-                Game Policy
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={() => navigate("/game-policy")}
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground border-primary-foreground/30 text-xs sm:text-sm"
+              >
+                <Info className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                Policy
               </Button>
             </div>
           </div>
         </div>
 
-        {/* My Points Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/20 dark:to-yellow-800/20">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-2">
-                <Trophy className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
-                <LeaderboardTimeFilters 
-                  timeFilter={timeFilter} 
-                  onFilterChange={(v: any) => setTimeFilter(v)}
-                  customStartDate={customStartDate}
-                  customEndDate={customEndDate}
-                  onCustomStartDateChange={setCustomStartDate}
-                  onCustomEndDateChange={setCustomEndDate}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground">My Points</p>
-              <p className="text-4xl font-bold">{getDisplayPoints()}</p>
-              <div className="flex flex-col gap-2 mt-3">
-                <p className="text-xs text-muted-foreground">Total: {myPoints.total}</p>
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="w-full font-semibold"
-                  onClick={() => setShowDetailsModal(true)}
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  View Details
+        {/* My Points Summary Cards - Overlapping Header */}
+        <div className="p-4 -mt-6 relative z-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <Card className="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 border-yellow-200 shadow-lg">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600" />
+                  <LeaderboardTimeFilters 
+                    timeFilter={timeFilter} 
+                    onFilterChange={(v: any) => setTimeFilter(v)}
+                    customStartDate={customStartDate}
+                    customEndDate={customEndDate}
+                    onCustomStartDateChange={setCustomStartDate}
+                    onCustomEndDateChange={setCustomEndDate}
+                  />
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground">My Points</p>
+                <p className="text-2xl sm:text-4xl font-bold text-yellow-700">{getDisplayPoints()}</p>
+                <div className="flex flex-col gap-2 mt-3">
+                  <p className="text-xs text-muted-foreground">Total: {myPoints.total}</p>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="w-full font-semibold text-xs sm:text-sm"
+                    onClick={() => setShowDetailsModal(true)}
+                  >
+                    <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    View Details
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-green-500/10 to-green-600/10 border-green-200 shadow-lg">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                  <p className="text-xs sm:text-sm text-muted-foreground">My Rank</p>
+                </div>
+                <p className="text-2xl sm:text-4xl font-bold text-green-700">
+                  #{leaderboard.findIndex(l => l.user_id === userProfile?.id) + 1 || "N/A"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">of {leaderboard.length} participants</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                  <p className="text-xs sm:text-sm text-muted-foreground">Active Games</p>
+                </div>
+                <p className="text-2xl sm:text-4xl font-bold text-blue-700">{games.length}</p>
+                <p className="text-xs text-muted-foreground mt-1">Currently participating</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-purple-500/10 to-purple-600/10 border-purple-200 shadow-lg">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Gift className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
+                  <p className="text-xs sm:text-sm text-muted-foreground">Available to Redeem</p>
+                </div>
+                <p className="text-2xl sm:text-4xl font-bold text-purple-700">{myPoints.total}</p>
+                <Button className="w-full mt-3 text-xs sm:text-sm" size="sm" onClick={() => setShowRedeemDialog(true)}>
+                  Redeem Now
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
-                <p className="text-sm text-muted-foreground">My Rank</p>
-              </div>
-              <p className="text-4xl font-bold">
-                #{leaderboard.findIndex(l => l.user_id === userProfile?.id) + 1 || "N/A"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">of {leaderboard.length} participants</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                <p className="text-sm text-muted-foreground">Active Games</p>
-              </div>
-              <p className="text-4xl font-bold">{games.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Currently participating</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Gift className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                <p className="text-sm text-muted-foreground">Available to Redeem</p>
-              </div>
-              <p className="text-4xl font-bold">{myPoints.total}</p>
-              <Button className="w-full mt-3" size="sm" onClick={() => setShowRedeemDialog(true)}>
-                Redeem Now
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Activity Performance */}
-        {pointsBreakdown.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Activity Performance ({timeFilter})</CardTitle>
-              <CardDescription>Your points breakdown by activity</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {pointsBreakdown.map((item, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Star className="h-4 w-4 text-yellow-500" />
-                        <span className="text-sm font-medium">{item.activity_name}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs text-muted-foreground">{item.count} activities</span>
-                        <Badge variant="secondary">{item.points} pts</Badge>
-                      </div>
-                    </div>
-                    <Progress value={(item.points / myPoints.total) * 100} className="h-2" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Tabs defaultValue="games" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="games">
-              <Award className="mr-2 h-4 w-4" />
-              My Games
-            </TabsTrigger>
-            <TabsTrigger value="badges">
-              <Medal className="mr-2 h-4 w-4" />
-              Badges
-            </TabsTrigger>
-            <TabsTrigger value="leaderboard">
-              <Trophy className="mr-2 h-4 w-4" />
-              Rankings
-            </TabsTrigger>
-            <TabsTrigger value="redemptions">
-              <Gift className="mr-2 h-4 w-4" />
-              Redemptions
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="leaderboard" className="space-y-4">
-            <Card>
+          {/* Activity Performance */}
+          {pointsBreakdown.length > 0 && (
+            <Card className="mb-6 shadow-lg">
               <CardHeader>
-                <CardTitle>Top Performers</CardTitle>
-                <CardDescription>Rankings for {timeFilter}</CardDescription>
+                <CardTitle className="text-base sm:text-lg">Activity Performance ({timeFilter})</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Your points breakdown by activity</CardDescription>
               </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {pointsBreakdown.map((item, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Star className="h-4 w-4 text-yellow-500" />
+                          <span className="text-xs sm:text-sm font-medium">{item.activity_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-4">
+                          <span className="text-[10px] sm:text-xs text-muted-foreground">{item.count} activities</span>
+                          <Badge variant="secondary" className="text-xs">{item.points} pts</Badge>
+                        </div>
+                      </div>
+                      <Progress value={(item.points / myPoints.total) * 100} className="h-2" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Tabs defaultValue="games" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+              <TabsTrigger value="games" className="text-xs sm:text-sm">
+                <Award className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">My Games</span>
+                <span className="sm:hidden">Games</span>
+              </TabsTrigger>
+              <TabsTrigger value="badges" className="text-xs sm:text-sm">
+                <Medal className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                Badges
+              </TabsTrigger>
+              <TabsTrigger value="leaderboard" className="text-xs sm:text-sm">
+                <Trophy className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Rankings</span>
+                <span className="sm:hidden">Rank</span>
+              </TabsTrigger>
+              <TabsTrigger value="redemptions" className="text-xs sm:text-sm">
+                <Gift className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Redemptions</span>
+                <span className="sm:hidden">Redeem</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="leaderboard" className="space-y-4">
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base sm:text-lg">Top Performers</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Rankings for {timeFilter}</CardDescription>
+                </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {leaderboard.slice(0, 3).map((item, index) => (
@@ -623,20 +650,20 @@ export default function Leaderboard() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
-          </TabsContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="games" className="space-y-4">
-            {games.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
+            <TabsContent value="games" className="space-y-4">
+              {games.length === 0 ? (
+                <Card className="shadow-lg">
+                  <CardContent className="p-8 sm:p-12 text-center">
                   <Award className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No active games at the moment</p>
                 </CardContent>
               </Card>
             ) : (
               games.map((game) => (
-                <Card key={game.id}>
+                <Card key={game.id} className="shadow-lg">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div>
@@ -673,24 +700,24 @@ export default function Leaderboard() {
                 </Card>
               ))
             )}
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="badges">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Badges</CardTitle>
-                <CardDescription>Achievements and milestones</CardDescription>
-              </CardHeader>
+            <TabsContent value="badges">
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base sm:text-lg">My Badges</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Achievements and milestones</CardDescription>
+                </CardHeader>
               <CardContent>
                 <BadgesDisplay />
               </CardContent>
             </Card>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="redemptions" className="space-y-4">
-            {redemptions.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
+            <TabsContent value="redemptions" className="space-y-4">
+              {redemptions.length === 0 ? (
+                <Card className="shadow-lg">
+                  <CardContent className="p-8 sm:p-12 text-center">
                   <Gift className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No redemption requests yet</p>
                   <Button className="mt-4" onClick={() => setShowRedeemDialog(true)}>
@@ -700,7 +727,7 @@ export default function Leaderboard() {
               </Card>
             ) : (
               redemptions.map((redemption) => (
-                <Card key={redemption.id}>
+                <Card key={redemption.id} className="shadow-lg">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
@@ -734,6 +761,7 @@ export default function Leaderboard() {
             )}
           </TabsContent>
         </Tabs>
+        </div>
       </div>
 
       {/* Redeem Points Dialog */}
