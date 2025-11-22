@@ -15,9 +15,10 @@ interface TerritoryDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   territory: any;
+  onEdit?: (territory: any) => void;
 }
 
-const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onOpenChange, territory }) => {
+const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onOpenChange, territory, onEdit }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [distributors, setDistributors] = useState<any[]>([]);

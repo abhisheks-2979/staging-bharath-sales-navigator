@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Plus, FileDown, Search, Check, ChevronsUpDown, X } from 'lucide-react';
+import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TerritoryDetailsModal from './TerritoryDetailsModal';
 import TerritoryDashboard from './TerritoryDashboard';
@@ -42,6 +42,7 @@ const TerritoriesManagement = () => {
   const [selectedTerritory, setSelectedTerritory] = useState<any>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
+  const [editingTerritoryId, setEditingTerritoryId] = useState<string | null>(null);
   
   const [territoryName, setTerritoryName] = useState('');
   const [region, setRegion] = useState('');
@@ -204,33 +205,62 @@ const TerritoriesManagement = () => {
     e.preventDefault();
     const pincodeArray = pincodes.split(',').map(p => p.trim()).filter(p => p.length > 0);
 
-    if (pincodeArray.length === 0) {
-      toast.error('Please enter at least one PIN code');
+    // Only require pincodes if territory type is filled
+    if (territoryType && pincodeArray.length === 0) {
+      toast.error('Please enter at least one PIN code when territory type is specified');
       return;
     }
 
-    const { error } = await supabase.from('territories').insert({
-      name: territoryName,
-      region,
-      territory_type: territoryType || null,
-      pincode_ranges: pincodeArray,
-      assigned_user_ids: assignedUserIds,
-      assigned_distributor_ids: assignedDistributorIds,
-      parent_id: parentId && parentId !== 'none' ? parentId : null,
-      population: population ? parseInt(population) : null,
-      target_market_size: targetMarketSize ? parseFloat(targetMarketSize) : null,
-      retailer_count: retailerCount ? parseInt(retailerCount) : null,
-      competitor_ids: competitorIds.length > 0 ? competitorIds : null,
-      description: description || null,
-    });
+    if (editingTerritoryId) {
+      // Update existing territory
+      const { error } = await supabase.from('territories').update({
+        name: territoryName,
+        region,
+        territory_type: territoryType || null,
+        pincode_ranges: pincodeArray,
+        assigned_user_ids: assignedUserIds,
+        assigned_distributor_ids: assignedDistributorIds,
+        parent_id: parentId && parentId !== 'none' ? parentId : null,
+        population: population ? parseInt(population) : null,
+        target_market_size: targetMarketSize ? parseFloat(targetMarketSize) : null,
+        retailer_count: retailerCount ? parseInt(retailerCount) : null,
+        competitor_ids: competitorIds.length > 0 ? competitorIds : null,
+        description: description || null,
+      }).eq('id', editingTerritoryId);
 
-    if (error) {
-      console.error('Error adding territory:', error);
-      toast.error('Failed to add territory');
-      return;
+      if (error) {
+        console.error('Error updating territory:', error);
+        toast.error('Failed to update territory');
+        return;
+      }
+
+      toast.success('Territory updated successfully!');
+    } else {
+      // Insert new territory
+      const { error } = await supabase.from('territories').insert({
+        name: territoryName,
+        region,
+        territory_type: territoryType || null,
+        pincode_ranges: pincodeArray,
+        assigned_user_ids: assignedUserIds,
+        assigned_distributor_ids: assignedDistributorIds,
+        parent_id: parentId && parentId !== 'none' ? parentId : null,
+        population: population ? parseInt(population) : null,
+        target_market_size: targetMarketSize ? parseFloat(targetMarketSize) : null,
+        retailer_count: retailerCount ? parseInt(retailerCount) : null,
+        competitor_ids: competitorIds.length > 0 ? competitorIds : null,
+        description: description || null,
+      });
+
+      if (error) {
+        console.error('Error adding territory:', error);
+        toast.error('Failed to add territory');
+        return;
+      }
+
+      toast.success('Territory added successfully!');
     }
 
-    toast.success('Territory added successfully!');
     setTerritoryName('');
     setRegion('');
     setTerritoryType('');
@@ -243,8 +273,27 @@ const TerritoriesManagement = () => {
     setTargetMarketSize('');
     setRetailerCount('');
     setCompetitorIds([]);
+    setEditingTerritoryId(null);
     setShowForm(false);
     loadTerritories();
+  };
+
+  const handleEditTerritory = (territory: any) => {
+    setEditingTerritoryId(territory.id);
+    setTerritoryName(territory.name);
+    setRegion(territory.region);
+    setTerritoryType(territory.territory_type || '');
+    setPincodes(territory.pincode_ranges?.join(', ') || '');
+    setAssignedUserIds(territory.assigned_user_ids || []);
+    setAssignedDistributorIds(territory.assigned_distributor_ids || []);
+    setDescription(territory.description || '');
+    setParentId(territory.parent_id || '');
+    setPopulation(territory.population?.toString() || '');
+    setTargetMarketSize(territory.target_market_size?.toString() || '');
+    setRetailerCount(territory.retailer_count?.toString() || '');
+    setCompetitorIds(territory.competitor_ids || []);
+    setShowForm(true);
+    setDetailsModalOpen(false);
   };
 
   const filteredTerritories = territories.filter(t => {
@@ -272,7 +321,7 @@ const TerritoriesManagement = () => {
       <TabsContent value="list" className="space-y-6">
         {showForm && (
           <Card>
-            <CardHeader><CardTitle>Add New Territory</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{editingTerritoryId ? 'Edit Territory' : 'Add New Territory'}</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={handleAddTerritory} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -505,15 +554,15 @@ const TerritoriesManagement = () => {
                   )}
                 </div>
                 <div className="col-span-2">
-                  <Label>PIN Codes * (comma-separated)</Label>
+                  <Label>PIN Codes {territoryType ? '*' : ''} (comma-separated)</Label>
                   <Input 
                     value={pincodes} 
                     onChange={(e) => setPincodes(e.target.value)} 
                     placeholder="e.g., 110001, 110002, 410210" 
-                    required 
+                    required={!!territoryType}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Retailers with addresses containing these PIN codes will be mapped to this territory
+                    {territoryType ? 'Required when territory type is specified. ' : ''}Retailers with addresses containing these PIN codes will be mapped to this territory
                   </p>
                 </div>
                 <div className="col-span-2">
@@ -524,7 +573,25 @@ const TerritoriesManagement = () => {
                     placeholder="Optional territory description" 
                   />
                 </div>
-                <div className="flex gap-2"><Button type="submit">Save</Button><Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button></div>
+                <div className="flex gap-2">
+                  <Button type="submit">{editingTerritoryId ? 'Update' : 'Save'}</Button>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setShowForm(false);
+                    setEditingTerritoryId(null);
+                    setTerritoryName('');
+                    setRegion('');
+                    setTerritoryType('');
+                    setPincodes('');
+                    setAssignedUserIds([]);
+                    setAssignedDistributorIds([]);
+                    setDescription('');
+                    setParentId('');
+                    setPopulation('');
+                    setTargetMarketSize('');
+                    setRetailerCount('');
+                    setCompetitorIds([]);
+                  }}>Cancel</Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -568,7 +635,12 @@ const TerritoriesManagement = () => {
                     const parentTerritory = territories.find(pt => pt.id === t.parent_id);
                     return (
                       <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.name}</TableCell>
+                        <TableCell 
+                          className="font-medium text-primary cursor-pointer hover:underline"
+                          onClick={() => handleEditTerritory(t)}
+                        >
+                          {t.name}
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <Badge variant="outline">{t.region}</Badge>
@@ -603,13 +675,16 @@ const TerritoriesManagement = () => {
                         <TableCell>
                           <Button 
                             size="sm" 
-                            variant="outline"
+                            variant="ghost"
+                            className="gap-1"
                             onClick={() => {
                               setSelectedTerritory(t);
                               setDetailsModalOpen(true);
                             }}
+                            title="View Analytics"
                           >
-                            View Details
+                            <BarChart3 className="h-4 w-4" />
+                            Analytics
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -624,7 +699,12 @@ const TerritoriesManagement = () => {
 
       <TabsContent value="dashboard"><TerritoryDashboard /></TabsContent>
 
-      <TerritoryDetailsModal open={detailsModalOpen} onOpenChange={setDetailsModalOpen} territory={selectedTerritory} />
+      <TerritoryDetailsModal 
+        open={detailsModalOpen} 
+        onOpenChange={setDetailsModalOpen} 
+        territory={selectedTerritory}
+        onEdit={handleEditTerritory}
+      />
     </Tabs>
   );
 };
