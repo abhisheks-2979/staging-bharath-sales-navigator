@@ -3151,6 +3151,41 @@ export type Database = {
           },
         ]
       }
+      retailer_loyalty_feedback: {
+        Row: {
+          action_id: string
+          created_at: string
+          feedback_date: string
+          feedback_type: string
+          fse_user_id: string
+          id: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          feedback_date?: string
+          feedback_type: string
+          fse_user_id: string
+          id?: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          feedback_date?: string
+          feedback_type?: string
+          fse_user_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_feedback_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_loyalty_points: {
         Row: {
           action_id: string
