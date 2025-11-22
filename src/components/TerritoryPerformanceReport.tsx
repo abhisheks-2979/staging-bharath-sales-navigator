@@ -175,11 +175,14 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-xl sm:text-2xl font-bold">{territoryName} - Performance Report</h3>
-          <Badge variant="outline" className="text-xs mt-1">
+    <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="w-full sm:w-auto">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold break-words">{territoryName}</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Performance Report</p>
+          </div>
+          <Badge variant="outline" className="text-xs">
             {format(new Date(), 'MMMM yyyy')}
           </Badge>
         </div>
@@ -187,80 +190,80 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-primary" />
-              Current Sales
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+        <Card className="shadow-lg">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-xs flex items-center gap-1.5">
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+              <span className="truncate">Sales</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">₹{performanceData.currentSales.toFixed(2)}</div>
+          <CardContent className="px-3 sm:px-4">
+            <div className="text-base sm:text-lg lg:text-2xl font-bold truncate">₹{performanceData.currentSales.toFixed(0)}</div>
             <div className={`text-xs flex items-center gap-1 mt-1 ${performanceData.growthPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {performanceData.growthPercentage >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {Math.abs(performanceData.growthPercentage).toFixed(1)}% vs last month
+              {performanceData.growthPercentage >= 0 ? <TrendingUp className="h-3 w-3 flex-shrink-0" /> : <TrendingDown className="h-3 w-3 flex-shrink-0" />}
+              <span className="truncate">{Math.abs(performanceData.growthPercentage).toFixed(1)}%</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              Retailers
+        <Card className="shadow-lg">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-xs flex items-center gap-1.5">
+              <Users className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+              <span className="truncate">Retailers</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{performanceData.retailerCount}</div>
-            <div className="text-xs text-muted-foreground mt-1">Active retailers</div>
+          <CardContent className="px-3 sm:px-4">
+            <div className="text-base sm:text-lg lg:text-2xl font-bold">{performanceData.retailerCount}</div>
+            <div className="text-xs text-muted-foreground mt-1 truncate">Active</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
-              <Package className="h-4 w-4 text-primary" />
-              Orders
+        <Card className="shadow-lg">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-xs flex items-center gap-1.5">
+              <Package className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+              <span className="truncate">Orders</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{performanceData.orderCount}</div>
-            <div className="text-xs text-muted-foreground mt-1">This month</div>
+          <CardContent className="px-3 sm:px-4">
+            <div className="text-base sm:text-lg lg:text-2xl font-bold">{performanceData.orderCount}</div>
+            <div className="text-xs text-muted-foreground mt-1 truncate">This month</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs sm:text-sm flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              Visits
+        <Card className="shadow-lg">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-xs flex items-center gap-1.5">
+              <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+              <span className="truncate">Visits</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{performanceData.visitCount}</div>
-            <div className="text-xs text-muted-foreground mt-1">This month</div>
+          <CardContent className="px-3 sm:px-4">
+            <div className="text-base sm:text-lg lg:text-2xl font-bold">{performanceData.visitCount}</div>
+            <div className="text-xs text-muted-foreground mt-1 truncate">This month</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Sales Growth Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
-            6-Month Sales Trend
+      <Card className="shadow-lg">
+        <CardHeader className="px-3 sm:px-6">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+            <Activity className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            <span className="truncate">6-Month Sales Trend</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="h-[250px] sm:h-[300px]">
+        <CardContent className="px-2 sm:px-6">
+          <div className="h-[200px] sm:h-[250px] lg:h-[300px] w-full overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={performanceData.monthlySalesData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Legend wrapperStyle={{ fontSize: '10px' }} />
                 <Line type="monotone" dataKey="sales" stroke="#8b5cf6" name="Sales (₹)" strokeWidth={2} />
                 <Line type="monotone" dataKey="orders" stroke="#3b82f6" name="Orders" strokeWidth={2} />
               </LineChart>
@@ -270,59 +273,59 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
       </Card>
 
       {/* Top & Bottom Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Award className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-              Top Performing SKUs
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <Card className="shadow-lg">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+              <Award className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+              <span className="truncate">Top Performing SKUs</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {performanceData.topProducts.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {performanceData.topProducts.map((product: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{product.name}</p>
+                      <p className="font-medium text-xs sm:text-sm truncate">{product.name}</p>
                       <p className="text-xs text-muted-foreground">Qty: {product.quantity}</p>
                     </div>
-                    <div className="text-right ml-2">
-                      <p className="font-bold text-sm text-green-600">₹{product.revenue.toFixed(2)}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-xs sm:text-sm text-green-600 whitespace-nowrap">₹{product.revenue.toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No sales data available</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No sales data available</p>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
-              Low Performing SKUs
+        <Card className="shadow-lg">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+              <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 flex-shrink-0" />
+              <span className="truncate">Low Performing SKUs</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {performanceData.bottomProducts.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {performanceData.bottomProducts.map((product: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{product.name}</p>
+                      <p className="font-medium text-xs sm:text-sm truncate">{product.name}</p>
                       <p className="text-xs text-muted-foreground">Qty: {product.quantity}</p>
                     </div>
-                    <div className="text-right ml-2">
-                      <p className="font-bold text-sm text-orange-600">₹{product.revenue.toFixed(2)}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-xs sm:text-sm text-orange-600 whitespace-nowrap">₹{product.revenue.toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No sales data available</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No sales data available</p>
             )}
           </CardContent>
         </Card>
@@ -330,28 +333,28 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
 
       {/* Beats in Territory */}
       {performanceData.beats && performanceData.beats.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-              Beats in Territory ({performanceData.beats.length})
+        <Card className="shadow-lg">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+              <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+              <span className="truncate">Beats in Territory ({performanceData.beats.length})</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <CardContent className="px-3 sm:px-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {performanceData.beats.map((beat: any) => (
-                <div key={beat.beat_id} className="p-3 border rounded-lg hover:border-primary transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <p className="font-medium text-sm">{beat.beat_name}</p>
-                    <Badge variant="outline" className="text-xs">Active</Badge>
+                <div key={beat.beat_id} className="p-2 sm:p-3 border rounded-lg hover:border-primary transition-colors">
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <p className="font-medium text-xs sm:text-sm truncate flex-1">{beat.beat_name}</p>
+                    <Badge variant="outline" className="text-xs flex-shrink-0">Active</Badge>
                   </div>
                   {beat.average_km && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {beat.average_km} km avg
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{beat.average_km} km avg</span>
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
                     Created: {format(new Date(beat.created_at), 'MMM dd, yyyy')}
                   </p>
                 </div>
@@ -362,59 +365,59 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
       )}
 
       {/* Top & Bottom Retailers */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-              Top Retailers
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <Card className="shadow-lg">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+              <span className="truncate">Top Retailers</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {performanceData.topRetailers.length > 0 ? (
               <div className="space-y-2">
                 {performanceData.topRetailers.map((retailer: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{retailer.name}</p>
+                      <p className="font-medium text-xs sm:text-sm truncate">{retailer.name}</p>
                       <Badge variant="outline" className="text-xs mt-1">{retailer.category}</Badge>
                     </div>
-                    <div className="text-right ml-2">
-                      <p className="font-bold text-sm text-green-600">₹{retailer.sales.toFixed(2)}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-xs sm:text-sm text-green-600 whitespace-nowrap">₹{retailer.sales.toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No data available</p>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
-              Bottom Retailers (Need Attention)
+        <Card className="shadow-lg">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 flex-shrink-0" />
+              <span className="truncate">Bottom Retailers</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             {performanceData.bottomRetailers.length > 0 ? (
               <div className="space-y-2">
                 {performanceData.bottomRetailers.map((retailer: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg">
+                  <div key={idx} className="flex items-center justify-between p-2 sm:p-3 border rounded-lg gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{retailer.name}</p>
+                      <p className="font-medium text-xs sm:text-sm truncate">{retailer.name}</p>
                       <Badge variant="outline" className="text-xs mt-1">{retailer.category}</Badge>
                     </div>
-                    <div className="text-right ml-2">
-                      <p className="font-bold text-sm text-orange-600">₹{retailer.sales.toFixed(2)}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-xs sm:text-sm text-orange-600 whitespace-nowrap">₹{retailer.sales.toFixed(0)}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No low-performing retailers</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No low-performing retailers</p>
             )}
           </CardContent>
         </Card>
@@ -422,23 +425,23 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
 
       {/* Competition Activities */}
       {performanceData.competitionActivities.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
-              Competition Activity ({performanceData.competitionActivities.length})
+        <Card className="shadow-lg">
+          <CardHeader className="px-3 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="truncate">Competition Activity ({performanceData.competitionActivities.length})</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6">
             <div className="space-y-2">
               {performanceData.competitionActivities.slice(0, 10).map((activity: any) => (
-                <div key={activity.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg gap-2">
+                <div key={activity.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 sm:p-3 border rounded-lg gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-sm">{activity.competition_master?.competitor_name}</p>
-                      {activity.impact_level && <Badge variant="outline" className="text-xs">{activity.impact_level}</Badge>}
+                      <p className="font-medium text-xs sm:text-sm truncate">{activity.competition_master?.competitor_name}</p>
+                      {activity.impact_level && <Badge variant="outline" className="text-xs flex-shrink-0">{activity.impact_level}</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
                       {activity.retailers?.name} • {format(new Date(activity.created_at), 'MMM dd, yyyy')}
                     </p>
                     {activity.insight && (
@@ -446,7 +449,7 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
                     )}
                   </div>
                   {activity.needs_attention && (
-                    <Badge variant="destructive" className="text-xs self-start sm:self-center">Needs Attention</Badge>
+                    <Badge variant="destructive" className="text-xs self-start sm:self-center flex-shrink-0">Needs Attention</Badge>
                   )}
                 </div>
               ))}
@@ -456,20 +459,20 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
       )}
 
       {/* AI Insights */}
-      <Card className="border-primary/50 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-            AI Insights & Recommendations
+      <Card className="border-primary/50 bg-primary/5 shadow-lg">
+        <CardHeader className="px-3 sm:px-6">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base lg:text-lg">
+            <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+            <span className="truncate">AI Insights & Recommendations</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2 sm:space-y-3 px-3 sm:px-6">
           {performanceData.growthPercentage < 0 && (
-            <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-              <TrendingDown className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-sm">Declining Sales Trend</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-background rounded-lg">
+              <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium text-xs sm:text-sm">Declining Sales Trend</p>
+                <p className="text-xs text-muted-foreground break-words">
                   Sales have decreased by {Math.abs(performanceData.growthPercentage).toFixed(1)}%. 
                   Consider increasing retailer visits and launching targeted promotions.
                 </p>
@@ -478,11 +481,11 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
           )}
           
           {performanceData.competitionActivities.length > 3 && (
-            <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-              <Zap className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-sm">High Competition Activity</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-background rounded-lg">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium text-xs sm:text-sm">High Competition Activity</p>
+                <p className="text-xs text-muted-foreground break-words">
                   {performanceData.competitionActivities.length} competitor activities detected this month. 
                   Focus on strengthening relationships and differentiating your offerings.
                 </p>
@@ -491,11 +494,11 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
           )}
 
           {performanceData.growthPercentage > 10 && (
-            <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-              <TrendingUp className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-sm">Strong Growth Performance</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-background rounded-lg">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium text-xs sm:text-sm">Strong Growth Performance</p>
+                <p className="text-xs text-muted-foreground break-words">
                   Excellent {performanceData.growthPercentage.toFixed(1)}% growth! 
                   Consider expanding to similar territories and replicating successful strategies.
                 </p>
@@ -504,11 +507,11 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
           )}
 
           {performanceData.bottomRetailers.length > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-background rounded-lg">
-              <ShoppingBag className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-sm">Low-Performing Retailers</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 bg-background rounded-lg">
+              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="font-medium text-xs sm:text-sm">Low-Performing Retailers</p>
+                <p className="text-xs text-muted-foreground break-words">
                   {performanceData.bottomRetailers.length} retailers need attention. Schedule visits and provide support to boost their performance.
                 </p>
               </div>
