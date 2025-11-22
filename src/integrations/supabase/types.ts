@@ -3107,6 +3107,281 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_loyalty_actions: {
+        Row: {
+          action_name: string
+          action_type: string
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          metadata: Json | null
+          points: number
+          program_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          action_name: string
+          action_type: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          points?: number
+          program_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          action_name?: string
+          action_type?: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          metadata?: Json | null
+          points?: number
+          program_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_actions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_loyalty_points: {
+        Row: {
+          action_id: string
+          awarded_by_user_id: string | null
+          earned_at: string | null
+          id: string
+          metadata: Json | null
+          points: number
+          program_id: string
+          reference_id: string | null
+          reference_type: string | null
+          retailer_id: string
+        }
+        Insert: {
+          action_id: string
+          awarded_by_user_id?: string | null
+          earned_at?: string | null
+          id?: string
+          metadata?: Json | null
+          points?: number
+          program_id: string
+          reference_id?: string | null
+          reference_type?: string | null
+          retailer_id: string
+        }
+        Update: {
+          action_id?: string
+          awarded_by_user_id?: string | null
+          earned_at?: string | null
+          id?: string
+          metadata?: Json | null
+          points?: number
+          program_id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          retailer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_points_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_loyalty_points_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_loyalty_points_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_loyalty_programs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string
+          id: string
+          is_active: boolean | null
+          is_all_territories: boolean | null
+          points_to_rupee_conversion: number
+          program_name: string
+          start_date: string
+          territories: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date: string
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          points_to_rupee_conversion?: number
+          program_name: string
+          start_date: string
+          territories?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          points_to_rupee_conversion?: number
+          program_name?: string
+          start_date?: string
+          territories?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_programs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_loyalty_redemptions: {
+        Row: {
+          created_at: string | null
+          id: string
+          points_redeemed: number
+          processed_at: string | null
+          processed_by: string | null
+          program_id: string
+          rejection_reason: string | null
+          requested_at: string | null
+          requested_by_user_id: string | null
+          retailer_id: string
+          status: string
+          updated_at: string | null
+          voucher_amount: number
+          voucher_code: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          points_redeemed?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          program_id: string
+          rejection_reason?: string | null
+          requested_at?: string | null
+          requested_by_user_id?: string | null
+          retailer_id: string
+          status?: string
+          updated_at?: string | null
+          voucher_amount?: number
+          voucher_code?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          points_redeemed?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          program_id?: string
+          rejection_reason?: string | null
+          requested_at?: string | null
+          requested_by_user_id?: string | null
+          retailer_id?: string
+          status?: string
+          updated_at?: string | null
+          voucher_amount?: number
+          voucher_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_redemptions_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_loyalty_redemptions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_loyalty_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_loyalty_redemptions_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_loyalty_tracking: {
+        Row: {
+          consecutive_order_count: number | null
+          created_at: string | null
+          id: string
+          last_order_date: string | null
+          last_points_earned_date: string | null
+          new_products_tried: string[] | null
+          retailer_id: string
+          total_orders_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          consecutive_order_count?: number | null
+          created_at?: string | null
+          id?: string
+          last_order_date?: string | null
+          last_points_earned_date?: string | null
+          new_products_tried?: string[] | null
+          retailer_id: string
+          total_orders_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          consecutive_order_count?: number | null
+          created_at?: string | null
+          id?: string
+          last_order_date?: string | null
+          last_points_earned_date?: string | null
+          new_products_tried?: string[] | null
+          retailer_id?: string
+          total_orders_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_loyalty_tracking_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: true
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_visit_logs: {
         Row: {
           action_type: string | null

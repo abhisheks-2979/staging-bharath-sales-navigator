@@ -78,6 +78,7 @@ import GamificationAdmin from "./pages/GamificationAdmin";
 import InvoiceManagement from "./pages/InvoiceManagement";
 import GamePolicy from "./pages/GamePolicy";
 import CreditManagement from "./pages/CreditManagement";
+import RetailerLoyaltyAdmin from "./pages/RetailerLoyaltyAdmin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -385,6 +386,11 @@ const App = () => (
             <Route path="/credit-management" element={
               <ProtectedRoute>
                 <CreditManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/retailer-loyalty-admin" element={
+              <ProtectedRoute>
+                <RetailerLoyaltyAdmin />
               </ProtectedRoute>
             } />
             <Route path="/invoice-management" element={
