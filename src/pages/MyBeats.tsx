@@ -40,6 +40,8 @@ interface Beat {
   travel_allowance?: number;
   average_km?: number;
   average_time_minutes?: number;
+  territory_id?: string;
+  territory_name?: string;
 }
 
 interface Retailer {
@@ -99,6 +101,8 @@ export const MyBeats = () => {
   const [showRetailersList, setShowRetailersList] = useState(false);
   const [customIntervalDays, setCustomIntervalDays] = useState<number>(15);
   const [repeatUntilMode, setRepeatUntilMode] = useState<"date" | "permanent">("date");
+  const [selectedTerritoryId, setSelectedTerritoryId] = useState<string>("");
+  const [territories, setTerritories] = useState<any[]>([]);
 
   // Check for openCreateModal parameter and open modal if present
   useEffect(() => {
@@ -114,6 +118,7 @@ export const MyBeats = () => {
     if (user) {
       loadBeats();
       loadAllRetailers();
+      loadTerritories();
     }
   }, [user]);
 
@@ -220,6 +225,14 @@ export const MyBeats = () => {
               await offlineStorage.save(STORES.BEATS, { ...beat, id: beat.beat_id });
             }
 
+            // Fetch territories for beat names
+            const { data: territoriesData } = await supabase
+              .from('territories')
+              .select('id, name');
+
+            const territoriesMap = new Map();
+            territoriesData?.forEach(t => territoriesMap.set(t.id, t.name));
+
             const { data: onlineRetailers, error: retailersError } = await supabase
               .from('retailers')
               .select('beat_id')
@@ -249,7 +262,9 @@ export const MyBeats = () => {
                 average_km: beat.average_km || 0,
                 average_time_minutes: beat.average_time_minutes || 0,
                 beat_number: index + 1,
-                retailers: []
+                retailers: [],
+                territory_id: beat.territory_id,
+                territory_name: beat.territory_id ? territoriesMap.get(beat.territory_id) : null
               })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
               setBeats(beatsArray);
@@ -262,6 +277,21 @@ export const MyBeats = () => {
     } catch (error) {
       console.error('Error loading beats:', error);
       setLoading(false);
+    }
+  };
+
+  const loadTerritories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('territories')
+        .select('id, name')
+        .order('name');
+
+      if (!error && data) {
+        setTerritories(data);
+      }
+    } catch (error) {
+      console.error('Error loading territories:', error);
     }
   };
 
@@ -441,6 +471,7 @@ export const MyBeats = () => {
         average_time_minutes: parseInt(averageTimeMinutes) || 0,
         created_by: user.id,
         is_active: true,
+        territory_id: selectedTerritoryId || null,
         created_at: new Date().toISOString()
       };
       
@@ -502,6 +533,7 @@ export const MyBeats = () => {
       setAverageKm("");
       setAverageTimeMinutes("");
       setSelectedRetailers(new Set());
+      setSelectedTerritoryId("");
       setRepeatEnabled(false);
       setRepeatType('weekly');
       setRepeatDays([1]);
@@ -852,30 +884,39 @@ export const MyBeats = () => {
                      </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                      {/* Beat Stats */}
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <div className="flex items-center justify-center mb-1">
-                            <Users size={16} className="text-primary mr-1" />
-                          </div>
-                          <div className="text-lg font-bold text-primary">{beat.retailer_count}</div>
-                          <div className="text-xs text-muted-foreground">Retailers</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-green-600">
-                            {beat.average_km ? `${beat.average_km} km` : 'N/A'}
-                          </div>
-                          <div className="text-xs text-muted-foreground">Avg Distance</div>
-                        </div>
+                       {/* Beat Stats */}
+                       <div className="grid grid-cols-3 gap-3 text-center">
                          <div>
-                           <div className="text-lg font-bold text-blue-600">
-                             {beat.average_time_minutes ? formatTime(beat.average_time_minutes) : 'N/A'}
+                           <div className="flex items-center justify-center mb-1">
+                             <Users size={16} className="text-primary mr-1" />
                            </div>
-                           <div className="text-xs text-muted-foreground">Avg Time</div>
+                           <div className="text-lg font-bold text-primary">{beat.retailer_count}</div>
+                           <div className="text-xs text-muted-foreground">Retailers</div>
                          </div>
-                      </div>
-                      
-                      {/* Travel Allowance */}
+                         <div>
+                           <div className="text-lg font-bold text-green-600">
+                             {beat.average_km ? `${beat.average_km} km` : 'N/A'}
+                           </div>
+                           <div className="text-xs text-muted-foreground">Avg Distance</div>
+                         </div>
+                          <div>
+                            <div className="text-lg font-bold text-blue-600">
+                              {beat.average_time_minutes ? formatTime(beat.average_time_minutes) : 'N/A'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Avg Time</div>
+                          </div>
+                       </div>
+                       
+                       {/* Territory Info */}
+                       {beat.territory_name && (
+                         <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                           <MapPin className="h-4 w-4 text-primary" />
+                           <span className="text-sm text-muted-foreground">Territory:</span>
+                           <span className="text-sm font-medium">{beat.territory_name}</span>
+                         </div>
+                       )}
+                       
+                       {/* Travel Allowance */}
                       {beat.travel_allowance > 0 && (
                         <div className="flex items-center justify-center gap-2 text-sm bg-muted/30 rounded-lg p-2">
                           <Truck className="h-4 w-4 text-muted-foreground" />
@@ -1011,6 +1052,25 @@ export const MyBeats = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="territorySelect">Territory (Optional)</Label>
+                  <select
+                    id="territorySelect"
+                    value={selectedTerritoryId}
+                    onChange={(e) => setSelectedTerritoryId(e.target.value)}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="">Select a territory</option>
+                    {territories.map((territory) => (
+                      <option key={territory.id} value={territory.id}>
+                        {territory.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="travelAllowance">Travel Allowance (₹)</Label>
                   <Input
                     id="travelAllowance"
@@ -1020,9 +1080,6 @@ export const MyBeats = () => {
                     onChange={(e) => setTravelAllowance(e.target.value)}
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="averageKm" className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
@@ -1037,6 +1094,9 @@ export const MyBeats = () => {
                     onChange={(e) => setAverageKm(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="averageTimeMinutes" className="flex items-center gap-2">
                     <Clock className="h-4 w-4" />

@@ -361,6 +361,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_active: boolean | null
+          territory_id: string | null
           travel_allowance: number | null
           updated_at: string
         }
@@ -374,6 +375,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          territory_id?: string | null
           travel_allowance?: number | null
           updated_at?: string
         }
@@ -387,10 +389,19 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          territory_id?: string | null
           travel_allowance?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "beats_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       branding_request_items: {
         Row: {
