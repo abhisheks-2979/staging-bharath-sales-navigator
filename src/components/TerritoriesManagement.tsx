@@ -156,9 +156,16 @@ const TerritoriesManagement = () => {
           }
         }
 
-        // Get sales for this month
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
+        // Get sales for this month and previous month
+        const currentMonthStart = new Date();
+        currentMonthStart.setDate(1);
+        
+        const previousMonthStart = new Date();
+        previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
+        previousMonthStart.setDate(1);
+        
+        const previousMonthEnd = new Date(currentMonthStart);
+        previousMonthEnd.setDate(0); // Last day of previous month
         
         // Get all orders and filter by retailers in this territory
         const { data: allRetailers } = await supabase
@@ -178,14 +185,27 @@ const TerritoriesManagement = () => {
         }
 
         let total_sales = 0;
+        let previous_month_sales = 0;
+        
         if (territoryRetailerIds.length > 0) {
-          const { data: ordersData } = await supabase
+          // Current month sales
+          const { data: currentOrdersData } = await supabase
             .from('orders')
             .select('total_amount')
             .in('retailer_id', territoryRetailerIds)
-            .gte('created_at', startOfMonth.toISOString());
+            .gte('created_at', currentMonthStart.toISOString());
 
-          total_sales = ordersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+          total_sales = currentOrdersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+          
+          // Previous month sales
+          const { data: previousOrdersData } = await supabase
+            .from('orders')
+            .select('total_amount')
+            .in('retailer_id', territoryRetailerIds)
+            .gte('created_at', previousMonthStart.toISOString())
+            .lte('created_at', previousMonthEnd.toISOString());
+
+          previous_month_sales = previousOrdersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
         }
 
         return {
@@ -193,6 +213,7 @@ const TerritoriesManagement = () => {
           assigned_user_name,
           total_retailers: retailersCount,
           total_sales,
+          previous_month_sales,
         };
       })
     );
@@ -324,7 +345,7 @@ const TerritoriesManagement = () => {
             <CardHeader><CardTitle>{editingTerritoryId ? 'Edit Territory' : 'Add New Territory'}</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={handleAddTerritory} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Territory Name *</Label>
                     <Input value={territoryName} onChange={(e) => setTerritoryName(e.target.value)} required />
@@ -553,7 +574,7 @@ const TerritoriesManagement = () => {
                     </div>
                   )}
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <Label>PIN Codes {territoryType ? '*' : ''} (comma-separated)</Label>
                   <Input 
                     value={pincodes} 
@@ -565,7 +586,7 @@ const TerritoriesManagement = () => {
                     {territoryType ? 'Required when territory type is specified. ' : ''}Retailers with addresses containing these PIN codes will be mapped to this territory
                   </p>
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <Label>Description</Label>
                   <Input 
                     value={description} 
@@ -599,7 +620,7 @@ const TerritoriesManagement = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div><Label>Search</Label><Input placeholder="Search territory..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
               <div><Label>Filter by User</Label>
                 <Select value={filterUser} onValueChange={setFilterUser}>
@@ -616,82 +637,222 @@ const TerritoriesManagement = () => {
                 </p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Territory Name</TableHead>
-                    <TableHead>Region/Type</TableHead>
-                    <TableHead>Parent</TableHead>
-                    <TableHead>Sub-Territories</TableHead>
-                    <TableHead>PIN Codes</TableHead>
-                    <TableHead>Assigned User</TableHead>
-                    <TableHead className="text-right">Retailers</TableHead>
-                    <TableHead className="text-right">Sales (Month)</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Territory</TableHead>
+                        <TableHead>Hierarchy</TableHead>
+                        <TableHead>Metrics</TableHead>
+                        <TableHead>Performance</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTerritories.map((t) => {
+                        const parentTerritory = territories.find(pt => pt.id === t.parent_id);
+                        const grandParentTerritory = parentTerritory ? territories.find(gt => gt.id === parentTerritory.parent_id) : null;
+                        const salesGrowth = t.previous_month_sales ? ((t.total_sales - t.previous_month_sales) / t.previous_month_sales) * 100 : 0;
+                        
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div 
+                                  className="font-medium text-primary cursor-pointer hover:underline"
+                                  onClick={() => handleEditTerritory(t)}
+                                >
+                                  {t.name}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge variant="outline" className="text-xs">{t.region}</Badge>
+                                  {t.territory_type && <Badge variant="secondary" className="text-xs">{t.territory_type}</Badge>}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1 text-sm">
+                                {grandParentTerritory && (
+                                  <div className="text-muted-foreground flex items-center gap-1">
+                                    <span className="text-xs">↳</span> {grandParentTerritory.name}
+                                  </div>
+                                )}
+                                {parentTerritory && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs">{grandParentTerritory ? '  ↳' : '↳'}</span>
+                                    <Badge variant="outline" className="text-xs">{parentTerritory.name}</Badge>
+                                  </div>
+                                )}
+                                {!parentTerritory && !grandParentTerritory && (
+                                  <span className="text-muted-foreground text-xs">Root Level</span>
+                                )}
+                                {(t.child_territories_count || 0) > 0 && (
+                                  <Badge variant="secondary" className="text-xs">{t.child_territories_count} Sub-territories</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">Retailers:</span>
+                                  <span className="font-medium">{t.total_retailers}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {t.pincode_ranges?.slice(0, 2).map((pin, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
+                                  ))}
+                                  {t.pincode_ranges?.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">+{t.pincode_ranges.length - 2}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-2">
+                                <div className="font-medium text-primary">
+                                  ₹{t.total_sales?.toFixed(2) || '0.00'}
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {salesGrowth > 10 && (
+                                    <Badge className="bg-green-500 text-white text-xs">High Growth</Badge>
+                                  )}
+                                  {salesGrowth < -10 && (
+                                    <Badge variant="destructive" className="text-xs">Declining</Badge>
+                                  )}
+                                  {t.target_market_size && t.total_sales && (t.total_sales / t.target_market_size) < 0.3 && (
+                                    <Badge className="bg-blue-500 text-white text-xs">High Potential</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="gap-1"
+                                onClick={() => {
+                                  setSelectedTerritory(t);
+                                  setDetailsModalOpen(true);
+                                }}
+                              >
+                                <BarChart3 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
                   {filteredTerritories.map((t) => {
                     const parentTerritory = territories.find(pt => pt.id === t.parent_id);
+                    const grandParentTerritory = parentTerritory ? territories.find(gt => gt.id === parentTerritory.parent_id) : null;
+                    const salesGrowth = t.previous_month_sales ? ((t.total_sales - t.previous_month_sales) / t.previous_month_sales) * 100 : 0;
+                    
                     return (
-                      <TableRow key={t.id}>
-                        <TableCell 
-                          className="font-medium text-primary cursor-pointer hover:underline"
-                          onClick={() => handleEditTerritory(t)}
-                        >
-                          {t.name}
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <Badge variant="outline">{t.region}</Badge>
-                            {t.territory_type && <Badge variant="secondary" className="ml-1">{t.territory_type}</Badge>}
+                      <Card key={t.id} className="overflow-hidden">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1 flex-1">
+                              <CardTitle 
+                                className="text-lg text-primary cursor-pointer hover:underline"
+                                onClick={() => handleEditTerritory(t)}
+                              >
+                                {t.name}
+                              </CardTitle>
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="outline" className="text-xs">{t.region}</Badge>
+                                {t.territory_type && <Badge variant="secondary" className="text-xs">{t.territory_type}</Badge>}
+                              </div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedTerritory(t);
+                                setDetailsModalOpen(true);
+                              }}
+                            >
+                              <BarChart3 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {parentTerritory ? (
-                            <Badge variant="outline">{parentTerritory.name}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">—</span>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {/* Hierarchy */}
+                          {(parentTerritory || grandParentTerritory) && (
+                            <div className="space-y-1 p-2 bg-muted/50 rounded-lg">
+                              <div className="text-xs font-medium text-muted-foreground">Hierarchy</div>
+                              {grandParentTerritory && (
+                                <div className="text-sm flex items-center gap-1 text-muted-foreground">
+                                  <span>↳</span> {grandParentTerritory.name}
+                                </div>
+                              )}
+                              {parentTerritory && (
+                                <div className="text-sm flex items-center gap-1">
+                                  <span>{grandParentTerritory ? '  ↳' : '↳'}</span>
+                                  <Badge variant="outline" className="text-xs">{parentTerritory.name}</Badge>
+                                </div>
+                              )}
+                            </div>
                           )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="secondary">{t.child_territories_count || 0}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {t.pincode_ranges?.slice(0, 2).map((pin, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
-                            ))}
-                            {t.pincode_ranges?.length > 2 && (
-                              <Badge variant="outline" className="text-xs">+{t.pincode_ranges.length - 2}</Badge>
-                            )}
+
+                          {/* Performance Flags */}
+                          {(salesGrowth > 10 || salesGrowth < -10 || (t.target_market_size && t.total_sales && (t.total_sales / t.target_market_size) < 0.3)) && (
+                            <div className="flex flex-wrap gap-1">
+                              {salesGrowth > 10 && (
+                                <Badge className="bg-green-500 text-white text-xs">High Growth</Badge>
+                              )}
+                              {salesGrowth < -10 && (
+                                <Badge variant="destructive" className="text-xs">Declining</Badge>
+                              )}
+                              {t.target_market_size && t.total_sales && (t.total_sales / t.target_market_size) < 0.3 && (
+                                <Badge className="bg-blue-500 text-white text-xs">High Potential</Badge>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Metrics */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground">Sales (Month)</div>
+                              <div className="text-lg font-bold text-primary">₹{t.total_sales?.toFixed(2) || '0.00'}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground">Retailers</div>
+                              <div className="text-lg font-bold">{t.total_retailers}</div>
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>{t.assigned_user_name || 'Unassigned'}</TableCell>
-                        <TableCell className="text-right font-medium">{t.total_retailers}</TableCell>
-                        <TableCell className="text-right font-medium text-primary">
-                          ₹{t.total_sales?.toFixed(2) || '0.00'}
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="gap-1"
-                            onClick={() => {
-                              setSelectedTerritory(t);
-                              setDetailsModalOpen(true);
-                            }}
-                            title="View Analytics"
-                          >
-                            <BarChart3 className="h-4 w-4" />
-                            Analytics
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+
+                          {/* PIN Codes */}
+                          {t.pincode_ranges && t.pincode_ranges.length > 0 && (
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground">PIN Codes</div>
+                              <div className="flex flex-wrap gap-1">
+                                {t.pincode_ranges.slice(0, 3).map((pin, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
+                                ))}
+                                {t.pincode_ranges.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">+{t.pincode_ranges.length - 3}</Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sub-territories */}
+                          {(t.child_territories_count || 0) > 0 && (
+                            <Badge variant="secondary" className="text-xs">{t.child_territories_count} Sub-territories</Badge>
+                          )}
+                        </CardContent>
+                      </Card>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
