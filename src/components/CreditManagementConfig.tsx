@@ -27,6 +27,8 @@ interface CreditConfig {
   new_retailer_starting_score: number;
   payment_term_days: number;
   credit_multiplier: number;
+  target_growth_rate_percent: number;
+  target_order_frequency: number;
   weight_growth_rate: number;
   weight_repayment_dso: number;
   weight_order_frequency: number;
@@ -203,6 +205,8 @@ export const CreditManagementConfig = () => {
         new_retailer_starting_score: 6.0,
         payment_term_days: 30,
         credit_multiplier: 1.5,
+        target_growth_rate_percent: 10.0,
+        target_order_frequency: 2.0,
         weight_growth_rate: 4.0,
         weight_repayment_dso: 4.0,
         weight_order_frequency: 2.0,
@@ -587,6 +591,30 @@ export const CreditManagementConfig = () => {
                       value={editingConfig?.credit_multiplier || 1.5}
                       onChange={(e) => setEditingConfig({ ...editingConfig, credit_multiplier: parseFloat(e.target.value) })}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="target_growth_rate">Growth Rate in %</Label>
+                    <Input
+                      id="target_growth_rate"
+                      type="number"
+                      step="0.1"
+                      value={editingConfig?.target_growth_rate_percent || 10.0}
+                      onChange={(e) => setEditingConfig({ ...editingConfig, target_growth_rate_percent: parseFloat(e.target.value) })}
+                    />
+                    <p className="text-xs text-muted-foreground">Growth over the look back period</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="target_order_frequency">Order per Visit Frequency</Label>
+                    <Input
+                      id="target_order_frequency"
+                      type="number"
+                      step="0.1"
+                      value={editingConfig?.target_order_frequency || 2.0}
+                      onChange={(e) => setEditingConfig({ ...editingConfig, target_order_frequency: parseFloat(e.target.value) })}
+                    />
+                    <p className="text-xs text-muted-foreground">Order every X number of visits - for example: 1 order every 2 visits - then enter 2 in order frequency</p>
                   </div>
                 </div>
 

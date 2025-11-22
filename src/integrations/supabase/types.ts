@@ -1060,6 +1060,8 @@ export type Database = {
           new_retailer_starting_score: number
           payment_term_days: number
           scoring_mode: string
+          target_growth_rate_percent: number | null
+          target_order_frequency: number | null
           territory_ids: string[]
           updated_at: string | null
           weight_growth_rate: number
@@ -1077,6 +1079,8 @@ export type Database = {
           new_retailer_starting_score?: number
           payment_term_days?: number
           scoring_mode?: string
+          target_growth_rate_percent?: number | null
+          target_order_frequency?: number | null
           territory_ids?: string[]
           updated_at?: string | null
           weight_growth_rate?: number
@@ -1094,6 +1098,8 @@ export type Database = {
           new_retailer_starting_score?: number
           payment_term_days?: number
           scoring_mode?: string
+          target_growth_rate_percent?: number | null
+          target_order_frequency?: number | null
           territory_ids?: string[]
           updated_at?: string | null
           weight_growth_rate?: number
