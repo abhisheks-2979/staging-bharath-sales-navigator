@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { RetailerPerformanceAnalytics } from "@/components/RetailerPerformanceAnalytics";
+import { RetailerLoyaltyCard } from "@/components/loyalty/RetailerLoyaltyCard";
 
 interface Retailer {
   id: string;
@@ -331,6 +332,10 @@ export const RetailerDetail = () => {
                 </div>
               </>
             )}
+
+            {/* Loyalty Points Section */}
+            <Separator />
+            <RetailerLoyaltyCard retailerId={retailer.id} fseUserId={userId || ""} />
 
             {/* Competition */}
             {retailer.competitors && retailer.competitors.length > 0 && (
