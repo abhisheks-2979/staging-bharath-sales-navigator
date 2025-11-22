@@ -4,12 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Star, Trophy } from "lucide-react";
+import { Plus, Star, Trophy, Edit, Trash2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const ACTION_TYPES = [
@@ -25,7 +35,12 @@ const ACTION_TYPES = [
 
 export function ActionsManagement() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<string>("");
+  const [editingAction, setEditingAction] = useState<any>(null);
+  const [viewingAction, setViewingAction] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: programs } = useQuery({
@@ -68,6 +83,39 @@ export function ActionsManagement() {
     onError: () => toast.error("Failed to create action"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      const { error } = await supabase
+        .from("retailer_loyalty_actions")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["retailer-loyalty-actions"] });
+      toast.success("Action updated successfully");
+      setIsEditOpen(false);
+      setEditingAction(null);
+    },
+    onError: () => toast.error("Failed to update action"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("retailer_loyalty_actions")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["retailer-loyalty-actions"] });
+      toast.success("Action deleted successfully");
+      setDeleteId(null);
+    },
+    onError: () => toast.error("Failed to delete action"),
+  });
+
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
       const { error } = await supabase
@@ -82,7 +130,7 @@ export function ActionsManagement() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const action = {
@@ -94,6 +142,17 @@ export function ActionsManagement() {
       metadata: {},
     };
     createMutation.mutate(action);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      action_type: formData.get("action_type"),
+      action_name: formData.get("action_name"),
+      points: Number(formData.get("points")),
+    };
+    updateMutation.mutate({ id: editingAction.id, updates });
   };
 
   return (
@@ -129,7 +188,7 @@ export function ActionsManagement() {
               <DialogHeader>
                 <DialogTitle>Create Loyalty Action</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleCreateSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="action_type">Action Type</Label>
                   <Select name="action_type" required>
@@ -202,12 +261,45 @@ export function ActionsManagement() {
                     />
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                     <span className="font-semibold">{action.points} Points</span>
                   </div>
                   <Badge variant="secondary">{actionType?.label}</Badge>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setViewingAction(action);
+                        setIsViewOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setEditingAction(action);
+                        setIsEditOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteId(action.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -222,6 +314,115 @@ export function ActionsManagement() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Loyalty Action</DialogTitle>
+          </DialogHeader>
+          {editingAction && (
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="edit_action_type">Action Type</Label>
+                <Select name="action_type" defaultValue={editingAction.action_type} required>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACTION_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.icon} {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit_action_name">Action Name</Label>
+                <Input
+                  id="edit_action_name"
+                  name="action_name"
+                  defaultValue={editingAction.action_name}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_points">Points</Label>
+                <Input
+                  type="number"
+                  id="edit_points"
+                  name="points"
+                  defaultValue={editingAction.points}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Update Action
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Action Details</DialogTitle>
+          </DialogHeader>
+          {viewingAction && (
+            <div className="space-y-4">
+              <div>
+                <Label>Action Name</Label>
+                <p className="text-sm mt-1">{viewingAction.action_name}</p>
+              </div>
+              <div>
+                <Label>Action Type</Label>
+                <p className="text-sm mt-1">
+                  {ACTION_TYPES.find((t) => t.value === viewingAction.action_type)?.icon}{" "}
+                  {ACTION_TYPES.find((t) => t.value === viewingAction.action_type)?.label}
+                </p>
+              </div>
+              <div>
+                <Label>Points Awarded</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                  <span className="font-semibold">{viewingAction.points} Points</span>
+                </div>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Badge variant={viewingAction.is_enabled ? "default" : "secondary"} className="mt-1">
+                  {viewingAction.is_enabled ? "Enabled" : "Disabled"}
+                </Badge>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this loyalty action. All points already awarded
+              through this action will remain. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

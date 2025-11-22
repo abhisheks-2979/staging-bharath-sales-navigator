@@ -1,28 +1,17 @@
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
-import { Loader2, Gift, Sparkles } from "lucide-react";
+import { Loader2, Gift } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { ProgramsManagement } from "@/components/loyalty/ProgramsManagement";
 import { ActionsManagement } from "@/components/loyalty/ActionsManagement";
 import { RetailerPointsDashboard } from "@/components/loyalty/RetailerPointsDashboard";
 import { RedemptionsManagement } from "@/components/loyalty/RedemptionsManagement";
 import { LoyaltyAnalytics } from "@/components/loyalty/LoyaltyAnalytics";
-import { seedLoyaltyData } from "@/utils/seedLoyaltyData";
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function RetailerLoyaltyAdmin() {
   const { userRole, loading } = useAuth();
-  const [isSeeding, setIsSeeding] = useState(false);
-
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    await seedLoyaltyData();
-    setIsSeeding(false);
-    window.location.reload();
-  };
 
   if (loading) {
     return (
@@ -44,34 +33,18 @@ export default function RetailerLoyaltyAdmin() {
         {/* Header Card */}
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-pink-100 rounded-lg">
-                  <Gift className="h-8 w-8 text-pink-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl sm:text-3xl">
-                    Retailer Loyalty Program
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    Manage programs, actions, points, and redemptions to boost retailer engagement
-                  </CardDescription>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-pink-100 rounded-lg">
+                <Gift className="h-8 w-8 text-pink-600" />
               </div>
-              <Button
-                onClick={handleSeedData}
-                disabled={isSeeding}
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-              >
-                {isSeeding ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                Create Sample Data
-              </Button>
+              <div>
+                <CardTitle className="text-2xl sm:text-3xl">
+                  Retailer Loyalty Program
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Manage programs, actions, points, and redemptions to boost retailer engagement
+                </CardDescription>
+              </div>
             </div>
           </CardHeader>
         </Card>
