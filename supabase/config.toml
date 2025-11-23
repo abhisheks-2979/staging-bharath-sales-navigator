@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.chat-assistant]
 verify_jwt = true
+
+[functions.generate-scheduled-content]
+verify_jwt = false
