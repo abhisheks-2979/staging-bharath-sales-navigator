@@ -21,18 +21,39 @@ export const STORES = {
 
 class OfflineStorage {
   private db: IDBDatabase | null = null;
+  private initPromise: Promise<void> | null = null;
 
   async init(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+    // Return existing initialization promise if already initializing
+    if (this.initPromise) {
+      return this.initPromise;
+    }
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
-      };
+    // Return immediately if already initialized
+    if (this.db) {
+      return Promise.resolve();
+    }
+
+    this.initPromise = new Promise((resolve, reject) => {
+      try {
+        console.log('[OfflineStorage] Initializing IndexedDB for persistent storage...');
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => {
+          console.error('[OfflineStorage] Failed to open database:', request.error);
+          this.initPromise = null;
+          reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+          this.db = request.result;
+          console.log('[OfflineStorage] ✅ Database initialized successfully - data will persist across app restarts');
+          this.initPromise = null;
+          resolve();
+        };
 
       request.onupgradeneeded = (event) => {
+        console.log('[OfflineStorage] Upgrading database schema...');
         const db = (event.target as IDBOpenDBRequest).result;
         
         // Create object stores if they don't exist
@@ -103,47 +124,87 @@ class OfflineStorage {
           competitionDataStore.createIndex('retailerId', 'retailer_id', { unique: false });
           competitionDataStore.createIndex('visitId', 'visit_id', { unique: false });
         }
+        console.log('[OfflineStorage] ✅ Database schema upgraded successfully');
       };
+      } catch (error) {
+        console.error('[OfflineStorage] Error during initialization:', error);
+        this.initPromise = null;
+        reject(error);
+      }
     });
+
+    return this.initPromise;
+  }
+
+  // Verify database is ready
+  private async ensureReady(): Promise<void> {
+    if (!this.db) {
+      await this.init();
+    }
+    if (!this.db) {
+      throw new Error('Database initialization failed');
+    }
   }
 
   // Generic CRUD operations
   async save<T>(storeName: string, data: T): Promise<void> {
-    if (!this.db) await this.init();
+    await this.ensureReady();
     
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.put(data);
-      
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      try {
+        const transaction = this.db!.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.put(data);
+        
+        request.onsuccess = () => {
+          console.log(`[OfflineStorage] ✅ Saved to ${storeName}`);
+          resolve();
+        };
+        request.onerror = () => {
+          console.error(`[OfflineStorage] ❌ Failed to save to ${storeName}:`, request.error);
+          reject(request.error);
+        };
+      } catch (error) {
+        console.error(`[OfflineStorage] ❌ Transaction error in ${storeName}:`, error);
+        reject(error);
+      }
     });
   }
 
   async getById<T>(storeName: string, id: string): Promise<T | null> {
-    if (!this.db) await this.init();
+    await this.ensureReady();
     
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.get(id);
-      
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+      try {
+        const transaction = this.db!.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.get(id);
+        
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
-    if (!this.db) await this.init();
+    await this.ensureReady();
     
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.getAll();
-      
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
+      try {
+        const transaction = this.db!.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+          console.log(`[OfflineStorage] Retrieved ${request.result?.length || 0} items from ${storeName}`);
+          resolve(request.result || []);
+        };
+        request.onerror = () => reject(request.error);
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
@@ -197,5 +258,12 @@ class OfflineStorage {
 // Export singleton instance
 export const offlineStorage = new OfflineStorage();
 
-// Initialize on first import
-offlineStorage.init().catch(console.error);
+// Initialize on first import with proper error handling
+offlineStorage.init()
+  .then(() => {
+    console.log('[OfflineStorage] 🚀 Ready - All data will persist in APK/PWA');
+  })
+  .catch((error) => {
+    console.error('[OfflineStorage] ⚠️ Initialization failed:', error);
+    console.error('[OfflineStorage] App data may not persist properly');
+  });
