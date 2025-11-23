@@ -126,7 +126,20 @@ const Attendance = () => {
     getCurrentLocation();
   }, [dateFilter]);
 
-  const getCurrentLocation = () => {
+  const getCurrentLocation = async () => {
+    // Request location permission first for mobile
+    try {
+      const { checkPermissions } = await import('@/utils/permissions');
+      const permissions = await checkPermissions();
+      
+      if (!permissions.location) {
+        const { requestAllPermissions } = await import('@/utils/permissions');
+        await requestAllPermissions();
+      }
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+    }
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -268,6 +281,19 @@ const Attendance = () => {
     if (!attendanceType) return;
 
     try {
+      // Request camera permission first for mobile
+      try {
+        const { checkPermissions } = await import('@/utils/permissions');
+        const permissions = await checkPermissions();
+        
+        if (!permissions.camera) {
+          const { requestAllPermissions } = await import('@/utils/permissions');
+          await requestAllPermissions();
+        }
+      } catch (error) {
+        console.error('Error checking camera permissions:', error);
+      }
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 

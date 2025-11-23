@@ -321,6 +321,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       const profile = await fetchUserProfile(data.user.id);
       setUserProfile(profile);
+      
+      // Request permissions on sign-in for mobile app
+      try {
+        const { requestAllPermissions } = await import('@/utils/permissions');
+        const permissions = await requestAllPermissions();
+        console.log('Permissions requested:', permissions);
+      } catch (error) {
+        console.error('Error requesting permissions:', error);
+      }
+      
       toast.success('Signed in successfully!');
 
       // Redirect based on role
