@@ -127,17 +127,21 @@ const Attendance = () => {
   }, [dateFilter]);
 
   const getCurrentLocation = async () => {
-    // Request location permission first for mobile
+    // Request location permission first
     try {
-      const { checkPermissions } = await import('@/utils/permissions');
-      const permissions = await checkPermissions();
+      const { requestLocationPermission } = await import('@/utils/permissions');
+      const granted = await requestLocationPermission();
       
-      if (!permissions.location) {
-        const { requestAllPermissions } = await import('@/utils/permissions');
-        await requestAllPermissions();
+      if (!granted) {
+        toast({
+          title: "Location Permission Required",
+          description: "Please allow location access for attendance check-in and GPS tracking.",
+          variant: "destructive"
+        });
+        return;
       }
     } catch (error) {
-      console.error('Error checking permissions:', error);
+      console.error('Error requesting location permission:', error);
     }
     
     if (navigator.geolocation) {
@@ -152,7 +156,7 @@ const Attendance = () => {
           console.error('Error getting location:', error);
           toast({
             title: "Location Error",
-            description: "Could not get your location. Please enable GPS.",
+            description: "Could not get your location. Please enable GPS and grant location permission.",
             variant: "destructive"
           });
         },
@@ -281,19 +285,6 @@ const Attendance = () => {
     if (!attendanceType) return;
 
     try {
-      // Request camera permission first for mobile
-      try {
-        const { checkPermissions } = await import('@/utils/permissions');
-        const permissions = await checkPermissions();
-        
-        if (!permissions.camera) {
-          const { requestAllPermissions } = await import('@/utils/permissions');
-          await requestAllPermissions();
-        }
-      } catch (error) {
-        console.error('Error checking camera permissions:', error);
-      }
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
