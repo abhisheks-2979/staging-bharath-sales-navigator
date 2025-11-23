@@ -24,7 +24,6 @@ export const SignInForm = ({ role }: SignInFormProps) => {
   const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [signInSuccess, setSignInSuccess] = useState(false);
 
   const form = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
@@ -34,18 +33,23 @@ export const SignInForm = ({ role }: SignInFormProps) => {
     },
   });
 
-  // Check if we should show permission modal after successful sign-in
+  // Check permissions after component mounts (non-blocking)
   useEffect(() => {
-    if (signInSuccess && !hasRequestedPermissions()) {
-      setShowPermissionModal(true);
-    }
-  }, [signInSuccess]);
+    // Delay permission check to not block initial app load
+    const timer = setTimeout(() => {
+      if (!hasRequestedPermissions()) {
+        setShowPermissionModal(true);
+      }
+    }, 2000); // Show after 2 seconds to not block navigation
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const onSubmit = async (data: SignInFormData) => {
     setIsLoading(true);
     try {
       await signIn(data.email, data.password, role);
-      setSignInSuccess(true);
+      // Don't block navigation with permission modal
     } catch (error) {
       // Error is already handled by the signIn function
     }
@@ -54,7 +58,6 @@ export const SignInForm = ({ role }: SignInFormProps) => {
 
   const handlePermissionComplete = () => {
     setShowPermissionModal(false);
-    // Navigation will be handled by auth system
   };
 
   return (
