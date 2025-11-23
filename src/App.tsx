@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { PermissionRequestModal } from "@/components/auth/PermissionRequestModal";
 import Index from "./pages/Index";
 
 // Lazy load feature pages
@@ -87,14 +88,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error: any) => {
-        // Don't retry if offline
         if (!navigator.onLine) return false;
-        // Retry up to 2 times for other errors
         return failureCount < 2;
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
     },
@@ -104,333 +103,157 @@ const queryClient = new QueryClient({
   },
 });
 
+// Master data cache initializer with permission request
 const MasterDataCacheInitializer = () => {
   const { cacheAllMasterData, isOnline } = useMasterDataCache();
+  const [showPermissions, setShowPermissions] = React.useState(false);
   
   useEffect(() => {
-    // Cache master data on app load when online
+    // Check if permissions have been requested
+    if (!hasRequestedPermissions()) {
+      // Wait a bit for the app to settle, then show permission modal
+      const timer = setTimeout(() => {
+        setShowPermissions(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+  
+  useEffect(() => {
     if (isOnline) {
       cacheAllMasterData();
     }
   }, [isOnline, cacheAllMasterData]);
   
-  return null;
+  return (
+    <>
+      <PermissionRequestModal 
+        open={showPermissions} 
+        onComplete={() => setShowPermissions(false)} 
+      />
+      <OfflineModeBanner />
+    </>
+  );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <MasterDataCacheInitializer />
-        <Toaster />
-        <Sonner />
-        <PWAInstallPrompt />
-        <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/auth" element={<RoleBasedAuthPage />} />
-        <Route path="/auth/complete-profile" element={<CompleteProfile />} />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Index />
-          </ProtectedRoute>
-        } />
-          <Route path="/admin" element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <UserProfile />
-            </ProtectedRoute>
-          } />
-            <Route path="/admin-controls" element={
-              <ProtectedRoute>
-                <AdminControls />
-              </ProtectedRoute>
-            } />
-            <Route path="/feature-management" element={
-              <ProtectedRoute>
-                <FeatureManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/push-content-setup" element={
-              <ProtectedRoute>
-                <PushContentSetup />
-              </ProtectedRoute>
-            } />
-            <Route path="/user_roles" element={
-              <ProtectedRoute>
-                <UserRoles />
-              </ProtectedRoute>
-            } />
-            <Route path="/security-management" element={
-              <ProtectedRoute>
-                <SecurityManagement />
-              </ProtectedRoute>
-            } />
-          <Route path="/product-management" element={
-            <ProtectedRoute>
-              <ProductManagementPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/attendance-management" element={
-            <ProtectedRoute>
-              <AttendanceManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="/feedback-management" element={
-            <ProtectedRoute>
-              <FeedbackManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="/competition-master" element={
-            <ProtectedRoute>
-              <CompetitionMaster />
-            </ProtectedRoute>
-          } />
-          <Route path="/competition-master/:competitorId" element={
-            <ProtectedRoute>
-              <CompetitorDetail />
-            </ProtectedRoute>
-          } />
-          <Route path="/retailer/:id" element={<RetailerDetail />} />
-          <Route path="/territories-and-distributors" element={
-            <ProtectedRoute>
-              <TerritoriesAndDistributors />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin-expense-management" element={
-            <ProtectedRoute>
-              <AdminExpenseManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="/operations" element={
-            <ProtectedRoute>
-              <Operations />
-            </ProtectedRoute>
-          } />
-          <Route path="/distributor-master" element={
-            <ProtectedRoute>
-              <DistributorMaster />
-            </ProtectedRoute>
-          } />
-          <Route path="/distributor-mapping" element={
-            <ProtectedRoute>
-              <DistributorMapping />
-            </ProtectedRoute>
-          } />
-            <Route path="/visit-planner" element={
-              <ProtectedRoute>
-                <VisitPlanner />
-              </ProtectedRoute>
-            } />
-            <Route path="/visits" element={
-              <ProtectedRoute>
-                <BeatPlanning />
-              </ProtectedRoute>
-            } />
-            <Route path="/beat-planning" element={
-              <ProtectedRoute>
-                <BeatPlanning />
-              </ProtectedRoute>
-            } />
-            <Route path="/visits/retailers" element={
-              <ProtectedRoute>
-                <MyVisits />
-              </ProtectedRoute>
-            } />
-            <Route path="/order-entry" element={
-              <ProtectedRoute>
-                <OrderEntry />
-              </ProtectedRoute>
-            } />
-            <Route path="/cart" element={
-              <ProtectedRoute>
-                <Cart />
-              </ProtectedRoute>
-            } />
-            <Route path="/create-beat" element={
-              <ProtectedRoute>
-                <CreateBeat />
-              </ProtectedRoute>
-            } />
-            <Route path="/my-beats" element={
-              <ProtectedRoute>
-                <MyBeats />
-              </ProtectedRoute>
-            } />
-            <Route path="/beat/:id" element={
-              <ProtectedRoute>
-                <BeatDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/visit/:id" element={
-              <ProtectedRoute>
-                <VisitDetail />
-              </ProtectedRoute>
-            } />
-            <Route path="/beat-analytics" element={
-              <ProtectedRoute>
-                <BeatAnalytics />
-              </ProtectedRoute>
-            } />
-            <Route path="/today-summary" element={
-              <ProtectedRoute>
-                <TodaySummary />
-              </ProtectedRoute>
-            } />
-            <Route path="/add-retailer" element={
-              <ProtectedRoute>
-                <AddRetailer />
-              </ProtectedRoute>
-            } />
-            <Route path="/add-distributor" element={
-              <ProtectedRoute>
-                <AddDistributor />
-              </ProtectedRoute>
-            } />
-            <Route path="/add-super-stockist" element={
-              <ProtectedRoute>
-                <AddSuperStockist />
-              </ProtectedRoute>
-            } />
-            <Route path="/add-records" element={
-              <ProtectedRoute>
-                <AddRecords />
-              </ProtectedRoute>
-            } />
-            <Route path="/add-beat" element={
-              <ProtectedRoute>
-                <AddBeat />
-              </ProtectedRoute>
-            } />
-            <Route path="/attendance" element={
-              <ProtectedRoute>
-                <Attendance />
-              </ProtectedRoute>
-            } />
-            <Route path="/expenses" element={
-              <ProtectedRoute>
-                <MyExpenses />
-              </ProtectedRoute>
-            } />
-            <Route path="/leaderboard" element={
-              <ProtectedRoute>
-                <Leaderboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/game-policy" element={
-              <ProtectedRoute>
-                <GamePolicy />
-              </ProtectedRoute>
-            } />
-            <Route path="/activities-info" element={
-              <ProtectedRoute>
-                <ActivitiesInfo />
-              </ProtectedRoute>
-            } />
-            <Route path="/badges-info" element={
-              <ProtectedRoute>
-                <BadgesInfo />
-              </ProtectedRoute>
-            } />
-            <Route path="/performance" element={
-              <ProtectedRoute>
-                <Performance />
-              </ProtectedRoute>
-            } />
-            <Route path="/sales-coach" element={
-              <ProtectedRoute>
-                <SalesCoach />
-              </ProtectedRoute>
-            } />
-            <Route path="/analytics" element={
-              <ProtectedRoute>
-                <Analytics />
-              </ProtectedRoute>
-            } />
-            <Route path="/schemes" element={
-              <ProtectedRoute>
-                <Schemes />
-              </ProtectedRoute>
-            } />
-            <Route path="/my-retailers" element={
-              <ProtectedRoute>
-                <MyRetailers />
-              </ProtectedRoute>
-            } />
-            <Route path="/branding-requests" element={
-              <ProtectedRoute>
-                <BrandingRequests />
-              </ProtectedRoute>
-            } />
-            <Route path="/vendors" element={
-              <ProtectedRoute>
-                <Vendors />
-              </ProtectedRoute>
-            } />
-            <Route path="/gps-track" element={
-              <ProtectedRoute>
-                <GPSTrack />
-              </ProtectedRoute>
-            } />
-            <Route path="/gps-track-management" element={
-              <ProtectedRoute>
-                <GPSTrackManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/retail-management" element={
-              <ProtectedRoute>
-                <RetailManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/van-sales-management" element={
-              <ProtectedRoute>
-                <VanSalesManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/gamification-admin" element={
-              <ProtectedRoute>
-                <GamificationAdmin />
-              </ProtectedRoute>
-            } />
-            <Route path="/credit-management" element={
-              <ProtectedRoute>
-                <CreditManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/retailer-loyalty-admin" element={
-              <ProtectedRoute>
-                <RetailerLoyaltyAdmin />
-              </ProtectedRoute>
-            } />
-            <Route path="/retailer-loyalty" element={
-              <ProtectedRoute>
-                <RetailerLoyalty />
-              </ProtectedRoute>
-            } />
-            <Route path="/invoice-management" element={
-              <ProtectedRoute>
-                <InvoiceManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/features/beat-planning" element={<Suspense fallback={<LoadingScreen />}><BeatPlanningFeature /></Suspense>} />
-            <Route path="/features/retailer-management" element={<Suspense fallback={<LoadingScreen />}><RetailerManagementFeature /></Suspense>} />
-            <Route path="/features/visit-scheduling" element={<Suspense fallback={<LoadingScreen />}><VisitSchedulingFeature /></Suspense>} />
-            <Route path="/features/sales-analytics" element={<Suspense fallback={<LoadingScreen />}><SalesAnalyticsFeature /></Suspense>} />
-            <Route path="/features/performance-tracking" element={<Suspense fallback={<LoadingScreen />}><PerformanceTrackingFeature /></Suspense>} />
-            <Route path="/features/growth-analytics" element={<Suspense fallback={<LoadingScreen />}><GrowthAnalyticsFeature /></Suspense>} />
-            <Route path="/onboarding" element={<ProtectedRoute><EmployeeOnboarding /></ProtectedRoute>} />
-            <Route path="/employee-profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
-            <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Error boundary for the entire app
+  const [hasError, setHasError] = React.useState(false);
+
+  useEffect(() => {
+    const errorHandler = (event: ErrorEvent) => {
+      console.error('Global error:', event.error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', errorHandler);
+    return () => window.removeEventListener('error', errorHandler);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
+          <p className="text-muted-foreground">Please refresh the page to try again</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <MasterDataCacheInitializer />
+          <Toaster />
+          <Sonner />
+          <PWAInstallPrompt />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<RoleBasedAuthPage />} />
+              <Route path="/auth/complete-profile" element={<CompleteProfile />} />
+              <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+              <Route path="/admin-controls" element={<ProtectedRoute><AdminControls /></ProtectedRoute>} />
+              <Route path="/feature-management" element={<ProtectedRoute><FeatureManagement /></ProtectedRoute>} />
+              <Route path="/push-content-setup" element={<ProtectedRoute><PushContentSetup /></ProtectedRoute>} />
+              <Route path="/user_roles" element={<ProtectedRoute><UserRoles /></ProtectedRoute>} />
+              <Route path="/security-management" element={<ProtectedRoute><SecurityManagement /></ProtectedRoute>} />
+              <Route path="/product-management" element={<ProtectedRoute><ProductManagementPage /></ProtectedRoute>} />
+              <Route path="/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
+              <Route path="/feedback-management" element={<ProtectedRoute><FeedbackManagement /></ProtectedRoute>} />
+              <Route path="/competition-master" element={<ProtectedRoute><CompetitionMaster /></ProtectedRoute>} />
+              <Route path="/competition-master/:competitorId" element={<ProtectedRoute><CompetitorDetail /></ProtectedRoute>} />
+              <Route path="/retailer/:id" element={<RetailerDetail />} />
+              <Route path="/territories-and-distributors" element={<ProtectedRoute><TerritoriesAndDistributors /></ProtectedRoute>} />
+              <Route path="/admin-expense-management" element={<ProtectedRoute><AdminExpenseManagement /></ProtectedRoute>} />
+              <Route path="/operations" element={<ProtectedRoute><Operations /></ProtectedRoute>} />
+              <Route path="/distributor-master" element={<ProtectedRoute><DistributorMaster /></ProtectedRoute>} />
+              <Route path="/distributor-mapping" element={<ProtectedRoute><DistributorMapping /></ProtectedRoute>} />
+              <Route path="/visit-planner" element={<ProtectedRoute><VisitPlanner /></ProtectedRoute>} />
+              <Route path="/visits" element={<ProtectedRoute><BeatPlanning /></ProtectedRoute>} />
+              <Route path="/beat-planning" element={<ProtectedRoute><BeatPlanning /></ProtectedRoute>} />
+              <Route path="/visits/retailers" element={<ProtectedRoute><MyVisits /></ProtectedRoute>} />
+              <Route path="/order-entry" element={<ProtectedRoute><OrderEntry /></ProtectedRoute>} />
+              <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+              <Route path="/create-beat" element={<ProtectedRoute><CreateBeat /></ProtectedRoute>} />
+              <Route path="/my-beats" element={<ProtectedRoute><MyBeats /></ProtectedRoute>} />
+              <Route path="/beat/:id" element={<ProtectedRoute><BeatDetail /></ProtectedRoute>} />
+              <Route path="/visit/:id" element={<ProtectedRoute><VisitDetail /></ProtectedRoute>} />
+              <Route path="/beat-analytics" element={<ProtectedRoute><BeatAnalytics /></ProtectedRoute>} />
+              <Route path="/today-summary" element={<ProtectedRoute><TodaySummary /></ProtectedRoute>} />
+              <Route path="/add-retailer" element={<ProtectedRoute><AddRetailer /></ProtectedRoute>} />
+              <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
+              <Route path="/add-super-stockist" element={<ProtectedRoute><AddSuperStockist /></ProtectedRoute>} />
+              <Route path="/add-records" element={<ProtectedRoute><AddRecords /></ProtectedRoute>} />
+              <Route path="/add-beat" element={<ProtectedRoute><AddBeat /></ProtectedRoute>} />
+              <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
+              <Route path="/expenses" element={<ProtectedRoute><MyExpenses /></ProtectedRoute>} />
+              <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+              <Route path="/game-policy" element={<ProtectedRoute><GamePolicy /></ProtectedRoute>} />
+              <Route path="/activities-info" element={<ProtectedRoute><ActivitiesInfo /></ProtectedRoute>} />
+              <Route path="/badges-info" element={<ProtectedRoute><BadgesInfo /></ProtectedRoute>} />
+              <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+              <Route path="/sales-coach" element={<ProtectedRoute><SalesCoach /></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+              <Route path="/schemes" element={<ProtectedRoute><Schemes /></ProtectedRoute>} />
+              <Route path="/my-retailers" element={<ProtectedRoute><MyRetailers /></ProtectedRoute>} />
+              <Route path="/branding-requests" element={<ProtectedRoute><BrandingRequests /></ProtectedRoute>} />
+              <Route path="/vendors" element={<ProtectedRoute><Vendors /></ProtectedRoute>} />
+              <Route path="/gps-track" element={<ProtectedRoute><GPSTrack /></ProtectedRoute>} />
+              <Route path="/gps-track-management" element={<ProtectedRoute><GPSTrackManagement /></ProtectedRoute>} />
+              <Route path="/retail-management" element={<ProtectedRoute><RetailManagement /></ProtectedRoute>} />
+              <Route path="/van-sales-management" element={<ProtectedRoute><VanSalesManagement /></ProtectedRoute>} />
+              <Route path="/gamification-admin" element={<ProtectedRoute><GamificationAdmin /></ProtectedRoute>} />
+              <Route path="/credit-management" element={<ProtectedRoute><CreditManagement /></ProtectedRoute>} />
+              <Route path="/retailer-loyalty-admin" element={<ProtectedRoute><RetailerLoyaltyAdmin /></ProtectedRoute>} />
+              <Route path="/retailer-loyalty" element={<ProtectedRoute><RetailerLoyalty /></ProtectedRoute>} />
+              <Route path="/invoice-management" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
+              <Route path="/features/beat-planning" element={<Suspense fallback={<LoadingScreen />}><BeatPlanningFeature /></Suspense>} />
+              <Route path="/features/retailer-management" element={<Suspense fallback={<LoadingScreen />}><RetailerManagementFeature /></Suspense>} />
+              <Route path="/features/visit-scheduling" element={<Suspense fallback={<LoadingScreen />}><VisitSchedulingFeature /></Suspense>} />
+              <Route path="/features/sales-analytics" element={<Suspense fallback={<LoadingScreen />}><SalesAnalyticsFeature /></Suspense>} />
+              <Route path="/features/performance-tracking" element={<Suspense fallback={<LoadingScreen />}><PerformanceTrackingFeature /></Suspense>} />
+              <Route path="/features/growth-analytics" element={<Suspense fallback={<LoadingScreen />}><GrowthAnalyticsFeature /></Suspense>} />
+              <Route path="/onboarding" element={<ProtectedRoute><EmployeeOnboarding /></ProtectedRoute>} />
+              <Route path="/employee-profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+              <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
