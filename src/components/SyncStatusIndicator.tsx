@@ -64,9 +64,12 @@ export const SyncStatusIndicator = () => {
     handleSync();
   }, [isOnline, syncQueueCount]);
 
-  // Don't show anything if online and no pending items
-  if (isOnline && syncQueueCount === 0 && !isSyncing && !lastSyncStatus) {
-    return null;
+  // Only show when syncing or have pending items
+  if (isSyncing || syncQueueCount > 0) {
+    return (
+      <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
+    );
   }
-  return;
+  
+  return null;
 };

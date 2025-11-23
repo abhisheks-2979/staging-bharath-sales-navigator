@@ -11,7 +11,6 @@ import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PermissionRequestModal } from "@/components/auth/PermissionRequestModal";
-import { OfflineModeBanner } from "@/components/OfflineModeBanner";
 import { hasRequestedPermissions } from "@/utils/permissionManager";
 import Index from "./pages/Index";
 
@@ -128,13 +127,10 @@ const MasterDataCacheInitializer = () => {
   }, [isOnline, cacheAllMasterData]);
   
   return (
-    <>
-      <PermissionRequestModal 
-        open={showPermissions} 
-        onComplete={() => setShowPermissions(false)} 
-      />
-      <OfflineModeBanner />
-    </>
+    <PermissionRequestModal 
+      open={showPermissions} 
+      onComplete={() => setShowPermissions(false)} 
+    />
   );
 };
 
