@@ -37,7 +37,21 @@ const checkReactIntegrity = () => {
   }
 };
 
+// Request mobile permissions on app startup
+const requestMobilePermissions = async () => {
+  try {
+    const { requestAllPermissions } = await import('./utils/permissions');
+    const permissions = await requestAllPermissions();
+    console.log('Mobile permissions requested on startup:', permissions);
+  } catch (error) {
+    console.error('Error requesting mobile permissions:', error);
+  }
+};
+
 if (checkReactIntegrity()) {
+  // Request permissions for mobile app
+  requestMobilePermissions();
+  
   // Initialize i18n after React is confirmed to be loaded
   import('./i18n/config').then(() => {
     createRoot(document.getElementById("root")!).render(<App />);
