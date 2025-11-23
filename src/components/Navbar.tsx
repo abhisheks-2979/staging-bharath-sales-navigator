@@ -40,6 +40,7 @@ export const Navbar = () => {
   const { t } = useTranslation('common');
 
   const navigationItems = [
+    { icon: UserCheck, label: "My Profile", href: "/employee-profile", color: "from-indigo-500 to-indigo-600" },
     { icon: UserCheck, label: t('nav.attendance'), href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: t('nav.myVisit'), href: "/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
