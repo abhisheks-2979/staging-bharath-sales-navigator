@@ -490,20 +490,19 @@ export const CreateBeat = () => {
                 </Button>
               </div>
               
-              {/* Beat Name and Recurrence Scheduling in Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="beatName">Beat Name</Label>
-                  <Input
-                    id="beatName"
-                    placeholder="Enter beat name (e.g., North Zone Beat)"
-                    value={beatName}
-                    onChange={(e) => setBeatName(e.target.value)}
-                  />
-                </div>
-                
-                {/* Recurrence Scheduling */}
-                <div className="space-y-3 p-3 border rounded-lg bg-background">
+              {/* Beat Name */}
+              <div className="space-y-2">
+                <Label htmlFor="beatName">Beat Name</Label>
+                <Input
+                  id="beatName"
+                  placeholder="Enter beat name (e.g., North Zone Beat)"
+                  value={beatName}
+                  onChange={(e) => setBeatName(e.target.value)}
+                />
+              </div>
+              
+              {/* Schedule Recurring Visits */}
+              <div className="space-y-3 p-3 border rounded-lg bg-background">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -658,7 +657,6 @@ export const CreateBeat = () => {
                     )}
                   </div>
                 )}
-                </div>
               </div>
               
               <div className="space-y-2">
