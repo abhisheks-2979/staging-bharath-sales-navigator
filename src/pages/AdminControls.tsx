@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock } from 'lucide-react';
+import { Shield, Users, Settings, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell } from 'lucide-react';
+import { SearchInput } from '@/components/SearchInput';
 
 const AdminControls = () => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
 
   if (loading) {
     return (
@@ -20,6 +22,34 @@ const AdminControls = () => {
   if (userRole !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const adminModules = [
+    { title: "Admin Dashboard", description: "View system statistics and manage general administration tasks", icon: Shield, color: "green", path: "/admin" },
+    { title: "User Management", description: "Manage user accounts, roles, and permissions", icon: Users, color: "orange", path: "/admin#users" },
+    { title: "System Settings", description: "Configure system-wide settings and preferences", icon: Settings, color: "gray", path: "/admin#settings" },
+    { title: "Attendance Management", description: "Manage user attendance, holidays, and leave approvals", icon: CalendarDays, color: "purple", path: "/attendance-management" },
+    { title: "Products", description: "Manage your product catalog, SKUs, and promotional schemes", icon: Package, color: "blue", path: "/product-management" },
+    { title: "Vendors", description: "Manage vendor relationships and approvals", icon: Users, color: "green", path: "/vendors" },
+    { title: "Territories & Distributors", description: "Manage territory assignments and distributor network", icon: MapPin, color: "indigo", path: "/territories-distributors" },
+    { title: "Expense Management", description: "Track team productivity and expense analytics", icon: DollarSign, color: "yellow", path: "/admin-expense-management" },
+    { title: "Feedback Management", description: "View retailer feedback, competition insights, and branding requests", icon: MessageSquareText, color: "purple", path: "/feedback-management" },
+    { title: "Operations", description: "Monitor real-time operations, check-ins, orders, and stock data", icon: BarChart3, color: "red", path: "/operations" },
+    { title: "GPS Track Management", description: "Monitor live locations and track user movements from login to logout", icon: Navigation, color: "cyan", path: "/gps-track-management" },
+    { title: "Retail Management", description: "Verify and manage all retailers across the system", icon: Store, color: "teal", path: "/retail-management" },
+    { title: "Van Sales Management", description: "Manage vans, drivers, and van-based sales operations", icon: Truck, color: "emerald", path: "/van-sales-management" },
+    { title: "Security & Access", description: "Manage user profiles, permissions, and data access control", icon: Lock, color: "indigo", path: "/security-management" },
+    { title: "Feature Management", description: "Control which features are visible and active for users", icon: Flag, color: "violet", path: "/feature-management" },
+    { title: "Gamification", description: "Configure games, points, actions, and manage redemptions", icon: Trophy, color: "amber", path: "/gamification-admin" },
+    { title: "Retailer Loyalty", description: "Manage retailer loyalty programs, points, and redemptions", icon: Trophy, color: "pink", path: "/retailer-loyalty-admin" },
+    { title: "Invoice Management", description: "Create and manage GST invoices with automatic tax calculations", icon: FileText, color: "cyan", path: "/invoice-management" },
+    { title: "Credit Management", description: "Configure retailer credit scoring and limit management system", icon: CreditCard, color: "emerald", path: "/credit-management" },
+    { title: "Push Content Setup", description: "Manage automated content templates and schedules for users", icon: Bell, color: "rose", path: "/push-content-setup" },
+  ];
+
+  const filteredModules = adminModules.filter(module => 
+    module.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    module.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gradient-subtle p-4">
@@ -34,300 +64,47 @@ const AdminControls = () => {
           >
             <ArrowLeft size={20} />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-foreground">Admin Controls</h1>
             <p className="text-muted-foreground">Manage different aspects of your system</p>
           </div>
         </div>
 
+        {/* Search */}
+        <div className="max-w-md">
+          <SearchInput 
+            placeholder="Search admin modules..."
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
+        </div>
+
         {/* Admin Controls Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/admin')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-green-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Shield className="h-8 w-8 text-green-600" />
-              </div>
-              <CardTitle>Admin Dashboard</CardTitle>
-              <CardDescription>
-                View system statistics and manage general administration tasks
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {filteredModules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <Card 
+                key={module.path}
+                className="cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => navigate(module.path)}
+              >
+                <CardHeader className="text-center">
+                  <div className={`mx-auto mb-4 p-4 bg-${module.color}-100 rounded-full w-16 h-16 flex items-center justify-center`}>
+                    <Icon className={`h-8 w-8 text-${module.color}-600`} />
+                  </div>
+                  <CardTitle>{module.title}</CardTitle>
+                  <CardDescription>{module.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            );
+          })}
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/admin#users')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-orange-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Users className="h-8 w-8 text-orange-600" />
-              </div>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                Manage user accounts, roles, and permissions
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/admin#settings')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Settings className="h-8 w-8 text-gray-600" />
-              </div>
-              <CardTitle>System Settings</CardTitle>
-              <CardDescription>
-                Configure system-wide settings and preferences
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/attendance-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <CalendarDays className="h-8 w-8 text-purple-600" />
-              </div>
-              <CardTitle>Attendance Management</CardTitle>
-              <CardDescription>
-                Manage user attendance, holidays, and leave approvals
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/product-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Package className="h-8 w-8 text-blue-600" />
-              </div>
-              <CardTitle>Products</CardTitle>
-              <CardDescription>
-                Manage your product catalog, SKUs, and promotional schemes
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/vendors')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-green-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Users className="h-8 w-8 text-green-600" />
-              </div>
-              <CardTitle>Vendors</CardTitle>
-              <CardDescription>
-                Manage vendor relationships and approvals
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/territories-distributors')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-indigo-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <MapPin className="h-8 w-8 text-indigo-600" />
-              </div>
-              <CardTitle>Territories & Distributors</CardTitle>
-              <CardDescription>
-                Manage territory assignments and distributor network
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/admin-expense-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-yellow-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <DollarSign className="h-8 w-8 text-yellow-600" />
-              </div>
-              <CardTitle>Expense Management</CardTitle>
-              <CardDescription>
-                Track team productivity and expense analytics
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/feedback-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <MessageSquareText className="h-8 w-8 text-purple-600" />
-              </div>
-              <CardTitle>Feedback Management</CardTitle>
-              <CardDescription>
-                View retailer feedback, competition insights, and branding requests
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/operations')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-red-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <BarChart3 className="h-8 w-8 text-red-600" />
-              </div>
-              <CardTitle>Operations</CardTitle>
-              <CardDescription>
-                Monitor real-time operations, check-ins, orders, and stock data
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/gps-track-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-cyan-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Navigation className="h-8 w-8 text-cyan-600" />
-              </div>
-              <CardTitle>GPS Track Management</CardTitle>
-              <CardDescription>
-                Monitor live locations and track user movements from login to logout
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/retail-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-teal-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Store className="h-8 w-8 text-teal-600" />
-              </div>
-              <CardTitle>Retail Management</CardTitle>
-              <CardDescription>
-                Verify and manage all retailers across the system
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/van-sales-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-emerald-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Truck className="h-8 w-8 text-emerald-600" />
-              </div>
-              <CardTitle>Van Sales Management</CardTitle>
-              <CardDescription>
-                Manage vans, drivers, and van-based sales operations
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/security-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-indigo-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Lock className="h-8 w-8 text-indigo-600" />
-              </div>
-              <CardTitle>Security & Access</CardTitle>
-              <CardDescription>
-                Manage user profiles, permissions, and data access control
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/feature-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-violet-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Flag className="h-8 w-8 text-violet-600" />
-              </div>
-              <CardTitle>Feature Management</CardTitle>
-              <CardDescription>
-                Control which features are visible and active for users
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/gamification-admin')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-amber-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Trophy className="h-8 w-8 text-amber-600" />
-              </div>
-              <CardTitle>Gamification</CardTitle>
-              <CardDescription>
-                Configure games, points, actions, and manage redemptions
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/retailer-loyalty-admin')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-pink-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <Trophy className="h-8 w-8 text-pink-600" />
-              </div>
-              <CardTitle>Retailer Loyalty</CardTitle>
-              <CardDescription>
-                Manage retailer loyalty programs, points, and redemptions
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/invoice-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-cyan-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <FileText className="h-8 w-8 text-cyan-600" />
-              </div>
-              <CardTitle>Invoice Management</CardTitle>
-              <CardDescription>
-                Create and manage GST invoices with automatic tax calculations
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/credit-management')}
-          >
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 p-4 bg-emerald-100 rounded-full w-16 h-16 flex items-center justify-center">
-                <CreditCard className="h-8 w-8 text-emerald-600" />
-              </div>
-              <CardTitle>Credit Management</CardTitle>
-              <CardDescription>
-                Configure retailer credit scoring and limit management system
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
+          {filteredModules.length === 0 && (
+            <div className="col-span-full text-center py-12">
+              <p className="text-muted-foreground">No modules found matching "{searchQuery}"</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
