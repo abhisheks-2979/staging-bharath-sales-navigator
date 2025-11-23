@@ -61,6 +61,12 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
   const [repeatDays, setRepeatDays] = useState<number[]>([1]); // 0=Sunday, 1=Monday, etc.
   const [repeatEndDate, setRepeatEndDate] = useState<Date | undefined>(undefined);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  
+  // Monthly recurrence settings
+  const [monthlyType, setMonthlyType] = useState<"day" | "date">("day");
+  const [monthlyWeek, setMonthlyWeek] = useState<string>("first");
+  const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState<number>(1); // Monday by default
+  const [monthlyDateOfMonth, setMonthlyDateOfMonth] = useState<string>("1");
 
   const weekDays = [
     { label: "Mon", value: 1 },
@@ -326,6 +332,10 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
     setRepeatType("weekly");
     setRepeatDays([1]);
     setRepeatEndDate(undefined);
+    setMonthlyType("day");
+    setMonthlyWeek("first");
+    setMonthlyDayOfWeek(1);
+    setMonthlyDateOfMonth("1");
     onClose();
   };
 
@@ -470,22 +480,73 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                       )}
                       
                       {repeatType === "monthly" && (
-                        <div className="space-y-2">
-                          <Label>Select Days of Month</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {weekDays.map((day) => (
-                              <Button
-                                key={day.value}
-                                type="button"
-                                variant={repeatDays.includes(day.value) ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handleWeekDayToggle(day.value)}
-                                className="w-12"
-                              >
-                                {day.label}
-                              </Button>
-                            ))}
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            <RadioGroup value={monthlyType} onValueChange={(value: any) => setMonthlyType(value)}>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="day" id="monthly-day" />
+                                <Label htmlFor="monthly-day" className="cursor-pointer">
+                                  On a specific day of the month
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="date" id="monthly-date" />
+                                <Label htmlFor="monthly-date" className="cursor-pointer">
+                                  On a specific date of the month
+                                </Label>
+                              </div>
+                            </RadioGroup>
                           </div>
+                          
+                          {monthlyType === "day" && (
+                            <div className="space-y-3 pl-4">
+                              <div className="space-y-2">
+                                <Label>Select Week</Label>
+                                <select
+                                  value={monthlyWeek}
+                                  onChange={(e) => setMonthlyWeek(e.target.value)}
+                                  className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                                >
+                                  <option value="first">First</option>
+                                  <option value="second">Second</option>
+                                  <option value="third">Third</option>
+                                  <option value="fourth">Fourth</option>
+                                  <option value="last">Last</option>
+                                </select>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label>Select Day of Week</Label>
+                                <select
+                                  value={monthlyDayOfWeek}
+                                  onChange={(e) => setMonthlyDayOfWeek(parseInt(e.target.value))}
+                                  className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                                >
+                                  <option value="1">Monday</option>
+                                  <option value="2">Tuesday</option>
+                                  <option value="3">Wednesday</option>
+                                  <option value="4">Thursday</option>
+                                  <option value="5">Friday</option>
+                                  <option value="6">Saturday</option>
+                                  <option value="0">Sunday</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {monthlyType === "date" && (
+                            <div className="space-y-2 pl-4">
+                              <Label>Enter Date of Month (1-31)</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={monthlyDateOfMonth}
+                                onChange={(e) => setMonthlyDateOfMonth(e.target.value)}
+                                placeholder="Enter date (1-31)"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                       
