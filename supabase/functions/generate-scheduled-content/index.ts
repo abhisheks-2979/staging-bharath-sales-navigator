@@ -25,6 +25,16 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const { regenerate_post_id } = body;
+
+    // Handle single post regeneration
+    if (regenerate_post_id) {
+      console.log(`Regenerating post: ${regenerate_post_id}`);
+      return await handlePostRegeneration(supabase, regenerate_post_id);
+    }
+
+    // Handle scheduled batch generation
     console.log('Starting scheduled content generation...');
     const currentHour = new Date().getHours();
     const currentTime = `${currentHour.toString().padStart(2, '0')}:00`;
@@ -129,6 +139,71 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function handlePostRegeneration(supabase: any, postId: string) {
+  try {
+    // Get the existing post details
+    const { data: post, error: postError } = await supabase
+      .from('social_posts')
+      .select(`
+        *,
+        push_content_templates(template_type, name)
+      `)
+      .eq('id', postId)
+      .eq('is_automated', true)
+      .single();
+
+    if (postError || !post) {
+      throw new Error('Post not found or is not automated');
+    }
+
+    const subscription: TemplateSubscription = {
+      id: postId,
+      user_id: post.user_id,
+      template_id: post.template_id,
+      template_type: post.push_content_templates.template_type,
+      template_name: post.push_content_templates.name,
+      schedule_time: '',
+      custom_settings: {}
+    };
+
+    // Generate new content
+    const content = await generateContentForTemplate(supabase, subscription);
+
+    if (!content) {
+      return new Response(
+        JSON.stringify({ error: 'No content generated' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update the existing post
+    const { error: updateError } = await supabase
+      .from('social_posts')
+      .update({
+        content: content.text,
+        image_url: content.image_url,
+        post_metadata: content.metadata,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', postId);
+
+    if (updateError) throw updateError;
+
+    await logExecution(supabase, subscription, 'success', null, postId);
+
+    return new Response(
+      JSON.stringify({ success: true, postId }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error regenerating post:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
 
 async function generateContentForTemplate(supabase: any, subscription: TemplateSubscription) {
   const today = new Date().toISOString().split('T')[0];
