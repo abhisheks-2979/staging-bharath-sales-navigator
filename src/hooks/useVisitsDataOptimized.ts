@@ -144,13 +144,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           ordersData = ordersResult.data || [];
         }
 
-        // Cache all data in parallel
+        // Cache ONLY current date data (don't bloat storage with historical data)
+        // Beat plans and retailers are already cached by useMasterDataCache
+        // Only cache visits for current date
         await Promise.all([
-          ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
-          ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit)),
-          ...retailersData.map(retailer => offlineStorage.save(STORES.RETAILERS, retailer)),
-          ...ordersData.map(order => offlineStorage.save(STORES.ORDERS, order))
+          ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit))
         ]);
+        
+        console.log('[VisitsData] ✅ Cached current date visits only (not storing orders/beat plans to save storage)');
 
         // Update state with fresh data
         setBeatPlans(beatPlansData);

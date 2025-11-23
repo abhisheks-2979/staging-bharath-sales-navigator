@@ -1,4 +1,11 @@
 // IndexedDB setup for offline storage
+// STORAGE STRATEGY: Only cache essential data needed for offline operations
+// - PRODUCTS, VARIANTS, SCHEMES, CATEGORIES: Active items for order entry
+// - BEATS, RETAILERS: User's active beats and retailers
+// - BEAT_PLANS: Only today + next 3 days (not historical)
+// - VISITS: Only current date visits
+// - ORDERS: ONLY pending orders in sync queue (not all historical orders)
+// - SYNC_QUEUE: Pending actions to sync when online
 const DB_NAME = 'OfflineAppDB';
 const DB_VERSION = 4; // Increased for new competition stores
 

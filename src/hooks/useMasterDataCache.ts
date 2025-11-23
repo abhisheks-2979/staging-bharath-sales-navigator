@@ -5,18 +5,24 @@ import { useConnectivity } from './useConnectivity';
 import { useAuth } from './useAuth';
 
 /**
- * Hook to cache master data (products, beats, retailers, categories, schemes)
- * for offline access. Automatically syncs when online.
+ * Hook to cache ONLY essential offline data (products, beats, retailers)
+ * Does NOT cache historical data, visits, or orders - only what's needed for offline operations
  */
 export function useMasterDataCache() {
   const connectivityStatus = useConnectivity();
   const isOnline = connectivityStatus === 'online';
   const { user } = useAuth();
 
-  // Cache products and related data
+  // Cache ONLY active products and related data needed for order entry
   const cacheProducts = useCallback(async () => {
     try {
-      console.log('Caching products...');
+      console.log('[Cache] Syncing active products for offline order entry...');
+      
+      // Clear existing cache first to avoid stale data
+      await offlineStorage.clear(STORES.PRODUCTS);
+      await offlineStorage.clear(STORES.VARIANTS);
+      await offlineStorage.clear(STORES.SCHEMES);
+      await offlineStorage.clear(STORES.CATEGORIES);
       
       const { data: products, error: productsError } = await supabase
         .from('products')
@@ -25,36 +31,37 @@ export function useMasterDataCache() {
 
       if (productsError) throw productsError;
 
-      // Save each product to IndexedDB
       if (products) {
         for (const product of products) {
           await offlineStorage.save(STORES.PRODUCTS, product);
         }
-        console.log(`Cached ${products.length} products`);
+        console.log(`[Cache] ✅ ${products.length} active products cached`);
       }
 
-      // Cache variants
+      // Cache only active variants
       const { data: variants } = await supabase
         .from('product_variants')
-        .select('*');
+        .select('*')
+        .eq('is_active', true);
 
       if (variants) {
         for (const variant of variants) {
           await offlineStorage.save(STORES.VARIANTS, variant);
         }
-        console.log(`Cached ${variants.length} variants`);
+        console.log(`[Cache] ✅ ${variants.length} variants cached`);
       }
 
-      // Cache schemes
+      // Cache only active schemes
       const { data: schemes } = await supabase
         .from('product_schemes')
-        .select('*');
+        .select('*')
+        .eq('is_active', true);
 
       if (schemes) {
         for (const scheme of schemes) {
           await offlineStorage.save(STORES.SCHEMES, scheme);
         }
-        console.log(`Cached ${schemes.length} schemes`);
+        console.log(`[Cache] ✅ ${schemes.length} schemes cached`);
       }
 
       // Cache categories
@@ -66,25 +73,30 @@ export function useMasterDataCache() {
         for (const category of categories) {
           await offlineStorage.save(STORES.CATEGORIES, category);
         }
-        console.log(`Cached ${categories.length} categories`);
+        console.log(`[Cache] ✅ ${categories.length} categories cached`);
       }
 
-      // Store last cache timestamp
       localStorage.setItem('master_data_cached_at', Date.now().toString());
     } catch (error) {
-      console.error('Error caching products:', error);
+      console.error('[Cache] Error caching products:', error);
     }
   }, []);
 
-  // Cache beats
+  // Cache ONLY active beats for current user
   const cacheBeats = useCallback(async () => {
+    if (!user) return;
+    
     try {
-      console.log('Caching beats...');
+      console.log('[Cache] Syncing active beats...');
+      
+      // Clear existing beats cache
+      await offlineStorage.clear(STORES.BEATS);
       
       const { data: beats, error } = await supabase
         .from('beats')
         .select('*')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('created_by', user.id);
 
       if (error) throw error;
 
@@ -92,12 +104,12 @@ export function useMasterDataCache() {
         for (const beat of beats) {
           await offlineStorage.save(STORES.BEATS, beat);
         }
-        console.log(`Cached ${beats.length} beats`);
+        console.log(`[Cache] ✅ ${beats.length} active beats cached`);
       }
     } catch (error) {
-      console.error('Error caching beats:', error);
+      console.error('[Cache] Error caching beats:', error);
     }
-  }, []);
+  }, [user]);
 
   // Cache competition data (competitors and SKUs)
   const cacheCompetitionData = useCallback(async () => {
@@ -137,14 +149,20 @@ export function useMasterDataCache() {
     }
   }, []);
 
-  // Cache retailers
+  // Cache ONLY retailers for current user
   const cacheRetailers = useCallback(async () => {
+    if (!user) return;
+    
     try {
-      console.log('Caching retailers...');
+      console.log('[Cache] Syncing retailers...');
+      
+      // Clear existing retailers cache
+      await offlineStorage.clear(STORES.RETAILERS);
       
       const { data: retailers, error } = await supabase
         .from('retailers')
-        .select('*');
+        .select('*')
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
@@ -152,33 +170,34 @@ export function useMasterDataCache() {
         for (const retailer of retailers) {
           await offlineStorage.save(STORES.RETAILERS, retailer);
         }
-        console.log(`Cached ${retailers.length} retailers`);
+        console.log(`[Cache] ✅ ${retailers.length} retailers cached`);
       }
     } catch (error) {
-      console.error('Error caching retailers:', error);
+      console.error('[Cache] Error caching retailers:', error);
     }
-  }, []);
+  }, [user]);
 
-  // Cache beat plans for the current week
+  // Cache ONLY today's and next 3 days beat plans (not historical)
   const cacheBeatPlans = useCallback(async () => {
     if (!user) return;
     
     try {
-      console.log('Caching beat plans...');
+      console.log('[Cache] Syncing upcoming beat plans...');
       
-      // Get current week's beat plans
+      // Clear existing beat plans cache to avoid bloat
+      await offlineStorage.clear(STORES.BEAT_PLANS);
+      
+      // Get only today and next 3 days
       const today = new Date();
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - 7); // Last 7 days
-      const weekEnd = new Date(today);
-      weekEnd.setDate(today.getDate() + 7); // Next 7 days
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(today.getDate() + 3);
       
       const { data: beatPlans, error } = await supabase
         .from('beat_plans')
         .select('*')
         .eq('user_id', user.id)
-        .gte('plan_date', weekStart.toISOString().split('T')[0])
-        .lte('plan_date', weekEnd.toISOString().split('T')[0]);
+        .gte('plan_date', today.toISOString().split('T')[0])
+        .lte('plan_date', threeDaysLater.toISOString().split('T')[0]);
 
       if (error) throw error;
 
@@ -186,20 +205,21 @@ export function useMasterDataCache() {
         for (const plan of beatPlans) {
           await offlineStorage.save(STORES.BEAT_PLANS, plan);
         }
-        console.log(`Cached ${beatPlans.length} beat plans`);
+        console.log(`[Cache] ✅ ${beatPlans.length} beat plans cached (today + 3 days)`);
       }
     } catch (error) {
-      console.error('Error caching beat plans:', error);
+      console.error('[Cache] Error caching beat plans:', error);
     }
   }, [user]);
 
-  // Cache all master data
+  // Cache essential master data (NOT historical data)
   const cacheAllMasterData = useCallback(async () => {
-    if (!isOnline) {
-      console.log('Offline - skipping master data cache update');
+    if (!isOnline || !user) {
+      console.log('[Cache] Offline or no user - skipping cache update');
       return;
     }
 
+    console.log('[Cache] 🔄 Syncing essential offline data...');
     try {
       await Promise.all([
         cacheProducts(),
@@ -208,11 +228,11 @@ export function useMasterDataCache() {
         cacheBeatPlans(),
         cacheCompetitionData()
       ]);
-      console.log('✅ All master data cached successfully');
+      console.log('[Cache] ✅ Essential offline data synced successfully');
     } catch (error) {
-      console.error('Error caching master data:', error);
+      console.error('[Cache] Error syncing offline data:', error);
     }
-  }, [isOnline, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+  }, [isOnline, user, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
 
   // Load cached data (used when offline)
   const loadCachedData = useCallback(async (storeName: string) => {
@@ -225,22 +245,25 @@ export function useMasterDataCache() {
     }
   }, []);
 
-  // Auto-cache when coming online OR on first mount
+  // Auto-sync when online (not too frequently to save storage)
   useEffect(() => {
-    // Check if we need to refresh cache (every 6 hours) or if never cached
+    if (!user) return;
+    
+    // Check if we need to refresh cache (every 4 hours) or if never cached
     const lastCached = localStorage.getItem('master_data_cached_at');
-    const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+    const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
     
     if (isOnline) {
-      if (!lastCached || parseInt(lastCached) < sixHoursAgo) {
-        console.log('Master data cache expired or missing, refreshing...');
+      if (!lastCached || parseInt(lastCached) < fourHoursAgo) {
+        console.log('[Cache] Cache expired or missing, syncing offline data...');
         cacheAllMasterData();
+      } else {
+        console.log('[Cache] Using recent cache, no sync needed');
       }
     } else if (!lastCached) {
-      // If offline and never cached, show a warning
-      console.warn('⚠️ App is offline and no cached data available. Please connect online first.');
+      console.warn('[Cache] ⚠️ Offline with no cached data. Connect online to enable offline mode.');
     }
-  }, [isOnline, cacheAllMasterData]);
+  }, [isOnline, user, cacheAllMasterData]);
 
   return {
     cacheProducts,
