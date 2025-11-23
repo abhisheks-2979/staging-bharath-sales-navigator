@@ -417,7 +417,7 @@ const App = () => (
             <Route path="/features/performance-tracking" element={<Suspense fallback={<LoadingScreen />}><PerformanceTrackingFeature /></Suspense>} />
             <Route path="/features/growth-analytics" element={<Suspense fallback={<LoadingScreen />}><GrowthAnalyticsFeature /></Suspense>} />
             <Route path="/onboarding" element={<ProtectedRoute><EmployeeOnboarding /></ProtectedRoute>} />
-            <Route path="/employee-profile" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
+            <Route path="/employee-profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
             <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
