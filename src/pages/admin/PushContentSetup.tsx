@@ -178,7 +178,7 @@ export default function PushContentSetup() {
           <div className="flex items-center gap-3">
             <Settings className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-3xl font-bold">Push Content Setup</h1>
+              <h1 className="text-3xl font-bold">Notification Setup</h1>
               <p className="text-muted-foreground">Manage automated content templates for users</p>
             </div>
           </div>

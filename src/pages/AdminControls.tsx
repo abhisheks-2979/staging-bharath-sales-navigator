@@ -43,7 +43,7 @@ const AdminControls = () => {
     { title: "Retailer Loyalty", description: "Manage retailer loyalty programs, points, and redemptions", icon: Trophy, color: "pink", path: "/retailer-loyalty-admin" },
     { title: "Invoice Management", description: "Create and manage GST invoices with automatic tax calculations", icon: FileText, color: "cyan", path: "/invoice-management" },
     { title: "Credit Management", description: "Configure retailer credit scoring and limit management system", icon: CreditCard, color: "emerald", path: "/credit-management" },
-    { title: "Push Content Setup", description: "Manage automated content templates and schedules for users", icon: Bell, color: "rose", path: "/push-content-setup" },
+    { title: "Notification Setup", description: "Manage automated content templates and schedules for users", icon: Bell, color: "rose", path: "/push-content-setup" },
   ];
 
   const filteredModules = adminModules.filter(module => 
