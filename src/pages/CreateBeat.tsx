@@ -182,6 +182,12 @@ export const CreateBeat = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [customIntervalDays, setCustomIntervalDays] = useState<number>(15);
   const [repeatUntilMode, setRepeatUntilMode] = useState<"date" | "permanent">("date");
+  
+  // Monthly recurrence options
+  const [monthlyType, setMonthlyType] = useState<"day" | "date">("day"); // "day" = First Monday, "date" = 15th
+  const [monthlyWeek, setMonthlyWeek] = useState<"first" | "second" | "third" | "fourth" | "last">("first");
+  const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState<number>(1); // 0=Sunday, 1=Monday, etc.
+  const [monthlyDateOfMonth, setMonthlyDateOfMonth] = useState<number>(1); // 1-31
 
   const weekDays = [
     { label: "Mon", value: 1 },
@@ -582,25 +588,95 @@ export const CreateBeat = () => {
                     )}
                     
                     {repeatType === "monthly" && (
-                      <div className="space-y-2">
-                        <Label>Select Days of Month *</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {weekDays.map((day) => (
-                            <Button
-                              key={day.value}
-                              type="button"
-                              variant={repeatDays.includes(day.value) ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => handleWeekDayToggle(day.value)}
-                              className="w-12"
-                            >
-                              {day.label}
-                            </Button>
-                          ))}
-                        </div>
-                        {repeatDays.length === 0 && (
-                          <p className="text-xs text-destructive">Please select at least one day</p>
-                        )}
+                      <div className="space-y-3">
+                        <Label>Monthly Schedule</Label>
+                        
+                        <RadioGroup value={monthlyType} onValueChange={(val: "day" | "date") => setMonthlyType(val)}>
+                          <div className="space-y-3">
+                            {/* Option 1: Specific week and day */}
+                            <div className="flex items-start space-x-2">
+                              <RadioGroupItem value="day" id="monthly-day" className="mt-1" />
+                              <div className="flex-1 space-y-2">
+                                <Label htmlFor="monthly-day" className="cursor-pointer font-normal">
+                                  On a specific day of the month
+                                </Label>
+                                {monthlyType === "day" && (
+                                  <div className="pl-2 space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Week</Label>
+                                        <select
+                                          value={monthlyWeek}
+                                          onChange={(e) => setMonthlyWeek(e.target.value as any)}
+                                          className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                                        >
+                                          <option value="first">First</option>
+                                          <option value="second">Second</option>
+                                          <option value="third">Third</option>
+                                          <option value="fourth">Fourth</option>
+                                          <option value="last">Last</option>
+                                        </select>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Day</Label>
+                                        <select
+                                          value={monthlyDayOfWeek}
+                                          onChange={(e) => setMonthlyDayOfWeek(parseInt(e.target.value))}
+                                          className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                                        >
+                                          <option value="0">Sunday</option>
+                                          <option value="1">Monday</option>
+                                          <option value="2">Tuesday</option>
+                                          <option value="3">Wednesday</option>
+                                          <option value="4">Thursday</option>
+                                          <option value="5">Friday</option>
+                                          <option value="6">Saturday</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Example: {monthlyWeek.charAt(0).toUpperCase() + monthlyWeek.slice(1)} {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][monthlyDayOfWeek]} of each month
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Option 2: Specific date */}
+                            <div className="flex items-start space-x-2">
+                              <RadioGroupItem value="date" id="monthly-date" className="mt-1" />
+                              <div className="flex-1 space-y-2">
+                                <Label htmlFor="monthly-date" className="cursor-pointer font-normal">
+                                  On a specific date of the month
+                                </Label>
+                                {monthlyType === "date" && (
+                                  <div className="pl-2 space-y-2">
+                                    <div className="space-y-1">
+                                      <Label className="text-xs text-muted-foreground">Date</Label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        value={monthlyDateOfMonth}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value);
+                                          if (val >= 1 && val <= 31) {
+                                            setMonthlyDateOfMonth(val);
+                                          }
+                                        }}
+                                        placeholder="Day of month (1-31)"
+                                        className="w-32"
+                                      />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Example: {monthlyDateOfMonth}{monthlyDateOfMonth === 1 ? 'st' : monthlyDateOfMonth === 2 ? 'nd' : monthlyDateOfMonth === 3 ? 'rd' : 'th'} of each month
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </RadioGroup>
                       </div>
                     )}
 
