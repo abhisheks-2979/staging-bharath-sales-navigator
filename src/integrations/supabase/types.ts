@@ -2934,6 +2934,93 @@ export type Database = {
           },
         ]
       }
+      push_content_posts: {
+        Row: {
+          content: string
+          generated_data: Json | null
+          id: string
+          is_published: boolean | null
+          posted_at: string | null
+          subscription_id: string | null
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          generated_data?: Json | null
+          id?: string
+          is_published?: boolean | null
+          posted_at?: string | null
+          subscription_id?: string | null
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          generated_data?: Json | null
+          id?: string
+          is_published?: boolean | null
+          posted_at?: string | null
+          subscription_id?: string | null
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_content_posts_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_push_content_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_content_posts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "push_content_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_content_templates: {
+        Row: {
+          content_structure: Json
+          created_at: string | null
+          created_by: string | null
+          default_schedule_time: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          template_name: string
+          template_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          content_structure: Json
+          created_at?: string | null
+          created_by?: string | null
+          default_schedule_time?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          template_name: string
+          template_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          content_structure?: Json
+          created_at?: string | null
+          created_by?: string | null
+          default_schedule_time?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          template_name?: string
+          template_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       recommendation_feedback: {
         Row: {
           created_at: string | null
@@ -4249,6 +4336,47 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_push_content_subscriptions: {
+        Row: {
+          created_at: string | null
+          custom_settings: Json | null
+          id: string
+          is_active: boolean | null
+          schedule_time: string
+          template_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_settings?: Json | null
+          id?: string
+          is_active?: boolean | null
+          schedule_time: string
+          template_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_settings?: Json | null
+          id?: string
+          is_active?: boolean | null
+          schedule_time?: string
+          template_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_push_content_subscriptions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "push_content_templates"
             referencedColumns: ["id"]
           },
         ]

@@ -9,13 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, Trophy, Award, TrendingUp, Users } from 'lucide-react';
+import { Loader2, User, Trophy, Award, TrendingUp, Users, Bell } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { BaselinePhotoManagement } from '@/components/BaselinePhotoManagement';
 import { BadgesDisplay } from '@/components/BadgesDisplay';
 import { PointsDetailsModal } from '@/components/PointsDetailsModal';
 import { PerformanceDashboard } from '@/components/profile/PerformanceDashboard';
-import { SocialFeed } from '@/components/profile/SocialFeed';
+import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
+import { PushContentConfigurator } from '@/components/profile/PushContentConfigurator';
 
 interface Manager {
   id: string;
@@ -195,6 +196,10 @@ const UserProfile = () => {
             <TabsTrigger value="social" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Collaboration
+            </TabsTrigger>
+            <TabsTrigger value="push-content" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Push Content
             </TabsTrigger>
           </TabsList>
 
@@ -394,7 +399,12 @@ const UserProfile = () => {
 
           {/* Social/Collaboration Tab */}
           <TabsContent value="social">
-            <SocialFeed />
+            <InstagramSocialFeed />
+          </TabsContent>
+
+          {/* Push Content Tab */}
+          <TabsContent value="push-content">
+            <PushContentConfigurator />
           </TabsContent>
         </Tabs>
       </div>

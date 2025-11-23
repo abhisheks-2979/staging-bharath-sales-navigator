@@ -81,6 +81,7 @@ import CreditManagement from "./pages/CreditManagement";
 import RetailerLoyaltyAdmin from "./pages/RetailerLoyaltyAdmin";
 import RetailerLoyalty from "./pages/RetailerLoyalty";
 import SecurityManagement from "./pages/SecurityManagement";
+import PushContentSetup from "./pages/admin/PushContentSetup";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -152,6 +153,11 @@ const App = () => (
             <Route path="/feature-management" element={
               <ProtectedRoute>
                 <FeatureManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/push-content-setup" element={
+              <ProtectedRoute>
+                <PushContentSetup />
               </ProtectedRoute>
             } />
             <Route path="/user_roles" element={
