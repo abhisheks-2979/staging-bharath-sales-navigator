@@ -215,7 +215,7 @@ export function PushContentConfigurator() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-primary" />
-            <CardTitle>Push Content Configurator</CardTitle>
+            <CardTitle>Configure Notification</CardTitle>
           </div>
           <CardDescription>
             Choose what content you want automatically posted to your collaboration wall
