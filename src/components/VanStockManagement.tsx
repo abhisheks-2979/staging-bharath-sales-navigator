@@ -74,14 +74,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   }, [open, selectedDate]);
 
   useEffect(() => {
-    if (selectedVan && selectedDate && selectedBeat) {
+    if (selectedVan && selectedDate) {
       loadTodayStock();
     }
   }, [selectedVan, selectedDate, selectedBeat]);
 
   // Real-time subscription for order updates
   useEffect(() => {
-    if (!selectedBeat || !selectedDate) return;
+    if (!selectedDate) return;
 
     const channel = supabase
       .channel('order-updates')
@@ -94,7 +94,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         },
         () => {
           // Reload stock when orders change
-          if (selectedVan && selectedBeat) {
+          if (selectedVan) {
             loadTodayStock();
           }
         }
@@ -251,8 +251,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       .single();
 
     if (error) {
-      console.error('Error loading beat plan:', error);
-      toast.error('No beat plan found for this date');
+      console.log('No beat plan found for this date - van stock can still be managed');
+      // Don't show error toast, just clear beat selection
+      setBeats([]);
+      setSelectedBeat('');
       return;
     }
     
@@ -552,14 +554,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 <Label>Beat (Auto-selected from plan)</Label>
                 <Select value={selectedBeat} disabled>
                   <SelectTrigger>
-                    <SelectValue placeholder="Beat will be auto-selected based on date" />
+                    <SelectValue placeholder={selectedBeat ? undefined : "No beat planned for this date"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {beats.map(beat => (
-                      <SelectItem key={beat.id} value={beat.id}>
-                        {beat.beat_name}
-                      </SelectItem>
-                    ))}
+                    {beats.length > 0 ? (
+                      beats.map(beat => (
+                        <SelectItem key={beat.id} value={beat.id}>
+                          {beat.beat_name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>No beat planned</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
