@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Send, Image as ImageIcon, X, Bot, RefreshCw, Sparkles } from "lucide-react";
+import { Heart, MessageCircle, Send, Image as ImageIcon, X, Bot, RefreshCw, Sparkles, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Post {
   id: string;
@@ -46,10 +47,111 @@ export function SocialFeed() {
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     fetchPosts();
+    fetchFollowingList();
   }, []);
+
+  useEffect(() => {
+    if (!user || followingIds.length === 0) return;
+
+    // Set up realtime subscription for new automated posts from following
+    console.log('Setting up realtime subscription for automated posts...');
+    
+    channelRef.current = supabase
+      .channel('automated-posts-feed')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'social_posts',
+          filter: 'is_automated=eq.true'
+        },
+        async (payload) => {
+          console.log('New automated post detected:', payload);
+          const newPost = payload.new as any;
+
+          // Check if post is from someone we follow
+          if (followingIds.includes(newPost.user_id) && newPost.user_id !== user.id) {
+            // Fetch full post details including user profile
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('full_name, profile_picture_url')
+              .eq('id', newPost.user_id)
+              .single();
+
+            let templateName = 'update';
+            if (newPost.template_id) {
+              const { data: templateData } = await supabase
+                .from('push_content_templates')
+                .select('*')
+                .eq('id', newPost.template_id)
+                .single();
+              
+              templateName = (templateData as any)?.name || (templateData as any)?.template_name || 'update';
+            }
+
+            if (profileData) {
+              const userName = profileData.full_name || 'Someone';
+              
+              // Show notification
+              toast(
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{userName} posted an update</p>
+                    <p className="text-xs text-muted-foreground">Auto-generated: {templateName}</p>
+                  </div>
+                </div>,
+                {
+                  duration: 5000,
+                  action: {
+                    label: 'View',
+                    onClick: () => {
+                      fetchPosts(); // Refresh feed
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }
+                }
+              );
+
+              // Auto-refresh the feed
+              fetchPosts();
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up realtime subscription...');
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
+  }, [user, followingIds]);
+
+  const fetchFollowingList = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('employee_connections')
+      .select('following_id')
+      .eq('follower_id', user.id);
+
+    if (!error && data) {
+      setFollowingIds(data.map(conn => conn.following_id));
+      console.log('Following list loaded:', data.length, 'users');
+    }
+  };
 
   const fetchPosts = async () => {
     const { data, error } = await supabase
