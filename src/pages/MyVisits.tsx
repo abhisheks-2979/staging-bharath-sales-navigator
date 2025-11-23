@@ -559,9 +559,13 @@ export const MyVisits = () => {
         visits = visitsResult.data || [];
         plannedRetailersData = plannedRetailersResult.data || [];
 
-        // Cache visits for offline use
-        for (const visit of visits) {
-          await offlineStorage.save(STORES.VISITS, visit);
+        // Cache ONLY today's visits (not historical data)
+        const today = new Date().toISOString().split('T')[0];
+        if (date === today) {
+          for (const visit of visits) {
+            await offlineStorage.save(STORES.VISITS, visit);
+          }
+          console.log('[MyVisits] ✅ Cached today\'s visits only');
         }
       } catch (error) {
         if (shouldSuppressError(error)) {
