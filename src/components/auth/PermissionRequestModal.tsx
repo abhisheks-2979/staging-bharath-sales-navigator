@@ -45,8 +45,8 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
     permissionStatus.storage;
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={handleSkip}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>App Permissions</DialogTitle>
           <DialogDescription>
