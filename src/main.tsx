@@ -2,47 +2,27 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { forceCompleteRefresh } from './utils/forceRefresh';
 
-// PWA service worker will be auto-registered by VitePWA plugin
+console.log('🚀 App starting...');
 
-// Global error handler for cache-related React errors
-window.addEventListener('error', (event) => {
-  const error = event.error;
-  if (error && (
-    error.message?.includes('Cannot read properties of null') ||
-    error.message?.includes('Invalid hook call') ||
-    error.stack?.includes('useState')
-  )) {
-    console.error('Critical React bundling error detected. Forcing refresh...');
-    event.preventDefault();
-    forceCompleteRefresh();
-  }
-});
-
-// Check for cached React issues on startup
-const checkReactIntegrity = () => {
+// Simple, reliable startup
+const startApp = async () => {
   try {
-    // Test if React is properly loaded
-    if (!React || typeof React.useState !== 'function') {
-      console.error('React not properly loaded. Forcing refresh...');
-      forceCompleteRefresh();
-      return false;
-    }
-    return true;
+    console.log('📦 Loading i18n...');
+    await import('./i18n/config');
+    console.log('✅ i18n loaded');
   } catch (error) {
-    console.error('React integrity check failed:', error);
-    forceCompleteRefresh();
-    return false;
+    console.warn('⚠️ i18n failed to load, continuing anyway:', error);
+  }
+
+  console.log('🎨 Rendering app...');
+  const root = document.getElementById("root");
+  if (root) {
+    createRoot(root).render(<App />);
+    console.log('✅ App rendered successfully');
+  } else {
+    console.error('❌ Root element not found');
   }
 };
 
-if (checkReactIntegrity()) {
-  // Initialize i18n after React is confirmed to be loaded
-  import('./i18n/config').then(() => {
-    createRoot(document.getElementById("root")!).render(<App />);
-  }).catch((error) => {
-    console.error('Failed to initialize i18n:', error);
-    createRoot(document.getElementById("root")!).render(<App />);
-  });
-}
+startApp();
