@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Send, Image as ImageIcon, X } from "lucide-react";
+import { Heart, MessageCircle, Send, Image as ImageIcon, X, Bot, RefreshCw, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -20,6 +20,10 @@ interface Post {
   likes_count: number;
   comments_count: number;
   has_liked: boolean;
+  is_automated: boolean;
+  template_id: string | null;
+  template_name: string | null;
+  post_metadata: any;
 }
 
 interface Comment {
@@ -54,7 +58,8 @@ export function SocialFeed() {
         *,
         profiles!social_posts_user_id_fkey(full_name, profile_picture_url),
         social_likes(count),
-        social_comments(count)
+        social_comments(count),
+        push_content_templates(name)
       `)
       .order("created_at", { ascending: false });
 
@@ -79,6 +84,10 @@ export function SocialFeed() {
             likes_count: post.social_likes?.[0]?.count || 0,
             comments_count: post.social_comments?.[0]?.count || 0,
             has_liked: !!likeData,
+            is_automated: post.is_automated || false,
+            template_id: post.template_id || null,
+            template_name: post.push_content_templates?.name || null,
+            post_metadata: post.post_metadata || {},
           };
         })
       );
@@ -213,6 +222,27 @@ export function SocialFeed() {
     }
   };
 
+  const handleRegeneratePost = async (postId: string) => {
+    try {
+      setLoading(true);
+      
+      // Call edge function to regenerate content
+      const { data, error } = await supabase.functions.invoke('generate-scheduled-content', {
+        body: { regenerate_post_id: postId }
+      });
+
+      if (error) throw error;
+
+      toast.success("Post regenerated successfully!");
+      fetchPosts();
+    } catch (error: any) {
+      console.error('Error regenerating post:', error);
+      toast.error("Failed to regenerate post: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Create Post */}
@@ -292,7 +322,10 @@ export function SocialFeed() {
       {/* Posts Feed */}
       <div className="space-y-4">
         {posts.map((post) => (
-          <Card key={post.id}>
+          <Card 
+            key={post.id}
+            className={post.is_automated ? "border-primary/30 bg-primary/5" : ""}
+          >
             <CardContent className="pt-6">
               <div className="flex gap-3">
                 <Avatar className="h-10 w-10">
@@ -301,12 +334,35 @@ export function SocialFeed() {
                 </Avatar>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="font-semibold">{post.user_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(post.created_at), "MMM d, yyyy 'at' h:mm a")}
-                      </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div>
+                        <p className="font-semibold">{post.user_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(post.created_at), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                      </div>
+                      {post.is_automated && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary">
+                          <Sparkles className="h-3 w-3" />
+                          <span className="text-xs font-medium">Auto-generated</span>
+                          {post.template_name && (
+                            <span className="text-xs opacity-75">• {post.template_name}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
+                    {post.is_automated && post.user_id === user?.id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRegeneratePost(post.id)}
+                        disabled={loading}
+                        className="text-xs"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Regenerate
+                      </Button>
+                    )}
                   </div>
                   
                   <p className="text-sm mb-3 whitespace-pre-wrap">{post.content}</p>
