@@ -45,14 +45,25 @@ npx cap sync android
 npx cap open android
 ```
 
-### 8. Configure Permissions (Important!)
+### 8. How Permissions Work
 
-The app requires the following permissions for offline functionality:
-- **Camera**: For attendance photos and visit documentation
-- **Location**: For GPS tracking and check-ins
-- **Storage**: For offline data storage
+The app requests permissions **when you actually use the features**, just like any normal app:
 
-These are already configured in the app and will be requested automatically when the app starts and when signing in.
+#### **Location Permission**
+- Requested when: You sign in, or access Attendance page for check-in/GPS tracking
+- Options shown: "Allow while using the app", "Allow all the time", "Deny"
+- Used for: Check-ins, GPS tracking, location-based features
+
+#### **Camera Permission**  
+- Requested when: You open the camera to take a photo (attendance, visit photos, etc.)
+- Options shown: "Allow while using the app", "Allow once", "Deny"
+- Used for: Attendance photos, visit documentation, branding photos
+
+#### **Storage Permission** (Native only)
+- Requested when: You sign in (for offline data storage)
+- Options shown: "Allow", "Deny"
+- Used for: Offline mode, caching data locally
+- Note: In web browsers, storage is always available
 
 ### 9. Run on Device/Emulator
 
@@ -65,43 +76,57 @@ Or from command line:
 npx cap run android
 ```
 
-## Testing Offline Functionality
+## Testing Permissions
+
+### Test Permission Flow:
+1. **First Launch:**
+   - Open app, no permissions requested yet
+   - Sign in → Location permission dialog appears
+   - Choose "Allow while using app" or "Allow all the time"
+
+2. **Camera Access:**
+   - Go to Attendance page
+   - Click "Start Day" or "End Day"
+   - Camera permission dialog appears
+   - Choose "Allow while using app" or "Allow once"
+
+3. **Deny & Re-request:**
+   - If you deny a permission, the feature won't work
+   - You can grant it later from Android Settings → Apps → Your App → Permissions
 
 ### Test Offline Mode:
-1. Open the app and sign in
-2. Grant all permissions (camera, location, storage)
-3. Navigate to different pages (Order Entry, Cart, My Visits, Beats)
-4. Turn off WiFi and mobile data
-5. Verify:
-   - App still works and shows cached data
-   - Can add items to cart
-   - Can view retailers and beats
-   - Orders are queued for sync when back online
-6. Turn internet back on
-7. Verify pending items sync automatically
-
-### Test Permissions:
-1. On first launch, app should request:
-   - Camera permission
-   - Location permission  
-   - Storage permission
-2. If denied, features should still work but with limitations
-3. Can re-request permissions from Android settings
+1. Sign in and grant permissions
+2. Let the app cache data (wait a few seconds)
+3. Turn off WiFi and mobile data
+4. Navigate to:
+   - My Visits → should show cached visits
+   - Cart → should work and queue orders
+   - Beats → should show cached beats
+   - Retailers → should show cached retailers
+5. Turn internet back on
+6. Pending orders should sync automatically
 
 ## Troubleshooting
 
-### Permissions not working?
-- Check Android Settings > Apps > Your App > Permissions
-- Make sure all required permissions are granted
+### Permission dialogs not appearing?
+- Make sure you're on a physical device or emulator with Play Services
+- Check Android Settings → Apps → Your App → Permissions
+- For web: Check browser console for permission errors
+- Try clearing app data and relaunching
+
+### "Permission denied" errors?
+- Go to Android Settings → Apps → Your App → Permissions
+- Manually grant required permissions
+- Restart the app
 
 ### App not loading?
 - Run `npm run build` followed by `npx cap sync android`
 - Clean and rebuild in Android Studio
 
 ### Offline mode not working?
-- Check browser console for errors
-- Verify localStorage is enabled in WebView
-- Make sure service worker is registered
+- Make sure Storage permission is granted
+- Check that you're signed in before going offline
+- Verify localStorage/IndexedDB is working in WebView
 
 ## After Making Changes
 
@@ -120,8 +145,10 @@ Every time you update code in Lovable:
 
 ## Important Notes
 
-- The app is configured with hot-reload pointing to the Lovable sandbox for development
-- For production, update `capacitor.config.ts` to remove the server configuration
-- Always sync after updating web assets: `npx cap sync android`
+- **Permissions are requested when needed**, not on app startup
+- Browser and native apps both show proper permission dialogs
+- "Allow while using app" is recommended for location (saves battery)
 - Storage permission enables offline data persistence
-- Camera and location permissions are requested on-demand
+- Camera and location permissions are critical for core features
+- The app is configured with hot-reload for development
+- For production, update `capacitor.config.ts` to remove the server configuration

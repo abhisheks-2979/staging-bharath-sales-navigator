@@ -322,16 +322,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const profile = await fetchUserProfile(data.user.id);
       setUserProfile(profile);
       
-      // Request permissions on sign-in for mobile app
-      try {
-        const { requestAllPermissions } = await import('@/utils/permissions');
-        const permissions = await requestAllPermissions();
-        console.log('Permissions requested:', permissions);
-      } catch (error) {
-        console.error('Error requesting permissions:', error);
-      }
-      
       toast.success('Signed in successfully!');
+      
+      // Request permissions after successful sign-in (both web and native)
+      setTimeout(async () => {
+        try {
+          const { requestLocationPermission, requestStoragePermission } = await import('@/utils/permissions');
+          
+          // Request location permission first
+          const locationGranted = await requestLocationPermission();
+          if (!locationGranted) {
+            toast.info('Location permission is needed for check-ins and GPS tracking');
+          }
+          
+          // Request storage permission for offline mode
+          await requestStoragePermission();
+          
+        } catch (error) {
+          console.error('Error requesting permissions:', error);
+        }
+      }, 1000); // Small delay to let the success toast show first
 
       // Redirect based on role
       if (userRole === 'admin') {

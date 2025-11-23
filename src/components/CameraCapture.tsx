@@ -40,6 +40,21 @@ export const CameraCapture = ({
 
   const startCamera = async () => {
     try {
+      // Request camera permission before starting
+      try {
+        const { requestCameraPermission } = await import('@/utils/permissions');
+        const granted = await requestCameraPermission();
+        
+        if (!granted) {
+          toast.error('Camera permission is required to take photos');
+          onClose();
+          return;
+        }
+      } catch (permError) {
+        console.error('Permission check error:', permError);
+        // Continue anyway in case permissions are already granted
+      }
+      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
@@ -54,7 +69,8 @@ export const CameraCapture = ({
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      toast.error('Could not access camera. Please check permissions.');
+      toast.error('Could not access camera. Please grant camera permission.');
+      onClose();
     }
   };
 
