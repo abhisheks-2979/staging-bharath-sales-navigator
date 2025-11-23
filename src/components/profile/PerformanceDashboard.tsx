@@ -6,6 +6,12 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { format, subDays, startOfMonth } from "date-fns";
 
+type OrderRecord = { id: string; total_amount: number; created_at: string };
+type VisitRecord = { id: string; created_at: string };
+type RetailerRecord = { created_at: string };
+type OrderItemRecord = { quantity: number; product_id: string };
+type ProductRecord = { id: string; name: string };
+
 interface PerformanceMetrics {
   totalSales: number;
   totalOrders: number;
@@ -48,80 +54,94 @@ export function PerformanceDashboard({ userId }: { userId: string }) {
 
     try {
       // Fetch orders
-      const ordersResult = await supabase
+      // @ts-expect-error - Supabase type inference too complex
+      const ordersQuery = supabase
         .from("orders")
-        .select("total_amount, created_at")
+        .select("id, total_amount, created_at")
         .eq("created_by", userId)
-        .gte("created_at", monthStart.toISOString());
+        .gte("created_at", monthStart.toISOString()) as unknown as any;
+      const ordersResult = await ordersQuery;
+      const orders = (ordersResult.data as OrderRecord[]) || [];
 
-      const orders: any[] = ordersResult.data || [];
-
-      // Fetch order items separately
+      // Fetch order items and products separately
       const orderIds = orders.map(o => o.id).filter(Boolean);
       let topProducts: Array<{ name: string; quantity: number }> = [];
       
       if (orderIds.length > 0) {
-        const orderItemsResult = await supabase
+        const orderItemsQuery = supabase
           .from("order_items")
-          .select("quantity, products(name)")
-          .in("order_id", orderIds);
-
-        const orderItems: any[] = orderItemsResult.data || [];
+          .select("quantity, product_id")
+          .in("order_id", orderIds) as unknown as any;
+        const orderItemsResult = await orderItemsQuery;
+        const orderItems = (orderItemsResult.data as OrderItemRecord[]) || [];
+        
+        // Fetch product names
+        const productIds = [...new Set(orderItems.map(item => item.product_id))];
+        const productsQuery = supabase
+          .from("products")
+          .select("id, name")
+          .in("id", productIds) as unknown as any;
+        const productsResult = await productsQuery;
+        const products = (productsResult.data as ProductRecord[]) || [];
+        const productMap = new Map(products.map(p => [p.id, p.name]));
         
         // Calculate top products
-        const productMap = new Map<string, number>();
-        orderItems.forEach((item: any) => {
-          const productName = item.products?.name || "Unknown";
-          productMap.set(productName, (productMap.get(productName) || 0) + (item.quantity || 0));
+        const quantityMap = new Map<string, number>();
+        orderItems.forEach((item) => {
+          const productName = productMap.get(item.product_id) || "Unknown";
+          quantityMap.set(productName, (quantityMap.get(productName) || 0) + item.quantity);
         });
         
-        topProducts = Array.from(productMap.entries())
+        topProducts = Array.from(quantityMap.entries())
           .sort((a, b) => b[1] - a[1])
           .slice(0, 5)
           .map(([name, quantity]) => ({ name, quantity }));
       }
 
       // Fetch visits
-      const visitsResult = await supabase
+      // @ts-expect-error - Supabase type inference too complex
+      const visitsQuery = supabase
         .from("visits")
         .select("id, created_at")
         .eq("created_by", userId)
-        .gte("created_at", monthStart.toISOString());
-
-      const visits: any[] = visitsResult.data || [];
+        .gte("created_at", monthStart.toISOString()) as unknown as any;
+      const visitsResult = await visitsQuery;
+      const visits = (visitsResult.data as VisitRecord[]) || [];
 
       // Count productive visits
       let productiveVisits = 0;
       if (visits.length > 0) {
         const visitIds = visits.map(v => v.id);
-        const visitOrdersResult = await supabase
+        const visitOrdersQuery = supabase
           .from("orders")
           .select("visit_id")
-          .in("visit_id", visitIds);
-        
-        const uniqueVisitIds = new Set((visitOrdersResult.data || []).map((o: any) => o.visit_id));
+          .in("visit_id", visitIds) as unknown as any;
+        const visitOrdersResult = await visitOrdersQuery;
+        const visitOrders = (visitOrdersResult.data as Array<{ visit_id: string | null }>) || [];
+        const uniqueVisitIds = new Set(visitOrders.map(o => o.visit_id).filter(Boolean));
         productiveVisits = uniqueVisitIds.size;
       }
 
       // Fetch retailers
-      const retailersResult = await supabase
+      // @ts-expect-error - Supabase type inference too complex
+      const retailersQuery = supabase
         .from("retailers")
         .select("created_at")
         .eq("created_by", userId)
-        .gte("created_at", monthStart.toISOString());
-
-      const retailers: any[] = retailersResult.data || [];
+        .gte("created_at", monthStart.toISOString()) as unknown as any;
+      const retailersResult = await retailersQuery;
+      const retailers = (retailersResult.data as RetailerRecord[]) || [];
 
       // Previous month data
       const prevMonthStart = startOfMonth(subDays(monthStart, 1));
-      const prevOrdersResult = await supabase
+      const prevOrdersQuery = supabase
         .from("orders")
         .select("total_amount")
         .eq("created_by", userId)
         .gte("created_at", prevMonthStart.toISOString())
-        .lt("created_at", monthStart.toISOString());
-
-      const prevOrders: any[] = prevOrdersResult.data || [];
+        .lt("created_at", monthStart.toISOString()) as unknown as any;
+      const prevOrdersResult = await prevOrdersQuery;
+      const prevOrders = (prevOrdersResult.data as Array<{ total_amount: number }>) || [];
 
       // Calculate metrics
       const totalSales = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
@@ -137,11 +157,11 @@ export function PerformanceDashboard({ userId }: { userId: string }) {
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = subDays(now, 6 - i);
         const dayOrders = orders.filter(
-          (o: any) => format(new Date(o.created_at), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+          (o) => format(new Date(o.created_at), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
         );
         return {
           date: format(date, "MMM dd"),
-          sales: dayOrders.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0),
+          sales: dayOrders.reduce((sum, o) => sum + o.total_amount, 0),
           orders: dayOrders.length,
         };
       });
