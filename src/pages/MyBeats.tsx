@@ -1041,34 +1041,178 @@ export const MyBeats = () => {
             </DialogHeader>
             
             <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="beatName">Beat Name</Label>
-                  <Input
-                    id="beatName"
-                    placeholder="Enter beat name"
-                    value={beatName}
-                    onChange={(e) => setBeatName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="territorySelect">Territory (Optional)</Label>
-                  <select
-                    id="territorySelect"
-                    value={selectedTerritoryId}
-                    onChange={(e) => setSelectedTerritoryId(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  >
-                    <option value="">Select a territory</option>
-                    {territories.map((territory) => (
-                      <option key={territory.id} value={territory.id}>
-                        {territory.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Beat Name */}
+              <div className="space-y-2">
+                <Label htmlFor="beatName">Beat Name</Label>
+                <Input
+                  id="beatName"
+                  placeholder="Enter beat name"
+                  value={beatName}
+                  onChange={(e) => setBeatName(e.target.value)}
+                />
               </div>
 
+              {/* Schedule Recurring Visits - Moved here from bottom */}
+              <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="repeatEnabledTop"
+                    checked={repeatEnabled}
+                    onChange={(e) => setRepeatEnabled(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="repeatEnabledTop" className="flex items-center gap-2 cursor-pointer">
+                    <Repeat className="h-4 w-4" />
+                    Schedule Recurring Visits
+                  </Label>
+                </div>
+
+                {repeatEnabled && (
+                  <div className="space-y-4 pl-6">
+                    <div className="space-y-2">
+                      <Label>Repeat Frequency</Label>
+                      <RadioGroup value={repeatType} onValueChange={(value: any) => setRepeatType(value)}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="daily" id="daily-top" />
+                          <Label htmlFor="daily-top" className="cursor-pointer">Daily</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="weekly" id="weekly-top" />
+                          <Label htmlFor="weekly-top" className="cursor-pointer">Weekly</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="monthly" id="monthly-top" />
+                          <Label htmlFor="monthly-top" className="cursor-pointer">Monthly</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="custom" id="custom-top" />
+                          <Label htmlFor="custom-top" className="cursor-pointer">Custom Interval</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {repeatType === 'custom' && (
+                      <div className="space-y-2">
+                        <Label>Repeat Every (Days) *</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={customIntervalDays}
+                          onChange={(e) => setCustomIntervalDays(parseInt(e.target.value) || 1)}
+                          placeholder="Enter number of days"
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Visit will repeat every {customIntervalDays} day(s)
+                        </p>
+                      </div>
+                    )}
+
+                    {repeatType === 'weekly' && (
+                      <div className="space-y-2">
+                        <Label>Select Days</Label>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { label: 'Sun', value: 0 },
+                            { label: 'Mon', value: 1 },
+                            { label: 'Tue', value: 2 },
+                            { label: 'Wed', value: 3 },
+                            { label: 'Thu', value: 4 },
+                            { label: 'Fri', value: 5 },
+                            { label: 'Sat', value: 6 },
+                          ].map(day => (
+                            <Button
+                              key={day.value}
+                              type="button"
+                              size="sm"
+                              variant={repeatDays.includes(day.value) ? "default" : "outline"}
+                              onClick={() => handleWeekDayToggle(day.value)}
+                            >
+                              {day.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label>Repeat Until</Label>
+                      <RadioGroup value={repeatUntilMode} onValueChange={(val: any) => setRepeatUntilMode(val)}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="date" id="until-date-top" />
+                          <Label htmlFor="until-date-top" className="cursor-pointer">Until Date</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="permanent" id="permanent-top" />
+                          <Label htmlFor="permanent-top" className="cursor-pointer">Permanent</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {repeatUntilMode === "date" && (
+                      <div className="space-y-2">
+                        <Label>End Date *</Label>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !repeatEndDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarDays className="mr-2 h-4 w-4" />
+                              {repeatEndDate ? format(repeatEndDate, "PPP") : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={repeatEndDate}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setRepeatEndDate(date);
+                                  setIsCalendarOpen(false);
+                                }
+                              }}
+                              disabled={(date) => date < new Date()}
+                              initialFocus
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
+
+                    {repeatUntilMode === "permanent" && (
+                      <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                        Visits will repeat indefinitely for this beat
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Territory */}
+              <div className="space-y-2">
+                <Label htmlFor="territorySelect">Territory (Optional)</Label>
+                <select
+                  id="territorySelect"
+                  value={selectedTerritoryId}
+                  onChange={(e) => setSelectedTerritoryId(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <option value="">Select a territory</option>
+                  {territories.map((territory) => (
+                    <option key={territory.id} value={territory.id}>
+                      {territory.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Travel Allowance and Average KM */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="travelAllowance">Travel Allowance (₹)</Label>
@@ -1096,20 +1240,19 @@ export const MyBeats = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="averageTimeMinutes" className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Average Time (minutes)
-                  </Label>
-                  <Input
-                    id="averageTimeMinutes"
-                    type="number"
-                    placeholder="Enter average time in minutes"
-                    value={averageTimeMinutes}
-                    onChange={(e) => setAverageTimeMinutes(e.target.value)}
-                  />
-                </div>
+              {/* Average Time */}
+              <div className="space-y-2">
+                <Label htmlFor="averageTimeMinutes" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Average Time (minutes)
+                </Label>
+                <Input
+                  id="averageTimeMinutes"
+                  type="number"
+                  placeholder="Enter average time in minutes"
+                  value={averageTimeMinutes}
+                  onChange={(e) => setAverageTimeMinutes(e.target.value)}
+                />
               </div>
 
               {/* Add New Retailer Button */}
@@ -1234,148 +1377,6 @@ export const MyBeats = () => {
                       </div>
                     )}
                   </>
-                )}
-              </div>
-
-              {/* Recurrence Settings */}
-              <div className="space-y-4 border-t pt-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="repeatEnabled"
-                    checked={repeatEnabled}
-                    onChange={(e) => setRepeatEnabled(e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer">
-                    <Repeat className="h-4 w-4" />
-                    Schedule Recurring Visits
-                  </Label>
-                </div>
-
-                {repeatEnabled && (
-                  <div className="space-y-4 pl-6">
-                    <div className="space-y-2">
-                      <Label>Repeat Frequency</Label>
-                      <RadioGroup value={repeatType} onValueChange={(value: any) => setRepeatType(value)}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="daily" id="daily" />
-                          <Label htmlFor="daily" className="cursor-pointer">Daily</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="weekly" id="weekly" />
-                          <Label htmlFor="weekly" className="cursor-pointer">Weekly</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="monthly" id="monthly" />
-                          <Label htmlFor="monthly" className="cursor-pointer">Monthly</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="custom" id="custom" />
-                          <Label htmlFor="custom" className="cursor-pointer">Custom Interval</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    {repeatType === 'custom' && (
-                      <div className="space-y-2">
-                        <Label>Repeat Every (Days) *</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={customIntervalDays}
-                          onChange={(e) => setCustomIntervalDays(parseInt(e.target.value) || 1)}
-                          placeholder="Enter number of days"
-                          className="w-full"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Visit will repeat every {customIntervalDays} day(s)
-                        </p>
-                      </div>
-                    )}
-
-                    {repeatType === 'weekly' && (
-                      <div className="space-y-2">
-                        <Label>Select Days</Label>
-                        <div className="flex gap-2 flex-wrap">
-                          {[
-                            { label: 'Sun', value: 0 },
-                            { label: 'Mon', value: 1 },
-                            { label: 'Tue', value: 2 },
-                            { label: 'Wed', value: 3 },
-                            { label: 'Thu', value: 4 },
-                            { label: 'Fri', value: 5 },
-                            { label: 'Sat', value: 6 },
-                          ].map(day => (
-                            <Button
-                              key={day.value}
-                              type="button"
-                              size="sm"
-                              variant={repeatDays.includes(day.value) ? "default" : "outline"}
-                              onClick={() => handleWeekDayToggle(day.value)}
-                            >
-                              {day.label}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <Label>Repeat Until</Label>
-                      <RadioGroup value={repeatUntilMode} onValueChange={(val: any) => setRepeatUntilMode(val)}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="date" id="until-date" />
-                          <Label htmlFor="until-date" className="cursor-pointer">Until Date</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="permanent" id="permanent" />
-                          <Label htmlFor="permanent" className="cursor-pointer">Permanent</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    {repeatUntilMode === "date" && (
-                      <div className="space-y-2">
-                        <Label>End Date *</Label>
-                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !repeatEndDate && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarDays className="mr-2 h-4 w-4" />
-                              {repeatEndDate ? format(repeatEndDate, "PPP") : "Pick a date"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={repeatEndDate}
-                              onSelect={(date) => {
-                                if (date) {
-                                  setRepeatEndDate(date);
-                                  setIsCalendarOpen(false);
-                                }
-                              }}
-                              disabled={(date) => date < new Date()}
-                              initialFocus
-                              className="pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    )}
-
-                    {repeatUntilMode === "permanent" && (
-                      <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                        Visits will repeat indefinitely for this beat
-                      </p>
-                    )}
-                  </div>
                 )}
               </div>
 
