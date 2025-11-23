@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useOfflineRetailers } from "@/hooks/useOfflineRetailers";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 export const AddRetailer = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -410,12 +413,16 @@ export const AddRetailer = () => {
     setExistingBeats(Array.from(set));
   };
 
+  const { createRetailer } = useOfflineRetailers();
+  const { isOnline } = useOfflineSync();
+
   const performInsert = async (beatId: string) => {
     if (!user) {
       toast({ title: 'Not signed in', description: 'Please sign in to continue', variant: 'destructive' });
       return;
     }
     setIsSaving(true);
+    
     const payload: any = {
       user_id: user.id,
       name: retailerData.name,
@@ -424,6 +431,7 @@ export const AddRetailer = () => {
       address: retailerData.address,
       category: retailerData.category || null,
       beat_id: beatId,
+      beat_name: beats.find(b => b.beat_id === beatId)?.beat_name || null,
       territory_id: selectedTerritoryId || null,
       status: 'active',
       notes: retailerData.notes || null,
@@ -439,18 +447,29 @@ export const AddRetailer = () => {
       manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
     };
 
-    const { data, error } = await supabase.from('retailers').insert(payload).select('id').maybeSingle();
+    const result = await createRetailer(payload);
     setIsSaving(false);
 
-    if (error) {
-      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
-      return;
+    if (result.success) {
+      const message = result.offline 
+        ? `${retailerData.name} saved offline. Will sync when online.`
+        : `${retailerData.name} saved successfully.`;
+      
+      toast({ 
+        title: result.offline ? 'Retailer Saved Offline' : 'Retailer Added', 
+        description: message,
+        action: result.offline ? <WifiOff className="h-4 w-4" /> : undefined
+      });
+      
+      // Navigate back to the return path
+      navigate(returnTo, { replace: true });
+    } else {
+      toast({ 
+        title: 'Failed to save', 
+        description: 'Could not save retailer', 
+        variant: 'destructive' 
+      });
     }
-
-    toast({ title: 'Retailer Added', description: `${retailerData.name} saved successfully.` });
-    // Navigate back to the return path
-    navigate(returnTo, { replace: true });
-
   };
 
   const handleSaveWithBeat = async () => {

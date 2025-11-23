@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Store, TrendingUp, BarChart3, Phone, MapPin, Users, Truck, Plus, Save, Trash2, Repeat, CalendarDays } from "lucide-react";
+import { Search, Store, TrendingUp, BarChart3, Phone, MapPin, Users, Truck, Plus, Save, Trash2, Repeat, CalendarDays, WifiOff } from "lucide-react";
 import { format, addDays, addWeeks, addMonths, startOfWeek, endOfWeek } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { useOfflineBeats } from "@/hooks/useOfflineBeats";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 
 interface Retailer {
   id: string;
@@ -242,6 +245,8 @@ export const CreateBeat = () => {
     );
   };
 
+  const { isOnline, saveWithOfflineSupport } = useOfflineSync();
+
   const handleCreateBeat = async () => {
     if (!beatName.trim()) {
       toast({
@@ -303,44 +308,109 @@ export const CreateBeat = () => {
       // Create a unique beat ID
       const beatId = `beat_${Date.now()}`;
       
-      // Update all selected retailers with the beat_id and beat_name
-      const { error: updateError } = await supabase
-        .from('retailers')
-        .update({ 
-          beat_id: beatId,
-          beat_name: beatName 
-        })
-        .in('id', selectedRetailers);
+      // Prepare beat data
+      const beatData = {
+        beat_id: beatId,
+        beat_name: beatName,
+        created_by: user.id,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      if (updateError) throw updateError;
+      if (isOnline) {
+        // Online: Direct database operations
+        // Insert beat
+        const { error: beatError } = await supabase
+          .from('beats')
+          .insert(beatData);
 
-      // Create beat plans based on recurrence settings
-      if (repeatEnabled) {
-        const endDate = repeatUntilMode === "permanent" ? addDays(new Date(), 365) : repeatEndDate;
-        if (endDate) {
-          const beatPlans = generateBeatPlans(beatId, beatName, endDate);
-          
-          const { error: planError } = await supabase
-            .from('beat_plans')
-            .insert(beatPlans);
+        if (beatError) throw beatError;
 
-          if (planError) throw planError;
+        // Update all selected retailers with the beat_id and beat_name
+        const { error: updateError } = await supabase
+          .from('retailers')
+          .update({ 
+            beat_id: beatId,
+            beat_name: beatName 
+          })
+          .in('id', selectedRetailers);
 
-          const untilText = repeatUntilMode === "permanent" ? "permanently" : `until ${format(endDate, 'PP')}`;
+        if (updateError) throw updateError;
+
+        // Create beat plans based on recurrence settings
+        if (repeatEnabled) {
+          const endDate = repeatUntilMode === "permanent" ? addDays(new Date(), 365) : repeatEndDate;
+          if (endDate) {
+            const beatPlans = generateBeatPlans(beatId, beatName, endDate);
+            
+            const { error: planError } = await supabase
+              .from('beat_plans')
+              .insert(beatPlans);
+
+            if (planError) throw planError;
+
+            const untilText = repeatUntilMode === "permanent" ? "permanently" : `until ${format(endDate, 'PP')}`;
+            toast({
+              title: "Beat Created Successfully",
+              description: `"${beatName}" created with ${selectedRetailers.length} retailers and scheduled ${untilText}`,
+            });
+          }
+        } else {
           toast({
             title: "Beat Created Successfully",
-            description: `"${beatName}" created with ${selectedRetailers.length} retailers and scheduled ${untilText}`,
+            description: `"${beatName}" created with ${selectedRetailers.length} retailers`,
           });
         }
+
+        // Cache beat and updated retailers
+        await offlineStorage.save(STORES.BEATS, beatData);
+        for (const retailerId of selectedRetailers) {
+          const retailer = retailers.find(r => r.id === retailerId);
+          if (retailer) {
+            const updatedRetailer = { ...retailer, beat_id: beatId, beat_name: beatName };
+            await offlineStorage.save(STORES.RETAILERS, updatedRetailer);
+          }
+        }
       } else {
+        // Offline: Save locally and queue for sync
+        await offlineStorage.save(STORES.BEATS, beatData);
+        await offlineStorage.addToSyncQueue('CREATE_BEAT', beatData);
+
+        // Update retailers locally
+        for (const retailerId of selectedRetailers) {
+          const retailer = retailers.find(r => r.id === retailerId);
+          if (retailer) {
+            const updatedRetailer = { ...retailer, beat_id: beatId, beat_name: beatName };
+            await offlineStorage.save(STORES.RETAILERS, updatedRetailer);
+            await offlineStorage.addToSyncQueue('UPDATE_RETAILER', {
+              id: retailerId,
+              updates: { beat_id: beatId, beat_name: beatName }
+            });
+          }
+        }
+
+        // Save beat plans offline if recurring
+        if (repeatEnabled) {
+          const endDate = repeatUntilMode === "permanent" ? addDays(new Date(), 365) : repeatEndDate;
+          if (endDate) {
+            const beatPlans = generateBeatPlans(beatId, beatName, endDate);
+            for (const plan of beatPlans) {
+              await offlineStorage.save(STORES.BEAT_PLANS, plan);
+              await offlineStorage.addToSyncQueue('CREATE_BEAT_PLAN', plan);
+            }
+          }
+        }
+
         toast({
-          title: "Beat Created Successfully",
-          description: `"${beatName}" created with ${selectedRetailers.length} retailers`,
+          title: "Beat Saved Offline",
+          description: `"${beatName}" saved offline with ${selectedRetailers.length} retailers. Will sync when online.`,
+          action: <WifiOff className="h-4 w-4" />
         });
       }
 
       // Navigate to My Visits
-      navigate('/visits');
+      navigate('/visits/retailers');
     } catch (error: any) {
       console.error('Error creating beat:', error);
       toast({
