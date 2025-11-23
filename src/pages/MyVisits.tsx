@@ -1017,7 +1017,9 @@ export const MyVisits = () => {
               </Button>
               <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/add-retailer', {
                 state: {
-                  returnTo: '/visits/retailers'
+                  returnTo: '/my-visits',
+                  plannedBeats: plannedBeats.map(bp => ({ beat_id: bp.beat_id, beat_name: bp.beat_name })),
+                  selectedDate: selectedDate
                 }
               })}>
                 + Retailer

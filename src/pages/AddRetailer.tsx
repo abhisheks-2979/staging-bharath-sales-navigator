@@ -23,6 +23,7 @@ export const AddRetailer = () => {
   const location = useLocation();
   const { user } = useAuth();
   const returnTo = location.state?.returnTo || '/my-retailers';
+  const plannedBeats = location.state?.plannedBeats || [];
   const [retailerData, setRetailerData] = useState({
     name: "",
     gstNumber: "",
@@ -120,6 +121,15 @@ export const AddRetailer = () => {
       loadCreditConfig();
     }
   }, [user]);
+
+  // Auto-select beat if coming from My Visits with planned beat(s)
+  useEffect(() => {
+    if (plannedBeats.length > 0 && !selectedBeat) {
+      // If only one beat planned, auto-select it
+      // If multiple beats, auto-select the first one
+      setSelectedBeat(plannedBeats[0].beat_id);
+    }
+  }, [plannedBeats, selectedBeat]);
 
   const loadCreditConfig = async () => {
     try {
