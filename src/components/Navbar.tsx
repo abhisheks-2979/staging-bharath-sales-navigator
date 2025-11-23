@@ -95,7 +95,10 @@ export const Navbar = () => {
                   />
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold">Bharath Beverages</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-semibold">Bharath Beverages</h1>
+                    <SyncStatusIndicator />
+                  </div>
                   <div className="flex items-center gap-1.5">
                     {connectivityStatus === 'online' ? (
                       <>
