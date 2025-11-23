@@ -20,24 +20,16 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // When offline, allow access if user data exists in local storage or cache
   // This prevents blocking authenticated users when offline
   if (!user) {
-    // Check if we're offline - if so, try to get user from localStorage
-    if (!navigator.onLine) {
-      const cachedUser = localStorage.getItem('cached_user');
-      if (cachedUser) {
-        // User was authenticated, allow access in offline mode
-        return <>{children}</>;
-      }
-    }
-    
-    // Also check cached_user even if online (for app scenarios)
     const cachedUser = localStorage.getItem('cached_user');
     if (cachedUser) {
       try {
         JSON.parse(cachedUser); // Validate it's valid JSON
-        // User was authenticated, allow access
+        console.log('✅ Allowing offline access with cached user');
         return <>{children}</>;
       } catch (e) {
         console.error('Invalid cached user data');
+        localStorage.removeItem('cached_user');
+        localStorage.removeItem('cached_user_id');
       }
     }
     
