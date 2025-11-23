@@ -99,6 +99,44 @@ export function useMasterDataCache() {
     }
   }, []);
 
+  // Cache competition data (competitors and SKUs)
+  const cacheCompetitionData = useCallback(async () => {
+    try {
+      console.log('Caching competition data...');
+      
+      // Cache competition master (competitors)
+      const { data: competitors, error: competitorsError } = await supabase
+        .from('competition_master')
+        .select('*');
+
+      if (competitorsError) throw competitorsError;
+
+      if (competitors) {
+        for (const competitor of competitors) {
+          await offlineStorage.save(STORES.COMPETITION_MASTER, competitor);
+        }
+        console.log(`Cached ${competitors.length} competitors`);
+      }
+
+      // Cache competition SKUs
+      const { data: skus, error: skusError } = await supabase
+        .from('competition_skus')
+        .select('*')
+        .eq('is_active', true);
+
+      if (skusError) throw skusError;
+
+      if (skus) {
+        for (const sku of skus) {
+          await offlineStorage.save(STORES.COMPETITION_SKUS, sku);
+        }
+        console.log(`Cached ${skus.length} competition SKUs`);
+      }
+    } catch (error) {
+      console.error('Error caching competition data:', error);
+    }
+  }, []);
+
   // Cache retailers
   const cacheRetailers = useCallback(async () => {
     try {
@@ -167,13 +205,14 @@ export function useMasterDataCache() {
         cacheProducts(),
         cacheBeats(),
         cacheRetailers(),
-        cacheBeatPlans()
+        cacheBeatPlans(),
+        cacheCompetitionData()
       ]);
       console.log('✅ All master data cached successfully');
     } catch (error) {
       console.error('Error caching master data:', error);
     }
-  }, [isOnline, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans]);
+  }, [isOnline, cacheProducts, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
 
   // Load cached data (used when offline)
   const loadCachedData = useCallback(async (storeName: string) => {
@@ -208,6 +247,7 @@ export function useMasterDataCache() {
     cacheBeats,
     cacheRetailers,
     cacheBeatPlans,
+    cacheCompetitionData,
     cacheAllMasterData,
     loadCachedData,
     isOnline

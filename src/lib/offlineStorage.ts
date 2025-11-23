@@ -1,6 +1,6 @@
 // IndexedDB setup for offline storage
 const DB_NAME = 'OfflineAppDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4; // Increased for new competition stores
 
 // Object store names
 export const STORES = {
@@ -13,7 +13,10 @@ export const STORES = {
   BEATS: 'beats',
   CATEGORIES: 'categories',
   SCHEMES: 'schemes',
-  BEAT_PLANS: 'beatPlans'
+  BEAT_PLANS: 'beatPlans',
+  COMPETITION_MASTER: 'competitionMaster',
+  COMPETITION_SKUS: 'competitionSkus',
+  COMPETITION_DATA: 'competitionData'
 } as const;
 
 class OfflineStorage {
@@ -84,6 +87,21 @@ class OfflineStorage {
           const beatPlansStore = db.createObjectStore(STORES.BEAT_PLANS, { keyPath: 'id' });
           beatPlansStore.createIndex('userId', 'user_id', { unique: false });
           beatPlansStore.createIndex('planDate', 'plan_date', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.COMPETITION_MASTER)) {
+          db.createObjectStore(STORES.COMPETITION_MASTER, { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.COMPETITION_SKUS)) {
+          const competitionSkusStore = db.createObjectStore(STORES.COMPETITION_SKUS, { keyPath: 'id' });
+          competitionSkusStore.createIndex('competitorId', 'competitor_id', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.COMPETITION_DATA)) {
+          const competitionDataStore = db.createObjectStore(STORES.COMPETITION_DATA, { keyPath: 'id' });
+          competitionDataStore.createIndex('retailerId', 'retailer_id', { unique: false });
+          competitionDataStore.createIndex('visitId', 'visit_id', { unique: false });
         }
       };
     });
