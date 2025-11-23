@@ -2934,6 +2934,57 @@ export type Database = {
           },
         ]
       }
+      push_content_execution_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          execution_time: string
+          id: string
+          metadata: Json | null
+          post_id: string | null
+          status: string
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          execution_time?: string
+          id?: string
+          metadata?: Json | null
+          post_id?: string | null
+          status: string
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          execution_time?: string
+          id?: string
+          metadata?: Json | null
+          post_id?: string | null
+          status?: string
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_content_execution_log_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_content_execution_log_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "push_content_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_content_posts: {
         Row: {
           content: string
@@ -3948,6 +3999,10 @@ export type Database = {
           created_at: string | null
           id: string
           image_url: string | null
+          is_automated: boolean | null
+          post_metadata: Json | null
+          scheduled_time: string | null
+          template_id: string | null
           updated_at: string | null
           user_id: string
         }
@@ -3956,6 +4011,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          is_automated?: boolean | null
+          post_metadata?: Json | null
+          scheduled_time?: string | null
+          template_id?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -3964,10 +4023,22 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          is_automated?: boolean | null
+          post_metadata?: Json | null
+          scheduled_time?: string | null
+          template_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "push_content_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock: {
         Row: {
@@ -5411,6 +5482,7 @@ export type Database = {
         }[]
       }
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
+      cleanup_old_execution_logs: { Args: never; Returns: undefined }
       create_approval_workflow: {
         Args: { user_id_param: string }
         Returns: undefined
