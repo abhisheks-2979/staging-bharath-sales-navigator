@@ -23,7 +23,7 @@ export const Layout = ({ children }: LayoutProps) => {
     <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen bg-gradient-subtle w-full flex">
         <Navbar />
-        <main className="flex-1 pb-20">
+        <main className="flex-1 pt-16 pb-20">
           {children}
         </main>
         <ChatWidget />
