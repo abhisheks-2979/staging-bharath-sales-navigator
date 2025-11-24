@@ -1074,21 +1074,19 @@ export const MyVisits = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="mb-2">
-              <Button variant="secondary" size="sm" className={`w-full bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 mb-1.5 sm:mb-2 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2">
+              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
                 <Route size={14} className="mr-1.5" />
                 All Beat
               </Button>
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => navigate('/my-retailers')}>
-                  <Users size={14} className="mr-1.5" />
-                  All Retailers
-                </Button>
-                <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
-                  <FileText size={14} className="mr-1.5" />
-                  Today's Summary
-                </Button>
-              </div>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => navigate('/my-retailers')}>
+                <Users size={14} className="mr-1.5" />
+                All Retailers
+              </Button>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
+                <FileText size={14} className="mr-1.5" />
+                Today's Summary
+              </Button>
             </div>
             
             {/* Timeline View, GPS Track, and Van Stock Buttons */}
