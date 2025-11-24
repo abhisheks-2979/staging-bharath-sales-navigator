@@ -57,20 +57,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         (v: any) => v.user_id === userId && v.planned_date === selectedDate
       );
 
-      // Get retailer IDs from visits and planned beats only
-      const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
-      const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-      const plannedRetailerIds = cachedRetailers
-        .filter((r: any) => r.user_id === userId && plannedBeatIds.includes(r.beat_id))
-        .map((r: any) => r.id);
-      
-      const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds]));
-      
-      const filteredRetailers = cachedRetailers.filter(
-        (r: any) => allRetailerIds.includes(r.id)
-      );
-
-      // Filter orders by date
+      // Filter orders by date first
       const dateStart = new Date(selectedDate);
       dateStart.setHours(0, 0, 0, 0);
       const dateEnd = new Date(selectedDate);
@@ -78,8 +65,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
       const filteredOrders = cachedOrders.filter((o: any) => {
         const orderDate = new Date(o.created_at);
-        return o.user_id === userId && orderDate >= dateStart && orderDate <= dateEnd;
+        return o.user_id === userId && o.status === 'confirmed' && orderDate >= dateStart && orderDate <= dateEnd;
       });
+
+      // Get retailer IDs from visits, planned beats, AND orders
+      const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
+      const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+      const plannedRetailerIds = cachedRetailers
+        .filter((r: any) => r.user_id === userId && plannedBeatIds.includes(r.beat_id))
+        .map((r: any) => r.id);
+      const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
+      
+      // Combine all retailer IDs: from visits, planned beats, AND orders
+      const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
+      
+      const filteredRetailers = cachedRetailers.filter(
+        (r: any) => allRetailerIds.includes(r.id)
+      );
 
       // Display cached data immediately
       if (
@@ -185,13 +187,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
         }
 
-        const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds]));
+        // IMPORTANT: Also fetch orders for today to get retailer IDs from orders
+        // This ensures retailers with orders show up even if not in planned beats or visits
+        const { data: ordersForToday } = await supabase
+          .from('orders')
+          .select('retailer_id')
+          .eq('user_id', userId)
+          .eq('status', 'confirmed')
+          .gte('created_at', `${selectedDate}T00:00:00.000Z`)
+          .lte('created_at', `${selectedDate}T23:59:59.999Z`);
+
+        const orderRetailerIds = (ordersForToday || []).map((o: any) => o.retailer_id);
+
+        // Combine all retailer IDs: from visits, planned beats, AND orders
+        const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
 
         let retailersData: any[] = [];
         let ordersData: any[] = [];
 
         if (allRetailerIds.length > 0) {
-          // Fetch retailers and orders in parallel - using minimal fields for speed
+          // Fetch retailers and full order details in parallel
           const [retailersResult, ordersResult] = await Promise.all([
             supabase
               .from('retailers')
