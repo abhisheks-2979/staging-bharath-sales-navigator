@@ -30,7 +30,7 @@ const AdminControls = () => {
     { title: "Attendance Management", description: "Manage user attendance, holidays, and leave approvals", icon: CalendarDays, color: "purple", path: "/attendance-management" },
     { title: "Products", description: "Manage your product catalog, SKUs, and promotional schemes", icon: Package, color: "blue", path: "/product-management" },
     { title: "Vendors", description: "Manage vendor relationships and approvals", icon: Users, color: "green", path: "/vendors" },
-    { title: "Territories & Distributors", description: "Manage territory assignments and distributor network", icon: MapPin, color: "indigo", path: "/territories-distributors" },
+    { title: "Territories & Distributors", description: "Manage territory assignments and distributor network", icon: MapPin, color: "indigo", path: "/territories-and-distributors" },
     { title: "Expense Management", description: "Track team productivity and expense analytics", icon: DollarSign, color: "yellow", path: "/admin-expense-management" },
     { title: "Feedback Management", description: "View retailer feedback, competition insights, and branding requests", icon: MessageSquareText, color: "purple", path: "/feedback-management" },
     { title: "Operations", description: "Monitor real-time operations, check-ins, orders, and stock data", icon: BarChart3, color: "red", path: "/operations" },
