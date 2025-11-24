@@ -307,6 +307,50 @@ export function useOfflineSync() {
         if (returnStockError) throw returnStockError;
         break;
         
+      case 'SEND_INVOICE_SMS':
+        console.log('Syncing invoice SMS/WhatsApp:', data);
+        try {
+          // Generate invoice PDF
+          const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
+          const { blob, invoiceNumber } = await fetchAndGenerateInvoice(data.orderId);
+          
+          const fileName = `invoice-${invoiceNumber}.pdf`;
+          
+          // Upload to storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('invoices')
+            .upload(fileName, blob, {
+              contentType: 'application/pdf',
+              upsert: true
+            });
+
+          if (uploadError) throw uploadError;
+
+          if (uploadData) {
+            // Get public URL
+            const { data: { publicUrl } } = await supabase.storage
+              .from('invoices')
+              .getPublicUrl(uploadData.path);
+
+            // Send via edge function
+            const { error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
+              body: {
+                invoiceId: data.orderId,
+                customerPhone: data.customerPhone,
+                pdfUrl: publicUrl,
+                invoiceNumber: invoiceNumber
+              }
+            });
+
+            if (fnError) throw fnError;
+            console.log('✅ Invoice SMS/WhatsApp sent during sync');
+          }
+        } catch (smsError) {
+          console.error('Failed to send invoice SMS during sync:', smsError);
+          throw smsError;
+        }
+        break;
+        
       default:
         console.warn('Unknown sync action:', action);
     }

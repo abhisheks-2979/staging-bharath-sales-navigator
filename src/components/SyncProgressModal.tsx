@@ -86,6 +86,7 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
       'NO_ORDER': 'Recording No Order',
       'CREATE_COMPETITION_DATA': 'Recording Competition Data',
       'CREATE_RETURN_STOCK': 'Recording Return Stock',
+      'SEND_INVOICE_SMS': 'Sending Invoice SMS/WhatsApp',
     };
     return labels[action] || action;
   };
@@ -98,6 +99,10 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
       const retailerName = order.retailer_name || 'Unknown Retailer';
       const amount = order.total_amount || order.amount || 0;
       return `${retailerName} - ₹${amount.toFixed(2)}`;
+    }
+    
+    if (action === 'SEND_INVOICE_SMS' && data) {
+      return `${data.retailerName || 'Retailer'} - Invoice Message`;
     }
     
     if (action === 'CREATE_RETAILER' && data) {

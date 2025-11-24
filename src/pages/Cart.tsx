@@ -18,6 +18,7 @@ import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
 import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificationPointsAwarder";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
+import { offlineStorage } from "@/lib/offlineStorage";
 interface CartItem {
   id: string;
   name: string;
@@ -830,10 +831,11 @@ export const Cart = () => {
         }
       })();
 
-      // IMPORTANT: Send invoice PDF + WhatsApp/SMS BEFORE navigating away
+      // IMPORTANT: Send invoice PDF + WhatsApp/SMS
       try {
         if (!result.offline && result.order && validRetailerId) {
-          console.log('🔄 Starting invoice WhatsApp/SMS process...');
+          // ONLINE: Send immediately
+          console.log('🔄 Starting invoice WhatsApp/SMS process (online)...');
 
           // Fetch retailer phone
           const { data: retailer, error: retailerError } = await supabase
@@ -901,9 +903,34 @@ export const Cart = () => {
           } else {
             console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
           }
+        } else if (result.offline && result.order && validRetailerId) {
+          // OFFLINE: Queue message for later
+          console.log('📵 Offline mode - queueing invoice SMS/WhatsApp for sync...');
+          
+          // Fetch retailer phone from offline cache
+          const cachedRetailers = await offlineStorage.getAll('retailers');
+          const retailer = cachedRetailers.find((r: any) => r.id === validRetailerId) as any;
+          
+          if (retailer?.phone) {
+            // Add to sync queue
+            await offlineStorage.addToSyncQueue('SEND_INVOICE_SMS', {
+              orderId: result.order.id,
+              customerPhone: String(retailer.phone),
+              retailerName: retailerName,
+              queuedAt: new Date().toISOString()
+            });
+            
+            console.log('✅ Invoice message queued for sync');
+            toast({
+              title: "Message Queued",
+              description: "Invoice SMS will be sent when you're back online",
+            });
+          } else {
+            console.log('⚠️ No phone number in offline cache; skipping message queue');
+          }
         }
       } catch (notifyError: any) {
-        console.error('❌ Failed to send invoice via WhatsApp/SMS:', notifyError);
+        console.error('❌ Failed to send/queue invoice via WhatsApp/SMS:', notifyError);
       }
 
       // Navigate back only after attempting invoice notification
