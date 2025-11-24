@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, MessageSquare, Mail } from "lucide-react";
+import { Download, MessageSquare, Mail, Clock } from "lucide-react";
 import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
+import { useConnectivity } from "@/hooks/useConnectivity";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 
 interface VisitInvoicePDFGeneratorProps {
   orderId: string;
@@ -17,6 +19,7 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingSMS, setSendingSMS] = useState(false);
+  const connectivityStatus = useConnectivity();
 
   const generatePDF = async () => {
     setLoading(true);
@@ -56,7 +59,36 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       
       const fileName = `invoice-${invoiceNumber}.pdf`;
 
-      // Upload to storage
+      // Check if we're offline
+      if (connectivityStatus === 'offline') {
+        console.log('📴 Offline: Queueing invoice send for later');
+        
+        // Convert blob to base64 for storage
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        const base64Blob = await base64Promise;
+        
+        // Queue for later sync
+        await offlineStorage.addToSyncQueue('SEND_INVOICE', {
+          orderId,
+          customerPhone,
+          invoiceNumber,
+          fileName,
+          invoiceBlob: base64Blob
+        });
+        
+        toast.success("📤 Invoice queued - Will send when online");
+        
+        setSendingWhatsApp(false);
+        return;
+      }
+
+      // Online: Upload and send immediately
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('invoices')
         .upload(fileName, blob, {

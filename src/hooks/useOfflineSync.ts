@@ -307,6 +307,55 @@ export function useOfflineSync() {
         if (returnStockError) throw returnStockError;
         break;
         
+      case 'SEND_INVOICE':
+        console.log('Syncing invoice send:', data);
+        try {
+          // Convert base64 back to blob
+          const base64Data = data.invoiceBlob.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          
+          const fileName = data.fileName;
+          
+          // Upload to storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('invoices')
+            .upload(fileName, blob, {
+              contentType: 'application/pdf',
+              upsert: true
+            });
+
+          if (uploadError) throw uploadError;
+
+          if (uploadData) {
+            // Get public URL
+            const { data: { publicUrl } } = await supabase.storage
+              .from('invoices')
+              .getPublicUrl(uploadData.path);
+
+            // Send via edge function
+            const { error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
+              body: {
+                invoiceId: data.orderId,
+                customerPhone: data.customerPhone,
+                pdfUrl: publicUrl,
+                invoiceNumber: data.invoiceNumber
+              }
+            });
+
+            if (fnError) throw fnError;
+            console.log('✅ Invoice sent during sync');
+          }
+        } catch (invoiceError) {
+          console.error('Failed to send invoice during sync:', invoiceError);
+          throw invoiceError;
+        }
+        break;
+        
       case 'SEND_INVOICE_SMS':
         console.log('Syncing invoice SMS/WhatsApp:', data);
         try {
