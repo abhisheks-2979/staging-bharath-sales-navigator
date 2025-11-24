@@ -68,27 +68,17 @@ export function useOfflineSync() {
         }
       }
 
-      // Show detailed summary toast
+      // Silent sync - no automatic toasts
+      // Users can check sync progress via the sync icon/modal
       if (successCount > 0 && failCount === 0) {
-        toast({
-          title: "✅ Sync Complete",
-          description: `${successCount} ${successCount === 1 ? 'item' : 'items'} synced successfully`,
-        });
+        console.log(`✅ Silent sync complete: ${successCount} items synced successfully`);
       } else if (failCount > 0) {
         const failedActions = failedItems.map(f => f.action).join(', ');
-        toast({
-          title: "⚠️ Sync Issues",
-          description: `${successCount} succeeded, ${failCount} failed (${failedActions}). Retrying...`,
-          variant: "destructive",
-        });
+        console.log(`⚠️ Silent sync partial: ${successCount} succeeded, ${failCount} failed (${failedActions})`);
       }
     } catch (error) {
       console.error('❌ Error processing sync queue:', error);
-      toast({
-        title: "Sync Error",
-        description: "Failed to process sync queue. Will retry automatically.",
-        variant: "destructive",
-      });
+      // Silent error - user can check via sync modal
     }
   }, [connectivityStatus]);
 
