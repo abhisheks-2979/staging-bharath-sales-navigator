@@ -142,11 +142,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const getProductOptions = () => {
     const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; price: number; type: 'product' | 'variant' }> = [];
     
-    // Filter only active products
+    // Filter only active products (driven directly by Product Master)
     const activeProducts = products.filter(p => p.is_active !== false);
     
     activeProducts.forEach(product => {
-      // Only add base product if it has no variants or if explicitly needed
+      // Only add base product if it has no variants
       if (!product.variants || product.variants.length === 0) {
         options.push({
           value: product.id,
@@ -158,12 +158,11 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         });
       }
       
-      // Add active variants with base product name
+      // Add active variants; display only variant name (no base name prefix)
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           if (variant.is_active) {
-            // Display format: "BaseName - VariantName | SKU: xxx | ₹price"
-            const displayLabel = `${product.name} - ${variant.variant_name} | ₹${variant.price}`;
+            const displayLabel = `${variant.variant_name} | ₹${variant.price}`;
             
             options.push({
               value: `${product.id}_variant_${variant.id}`,
