@@ -194,7 +194,7 @@ export function useOfflineSync() {
         const { error: updateBeatError } = await supabase
           .from('beats')
           .update(data.updates)
-          .eq('beat_id', data.beat_id);
+          .eq('id', data.id);
         if (updateBeatError) throw updateBeatError;
         break;
         
@@ -220,7 +220,7 @@ export function useOfflineSync() {
         const { error: deleteBeatError } = await supabase
           .from('beats')
           .delete()
-          .eq('beat_id', data.beat_id);
+          .eq('id', data.id);
         if (deleteBeatError) throw deleteBeatError;
         break;
         

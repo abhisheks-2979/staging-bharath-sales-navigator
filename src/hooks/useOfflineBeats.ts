@@ -181,10 +181,168 @@ export function useOfflineBeats() {
     }
   }, [isOnline]);
 
+  /**
+   * Delete beat with offline support
+   */
+  const deleteBeat = useCallback(async (beatId: string) => {
+    try {
+      setLoading(true);
+
+      if (isOnline) {
+        // Online: Delete directly
+        const { error } = await supabase
+          .from('beats')
+          .delete()
+          .eq('id', beatId);
+
+        if (error) throw error;
+
+        // Remove from cache
+        await offlineStorage.delete(STORES.BEATS, beatId);
+
+        toast({
+          title: "Beat Deleted",
+          description: "Beat has been deleted successfully.",
+        });
+
+        return { success: true, offline: false };
+      } else {
+        // Offline: Queue for sync
+        await offlineStorage.delete(STORES.BEATS, beatId);
+        await offlineStorage.addToSyncQueue('DELETE_BEAT', { id: beatId });
+
+        toast({
+          title: "Beat Deletion Queued",
+          description: "Beat will be deleted when you're back online.",
+        });
+
+        return { success: true, offline: true };
+      }
+    } catch (error: any) {
+      console.error('Error deleting beat:', error);
+      toast({
+        title: "Failed to Delete Beat",
+        description: error.message || "Failed to delete beat",
+        variant: "destructive",
+      });
+      return { success: false, offline: false };
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline]);
+
+  /**
+   * Create or update beat plan (add to today's plan)
+   */
+  const addBeatToPlan = useCallback(async (beatPlanData: any) => {
+    try {
+      setLoading(true);
+
+      if (isOnline) {
+        // Online: Submit directly
+        const { data, error } = await supabase
+          .from('beat_plans')
+          .upsert(beatPlanData, { onConflict: 'user_id,plan_date,beat_id' })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Cache the plan
+        await offlineStorage.save(STORES.BEAT_PLANS, data);
+
+        toast({
+          title: "Beat Added to Plan",
+          description: "Beat has been added to today's plan.",
+        });
+
+        return { success: true, offline: false, data };
+      } else {
+        // Offline: Queue for sync
+        const offlinePlan = {
+          ...beatPlanData,
+          id: beatPlanData.id || crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        await offlineStorage.save(STORES.BEAT_PLANS, offlinePlan);
+        await offlineStorage.addToSyncQueue('CREATE_BEAT_PLAN', offlinePlan);
+
+        toast({
+          title: "Beat Plan Saved Offline",
+          description: "Plan will sync when you're back online.",
+        });
+
+        return { success: true, offline: true, data: offlinePlan };
+      }
+    } catch (error: any) {
+      console.error('Error adding beat to plan:', error);
+      toast({
+        title: "Failed to Add Beat to Plan",
+        description: error.message || "Failed to add beat to plan",
+        variant: "destructive",
+      });
+      return { success: false, offline: false, data: null };
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline]);
+
+  /**
+   * Get beat plans (from cache or server)
+   */
+  const getBeatPlans = useCallback(async (userId: string, planDate?: string) => {
+    try {
+      if (isOnline) {
+        // Online: Fetch from server
+        let query = supabase
+          .from('beat_plans')
+          .select('*')
+          .eq('user_id', userId);
+
+        if (planDate) {
+          query = query.eq('plan_date', planDate);
+        }
+
+        const { data, error } = await query.order('plan_date', { ascending: false });
+
+        if (error) throw error;
+
+        // Update cache
+        if (data) {
+          for (const plan of data) {
+            await offlineStorage.save(STORES.BEAT_PLANS, plan);
+          }
+        }
+
+        return { success: true, data: data || [] };
+      } else {
+        // Offline: Load from cache
+        const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+        const filteredPlans = (cachedPlans as any[]).filter((plan: any) => {
+          if (plan.user_id !== userId) return false;
+          if (planDate && plan.plan_date !== planDate) return false;
+          return true;
+        });
+        return { success: true, data: filteredPlans };
+      }
+    } catch (error: any) {
+      console.error('Error fetching beat plans:', error);
+      
+      // Try cache on error
+      const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+      return { success: true, data: cachedPlans || [] };
+    }
+  }, [isOnline]);
+
   return {
     createBeat,
     updateBeat,
+    deleteBeat,
     getAllBeats,
+    addBeatToPlan,
+    getBeatPlans,
     loading,
     isOnline
   };
