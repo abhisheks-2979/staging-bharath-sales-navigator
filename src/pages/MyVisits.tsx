@@ -313,6 +313,15 @@ export const MyVisits = () => {
         // Trigger background refresh in optimized hook
         window.dispatchEvent(new Event('visitDataChanged'));
       })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'beat_plans',
+        filter: `user_id=eq.${user.id}`
+      }, () => {
+        // Trigger background refresh when beat plans change
+        window.dispatchEvent(new Event('visitDataChanged'));
+      })
       .subscribe();
 
     return () => {
