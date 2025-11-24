@@ -1075,41 +1075,44 @@ export const MyVisits = () => {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2">
-              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
-                <Route size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline">{t('visits.journeyPlan')}</span>
-                <span className="sm:hidden">Journey</span>
+              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
+                <Route size={14} className="mr-1.5" />
+                All Beat
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/my-retailers')}>
-                <span className="hidden sm:inline">{t('visits.allRetailers')}</span>
-                <span className="sm:hidden">Retailers</span>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => navigate('/my-retailers')}>
+                <Users size={14} className="mr-1.5" />
+                All Retailers
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
-                <FileText size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline">{t('visits.todaysSummary')}</span>
-                <span className="sm:hidden">Summary</span>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => setIsCreateVisitModalOpen(true)}>
+                <Plus size={14} className="mr-1.5" />
+                + Retailer
+              </Button>
+            </div>
+            
+            {/* Today's Summary Button */}
+            <div className="mb-2">
+              <Button variant="secondary" size="sm" className="w-full bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
+                <FileText size={14} className="mr-1.5" />
+                Today's Summary
               </Button>
             </div>
             
             {/* Timeline View, GPS Track, and Van Stock Buttons */}
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2 border-t border-primary-foreground/20 pt-2">
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => {
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => {
               setTimelineDate(selectedDate ? new Date(selectedDate) : new Date());
               setIsTimelineOpen(true);
             }}>
-                <Clock size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline">{t('visits.timeline')}</span>
-                <span className="sm:hidden">Time</span>
+                <Clock size={14} className="mr-1.5" />
+                Timeline
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/gps-track')}>
-                <MapPin size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline">{t('visits.gpsTrack')}</span>
-                <span className="sm:hidden">GPS</span>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => navigate('/gps-track')}>
+                <MapPin size={14} className="mr-1.5" />
+                GPS Track
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => setIsVanStockOpen(true)}>
-                <Truck size={12} className="sm:mr-1" />
-                <span className="hidden sm:inline">{t('visits.vanStock')}</span>
-                <span className="sm:hidden">Van</span>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => setIsVanStockOpen(true)}>
+                <Truck size={14} className="mr-1.5" />
+                Van Stock
               </Button>
             </div>
           </CardContent>
