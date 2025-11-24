@@ -226,7 +226,7 @@ const Index = () => {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
         {/* Header Section with Welcome */}
-        <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground -mt-16 pt-16">
+        <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-6">
             <div className="flex items-center gap-4 mb-6">
