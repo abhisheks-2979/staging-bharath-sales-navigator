@@ -135,36 +135,41 @@ export const Navbar = () => {
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           {/* User Profile Section */}
           <SheetHeader className="pb-4 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-6 mb-6">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-3">
+                <NavLink to="/employee-profile" onClick={handleMenuItemClick}>
+                  <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary-foreground/20 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
+                    <span className="text-2xl font-bold text-primary-foreground">{userInitials}</span>
+                  </div>
+                </NavLink>
+                <div className="text-center">
+                  <SheetTitle 
+                    className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity" 
+                    onClick={() => {
+                      navigate('/employee-profile');
+                      handleMenuItemClick();
+                    }}
+                  >
+                    {displayName}
+                  </SheetTitle>
+                  {userRole === 'admin' && (
+                    <div className="flex items-center justify-center gap-1 text-xs opacity-90 mt-1 text-primary-foreground">
+                      <Shield className="h-3 w-3" />
+                      <span className="font-medium">Administrator</span>
+                    </div>
+                  )}
+                </div>
+              </div>
               <button
                 onClick={() => {
                   signOut();
                   handleMenuItemClick();
                 }}
-                className="flex flex-col items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors cursor-pointer"
               >
-                <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary-foreground/20 border-2 border-primary-foreground/20 shadow-lg">
-                  <LogOut className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <span className="text-[10px] text-primary-foreground font-medium">Logout</span>
+                <LogOut className="h-4 w-4 text-primary-foreground" />
+                <span className="text-sm text-primary-foreground font-medium">Logout</span>
               </button>
-              <div className="flex-1 text-left">
-                <SheetTitle 
-                  className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity" 
-                  onClick={() => {
-                    navigate('/employee-profile');
-                    handleMenuItemClick();
-                  }}
-                >
-                  {displayName}
-                </SheetTitle>
-                {userRole === 'admin' && (
-                  <div className="flex items-center gap-1 text-xs opacity-90 mt-1 text-primary-foreground">
-                    <Shield className="h-3 w-3" />
-                    <span className="font-medium">Administrator</span>
-                  </div>
-                )}
-              </div>
             </div>
           </SheetHeader>
 
