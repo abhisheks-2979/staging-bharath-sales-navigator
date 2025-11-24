@@ -29,6 +29,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
 import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
+import { hasAttendanceToday } from "@/utils/attendanceUtils";
 interface Visit {
   id: string;
   retailerName: string;
@@ -164,6 +165,8 @@ export const MyVisits = () => {
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
   const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string | null }>>([]);
   const [isPointsDialogOpen, setIsPointsDialogOpen] = useState(false);
+  const [hasAttendance, setHasAttendance] = useState(false);
+  const [checkingAttendance, setCheckingAttendance] = useState(true);
   const {
     user
   } = useAuth();
@@ -181,6 +184,28 @@ export const MyVisits = () => {
   } = useRecommendations('retailer_priority', currentBeatId);
   
   const { isLocationEnabled } = useLocationFeature();
+
+  // Check attendance on mount
+  useEffect(() => {
+    const checkAttendance = async () => {
+      if (!user?.id) {
+        setCheckingAttendance(false);
+        return;
+      }
+
+      try {
+        const hasMarkedAttendance = await hasAttendanceToday(user.id);
+        setHasAttendance(hasMarkedAttendance);
+      } catch (error) {
+        console.error('Error checking attendance:', error);
+        setHasAttendance(false);
+      } finally {
+        setCheckingAttendance(false);
+      }
+    };
+
+    checkAttendance();
+  }, [user?.id]);
 
   // Use optimized hook for cache-first data loading
   const {
@@ -956,6 +981,44 @@ export const MyVisits = () => {
       console.error('Error loading orders:', error);
     }
   };
+  // Show loading while checking attendance
+  if (checkingAttendance) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show attendance required message if not marked
+  if (!hasAttendance) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="text-xl text-center">Attendance Required</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-center">
+              <p className="text-muted-foreground">
+                Please mark your attendance first to access the My Visits page.
+              </p>
+              <Button 
+                onClick={() => navigate('/attendance')} 
+                className="w-full"
+              >
+                <CalendarDays className="mr-2 h-4 w-4" />
+                Mark Attendance
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
   return <Layout>
       <div className="p-2 sm:p-4 space-y-2 sm:space-y-4">
         {/* Header Card */}
