@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 
 export interface Recommendation {
   id: string;
@@ -57,13 +58,16 @@ export function useRecommendations(type?: string, entityId?: string) {
         ...r,
         feedback: r.recommendation_feedback?.[0],
       })) || []);
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load recommendations',
-        variant: 'destructive',
-      });
+    } catch (error: any) {
+      console.log('Recommendations fetch failed (silent when offline):', error);
+      // Only show error toast if we're online and error shouldn't be suppressed
+      if (!shouldSuppressError(error)) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load recommendations',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -90,12 +94,15 @@ export function useRecommendations(type?: string, entityId?: string) {
       await fetchRecommendations();
       return data.recommendation;
     } catch (error: any) {
-      console.error('Error generating recommendation:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to generate recommendation',
-        variant: 'destructive',
-      });
+      console.log('Generate recommendation failed:', error);
+      // Only show error if not a network/offline error
+      if (!shouldSuppressError(error)) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to generate recommendation',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -124,13 +131,16 @@ export function useRecommendations(type?: string, entityId?: string) {
       });
 
       await fetchRecommendations();
-    } catch (error) {
-      console.error('Error submitting feedback:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to submit feedback',
-        variant: 'destructive',
-      });
+    } catch (error: any) {
+      console.log('Feedback submission failed:', error);
+      // Only show error if not a network/offline error
+      if (!shouldSuppressError(error)) {
+        toast({
+          title: 'Error',
+          description: 'Failed to submit feedback',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
