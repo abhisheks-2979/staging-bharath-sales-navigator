@@ -12,12 +12,27 @@ interface PointsData {
   byRetailer: Map<string, { name: string; points: number; visitId: string | null }>;
 }
 
+interface ProgressStats {
+  planned: number;
+  productive: number;
+  unproductive: number;
+  totalOrders: number;
+  totalOrderValue: number;
+}
+
 export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOptimizedProps) => {
   const [beatPlans, setBeatPlans] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [pointsData, setPointsData] = useState<PointsData>({ total: 0, byRetailer: new Map() });
+  const [progressStats, setProgressStats] = useState<ProgressStats>({ 
+    planned: 0, 
+    productive: 0, 
+    unproductive: 0, 
+    totalOrders: 0,
+    totalOrderValue: 0 
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<any>(null);
 
@@ -186,6 +201,35 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
 
+        // Calculate progress stats immediately for instant display
+        const ordersByRetailer = new Map<string, number>();
+        ordersData.forEach(o => {
+          ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
+        });
+
+        let planned = 0;
+        let productive = 0;
+        let unproductive = 0;
+        let totalOrders = 0;
+        let totalOrderValue = 0;
+
+        visitsData.forEach((visit: any) => {
+          const hasOrder = ordersByRetailer.has(visit.retailer_id);
+          const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
+
+          if (hasOrder) {
+            productive++;
+            totalOrders++;
+            totalOrderValue += orderValue;
+          } else if (visit.status === 'unproductive') {
+            unproductive++;
+          } else if (visit.status === 'planned' || visit.status === 'in-progress' || visit.status === 'cancelled') {
+            planned++;
+          }
+        });
+
+        setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
+
         // Cache ONLY current date data (don't bloat storage with historical data)
         // Beat plans and retailers are already cached by useMasterDataCache
         // Only cache visits for current date
@@ -249,6 +293,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     retailers,
     orders,
     pointsData,
+    progressStats,
     isLoading,
     error,
     invalidateData,
