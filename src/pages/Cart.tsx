@@ -824,20 +824,34 @@ export const Cart = () => {
 
               // Send invoice via WhatsApp automatically
               try {
-                const { data: retailer } = await supabase
+                console.log('🔄 Starting WhatsApp invoice sending process...');
+                
+                const { data: retailer, error: retailerError } = await supabase
                   .from('retailers')
                   .select('phone')
                   .eq('id', validRetailerId)
                   .single();
 
+                if (retailerError) {
+                  console.error('❌ Failed to fetch retailer:', retailerError);
+                  throw retailerError;
+                }
+
+                console.log('📱 Retailer phone:', retailer?.phone);
+
                 if (retailer?.phone) {
+                  console.log('📄 Generating invoice PDF...');
+                  
                   // Import and use the invoice generator
                   const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
                   const { blob, invoiceNumber } = await fetchAndGenerateInvoice(order.id);
                   
+                  console.log('✅ Invoice generated:', invoiceNumber);
+                  
                   const fileName = `invoice-${invoiceNumber}.pdf`;
                   
                   // Upload to storage
+                  console.log('☁️ Uploading to storage...');
                   const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('invoices')
                     .upload(fileName, blob, {
@@ -845,14 +859,24 @@ export const Cart = () => {
                       upsert: true
                     });
 
-                  if (!uploadError && uploadData) {
+                  if (uploadError) {
+                    console.error('❌ Storage upload failed:', uploadError);
+                    throw uploadError;
+                  }
+
+                  if (uploadData) {
+                    console.log('✅ PDF uploaded successfully');
+                    
                     // Get public URL
                     const { data: { publicUrl } } = await supabase.storage
                       .from('invoices')
                       .getPublicUrl(uploadData.path);
 
+                    console.log('🔗 Public URL:', publicUrl);
+
                     // Send via WhatsApp
-                    await supabase.functions.invoke('send-invoice-whatsapp', {
+                    console.log('📨 Invoking WhatsApp edge function...');
+                    const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke('send-invoice-whatsapp', {
                       body: { 
                         invoiceId: order.id,
                         customerPhone: retailer.phone,
@@ -861,11 +885,24 @@ export const Cart = () => {
                       }
                     });
 
+                    if (whatsappError) {
+                      console.error('❌ WhatsApp function error:', whatsappError);
+                      throw whatsappError;
+                    }
+
+                    console.log('✅ WhatsApp function response:', whatsappResult);
                     console.log('✅ Invoice sent via WhatsApp to:', retailer.phone);
                   }
+                } else {
+                  console.log('⚠️ No phone number found for retailer');
                 }
-              } catch (whatsappError) {
-                console.error('Failed to send invoice via WhatsApp:', whatsappError);
+              } catch (whatsappError: any) {
+                console.error('❌ Failed to send invoice via WhatsApp:', whatsappError);
+                console.error('❌ Error details:', {
+                  message: whatsappError.message,
+                  stack: whatsappError.stack,
+                  details: whatsappError
+                });
                 // Don't fail the order if WhatsApp sending fails
               }
             }
