@@ -192,6 +192,12 @@ export const MyBeats = () => {
     const cachedUserId = localStorage.getItem('cached_user_id');
     const effectiveUserId = user?.id || cachedUserId;
     
+    if (!effectiveUserId) {
+      console.log('No user ID available, skipping beat load');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       
@@ -199,15 +205,14 @@ export const MyBeats = () => {
       const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
       const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
       
-      if (cachedBeats.length > 0) {
+      // Filter cached beats by user
+      const userCachedBeats = cachedBeats.filter((b: any) => b.created_by === effectiveUserId);
+      
+      if (userCachedBeats.length > 0) {
         // Display cached data IMMEDIATELY
-        const cachedRetailersData = effectiveUserId 
-          ? cachedRetailers.filter((r: any) => 
-              r.user_id === effectiveUserId && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
-            ).map((r: any) => ({ beat_id: r.beat_id }))
-          : cachedRetailers.filter((r: any) => 
-              r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
-            ).map((r: any) => ({ beat_id: r.beat_id }));
+        const cachedRetailersData = cachedRetailers.filter((r: any) => 
+          r.user_id === effectiveUserId && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
+        ).map((r: any) => ({ beat_id: r.beat_id }));
         
         const retailerCountMap = new Map<string, number>();
         cachedRetailersData.forEach((item: any) => {
@@ -215,7 +220,7 @@ export const MyBeats = () => {
           retailerCountMap.set(beatId, (retailerCountMap.get(beatId) || 0) + 1);
         });
         
-        const beatsArray = cachedBeats.map((beat: any, index) => ({
+        const beatsArray = userCachedBeats.map((beat: any, index) => ({
           id: beat.beat_id,
           name: beat.beat_name,
           retailer_count: retailerCountMap.get(beat.beat_id) || 0,
@@ -242,12 +247,13 @@ export const MyBeats = () => {
             .from('beats')
             .select('*')
             .eq('is_active', true)
+            .eq('created_by', effectiveUserId)
             .order('created_at', { ascending: true });
 
           if (!beatsError && onlineBeats) {
             const beatsData = onlineBeats || [];
             
-            // Update cache
+            // Clear only current user's beats and update cache
             await offlineStorage.clear(STORES.BEATS);
             for (const beat of beatsData) {
               await offlineStorage.save(STORES.BEATS, { ...beat, id: beat.beat_id });
@@ -261,15 +267,13 @@ export const MyBeats = () => {
             const territoriesMap = new Map();
             territoriesData?.forEach(t => territoriesMap.set(t.id, t.name));
 
-            const { data: onlineRetailers, error: retailersError } = effectiveUserId 
-              ? await supabase
-                  .from('retailers')
-                  .select('beat_id')
-                  .eq('user_id', effectiveUserId)
-                  .not('beat_id', 'is', null)
-                  .neq('beat_id', '')
-                  .neq('beat_id', 'unassigned')
-              : { data: [], error: null };
+            const { data: onlineRetailers, error: retailersError } = await supabase
+              .from('retailers')
+              .select('beat_id')
+              .eq('user_id', effectiveUserId)
+              .not('beat_id', 'is', null)
+              .neq('beat_id', '')
+              .neq('beat_id', 'unassigned');
 
             if (!retailersError && onlineRetailers) {
               const retailersData = onlineRetailers || [];
