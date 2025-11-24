@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -121,6 +122,8 @@ export const MyRetailers = () => {
     if (!user) return;
     setLoading(true);
     
+    let hasLoadedFromCache = false;
+    
     try {
       // 1. Load from cache FIRST for instant display
       console.log('📦 Loading retailers from cache...');
@@ -130,30 +133,40 @@ export const MyRetailers = () => {
       if (cachedRetailers.length > 0) {
         console.log('✅ Displaying cached retailers:', cachedRetailers.length);
         setRetailers(cachedRetailers.sort((a, b) => a.name.localeCompare(b.name)));
+        hasLoadedFromCache = true;
       }
       
       // 2. If online, fetch fresh data and update cache
       if (navigator.onLine) {
-        const { data, error } = await supabase
-          .from("retailers")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("name");
+        try {
+          const { data, error } = await supabase
+            .from("retailers")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("name");
+            
+          if (error) throw error;
           
-        if (error) {
-          toast({ title: "Failed to sync retailers", description: error.message, variant: "destructive" });
-        } else {
           // Update cache
           console.log('🔄 Updating retailers cache...');
           for (const retailer of data || []) {
             await offlineStorage.save(STORES.RETAILERS, retailer);
           }
           setRetailers(data || []);
+        } catch (networkError: any) {
+          console.log('Network sync failed, using cached data:', networkError);
+          // Only show error if we don't have cached data AND error shouldn't be suppressed
+          if (!hasLoadedFromCache && !shouldSuppressError(networkError)) {
+            toast({ title: "Failed to load retailers", description: networkError.message, variant: "destructive" });
+          }
         }
       }
     } catch (error: any) {
       console.error('Error loading retailers:', error);
-      toast({ title: "Error loading retailers", description: error.message, variant: "destructive" });
+      // Only show error if we don't have cached data AND error shouldn't be suppressed
+      if (!hasLoadedFromCache && !shouldSuppressError(error)) {
+        toast({ title: "Error loading retailers", description: error.message, variant: "destructive" });
+      }
     } finally {
       setLoading(false);
     }
