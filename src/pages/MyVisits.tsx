@@ -957,24 +957,24 @@ export const MyVisits = () => {
     }
   };
   return <Layout>
-      <div className="p-2 sm:p-4 space-y-3 sm:space-y-4">
+      <div className="p-2 sm:p-4 space-y-2 sm:space-y-4">
         {/* Header Card */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="pb-2 sm:pb-3 rounded-sm">
+          <CardHeader className="pb-2 px-2 sm:px-6 pt-2 sm:pt-6">
             <div>
-              <CardTitle className="text-lg sm:text-xl font-bold">{t('visits.title')}</CardTitle>
-              <p className="text-sm sm:text-lg font-semibold mt-1 truncate">{currentBeatName}</p>
+              <CardTitle className="text-base sm:text-xl font-bold leading-tight">{t('visits.title')}</CardTitle>
+              <p className="text-xs sm:text-base font-semibold mt-0.5 sm:mt-1 truncate leading-tight">{currentBeatName}</p>
             </div>
             
           </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4">
+          <CardContent className="space-y-2 sm:space-y-4 px-2 sm:px-6 pb-2 sm:pb-6">
             {/* Calendar Selector */}
-            <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
-               <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-4">
+               <div className="flex items-center gap-1.5 sm:gap-2 flex-1">
                  <Popover>
                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm flex-1 sm:flex-none">
-                        <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <Button variant="outline" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm flex-1 sm:flex-none h-7 sm:h-9">
+                        <CalendarIcon className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                         <span className="truncate">
                           {t('visits.weekOf')} {format(selectedWeek, "MMM d, yyyy")}
                         </span>
@@ -993,33 +993,35 @@ export const MyVisits = () => {
                  </Popover>
                </div>
               <div className="flex items-center gap-1">
-                <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')} className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-8 w-8 p-0">
+                <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')} className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-7 w-7 sm:h-8 sm:w-8 p-0 text-xs sm:text-sm">
                   ←
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => navigateWeek('next')} className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-8 w-8 p-0">
+                <Button variant="outline" size="sm" onClick={() => navigateWeek('next')} className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 h-7 w-7 sm:h-8 sm:w-8 p-0 text-xs sm:text-sm">
                   →
                 </Button>
               </div>
             </div>
             
             <div className="grid grid-cols-7 gap-1 sm:gap-2">
-              {weekDays.map(dayInfo => <button key={dayInfo.day} onClick={() => handleDayChange(dayInfo.day)} className={`relative p-1 sm:p-2 rounded-lg text-center transition-colors min-h-[60px] sm:min-h-auto ${selectedDay === dayInfo.day ? 'bg-primary-foreground text-primary' : dayInfo.isToday ? 'bg-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/40' : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'}`}>
-                  <div className="text-[10px] sm:text-xs font-medium">{dayInfo.day}</div>
-                  <div className="text-sm sm:text-lg font-bold">{dayInfo.date}</div>
-                  {plannedDates.has(dayInfo.isoDate) && <div className="absolute -top-0.5 -right-0.5 w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-success" />}
+              {weekDays.map(dayInfo => <button key={dayInfo.day} onClick={() => handleDayChange(dayInfo.day)} className={`relative p-1.5 sm:p-2 rounded-lg text-center transition-colors min-h-[50px] sm:min-h-[65px] ${selectedDay === dayInfo.day ? 'bg-primary-foreground text-primary' : dayInfo.isToday ? 'bg-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/40' : 'bg-primary-foreground/10 hover:bg-primary-foreground/20'}`}>
+                  <div className="text-[9px] sm:text-xs font-medium leading-tight">{dayInfo.day}</div>
+                  <div className="text-base sm:text-lg font-bold leading-tight mt-0.5">{dayInfo.date}</div>
+                  {plannedDates.has(dayInfo.isoDate) && <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 sm:w-2.5 sm:h-2.5 rounded-full bg-success" />}
                 </button>)}
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
-                <Route size={14} className="mr-1" />
-                {t('visits.journeyPlan')}
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2">
+              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
+                <Route size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline">{t('visits.journeyPlan')}</span>
+                <span className="sm:hidden">Journey</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/my-retailers')}>
-                {t('visits.allRetailers')}
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/my-retailers')}>
+                <span className="hidden sm:inline">{t('visits.allRetailers')}</span>
+                <span className="sm:hidden">Retailers</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/add-retailer', {
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/add-retailer', {
                 state: {
                   returnTo: '/my-visits',
                   plannedBeats: plannedBeats.map(bp => ({ beat_id: bp.beat_id, beat_name: bp.beat_name })),
@@ -1029,29 +1031,32 @@ export const MyVisits = () => {
                 + Retailer
               </Button>
             </div>
-            <div className="grid grid-cols-1 gap-2 mb-2">
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
-                <FileText size={14} className="mr-1" />
+            <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mb-2">
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
+                <FileText size={12} className="mr-1" />
                 {t('visits.todaysSummary')}
               </Button>
             </div>
             
             {/* Timeline View, GPS Track, and Van Stock Buttons */}
-            <div className="grid grid-cols-3 gap-2 mb-2 border-t border-primary-foreground/20 pt-2">
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => {
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 border-t border-primary-foreground/20 pt-2">
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => {
               setTimelineDate(selectedDate ? new Date(selectedDate) : new Date());
               setIsTimelineOpen(true);
             }}>
-                <Clock size={14} className="mr-1" />
-                {t('visits.timeline')}
+                <Clock size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline">{t('visits.timeline')}</span>
+                <span className="sm:hidden">Time</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => navigate('/gps-track')}>
-                <MapPin size={14} className="mr-1" />
-                {t('visits.gpsTrack')}
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/gps-track')}>
+                <MapPin size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline">{t('visits.gpsTrack')}</span>
+                <span className="sm:hidden">GPS</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-9 sm:h-auto" onClick={() => setIsVanStockOpen(true)}>
-                <Truck size={14} className="mr-1" />
-                {t('visits.vanStock')}
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => setIsVanStockOpen(true)}>
+                <Truck size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline">{t('visits.vanStock')}</span>
+                <span className="sm:hidden">Van</span>
               </Button>
             </div>
           </CardContent>
@@ -1059,10 +1064,10 @@ export const MyVisits = () => {
 
         {/* Progress Card */}
         <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-2">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-1">
-              <h3 className="font-bold text-sm sm:text-base text-primary">{t('visits.todaysProgress')}</h3>
-              <div className="text-[10px] sm:text-xs text-muted-foreground">
+          <CardContent className="p-2 sm:p-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-0.5 sm:gap-1">
+              <h3 className="font-bold text-xs sm:text-base text-primary leading-tight">{t('visits.todaysProgress')}</h3>
+              <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">
                 {(selectedDate ? new Date(selectedDate) : new Date()).toLocaleDateString('en-IN', {
                 weekday: 'long',
                 day: 'numeric',
@@ -1073,25 +1078,25 @@ export const MyVisits = () => {
             
              {/* Stats Grid - Mobile Responsive */}
              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-               <button onClick={() => navigate(`/today-summary?date=${selectedDate}`)} className="bg-gradient-to-r from-success/10 to-success/5 p-1.5 sm:p-3 rounded-lg border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[60px] sm:min-h-[85px]">
-                 <div className="text-sm sm:text-xl font-bold text-success">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
-                 <div className="text-[10px] sm:text-xs text-success/80 font-medium mt-0.5">{t('visits.totalOrderValue')}</div>
+               <button onClick={() => navigate(`/today-summary?date=${selectedDate}`)} className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-3 rounded-lg border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
+                 <div className="text-base sm:text-xl font-bold text-success leading-tight">₹{visitsForSelectedDate.reduce((sum, visit) => sum + (visit.orderValue || 0), 0).toLocaleString()}</div>
+                 <div className="text-[9px] sm:text-xs text-success/80 font-medium mt-1 leading-tight">{t('visits.totalOrderValue')}</div>
                </button>
-               <button onClick={handleOrdersClick} className="bg-gradient-to-r from-primary/10 to-primary/5 p-1.5 sm:p-3 rounded-lg border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[60px] sm:min-h-[85px]">
-                 <div className="text-sm sm:text-xl font-bold text-primary">{totalOrdersToday}</div>
-                 <div className="text-[10px] sm:text-xs text-primary/80 font-medium mt-0.5">{t('visits.todaysOrder')}</div>
+               <button onClick={handleOrdersClick} className="bg-gradient-to-r from-primary/10 to-primary/5 p-2 sm:p-3 rounded-lg border border-primary/20 cursor-pointer hover:from-primary/15 hover:to-primary/10 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
+                 <div className="text-base sm:text-xl font-bold text-primary leading-tight">{totalOrdersToday}</div>
+                 <div className="text-[9px] sm:text-xs text-primary/80 font-medium mt-1 leading-tight">{t('visits.todaysOrder')}</div>
                </button>
-                <button onClick={() => handleStatusClick("planned")} className={`p-1.5 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[60px] sm:min-h-[85px] ${statusFilter === "planned" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"}`}>
-                  <div className="text-sm sm:text-xl font-bold">{plannedVisitsCount}</div>
-                  <div className="text-[10px] sm:text-xs font-medium opacity-80 mt-0.5">Planned/Canceled</div>
+                <button onClick={() => handleStatusClick("planned")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "planned" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"}`}>
+                  <div className="text-base sm:text-xl font-bold leading-tight">{plannedVisitsCount}</div>
+                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">Planned/Canceled</div>
                 </button>
-               <button onClick={() => handleStatusClick("unproductive")} className={`p-1.5 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[60px] sm:min-h-[85px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
-                 <div className="text-sm sm:text-xl font-bold">{unproductiveVisits}</div>
-                 <div className="text-[10px] sm:text-xs font-medium opacity-80 mt-0.5">{t('visits.unproductive')}</div>
+               <button onClick={() => handleStatusClick("unproductive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
+                 <div className="text-base sm:text-xl font-bold leading-tight">{unproductiveVisits}</div>
+                 <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.unproductive')}</div>
                </button>
-               <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-1.5 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center min-h-[60px] sm:min-h-[85px]">
-                 <div className="text-sm sm:text-xl font-bold text-amber-600">{pointsEarnedToday}</div>
-                 <div className="text-[10px] sm:text-xs text-amber-600/80 font-medium mt-0.5">Points Earned</div>
+               <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-2 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center col-span-2 min-h-[70px] sm:min-h-[85px]">
+                 <div className="text-base sm:text-xl font-bold text-amber-600 leading-tight">{pointsEarnedToday}</div>
+                 <div className="text-[9px] sm:text-xs text-amber-600/80 font-medium mt-1 leading-tight">Points Earned Today</div>
                </button>
              </div>
            </CardContent>
