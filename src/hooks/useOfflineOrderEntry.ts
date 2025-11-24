@@ -111,9 +111,10 @@ export function useOfflineOrderEntry() {
 
       if (cachedProducts.length > 0) {
         // Filter only active products and their active variants/schemes
-        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active === true);
-        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true);
-        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true);
+        // Treat products as active by default unless explicitly marked inactive
+        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
+        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true || v.is_active === undefined || v.is_active === null);
+        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true || s.is_active === undefined || s.is_active === null);
         
         const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,
@@ -148,9 +149,10 @@ export function useOfflineOrderEntry() {
 
       if (cachedProducts.length > 0) {
         // Filter only active products and their active variants/schemes
-        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active === true);
-        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true);
-        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true);
+        // Treat products as active by default unless explicitly marked inactive
+        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
+        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true || v.is_active === undefined || v.is_active === null);
+        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true || s.is_active === undefined || s.is_active === null);
         
         const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,
