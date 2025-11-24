@@ -1,6 +1,6 @@
 import { Menu, X, LogOut, Home, ArrowLeft, Wifi, WifiOff } from "lucide-react";
-import { useState } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/NetworkBadge";
@@ -9,6 +9,18 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTranslation } from 'react-i18next';
 import bharathLogo from '@/assets/bharath-logo.png';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { 
   UserCheck, 
   Car, 
@@ -32,12 +44,12 @@ import {
 } from "lucide-react";
 
 export const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
   const { signOut, userProfile, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const connectivityStatus = useConnectivity();
   const { t } = useTranslation('common');
+  const { open, setOpen } = useSidebar();
   
   // Hide back button on home/dashboard
   const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/';
@@ -71,22 +83,22 @@ export const Navbar = () => {
 
   return (
     <>
-      <nav className="bg-gradient-primary text-primary-foreground shadow-lg relative z-50">
-        <div className="px-3 py-2">
+      <nav className="fixed top-0 left-0 right-0 bg-gradient-primary text-primary-foreground shadow-lg z-50">
+        <div className="px-3 py-1.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {showBackButton && (
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="p-1.5 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+                  className="p-1 rounded-lg hover:bg-primary-foreground/10 transition-colors"
                   title="Go to dashboard"
                 >
-                  <ArrowLeft size={18} />
+                  <ArrowLeft size={16} />
                 </button>
               )}
               
-              <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden bg-white p-1">
+              <NavLink to="/dashboard" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden bg-white p-0.5">
                   <img 
                     src={bharathLogo} 
                     alt="Bharath Beverages" 
@@ -94,17 +106,17 @@ export const Navbar = () => {
                   />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <h1 className="text-sm font-semibold">Bharath Beverages</h1>
+                  <div className="flex items-center gap-1">
+                    <h1 className="text-xs font-semibold">Bharath Beverages</h1>
                     <SyncStatusIndicator />
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     {connectivityStatus === 'online' ? (
-                      <Wifi className="h-3 w-3 opacity-80" />
+                      <Wifi className="h-2.5 w-2.5 opacity-80" />
                     ) : connectivityStatus === 'offline' ? (
                       <>
-                        <WifiOff className="h-3 w-3 opacity-80" />
-                        <p className="text-xs opacity-80">No Connection</p>
+                        <WifiOff className="h-2.5 w-2.5 opacity-80" />
+                        <p className="text-[10px] opacity-80">No Connection</p>
                       </>
                     ) : null}
                   </div>
@@ -112,132 +124,101 @@ export const Navbar = () => {
               </NavLink>
             </div>
             
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
-              >
-                {isOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </div>
+            <SidebarTrigger className="p-1.5 rounded-lg hover:bg-primary-foreground/10 transition-colors" />
           </div>
         </div>
       </nav>
 
-      {/* Full Screen Navigation */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-            {/* Header Section */}
-            <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
-              <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
-              <div className="relative p-4 text-center">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <NavLink to="/employee-profile" onClick={() => setIsOpen(false)}>
-                      <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
-                        <AvatarImage src="/placeholder.svg" alt="User" />
-                        <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
-                          {userInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                    </NavLink>
-                    <div className="text-left cursor-pointer hover:opacity-80 transition-opacity" onClick={() => {
-                      navigate('/employee-profile');
-                      setIsOpen(false);
-                    }}>
-                      <h1 className="text-2xl font-bold">{displayName}</h1>
-                      {userRole === 'admin' && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Shield className="h-3 w-3" />
-                          <span className="text-xs font-medium opacity-90">Administrator</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <SyncStatusIndicator />
-                    <NetworkBadge />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={signOut}
-                      className="text-primary-foreground hover:bg-primary-foreground/10 h-8"
-                    >
-                      <LogOut className="h-4 w-4 mr-1" />
-                      {t('nav.logout')}
-                    </Button>
-                    <button
-                      onClick={() => setIsOpen(false)}
-                      className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
-                    >
-                      <X size={24} />
-                    </button>
-                  </div>
+      <div className="h-12" />
+
+      <Sidebar className="mt-12 border-r">
+        <SidebarContent>
+          {/* User Profile Section */}
+          <div className="p-4 border-b">
+            <div className="flex items-center gap-3">
+              <NavLink to="/employee-profile">
+                <Avatar className="h-9 w-9 border-2 border-primary/20 hover:scale-105 transition-transform cursor-pointer">
+                  <AvatarImage src="/placeholder.svg" alt="User" />
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+              </NavLink>
+              <div className="flex-1 min-w-0">
+                <div 
+                  className="text-sm font-semibold truncate cursor-pointer hover:text-primary transition-colors" 
+                  onClick={() => navigate('/employee-profile')}
+                >
+                  {displayName}
                 </div>
-                
-              </div>
-            </div>
-
-            {/* Current Month Performance */}
-            <div className="p-4 pt-4 mt-0 relative z-10">
-
-              {/* Navigation Grid */}
-              <div className="space-y-4">
-                {/* Admin Section - Only show for admin users */}
                 {userRole === 'admin' && (
-                  <div>
-                    <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Admin Controls</h2>
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      {adminNavigationItems.map((item) => (
-                        <NavLink 
-                          key={item.href} 
-                          to={item.href}
-                          className="group block"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          <div className="p-2 text-center transition-all duration-300 hover:scale-105">
-                            <div className={`inline-flex items-center justify-center w-10 h-10 mb-1 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
-                              <item.icon className="h-5 w-5 text-white drop-shadow-sm" />
-                            </div>
-                            <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
-                              {item.label}
-                            </h3>
-                          </div>
-                        </NavLink>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Shield className="h-3 w-3" />
+                    <span>Administrator</span>
                   </div>
                 )}
-                
-                {/* Regular Navigation */}
-                <div>
-                  <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Navigation</h2>
-                  <div className="grid grid-cols-3 gap-3">
-                    {navigationItems.map((item) => (
-                      <NavLink 
-                        key={item.href} 
-                        to={item.href}
-                        className="group block"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <div className="p-2 text-center transition-all duration-300 hover:scale-105">
-                          <div className={`inline-flex items-center justify-center w-10 h-10 mb-1 rounded-xl bg-gradient-to-r ${item.color} shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300 border border-white/20`}>
-                            <item.icon className="h-5 w-5 text-white drop-shadow-sm" />
-                          </div>
-                          <h3 className="font-medium text-xs text-foreground/80 group-hover:text-primary transition-colors leading-tight">
-                            {item.label}
-                          </h3>
-                        </div>
-                      </NavLink>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
+            <div className="flex items-center gap-2 mt-3">
+              <SyncStatusIndicator />
+              <NetworkBadge />
+            </div>
           </div>
-        </div>
-      )}
+
+          {/* Admin Section */}
+          {userRole === 'admin' && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Admin Controls</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {adminNavigationItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild>
+                        <NavLink to={item.href} className="flex items-center gap-3">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {/* Main Navigation */}
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigationItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.href} className="flex items-center gap-3">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Logout Button */}
+          <div className="p-4 mt-auto border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={signOut}
+              className="w-full"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {t('nav.logout')}
+            </Button>
+          </div>
+        </SidebarContent>
+      </Sidebar>
     </>
   );
 };

@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { Navbar } from "./Navbar";
 import { ChatWidget } from "./chat/ChatWidget";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,12 +20,14 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [isOnline]);
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <Navbar />
-      <main className="pb-20">
-        {children}
-      </main>
-      <ChatWidget />
-    </div>
+    <SidebarProvider>
+      <div className="min-h-screen bg-gradient-subtle w-full flex">
+        <Navbar />
+        <main className="flex-1 pb-20 pt-12">
+          {children}
+        </main>
+        <ChatWidget />
+      </div>
+    </SidebarProvider>
   );
 };
