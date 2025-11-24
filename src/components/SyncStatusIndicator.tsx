@@ -51,7 +51,7 @@ export const SyncStatusIndicator = () => {
           const queue = await offlineStorage.getSyncQueue();
           
           if (queue.length === 0) {
-            console.log('✅ SyncStatusIndicator: All items synced successfully (silent)');
+            console.log(`✅ SyncStatusIndicator: All items synced successfully (silent)`);
             setLastSyncStatus('success');
             setSyncQueueCount(0);
             
@@ -63,7 +63,7 @@ export const SyncStatusIndicator = () => {
             setLastSyncStatus('error');
           }
         } catch (error) {
-          console.error('❌ SyncStatusIndicator: Sync failed (silent):', error);
+          console.error(`❌ SyncStatusIndicator: Sync failed (silent):`, error);
           setLastSyncStatus('error');
         } finally {
           setIsSyncing(false);
