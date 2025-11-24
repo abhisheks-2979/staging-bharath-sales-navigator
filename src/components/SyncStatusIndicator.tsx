@@ -38,27 +38,25 @@ export const SyncStatusIndicator = () => {
         setIsSyncing(true);
         setLastSyncStatus(null);
         
-        console.log(`🔄 Starting sync of ${syncQueueCount} items...`);
+        console.log(`🔄 SyncStatusIndicator: Starting sync of ${syncQueueCount} items...`);
         
         toast({
           title: "Syncing Data",
           description: `Uploading ${syncQueueCount} pending ${syncQueueCount === 1 ? 'item' : 'items'}...`
         });
 
-        // Check queue status every second for up to 30 seconds
-        let checkCount = 0;
-        const maxChecks = 30;
-        
-        const checkInterval = setInterval(async () => {
-          checkCount++;
+        try {
+          // Actually trigger the sync process
+          await processSyncQueue();
+          
+          // Wait a moment for the queue to update
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check final queue status
           const queue = await offlineStorage.getSyncQueue();
           
-          console.log(`📊 Sync check ${checkCount}/${maxChecks}: ${queue.length} items remaining`);
-          
-          // If queue is empty, sync is complete
           if (queue.length === 0) {
-            clearInterval(checkInterval);
-            setIsSyncing(false);
+            console.log('✅ SyncStatusIndicator: All items synced successfully');
             setLastSyncStatus('success');
             setSyncQueueCount(0);
             
@@ -69,11 +67,9 @@ export const SyncStatusIndicator = () => {
 
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
-          } 
-          // If we've checked 30 times and still have items, show error
-          else if (checkCount >= maxChecks) {
-            clearInterval(checkInterval);
-            setIsSyncing(false);
+          } else {
+            console.log(`⚠️ SyncStatusIndicator: ${queue.length} items still pending`);
+            setSyncQueueCount(queue.length);
             setLastSyncStatus('error');
             
             toast({
@@ -82,15 +78,25 @@ export const SyncStatusIndicator = () => {
               variant: "destructive"
             });
           }
-        }, 1000);
+        } catch (error) {
+          console.error('❌ SyncStatusIndicator: Sync failed:', error);
+          setLastSyncStatus('error');
+          toast({
+            title: "❌ Sync Failed",
+            description: "Failed to sync. Will retry automatically.",
+            variant: "destructive"
+          });
+        } finally {
+          setIsSyncing(false);
+        }
       }
     };
     
     // Trigger sync immediately when online and have items
-    if (isOnline && syncQueueCount > 0) {
+    if (isOnline && syncQueueCount > 0 && !isSyncing) {
       handleSync();
     }
-  }, [isOnline, syncQueueCount, isSyncing]);
+  }, [isOnline, syncQueueCount, isSyncing, processSyncQueue]);
 
   // Only show when syncing or have pending items
   if (isSyncing || syncQueueCount > 0) {

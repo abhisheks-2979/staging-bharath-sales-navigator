@@ -97,30 +97,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let planned = 0;
         let productive = 0;
         let unproductive = 0;
-        let totalOrders = 0;
-        let totalOrderValue = 0;
+        let totalOrders = filteredOrders.length;
+        let totalOrderValue = filteredOrders.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0);
 
-        filteredRetailers.forEach((retailer: any) => {
-          const visit = filteredVisits.find((v: any) => v.retailer_id === retailer.id);
-          const isPlanned = progressPlannedBeatIds.includes(retailer.beat_id);
-          
-          if (!visit && !isPlanned) return;
-
-          const orderValue = ordersByRetailer.get(retailer.id) || 0;
+        filteredVisits.forEach((visit: any) => {
+          const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
           const hasOrder = orderValue > 0;
           
-          const status = hasOrder ? 'productive' : 
-                        visit?.status === 'unproductive' ? 'unproductive' : 
-                        visit?.check_in_time ? 'in-progress' : 
-                        'planned';
-
-          if (status === 'productive') {
-            productive++;
-            totalOrders++;
-            totalOrderValue += orderValue;
-          } else if (status === 'unproductive') {
+          // Check visit status directly from the visit record
+          if (visit.status === 'unproductive' || (visit.no_order_reason && !hasOrder)) {
             unproductive++;
-          } else if (status === 'planned' || status === 'in-progress' || status === 'cancelled') {
+          } else if (hasOrder || visit.status === 'productive') {
+            productive++;
+          } else if (visit.status === 'planned' || !visit.check_in_time) {
             planned++;
           }
         });
@@ -133,7 +122,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setOrders(filteredOrders);
         setIsLoading(false);
         hasLoadedFromCache = true;
-        console.log('✅ Loaded from cache instantly with progress stats:', { planned, productive, unproductive, totalOrders, totalOrderValue });
+        console.log('✅ Loaded from cache instantly with progress stats:', { 
+          planned, 
+          productive, 
+          unproductive, 
+          totalOrders, 
+          totalOrderValue,
+          visitsCount: filteredVisits.length,
+          ordersCount: filteredOrders.length
+        });
       }
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
