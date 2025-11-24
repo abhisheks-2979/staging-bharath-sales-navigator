@@ -15,50 +15,80 @@ export function useOfflineSync() {
       
       if (syncQueue.length === 0) return;
       
-      console.log(`Processing ${syncQueue.length} queued sync items`);
+      console.log(`🔄 Processing ${syncQueue.length} queued sync items`);
 
       let successCount = 0;
       let failCount = 0;
+      const failedItems: any[] = [];
 
       for (const item of syncQueue) {
         try {
+          console.log(`⏳ Syncing ${item.action}...`, item.data);
+          
           // Process each sync item based on action type
           await processSyncItem(item);
+          
           // Remove from queue after successful sync
           await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+          console.log(`✅ Successfully synced ${item.action}`);
           successCount++;
         } catch (error: any) {
           const errorMsg = error?.message || error?.toString() || 'Unknown error';
           const errorCode = error?.code || '';
-          console.error(`Failed to sync ${item.action}:`, {
+          
+          console.error(`❌ Failed to sync ${item.action}:`, {
             action: item.action,
             error: errorMsg,
             code: errorCode,
             details: error,
-            item: item
+            data: item.data
           });
-          failCount++;
           
-          // Keep item in queue for retry but log the error
-          // Don't remove failed items so they can be retried
+          failCount++;
+          failedItems.push({
+            action: item.action,
+            error: errorMsg
+          });
+          
+          // Increment retry count
+          const updatedItem = {
+            ...item,
+            retryCount: (item.retryCount || 0) + 1,
+            lastError: errorMsg
+          };
+          
+          // Keep in queue for retry (max 5 attempts)
+          if (updatedItem.retryCount < 5) {
+            await offlineStorage.save(STORES.SYNC_QUEUE, updatedItem);
+          } else {
+            // After 5 failed attempts, remove from queue
+            console.error(`⛔ Removing item after 5 failed attempts:`, item.action);
+            await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+          }
         }
       }
 
-      // Show summary toast
+      // Show detailed summary toast
       if (successCount > 0 && failCount === 0) {
         toast({
-          title: "Sync Complete",
+          title: "✅ Sync Complete",
           description: `${successCount} ${successCount === 1 ? 'item' : 'items'} synced successfully`,
         });
       } else if (failCount > 0) {
+        const failedActions = failedItems.map(f => f.action).join(', ');
         toast({
-          title: "Sync Issues",
-          description: `${successCount} succeeded, ${failCount} failed. Will retry automatically.`,
+          title: "⚠️ Sync Issues",
+          description: `${successCount} succeeded, ${failCount} failed (${failedActions}). Retrying...`,
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Error processing sync queue:', error);
+      console.error('❌ Error processing sync queue:', error);
+      toast({
+        title: "Sync Error",
+        description: "Failed to process sync queue. Will retry automatically.",
+        variant: "destructive",
+      });
     }
   }, [connectivityStatus]);
 
@@ -309,20 +339,22 @@ export function useOfflineSync() {
   // Auto-sync when connectivity is restored and cleanup old data
   useEffect(() => {
     if (connectivityStatus === 'online') {
+      // Trigger sync immediately when online
+      console.log('🌐 Internet connected - starting immediate sync...');
       processSyncQueue();
       
       // Clean up old synced items (older than 3 days) after successful sync
       const cleanupOldData = async () => {
         try {
           await offlineStorage.deleteOldSyncedItems();
-          console.log('Old synced data cleaned up successfully');
+          console.log('🧹 Old synced data cleaned up successfully');
         } catch (error) {
-          console.error('Error cleaning up old data:', error);
+          console.error('❌ Error cleaning up old data:', error);
         }
       };
       
-      // Run cleanup after a short delay to let sync complete
-      setTimeout(cleanupOldData, 5000);
+      // Run cleanup after sync completes
+      setTimeout(cleanupOldData, 10000);
     }
   }, [connectivityStatus, processSyncQueue]);
 
