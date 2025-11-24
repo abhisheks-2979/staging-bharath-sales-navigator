@@ -34,31 +34,28 @@ export function useOfflineSync() {
             action: item.action,
             error: errorMsg,
             code: errorCode,
-            details: error
+            details: error,
+            item: item
           });
           failCount++;
           
-          // Store error details for user feedback
-          if (failCount === 1) {
-            // Show detailed error for the first failure
-            toast({
-              title: "Sync Error",
-              description: `Failed to sync ${item.action}: ${errorMsg}`,
-              variant: "destructive",
-            });
-          }
+          // Keep item in queue for retry but log the error
+          // Don't remove failed items so they can be retried
         }
       }
 
-      // Show summary toast only if no individual error toast was shown
+      // Show summary toast
       if (successCount > 0 && failCount === 0) {
         toast({
           title: "Sync Complete",
           description: `${successCount} ${successCount === 1 ? 'item' : 'items'} synced successfully`,
         });
-      } else if (successCount > 0 && failCount > 0) {
-        // Some succeeded, some failed - summary already shown in loop
-        console.log(`Sync completed: ${successCount} succeeded, ${failCount} failed`);
+      } else if (failCount > 0) {
+        toast({
+          title: "Sync Issues",
+          description: `${successCount} succeeded, ${failCount} failed. Will retry automatically.`,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error processing sync queue:', error);
