@@ -18,7 +18,7 @@ import {
   Store,
   Navigation2
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +47,20 @@ const motivationalQuotes = [
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
   const [currentQuote, setCurrentQuote] = useState("");
   const [monthlyStats, setMonthlyStats] = useState({
     newRetailers: 0,
     checkIns: 0,
     productiveVisits: "0%",
     revenue: "₹0"
+  });
+  const [todayProgress, setTodayProgress] = useState({
+    plannedVisits: 0,
+    completedVisits: 0,
+    ordersCount: 0,
+    orderValue: 0,
+    noOrderCount: 0
   });
   const { isInstallable, installApp } = usePWAInstall();
   const { userProfile, user, userRole } = useAuth();
@@ -97,8 +105,86 @@ const Index = () => {
   useEffect(() => {
     if (userProfile?.id) {
       fetchMonthlyStats();
+      fetchTodayProgress();
     }
   }, [userProfile?.id]);
+
+  // Auto-refresh today's progress every 30 seconds
+  useEffect(() => {
+    if (!userProfile?.id) return;
+
+    const refreshInterval = setInterval(() => {
+      fetchTodayProgress();
+    }, 30000); // 30 seconds
+
+    // Also refresh when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden && userProfile?.id) {
+        fetchTodayProgress();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [userProfile?.id]);
+
+  const fetchTodayProgress = async () => {
+    if (!userProfile?.id) return;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Fetch today's visits
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('id, status, no_order_reason')
+        .eq('user_id', userProfile.id)
+        .eq('planned_date', today);
+
+      const plannedCount = visits?.length || 0;
+      const completedCount = visits?.filter(v => v.status !== 'planned').length || 0;
+      const noOrderCount = visits?.filter(v => v.status === 'unproductive' && v.no_order_reason).length || 0;
+
+      // Fetch today's orders
+      const visitIds = visits?.map(v => v.id) || [];
+      let ordersCount = 0;
+      let totalOrderValue = 0;
+
+      if (visitIds.length > 0) {
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id, total_amount')
+          .eq('user_id', userProfile.id)
+          .in('visit_id', visitIds);
+
+        ordersCount = orders?.length || 0;
+        totalOrderValue = orders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+      }
+
+      setTodayProgress({
+        plannedVisits: plannedCount,
+        completedVisits: completedCount,
+        ordersCount,
+        orderValue: totalOrderValue,
+        noOrderCount
+      });
+
+      console.log('📊 Today Progress Updated:', {
+        plannedVisits: plannedCount,
+        completedVisits: completedCount,
+        ordersCount,
+        orderValue: totalOrderValue,
+        noOrderCount
+      });
+
+    } catch (error) {
+      console.error('Error fetching today progress:', error);
+    }
+  };
 
   const fetchMonthlyStats = async () => {
     if (!userProfile?.id) return;
@@ -174,6 +260,7 @@ const Index = () => {
   };
 
   const navigationItems: NavigationItem[] = [
+    { icon: BarChart, label: "Today's Progress", href: "/today-summary", color: "from-cyan-500 to-cyan-600" },
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: "My Visit", href: "/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Navigation2, label: "GPS Track", href: "/gps-track", color: "from-purple-500 to-purple-600" },
@@ -260,6 +347,52 @@ const Index = () => {
 
         {/* This Month's Progress */}
         <div className="p-4 -mt-6 relative z-10">
+          {/* Today's Progress Card */}
+          <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-600/10 border-cyan-200 shadow-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <BarChart className="h-5 w-5 text-cyan-600" />
+                Today's Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-cyan-600">{todayProgress.plannedVisits}</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Planned</div>
+                </div>
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-green-600">{todayProgress.completedVisits}</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Completed</div>
+                </div>
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">{todayProgress.ordersCount}</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Orders</div>
+                </div>
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-orange-600">
+                    ₹{todayProgress.orderValue >= 1000 
+                      ? `${(todayProgress.orderValue / 1000).toFixed(1)}K` 
+                      : todayProgress.orderValue}
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Value</div>
+                </div>
+                <div className="text-center p-3 bg-white/50 rounded-lg col-span-2 sm:col-span-1">
+                  <div className="text-xl sm:text-2xl font-bold text-red-600">{todayProgress.noOrderCount}</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">No Order</div>
+                </div>
+              </div>
+              <Button 
+                onClick={() => navigate('/today-summary')}
+                className="w-full mt-4"
+                variant="outline"
+                size="sm"
+              >
+                View Detailed Report
+              </Button>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-6">
             <Card className="bg-gradient-to-r from-blue-500/10 to-blue-600/10 border-blue-200 shadow-lg">
               <CardContent className="p-2 sm:p-3 text-center">
