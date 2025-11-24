@@ -115,29 +115,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         });
 
         setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
-        
-        setBeatPlans(filteredBeatPlans);
-        setVisits(filteredVisits);
-        setRetailers(filteredRetailers);
-        setOrders(filteredOrders);
-        setIsLoading(false);
-        hasLoadedFromCache = true;
-        console.log('✅ Loaded from cache instantly with progress stats:', { 
+        console.log('📊 [CACHE] Progress stats calculated from cache:', { 
           planned, 
           productive, 
           unproductive, 
           totalOrders, 
           totalOrderValue,
+          selectedDate,
           visitsCount: filteredVisits.length,
-          ordersCount: filteredOrders.length
+          ordersCount: filteredOrders.length,
+          timestamp: new Date().toISOString()
         });
       }
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
     }
 
-    // STEP 2: Background sync from network if online
+  // STEP 2: Background sync from network if online
     if (navigator.onLine) {
+      console.log('🌐 [VisitsData] Device is online, fetching fresh data from network...');
       try {
         // Calculate date range for queries
         const dateStart = new Date(selectedDate);
@@ -269,7 +265,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         });
 
         setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
-        console.log('📊 Progress stats calculated:', { planned, productive, unproductive, totalOrders, totalOrderValue });
+        console.log('📊 [NETWORK] Progress stats calculated from network:', { 
+          planned, 
+          productive, 
+          unproductive, 
+          totalOrders, 
+          totalOrderValue,
+          selectedDate,
+          visitsCount: visitsData.length,
+          ordersCount: ordersData.length,
+          timestamp: new Date().toISOString()
+        });
 
         // Cache ONLY current date data (don't bloat storage with historical data)
         // Beat plans and retailers are already cached by useMasterDataCache
@@ -285,6 +291,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setVisits(visitsData);
         setRetailers(retailersData);
         setOrders(ordersData);
+        
+        console.log('🔄 [NETWORK] State updated with fresh data:', {
+          beatPlans: beatPlansData.length,
+          visits: visitsData.length,
+          retailers: retailersData.length,
+          orders: ordersData.length,
+          selectedDate
+        });
         
         if (!hasLoadedFromCache) {
           setIsLoading(false);
@@ -309,12 +323,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   }, [userId, selectedDate]);
 
   useEffect(() => {
+    console.log('🔄 useVisitsDataOptimized: Setting up data loading for date:', selectedDate);
     loadData();
 
     // Listen for manual refresh events
     const handleRefresh = () => {
-      console.log('🔄 Manual refresh triggered');
-      loadData();
+      console.log('🔄 visitDataChanged event received! Refreshing data for date:', selectedDate);
+      // Add small delay to ensure any database writes are complete
+      setTimeout(() => {
+        loadData();
+      }, 500);
     };
     
     window.addEventListener('visitDataChanged', handleRefresh);
@@ -322,7 +340,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     return () => {
       window.removeEventListener('visitDataChanged', handleRefresh);
     };
-  }, [loadData]);
+  }, [loadData, selectedDate]);
 
   const invalidateData = useCallback(() => {
     loadData();
