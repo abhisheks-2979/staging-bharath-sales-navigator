@@ -821,6 +821,53 @@ export const Cart = () => {
               });
 
               await supabase.from('invoice_items').insert(invoiceItems);
+
+              // Send invoice via WhatsApp automatically
+              try {
+                const { data: retailer } = await supabase
+                  .from('retailers')
+                  .select('phone')
+                  .eq('id', validRetailerId)
+                  .single();
+
+                if (retailer?.phone) {
+                  // Import and use the invoice generator
+                  const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
+                  const { blob, invoiceNumber } = await fetchAndGenerateInvoice(order.id);
+                  
+                  const fileName = `invoice-${invoiceNumber}.pdf`;
+                  
+                  // Upload to storage
+                  const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('invoices')
+                    .upload(fileName, blob, {
+                      contentType: 'application/pdf',
+                      upsert: true
+                    });
+
+                  if (!uploadError && uploadData) {
+                    // Get public URL
+                    const { data: { publicUrl } } = await supabase.storage
+                      .from('invoices')
+                      .getPublicUrl(uploadData.path);
+
+                    // Send via WhatsApp
+                    await supabase.functions.invoke('send-invoice-whatsapp', {
+                      body: { 
+                        invoiceId: order.id,
+                        customerPhone: retailer.phone,
+                        pdfUrl: publicUrl,
+                        invoiceNumber: invoiceNumber
+                      }
+                    });
+
+                    console.log('✅ Invoice sent via WhatsApp to:', retailer.phone);
+                  }
+                }
+              } catch (whatsappError) {
+                console.error('Failed to send invoice via WhatsApp:', whatsappError);
+                // Don't fail the order if WhatsApp sending fails
+              }
             }
 
             console.log('✅ Background post-order processing completed');
