@@ -79,7 +79,7 @@ export const Navbar = () => {
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 bg-gradient-primary text-white shadow-lg z-50">
-        <div className="px-3 py-1.5">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {showBackButton && (
@@ -92,8 +92,8 @@ export const Navbar = () => {
                 </button>
               )}
               
-              <NavLink to="/dashboard" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity text-white">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden bg-white p-0.5">
+              <NavLink to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity text-white">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden bg-white p-0.5">
                   <img 
                     src={bharathLogo} 
                     alt="Bharath Beverages" 
@@ -102,7 +102,7 @@ export const Navbar = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-1">
-                    <h1 className="text-xs font-semibold text-white">Bharath Beverages</h1>
+                    <h1 className="text-base font-semibold text-white">Bharath Beverages</h1>
                     <SyncStatusIndicator />
                   </div>
                   <div className="flex items-center gap-0.5 text-white">
