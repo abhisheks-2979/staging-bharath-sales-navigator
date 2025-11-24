@@ -228,6 +228,9 @@ export function useOfflineOrderEntry() {
         description: "Your order will be synced when you're back online",
       });
 
+      // Trigger data refresh for Today's Progress
+      window.dispatchEvent(new Event('visitDataChanged'));
+
       return { success: true, offline: true, order: offlineOrder };
     } else {
       // Online: Submit with optimized single transaction
@@ -250,6 +253,9 @@ export function useOfflineOrderEntry() {
         .insert(itemsWithOrderId);
 
       if (itemsError) throw itemsError;
+
+      // Trigger data refresh for Today's Progress
+      window.dispatchEvent(new Event('visitDataChanged'));
 
       return { success: true, offline: false, order };
     }
