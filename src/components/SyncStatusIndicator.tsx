@@ -31,61 +31,40 @@ export const SyncStatusIndicator = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Monitor syncing status when coming online
+  // Monitor syncing status when coming online - SILENT mode
   useEffect(() => {
     const handleSync = async () => {
       if (isOnline && syncQueueCount > 0 && !isSyncing) {
         setIsSyncing(true);
         setLastSyncStatus(null);
         
-        console.log(`🔄 SyncStatusIndicator: Starting sync of ${syncQueueCount} items...`);
-        
-        toast({
-          title: "Syncing Data",
-          description: `Uploading ${syncQueueCount} pending ${syncQueueCount === 1 ? 'item' : 'items'}...`
-        });
+        console.log(`🔄 SyncStatusIndicator: Starting silent sync of ${syncQueueCount} items...`);
 
         try {
-          // Actually trigger the sync process
+          // Trigger sync process silently
           await processSyncQueue();
           
-          // Wait a moment for the queue to update
+          // Wait for queue to update
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           // Check final queue status
           const queue = await offlineStorage.getSyncQueue();
           
           if (queue.length === 0) {
-            console.log('✅ SyncStatusIndicator: All items synced successfully');
+            console.log('✅ SyncStatusIndicator: All items synced successfully (silent)');
             setLastSyncStatus('success');
             setSyncQueueCount(0);
             
-            toast({
-              title: "✅ Sync Complete",
-              description: "All changes uploaded successfully"
-            });
-
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
           } else {
-            console.log(`⚠️ SyncStatusIndicator: ${queue.length} items still pending`);
+            console.log(`⚠️ SyncStatusIndicator: ${queue.length} items still pending (silent)');
             setSyncQueueCount(queue.length);
             setLastSyncStatus('error');
-            
-            toast({
-              title: "⚠️ Sync Incomplete",
-              description: `${queue.length} ${queue.length === 1 ? 'item' : 'items'} still pending. Will retry automatically.`,
-              variant: "destructive"
-            });
           }
         } catch (error) {
-          console.error('❌ SyncStatusIndicator: Sync failed:', error);
+          console.error('❌ SyncStatusIndicator: Sync failed (silent):', error);
           setLastSyncStatus('error');
-          toast({
-            title: "❌ Sync Failed",
-            description: "Failed to sync. Will retry automatically.",
-            variant: "destructive"
-          });
         } finally {
           setIsSyncing(false);
         }
