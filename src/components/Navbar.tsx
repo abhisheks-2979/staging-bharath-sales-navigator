@@ -136,14 +136,9 @@ export const Navbar = () => {
           {/* User Profile Section */}
           <SheetHeader className="pb-4 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-6 mb-6">
             <div className="flex items-center gap-3">
-              <NavLink to="/employee-profile" onClick={handleMenuItemClick}>
-                <Avatar className="h-12 w-12 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
-                  <AvatarImage src="/placeholder.svg" alt="User" />
-                  <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              </NavLink>
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary-foreground/20 border-2 border-primary-foreground/20 shadow-lg">
+                <LogOut className="h-6 w-6 text-primary-foreground" />
+              </div>
               <div className="flex-1 text-left">
                 <SheetTitle 
                   className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity" 
