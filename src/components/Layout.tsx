@@ -1,7 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Navbar } from "./Navbar";
 import { ChatWidget } from "./chat/ChatWidget";
-import { StatusBar } from "./StatusBar";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
@@ -29,7 +28,6 @@ export const Layout = ({ children }: LayoutProps) => {
       <main className="pb-20">
         {children}
       </main>
-      <StatusBar />
       <ChatWidget />
     </div>
   );
