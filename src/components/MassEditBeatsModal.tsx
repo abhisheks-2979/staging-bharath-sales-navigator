@@ -38,18 +38,29 @@ export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSucces
   // Load beats from offline storage when offline
   useEffect(() => {
     const loadBeats = async () => {
-      if (!isOnline && (!beats || beats.length === 0)) {
+      if (!isOnline) {
         try {
-          const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
-          const userBeats = cachedBeats
-            .filter((b: any) => b.user_id === user?.id && b.is_active)
-            .map((b: any) => b.beat_id);
-          setAvailableBeats(Array.from(new Set(userBeats)));
+          // When offline, extract beats from cached retailers
+          const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+          const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user?.id);
+          
+          // Extract unique beat_ids from retailers
+          const beatIds = Array.from(new Set(
+            userRetailers
+              .map((r: any) => r.beat_id)
+              .filter((id: string) => id && id !== '')
+          )) as string[];
+          
+          console.log('Offline: Loaded beats from cached retailers:', beatIds);
+          setAvailableBeats(beatIds.sort());
         } catch (error) {
           console.error('Error loading beats from cache:', error);
+          // Fallback to provided beats if cache fails
+          setAvailableBeats(beats || []);
         }
       } else {
-        setAvailableBeats(beats);
+        // Online: use provided beats
+        setAvailableBeats(beats || []);
       }
     };
     
