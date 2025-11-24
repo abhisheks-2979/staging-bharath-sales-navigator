@@ -19,6 +19,7 @@ import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificatio
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { offlineStorage } from "@/lib/offlineStorage";
+import { useConnectivity } from "@/hooks/useConnectivity";
 interface CartItem {
   id: string;
   name: string;
@@ -74,6 +75,7 @@ export const Cart = () => {
   const retailerName = searchParams.get("retailer") || "Retailer Name";
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
+  const connectivityStatus = useConnectivity();
 
 
   // Fetch and cache schemes from database
@@ -717,15 +719,16 @@ export const Cart = () => {
 
       // Submit order using offline-capable utility
       const result = await submitOrderWithOfflineSupport(orderData, orderItems, {
+        connectivityStatus,
         onOffline: () => {
           toast({
-            title: "Order Saved Offline",
-            description: "Your order will be synced when you're back online",
+            title: "📵 Order Saved Offline",
+            description: "Your order and invoice message will be synced automatically when you're back online",
           });
         },
         onOnline: () => {
           toast({
-            title: "Order Placed Successfully",
+            title: "✅ Order Placed Successfully",
             description: `Order for ${retailerName} has been confirmed`,
           });
         }
