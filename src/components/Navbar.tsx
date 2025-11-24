@@ -124,9 +124,7 @@ export const Navbar = () => {
               </NavLink>
             </div>
             
-            <SidebarTrigger className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
-              <Menu size={20} />
-            </SidebarTrigger>
+            <SidebarTrigger className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white" />
           </div>
         </div>
       </nav>
