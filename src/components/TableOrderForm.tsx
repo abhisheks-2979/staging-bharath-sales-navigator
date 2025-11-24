@@ -23,6 +23,7 @@ interface Product {
   base_unit?: string;
   conversion_factor?: number;
   closing_stock: number;
+  is_active?: boolean;
   is_focused_product?: boolean;
   focused_type?: string | null;
   focused_due_date?: string | null;
@@ -139,37 +140,38 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
 
   // Create flattened list of products and variants for combobox
   const getProductOptions = () => {
-    const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; type: 'product' | 'variant' }> = [];
+    const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; price: number; type: 'product' | 'variant' }> = [];
     
-    products.forEach(product => {
-      // Add base product
-      options.push({
-        value: product.id,
-        label: product.name,
-        product: product,
-        sku: product.sku,
-        type: 'product'
-      });
+    // Filter only active products
+    const activeProducts = products.filter(p => p.is_active !== false);
+    
+    activeProducts.forEach(product => {
+      // Only add base product if it has no variants or if explicitly needed
+      if (!product.variants || product.variants.length === 0) {
+        options.push({
+          value: product.id,
+          label: `${product.name} | ₹${product.rate}`,
+          product: product,
+          sku: product.sku,
+          price: product.rate,
+          type: 'product'
+        });
+      }
       
-      // Add variants as separate entries (without base product name)
-      if (product.variants) {
+      // Add active variants with base product name
+      if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           if (variant.is_active) {
-            // Extract just the variant part by removing the base product name if it's included
-            let variantDisplayName = variant.variant_name;
-            // If variant name starts with product name, remove it
-            if (variantDisplayName.toLowerCase().startsWith(product.name.toLowerCase())) {
-              variantDisplayName = variantDisplayName.substring(product.name.length).trim();
-              // Remove leading dash or hyphen if present
-              variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-            }
+            // Display format: "BaseName - VariantName | SKU: xxx | ₹price"
+            const displayLabel = `${product.name} - ${variant.variant_name} | ₹${variant.price}`;
             
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: variantDisplayName || variant.variant_name, // Show only variant name
+              label: displayLabel,
               product: product,
               variant: variant,
               sku: variant.sku,
+              price: variant.price,
               type: 'variant'
             });
           }
