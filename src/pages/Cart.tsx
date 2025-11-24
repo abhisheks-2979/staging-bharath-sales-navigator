@@ -895,10 +895,19 @@ export const Cart = () => {
 
               if (fnError) {
                 console.error('❌ Edge function error (send-invoice-whatsapp):', fnError);
+                toast({
+                  title: 'Invoice Message Failed',
+                  description: fnError.message || 'Could not send invoice link via SMS/WhatsApp. Please contact admin.',
+                  variant: 'destructive',
+                });
                 throw fnError;
               }
 
               console.log('✅ Edge function response:', fnResult);
+              toast({
+                title: 'Invoice Link Sent',
+                description: 'Invoice link sent via SMS/WhatsApp to retailer.',
+              });
             }
           } else {
             console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
