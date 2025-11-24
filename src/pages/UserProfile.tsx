@@ -17,6 +17,7 @@ import { PointsDetailsModal } from '@/components/PointsDetailsModal';
 import { PerformanceDashboard } from '@/components/profile/PerformanceDashboard';
 import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
 import { PushContentConfigurator } from '@/components/profile/PushContentConfigurator';
+import { LanguageSelector } from '@/components/LanguageSelector';
 
 interface Manager {
   id: string;
@@ -259,6 +260,14 @@ const UserProfile = () => {
                       value={formData.emergency_contact_number}
                       onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact_number: e.target.value }))}
                     />
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-medium mt-6">Preferences</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language Preference</Label>
+                    <LanguageSelector />
                   </div>
                 </div>
 

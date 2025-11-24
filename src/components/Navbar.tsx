@@ -1,13 +1,12 @@
 import { Menu, X, LogOut, Home, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { NetworkBadge } from "@/components/NetworkBadge";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { useTranslation } from 'react-i18next';
 import bharathLogo from '@/assets/bharath-logo.png';
 import { 
@@ -36,8 +35,12 @@ export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { signOut, userProfile, userRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const connectivityStatus = useConnectivity();
   const { t } = useTranslation('common');
+  
+  // Hide back button on home/dashboard
+  const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/';
 
   const navigationItems = [
     { icon: UserCheck, label: "My Profile", href: "/employee-profile", color: "from-indigo-500 to-indigo-600" },
@@ -69,19 +72,21 @@ export const Navbar = () => {
   return (
     <>
       <nav className="bg-gradient-primary text-primary-foreground shadow-lg relative z-50">
-        <div className="px-4 py-3">
+        <div className="px-3 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
-                title="Go to dashboard"
-              >
-                <ArrowLeft size={20} />
-              </button>
+              {showBackButton && (
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="p-1.5 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+                  title="Go to dashboard"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+              )}
               
               <NavLink to="/dashboard" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden bg-white p-1.5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden bg-white p-1">
                   <img 
                     src={bharathLogo} 
                     alt="Bharath Beverages" 
@@ -89,31 +94,25 @@ export const Navbar = () => {
                   />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-semibold">Bharath Beverages</h1>
+                  <div className="flex items-center gap-1.5">
+                    <h1 className="text-sm font-semibold">Bharath Beverages</h1>
                     <SyncStatusIndicator />
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     {connectivityStatus === 'online' ? (
-                      <>
-                        <Wifi className="h-3 w-3 opacity-80" />
-                        <p className="text-xs opacity-80">Online</p>
-                      </>
+                      <Wifi className="h-3 w-3 opacity-80" />
                     ) : connectivityStatus === 'offline' ? (
                       <>
                         <WifiOff className="h-3 w-3 opacity-80" />
-                        <p className="text-xs opacity-80">Offline</p>
+                        <p className="text-xs opacity-80">No Connection</p>
                       </>
-                    ) : (
-                      <p className="text-xs opacity-80">Field Sales App</p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </NavLink>
             </div>
             
             <div className="flex items-center gap-2">
-              <LanguageSelector />
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
@@ -159,7 +158,6 @@ export const Navbar = () => {
                   <div className="flex items-center gap-2">
                     <SyncStatusIndicator />
                     <NetworkBadge />
-                    <LanguageSelector />
                     <Button
                       variant="ghost"
                       size="sm"
