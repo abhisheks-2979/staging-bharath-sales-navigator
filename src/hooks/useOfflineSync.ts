@@ -27,27 +27,38 @@ export function useOfflineSync() {
           // Remove from queue after successful sync
           await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
           successCount++;
-        } catch (error) {
-          console.error('Failed to sync item:', item, error);
+        } catch (error: any) {
+          const errorMsg = error?.message || error?.toString() || 'Unknown error';
+          const errorCode = error?.code || '';
+          console.error(`Failed to sync ${item.action}:`, {
+            action: item.action,
+            error: errorMsg,
+            code: errorCode,
+            details: error
+          });
           failCount++;
-          // Optionally implement retry logic here
+          
+          // Store error details for user feedback
+          if (failCount === 1) {
+            // Show detailed error for the first failure
+            toast({
+              title: "Sync Error",
+              description: `Failed to sync ${item.action}: ${errorMsg}`,
+              variant: "destructive",
+            });
+          }
         }
       }
 
-      // Show summary toast
-      if (successCount > 0) {
+      // Show summary toast only if no individual error toast was shown
+      if (successCount > 0 && failCount === 0) {
         toast({
           title: "Sync Complete",
-          description: `${successCount} ${successCount === 1 ? 'item' : 'items'} synced successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
+          description: `${successCount} ${successCount === 1 ? 'item' : 'items'} synced successfully`,
         });
-      }
-      
-      if (failCount > 0 && successCount === 0) {
-        toast({
-          title: "Sync Failed",
-          description: `${failCount} ${failCount === 1 ? 'item' : 'items'} failed to sync`,
-          variant: "destructive",
-        });
+      } else if (successCount > 0 && failCount > 0) {
+        // Some succeeded, some failed - summary already shown in loop
+        console.log(`Sync completed: ${successCount} succeeded, ${failCount} failed`);
       }
     } catch (error) {
       console.error('Error processing sync queue:', error);
