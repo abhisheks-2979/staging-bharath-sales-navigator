@@ -207,6 +207,8 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     return <Activity className="h-4 w-4" />;
   };
 
+  if (!territory) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
@@ -626,7 +628,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {assignmentHistory.map((assignment) => (
+                            {assignmentHistory.filter(a => a && a.id).map((assignment) => (
                               <TableRow key={assignment.id}>
                                 <TableCell className="text-xs sm:text-sm font-medium">{assignment.profiles?.full_name || 'Unknown'}</TableCell>
                                 <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{format(new Date(assignment.assigned_from), 'MMM dd, yyyy')}</TableCell>
