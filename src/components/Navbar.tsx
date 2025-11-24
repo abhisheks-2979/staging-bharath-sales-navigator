@@ -66,10 +66,6 @@ export const Navbar = () => {
   // Admin-only navigation items
   const adminNavigationItems = [
     { icon: Shield, label: t('nav.adminPanel'), href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
-    { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
-    { icon: Package, label: "Products", href: "/product-management", color: "from-blue-500 to-blue-600" },
-    { icon: Factory, label: "Vendors", href: "/vendors", color: "from-purple-500 to-purple-600" },
-    { icon: CreditCard, label: "Expense Management", href: "/admin-expense-management", color: "from-green-500 to-green-600" },
   ];
 
   // Get user display name and initials
