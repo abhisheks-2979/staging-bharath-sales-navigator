@@ -314,6 +314,9 @@ export const BeatPlanning = () => {
       // Automatically create/update expense records for planned beats
       await createExpenseRecords(selectedBeatIds, dateString);
 
+      // Trigger data refresh on My Visits page
+      window.dispatchEvent(new Event('visitDataChanged'));
+
       toast.success(`Successfully planned ${selectedBeatIds.length} beat(s) for ${format(selectedDate, 'MMMM d, yyyy')}`);
     } catch (error) {
       console.error('Error saving beat plan:', error);
