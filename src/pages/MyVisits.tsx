@@ -1020,7 +1020,7 @@ export const MyVisits = () => {
   }
 
   return <Layout>
-      <div className="p-2 sm:p-4 space-y-2 sm:space-y-4">
+      <div className="p-2 sm:p-4 space-y-2 sm:space-y-4 mt-2 sm:mt-3">
         {/* Header Card */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-2 px-2 sm:px-6 pt-2 sm:pt-6">
