@@ -7,11 +7,17 @@ interface UseVisitsDataOptimizedProps {
   selectedDate: string;
 }
 
+interface PointsData {
+  total: number;
+  byRetailer: Map<string, { name: string; points: number; visitId: string | null }>;
+}
+
 export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOptimizedProps) => {
   const [beatPlans, setBeatPlans] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [pointsData, setPointsData] = useState<PointsData>({ total: 0, byRetailer: new Map() });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<any>(null);
 
@@ -80,8 +86,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // STEP 2: Background sync from network if online
     if (navigator.onLine) {
       try {
-        // Fetch all initial data in parallel for speed
-        const [beatPlansResult, visitsResult] = await Promise.all([
+        // Calculate date range for queries
+        const dateStart = new Date(selectedDate);
+        dateStart.setHours(0, 0, 0, 0);
+        const dateEnd = new Date(selectedDate);
+        dateEnd.setHours(23, 59, 59, 999);
+
+        // Fetch all initial data in parallel for maximum speed
+        const [beatPlansResult, visitsResult, pointsResult] = await Promise.all([
           supabase
             .from('beat_plans')
             .select('*')
@@ -89,16 +101,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .eq('plan_date', selectedDate),
           supabase
             .from('visits')
-            .select('*')
+            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, retailers(name)')
             .eq('user_id', userId)
-            .eq('planned_date', selectedDate)
+            .eq('planned_date', selectedDate),
+          supabase
+            .from('gamification_points')
+            .select('points, reference_id, reference_type')
+            .eq('user_id', userId)
+            .eq('reference_type', 'order')
+            .gte('earned_at', dateStart.toISOString())
+            .lte('earned_at', dateEnd.toISOString())
         ]);
 
         if (beatPlansResult.error) throw beatPlansResult.error;
         if (visitsResult.error) throw visitsResult.error;
+        if (pointsResult.error) throw pointsResult.error;
 
         const beatPlansData = beatPlansResult.data || [];
         const visitsData = visitsResult.data || [];
+        const pointsRawData = pointsResult.data || [];
 
         // Get all retailer IDs we need
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
@@ -121,15 +142,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let ordersData: any[] = [];
 
         if (allRetailerIds.length > 0) {
-          // Fetch retailers and orders in parallel
+          // Fetch retailers and orders in parallel - using minimal fields for speed
           const [retailersResult, ordersResult] = await Promise.all([
             supabase
               .from('retailers')
-              .select('*')
+              .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, credit_limit, outstanding_amount')
               .in('id', allRetailerIds),
             supabase
               .from('orders')
-              .select('*')
+              .select('id, retailer_id, total_amount, status, created_at, user_id')
               .eq('user_id', userId)
               .eq('status', 'confirmed')
               .in('retailer_id', allRetailerIds)
@@ -143,6 +164,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           retailersData = retailersResult.data || [];
           ordersData = ordersResult.data || [];
         }
+
+        // Process points data into efficient structure
+        const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
+        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
+        
+        visitsData.forEach((visit: any) => {
+          const retailerId = visit.retailer_id;
+          const retailerPoints = pointsRawData
+            .filter((p: any) => p.reference_id === retailerId)
+            .reduce((sum, p) => sum + p.points, 0);
+          
+          if (retailerPoints > 0) {
+            retailerPointsMap.set(retailerId, {
+              name: visit.retailers?.name || 'Unknown Retailer',
+              points: retailerPoints,
+              visitId: visit.id
+            });
+          }
+        });
+
+        setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
 
         // Cache ONLY current date data (don't bloat storage with historical data)
         // Beat plans and retailers are already cached by useMasterDataCache
@@ -206,6 +248,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     visits,
     retailers,
     orders,
+    pointsData,
     isLoading,
     error,
     invalidateData,
