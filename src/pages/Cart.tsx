@@ -733,6 +733,12 @@ export const Cart = () => {
 
       console.timeEnd('⚡ Order Submission');
 
+      console.log('✅ Order created successfully:', {
+        orderId: result.order?.id,
+        offline: result.offline,
+        retailerId: validRetailerId
+      });
+
       // Clear cart immediately - user sees success
       localStorage.removeItem('cart');
       setCartItems([]);
@@ -832,6 +838,14 @@ export const Cart = () => {
       })();
 
       // IMPORTANT: Send invoice PDF + WhatsApp/SMS
+      console.log('📋 Invoice SMS Check:', {
+        offline: result.offline,
+        hasOrder: !!result.order,
+        orderId: result.order?.id,
+        validRetailerId,
+        willSendSMS: !result.offline && !!result.order && !!validRetailerId
+      });
+
       try {
         if (!result.offline && result.order && validRetailerId) {
           // ONLINE: Send immediately
@@ -940,6 +954,11 @@ export const Cart = () => {
         }
       } catch (notifyError: any) {
         console.error('❌ Failed to send/queue invoice via WhatsApp/SMS:', notifyError);
+        toast({
+          title: 'SMS Send Failed',
+          description: `Could not send invoice SMS: ${notifyError.message || 'Unknown error'}. Order was saved successfully.`,
+          variant: 'destructive',
+        });
       }
 
       // Navigate back only after attempting invoice notification
