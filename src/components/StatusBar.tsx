@@ -41,7 +41,7 @@ export const StatusBar = () => {
 
   return (
     <div 
-      className={`fixed bottom-0 left-0 right-0 z-40 py-2 px-4 text-white text-sm font-medium transition-all duration-300 ${
+      className={`fixed bottom-16 left-0 right-0 z-40 py-2 px-4 text-white text-sm font-medium transition-all duration-300 ${
         showSyncSuccess 
           ? 'bg-green-600' 
           : isOnline 
@@ -49,7 +49,7 @@ export const StatusBar = () => {
             : 'bg-gray-600'
       }`}
     >
-      <div className="container mx-auto flex items-center justify-between">
+      <div className="max-w-7xl mx-auto flex items-center justify-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           {showSyncSuccess ? (
             <>
@@ -83,7 +83,7 @@ export const StatusBar = () => {
         </div>
         
         {!isOnline && (
-          <span className="text-xs opacity-80">Data stored locally</span>
+          <span className="hidden sm:inline text-xs opacity-80">Data stored locally</span>
         )}
       </div>
     </div>

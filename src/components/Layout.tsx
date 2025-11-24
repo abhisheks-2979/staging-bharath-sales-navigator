@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from "react";
 import { Navbar } from "./Navbar";
 import { ChatWidget } from "./chat/ChatWidget";
+import { StatusBar } from "./StatusBar";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 
 interface LayoutProps {
@@ -25,6 +26,7 @@ export const Layout = ({ children }: LayoutProps) => {
         {children}
       </main>
       <ChatWidget />
+      <StatusBar />
     </div>
   );
 };
