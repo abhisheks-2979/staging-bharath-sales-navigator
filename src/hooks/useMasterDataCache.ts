@@ -18,12 +18,7 @@ export function useMasterDataCache() {
     try {
       console.log('[Cache] Syncing active products for offline order entry...');
       
-      // Clear existing cache first to avoid stale data
-      await offlineStorage.clear(STORES.PRODUCTS);
-      await offlineStorage.clear(STORES.VARIANTS);
-      await offlineStorage.clear(STORES.SCHEMES);
-      await offlineStorage.clear(STORES.CATEGORIES);
-      
+      // Fetch data FIRST, only clear cache if fetch succeeds
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select('*')
@@ -31,25 +26,11 @@ export function useMasterDataCache() {
 
       if (productsError) throw productsError;
 
-      if (products) {
-        for (const product of products) {
-          await offlineStorage.save(STORES.PRODUCTS, product);
-        }
-        console.log(`[Cache] ✅ ${products.length} active products cached`);
-      }
-
       // Cache only active variants
       const { data: variants } = await supabase
         .from('product_variants')
         .select('*')
         .eq('is_active', true);
-
-      if (variants) {
-        for (const variant of variants) {
-          await offlineStorage.save(STORES.VARIANTS, variant);
-        }
-        console.log(`[Cache] ✅ ${variants.length} variants cached`);
-      }
 
       // Cache only active schemes
       const { data: schemes } = await supabase
@@ -57,19 +38,38 @@ export function useMasterDataCache() {
         .select('*')
         .eq('is_active', true);
 
+      // Cache categories
+      const { data: categories } = await supabase
+        .from('product_categories')
+        .select('*');
+
+      // Only clear and update cache if all fetches succeeded
+      if (products) {
+        await offlineStorage.clear(STORES.PRODUCTS);
+        for (const product of products) {
+          await offlineStorage.save(STORES.PRODUCTS, product);
+        }
+        console.log(`[Cache] ✅ ${products.length} active products cached`);
+      }
+
+      if (variants) {
+        await offlineStorage.clear(STORES.VARIANTS);
+        for (const variant of variants) {
+          await offlineStorage.save(STORES.VARIANTS, variant);
+        }
+        console.log(`[Cache] ✅ ${variants.length} variants cached`);
+      }
+
       if (schemes) {
+        await offlineStorage.clear(STORES.SCHEMES);
         for (const scheme of schemes) {
           await offlineStorage.save(STORES.SCHEMES, scheme);
         }
         console.log(`[Cache] ✅ ${schemes.length} schemes cached`);
       }
 
-      // Cache categories
-      const { data: categories } = await supabase
-        .from('product_categories')
-        .select('*');
-
       if (categories) {
+        await offlineStorage.clear(STORES.CATEGORIES);
         for (const category of categories) {
           await offlineStorage.save(STORES.CATEGORIES, category);
         }
@@ -78,7 +78,7 @@ export function useMasterDataCache() {
 
       localStorage.setItem('master_data_cached_at', Date.now().toString());
     } catch (error) {
-      console.error('[Cache] Error caching products:', error);
+      console.error('[Cache] Error caching products, keeping existing cache:', error);
     }
   }, []);
 
@@ -89,9 +89,6 @@ export function useMasterDataCache() {
     try {
       console.log('[Cache] Syncing active beats...');
       
-      // Clear existing beats cache
-      await offlineStorage.clear(STORES.BEATS);
-      
       const { data: beats, error } = await supabase
         .from('beats')
         .select('*')
@@ -100,14 +97,16 @@ export function useMasterDataCache() {
 
       if (error) throw error;
 
+      // Only clear and update cache if fetch succeeded
       if (beats) {
+        await offlineStorage.clear(STORES.BEATS);
         for (const beat of beats) {
           await offlineStorage.save(STORES.BEATS, beat);
         }
         console.log(`[Cache] ✅ ${beats.length} active beats cached`);
       }
     } catch (error) {
-      console.error('[Cache] Error caching beats:', error);
+      console.error('[Cache] Error caching beats, keeping existing cache:', error);
     }
   }, [user]);
 
@@ -156,9 +155,6 @@ export function useMasterDataCache() {
     try {
       console.log('[Cache] Syncing retailers...');
       
-      // Clear existing retailers cache
-      await offlineStorage.clear(STORES.RETAILERS);
-      
       const { data: retailers, error } = await supabase
         .from('retailers')
         .select('*')
@@ -166,14 +162,16 @@ export function useMasterDataCache() {
 
       if (error) throw error;
 
+      // Only clear and update cache if fetch succeeded
       if (retailers) {
+        await offlineStorage.clear(STORES.RETAILERS);
         for (const retailer of retailers) {
           await offlineStorage.save(STORES.RETAILERS, retailer);
         }
         console.log(`[Cache] ✅ ${retailers.length} retailers cached`);
       }
     } catch (error) {
-      console.error('[Cache] Error caching retailers:', error);
+      console.error('[Cache] Error caching retailers, keeping existing cache:', error);
     }
   }, [user]);
 
@@ -183,9 +181,6 @@ export function useMasterDataCache() {
     
     try {
       console.log('[Cache] Syncing upcoming beat plans...');
-      
-      // Clear existing beat plans cache to avoid bloat
-      await offlineStorage.clear(STORES.BEAT_PLANS);
       
       // Get only today and next 3 days
       const today = new Date();
@@ -201,14 +196,16 @@ export function useMasterDataCache() {
 
       if (error) throw error;
 
+      // Only clear and update cache if fetch succeeded
       if (beatPlans) {
+        await offlineStorage.clear(STORES.BEAT_PLANS);
         for (const plan of beatPlans) {
           await offlineStorage.save(STORES.BEAT_PLANS, plan);
         }
         console.log(`[Cache] ✅ ${beatPlans.length} beat plans cached (today + 3 days)`);
       }
     } catch (error) {
-      console.error('[Cache] Error caching beat plans:', error);
+      console.error('[Cache] Error caching beat plans, keeping existing cache:', error);
     }
   }, [user]);
 
