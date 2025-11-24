@@ -146,17 +146,15 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     const activeProducts = products.filter(p => p.is_active !== false);
     
     activeProducts.forEach(product => {
-      // Only add base product if it has no variants
-      if (!product.variants || product.variants.length === 0) {
-        options.push({
-          value: product.id,
-          label: `${product.name} | ₹${product.rate}`,
-          product: product,
-          sku: product.sku,
-          price: product.rate,
-          type: 'product'
-        });
-      }
+      // Always add base product as a selectable option (even if it has variants)
+      options.push({
+        value: product.id,
+        label: `${product.name} | ₹${product.rate}`,
+        product: product,
+        sku: product.sku,
+        price: product.rate,
+        type: 'product'
+      });
       
       // Add active variants; display only variant name (no base name prefix)
       if (product.variants && product.variants.length > 0) {
