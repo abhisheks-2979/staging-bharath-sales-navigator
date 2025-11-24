@@ -18,6 +18,7 @@ import { PerformanceDashboard } from '@/components/profile/PerformanceDashboard'
 import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
 import { PushContentConfigurator } from '@/components/profile/PushContentConfigurator';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { Layout } from '@/components/Layout';
 
 interface Manager {
   id: string;
@@ -170,15 +171,16 @@ const UserProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <User className="w-8 h-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">My Profile</h1>
-            <p className="text-muted-foreground">Manage your information and track performance</p>
+    <Layout>
+      <div className="p-4">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <User className="w-8 h-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">My Profile</h1>
+              <p className="text-muted-foreground">Manage your information and track performance</p>
+            </div>
           </div>
-        </div>
 
         <Tabs defaultValue="about" className="space-y-4">
           <TabsList className="grid w-full grid-cols-5">
@@ -416,15 +418,16 @@ const UserProfile = () => {
             <PushContentConfigurator />
           </TabsContent>
         </Tabs>
+        
+        <PointsDetailsModal
+          open={pointsModalOpen}
+          onOpenChange={setPointsModalOpen}
+          userId={user.id}
+          timeFilter="month"
+        />
       </div>
-
-      <PointsDetailsModal
-        open={pointsModalOpen}
-        onOpenChange={setPointsModalOpen}
-        userId={user.id}
-        timeFilter="month"
-      />
-    </div>
+      </div>
+    </Layout>
   );
 };
 
