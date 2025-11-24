@@ -131,7 +131,10 @@ export const Navbar = () => {
 
       <div className="h-12" />
 
-      <Sidebar className="mt-12 border-r bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <Sidebar 
+        className="mt-12 border-r bg-gradient-to-br from-primary/5 via-background to-secondary/5"
+        collapsible="offcanvas"
+      >
         <SidebarContent className="bg-transparent">
           {/* User Profile Section */}
           <div className="p-4 border-b bg-gradient-primary text-primary-foreground">
