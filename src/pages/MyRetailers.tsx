@@ -122,10 +122,8 @@ export const MyRetailers = () => {
     if (!user) return;
     setLoading(true);
     
-    let hasLoadedFromCache = false;
-    
     try {
-      // 1. ALWAYS load from cache FIRST for instant display
+      // ALWAYS load from cache FIRST for instant display (works offline and online)
       console.log('📦 Loading retailers from cache...');
       let cachedRetailers: any[] = await offlineStorage.getAll(STORES.RETAILERS);
       cachedRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
@@ -133,10 +131,9 @@ export const MyRetailers = () => {
       if (cachedRetailers.length > 0) {
         console.log('✅ Displaying cached retailers:', cachedRetailers.length);
         setRetailers(cachedRetailers.sort((a, b) => a.name.localeCompare(b.name)));
-        hasLoadedFromCache = true;
       }
       
-      // 2. Try to fetch fresh data in background (don't wait for navigator.onLine)
+      // Try to fetch fresh data in background (silent fail if offline)
       try {
         const { data, error } = await supabase
           .from("retailers")
@@ -153,18 +150,11 @@ export const MyRetailers = () => {
         }
         setRetailers(data || []);
       } catch (networkError: any) {
+        // Silent fail - cached data is already displayed
         console.log('Network sync failed, using cached data');
-        // Silently fail if we have cached data
-        if (!hasLoadedFromCache && !shouldSuppressError(networkError)) {
-          toast({ title: "Offline mode", description: "Showing cached data", variant: "default" });
-        }
       }
     } catch (error: any) {
       console.error('Error loading retailers:', error);
-      // Only show error if we don't have any data
-      if (!hasLoadedFromCache && !shouldSuppressError(error)) {
-        toast({ title: "Error loading retailers", description: error.message, variant: "destructive" });
-      }
     } finally {
       setLoading(false);
     }
