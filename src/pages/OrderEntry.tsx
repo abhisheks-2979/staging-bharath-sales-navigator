@@ -1738,7 +1738,12 @@ export const OrderEntry = () => {
               <Button 
                 onClick={async (e) => {
                   e.preventDefault();
-                  console.log('Submit clicked', { noOrderReason, customNoOrderReason });
+                  console.log('🔴 NO ORDER: Submit clicked', { 
+                    noOrderReason, 
+                    customNoOrderReason,
+                    visitId,
+                    retailerId
+                  });
                   
                   const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
                   
@@ -1761,24 +1766,26 @@ export const OrderEntry = () => {
                   }
                   
                   try {
-                    console.log('Updating visit:', visitId, 'with reason:', finalReason);
+                    console.log('🔴 NO ORDER: Updating visit:', visitId, 'with reason:', finalReason);
                     
                     // Update database
-                    const { error: dbError } = await supabase
+                    const { data: updatedVisit, error: dbError } = await supabase
                       .from('visits')
                       .update({
                         status: 'unproductive',
                         no_order_reason: finalReason,
                         updated_at: new Date().toISOString()
                       })
-                      .eq('id', visitId);
+                      .eq('id', visitId)
+                      .select()
+                      .single();
                       
                     if (dbError) {
-                      console.error('Database update error:', dbError);
+                      console.error('🔴 NO ORDER: Database update error:', dbError);
                       throw dbError;
                     }
                     
-                    console.log('✅ Database updated successfully');
+                    console.log('✅ NO ORDER: Database updated successfully', updatedVisit);
                     
                     // Update cache for immediate reflection
                     try {
@@ -1792,23 +1799,39 @@ export const OrderEntry = () => {
                           no_order_reason: finalReason,
                           updated_at: new Date().toISOString()
                         });
-                        console.log('✅ Cache updated successfully');
+                        console.log('✅ NO ORDER: Cache updated successfully');
+                      } else {
+                        console.log('⚠️ NO ORDER: No cached visit found, saving new cache');
+                        await offlineStorage.save(STORES.VISITS, updatedVisit);
                       }
                     } catch (cacheError) {
-                      console.log('Cache update skipped (non-critical):', cacheError);
+                      console.log('⚠️ NO ORDER: Cache update skipped (non-critical):', cacheError);
                     }
                     
                     toast({
-                      title: "Visit Marked as Unproductive",
-                      description: `Reason: ${finalReason}`,
+                      title: "✅ Visit Marked as Unproductive",
+                      description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
                       duration: 3000
                     });
+
+                    // Clear the cart storage to prevent confusion
+                    try {
+                      const storageKey = validVisitId && validRetailerId 
+                        ? `order_cart:${validVisitId}:${validRetailerId}` 
+                        : validRetailerId 
+                          ? `order_cart:temp:${validRetailerId}` 
+                          : 'order_cart:fallback';
+                      localStorage.removeItem(storageKey);
+                      console.log('✅ NO ORDER: Cart storage cleared:', storageKey);
+                    } catch (storageError) {
+                      console.log('⚠️ NO ORDER: Cart clear skipped:', storageError);
+                    }
 
                     // Navigate back immediately
                     navigate("/visits/retailers");
                     
                   } catch (error: any) {
-                    console.error('Error saving no order reason:', error);
+                    console.error('🔴 NO ORDER: Error saving no order reason:', error);
                     toast({
                       title: "Failed to Save",
                       description: error?.message || "Please try again",

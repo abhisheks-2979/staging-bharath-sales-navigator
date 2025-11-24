@@ -107,6 +107,41 @@ export const TodaySummary = () => {
     fetchTodaysData();
   }, [dateRange, filterType]);
 
+  // Auto-refresh when page becomes visible or when focusing on today's data
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && filterType === 'today') {
+        console.log('Page visible, refreshing today\'s data...');
+        fetchTodaysData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (filterType === 'today') {
+        console.log('Window focused, refreshing today\'s data...');
+        fetchTodaysData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Auto-refresh every 30 seconds when viewing today's data
+    let refreshInterval: number | null = null;
+    if (filterType === 'today') {
+      refreshInterval = window.setInterval(() => {
+        console.log('Auto-refreshing today\'s data...');
+        fetchTodaysData();
+      }, 30000); // 30 seconds
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      if (refreshInterval) clearInterval(refreshInterval);
+    };
+  }, [dateRange, filterType]);
+
   const handleDateFilterChange = (type: DateFilterType, date?: Date, rangeTo?: Date) => {
     setFilterType(type);
     

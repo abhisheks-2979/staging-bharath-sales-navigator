@@ -58,7 +58,7 @@ export const SyncStatusIndicator = () => {
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
           } else {
-            console.log(`⚠️ SyncStatusIndicator: ${queue.length} items still pending (silent)');
+            console.log(`⚠️ SyncStatusIndicator: ${queue.length} items still pending (silent)`);
             setSyncQueueCount(queue.length);
             setLastSyncStatus('error');
           }
