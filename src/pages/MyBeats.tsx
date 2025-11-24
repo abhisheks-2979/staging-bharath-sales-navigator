@@ -121,12 +121,28 @@ export const MyBeats = () => {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (user) {
-      loadBeats();
-      loadAllRetailers();
-      loadTerritories();
-    }
-  }, [user]);
+    // Load data even if user is not available yet (offline support)
+    const loadData = async () => {
+      // Try to get cached user ID if user is not available
+      const cachedUserId = localStorage.getItem('cached_user_id');
+      const effectiveUserId = user?.id || cachedUserId;
+      
+      if (effectiveUserId) {
+        await loadBeats();
+        await loadAllRetailers();
+        
+        if (isOnline) {
+          await loadTerritories();
+        }
+      } else {
+        // Still try to load from cache even without user
+        await loadBeats();
+        await loadAllRetailers();
+      }
+    };
+    
+    loadData();
+  }, [user, isOnline]);
 
   // Set up real-time updates
   useEffect(() => {
@@ -172,7 +188,9 @@ export const MyBeats = () => {
   }, [user]);
 
   const loadBeats = async () => {
-    if (!user) return;
+    // Get user ID from cached data if not available
+    const cachedUserId = localStorage.getItem('cached_user_id');
+    const effectiveUserId = user?.id || cachedUserId;
     
     try {
       setLoading(true);
@@ -183,9 +201,13 @@ export const MyBeats = () => {
       
       if (cachedBeats.length > 0) {
         // Display cached data IMMEDIATELY
-        const cachedRetailersData = cachedRetailers.filter((r: any) => 
-          r.user_id === user.id && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
-        ).map((r: any) => ({ beat_id: r.beat_id }));
+        const cachedRetailersData = effectiveUserId 
+          ? cachedRetailers.filter((r: any) => 
+              r.user_id === effectiveUserId && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
+            ).map((r: any) => ({ beat_id: r.beat_id }))
+          : cachedRetailers.filter((r: any) => 
+              r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
+            ).map((r: any) => ({ beat_id: r.beat_id }));
         
         const retailerCountMap = new Map<string, number>();
         cachedRetailersData.forEach((item: any) => {
@@ -239,13 +261,15 @@ export const MyBeats = () => {
             const territoriesMap = new Map();
             territoriesData?.forEach(t => territoriesMap.set(t.id, t.name));
 
-            const { data: onlineRetailers, error: retailersError } = await supabase
-              .from('retailers')
-              .select('beat_id')
-              .eq('user_id', user.id)
-              .not('beat_id', 'is', null)
-              .neq('beat_id', '')
-              .neq('beat_id', 'unassigned');
+            const { data: onlineRetailers, error: retailersError } = effectiveUserId 
+              ? await supabase
+                  .from('retailers')
+                  .select('beat_id')
+                  .eq('user_id', effectiveUserId)
+                  .not('beat_id', 'is', null)
+                  .neq('beat_id', '')
+                  .neq('beat_id', 'unassigned')
+              : { data: [], error: null };
 
             if (!retailersError && onlineRetailers) {
               const retailersData = onlineRetailers || [];
@@ -287,6 +311,11 @@ export const MyBeats = () => {
   };
 
   const loadTerritories = async () => {
+    if (!isOnline) {
+      // In offline mode, skip loading territories
+      return;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('territories')
@@ -302,12 +331,16 @@ export const MyBeats = () => {
   };
 
   const loadAllRetailers = async () => {
-    if (!user) return;
+    // Get user ID from cached data if not available
+    const cachedUserId = localStorage.getItem('cached_user_id');
+    const effectiveUserId = user?.id || cachedUserId;
     
     try {
       // STEP 1: ALWAYS load from cache FIRST (instant display)
       const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-      const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
+      const userRetailers = effectiveUserId 
+        ? cachedRetailers.filter((r: any) => r.user_id === effectiveUserId)
+        : cachedRetailers;
       
       if (userRetailers.length > 0) {
         // Display cached data IMMEDIATELY
@@ -331,12 +364,12 @@ export const MyBeats = () => {
       }
       
       // STEP 2: If online, fetch fresh data in BACKGROUND and update cache
-      if (navigator.onLine) {
+      if (navigator.onLine && effectiveUserId) {
         try {
           const { data: onlineData, error } = await supabase
             .from('retailers')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('user_id', effectiveUserId)
             .order('name');
 
           if (!error && onlineData) {
