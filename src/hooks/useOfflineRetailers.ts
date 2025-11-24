@@ -215,9 +215,60 @@ export function useOfflineRetailers() {
     }
   }, [isOnline]);
 
+  /**
+   * Delete retailer with offline support
+   */
+  const deleteRetailer = useCallback(async (retailerId: string) => {
+    try {
+      setLoading(true);
+
+      if (isOnline) {
+        // Online: Delete directly
+        const { error } = await supabase
+          .from('retailers')
+          .delete()
+          .eq('id', retailerId);
+
+        if (error) throw error;
+
+        // Remove from cache
+        await offlineStorage.delete(STORES.RETAILERS, retailerId);
+
+        toast({
+          title: "Retailer Deleted",
+          description: "Retailer has been deleted successfully.",
+        });
+
+        return { success: true, offline: false };
+      } else {
+        // Offline: Queue for sync
+        await offlineStorage.delete(STORES.RETAILERS, retailerId);
+        await offlineStorage.addToSyncQueue('DELETE_RETAILER', { id: retailerId });
+
+        toast({
+          title: "Retailer Deletion Queued",
+          description: "Retailer will be deleted when you're back online.",
+        });
+
+        return { success: true, offline: true };
+      }
+    } catch (error: any) {
+      console.error('Error deleting retailer:', error);
+      toast({
+        title: "Failed to Delete Retailer",
+        description: error.message || "Failed to delete retailer",
+        variant: "destructive",
+      });
+      return { success: false, offline: false };
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline]);
+
   return {
     createRetailer,
     updateRetailer,
+    deleteRetailer,
     getAllRetailers,
     getRetailerById,
     loading,
