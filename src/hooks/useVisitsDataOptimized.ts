@@ -116,7 +116,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .eq('plan_date', selectedDate),
           supabase
             .from('visits')
-            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, retailers(name)')
+            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, retailers(name)')
             .eq('user_id', userId)
             .eq('planned_date', selectedDate),
           supabase
@@ -202,10 +202,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
 
         // Calculate progress stats immediately for instant display
+        // Match the exact logic used in MyVisits.tsx for consistency
         const ordersByRetailer = new Map<string, number>();
         ordersData.forEach(o => {
           ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
         });
+
+        // Get planned beat IDs to determine which retailers to include
+        const progressPlannedBeatIds = beatPlansData.map((bp: any) => bp.beat_id);
 
         let planned = 0;
         let productive = 0;
@@ -213,22 +217,36 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let totalOrders = 0;
         let totalOrderValue = 0;
 
-        visitsData.forEach((visit: any) => {
-          const hasOrder = ordersByRetailer.has(visit.retailer_id);
-          const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
+        // Process retailers same as MyVisits.tsx does
+        retailersData.forEach((retailer: any) => {
+          const visit = visitsData.find((v: any) => v.retailer_id === retailer.id);
+          const isPlanned = progressPlannedBeatIds.includes(retailer.beat_id);
+          
+          // Only count retailers that have a visit or are in planned beats
+          if (!visit && !isPlanned) return;
 
-          if (hasOrder) {
+          const orderValue = ordersByRetailer.get(retailer.id) || 0;
+          const hasOrder = orderValue > 0;
+          
+          // Determine status using same logic as MyVisits.tsx
+          const status = hasOrder ? 'productive' : 
+                        visit?.status === 'unproductive' ? 'unproductive' : 
+                        visit?.check_in_time ? 'in-progress' : 
+                        'planned';
+
+          if (status === 'productive') {
             productive++;
             totalOrders++;
             totalOrderValue += orderValue;
-          } else if (visit.status === 'unproductive') {
+          } else if (status === 'unproductive') {
             unproductive++;
-          } else if (visit.status === 'planned' || visit.status === 'in-progress' || visit.status === 'cancelled') {
+          } else if (status === 'planned' || status === 'in-progress' || status === 'cancelled') {
             planned++;
           }
         });
 
         setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
+        console.log('📊 Progress stats calculated:', { planned, productive, unproductive, totalOrders, totalOrderValue });
 
         // Cache ONLY current date data (don't bloat storage with historical data)
         // Beat plans and retailers are already cached by useMasterDataCache
