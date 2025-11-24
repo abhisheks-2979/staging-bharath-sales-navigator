@@ -207,17 +207,35 @@ export const MyVisits = () => {
     checkAttendance();
   }, [user?.id]);
 
-  // Use optimized hook for cache-first data loading
+  // Use optimized hook for cache-first data loading - now includes points!
   const {
     beatPlans: optimizedBeatPlans,
     visits: optimizedVisits,
     retailers: optimizedRetailers,
     orders: optimizedOrders,
+    pointsData,
     isLoading: dataLoading,
   } = useVisitsDataOptimized({
     userId: user?.id,
     selectedDate,
   });
+
+  // Update points from optimized hook
+  useEffect(() => {
+    if (pointsData) {
+      setPointsEarnedToday(pointsData.total);
+      
+      const detailsList = Array.from(pointsData.byRetailer.values())
+        .map(item => ({
+          retailerName: item.name,
+          points: item.points,
+          visitId: item.visitId
+        }))
+        .sort((a, b) => b.points - a.points);
+      
+      setPointsDetailsList(detailsList);
+    }
+  }, [pointsData]);
 
   // Update local state when optimized data loads
   useEffect(() => {
@@ -301,86 +319,7 @@ export const MyVisits = () => {
     };
   }, [user, selectedDate]);
 
-  // Load points earned today
-  useEffect(() => {
-    const fetchPointsForDate = async () => {
-      if (!user || !selectedDate) return;
-      
-      // Validate selectedDate is a valid date string
-      const testDate = new Date(selectedDate);
-      if (isNaN(testDate.getTime())) {
-        console.warn('Invalid selectedDate:', selectedDate);
-        return;
-      }
-      
-      try {
-        const dateStart = new Date(selectedDate);
-        dateStart.setHours(0, 0, 0, 0);
-        const dateEnd = new Date(selectedDate);
-        dateEnd.setHours(23, 59, 59, 999);
-
-        // Fetch points - they are stored with reference_type='order' and reference_id=retailer_id
-        const { data: pointsData, error } = await supabase
-          .from('gamification_points')
-          .select('points, reference_id, reference_type')
-          .eq('user_id', user.id)
-          .eq('reference_type', 'order')
-          .gte('earned_at', dateStart.toISOString())
-          .lte('earned_at', dateEnd.toISOString());
-
-        if (error) throw error;
-
-        const totalPoints = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
-        setPointsEarnedToday(totalPoints);
-
-        // Group points by retailer (reference_id is retailer_id for order-type points)
-        const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
-        
-        // Get unique retailer IDs from points
-        const retailerIds = Array.from(new Set(pointsData?.map((item: any) => item.reference_id) || []));
-        
-        if (retailerIds.length > 0) {
-          // Fetch retailer details and their visits for the selected date
-          const { data: visitsData } = await supabase
-            .from('visits')
-            .select('id, retailer_id, retailers(name)')
-            .eq('user_id', user.id)
-            .eq('planned_date', selectedDate)
-            .in('retailer_id', retailerIds);
-
-          // Build map of retailer info
-          visitsData?.forEach((visit: any) => {
-            const retailerId = visit.retailer_id;
-            const retailerPoints = pointsData
-              ?.filter((p: any) => p.reference_id === retailerId)
-              .reduce((sum, p) => sum + p.points, 0) || 0;
-            
-            if (retailerPoints > 0) {
-              retailerPointsMap.set(retailerId, {
-                name: visit.retailers?.name || 'Unknown Retailer',
-                points: retailerPoints,
-                visitId: visit.id
-              });
-            }
-          });
-        }
-
-        const detailsList = Array.from(retailerPointsMap.values())
-          .map(item => ({
-            retailerName: item.name,
-            points: item.points,
-            visitId: item.visitId
-          }))
-          .sort((a, b) => b.points - a.points);
-
-        setPointsDetailsList(detailsList);
-      } catch (error) {
-        console.error('Error fetching points:', error);
-      }
-    };
-
-    fetchPointsForDate();
-  }, [user, selectedDate]);
+  // Points are now loaded in useVisitsDataOptimized hook - no separate fetch needed!
 
   // Load week plan markers for calendar
   useEffect(() => {
