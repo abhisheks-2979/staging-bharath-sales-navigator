@@ -1680,7 +1680,7 @@ export const OrderEntry = () => {
               color: "text-primary"
             }].map(reason => {
               const IconComponent = reason.icon;
-              return <Card key={reason.value} className={`cursor-pointer transition-all duration-200 hover:shadow-md ${noOrderReason === reason.value ? 'ring-2 ring-primary' : ''}`} onClick={async () => {
+              return <Card key={reason.value} className={`cursor-pointer transition-all duration-200 hover:shadow-md ${noOrderReason === reason.value ? 'ring-2 ring-primary' : ''}`} onClick={() => {
                 if (reason.value === "over-stocked") {
                   toast({
                     title: "Information",
@@ -1690,58 +1690,8 @@ export const OrderEntry = () => {
                   return;
                 }
                 
-                // If "Other" is selected, just mark it as selected without saving immediately
-                if (reason.value === "other") {
-                  setNoOrderReason(reason.value);
-                  return;
-                }
-                
+                // Just mark as selected, don't save yet
                 setNoOrderReason(reason.value);
-
-                // Save no order reason to database
-                if (visitId) {
-                  try {
-                    const {
-                      error
-                    } = await supabase.from('visits').update({
-                      status: 'unproductive',
-                      no_order_reason: reason.value
-                    }).eq('id', visitId);
-                    if (error) throw error;
-                    
-                    // Also update cache to ensure immediate reflection
-                    const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
-                    try {
-                      const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
-                      if (cachedVisit) {
-                        await offlineStorage.save('visits', {
-                          ...cachedVisit,
-                          status: 'unproductive',
-                          no_order_reason: reason.value
-                        });
-                      }
-                    } catch (cacheError) {
-                      console.log('Cache update skipped:', cacheError);
-                    }
-                    
-                    toast({
-                      title: "No Order Marked",
-                      description: `Reason: ${reason.label}`
-                    });
-
-                    // Navigate back after a short delay
-                    setTimeout(() => {
-                      navigate("/visits/retailers");
-                    }, 1000);
-                  } catch (error) {
-                    console.error('Error saving no order reason:', error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to save no order reason",
-                      variant: "destructive"
-                    });
-                  }
-                }
               }}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
@@ -1755,78 +1705,82 @@ export const OrderEntry = () => {
                     </Card>;
             })}
             
-            {/* Show input field and submit button when "Other" is selected */}
+            {/* Show input field when "Other" is selected */}
             {noOrderReason === "other" && (
-              <div className="space-y-3 mt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Enter Reason</label>
-                  <Input
-                    placeholder="Type your reason here..."
-                    value={customNoOrderReason}
-                    onChange={(e) => setCustomNoOrderReason(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-                <Button 
-                  onClick={async () => {
-                    if (!customNoOrderReason.trim()) {
+              <div className="space-y-2 mt-4">
+                <label className="text-sm font-medium">Enter Reason</label>
+                <Input
+                  placeholder="Type your reason here..."
+                  value={customNoOrderReason}
+                  onChange={(e) => setCustomNoOrderReason(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            )}
+            
+            {/* Show submit button when any reason is selected */}
+            {noOrderReason && noOrderReason !== "over-stocked" && (
+              <Button 
+                onClick={async () => {
+                  const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
+                  
+                  if (!finalReason) {
+                    toast({
+                      title: "Error",
+                      description: "Please enter a reason",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  if (visitId) {
+                    try {
+                      const {
+                        error
+                      } = await supabase.from('visits').update({
+                        status: 'unproductive',
+                        no_order_reason: finalReason
+                      }).eq('id', visitId);
+                      if (error) throw error;
+                      
+                      // Also update cache to ensure immediate reflection
+                      const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
+                      try {
+                        const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
+                        if (cachedVisit) {
+                          await offlineStorage.save('visits', {
+                            ...cachedVisit,
+                            status: 'unproductive',
+                            no_order_reason: finalReason
+                          });
+                        }
+                      } catch (cacheError) {
+                        console.log('Cache update skipped:', cacheError);
+                      }
+                      
+                      toast({
+                        title: "No Order Marked",
+                        description: `Reason: ${noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason}`
+                      });
+
+                      // Navigate back after a short delay
+                      setTimeout(() => {
+                        navigate("/visits/retailers");
+                      }, 1000);
+                    } catch (error) {
+                      console.error('Error saving no order reason:', error);
                       toast({
                         title: "Error",
-                        description: "Please enter a reason",
+                        description: "Failed to save no order reason",
                         variant: "destructive"
                       });
-                      return;
                     }
-                    
-                    if (visitId) {
-                      try {
-                        const {
-                          error
-                        } = await supabase.from('visits').update({
-                          status: 'unproductive',
-                          no_order_reason: customNoOrderReason.trim()
-                        }).eq('id', visitId);
-                        if (error) throw error;
-                        
-                        // Also update cache to ensure immediate reflection
-                        const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
-                        try {
-                          const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
-                          if (cachedVisit) {
-                            await offlineStorage.save('visits', {
-                              ...cachedVisit,
-                              status: 'unproductive',
-                              no_order_reason: customNoOrderReason.trim()
-                            });
-                          }
-                        } catch (cacheError) {
-                          console.log('Cache update skipped:', cacheError);
-                        }
-                        
-                        toast({
-                          title: "No Order Marked",
-                          description: `Reason: ${customNoOrderReason.trim()}`
-                        });
-
-                        // Navigate back after a short delay
-                        setTimeout(() => {
-                          navigate("/visits/retailers");
-                        }, 1000);
-                      } catch (error) {
-                        console.error('Error saving no order reason:', error);
-                        toast({
-                          title: "Error",
-                          description: "Failed to save no order reason",
-                          variant: "destructive"
-                        });
-                      }
-                    }
-                  }}
-                  className="w-full"
-                >
-                  Submit
-                </Button>
-              </div>
+                  }
+                }}
+                className="w-full"
+              >
+                Submit
+              </Button>
             )}
               </CardContent>
             </Card>

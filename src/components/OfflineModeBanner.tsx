@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { WifiOff, Wifi, RefreshCw, X } from 'lucide-react';
 import { offlineStorage } from '@/lib/offlineStorage';
+import { toast } from '@/hooks/use-toast';
 
 export function OfflineModeBanner() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -39,6 +41,41 @@ export function OfflineModeBanner() {
   if (isOnline && syncQueueCount === 0) {
     return null;
   }
+  
+  // Auto-clear old sync items when online to prevent stale banners
+  useEffect(() => {
+    if (isOnline && syncQueueCount > 0) {
+      const clearStaleItems = async () => {
+        try {
+          await offlineStorage.deleteOldSyncedItems(1000 * 60 * 5); // 5 minutes old
+          // Re-check queue count after cleanup
+          const queue = await offlineStorage.getSyncQueue();
+          setSyncQueueCount(queue.length);
+        } catch (error) {
+          console.error('Error clearing stale sync items:', error);
+        }
+      };
+      clearStaleItems();
+    }
+  }, [isOnline, syncQueueCount]);
+
+  const handleClearQueue = async () => {
+    try {
+      await offlineStorage.clearSyncQueue();
+      setSyncQueueCount(0);
+      toast({
+        title: "Queue Cleared",
+        description: "Sync queue has been cleared"
+      });
+    } catch (error) {
+      console.error('Error clearing queue:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear sync queue",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <Alert 
@@ -66,10 +103,20 @@ export function OfflineModeBanner() {
         </div>
 
         {syncQueueCount > 0 && (
-          <Badge variant="secondary" className="gap-2">
-            <RefreshCw className="h-3 w-3" />
-            {syncQueueCount} pending sync
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-2">
+              <RefreshCw className="h-3 w-3" />
+              {syncQueueCount} pending sync
+            </Badge>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleClearQueue}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
     </Alert>
