@@ -83,21 +83,21 @@ export const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 bg-gradient-primary text-primary-foreground shadow-lg z-50">
+      <nav className="fixed top-0 left-0 right-0 bg-gradient-primary text-white shadow-lg z-50">
         <div className="px-3 py-1.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {showBackButton && (
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="p-1 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+                  className="p-1 rounded-lg hover:bg-white/10 transition-colors text-white"
                   title="Go to dashboard"
                 >
                   <ArrowLeft size={16} />
                 </button>
               )}
               
-              <NavLink to="/dashboard" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+              <NavLink to="/dashboard" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity text-white">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden bg-white p-0.5">
                   <img 
                     src={bharathLogo} 
@@ -107,10 +107,10 @@ export const Navbar = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-1">
-                    <h1 className="text-xs font-semibold">Bharath Beverages</h1>
+                    <h1 className="text-xs font-semibold text-white">Bharath Beverages</h1>
                     <SyncStatusIndicator />
                   </div>
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-0.5 text-white">
                     {connectivityStatus === 'online' ? (
                       <Wifi className="h-2.5 w-2.5 opacity-80" />
                     ) : connectivityStatus === 'offline' ? (
@@ -124,7 +124,9 @@ export const Navbar = () => {
               </NavLink>
             </div>
             
-            <SidebarTrigger className="p-1.5 rounded-lg hover:bg-primary-foreground/10 transition-colors" />
+            <SidebarTrigger className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
+              <Menu size={20} />
+            </SidebarTrigger>
           </div>
         </div>
       </nav>
