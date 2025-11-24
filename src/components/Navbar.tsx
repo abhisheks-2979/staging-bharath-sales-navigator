@@ -131,30 +131,30 @@ export const Navbar = () => {
 
       <div className="h-12" />
 
-      <Sidebar className="mt-12 border-r">
-        <SidebarContent>
+      <Sidebar className="mt-12 border-r bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        <SidebarContent className="bg-transparent">
           {/* User Profile Section */}
-          <div className="p-4 border-b">
+          <div className="p-4 border-b bg-gradient-primary text-primary-foreground">
             <div className="flex items-center gap-3">
               <NavLink to="/employee-profile">
-                <Avatar className="h-9 w-9 border-2 border-primary/20 hover:scale-105 transition-transform cursor-pointer">
+                <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
                   <AvatarImage src="/placeholder.svg" alt="User" />
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
+                  <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
               </NavLink>
               <div className="flex-1 min-w-0">
                 <div 
-                  className="text-sm font-semibold truncate cursor-pointer hover:text-primary transition-colors" 
+                  className="text-base font-bold truncate cursor-pointer hover:opacity-80 transition-opacity" 
                   onClick={() => navigate('/employee-profile')}
                 >
                   {displayName}
                 </div>
                 {userRole === 'admin' && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-xs opacity-90 mt-1">
                     <Shield className="h-3 w-3" />
-                    <span>Administrator</span>
+                    <span className="font-medium">Administrator</span>
                   </div>
                 )}
               </div>
@@ -168,15 +168,17 @@ export const Navbar = () => {
           {/* Admin Section */}
           {userRole === 'admin' && (
             <SidebarGroup>
-              <SidebarGroupLabel>Admin Controls</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-muted-foreground text-sm font-semibold px-4 py-2">Admin Controls</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {adminNavigationItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild>
-                        <NavLink to={item.href} className="flex items-center gap-3">
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.label}</span>
+                      <SidebarMenuButton asChild className="hover:bg-muted/50">
+                        <NavLink to={item.href} className="flex items-center gap-3 px-4 py-2.5">
+                          <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r ${item.color} shadow-md`}>
+                            <item.icon className="h-4 w-4 text-white" />
+                          </div>
+                          <span className="font-medium text-sm">{item.label}</span>
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -188,15 +190,17 @@ export const Navbar = () => {
 
           {/* Main Navigation */}
           <SidebarGroup>
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-muted-foreground text-sm font-semibold px-4 py-2">Navigation</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {navigationItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={item.href} className="flex items-center gap-3">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
+                    <SidebarMenuButton asChild className="hover:bg-muted/50">
+                      <NavLink to={item.href} className="flex items-center gap-3 px-4 py-2.5">
+                        <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r ${item.color} shadow-md`}>
+                          <item.icon className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="font-medium text-sm">{item.label}</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -211,7 +215,7 @@ export const Navbar = () => {
               variant="outline"
               size="sm"
               onClick={signOut}
-              className="w-full"
+              className="w-full hover:bg-destructive hover:text-destructive-foreground"
             >
               <LogOut className="h-4 w-4 mr-2" />
               {t('nav.logout')}
