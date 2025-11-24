@@ -35,31 +35,36 @@ export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSucces
   const [loading, setLoading] = useState(false);
   const [availableBeats, setAvailableBeats] = useState<string[]>(beats);
 
-  // Load beats from offline storage when offline
+  // Load beats - always try cache first, then supplement with provided beats
   useEffect(() => {
     const loadBeats = async () => {
-      if (!isOnline) {
-        try {
-          // When offline, extract beats from cached retailers
-          const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-          const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user?.id);
-          
-          // Extract unique beat_ids from retailers
-          const beatIds = Array.from(new Set(
-            userRetailers
-              .map((r: any) => r.beat_id)
-              .filter((id: string) => id && id !== '')
-          )) as string[];
-          
-          console.log('Offline: Loaded beats from cached retailers:', beatIds);
-          setAvailableBeats(beatIds.sort());
-        } catch (error) {
-          console.error('Error loading beats from cache:', error);
-          // Fallback to provided beats if cache fails
-          setAvailableBeats(beats || []);
-        }
-      } else {
-        // Online: use provided beats
+      try {
+        console.log('Loading beats for dropdown...');
+        
+        // ALWAYS load from cache first (works both online and offline)
+        const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+        const userRetailers = cachedRetailers.filter((r: any) => r.user_id === user?.id);
+        
+        // Extract unique beat_ids from cached retailers
+        const beatIdsFromCache = Array.from(new Set(
+          userRetailers
+            .map((r: any) => r.beat_id)
+            .filter((id: string) => id && id !== '')
+        )) as string[];
+        
+        // Combine cached beats with provided beats (from props)
+        const allBeats = Array.from(new Set([...beatIdsFromCache, ...(beats || [])]));
+        
+        console.log('Loaded beats:', {
+          fromCache: beatIdsFromCache.length,
+          fromProps: beats?.length || 0,
+          total: allBeats.length
+        });
+        
+        setAvailableBeats(allBeats.sort());
+      } catch (error) {
+        console.error('Error loading beats:', error);
+        // Fallback to provided beats if everything fails
         setAvailableBeats(beats || []);
       }
     };
@@ -67,7 +72,7 @@ export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSucces
     if (isOpen) {
       loadBeats();
     }
-  }, [isOpen, isOnline, beats, user]);
+  }, [isOpen, beats, user]);
 
   const handleRetailerToggle = (retailerId: string) => {
     setSelectedRetailers(prev => 

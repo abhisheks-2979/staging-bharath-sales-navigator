@@ -125,7 +125,7 @@ export const MyRetailers = () => {
     let hasLoadedFromCache = false;
     
     try {
-      // 1. Load from cache FIRST for instant display
+      // 1. ALWAYS load from cache FIRST for instant display
       console.log('📦 Loading retailers from cache...');
       let cachedRetailers: any[] = await offlineStorage.getAll(STORES.RETAILERS);
       cachedRetailers = cachedRetailers.filter((r: any) => r.user_id === user.id);
@@ -136,34 +136,32 @@ export const MyRetailers = () => {
         hasLoadedFromCache = true;
       }
       
-      // 2. If online, fetch fresh data and update cache
-      if (navigator.onLine) {
-        try {
-          const { data, error } = await supabase
-            .from("retailers")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("name");
-            
-          if (error) throw error;
+      // 2. Try to fetch fresh data in background (don't wait for navigator.onLine)
+      try {
+        const { data, error } = await supabase
+          .from("retailers")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("name");
           
-          // Update cache
-          console.log('🔄 Updating retailers cache...');
-          for (const retailer of data || []) {
-            await offlineStorage.save(STORES.RETAILERS, retailer);
-          }
-          setRetailers(data || []);
-        } catch (networkError: any) {
-          console.log('Network sync failed, using cached data:', networkError);
-          // Only show error if we don't have cached data AND error shouldn't be suppressed
-          if (!hasLoadedFromCache && !shouldSuppressError(networkError)) {
-            toast({ title: "Failed to load retailers", description: networkError.message, variant: "destructive" });
-          }
+        if (error) throw error;
+        
+        // Update cache silently
+        console.log('🔄 Updating retailers cache...');
+        for (const retailer of data || []) {
+          await offlineStorage.save(STORES.RETAILERS, retailer);
+        }
+        setRetailers(data || []);
+      } catch (networkError: any) {
+        console.log('Network sync failed, using cached data');
+        // Silently fail if we have cached data
+        if (!hasLoadedFromCache && !shouldSuppressError(networkError)) {
+          toast({ title: "Offline mode", description: "Showing cached data", variant: "default" });
         }
       }
     } catch (error: any) {
       console.error('Error loading retailers:', error);
-      // Only show error if we don't have cached data AND error shouldn't be suppressed
+      // Only show error if we don't have any data
       if (!hasLoadedFromCache && !shouldSuppressError(error)) {
         toast({ title: "Error loading retailers", description: error.message, variant: "destructive" });
       }
