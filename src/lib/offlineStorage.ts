@@ -301,12 +301,4 @@ class OfflineStorage {
 // Export singleton instance
 export const offlineStorage = new OfflineStorage();
 
-// Initialize on first import with proper error handling
-offlineStorage.init()
-  .then(() => {
-    console.log('[OfflineStorage] 🚀 Ready - All data will persist in APK/PWA');
-  })
-  .catch((error) => {
-    console.error('[OfflineStorage] ⚠️ Initialization failed:', error);
-    console.error('[OfflineStorage] App data may not persist properly');
-  });
+// Note: Initialization is handled in main.tsx to avoid blocking app startup
