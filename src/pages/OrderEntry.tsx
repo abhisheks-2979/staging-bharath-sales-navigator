@@ -1680,19 +1680,30 @@ export const OrderEntry = () => {
               color: "text-primary"
             }].map(reason => {
               const IconComponent = reason.icon;
-              return <Card key={reason.value} className={`cursor-pointer transition-all duration-200 hover:shadow-md ${noOrderReason === reason.value ? 'ring-2 ring-primary' : ''}`} onClick={() => {
-                if (reason.value === "over-stocked") {
-                  toast({
-                    title: "Information",
-                    description: "Update stock quantities in Grid/Table view - this option will auto-select",
-                    duration: 4000
-                  });
-                  return;
-                }
-                
-                // Just mark as selected, don't save yet
-                setNoOrderReason(reason.value);
-              }}>
+              return <Card 
+                key={reason.value} 
+                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${noOrderReason === reason.value ? 'ring-2 ring-primary bg-primary/5' : 'hover:border-primary/50'}`} 
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log('No order reason clicked:', reason.value);
+                  
+                  if (reason.value === "over-stocked") {
+                    toast({
+                      title: "Information",
+                      description: "Update stock quantities in Grid/Table view - this option will auto-select",
+                      duration: 4000
+                    });
+                    return;
+                  }
+                  
+                  // Mark as selected
+                  setNoOrderReason(reason.value);
+                  
+                  // Reset custom reason if switching away from "other"
+                  if (reason.value !== "other") {
+                    setCustomNoOrderReason("");
+                  }
+                }}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
                           <IconComponent className={`size-5 ${reason.color}`} />
@@ -1700,6 +1711,9 @@ export const OrderEntry = () => {
                             <h4 className="font-medium text-card-foreground">{reason.label}</h4>
                             <p className="text-sm text-muted-foreground">{reason.description}</p>
                           </div>
+                          {noOrderReason === reason.value && (
+                            <Check className="size-5 text-primary" />
+                          )}
                         </div>
                       </CardContent>
                     </Card>;
@@ -1708,20 +1722,24 @@ export const OrderEntry = () => {
             {/* Show input field when "Other" is selected */}
             {noOrderReason === "other" && (
               <div className="space-y-2 mt-4">
-                <label className="text-sm font-medium">Enter Reason</label>
+                <label className="text-sm font-medium text-foreground">Enter Reason</label>
                 <Input
                   placeholder="Type your reason here..."
                   value={customNoOrderReason}
                   onChange={(e) => setCustomNoOrderReason(e.target.value)}
                   className="w-full"
+                  autoFocus
                 />
               </div>
             )}
             
-            {/* Show submit button when any reason is selected */}
+            {/* Show submit button when any reason is selected (except over-stocked) */}
             {noOrderReason && noOrderReason !== "over-stocked" && (
               <Button 
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.preventDefault();
+                  console.log('Submit clicked', { noOrderReason, customNoOrderReason });
+                  
                   const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
                   
                   if (!finalReason) {
@@ -1733,53 +1751,75 @@ export const OrderEntry = () => {
                     return;
                   }
                   
-                  if (visitId) {
-                    try {
-                      const {
-                        error
-                      } = await supabase.from('visits').update({
+                  if (!visitId) {
+                    toast({
+                      title: "Error",
+                      description: "Visit ID is missing",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  try {
+                    console.log('Updating visit:', visitId, 'with reason:', finalReason);
+                    
+                    // Update database
+                    const { error: dbError } = await supabase
+                      .from('visits')
+                      .update({
                         status: 'unproductive',
-                        no_order_reason: finalReason
-                      }).eq('id', visitId);
-                      if (error) throw error;
+                        no_order_reason: finalReason,
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', visitId);
                       
-                      // Also update cache to ensure immediate reflection
-                      const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
-                      try {
-                        const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
-                        if (cachedVisit) {
-                          await offlineStorage.save('visits', {
-                            ...cachedVisit,
-                            status: 'unproductive',
-                            no_order_reason: finalReason
-                          });
-                        }
-                      } catch (cacheError) {
-                        console.log('Cache update skipped:', cacheError);
-                      }
-                      
-                      toast({
-                        title: "No Order Marked",
-                        description: `Reason: ${noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason}`
-                      });
-
-                      // Navigate back after a short delay
-                      setTimeout(() => {
-                        navigate("/visits/retailers");
-                      }, 1000);
-                    } catch (error) {
-                      console.error('Error saving no order reason:', error);
-                      toast({
-                        title: "Error",
-                        description: "Failed to save no order reason",
-                        variant: "destructive"
-                      });
+                    if (dbError) {
+                      console.error('Database update error:', dbError);
+                      throw dbError;
                     }
+                    
+                    console.log('✅ Database updated successfully');
+                    
+                    // Update cache for immediate reflection
+                    try {
+                      const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+                      const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, visitId);
+                      
+                      if (cachedVisit) {
+                        await offlineStorage.save(STORES.VISITS, {
+                          ...cachedVisit,
+                          status: 'unproductive',
+                          no_order_reason: finalReason,
+                          updated_at: new Date().toISOString()
+                        });
+                        console.log('✅ Cache updated successfully');
+                      }
+                    } catch (cacheError) {
+                      console.log('Cache update skipped (non-critical):', cacheError);
+                    }
+                    
+                    toast({
+                      title: "Visit Marked as Unproductive",
+                      description: `Reason: ${finalReason}`,
+                      duration: 3000
+                    });
+
+                    // Navigate back immediately
+                    navigate("/visits/retailers");
+                    
+                  } catch (error: any) {
+                    console.error('Error saving no order reason:', error);
+                    toast({
+                      title: "Failed to Save",
+                      description: error?.message || "Please try again",
+                      variant: "destructive"
+                    });
                   }
                 }}
-                className="w-full"
+                className="w-full mt-4"
+                size="lg"
               >
-                Submit
+                Submit No Order Reason
               </Button>
             )}
               </CardContent>
