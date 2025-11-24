@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 interface Retailer {
   id: string;
@@ -25,11 +27,36 @@ interface MassEditBeatsModalProps {
 
 export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSuccess }: MassEditBeatsModalProps) => {
   const { user } = useAuth();
+  const { isOnline } = useOfflineSync();
   const [selectedRetailers, setSelectedRetailers] = useState<string[]>([]);
   const [targetBeat, setTargetBeat] = useState<string>("");
   const [isNewBeat, setIsNewBeat] = useState(false);
   const [newBeatName, setNewBeatName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [availableBeats, setAvailableBeats] = useState<string[]>(beats);
+
+  // Load beats from offline storage when offline
+  useEffect(() => {
+    const loadBeats = async () => {
+      if (!isOnline && (!beats || beats.length === 0)) {
+        try {
+          const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
+          const userBeats = cachedBeats
+            .filter((b: any) => b.user_id === user?.id && b.is_active)
+            .map((b: any) => b.beat_id);
+          setAvailableBeats(Array.from(new Set(userBeats)));
+        } catch (error) {
+          console.error('Error loading beats from cache:', error);
+        }
+      } else {
+        setAvailableBeats(beats);
+      }
+    };
+    
+    if (isOpen) {
+      loadBeats();
+    }
+  }, [isOpen, isOnline, beats, user]);
 
   const handleRetailerToggle = (retailerId: string) => {
     setSelectedRetailers(prev => 
@@ -69,17 +96,38 @@ export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSucces
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('retailers')
-        .update({ beat_id: beatToAssign })
-        .in('id', selectedRetailers)
-        .eq('user_id', user?.id);
+      if (isOnline) {
+        // Online: Update directly
+        const { error } = await supabase
+          .from('retailers')
+          .update({ beat_id: beatToAssign })
+          .in('id', selectedRetailers)
+          .eq('user_id', user?.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Offline: Update cache and queue for sync
+        const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+        
+        for (const retailerId of selectedRetailers) {
+          const retailer = cachedRetailers.find((r: any) => r.id === retailerId);
+          if (retailer) {
+            const updated = { ...(retailer as any), beat_id: beatToAssign };
+            await offlineStorage.save(STORES.RETAILERS, updated);
+            
+            // Queue for sync
+            await offlineStorage.addToSyncQueue('UPDATE_RETAILER', {
+              id: retailerId,
+              updates: { beat_id: beatToAssign },
+              user_id: user?.id
+            });
+          }
+        }
+      }
 
       toast({
         title: "Beat assignment successful",
-        description: `${selectedRetailers.length} retailers moved to beat "${beatToAssign}"`,
+        description: `${selectedRetailers.length} retailers moved to beat "${beatToAssign}"${!isOnline ? ' (will sync when online)' : ''}`,
       });
 
       onSuccess();
@@ -135,7 +183,12 @@ export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSucces
                     <SelectValue placeholder="Choose a beat" />
                   </SelectTrigger>
                   <SelectContent>
-                    {beats.map(beat => (
+                    {availableBeats.length === 0 && (
+                      <SelectItem value="no-beats" disabled>
+                        {isOnline ? 'No beats available' : 'Loading beats...'}
+                      </SelectItem>
+                    )}
+                    {availableBeats.map(beat => (
                       <SelectItem key={beat} value={beat}>
                         {beat}
                       </SelectItem>

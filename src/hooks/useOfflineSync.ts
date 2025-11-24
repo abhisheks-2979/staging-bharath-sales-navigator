@@ -135,9 +135,10 @@ export function useOfflineSync() {
       case 'CREATE_VISIT':
       case 'CHECK_IN':
         console.log('Syncing visit/check-in:', data);
+        const { id: visitId, ...visitData } = data;
         const { error: visitError } = await supabase
           .from('visits')
-          .insert(data);
+          .insert(visitData);
         if (visitError) throw visitError;
         break;
         
@@ -184,11 +185,22 @@ export function useOfflineSync() {
         
       case 'UPDATE_RETAILER':
         console.log('Syncing retailer update:', data);
+        const { id: retailerId, updates, user_id } = data;
         const { error: updateRetailerError } = await supabase
           .from('retailers')
-          .update(data.updates)
-          .eq('id', data.id);
+          .update(updates)
+          .eq('id', retailerId)
+          .eq('user_id', user_id);
         if (updateRetailerError) throw updateRetailerError;
+        break;
+
+      case 'CREATE_VISIT':
+        console.log('Syncing visit creation:', data);
+        const { id: visitTempId, ...visitInsertData } = data;
+        const { error: createVisitError } = await supabase
+          .from('visits')
+          .insert(visitInsertData);
+        if (createVisitError) throw createVisitError;
         break;
         
       case 'CREATE_ATTENDANCE':

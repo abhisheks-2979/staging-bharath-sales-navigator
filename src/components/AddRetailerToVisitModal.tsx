@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 interface Retailer {
   id: string;
@@ -27,6 +29,7 @@ interface AddRetailerToVisitModalProps {
 
 export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCreated }: AddRetailerToVisitModalProps) => {
   const { user } = useAuth();
+  const { isOnline } = useOfflineSync();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [loading, setLoading] = useState(false);
 
@@ -35,20 +38,37 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('visits')
-        .insert({
-          user_id: user.id,
-          retailer_id: retailer.id,
-          planned_date: format(selectedDate, 'yyyy-MM-dd'),
-          status: 'planned'
-        });
+      const plannedDate = format(selectedDate, 'yyyy-MM-dd');
+      const visitData = {
+        id: `${user.id}_${retailer.id}_${plannedDate}_${Date.now()}`,
+        user_id: user.id,
+        retailer_id: retailer.id,
+        planned_date: plannedDate,
+        status: 'planned',
+        created_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      if (isOnline) {
+        // Online: Create visit directly
+        const { error } = await supabase
+          .from('visits')
+          .insert({
+            user_id: user.id,
+            retailer_id: retailer.id,
+            planned_date: plannedDate,
+            status: 'planned'
+          });
+
+        if (error) throw error;
+      } else {
+        // Offline: Save to cache and queue for sync
+        await offlineStorage.save(STORES.VISITS, visitData);
+        await offlineStorage.addToSyncQueue('CREATE_VISIT', visitData);
+      }
 
       toast({
         title: "Visit Added",
-        description: `Unplanned visit scheduled for ${retailer.name} on ${format(selectedDate, 'MMM dd, yyyy')}`,
+        description: `Unplanned visit scheduled for ${retailer.name} on ${format(selectedDate, 'MMM dd, yyyy')}${!isOnline ? ' (will sync when online)' : ''}`,
       });
 
       onVisitCreated();
