@@ -4,11 +4,14 @@ import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from "lucide-re
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
+import { SyncProgressModal } from "./SyncProgressModal";
+
 export const SyncStatusIndicator = () => {
   const isOnline = useConnectivity() === 'online';
   const [syncQueueCount, setSyncQueueCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncStatus, setLastSyncStatus] = useState<'success' | 'error' | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   // Check sync queue periodically
   useEffect(() => {
@@ -67,7 +70,21 @@ export const SyncStatusIndicator = () => {
   // Only show when syncing or have pending items
   if (isSyncing || syncQueueCount > 0) {
     return (
-      <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
+      <>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          title="Click to view sync progress"
+        >
+          <RefreshCw className="h-4 w-4 animate-spin text-primary-foreground/70" />
+          {syncQueueCount > 0 && (
+            <span className="text-xs text-primary-foreground/70">
+              {syncQueueCount}
+            </span>
+          )}
+        </button>
+        <SyncProgressModal open={showModal} onOpenChange={setShowModal} />
+      </>
     );
   }
   
