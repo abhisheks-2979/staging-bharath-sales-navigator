@@ -736,8 +736,8 @@ export const Cart = () => {
       localStorage.removeItem('cart');
       setCartItems([]);
 
-      // BACKGROUND WORK - Don't block user navigation
-      // Fire and forget - runs after user has navigated away
+      // BACKGROUND WORK - Don't block user navigation for non-critical tasks
+      // Gamification, retailer sequences, and invoice DB records run in background
       (async () => {
         try {
           // Only run background tasks if online
@@ -769,7 +769,7 @@ export const Cart = () => {
             // Update retailer sequence
             await updateRetailerSequence(user.id, validRetailerId);
 
-            // Create invoice record
+            // Create invoice record (for future editing/management)
             const invoiceDate = new Date().toISOString().split('T')[0];
             const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -798,7 +798,6 @@ export const Cart = () => {
               .single();
 
             if (!invoiceError && invoiceRecord) {
-              // Create invoice items
               const invoiceItems = cartItems.map(item => {
                 const quantity = Number(item.quantity || 0);
                 const rate = Number(getDisplayRate(item));
@@ -821,90 +820,6 @@ export const Cart = () => {
               });
 
               await supabase.from('invoice_items').insert(invoiceItems);
-
-              // Send invoice via WhatsApp automatically
-              try {
-                console.log('🔄 Starting WhatsApp invoice sending process...');
-                
-                const { data: retailer, error: retailerError } = await supabase
-                  .from('retailers')
-                  .select('phone')
-                  .eq('id', validRetailerId)
-                  .single();
-
-                if (retailerError) {
-                  console.error('❌ Failed to fetch retailer:', retailerError);
-                  throw retailerError;
-                }
-
-                console.log('📱 Retailer phone:', retailer?.phone);
-
-                if (retailer?.phone) {
-                  console.log('📄 Generating invoice PDF...');
-                  
-                  // Import and use the invoice generator
-                  const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
-                  const { blob, invoiceNumber } = await fetchAndGenerateInvoice(order.id);
-                  
-                  console.log('✅ Invoice generated:', invoiceNumber);
-                  
-                  const fileName = `invoice-${invoiceNumber}.pdf`;
-                  
-                  // Upload to storage
-                  console.log('☁️ Uploading to storage...');
-                  const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('invoices')
-                    .upload(fileName, blob, {
-                      contentType: 'application/pdf',
-                      upsert: true
-                    });
-
-                  if (uploadError) {
-                    console.error('❌ Storage upload failed:', uploadError);
-                    throw uploadError;
-                  }
-
-                  if (uploadData) {
-                    console.log('✅ PDF uploaded successfully');
-                    
-                    // Get public URL
-                    const { data: { publicUrl } } = await supabase.storage
-                      .from('invoices')
-                      .getPublicUrl(uploadData.path);
-
-                    console.log('🔗 Public URL:', publicUrl);
-
-                    // Send via WhatsApp
-                    console.log('📨 Invoking WhatsApp edge function...');
-                    const { data: whatsappResult, error: whatsappError } = await supabase.functions.invoke('send-invoice-whatsapp', {
-                      body: { 
-                        invoiceId: order.id,
-                        customerPhone: retailer.phone,
-                        pdfUrl: publicUrl,
-                        invoiceNumber: invoiceNumber
-                      }
-                    });
-
-                    if (whatsappError) {
-                      console.error('❌ WhatsApp function error:', whatsappError);
-                      throw whatsappError;
-                    }
-
-                    console.log('✅ WhatsApp function response:', whatsappResult);
-                    console.log('✅ Invoice sent via WhatsApp to:', retailer.phone);
-                  }
-                } else {
-                  console.log('⚠️ No phone number found for retailer');
-                }
-              } catch (whatsappError: any) {
-                console.error('❌ Failed to send invoice via WhatsApp:', whatsappError);
-                console.error('❌ Error details:', {
-                  message: whatsappError.message,
-                  stack: whatsappError.stack,
-                  details: whatsappError
-                });
-                // Don't fail the order if WhatsApp sending fails
-              }
             }
 
             console.log('✅ Background post-order processing completed');
@@ -915,7 +830,83 @@ export const Cart = () => {
         }
       })();
 
-      // Navigate away immediately - user doesn't wait for background work
+      // IMPORTANT: Send invoice PDF + WhatsApp/SMS BEFORE navigating away
+      try {
+        if (!result.offline && result.order && validRetailerId) {
+          console.log('🔄 Starting invoice WhatsApp/SMS process...');
+
+          // Fetch retailer phone
+          const { data: retailer, error: retailerError } = await supabase
+            .from('retailers')
+            .select('phone')
+            .eq('id', validRetailerId)
+            .single();
+
+          if (retailerError) {
+            console.error('❌ Failed to fetch retailer for SMS/WhatsApp:', retailerError);
+            throw retailerError;
+          }
+
+          console.log('📱 Retailer phone:', retailer?.phone);
+
+          if (retailer?.phone) {
+            console.log('📄 Generating invoice PDF (foreground)...');
+
+            const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
+            const { blob, invoiceNumber } = await fetchAndGenerateInvoice(result.order.id);
+
+            console.log('✅ Invoice generated:', invoiceNumber);
+
+            const fileName = `invoice-${invoiceNumber}.pdf`;
+
+            console.log('☁️ Uploading invoice PDF to storage...');
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('invoices')
+              .upload(fileName, blob, {
+                contentType: 'application/pdf',
+                upsert: true
+              });
+
+            if (uploadError) {
+              console.error('❌ Storage upload failed (invoice SMS/WhatsApp):', uploadError);
+              throw uploadError;
+            }
+
+            if (uploadData) {
+              console.log('✅ PDF uploaded successfully');
+
+              const { data: { publicUrl } } = await supabase.storage
+                .from('invoices')
+                .getPublicUrl(uploadData.path);
+
+              console.log('🔗 Public URL for invoice:', publicUrl);
+
+              console.log('📨 Invoking send-invoice-whatsapp edge function (WhatsApp + SMS)...');
+              const { data: fnResult, error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
+                body: {
+                  invoiceId: result.order.id,
+                  customerPhone: retailer.phone,
+                  pdfUrl: publicUrl,
+                  invoiceNumber: invoiceNumber
+                }
+              });
+
+              if (fnError) {
+                console.error('❌ Edge function error (send-invoice-whatsapp):', fnError);
+                throw fnError;
+              }
+
+              console.log('✅ Edge function response:', fnResult);
+            }
+          } else {
+            console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
+          }
+        }
+      } catch (notifyError: any) {
+        console.error('❌ Failed to send invoice via WhatsApp/SMS:', notifyError);
+      }
+
+      // Navigate back only after attempting invoice notification
       navigate(-1);
     } catch (error: any) {
       console.error('Error submitting order:', error);
