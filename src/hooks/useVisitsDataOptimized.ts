@@ -86,13 +86,54 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         filteredBeatPlans.length > 0 ||
         filteredVisits.length > 0
       ) {
+        // Calculate progress stats from cached data immediately
+        const ordersByRetailer = new Map<string, number>();
+        filteredOrders.forEach((o: any) => {
+          ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
+        });
+
+        const progressPlannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+
+        let planned = 0;
+        let productive = 0;
+        let unproductive = 0;
+        let totalOrders = 0;
+        let totalOrderValue = 0;
+
+        filteredRetailers.forEach((retailer: any) => {
+          const visit = filteredVisits.find((v: any) => v.retailer_id === retailer.id);
+          const isPlanned = progressPlannedBeatIds.includes(retailer.beat_id);
+          
+          if (!visit && !isPlanned) return;
+
+          const orderValue = ordersByRetailer.get(retailer.id) || 0;
+          const hasOrder = orderValue > 0;
+          
+          const status = hasOrder ? 'productive' : 
+                        visit?.status === 'unproductive' ? 'unproductive' : 
+                        visit?.check_in_time ? 'in-progress' : 
+                        'planned';
+
+          if (status === 'productive') {
+            productive++;
+            totalOrders++;
+            totalOrderValue += orderValue;
+          } else if (status === 'unproductive') {
+            unproductive++;
+          } else if (status === 'planned' || status === 'in-progress' || status === 'cancelled') {
+            planned++;
+          }
+        });
+
+        setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
+        
         setBeatPlans(filteredBeatPlans);
         setVisits(filteredVisits);
         setRetailers(filteredRetailers);
         setOrders(filteredOrders);
         setIsLoading(false);
         hasLoadedFromCache = true;
-        console.log('✅ Loaded from cache instantly');
+        console.log('✅ Loaded from cache instantly with progress stats:', { planned, productive, unproductive, totalOrders, totalOrderValue });
       }
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
