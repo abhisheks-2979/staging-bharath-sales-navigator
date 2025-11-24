@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, Clock, RefreshCw } from "lucide-react";
 import { offlineStorage } from "@/lib/offlineStorage";
 
@@ -18,9 +19,10 @@ interface SyncItem {
 interface SyncProgressModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTriggerSync?: () => void;
 }
 
-export const SyncProgressModal = ({ open, onOpenChange }: SyncProgressModalProps) => {
+export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncProgressModalProps) => {
   const [syncItems, setSyncItems] = useState<SyncItem[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [syncedItems, setSyncedItems] = useState(0);
@@ -46,10 +48,14 @@ export const SyncProgressModal = ({ open, onOpenChange }: SyncProgressModalProps
     };
 
     loadSyncQueue();
+    // Trigger sync when modal opens
+    if (onTriggerSync) {
+      onTriggerSync();
+    }
     const interval = setInterval(loadSyncQueue, 1000);
 
     return () => clearInterval(interval);
-  }, [open]);
+  }, [open, onTriggerSync]);
 
   useEffect(() => {
     const successCount = syncItems.filter(item => item.status === 'success').length;
@@ -144,7 +150,20 @@ export const SyncProgressModal = ({ open, onOpenChange }: SyncProgressModalProps
 
           {/* Sync Items List */}
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">Items Being Synced</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">Items Being Synced</h4>
+              {onTriggerSync && syncItems.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={onTriggerSync}
+                  className="h-7"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry Sync
+                </Button>
+              )}
+            </div>
             {syncItems.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
