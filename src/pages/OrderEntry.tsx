@@ -1756,17 +1756,99 @@ export const OrderEntry = () => {
                     return;
                   }
                   
-                  if (!visitId) {
+                  if (!retailerId) {
                     toast({
                       title: "Error",
-                      description: "Visit ID is missing",
+                      description: "Retailer ID is missing",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  if (!userId) {
+                    toast({
+                      title: "Error",
+                      description: "User not authenticated. Please log in again.",
                       variant: "destructive"
                     });
                     return;
                   }
                   
                   try {
-                    console.log('🔴 NO ORDER: Updating visit:', visitId, 'with reason:', finalReason);
+                    let effectiveVisitId = visitId;
+                    
+                    // If no visit ID, try to find or create a visit for today
+                    if (!effectiveVisitId) {
+                      console.log('🔴 NO ORDER: No visit ID provided, checking for existing visit today...');
+                      
+                      const today = new Date().toISOString().split('T')[0];
+                      
+                      // Check if visit exists for this retailer today
+                      const { data: existingVisit } = await supabase
+                        .from('visits')
+                        .select('id')
+                        .eq('retailer_id', retailerId)
+                        .eq('user_id', userId)
+                        .eq('planned_date', today)
+                        .maybeSingle();
+                      
+                      if (existingVisit) {
+                        console.log('✅ NO ORDER: Found existing visit:', existingVisit.id);
+                        effectiveVisitId = existingVisit.id;
+                      } else {
+                        // Create a new visit for today
+                        console.log('🔴 NO ORDER: Creating new visit for today...');
+                        const { data: newVisit, error: createError } = await supabase
+                          .from('visits')
+                          .insert({
+                            retailer_id: retailerId,
+                            user_id: userId,
+                            planned_date: today,
+                            status: 'unproductive',
+                            no_order_reason: finalReason,
+                            visit_type: 'Regular Visit',
+                            created_at: new Date().toISOString()
+                          })
+                          .select()
+                          .single();
+                        
+                        if (createError) {
+                          console.error('❌ NO ORDER: Failed to create visit:', createError);
+                          throw createError;
+                        }
+                        
+                        console.log('✅ NO ORDER: Created new visit:', newVisit.id);
+                        effectiveVisitId = newVisit.id;
+                        
+                        // Update cache with new visit
+                        try {
+                          const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+                          await offlineStorage.save(STORES.VISITS, newVisit);
+                          console.log('✅ NO ORDER: Cached new visit');
+                        } catch (cacheError) {
+                          console.log('⚠️ NO ORDER: Cache save skipped (non-critical):', cacheError);
+                        }
+                        
+                        // Show success and navigate immediately
+                        toast({
+                          title: "✅ Visit Marked as Unproductive",
+                          description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
+                          duration: 3000
+                        });
+                        
+                        // Trigger refresh and navigate
+                        window.dispatchEvent(new Event('visitDataChanged'));
+                        console.log('✅ NO ORDER: Dispatched visitDataChanged event');
+                        
+                        setTimeout(() => {
+                          navigate("/visits/retailers");
+                        }, 300);
+                        
+                        return;
+                      }
+                    }
+                    
+                    console.log('🔴 NO ORDER: Updating visit:', effectiveVisitId, 'with reason:', finalReason);
                     
                     // Update database
                     const { data: updatedVisit, error: dbError } = await supabase
@@ -1776,7 +1858,7 @@ export const OrderEntry = () => {
                         no_order_reason: finalReason,
                         updated_at: new Date().toISOString()
                       })
-                      .eq('id', visitId)
+                      .eq('id', effectiveVisitId)
                       .select()
                       .single();
                       
@@ -1790,7 +1872,7 @@ export const OrderEntry = () => {
                     // Update cache for immediate reflection
                     try {
                       const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
-                      const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, visitId);
+                      const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, effectiveVisitId);
                       
                       if (cachedVisit) {
                         await offlineStorage.save(STORES.VISITS, {
