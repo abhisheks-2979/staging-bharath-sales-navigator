@@ -110,15 +110,20 @@ export function useOfflineOrderEntry() {
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
       if (cachedProducts.length > 0) {
-        const enrichedProducts = (cachedProducts || []).map((product: any) => ({
+        // Filter only active products and their active variants/schemes
+        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active === true);
+        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true);
+        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true);
+        
+        const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,
-          variants: (cachedVariants || []).filter((v: any) => v.product_id === product.id),
-          schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
+          variants: activeVariants.filter((v: any) => v.product_id === product.id),
+          schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
         setLoading(false);
         hasFetchedRef.current = true;
-        console.log(`✅ Loaded ${enrichedProducts.length} products from cache instantly`);
+        console.log(`✅ Loaded ${enrichedProducts.length} active products from cache instantly`);
         
         // Background sync if online (no delay, no await)
         if (isOnline) {
@@ -142,10 +147,15 @@ export function useOfflineOrderEntry() {
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
       if (cachedProducts.length > 0) {
-        const enrichedProducts = (cachedProducts || []).map((product: any) => ({
+        // Filter only active products and their active variants/schemes
+        const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active === true);
+        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true);
+        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true);
+        
+        const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,
-          variants: (cachedVariants || []).filter((v: any) => v.product_id === product.id),
-          schemes: (cachedSchemes || []).filter((s: any) => s.product_id === product.id)
+          variants: activeVariants.filter((v: any) => v.product_id === product.id),
+          schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
         }));
         setProducts(enrichedProducts);
         hasFetchedRef.current = true;
