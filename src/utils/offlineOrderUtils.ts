@@ -17,10 +17,8 @@ export async function submitOrderWithOfflineSupport(
     connectivityStatus?: 'online' | 'offline' | 'unknown';
   } = {}
 ) {
-  // Use provided connectivity status or fallback to navigator.onLine
-  const isOnline = options.connectivityStatus 
-    ? options.connectivityStatus === 'online' 
-    : navigator.onLine;
+  // Treat 'unknown' as online (assume online until proven offline)
+  const isOnline = options.connectivityStatus !== 'offline';
   
   if (!isOnline) {
     // Offline: Queue for sync
