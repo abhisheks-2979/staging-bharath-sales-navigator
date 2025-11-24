@@ -247,6 +247,7 @@ class OfflineStorage {
       action,
       data,
       timestamp: Date.now(),
+      createdAt: Date.now(),
       retryCount: 0
     };
     
@@ -259,6 +260,41 @@ class OfflineStorage {
 
   async clearSyncQueue(): Promise<void> {
     return this.clear(STORES.SYNC_QUEUE);
+  }
+
+  async deleteOldSyncedItems(maxAgeMs: number = 3 * 24 * 60 * 60 * 1000): Promise<void> {
+    await this.ensureReady();
+    const now = Date.now();
+    const cutoffTime = now - maxAgeMs;
+
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = this.db!.transaction([STORES.SYNC_QUEUE], 'readwrite');
+        const store = transaction.objectStore(STORES.SYNC_QUEUE);
+        const request = store.getAll();
+
+        request.onsuccess = () => {
+          const allItems = request.result || [];
+          let deletedCount = 0;
+
+          allItems.forEach((item: any) => {
+            if (item.timestamp && item.timestamp < cutoffTime) {
+              store.delete(item.id);
+              deletedCount++;
+            }
+          });
+
+          if (deletedCount > 0) {
+            console.log(`[OfflineStorage] 🗑️ Deleted ${deletedCount} old synced items (older than 3 days)`);
+          }
+        };
+
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 }
 
