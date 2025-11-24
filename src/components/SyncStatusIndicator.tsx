@@ -32,40 +32,63 @@ export const SyncStatusIndicator = () => {
   // Monitor syncing status when coming online
   useEffect(() => {
     const handleSync = async () => {
-      if (isOnline && syncQueueCount > 0) {
+      if (isOnline && syncQueueCount > 0 && !isSyncing) {
         setIsSyncing(true);
         setLastSyncStatus(null);
+        
+        console.log(`🔄 Starting sync of ${syncQueueCount} items...`);
+        
         toast({
-          title: "Syncing...",
-          description: `Uploading ${syncQueueCount} pending ${syncQueueCount === 1 ? 'item' : 'items'}`
+          title: "Syncing Data",
+          description: `Uploading ${syncQueueCount} pending ${syncQueueCount === 1 ? 'item' : 'items'}...`
         });
 
-        // Wait for sync to complete (check queue again after delay)
-        setTimeout(async () => {
+        // Check queue status every second for up to 30 seconds
+        let checkCount = 0;
+        const maxChecks = 30;
+        
+        const checkInterval = setInterval(async () => {
+          checkCount++;
           const queue = await offlineStorage.getSyncQueue();
-          setIsSyncing(false);
+          
+          console.log(`📊 Sync check ${checkCount}/${maxChecks}: ${queue.length} items remaining`);
+          
+          // If queue is empty, sync is complete
           if (queue.length === 0) {
+            clearInterval(checkInterval);
+            setIsSyncing(false);
             setLastSyncStatus('success');
+            setSyncQueueCount(0);
+            
             toast({
-              title: "Sync Complete",
+              title: "✅ Sync Complete",
               description: "All changes uploaded successfully"
             });
 
             // Clear success status after 3 seconds
             setTimeout(() => setLastSyncStatus(null), 3000);
-          } else {
+          } 
+          // If we've checked 30 times and still have items, show error
+          else if (checkCount >= maxChecks) {
+            clearInterval(checkInterval);
+            setIsSyncing(false);
             setLastSyncStatus('error');
+            
             toast({
-              title: "Sync Error",
-              description: `${queue.length} items failed to sync`,
+              title: "⚠️ Sync Incomplete",
+              description: `${queue.length} ${queue.length === 1 ? 'item' : 'items'} still pending. Will retry automatically.`,
               variant: "destructive"
             });
           }
-        }, 3000);
+        }, 1000);
       }
     };
-    handleSync();
-  }, [isOnline, syncQueueCount]);
+    
+    // Trigger sync immediately when online and have items
+    if (isOnline && syncQueueCount > 0) {
+      handleSync();
+    }
+  }, [isOnline, syncQueueCount, isSyncing]);
 
   // Only show when syncing or have pending items
   if (isSyncing || syncQueueCount > 0) {
