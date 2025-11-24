@@ -1,5 +1,6 @@
-import { Menu, X, LogOut, Home, ArrowLeft, Wifi, WifiOff } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,17 +11,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTranslation } from 'react-i18next';
 import bharathLogo from '@/assets/bharath-logo.png';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { 
   UserCheck, 
   Car, 
@@ -29,18 +24,16 @@ import {
   Briefcase,
   Gift,
   CreditCard,
-  BarChart,
   Trophy,
   BookOpen,
   Target,
   Shield,
-  Settings,
-  UserPlus,
   Store,
   Package,
   Paintbrush,
   Factory,
   MapPin,
+  Navigation2,
 } from "lucide-react";
 
 export const Navbar = () => {
@@ -49,23 +42,21 @@ export const Navbar = () => {
   const location = useLocation();
   const connectivityStatus = useConnectivity();
   const { t } = useTranslation('common');
-  const { open, setOpen } = useSidebar();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Hide back button on home/dashboard
   const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/';
 
   const navigationItems = [
-    { icon: UserCheck, label: "My Profile", href: "/employee-profile", color: "from-indigo-500 to-indigo-600" },
     { icon: UserCheck, label: t('nav.attendance'), href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: t('nav.myVisit'), href: "/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
     { icon: MapPin, label: t('nav.territories'), href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
-    { icon: Route, label: t('nav.gpsTrack'), href: "/gps-track", color: "from-purple-500 to-purple-600" },
+    { icon: Navigation2, label: t('nav.gpsTrack'), href: "/gps-track", color: "from-purple-500 to-purple-600" },
     { icon: Users, label: t('nav.myBeats'), href: "/my-beats", color: "from-orange-500 to-orange-600" },
     { icon: Briefcase, label: "Distributor Mapping", href: "/add-records", color: "from-red-500 to-red-600" },
     { icon: Trophy, label: "Competition Master", href: "/competition-master", color: "from-slate-500 to-slate-600" },
-    { icon: Gift, label: "Retailer Rewards", href: "/retailer-loyalty", color: "from-pink-500 to-pink-600" },
-    { icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-rose-500 to-rose-600" },
+    { icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
     { icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
     { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
@@ -75,11 +66,19 @@ export const Navbar = () => {
   // Admin-only navigation items
   const adminNavigationItems = [
     { icon: Shield, label: t('nav.adminPanel'), href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
+    { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
+    { icon: Package, label: "Products", href: "/product-management", color: "from-blue-500 to-blue-600" },
+    { icon: Factory, label: "Vendors", href: "/vendors", color: "from-purple-500 to-purple-600" },
+    { icon: CreditCard, label: "Expense Management", href: "/admin-expense-management", color: "from-green-500 to-green-600" },
   ];
 
   // Get user display name and initials
   const displayName = userProfile?.full_name || userProfile?.username || 'User';
   const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+
+  const handleMenuItemClick = () => {
+    setIsMenuOpen(false);
+  };
 
   return (
     <>
@@ -124,110 +123,106 @@ export const Navbar = () => {
               </NavLink>
             </div>
             
-            <SidebarTrigger className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
+            <button 
+              onClick={() => setIsMenuOpen(true)}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white"
+            >
               <Menu size={20} />
-            </SidebarTrigger>
+            </button>
           </div>
         </div>
       </nav>
 
       <div className="h-12" />
 
-      <Sidebar 
-        className="mt-12 border-r bg-gradient-to-br from-primary/5 via-background to-secondary/5"
-        collapsible="offcanvas"
-      >
-        <SidebarContent className="bg-transparent">
+      <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           {/* User Profile Section */}
-          <div className="p-4 border-b bg-gradient-primary text-primary-foreground">
+          <SheetHeader className="pb-4 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-6 mb-6">
             <div className="flex items-center gap-3">
-              <NavLink to="/employee-profile">
-                <Avatar className="h-10 w-10 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
+              <NavLink to="/employee-profile" onClick={handleMenuItemClick}>
+                <Avatar className="h-12 w-12 border-2 border-primary-foreground/20 shadow-lg hover:scale-105 transition-transform cursor-pointer">
                   <AvatarImage src="/placeholder.svg" alt="User" />
                   <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground text-lg font-bold">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
               </NavLink>
-              <div className="flex-1 min-w-0">
-                <div 
-                  className="text-base font-bold truncate cursor-pointer hover:opacity-80 transition-opacity" 
-                  onClick={() => navigate('/employee-profile')}
+              <div className="flex-1 text-left">
+                <SheetTitle 
+                  className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity" 
+                  onClick={() => {
+                    navigate('/employee-profile');
+                    handleMenuItemClick();
+                  }}
                 >
                   {displayName}
-                </div>
+                </SheetTitle>
                 {userRole === 'admin' && (
-                  <div className="flex items-center gap-1 text-xs opacity-90 mt-1">
+                  <div className="flex items-center gap-1 text-xs opacity-90 mt-1 text-primary-foreground">
                     <Shield className="h-3 w-3" />
                     <span className="font-medium">Administrator</span>
                   </div>
                 )}
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  signOut();
+                  handleMenuItemClick();
+                }}
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+                title="Logout"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
-            <div className="flex items-center gap-2 mt-3">
-              <SyncStatusIndicator />
-              <NetworkBadge />
-            </div>
-          </div>
+          </SheetHeader>
 
-          {/* Admin Section */}
+          {/* Admin Controls Section */}
           {userRole === 'admin' && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-muted-foreground text-sm font-semibold px-4 py-2">Admin Controls</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminNavigationItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild className="hover:bg-muted/50">
-                        <NavLink to={item.href} className="flex items-center gap-3 px-4 py-2.5">
-                          <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r ${item.color} shadow-md`}>
-                            <item.icon className="h-4 w-4 text-white" />
-                          </div>
-                          <span className="font-medium text-sm">{item.label}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Admin Controls</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {adminNavigationItems.map((item) => (
+                  <NavLink 
+                    key={item.href}
+                    to={item.href}
+                    onClick={handleMenuItemClick}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                  >
+                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r ${item.color} shadow-md`}>
+                      <item.icon className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-xs font-medium text-center leading-tight">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           )}
 
-          {/* Main Navigation */}
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-muted-foreground text-sm font-semibold px-4 py-2">Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {navigationItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild className="hover:bg-muted/50">
-                      <NavLink to={item.href} className="flex items-center gap-3 px-4 py-2.5">
-                        <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r ${item.color} shadow-md`}>
-                          <item.icon className="h-4 w-4 text-white" />
-                        </div>
-                        <span className="font-medium text-sm">{item.label}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {/* Logout Button */}
-          <div className="p-4 mt-auto border-t">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={signOut}
-              className="w-full hover:bg-destructive hover:text-destructive-foreground"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              {t('nav.logout')}
-            </Button>
+          {/* Navigation Section */}
+          <div>
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-1">Navigation</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {navigationItems.map((item) => (
+                <NavLink 
+                  key={item.href}
+                  to={item.href}
+                  onClick={handleMenuItemClick}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                >
+                  <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r ${item.color} shadow-md`}>
+                    <item.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-xs font-medium text-center leading-tight">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
           </div>
-        </SidebarContent>
-      </Sidebar>
+        </SheetContent>
+      </Sheet>
     </>
   );
 };
