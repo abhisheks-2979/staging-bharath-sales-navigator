@@ -191,6 +191,21 @@ export const OrderEntry = () => {
         console.error('Error auto-selecting over stocked:', error);
       } else {
         console.log('Auto-selected "Over Stocked" for visit:', visitId);
+        
+        // Also update cache to ensure immediate reflection
+        const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
+        try {
+          const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
+          if (cachedVisit) {
+            await offlineStorage.save('visits', {
+              ...cachedVisit,
+              status: 'unproductive',
+              no_order_reason: 'over-stocked'
+            });
+          }
+        } catch (cacheError) {
+          console.log('Cache update skipped:', cacheError);
+        }
       }
     } catch (error) {
       console.error('Error in handleAutoSelectOverStocked:', error);
@@ -1693,6 +1708,22 @@ export const OrderEntry = () => {
                       no_order_reason: reason.value
                     }).eq('id', visitId);
                     if (error) throw error;
+                    
+                    // Also update cache to ensure immediate reflection
+                    const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
+                    try {
+                      const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
+                      if (cachedVisit) {
+                        await offlineStorage.save('visits', {
+                          ...cachedVisit,
+                          status: 'unproductive',
+                          no_order_reason: reason.value
+                        });
+                      }
+                    } catch (cacheError) {
+                      console.log('Cache update skipped:', cacheError);
+                    }
+                    
                     toast({
                       title: "No Order Marked",
                       description: `Reason: ${reason.label}`
@@ -1756,6 +1787,22 @@ export const OrderEntry = () => {
                           no_order_reason: customNoOrderReason.trim()
                         }).eq('id', visitId);
                         if (error) throw error;
+                        
+                        // Also update cache to ensure immediate reflection
+                        const offlineStorage = (await import('@/lib/offlineStorage')).offlineStorage;
+                        try {
+                          const cachedVisit = await offlineStorage.getById<any>('visits', visitId);
+                          if (cachedVisit) {
+                            await offlineStorage.save('visits', {
+                              ...cachedVisit,
+                              status: 'unproductive',
+                              no_order_reason: customNoOrderReason.trim()
+                            });
+                          }
+                        } catch (cacheError) {
+                          console.log('Cache update skipped:', cacheError);
+                        }
+                        
                         toast({
                           title: "No Order Marked",
                           description: `Reason: ${customNoOrderReason.trim()}`

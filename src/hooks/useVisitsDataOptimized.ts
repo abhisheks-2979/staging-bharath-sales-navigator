@@ -240,45 +240,30 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setPointsData({ total: totalPoints, byRetailer: retailerPointsMap });
 
         // Calculate progress stats immediately for instant display
-        // Match the exact logic used in MyVisits.tsx for consistency
+        // Iterate over visits to ensure all visits are counted
+        const ordersMap = new Map<string, boolean>();
         const ordersByRetailer = new Map<string, number>();
         ordersData.forEach(o => {
+          ordersMap.set(o.retailer_id, true);
           ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
         });
-
-        // Get planned beat IDs to determine which retailers to include
-        const progressPlannedBeatIds = beatPlansData.map((bp: any) => bp.beat_id);
 
         let planned = 0;
         let productive = 0;
         let unproductive = 0;
-        let totalOrders = 0;
-        let totalOrderValue = 0;
+        let totalOrders = ordersData.length;
+        let totalOrderValue = ordersData.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
 
-        // Process retailers same as MyVisits.tsx does
-        retailersData.forEach((retailer: any) => {
-          const visit = visitsData.find((v: any) => v.retailer_id === retailer.id);
-          const isPlanned = progressPlannedBeatIds.includes(retailer.beat_id);
+        // Process visits directly to ensure all visits are counted
+        visitsData.forEach((visit: any) => {
+          const hasOrder = ordersMap.has(visit.retailer_id);
           
-          // Only count retailers that have a visit or are in planned beats
-          if (!visit && !isPlanned) return;
-
-          const orderValue = ordersByRetailer.get(retailer.id) || 0;
-          const hasOrder = orderValue > 0;
-          
-          // Determine status using same logic as MyVisits.tsx
-          const status = hasOrder ? 'productive' : 
-                        visit?.status === 'unproductive' ? 'unproductive' : 
-                        visit?.check_in_time ? 'in-progress' : 
-                        'planned';
-
-          if (status === 'productive') {
-            productive++;
-            totalOrders++;
-            totalOrderValue += orderValue;
-          } else if (status === 'unproductive') {
+          // Check visit status directly - match cache section logic
+          if (visit.status === 'unproductive' || (visit.no_order_reason && !hasOrder)) {
             unproductive++;
-          } else if (status === 'planned' || status === 'in-progress' || status === 'cancelled') {
+          } else if (hasOrder || visit.status === 'productive') {
+            productive++;
+          } else if (visit.status === 'planned' || !visit.check_in_time) {
             planned++;
           }
         });
