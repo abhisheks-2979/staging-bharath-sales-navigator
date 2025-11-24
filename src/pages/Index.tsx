@@ -228,15 +228,9 @@ const Index = () => {
         {/* Header Section with Welcome */}
         <div className="relative overflow-hidden bg-gradient-primary text-primary-foreground">
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
-          <div className="relative p-6 text-center">
-            <p className="text-sm sm:text-base opacity-90 mb-2">
-              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-1">{displayName}</h1>
-            <p className="text-sm opacity-80 mb-4">{roleDisplay}</p>
-            
-            {user && (
-              <div className="flex justify-center mb-4">
+          <div className="relative p-6">
+            <div className="flex items-center gap-4 mb-6">
+              {user && (
                 <ProfilePictureUpload
                   userId={user.id}
                   currentPhotoUrl={profilePictureUrl || undefined}
@@ -247,8 +241,15 @@ const Index = () => {
                   }}
                   size="md"
                 />
+              )}
+              <div className="flex-1">
+                <p className="text-sm sm:text-base opacity-90 mb-2">
+                  Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
+                </p>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1">{displayName}</h1>
+                <p className="text-sm opacity-80">{roleDisplay}</p>
               </div>
-            )}
+            </div>
             
             {/* Motivational Quote */}
             <div className="bg-primary-foreground/10 rounded-xl p-4 sm:p-5 backdrop-blur-sm border border-primary-foreground/20">
