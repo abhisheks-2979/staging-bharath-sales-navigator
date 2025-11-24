@@ -143,8 +143,9 @@ export const MyRetailers = () => {
           
         if (error) throw error;
         
-        // Update cache silently
+        // Clear cache and update with fresh data
         console.log('🔄 Updating retailers cache...');
+        await offlineStorage.clear(STORES.RETAILERS);
         for (const retailer of data || []) {
           await offlineStorage.save(STORES.RETAILERS, retailer);
         }
