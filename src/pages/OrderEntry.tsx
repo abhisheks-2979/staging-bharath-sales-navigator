@@ -1830,6 +1830,10 @@ export const OrderEntry = () => {
                     // Navigate back immediately
                     navigate("/visits/retailers");
                     
+                    // Trigger data refresh for Today's Progress
+                    window.dispatchEvent(new Event('visitDataChanged'));
+                    console.log('✅ NO ORDER: Dispatched visitDataChanged event');
+                    
                   } catch (error: any) {
                     console.error('🔴 NO ORDER: Error saving no order reason:', error);
                     toast({
