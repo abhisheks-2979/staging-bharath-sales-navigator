@@ -2,9 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Users, MapPin, Target, TrendingUp, Calendar, Star, Award, CheckCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 export const LandingPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Redirect logged-in users to dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const features = [
     {
