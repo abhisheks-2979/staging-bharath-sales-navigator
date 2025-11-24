@@ -1827,12 +1827,16 @@ export const OrderEntry = () => {
                       console.log('⚠️ NO ORDER: Cart clear skipped:', storageError);
                     }
 
-                    // Navigate back immediately
-                    navigate("/visits/retailers");
-                    
-                    // Trigger data refresh for Today's Progress
+                    // Update cache and dispatch refresh BEFORE navigation
+                    // so the MyVisits page loads with fresh data
                     window.dispatchEvent(new Event('visitDataChanged'));
                     console.log('✅ NO ORDER: Dispatched visitDataChanged event');
+                    
+                    // Small delay to ensure cache/event processing, then navigate
+                    setTimeout(() => {
+                      navigate("/visits/retailers");
+                    }, 300);
+                    
                     
                   } catch (error: any) {
                     console.error('🔴 NO ORDER: Error saving no order reason:', error);

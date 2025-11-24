@@ -44,6 +44,10 @@ export async function submitOrderWithOfflineSupport(
       if (itemsError) throw itemsError;
 
       options.onOnline?.();
+      
+      // Trigger data refresh for Today's Progress
+      console.log('✅ [ORDER] Online submission successful, triggering data refresh');
+      window.dispatchEvent(new Event('visitDataChanged'));
 
       return { 
         success: true, 
@@ -82,6 +86,10 @@ export async function submitOrderWithOfflineSupport(
   });
 
   options.onOffline?.();
+  
+  // Trigger data refresh for Today's Progress
+  console.log('✅ [ORDER] Offline order queued, triggering data refresh');
+  window.dispatchEvent(new Event('visitDataChanged'));
 
   return { 
     success: true, 
