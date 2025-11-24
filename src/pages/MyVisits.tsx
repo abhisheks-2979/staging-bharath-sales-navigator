@@ -1084,20 +1084,10 @@ export const MyVisits = () => {
                 <span className="hidden sm:inline">{t('visits.allRetailers')}</span>
                 <span className="sm:hidden">Retailers</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/add-retailer', {
-                state: {
-                  returnTo: '/my-visits',
-                  plannedBeats: plannedBeats.map(bp => ({ beat_id: bp.beat_id, beat_name: bp.beat_name })),
-                  selectedDate: selectedDate
-                }
-              })}>
-                + Retailer
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mb-2">
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
-                <FileText size={12} className="mr-1" />
-                {t('visits.todaysSummary')}
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
+                <FileText size={12} className="sm:mr-1" />
+                <span className="hidden sm:inline">{t('visits.todaysSummary')}</span>
+                <span className="sm:hidden">Summary</span>
               </Button>
             </div>
             
