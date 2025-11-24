@@ -5,9 +5,11 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
 import { SyncProgressModal } from "./SyncProgressModal";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 export const SyncStatusIndicator = () => {
   const isOnline = useConnectivity() === 'online';
+  const { processSyncQueue } = useOfflineSync();
   const [syncQueueCount, setSyncQueueCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncStatus, setLastSyncStatus] = useState<'success' | 'error' | null>(null);
