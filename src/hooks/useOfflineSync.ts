@@ -309,10 +309,23 @@ export function useOfflineSync() {
     }
   }, [connectivityStatus]);
 
-  // Auto-sync when connectivity is restored
+  // Auto-sync when connectivity is restored and cleanup old data
   useEffect(() => {
     if (connectivityStatus === 'online') {
       processSyncQueue();
+      
+      // Clean up old synced items (older than 3 days) after successful sync
+      const cleanupOldData = async () => {
+        try {
+          await offlineStorage.deleteOldSyncedItems();
+          console.log('Old synced data cleaned up successfully');
+        } catch (error) {
+          console.error('Error cleaning up old data:', error);
+        }
+      };
+      
+      // Run cleanup after a short delay to let sync complete
+      setTimeout(cleanupOldData, 5000);
     }
   }, [connectivityStatus, processSyncQueue]);
 
