@@ -3,8 +3,8 @@ import {useEffect, useRef, useState} from 'react';
 type Status = 'unknown' | 'online' | 'offline';
 
 export function useConnectivity(pollMs = 30000, startupDelayMs = 5000) {
-  // Start as 'unknown' - let the app load from cache without blocking
-  const [status, setStatus] = useState<Status>('unknown');
+  // Start with browser's connectivity state for instant feedback
+  const [status, setStatus] = useState<Status>(navigator.onLine ? 'online' : 'offline');
   const timer = useRef<number | null>(null);
   const poller = useRef<number | null>(null);
   const isFirstCheck = useRef(true);

@@ -17,69 +17,77 @@ export async function submitOrderWithOfflineSupport(
     connectivityStatus?: 'online' | 'offline' | 'unknown';
   } = {}
 ) {
-  // Treat 'unknown' as online (assume online until proven offline)
-  const isOnline = options.connectivityStatus !== 'offline';
+  // Double-check connectivity: use both provided status and navigator.onLine
+  const connectivityCheck = options.connectivityStatus !== 'offline' && navigator.onLine;
   
-  if (!isOnline) {
-    // Offline: Queue for sync
-    const orderId = crypto.randomUUID();
-    const offlineOrder = {
-      ...orderData,
-      id: orderId,
-      created_at: new Date().toISOString(),
-      order_date: new Date().toISOString().split('T')[0]
-    };
+  // Try online submission first if we think we're online
+  if (connectivityCheck) {
+    try {
+      // Online: Submit directly
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderData)
+        .select()
+        .single();
 
-    const offlineItems = orderItems.map(item => ({
-      ...item,
-      order_id: orderId
-    }));
+      if (orderError) throw orderError;
 
-    // Save to offline storage
-    await offlineStorage.save(STORES.ORDERS, { ...offlineOrder, items: offlineItems });
-    
-    // Queue for sync
-    await offlineStorage.addToSyncQueue('CREATE_ORDER', {
-      order: offlineOrder,
-      items: offlineItems
-    });
+      const itemsWithOrderId = orderItems.map(item => ({
+        ...item,
+        order_id: order.id
+      }));
 
-    options.onOffline?.();
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(itemsWithOrderId);
 
-    return { 
-      success: true, 
-      offline: true, 
-      order: offlineOrder 
-    };
-  } else {
-    // Online: Submit directly
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert(orderData)
-      .select()
-      .single();
+      if (itemsError) throw itemsError;
 
-    if (orderError) throw orderError;
+      options.onOnline?.();
 
-    const itemsWithOrderId = orderItems.map(item => ({
-      ...item,
-      order_id: order.id
-    }));
-
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(itemsWithOrderId);
-
-    if (itemsError) throw itemsError;
-
-    options.onOnline?.();
-
-    return { 
-      success: true, 
-      offline: false, 
-      order 
-    };
+      return { 
+        success: true, 
+        offline: false, 
+        order 
+      };
+    } catch (error: any) {
+      // If online submission fails (network error, etc.), fall back to offline mode
+      console.warn('Online submission failed, queuing for offline sync:', error);
+      
+      // Fall through to offline logic below
+    }
   }
+  
+  // Offline mode or failed online attempt: Queue for sync
+  const orderId = crypto.randomUUID();
+  const offlineOrder = {
+    ...orderData,
+    id: orderId,
+    created_at: new Date().toISOString(),
+    order_date: new Date().toISOString().split('T')[0]
+  };
+
+  const offlineItems = orderItems.map(item => ({
+    ...item,
+    order_id: orderId
+  }));
+
+  // Save to offline storage
+  await offlineStorage.save(STORES.ORDERS, { ...offlineOrder, items: offlineItems });
+  
+  // Queue for sync
+  await offlineStorage.addToSyncQueue('CREATE_ORDER', {
+    order: offlineOrder,
+    items: offlineItems
+  });
+
+  options.onOffline?.();
+
+  return { 
+    success: true, 
+    offline: true, 
+    order: offlineOrder 
+  };
 }
 
 /**
