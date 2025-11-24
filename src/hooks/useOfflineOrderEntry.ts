@@ -16,6 +16,34 @@ interface Product {
   variants?: any[];
 }
 
+/**
+ * PRODUCT DISPLAY FLOW - ESTABLISHED STANDARD
+ * 
+ * This hook manages the complete product lifecycle from Product Master to Order Entry.
+ * 
+ * ACTIVE PRODUCT RULES:
+ * - Products/variants with is_active = true OR null/undefined → SHOWN
+ * - Products/variants with is_active = false → HIDDEN
+ * - When new products are added to Product Master with active status, they automatically appear
+ * 
+ * DISPLAY NAMING CONVENTION (SYSTEM-WIDE):
+ * - Base products (no variants): Display product.name
+ * - Base products (with variants): Display product.name + all active variants
+ * - Product variants: Display ONLY variant.variant_name (NOT "product.name - variant.variant_name")
+ * 
+ * SYNC FLOW:
+ * 1. Product added/updated in Product Master (is_active = true)
+ * 2. syncProductsInBackground() fetches and caches to IndexedDB
+ * 3. Order Entry loads from cache instantly
+ * 4. TableOrderForm dropdown shows all active products + variants
+ * 5. Van Stock Management shows same products
+ * 
+ * This ensures consistent product display across:
+ * - Order Entry (grid and table modes)
+ * - Van Stock Management
+ * - Cart
+ * - Invoices
+ */
 export function useOfflineOrderEntry() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,26 +68,29 @@ export function useOfflineOrderEntry() {
   // Background sync function - defined before fetchProducts
   const syncProductsInBackground = async () => {
     try {
+      // Fetch all products where is_active is true OR null (treat null as active)
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           *,
           category:product_categories(name)
         `)
-        .eq('is_active', true)
+        .or('is_active.eq.true,is_active.is.null')
         .order('name');
 
       if (productsError) throw productsError;
 
+      // Fetch all active schemes (is_active true or null)
       const { data: schemesData } = await supabase
         .from('product_schemes')
         .select('*')
-        .eq('is_active', true);
+        .or('is_active.eq.true,is_active.is.null');
 
+      // Fetch all active variants (is_active true or null)
       const { data: variantsData } = await supabase
         .from('product_variants')
         .select('*')
-        .eq('is_active', true);
+        .or('is_active.eq.true,is_active.is.null');
 
       const enrichedProducts = (productsData || []).map((product: any) => ({
         ...product,
@@ -110,11 +141,10 @@ export function useOfflineOrderEntry() {
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
       if (cachedProducts.length > 0) {
-        // Filter only active products and their active variants/schemes
-        // Treat products as active by default unless explicitly marked inactive
+        // Filter only active products: is_active must be true or null/undefined (never false)
         const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
-        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true || v.is_active === undefined || v.is_active === null);
-        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true || s.is_active === undefined || s.is_active === null);
+        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active !== false);
+        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active !== false);
         
         const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,
@@ -148,11 +178,10 @@ export function useOfflineOrderEntry() {
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
       if (cachedProducts.length > 0) {
-        // Filter only active products and their active variants/schemes
-        // Treat products as active by default unless explicitly marked inactive
+        // Filter only active products: is_active must be true or null/undefined (never false)
         const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
-        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active === true || v.is_active === undefined || v.is_active === null);
-        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active === true || s.is_active === undefined || s.is_active === null);
+        const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active !== false);
+        const activeSchemes = (cachedSchemes || []).filter((s: any) => s.is_active !== false);
         
         const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,

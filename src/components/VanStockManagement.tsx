@@ -137,13 +137,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       if (cachedProducts && cachedProducts.length > 0) {
         console.log('Loaded products from cache:', cachedProducts.length);
         
-        // Enrich products with their variants
+        // Enrich products with their variants (only active ones: is_active !== false)
         const enrichedProducts = cachedProducts.map((p: any) => ({
           id: p.id,
           name: p.name,
           unit: p.unit,
           rate: p.rate || 0,
-          variants: (cachedVariants || []).filter((v: any) => v.product_id === p.id && v.is_active)
+          variants: (cachedVariants || []).filter((v: any) => v.product_id === p.id && v.is_active !== false)
         }));
         
         // Flatten to include both base products and active variants
@@ -169,20 +169,21 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       
       // Try online fetch to update cache
       try {
+        // Fetch all products where is_active is true OR null (treat null as active)
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('id, name, unit, rate')
-          .eq('is_active', true)
+          .or('is_active.eq.true,is_active.is.null')
           .order('name');
         
         if (productsError) {
           console.error('Error fetching products:', productsError);
         } else if (productsData) {
-          // Fetch active variants
+          // Fetch all active variants (is_active true or null)
           const { data: variantsData } = await supabase
             .from('product_variants')
             .select('*')
-            .eq('is_active', true);
+            .or('is_active.eq.true,is_active.is.null');
           
           console.log('Loaded products from database:', productsData.length);
           console.log('Loaded variants from database:', variantsData?.length || 0);

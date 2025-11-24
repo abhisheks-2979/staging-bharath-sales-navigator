@@ -139,6 +139,10 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   };
 
   // Create flattened list of products and variants for combobox
+  // FOLLOWS ESTABLISHED PRODUCT DISPLAY STANDARD:
+  // - Base products: Always included (even if they have variants)
+  // - Variants: Display ONLY variant_name (not "base_product - variant_name")
+  // - Active filtering: is_active !== false (treats null/undefined as active)
   const getProductOptions = () => {
     const options: Array<{ value: string; label: string; product: Product; variant?: any; sku: string; price: number; type: 'product' | 'variant' }> = [];
     
