@@ -1075,17 +1075,17 @@ export const MyVisits = () => {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2">
-              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
-                <Route size={14} className="mr-1.5" />
-                All Beat
+              <Button variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => window.location.href = '/beat-planning'} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
+                <Route size={12} className="mr-1 sm:mr-1.5" />
+                <span className="whitespace-nowrap">All Beat</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3" onClick={() => navigate('/my-retailers')}>
-                <Users size={14} className="mr-1.5" />
-                All Retailers
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/my-retailers')}>
+                <Users size={12} className="mr-1 sm:mr-1.5" />
+                <span className="whitespace-nowrap">All Retailers</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-xs sm:text-sm h-8 sm:h-9" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
-                <FileText size={14} className="mr-1.5" />
-                Today's Summary
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
+                <FileText size={12} className="mr-1 sm:mr-1.5" />
+                <span className="whitespace-nowrap">Today's Summary</span>
               </Button>
             </div>
             
