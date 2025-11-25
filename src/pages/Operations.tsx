@@ -15,6 +15,7 @@ import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, Do
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 
 interface CheckInOutData {
   id: string;
@@ -718,10 +719,11 @@ const Operations = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="checkins">Check-in & Check-out</TabsTrigger>
                 <TabsTrigger value="orders">Order Data</TabsTrigger>
                 <TabsTrigger value="stock">Stock Data</TabsTrigger>
+                <TabsTrigger value="payments">Payment Proofs</TabsTrigger>
               </TabsList>
 
               {/* Filters */}
@@ -1390,6 +1392,11 @@ const Operations = () => {
                     </TableBody>
                   </Table>
                 </div>
+              </TabsContent>
+
+              {/* Payment Proofs Tab */}
+              <TabsContent value="payments">
+                <PaymentProofsView />
               </TabsContent>
             </Tabs>
           </CardContent>

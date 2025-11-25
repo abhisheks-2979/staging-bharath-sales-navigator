@@ -76,6 +76,7 @@ export const Cart = () => {
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
   const connectivityStatus = useConnectivity();
+  const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
 
 
   // Fetch and cache schemes from database
@@ -246,6 +247,22 @@ export const Cart = () => {
       }
     };
     fetchUserData();
+  }, []);
+
+  // Fetch company QR code
+  React.useEffect(() => {
+    const fetchCompanyQR = async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('qr_code_url')
+        .limit(1)
+        .single();
+      
+      if (!error && data?.qr_code_url) {
+        setCompanyQrCode(data.qr_code_url);
+      }
+    };
+    fetchCompanyQR();
   }, []);
 
   // Fetch visit date if visitId is available
@@ -1231,9 +1248,19 @@ export const Cart = () => {
                     {/* UPI Payment Confirmation */}
                     {paymentMethod === "upi" && <div className="space-y-1.5">
                         <div className="p-2 bg-background rounded-md border">
-                          <p className="text-xs text-muted-foreground mb-1.5">Scan QR for Payment</p>
-                          <div className="flex items-center justify-center h-32 bg-muted rounded">
-                            <p className="text-xs text-muted-foreground">QR Code</p>
+                          <p className="text-xs font-medium mb-1.5 text-center">Scan QR for Payment</p>
+                          <div className="flex items-center justify-center bg-white p-2 rounded">
+                            {companyQrCode ? (
+                              <img 
+                                src={companyQrCode} 
+                                alt="UPI QR Code" 
+                                className="w-32 h-32 object-contain"
+                              />
+                            ) : (
+                              <div className="w-32 h-32 flex items-center justify-center bg-muted rounded">
+                                <p className="text-xs text-muted-foreground">No QR Code</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="space-y-1">
