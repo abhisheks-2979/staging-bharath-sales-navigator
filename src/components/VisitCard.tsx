@@ -284,8 +284,14 @@ export const VisitCard = ({
             
             // Update current status from database with proper type assertion
             const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+            console.log('📊 [VisitCard] Setting currentStatus from DB:', {
+              visitId: visitData.id,
+              oldStatus: currentStatus,
+              newStatus: validStatus,
+              hasCheckIn: !!visitData.check_in_time,
+              hasCheckOut: !!visitData.check_out_time
+            });
             setCurrentStatus(validStatus);
-            console.log('✅ Updated currentStatus to:', validStatus);
             
             if (visitData.no_order_reason) {
               setIsNoOrderMarked(true);
@@ -336,8 +342,13 @@ export const VisitCard = ({
             setLastOrderId(ordersToday[0].id);
             // Calculate totals for today
             const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0);
+            console.log('💰 [VisitCard] Setting actualOrderValue:', {
+              visitId: visit.id,
+              orderCount: ordersToday.length,
+              totalOrderValue,
+              orders: ordersToday.map((o: any) => ({ id: o.id, amount: o.total_amount }))
+            });
             setActualOrderValue(totalOrderValue);
-            console.log('💰 Updated actualOrderValue to:', totalOrderValue);
 
             // Calculate total previous pending cleared
             const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
@@ -362,13 +373,19 @@ export const VisitCard = ({
 
             // If an order exists and visit is checked in, automatically mark as productive
             if (visitData?.check_in_time && visitData.status === 'in-progress') {
-              await supabase.from('visits').update({
-                status: 'productive'
+              console.log('🔄 [VisitCard] Auto-updating visit status to productive:', visitData.id);
+              const { error: updateError } = await supabase.from('visits').update({
+                status: 'productive',
+                check_out_time: new Date().toISOString()
               }).eq('id', visitData.id);
               
-              // Update local status state
-              setCurrentStatus('productive');
-              console.log('✅ Auto-updated status to productive');
+              if (updateError) {
+                console.error('❌ [VisitCard] Error auto-updating status:', updateError);
+              } else {
+                console.log('✅ [VisitCard] Auto-updated status to productive');
+                // Update local status state
+                setCurrentStatus('productive');
+              }
             }
             
             setHasOrderToday(true);
@@ -392,8 +409,18 @@ export const VisitCard = ({
 
     // Listen for custom events to refresh status - trigger full data reload
     const handleStatusChange = (event: any) => {
-      console.log('🔔 Received visitStatusChanged event, refreshing all data...', event.detail);
-      checkStatus();
+      console.log('🔔 [VisitCard] Received visitStatusChanged event:', {
+        eventDetail: event.detail,
+        currentVisitId: visit.id,
+        matches: event.detail.visitId === visit.id
+      });
+      
+      if (event.detail.visitId === visit.id || event.detail.retailerId === (visit.retailerId || visit.id)) {
+        console.log('✅ [VisitCard] Event matches this visit, reloading status...');
+        checkStatus();
+      } else {
+        console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
+      }
     };
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
     return () => {
