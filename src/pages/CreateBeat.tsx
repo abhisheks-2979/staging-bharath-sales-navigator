@@ -21,6 +21,14 @@ import { cn } from "@/lib/utils";
 import { useOfflineBeats } from "@/hooks/useOfflineBeats";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Retailer {
   id: string;
@@ -192,6 +200,10 @@ export const CreateBeat = () => {
   const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState<number>(1); // 0=Sunday, 1=Monday, etc.
   const [monthlyDateOfMonth, setMonthlyDateOfMonth] = useState<number>(1); // 1-31
 
+  // Beat creation options dialog
+  const [showOptionsDialog, setShowOptionsDialog] = useState(false);
+  const [createdBeatData, setCreatedBeatData] = useState<{beatId: string; beatName: string} | null>(null);
+
   const weekDays = [
     { label: "Mon", value: 1 },
     { label: "Tue", value: 2 },
@@ -349,18 +361,7 @@ export const CreateBeat = () => {
               .insert(beatPlans);
 
             if (planError) throw planError;
-
-            const untilText = repeatUntilMode === "permanent" ? "permanently" : `until ${format(endDate, 'PP')}`;
-            toast({
-              title: "Beat Created Successfully",
-              description: `"${beatName}" created with ${selectedRetailers.length} retailers and scheduled ${untilText}`,
-            });
           }
-        } else {
-          toast({
-            title: "Beat Created Successfully",
-            description: `"${beatName}" created with ${selectedRetailers.length} retailers`,
-          });
         }
 
         // Cache beat and updated retailers
@@ -372,6 +373,10 @@ export const CreateBeat = () => {
             await offlineStorage.save(STORES.RETAILERS, updatedRetailer);
           }
         }
+
+        // Show options dialog for beat placement
+        setCreatedBeatData({ beatId, beatName });
+        setShowOptionsDialog(true);
       } else {
         // Offline: Save locally and queue for sync
         await offlineStorage.save(STORES.BEATS, beatData);
@@ -402,15 +407,10 @@ export const CreateBeat = () => {
           }
         }
 
-        toast({
-          title: "Beat Saved Offline",
-          description: `"${beatName}" saved offline with ${selectedRetailers.length} retailers. Will sync when online.`,
-          action: <WifiOff className="h-4 w-4" />
-        });
+        // Show options dialog for beat placement
+        setCreatedBeatData({ beatId, beatName });
+        setShowOptionsDialog(true);
       }
-
-      // Navigate to My Visits
-      navigate('/visits/retailers');
     } catch (error: any) {
       console.error('Error creating beat:', error);
       toast({
@@ -505,6 +505,86 @@ export const CreateBeat = () => {
       case "low": return "bg-muted text-muted-foreground";
       default: return "bg-muted text-muted-foreground";
     }
+  };
+
+  const handleAddBeatForToday = async () => {
+    if (!createdBeatData || !user) return;
+    
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Check if beat plan for today already exists
+      if (isOnline) {
+        const { data: existingPlan } = await supabase
+          .from('beat_plans')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('beat_id', createdBeatData.beatId)
+          .eq('plan_date', today)
+          .maybeSingle();
+        
+        if (existingPlan) {
+          toast({
+            title: "Already Added",
+            description: `"${createdBeatData.beatName}" is already scheduled for today`,
+          });
+          setShowOptionsDialog(false);
+          navigate('/visits/retailers');
+          return;
+        }
+      }
+      
+      const beatPlanData = {
+        user_id: user.id,
+        beat_id: createdBeatData.beatId,
+        beat_name: createdBeatData.beatName,
+        plan_date: today,
+        beat_data: {
+          retailer_ids: selectedRetailers
+        }
+      };
+
+      if (isOnline) {
+        const { error } = await supabase
+          .from('beat_plans')
+          .insert(beatPlanData);
+        
+        if (error) throw error;
+        await offlineStorage.save(STORES.BEAT_PLANS, beatPlanData);
+      } else {
+        await offlineStorage.save(STORES.BEAT_PLANS, beatPlanData);
+        await offlineStorage.addToSyncQueue('CREATE_BEAT_PLAN', beatPlanData);
+      }
+
+      toast({
+        title: "Beat Added to Today",
+        description: `"${createdBeatData.beatName}" has been added to today's visit list`,
+      });
+
+      // Dispatch event to refresh My Visits page
+      window.dispatchEvent(new CustomEvent('visitDataChanged'));
+      
+      setShowOptionsDialog(false);
+      setTimeout(() => {
+        navigate('/visits/retailers');
+      }, 300);
+    } catch (error: any) {
+      console.error('Error adding beat to today:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add beat to today",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSaveBeatOnly = () => {
+    toast({
+      title: "Beat Saved",
+      description: `"${createdBeatData?.beatName}" has been saved to All Beats`,
+    });
+    setShowOptionsDialog(false);
+    navigate('/visits/retailers');
   };
 
   const getCategoryIcon = (category: string) => {
@@ -1065,6 +1145,44 @@ export const CreateBeat = () => {
           beatName={beatName}
           onRetailerAdded={handleRetailerAdded}
         />
+
+        {/* Beat Options Dialog */}
+        <Dialog open={showOptionsDialog} onOpenChange={setShowOptionsDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Beat Created Successfully!</DialogTitle>
+              <DialogDescription>
+                Would you like to add this beat to today's visit list or save it for later?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              <Button
+                onClick={handleAddBeatForToday}
+                className="w-full justify-start h-auto py-4 px-6"
+                variant="default"
+              >
+                <div className="text-left">
+                  <div className="font-semibold text-base">Add it for the day</div>
+                  <div className="text-xs opacity-90 mt-1">
+                    Beat will be added to today's visit list and saved to All Beats
+                  </div>
+                </div>
+              </Button>
+              <Button
+                onClick={handleSaveBeatOnly}
+                className="w-full justify-start h-auto py-4 px-6"
+                variant="outline"
+              >
+                <div className="text-left">
+                  <div className="font-semibold text-base">Save it in All Beats</div>
+                  <div className="text-xs opacity-90 mt-1">
+                    Beat will be saved and available for selection later
+                  </div>
+                </div>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
