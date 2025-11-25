@@ -96,7 +96,7 @@ serve(async (req) => {
 
     // Get company config for business name
     const { data: companyConfig } = await supabase
-      .from('company_info')
+      .from('companies')
       .select('name')
       .limit(1)
       .maybeSingle();
