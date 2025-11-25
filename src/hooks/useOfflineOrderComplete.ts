@@ -209,10 +209,27 @@ export function useOfflineOrderComplete() {
 
         if (itemsError) throw itemsError;
 
+        // Update visit status to 'productive' if visit_id exists
+        if (orderData.visit_id) {
+          const { error: visitError } = await supabase
+            .from('visits')
+            .update({ status: 'productive' })
+            .eq('id', orderData.visit_id);
+          
+          if (visitError) {
+            console.error('Error updating visit status:', visitError);
+          } else {
+            console.log('✅ Visit status updated to productive for visit:', orderData.visit_id);
+          }
+        }
+
         toast({
           title: "Order Submitted",
           description: "Your order has been submitted successfully.",
         });
+
+        // Trigger data refresh
+        window.dispatchEvent(new Event('visitDataChanged'));
 
         return { success: true, offline: false, order };
       } else {
@@ -237,10 +254,23 @@ export function useOfflineOrderComplete() {
           items: offlineItems 
         });
 
+        // Update visit status in offline cache to 'productive'
+        if (orderData.visit_id) {
+          const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
+          const visitToUpdate = cachedVisits.find((v: any) => v.id === orderData.visit_id);
+          
+          if (visitToUpdate) {
+            const updatedVisit = { ...visitToUpdate, status: 'productive' };
+            await offlineStorage.save(STORES.VISITS, updatedVisit);
+            console.log('✅ Visit status updated to productive in offline cache:', orderData.visit_id);
+          }
+        }
+
         // Queue for sync
         await offlineStorage.addToSyncQueue('CREATE_ORDER', {
           order: offlineOrder,
-          items: offlineItems
+          items: offlineItems,
+          visitId: orderData.visit_id // Include visitId for visit status update during sync
         });
 
         toast({
@@ -248,6 +278,9 @@ export function useOfflineOrderComplete() {
           description: "Your order will be submitted when you're back online.",
           variant: "default",
         });
+
+        // Trigger data refresh
+        window.dispatchEvent(new Event('visitDataChanged'));
 
         return { success: true, offline: true, order: offlineOrder };
       }

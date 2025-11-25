@@ -104,12 +104,40 @@ export function useOfflineSync() {
             .from('order_items')
             .insert(data.items);
           if (itemsError) throw itemsError;
+
+          // Update visit status to 'productive' if visitId exists
+          if (data.visitId) {
+            const { error: visitError } = await supabase
+              .from('visits')
+              .update({ status: 'productive' })
+              .eq('id', data.visitId);
+            
+            if (visitError) {
+              console.error('Error updating visit status during sync:', visitError);
+            } else {
+              console.log('✅ Visit status updated to productive during sync:', data.visitId);
+            }
+          }
         } else {
           // Old format - just the order data
           const { error: orderError } = await supabase
             .from('orders')
             .insert(data);
           if (orderError) throw orderError;
+
+          // Update visit status if visit_id is in the order data
+          if (data.visit_id) {
+            const { error: visitError } = await supabase
+              .from('visits')
+              .update({ status: 'productive' })
+              .eq('id', data.visit_id);
+            
+            if (visitError) {
+              console.error('Error updating visit status during sync:', visitError);
+            } else {
+              console.log('✅ Visit status updated to productive during sync:', data.visit_id);
+            }
+          }
         }
         break;
         
