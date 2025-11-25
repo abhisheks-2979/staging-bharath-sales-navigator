@@ -57,8 +57,9 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
-  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour"];
+  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour", "Hotel", "Other"];
   const potentials = ["High", "Medium", "Low"];
+  const [customRetailType, setCustomRetailType] = useState("");
 
   useEffect(() => {
     if (user && open) {
@@ -633,7 +634,15 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
               </div>
               <div className="space-y-2">
                 <Label>Retail Type</Label>
-                <Select value={retailerData.retailType} onValueChange={(value) => handleInputChange("retailType", value)}>
+                <Select 
+                  value={retailerData.retailType === "Other" ? "Other" : retailerData.retailType} 
+                  onValueChange={(value) => {
+                    handleInputChange("retailType", value);
+                    if (value !== "Other") {
+                      setCustomRetailType("");
+                    }
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -643,6 +652,17 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
                     ))}
                   </SelectContent>
                 </Select>
+                {retailerData.retailType === "Other" && (
+                  <Input
+                    placeholder="Enter custom retail type"
+                    value={customRetailType}
+                    onChange={(e) => {
+                      setCustomRetailType(e.target.value);
+                      handleInputChange("retailType", e.target.value);
+                    }}
+                    className="mt-2"
+                  />
+                )}
               </div>
             </div>
 

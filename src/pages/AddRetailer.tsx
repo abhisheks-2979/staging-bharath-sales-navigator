@@ -67,8 +67,9 @@ export const AddRetailer = () => {
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
-  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour"];
+  const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour", "Hotel", "Other"];
   const potentials = ["High", "Medium", "Low"];
+  const [customRetailType, setCustomRetailType] = useState("");
 
   // Load distributors from vendors table (Distributor Management)
   const loadDistributors = async () => {
@@ -1136,7 +1137,15 @@ export const AddRetailer = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Retail Type</Label>
-                  <Select value={retailerData.retailType} onValueChange={(value) => handleInputChange("retailType", value)}>
+                  <Select 
+                    value={retailerData.retailType === "Other" ? "Other" : retailerData.retailType} 
+                    onValueChange={(value) => {
+                      handleInputChange("retailType", value);
+                      if (value !== "Other") {
+                        setCustomRetailType("");
+                      }
+                    }}
+                  >
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -1146,6 +1155,17 @@ export const AddRetailer = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {retailerData.retailType === "Other" && (
+                    <Input
+                      placeholder="Enter custom retail type"
+                      value={customRetailType}
+                      onChange={(e) => {
+                        setCustomRetailType(e.target.value);
+                        handleInputChange("retailType", e.target.value);
+                      }}
+                      className="bg-background mt-2"
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
