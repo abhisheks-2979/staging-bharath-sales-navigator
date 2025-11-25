@@ -209,25 +209,9 @@ export function useOfflineOrderComplete() {
 
         if (itemsError) throw itemsError;
 
-        // Update visit status to 'productive' if visit_id exists
-        if (orderData.visit_id) {
-          console.log('🔄 Updating visit status to productive for visit:', orderData.visit_id);
-          const { error: visitError } = await supabase
-            .from('visits')
-            .update({ 
-              status: 'productive',
-              check_out_time: new Date().toISOString()
-            })
-            .eq('id', orderData.visit_id);
-          
-          if (visitError) {
-            console.error('❌ Error updating visit status:', visitError);
-          } else {
-            console.log('✅ Visit status updated successfully to productive');
-          }
-        } else {
-          console.warn('⚠️ No visit_id in orderData, cannot update visit status');
-        }
+        // Database trigger automatically updates visit status to 'productive'
+        // when order is inserted - no manual update needed
+        console.log('✅ Order inserted, database trigger will auto-update visit status');
 
         toast({
           title: "Order Submitted",
