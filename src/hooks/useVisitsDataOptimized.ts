@@ -169,7 +169,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .eq('plan_date', selectedDate),
           supabase
             .from('visits')
-            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, retailers(name)')
+            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, check_out_time')
             .eq('user_id', userId)
             .eq('planned_date', selectedDate),
           supabase
@@ -180,6 +180,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .gte('earned_at', dateStart.toISOString())
             .lte('earned_at', dateEnd.toISOString())
         ]);
+
+        console.log('✅ [VisitsData] Network fetch successful:', {
+          beatPlans: beatPlansResult.data?.length || 0,
+          visits: visitsResult.data?.length || 0,
+          points: pointsResult.data?.length || 0
+        });
 
         if (beatPlansResult.error) throw beatPlansResult.error;
         if (visitsResult.error) throw visitsResult.error;
@@ -255,6 +261,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
         const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
         
+        // Create a map of retailer IDs to names for quick lookup
+        const retailerNamesMap = new Map<string, string>();
+        retailersData.forEach((r: any) => {
+          retailerNamesMap.set(r.id, r.name);
+        });
+        
         visitsData.forEach((visit: any) => {
           const retailerId = visit.retailer_id;
           const retailerPoints = pointsRawData
@@ -263,7 +275,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           
           if (retailerPoints > 0) {
             retailerPointsMap.set(retailerId, {
-              name: visit.retailers?.name || 'Unknown Retailer',
+              name: retailerNamesMap.get(retailerId) || 'Unknown Retailer',
               points: retailerPoints,
               visitId: visit.id
             });
