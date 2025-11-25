@@ -486,6 +486,20 @@ const Attendance = () => {
         
         console.log('Check-out marked successfully');
 
+        // Cancel all remaining planned visits for today (only on "End My Day")
+        const { error: cancelVisitsError } = await supabase
+          .from('visits')
+          .update({ status: 'cancelled' })
+          .eq('user_id', user.id)
+          .eq('planned_date', today)
+          .eq('status', 'planned');
+        
+        if (cancelVisitsError) {
+          console.error('Error cancelling remaining planned visits on day end:', cancelVisitsError);
+        } else {
+          console.log('✅ Remaining planned visits cancelled for today');
+        }
+
         // Close camera modal
         setShowCamera(false);
         setAttendanceType(null);
