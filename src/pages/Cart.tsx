@@ -921,10 +921,7 @@ export const Cart = () => {
               }
 
               console.log('✅ Edge function response:', fnResult);
-              toast({
-                title: 'Invoice Link Sent',
-                description: 'Invoice link sent via SMS/WhatsApp to retailer.',
-              });
+              // Toast already shown in onOnline callback - no need for duplicate notification
             }
           } else {
             console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
@@ -947,10 +944,7 @@ export const Cart = () => {
             });
             
             console.log('✅ Invoice message queued for sync');
-            toast({
-              title: "Message Queued",
-              description: "Invoice SMS will be sent when you're back online",
-            });
+            // Toast already shown in onOffline callback - no need for duplicate notification
           } else {
             console.log('⚠️ No phone number in offline cache; skipping message queue');
           }
@@ -969,7 +963,7 @@ export const Cart = () => {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Navigate to My Visits page after successful order submission
-      navigate('/my-visits');
+      navigate('/visits/retailers');
     } catch (error: any) {
       console.error('Error submitting order:', error);
       toast({
