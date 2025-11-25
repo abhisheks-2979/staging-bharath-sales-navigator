@@ -198,6 +198,18 @@ export const VisitCard = ({
   
   // Track current visit status (separate from prop to allow dynamic updates)
   const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled">(visit.status);
+  
+  // Update currentStatus when visit prop changes (important for parent re-renders with fresh data)
+  useEffect(() => {
+    if (visit.status !== currentStatus) {
+      console.log('🔄 [VisitCard] Visit prop status changed, updating currentStatus:', {
+        visitId: visit.id,
+        oldStatus: currentStatus,
+        newStatus: visit.status
+      });
+      setCurrentStatus(visit.status);
+    }
+  }, [visit.status]);
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
