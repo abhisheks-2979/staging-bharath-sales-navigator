@@ -212,6 +212,41 @@ export const MyVisits = () => {
     checkAttendance();
   }, [user?.id]);
 
+  // One-time fix: Restore cancelled visits to planned if day hasn't ended
+  useEffect(() => {
+    const restoreCancelledVisits = async () => {
+      if (!user?.id) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if user has ended their day
+      const { data: attendance } = await supabase
+        .from('attendance')
+        .select('check_out_time')
+        .eq('user_id', user.id)
+        .eq('date', today)
+        .maybeSingle();
+      
+      // If day hasn't ended, restore cancelled visits back to planned
+      if (!attendance?.check_out_time) {
+        const { error } = await supabase
+          .from('visits')
+          .update({ status: 'planned', updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .eq('planned_date', today)
+          .eq('status', 'cancelled');
+        
+        if (!error) {
+          console.log('✅ Restored cancelled visits to planned (day not ended yet)');
+          // Refresh data to show updated statuses
+          invalidateData?.();
+        }
+      }
+    };
+    
+    restoreCancelledVisits();
+  }, [user?.id]);
+
   // Use optimized hook for cache-first data loading - now includes points AND progress stats!
   const {
     beatPlans: optimizedBeatPlans,
