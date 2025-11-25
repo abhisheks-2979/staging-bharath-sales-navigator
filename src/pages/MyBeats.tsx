@@ -109,6 +109,10 @@ export const MyBeats = () => {
   const [monthlyWeek, setMonthlyWeek] = useState<"first" | "second" | "third" | "fourth" | "last">("first");
   const [monthlyDayOfWeek, setMonthlyDayOfWeek] = useState<number>(1); // 0=Sunday, 1=Monday, etc.
   const [monthlyDateOfMonth, setMonthlyDateOfMonth] = useState<number>(1); // 1-31
+  
+  // Beat creation options dialog
+  const [showOptionsDialog, setShowOptionsDialog] = useState(false);
+  const [createdBeatData, setCreatedBeatData] = useState<{beatId: string; beatName: string} | null>(null);
 
   // Check for openCreateModal parameter and open modal if present
   useEffect(() => {
@@ -563,30 +567,9 @@ export const MyBeats = () => {
         await generateBeatPlans(beatId, endDate);
       }
 
-      const retailerMessage = selectedRetailers.size > 0 
-        ? `with ${selectedRetailers.size} retailer${selectedRetailers.size > 1 ? 's' : ''}`
-        : 'with no retailers';
-      const scheduleMessage = repeatEnabled 
-        ? ` and scheduled ${repeatUntilMode === "permanent" ? "permanently" : `until ${format(repeatEndDate, 'PP')}`}`
-        : '';
-      toast.success(`Beat "${beatName}" created successfully ${retailerMessage}${scheduleMessage}`);
-      setIsCreateBeatOpen(false);
-      setBeatName("");
-      setTravelAllowance("");
-      setAverageKm("");
-      setAverageTimeMinutes("");
-      setSelectedRetailers(new Set());
-      setSelectedTerritoryId("");
-      setRepeatEnabled(false);
-      setRepeatType('weekly');
-      setRepeatDays([1]);
-      setRepeatEndDate(addMonths(new Date(), 1));
-      setCustomIntervalDays(15);
-      setRepeatUntilMode("date");
-      
-      // Reload data
-      loadBeats();
-      loadAllRetailers();
+      // Show options dialog for beat placement
+      setCreatedBeatData({ beatId, beatName: beatName.trim() });
+      setShowOptionsDialog(true);
     } catch (error) {
       console.error('Error creating beat:', error);
       toast.error('Failed to create beat');
@@ -674,6 +657,81 @@ export const MyBeats = () => {
         : [...prev, day].sort();
       return newDays;
     });
+  };
+
+  const handleAddBeatForToday = async () => {
+    if (!createdBeatData || !user) return;
+    
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Check if beat plan for today already exists
+      const { data: existingPlan } = await supabase
+        .from('beat_plans')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('beat_id', createdBeatData.beatId)
+        .eq('plan_date', today)
+        .maybeSingle();
+      
+      if (existingPlan) {
+        toast.success(`"${createdBeatData.beatName}" is already scheduled for today`);
+        closeOptionsDialog();
+        return;
+      }
+      
+      const beatPlanData = {
+        user_id: user.id,
+        beat_id: createdBeatData.beatId,
+        beat_name: createdBeatData.beatName,
+        plan_date: today,
+        beat_data: {
+          retailer_ids: Array.from(selectedRetailers)
+        }
+      };
+
+      const { error } = await supabase
+        .from('beat_plans')
+        .insert(beatPlanData);
+      
+      if (error) throw error;
+
+      toast.success(`"${createdBeatData.beatName}" has been added to today's visit list`);
+
+      // Dispatch event to refresh My Visits page
+      window.dispatchEvent(new CustomEvent('visitDataChanged'));
+      
+      closeOptionsDialog();
+    } catch (error: any) {
+      console.error('Error adding beat to today:', error);
+      toast.error('Failed to add beat to today');
+    }
+  };
+
+  const handleSaveBeatOnly = () => {
+    toast.success(`"${createdBeatData?.beatName}" has been saved to All Beats`);
+    closeOptionsDialog();
+  };
+
+  const closeOptionsDialog = () => {
+    setShowOptionsDialog(false);
+    setIsCreateBeatOpen(false);
+    setBeatName("");
+    setTravelAllowance("");
+    setAverageKm("");
+    setAverageTimeMinutes("");
+    setSelectedRetailers(new Set());
+    setSelectedTerritoryId("");
+    setRepeatEnabled(false);
+    setRepeatType('weekly');
+    setRepeatDays([1]);
+    setRepeatEndDate(addMonths(new Date(), 1));
+    setCustomIntervalDays(15);
+    setRepeatUntilMode("date");
+    
+    // Reload data
+    loadBeats();
+    loadAllRetailers();
   };
 
   const handleDeleteBeat = async (beatId: string, beatName: string) => {
@@ -1525,6 +1583,44 @@ export const MyBeats = () => {
               </Button>
               <Button onClick={handleSaveBeat} disabled={!beatName.trim() || isCreating}>
                 {isCreating ? 'Creating...' : `Create Beat (${selectedRetailers.size} retailer${selectedRetailers.size !== 1 ? 's' : ''})`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Beat Options Dialog */}
+        <Dialog open={showOptionsDialog} onOpenChange={setShowOptionsDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Beat Created Successfully!</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Would you like to add this beat to today's visit list or save it for later?
+            </p>
+            <div className="space-y-3">
+              <Button
+                onClick={handleAddBeatForToday}
+                className="w-full justify-start h-auto py-4 px-6"
+                variant="default"
+              >
+                <div className="text-left">
+                  <div className="font-semibold text-base">Add it for the day</div>
+                  <div className="text-xs opacity-90 mt-1">
+                    Beat will be added to today's visit list and saved to All Beats
+                  </div>
+                </div>
+              </Button>
+              <Button
+                onClick={handleSaveBeatOnly}
+                className="w-full justify-start h-auto py-4 px-6"
+                variant="outline"
+              >
+                <div className="text-left">
+                  <div className="font-semibold text-base">Save it in All Beats</div>
+                  <div className="text-xs opacity-90 mt-1">
+                    Beat will be saved and available for selection later
+                  </div>
+                </div>
               </Button>
             </div>
           </DialogContent>
