@@ -383,19 +383,26 @@ export const VisitCard = ({
             setPaidTodayAmount(totalPaidToday); // Total paid amount today (cash + credit)
             setCreditPendingAmount(updatedPending); // Updated pending after today's order
 
-            // If an order exists and visit is checked in, automatically mark as productive
-            if (visitData?.check_in_time && visitData.status === 'in-progress') {
-              console.log('🔄 [VisitCard] Auto-updating visit status to productive:', visitData.id);
+            // CRITICAL FIX: If orders exist for this visit but status is not productive, update it
+            // This handles cases where visit was cancelled/planned but has orders
+            if (visitData && visitData.status !== 'productive') {
+              console.log('🔄 [VisitCard] Visit has orders but status is not productive - fixing:', {
+                visitId: visitData.id,
+                currentStatus: visitData.status,
+                orderCount: ordersToday.length,
+                totalValue: totalOrderValue
+              });
               const { error: updateError } = await supabase.from('visits').update({
                 status: 'productive',
-                check_out_time: new Date().toISOString()
+                check_out_time: visitData.check_out_time || new Date().toISOString(),
+                no_order_reason: null
               }).eq('id', visitData.id);
               
               if (updateError) {
-                console.error('❌ [VisitCard] Error auto-updating status:', updateError);
+                console.error('❌ [VisitCard] Error updating visit status:', updateError);
               } else {
-                console.log('✅ [VisitCard] Auto-updated status to productive');
-                // Update local status state
+                console.log('✅ [VisitCard] Visit status updated to productive');
+                // Update local status state immediately
                 setCurrentStatus('productive');
               }
             }
