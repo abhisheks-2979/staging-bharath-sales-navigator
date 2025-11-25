@@ -175,7 +175,6 @@ const Index = () => {
   };
 
   const navigationItems: NavigationItem[] = [
-    { icon: BarChart, label: "Today's Progress", href: "/today-summary", color: "from-cyan-500 to-cyan-600" },
     { icon: UserCheck, label: "Attendance", href: "/attendance", color: "from-blue-500 to-blue-600" },
     { icon: Car, label: "My Visit", href: "/visits/retailers", color: "from-green-500 to-green-600" },
     { icon: Navigation2, label: "GPS Track", href: "/gps-track", color: "from-purple-500 to-purple-600" },
