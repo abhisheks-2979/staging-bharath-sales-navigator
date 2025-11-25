@@ -314,6 +314,9 @@ export const BeatPlanning = () => {
       // Automatically create/update expense records for planned beats
       await createExpenseRecords(selectedBeatIds, dateString);
 
+      // Wait a bit to ensure all database operations complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Trigger data refresh on My Visits page
       window.dispatchEvent(new Event('visitDataChanged'));
 
