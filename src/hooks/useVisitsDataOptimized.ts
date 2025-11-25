@@ -86,8 +86,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Display cached data immediately
       if (
         filteredBeatPlans.length > 0 ||
-        filteredVisits.length > 0
+        filteredVisits.length > 0 ||
+        filteredRetailers.length > 0
       ) {
+        // Set state immediately with cached data
+        setBeatPlans(filteredBeatPlans);
+        setVisits(filteredVisits);
+        setRetailers(filteredRetailers);
+        setOrders(filteredOrders);
+        hasLoadedFromCache = true;
+        setIsLoading(false);
+        
+        console.log('📦 [CACHE] Loaded from cache:', {
+          beatPlans: filteredBeatPlans.length,
+          visits: filteredVisits.length,
+          retailers: filteredRetailers.length,
+          orders: filteredOrders.length,
+          selectedDate
+        });
+
         // Calculate progress stats from cached data immediately
         const ordersByRetailer = new Map<string, number>();
         filteredOrders.forEach((o: any) => {
@@ -178,13 +195,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         let plannedRetailerIds: string[] = [];
         if (plannedBeatIds.length > 0) {
-          const { data: plannedRetailers } = await supabase
+          const { data: plannedRetailers, error: retailersError } = await supabase
             .from('retailers')
             .select('id')
             .eq('user_id', userId)
             .in('beat_id', plannedBeatIds);
 
-          plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
+          if (retailersError) {
+            console.error('Error fetching planned retailers:', retailersError);
+          } else {
+            plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
+            console.log(`📋 Found ${plannedRetailerIds.length} retailers for ${plannedBeatIds.length} planned beats`);
+          }
         }
 
         // IMPORTANT: Also fetch orders for today to get retailer IDs from orders
@@ -292,14 +314,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           timestamp: new Date().toISOString()
         });
 
-        // Cache ONLY current date data (don't bloat storage with historical data)
-        // Beat plans and retailers are already cached by useMasterDataCache
-        // Only cache visits for current date
+        // Cache current date data for offline access
+        // Beat plans and visits are cached for immediate display
         await Promise.all([
+          ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
           ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit))
         ]);
         
-        console.log('[VisitsData] ✅ Cached current date visits only (not storing orders/beat plans to save storage)');
+        console.log('[VisitsData] ✅ Cached beat plans and visits for current date');
 
         // Update state with fresh data
         setBeatPlans(beatPlansData);
@@ -344,10 +366,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Listen for manual refresh events
     const handleRefresh = () => {
       console.log('🔄 visitDataChanged event received! Refreshing data for date:', selectedDate);
-      // Add small delay to ensure any database writes are complete
+      // Add longer delay to ensure any database writes are complete
       setTimeout(() => {
         loadData();
-      }, 500);
+      }, 1000);
     };
     
     window.addEventListener('visitDataChanged', handleRefresh);
