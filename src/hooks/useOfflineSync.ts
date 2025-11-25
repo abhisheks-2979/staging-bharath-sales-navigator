@@ -116,6 +116,10 @@ export function useOfflineSync() {
               console.error('Error updating visit status during sync:', visitError);
             } else {
               console.log('✅ Visit status updated to productive during sync:', data.visitId);
+              // Trigger visit status refresh
+              window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+                detail: { visitId: data.visitId, status: 'productive' }
+              }));
             }
           }
         } else {
@@ -136,6 +140,10 @@ export function useOfflineSync() {
               console.error('Error updating visit status during sync:', visitError);
             } else {
               console.log('✅ Visit status updated to productive during sync:', data.visit_id);
+              // Trigger visit status refresh
+              window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+                detail: { visitId: data.visit_id, status: 'productive' }
+              }));
             }
           }
         }

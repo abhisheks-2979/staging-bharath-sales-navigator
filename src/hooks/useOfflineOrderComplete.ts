@@ -228,7 +228,11 @@ export function useOfflineOrderComplete() {
           description: "Your order has been submitted successfully.",
         });
 
-        // Trigger data refresh
+        // Trigger visit status refresh
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { visitId: orderData.visit_id, status: 'productive', retailerId: orderData.retailer_id }
+        }));
+        // Also trigger data refresh for progress updates
         window.dispatchEvent(new Event('visitDataChanged'));
 
         return { success: true, offline: false, order };
@@ -279,7 +283,11 @@ export function useOfflineOrderComplete() {
           variant: "default",
         });
 
-        // Trigger data refresh
+        // Trigger visit status refresh
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { visitId: orderData.visit_id, status: 'productive', retailerId: orderData.retailer_id }
+        }));
+        // Also trigger data refresh for progress updates
         window.dispatchEvent(new Event('visitDataChanged'));
 
         return { success: true, offline: true, order: offlineOrder };

@@ -965,7 +965,8 @@ export const VisitCard = ({
         }
       } = await supabase.auth.getUser();
       if (user) {
-        const today = new Date().toISOString().split('T')[0];
+        // Use selectedDate if available, otherwise use today's date
+        const today = selectedDate || new Date().toISOString().split('T')[0];
         const retailerId = (visit.retailerId || visit.id) as string;
         const visitId = await ensureVisit(user.id, retailerId, today);
         setCurrentVisitId(visitId);
@@ -1001,6 +1002,9 @@ export const VisitCard = ({
             retailerId
           }
         }));
+        
+        // Also trigger data refresh for progress updates
+        window.dispatchEvent(new Event('visitDataChanged'));
       }
       setShowNoOrderModal(false);
       toast({
