@@ -216,10 +216,49 @@ export const MyVisits = () => {
     pointsData,
     progressStats,
     isLoading: dataLoading,
+    invalidateData,
   } = useVisitsDataOptimized({
     userId: user?.id,
     selectedDate,
   });
+
+  // Auto-refresh Today's Progress every 30 seconds (only for today's date)
+  useEffect(() => {
+    const isToday = selectedDate === new Date().toISOString().split('T')[0];
+    if (!isToday || !invalidateData) return;
+
+    console.log('⏰ Setting up auto-refresh for Today\'s Progress');
+
+    // 30-second interval for auto-refresh
+    const intervalId = setInterval(() => {
+      console.log('🔄 Auto-refreshing Today\'s Progress (30s interval)');
+      invalidateData();
+    }, 30000);
+
+    // Refresh when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👀 Tab became visible, refreshing data');
+        invalidateData();
+      }
+    };
+
+    // Refresh when window gains focus
+    const handleFocus = () => {
+      console.log('🎯 Window focused, refreshing data');
+      invalidateData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      console.log('🧹 Cleaned up auto-refresh listeners');
+    };
+  }, [selectedDate, invalidateData]);
 
   // Update points from optimized hook
   useEffect(() => {

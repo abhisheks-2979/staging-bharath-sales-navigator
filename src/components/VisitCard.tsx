@@ -213,7 +213,7 @@ export const VisitCard = ({
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        console.log('Checking status for visit:', visit.id, 'retailerId:', visit.retailerId);
+        console.log('🔍 Checking status for visit:', visit.id, 'retailerId:', visit.retailerId);
         const {
           data: user
         } = await supabase.auth.getUser();
@@ -248,100 +248,96 @@ export const VisitCard = ({
             // Fetch the oldest order with pending amount to get "pending since" date
             const { data: oldestOrder } = await supabase
               .from('orders')
-              .select('created_at')
+              .select('order_date')
               .eq('retailer_id', visitRetailerId)
               .gt('pending_amount', 0)
-              .order('created_at', { ascending: true })
+              .order('order_date', { ascending: true })
               .limit(1)
               .maybeSingle();
             
             if (oldestOrder) {
-              setPendingSinceDate(oldestOrder.created_at);
+              setPendingSinceDate(oldestOrder.order_date);
             }
-          } else {
-            setPendingAmount(0);
-            setPendingSinceDate(null);
           }
 
-          // Check if stock records exist for this retailer today
-          const stockCheckDate = targetDate;
+          // Check if analytics viewed
           const {
-            data: stockRecords,
-            error: stockError
-          } = await supabase.from('stock').select('id, product_name').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).gte('created_at', `${stockCheckDate}T00:00:00.000Z`).lte('created_at', `${stockCheckDate}T23:59:59.999Z`);
-          if (!stockError && stockRecords && stockRecords.length > 0) {
-            setHasStockRecords(true);
-            setStockRecordCount(stockRecords.length);
-          } else {
-            setHasStockRecords(false);
-            setStockRecordCount(0);
-          }
-          // Check analytics view
-          const {
-            data,
-            error
-          } = await supabase.from('analytics_views').select('id').eq('user_id', user.user.id).eq('visit_id', visit.id).maybeSingle();
-          if (data && !error) {
+            data: analyticsView
+          } = await supabase.from('analytics_views').select('id').eq('visit_id', visit.id).eq('user_id', user.user.id).maybeSingle();
+          if (analyticsView) {
             setHasViewedAnalytics(true);
           }
 
-          // Check visit status for today
-          const today = targetDate;
+          // Fetch visit data from database to get latest check-in/out status
           const {
-            data: visitData
-          } = await supabase.from('visits').select('id, check_in_time, check_out_time, status, skip_check_in_reason, skip_check_in_time').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', today).maybeSingle();
-          console.log('Visit data from DB:', visitData);
-          if (visitData) {
-            const skippedCheckIn = !!(visitData as any).skip_check_in_reason || !!(visitData as any).skip_check_in_time;
-            const checkedIn = (visitData as any).status === 'in-progress' || !!(visitData as any).check_in_time || skippedCheckIn;
-            const checkedOut = !!(visitData as any).check_out_time;
-            console.log('Setting state - isCheckedIn:', checkedIn, 'isCheckedOut:', checkedOut, 'skippedCheckIn:', skippedCheckIn);
-            setIsCheckedIn(checkedIn);
-            setIsCheckedOut(checkedOut);
-            setProceedWithoutCheckIn(skippedCheckIn);
-            if (skippedCheckIn) {
-              setSkipCheckInReason((visitData as any).skip_check_in_reason || 'phone-order');
-            }
-            setCurrentVisitId((visitData as any).id);
+            data: visitData,
+            error: visitError
+          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
+          
+          if (!visitError && visitData) {
+            console.log('📊 Visit data from DB:', visitData);
+            setCurrentVisitId(visitData.id);
+            setIsCheckedIn(!!visitData.check_in_time);
+            setIsCheckedOut(!!visitData.check_out_time);
+            setLocationMatchIn(visitData.location_match_in || null);
+            setLocationMatchOut(visitData.location_match_out || null);
             
-            // Update current status from database
-            setCurrentStatus((visitData as any).status);
+            // Update current status from database with proper type assertion
+            const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+            setCurrentStatus(validStatus);
+            console.log('✅ Updated currentStatus to:', validStatus);
             
-            if ((visitData as any).status === 'unproductive') {
+            if (visitData.no_order_reason) {
               setIsNoOrderMarked(true);
-              setPhase('completed');
+              setNoOrderReason(visitData.no_order_reason);
+            } else {
+              setIsNoOrderMarked(false);
+              setNoOrderReason('');
             }
-            if (((visitData as any).check_in_time || skippedCheckIn) && !(visitData as any).check_out_time && (visitData as any).status === 'in-progress') {
+            if (visitData.check_in_time && !visitData.check_out_time) {
               setPhase('in-progress');
-            } else if ((visitData as any).check_out_time || (visitData as any).status === 'unproductive' || (visitData as any).status === 'productive') {
+            } else if (visitData.check_out_time) {
               setPhase('completed');
             }
-          } else {
-            console.log('No visit data found, resetting states');
-            setIsCheckedIn(false);
-            setIsCheckedOut(false);
-            setProceedWithoutCheckIn(false);
-            setCurrentVisitId(null);
           }
 
-          // Check if there are any orders today for this retailer
-          const todayStart = new Date(today);
-          todayStart.setHours(0, 0, 0, 0);
-          const todayEnd = new Date(today);
-          todayEnd.setHours(23, 59, 59, 999);
-          const {
-            data: ordersToday
-          } = await supabase.from('orders').select('*').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('status', 'confirmed').gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()).order('created_at', {
-            ascending: false
-          });
-          if (ordersToday && ordersToday.length > 0) {
-            setHasOrderToday(true);
-            setOrdersTodayList(ordersToday as any);
+          // Check stock records - @ts-ignore to bypass TypeScript deep type inference issue
+          // @ts-ignore
+          const stockResponse = await supabase
+            .from('stock')
+            .select('id')
+            .eq('retailer_id', visitRetailerId)
+            .eq('user_id', user.user.id)
+            .eq('stock_date', targetDate);
+          
+          const stockRecords = stockResponse.data;
+          const stockError = stockResponse.error;
+          
+          if (!stockError && stockRecords) {
+            setHasStockRecords(stockRecords.length > 0);
+            setStockRecordCount(stockRecords.length);
+          }
+
+          // Fetch orders for today - @ts-ignore to bypass TypeScript deep type inference issue
+          // @ts-ignore
+          const ordersResponse = await supabase
+            .from('orders')
+            .select('*, order_items(*)')
+            .eq('retailer_id', visitRetailerId)
+            .eq('order_date', targetDate)
+            .eq('status', 'confirmed');
+          
+          const ordersToday = ordersResponse.data;
+          const ordersError = ordersResponse.error;
+          
+          if (!ordersError && ordersToday && ordersToday.length > 0) {
+            setOrdersTodayList(ordersToday);
             // Store the most recent order ID for invoice generation
             setLastOrderId(ordersToday[0].id);
             // Calculate totals for today
             const totalOrderValue = ordersToday.reduce((sum, order) => sum + Number((order as any).total_amount || 0), 0);
             setActualOrderValue(totalOrderValue);
+            console.log('💰 Updated actualOrderValue to:', totalOrderValue);
 
             // Calculate total previous pending cleared
             const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
@@ -372,10 +368,14 @@ export const VisitCard = ({
               
               // Update local status state
               setCurrentStatus('productive');
+              console.log('✅ Auto-updated status to productive');
             }
+            
+            setHasOrderToday(true);
           } else {
             setHasOrderToday(false);
             setActualOrderValue(0);
+            console.log('💰 Reset actualOrderValue to 0');
             setIsCreditOrder(false);
             setCreditPendingAmount(0);
             setCreditPaidAmount(0);
@@ -385,19 +385,19 @@ export const VisitCard = ({
           }
         }
       } catch (error) {
-        console.log('Status check error:', error);
+        console.log('❌ Status check error:', error);
       }
     };
     checkStatus();
 
-    // Listen for custom events to refresh status
-    const handleStatusChange = () => {
-      console.log('Received visitStatusChanged event, refreshing status...');
+    // Listen for custom events to refresh status - trigger full data reload
+    const handleStatusChange = (event: any) => {
+      console.log('🔔 Received visitStatusChanged event, refreshing all data...', event.detail);
       checkStatus();
     };
-    window.addEventListener('visitStatusChanged', handleStatusChange);
+    window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
     return () => {
-      window.removeEventListener('visitStatusChanged', handleStatusChange);
+      window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
     };
   }, [visit.id, visit.retailerId, selectedDate]);
 
