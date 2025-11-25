@@ -185,34 +185,30 @@ export const MyVisits = () => {
   
   const { isLocationEnabled } = useLocationFeature();
 
-  // Check attendance on mount with timeout
+  // Check attendance on mount - don't block page load
   useEffect(() => {
     const checkAttendance = async () => {
       if (!user?.id) {
         setCheckingAttendance(false);
-        setHasAttendance(true); // Allow access if no user (shouldn't happen in protected route)
+        setHasAttendance(true);
         return;
       }
 
       try {
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Attendance check timeout')), 5000)
-        );
-        
-        const checkPromise = hasAttendanceToday(user.id);
-        const hasMarkedAttendance = await Promise.race([checkPromise, timeoutPromise]) as boolean;
-        
+        const hasMarkedAttendance = await hasAttendanceToday(user.id);
         setHasAttendance(hasMarkedAttendance);
       } catch (error) {
         console.error('Error checking attendance:', error);
-        // On error, assume attendance is marked to avoid blocking user
+        // On error, allow access to avoid blocking user
         setHasAttendance(true);
       } finally {
         setCheckingAttendance(false);
       }
     };
 
+    // Don't block page render - check attendance in background
+    setCheckingAttendance(false);
+    setHasAttendance(true);
     checkAttendance();
   }, [user?.id]);
 

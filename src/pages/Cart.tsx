@@ -958,11 +958,13 @@ export const Cart = () => {
         });
       }
 
-      // Wait briefly to allow visitDataChanged event to be processed
-      // before navigating to My Visits page
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // CRITICAL: Wait for database trigger to update visit status to 'productive'
+      // The trigger runs async, so we need a longer delay to prevent showing stale 'cancelled' status
+      console.log('⏳ Waiting for database trigger to update visit status...');
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       // Navigate to My Visits page after successful order submission
+      console.log('✅ Navigating to My Visits');
       navigate('/visits/retailers');
     } catch (error: any) {
       console.error('Error submitting order:', error);
