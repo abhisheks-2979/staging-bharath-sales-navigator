@@ -228,12 +228,15 @@ export function useOfflineOrderComplete() {
           description: "Your order has been submitted successfully.",
         });
 
-        // Trigger visit status refresh
+        // Dispatch events AFTER database update completes
+        console.log('✅ Order submitted online, dispatching events...');
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { visitId: orderData.visit_id, status: 'productive', retailerId: orderData.retailer_id }
         }));
-        // Also trigger data refresh for progress updates
         window.dispatchEvent(new Event('visitDataChanged'));
+
+        // Add delay before returning to allow events to be processed
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         return { success: true, offline: false, order };
       } else {
@@ -283,12 +286,15 @@ export function useOfflineOrderComplete() {
           variant: "default",
         });
 
-        // Trigger visit status refresh
+        // Dispatch events for immediate UI update
+        console.log('✅ Order saved offline, dispatching events...');
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { visitId: orderData.visit_id, status: 'productive', retailerId: orderData.retailer_id }
         }));
-        // Also trigger data refresh for progress updates
         window.dispatchEvent(new Event('visitDataChanged'));
+
+        // Add delay before returning to allow events to be processed
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         return { success: true, offline: true, order: offlineOrder };
       }
