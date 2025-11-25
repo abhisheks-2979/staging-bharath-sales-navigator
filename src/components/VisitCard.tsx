@@ -369,6 +369,9 @@ export const VisitCard = ({
               await supabase.from('visits').update({
                 status: 'productive'
               }).eq('id', visitData.id);
+              
+              // Update local status state
+              setCurrentStatus('productive');
             }
           } else {
             setHasOrderToday(false);
@@ -436,6 +439,9 @@ export const VisitCard = ({
               no_order_reason: null,
               check_out_time: orderTime
             }).eq('id', visitData.id);
+            
+            // Update local state to reflect productive status
+            setCurrentStatus('productive');
           }
           setHasOrderToday(true);
           setIsNoOrderMarked(false);
