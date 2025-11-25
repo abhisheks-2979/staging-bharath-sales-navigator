@@ -119,6 +119,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let totalOrders = filteredOrders.length;
         let totalOrderValue = filteredOrders.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0);
 
+        // Create a set of retailer IDs that have visits
+        const visitRetailerIdsSet = new Set(filteredVisits.map((v: any) => v.retailer_id));
+
         filteredVisits.forEach((visit: any) => {
           const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
           const hasOrder = orderValue > 0;
@@ -132,6 +135,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             planned++;
           }
         });
+
+        // Count retailers from beat plans that don't have visit records yet as planned
+        const plannedRetailersFromBeats = filteredRetailers.filter((r: any) => 
+          progressPlannedBeatIds.includes(r.beat_id) && 
+          !visitRetailerIdsSet.has(r.id) &&
+          !ordersByRetailer.has(r.id)
+        );
+        planned += plannedRetailersFromBeats.length;
 
         setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
         console.log('📊 [CACHE] Progress stats calculated from cache:', { 
@@ -299,6 +310,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let totalOrders = ordersData.length;
         let totalOrderValue = ordersData.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
 
+        // Create a set of retailer IDs that have visits
+        const visitRetailerIdsSet = new Set(visitsData.map((v: any) => v.retailer_id));
+
         // Process visits directly to ensure all visits are counted
         visitsData.forEach((visit: any) => {
           const hasOrder = ordersMap.has(visit.retailer_id);
@@ -309,6 +323,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           } else if (hasOrder || visit.status === 'productive') {
             productive++;
           } else if (visit.status === 'planned' || !visit.check_in_time) {
+            planned++;
+          }
+        });
+
+        // Count retailers from beat plans that don't have visit records yet as planned
+        plannedRetailerIds.forEach((retailerId: string) => {
+          if (!visitRetailerIdsSet.has(retailerId) && !ordersMap.has(retailerId)) {
             planned++;
           }
         });
