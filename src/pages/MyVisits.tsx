@@ -185,20 +185,29 @@ export const MyVisits = () => {
   
   const { isLocationEnabled } = useLocationFeature();
 
-  // Check attendance on mount
+  // Check attendance on mount with timeout
   useEffect(() => {
     const checkAttendance = async () => {
       if (!user?.id) {
         setCheckingAttendance(false);
+        setHasAttendance(true); // Allow access if no user (shouldn't happen in protected route)
         return;
       }
 
       try {
-        const hasMarkedAttendance = await hasAttendanceToday(user.id);
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Attendance check timeout')), 5000)
+        );
+        
+        const checkPromise = hasAttendanceToday(user.id);
+        const hasMarkedAttendance = await Promise.race([checkPromise, timeoutPromise]) as boolean;
+        
         setHasAttendance(hasMarkedAttendance);
       } catch (error) {
         console.error('Error checking attendance:', error);
-        setHasAttendance(false);
+        // On error, assume attendance is marked to avoid blocking user
+        setHasAttendance(true);
       } finally {
         setCheckingAttendance(false);
       }
