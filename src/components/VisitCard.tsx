@@ -195,6 +195,9 @@ export const VisitCard = ({
     };
   }, [endAllActiveLogs]);
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
+  
+  // Track current visit status (separate from prop to allow dynamic updates)
+  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled">(visit.status);
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -300,6 +303,10 @@ export const VisitCard = ({
               setSkipCheckInReason((visitData as any).skip_check_in_reason || 'phone-order');
             }
             setCurrentVisitId((visitData as any).id);
+            
+            // Update current status from database
+            setCurrentStatus((visitData as any).status);
+            
             if ((visitData as any).status === 'unproductive') {
               setIsNoOrderMarked(true);
               setPhase('completed');
@@ -1191,8 +1198,8 @@ export const VisitCard = ({
           </div>
           <div className="flex sm:flex-col items-start sm:items-end gap-2 sm:gap-1">
             <div className="flex flex-wrap gap-1">
-              <Badge className={`${getStatusColor(visit.status)} text-xs px-2 py-1`}>
-                {getStatusText(visit.status)}
+              <Badge className={`${getStatusColor(currentStatus)} text-xs px-2 py-1`}>
+                {getStatusText(currentStatus)}
               </Badge>
               {skipCheckInReason === 'phone-order' && <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1">
                   <Phone size={12} className="mr-1" />
