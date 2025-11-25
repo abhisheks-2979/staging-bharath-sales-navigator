@@ -965,11 +965,11 @@ export const Cart = () => {
       }
 
       // Wait briefly to allow visitDataChanged event to be processed
-      // before navigating back to My Visits page
+      // before navigating to My Visits page
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Navigate back only after attempting invoice notification
-      navigate(-1);
+      // Navigate to My Visits page after successful order submission
+      navigate('/my-visits');
     } catch (error: any) {
       console.error('Error submitting order:', error);
       toast({
