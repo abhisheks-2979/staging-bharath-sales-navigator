@@ -105,22 +105,15 @@ export function useOfflineSync() {
             .insert(data.items);
           if (itemsError) throw itemsError;
 
-          // Update visit status to 'productive' if visitId exists
-          if (data.visitId) {
-            const { error: visitError } = await supabase
-              .from('visits')
-              .update({ status: 'productive' })
-              .eq('id', data.visitId);
+          // Trigger visit status refresh (database trigger auto-updates visit status)
+          if (data.visitId || data.order?.visit_id) {
+            const visitId = data.visitId || data.order.visit_id;
+            const retailerId = data.order?.retailer_id;
+            console.log('✅ Order synced, dispatching visitStatusChanged event:', { visitId, retailerId });
             
-            if (visitError) {
-              console.error('Error updating visit status during sync:', visitError);
-            } else {
-              console.log('✅ Visit status updated to productive during sync:', data.visitId);
-              // Trigger visit status refresh
-              window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-                detail: { visitId: data.visitId, status: 'productive' }
-              }));
-            }
+            window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+              detail: { visitId, status: 'productive', retailerId }
+            }));
           }
         } else {
           // Old format - just the order data
@@ -129,22 +122,16 @@ export function useOfflineSync() {
             .insert(data);
           if (orderError) throw orderError;
 
-          // Update visit status if visit_id is in the order data
+          // Trigger visit status refresh (database trigger auto-updates visit status)
           if (data.visit_id) {
-            const { error: visitError } = await supabase
-              .from('visits')
-              .update({ status: 'productive' })
-              .eq('id', data.visit_id);
+            console.log('✅ Order synced, dispatching visitStatusChanged event:', { 
+              visitId: data.visit_id, 
+              retailerId: data.retailer_id 
+            });
             
-            if (visitError) {
-              console.error('Error updating visit status during sync:', visitError);
-            } else {
-              console.log('✅ Visit status updated to productive during sync:', data.visit_id);
-              // Trigger visit status refresh
-              window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-                detail: { visitId: data.visit_id, status: 'productive' }
-              }));
-            }
+            window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+              detail: { visitId: data.visit_id, status: 'productive', retailerId: data.retailer_id }
+            }));
           }
         }
         break;
