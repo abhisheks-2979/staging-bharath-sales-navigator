@@ -670,24 +670,64 @@ export const AddRetailer = () => {
                       
                       const loadingToast = toast({ 
                         title: "Getting Location...", 
-                        description: "Accessing GPS...",
-                        duration: 8000
+                        description: "Please wait...",
+                        duration: 5000
                       });
                       
                       try {
-                        // Use getCurrentPosition for immediate response with cached location
-                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                          // Try to get position immediately with cached data
-                          navigator.geolocation.getCurrentPosition(
-                            resolve,
-                            reject,
-                            { 
-                              enableHighAccuracy: false, // Use network/cached location for speed
-                              timeout: 8000, // 8 second timeout
-                              maximumAge: 60000 // Accept location cached within last 60 seconds
-                            }
-                          );
-                        });
+                        // Multi-strategy GPS capture for maximum speed and reliability
+                        let position: GeolocationPosition | null = null;
+                        
+                        // Strategy 1: Try cached location first (fastest - 1 second)
+                        try {
+                          position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(
+                              resolve,
+                              reject,
+                              { 
+                                enableHighAccuracy: false,
+                                timeout: 1000, // Very short timeout for cached location
+                                maximumAge: 300000 // Accept location cached within last 5 minutes
+                              }
+                            );
+                          });
+                        } catch (cacheError) {
+                          console.log('Cached location not available, trying network location...');
+                          
+                          // Strategy 2: Try network-based location (fast - 3 seconds)
+                          try {
+                            position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                              navigator.geolocation.getCurrentPosition(
+                                resolve,
+                                reject,
+                                { 
+                                  enableHighAccuracy: false,
+                                  timeout: 3000, // Short timeout for network location
+                                  maximumAge: 0 // Force fresh location
+                                }
+                              );
+                            });
+                          } catch (networkError) {
+                            console.log('Network location failed, trying high accuracy GPS...');
+                            
+                            // Strategy 3: Fall back to high accuracy GPS (slower but most accurate - 6 seconds)
+                            position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                              navigator.geolocation.getCurrentPosition(
+                                resolve,
+                                reject,
+                                { 
+                                  enableHighAccuracy: true,
+                                  timeout: 6000, // Longer timeout for GPS
+                                  maximumAge: 0
+                                }
+                              );
+                            });
+                          }
+                        }
+                        
+                        if (!position) {
+                          throw new Error('Failed to get location');
+                        }
                         
                         // Get precise coordinates with 7 decimal places (~1 cm accuracy)
                         const lat = Number(position.coords.latitude.toFixed(7));
