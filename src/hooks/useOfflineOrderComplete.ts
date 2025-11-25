@@ -211,16 +211,22 @@ export function useOfflineOrderComplete() {
 
         // Update visit status to 'productive' if visit_id exists
         if (orderData.visit_id) {
+          console.log('🔄 Updating visit status to productive for visit:', orderData.visit_id);
           const { error: visitError } = await supabase
             .from('visits')
-            .update({ status: 'productive' })
+            .update({ 
+              status: 'productive',
+              check_out_time: new Date().toISOString()
+            })
             .eq('id', orderData.visit_id);
           
           if (visitError) {
-            console.error('Error updating visit status:', visitError);
+            console.error('❌ Error updating visit status:', visitError);
           } else {
-            console.log('✅ Visit status updated to productive for visit:', orderData.visit_id);
+            console.log('✅ Visit status updated successfully to productive');
           }
+        } else {
+          console.warn('⚠️ No visit_id in orderData, cannot update visit status');
         }
 
         toast({
@@ -263,14 +269,23 @@ export function useOfflineOrderComplete() {
 
         // Update visit status in offline cache to 'productive'
         if (orderData.visit_id) {
+          console.log('🔄 Updating visit in offline cache for visit:', orderData.visit_id);
           const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
           const visitToUpdate = cachedVisits.find((v: any) => v.id === orderData.visit_id);
           
           if (visitToUpdate) {
-            const updatedVisit = { ...visitToUpdate, status: 'productive' };
+            const updatedVisit = { 
+              ...visitToUpdate, 
+              status: 'productive',
+              check_out_time: new Date().toISOString()
+            };
             await offlineStorage.save(STORES.VISITS, updatedVisit);
-            console.log('✅ Visit status updated to productive in offline cache:', orderData.visit_id);
+            console.log('✅ Visit status updated in offline cache');
+          } else {
+            console.warn('⚠️ Visit not found in cache:', orderData.visit_id);
           }
+        } else {
+          console.warn('⚠️ No visit_id in orderData for offline order');
         }
 
         // Queue for sync
