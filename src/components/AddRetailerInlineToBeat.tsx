@@ -109,18 +109,20 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     try {
       await offlineStorage.init();
       
-      // Load beat plans from cache for today
-      const cachedBeatPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
-      const today = new Date().toISOString().split('T')[0];
-      const todayBeats = cachedBeatPlans.filter((plan: any) => 
-        plan.plan_date === today && plan.user_id === user?.id
+      // Load ALL beats from cache (not just today's beat plans)
+      // This allows users to see all their beats even when offline
+      const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
+      console.log('[Offline] Total beats in cache:', cachedBeats.length);
+      
+      const userBeats = cachedBeats.filter((beat: any) => 
+        beat.created_by === user?.id && beat.is_active
       );
       
       // Set beats to dropdown
-      const beatsList = todayBeats.map((plan: any) => ({
-        id: plan.beat_id,
-        beat_id: plan.beat_id,
-        beat_name: plan.beat_name
+      const beatsList = userBeats.map((beat: any) => ({
+        id: beat.beat_id,
+        beat_id: beat.beat_id,
+        beat_name: beat.beat_name
       }));
       
       setAvailableBeats(beatsList);
@@ -132,7 +134,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
         setSelectedBeatName(matchingBeat.beat_name);
       }
       
-      console.log('[Offline] Loaded beats from beat_plans cache:', beatsList.length, beatsList);
+      console.log('[Offline] Loaded beats from BEATS cache for offline mode:', beatsList.length, beatsList);
     } catch (error) {
       console.error('[Offline] Error loading offline data:', error);
     }
