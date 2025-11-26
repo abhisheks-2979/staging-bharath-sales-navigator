@@ -20,11 +20,14 @@ import { cn } from "@/lib/utils";
 import { useOfflineRetailers } from "@/hooks/useOfflineRetailers";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { useConnectivity } from "@/hooks/useConnectivity";
+
 export const AddRetailer = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const connectivityStatus = useConnectivity();
   const returnTo = location.state?.returnTo || '/my-retailers';
   const plannedBeats = location.state?.plannedBeats || [];
   const [retailerData, setRetailerData] = useState({
@@ -84,21 +87,42 @@ export const AddRetailer = () => {
     }
   };
 
-  // Load beats from the beats table
+  // Load beats from the beats table (online) or from cache (offline)
   const loadBeats = async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from('beats')
-      .select('beat_id, beat_name')
-      .eq('created_by', user.id)
-      .eq('is_active', true)
-      .order('beat_name');
     
-    if (error) {
-      console.error('Failed to load beats:', error);
-      setBeats([]);
+    if (connectivityStatus === 'online') {
+      // ONLINE: Load from Supabase (existing behavior)
+      const { data, error } = await supabase
+        .from('beats')
+        .select('beat_id, beat_name')
+        .eq('created_by', user.id)
+        .eq('is_active', true)
+        .order('beat_name');
+      
+      if (error) {
+        console.error('Failed to load beats:', error);
+        setBeats([]);
+      } else {
+        setBeats(data || []);
+      }
     } else {
-      setBeats(data || []);
+      // OFFLINE: Load from IndexedDB cache
+      try {
+        await offlineStorage.init();
+        const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
+        const userBeats = cachedBeats.filter((beat: any) => 
+          beat.created_by === user.id && beat.is_active
+        );
+        setBeats(userBeats.map((beat: any) => ({
+          beat_id: beat.beat_id,
+          beat_name: beat.beat_name
+        })));
+        console.log('[Offline] Loaded beats from cache:', userBeats.length);
+      } catch (error) {
+        console.error('[Offline] Error loading beats from cache:', error);
+        setBeats([]);
+      }
     }
   };
 
