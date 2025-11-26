@@ -134,11 +134,11 @@ export const Navbar = () => {
       <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           {/* User Profile Section */}
-          <SheetHeader className="pb-3 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-4 mb-6">
-            <div className="flex items-start justify-between gap-4">
+          <SheetHeader className="pb-3 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-4 mb-6 pr-12">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <SheetTitle 
-                  className="text-base font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity truncate" 
+                  className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity truncate" 
                   onClick={() => {
                     navigate('/employee-profile');
                     handleMenuItemClick();
@@ -147,13 +147,13 @@ export const Navbar = () => {
                   {displayName}
                 </SheetTitle>
                 {userRole === 'admin' && (
-                  <div className="flex items-center gap-1 text-xs opacity-90 text-primary-foreground mt-1">
-                    <Shield className="h-3 w-3" />
+                  <div className="flex items-center gap-1.5 text-xs opacity-90 text-primary-foreground mt-1">
+                    <Shield className="h-3.5 w-3.5" />
                     <span className="font-medium">Admin</span>
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center flex-shrink-0 pt-0.5">
                 <button
                   onClick={() => {
                     signOut();
