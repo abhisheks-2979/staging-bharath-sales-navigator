@@ -12,6 +12,7 @@ import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { PermissionRequestModal } from "@/components/auth/PermissionRequestModal";
 import { hasRequestedPermissions } from "@/utils/permissionManager";
+import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import Index from "./pages/Index";
 
 // Lazy load feature pages
@@ -148,6 +149,24 @@ const App = () => {
     return () => window.removeEventListener('error', errorHandler);
   }, []);
 
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <BrowserRouter>
+            <AppContent hasError={hasError} />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
+
+// Separate component to use routing hooks
+const AppContent = ({ hasError }: { hasError: boolean }) => {
+  // Enable Android back button handling
+  useAndroidBackButton();
+
   if (hasError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
@@ -166,15 +185,12 @@ const App = () => {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <MasterDataCacheInitializer />
-          <Toaster />
-          <Sonner />
-          <PWAInstallPrompt />
-          <BrowserRouter>
-            <Routes>
+    <>
+      <MasterDataCacheInitializer />
+      <Toaster />
+      <Sonner />
+      <PWAInstallPrompt />
+      <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<RoleBasedAuthPage />} />
               <Route path="/auth/complete-profile" element={<CompleteProfile />} />
@@ -247,10 +263,7 @@ const App = () => {
               <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    </>
   );
 };
 
