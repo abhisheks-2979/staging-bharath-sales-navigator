@@ -115,7 +115,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
         setSelectedBeatName(matchingBeat.beat_name);
       }
       
-      console.log('[Offline] Loaded beats from cache:', beatsList.length);
+      console.log('[Offline] Loaded beats from beat_plans cache:', beatsList.length, beatsList);
     } catch (error) {
       console.error('[Offline] Error loading offline data:', error);
     }

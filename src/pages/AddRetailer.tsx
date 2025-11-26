@@ -108,11 +108,39 @@ export const AddRetailer = () => {
         
         if (error) throw error;
         
+        // Cache beats immediately after loading
+        if (data && data.length > 0) {
+          await offlineStorage.init();
+          for (const beat of data) {
+            await offlineStorage.save(STORES.BEATS, {
+              ...beat,
+              created_by: user.id,
+              is_active: true
+            });
+          }
+        }
+        
         setBeats(data || []);
         console.log('[AddRetailer Online] Loaded beats from Supabase:', data?.length || 0, data);
       } catch (error) {
         console.error('[AddRetailer Online] Failed to load beats:', error);
-        setBeats([]);
+        
+        // Fallback to cache on error
+        try {
+          await offlineStorage.init();
+          const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
+          const userBeats = cachedBeats.filter((beat: any) => 
+            beat.created_by === user.id && beat.is_active
+          );
+          setBeats(userBeats.map((beat: any) => ({
+            beat_id: beat.beat_id,
+            beat_name: beat.beat_name
+          })));
+          console.log('[AddRetailer] Loaded beats from cache (fallback):', userBeats.length);
+        } catch (cacheError) {
+          console.error('[AddRetailer] Cache fallback failed:', cacheError);
+          setBeats([]);
+        }
       }
     } else {
       // OFFLINE or UNKNOWN: Load from IndexedDB cache
@@ -1227,30 +1255,11 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between">
                   <Label htmlFor="beat">Assign to Beat *</Label>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'default'} className="text-xs">
-                      {connectivityStatus === 'offline' ? '📴 Offline' : connectivityStatus === 'unknown' ? '❓ Unknown' : '🌐 Online'} • {beats.length} beats
-                    </Badge>
-                    {connectivityStatus === 'offline' && beats.length === 0 && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          toast({
-                            title: "Offline Mode",
-                            description: "Connect to internet first to sync beats to offline storage.",
-                            variant: "destructive"
-                          });
-                        }}
-                        className="text-xs h-7"
-                      >
-                        Sync Needed
-                      </Button>
-                    )}
-                  </div>
+                  <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'default'} className="text-xs">
+                    {connectivityStatus === 'offline' ? '📴 Offline' : connectivityStatus === 'unknown' ? '❓ Unknown' : '🌐 Online'} • {beats.length} beats
+                  </Badge>
                 </div>
                 <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
                   <SelectTrigger className="bg-background">
