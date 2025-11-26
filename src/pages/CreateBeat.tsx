@@ -269,15 +269,6 @@ export const CreateBeat = () => {
       return;
     }
 
-    if (selectedRetailers.length === 0) {
-      toast({
-        title: "No Retailers Selected",
-        description: "Please select at least one retailer for the beat",
-        variant: "destructive"
-      });
-      return;
-    }
-
     if (repeatEnabled && repeatUntilMode === "date" && !repeatEndDate) {
       toast({
         title: "End Date Required",

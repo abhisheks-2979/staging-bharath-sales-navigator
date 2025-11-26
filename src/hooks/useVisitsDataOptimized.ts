@@ -208,22 +208,38 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         // Get all retailer IDs we need
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
-        const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
-
+        
+        // Extract retailer IDs from beat_data.retailer_ids if specified
         let plannedRetailerIds: string[] = [];
-        if (plannedBeatIds.length > 0) {
-          const { data: plannedRetailers, error: retailersError } = await supabase
-            .from('retailers')
-            .select('id')
-            .eq('user_id', userId)
-            .in('beat_id', plannedBeatIds);
-
-          if (retailersError) {
-            console.error('Error fetching planned retailers:', retailersError);
-          } else {
-            plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
-            console.log(`📋 Found ${plannedRetailerIds.length} retailers for ${plannedBeatIds.length} planned beats`);
+        for (const beatPlan of beatPlansData) {
+          const beatData = beatPlan.beat_data as any;
+          if (beatData?.retailer_ids && Array.isArray(beatData.retailer_ids)) {
+            // Use specific retailer IDs from beat plan
+            plannedRetailerIds.push(...beatData.retailer_ids);
           }
+        }
+        
+        console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds);
+        
+        // If no specific retailer IDs in beat_data, fall back to fetching by beat_id
+        if (plannedRetailerIds.length === 0) {
+          const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
+          if (plannedBeatIds.length > 0) {
+            const { data: plannedRetailers, error: retailersError } = await supabase
+              .from('retailers')
+              .select('id')
+              .eq('user_id', userId)
+              .in('beat_id', plannedBeatIds);
+
+            if (retailersError) {
+              console.error('Error fetching planned retailers:', retailersError);
+            } else {
+              plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
+              console.log('📋 Found', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'planned beats (fallback by beat_id)');
+            }
+          }
+        } else {
+          console.log('📋 Using', plannedRetailerIds.length, 'specific retailers from beat plan data');
         }
 
         // IMPORTANT: Also fetch orders for today to get retailer IDs from orders
