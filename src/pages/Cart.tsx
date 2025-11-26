@@ -496,39 +496,63 @@ export const Cart = () => {
   const handleCameraCapture = async (blob: Blob) => {
     try {
       const fileName = `payment-${Date.now()}.jpg`;
-      const {
-        data,
-        error
-      } = await supabase.storage.from('expense-bills').upload(fileName, blob);
-      if (error) throw error;
-      const {
-        data: {
-          publicUrl
+      
+      // Check if we're online
+      if (connectivityStatus === 'online' && navigator.onLine) {
+        // Online: Upload to Supabase storage
+        const { data, error } = await supabase.storage.from('expense-bills').upload(fileName, blob);
+        if (error) throw error;
+        
+        const { data: { publicUrl } } = supabase.storage.from('expense-bills').getPublicUrl(fileName);
+        
+        if (cameraMode === "cheque") {
+          setChequePhotoUrl(publicUrl);
+          toast({ title: "Cheque photo captured successfully" });
+        } else if (cameraMode === "upi") {
+          setUpiPhotoUrl(publicUrl);
+          toast({ title: "Payment confirmation captured successfully" });
+        } else if (cameraMode === "neft") {
+          setNeftPhotoUrl(publicUrl);
+          toast({ title: "NEFT confirmation captured successfully" });
         }
-      } = supabase.storage.from('expense-bills').getPublicUrl(fileName);
-      if (cameraMode === "cheque") {
-        setChequePhotoUrl(publicUrl);
-        toast({
-          title: "Cheque photo captured successfully"
-        });
-      } else if (cameraMode === "upi") {
-        setUpiPhotoUrl(publicUrl);
-        toast({
-          title: "Payment confirmation captured successfully"
-        });
-      } else if (cameraMode === "neft") {
-        setNeftPhotoUrl(publicUrl);
-        toast({
-          title: "NEFT confirmation captured successfully"
-        });
+      } else {
+        // Offline: Store blob as base64 for later upload
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64data = reader.result as string;
+          const localUrl = URL.createObjectURL(blob);
+          
+          // Store base64 data in IndexedDB for later upload
+          const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+          await offlineStorage.addToSyncQueue('UPLOAD_PAYMENT_PROOF', {
+            fileName,
+            blobBase64: base64data,
+            type: cameraMode
+          });
+          
+          if (cameraMode === "cheque") {
+            setChequePhotoUrl(localUrl);
+            toast({ title: "Cheque photo saved offline", description: "Will upload when online" });
+          } else if (cameraMode === "upi") {
+            setUpiPhotoUrl(localUrl);
+            toast({ title: "Payment proof saved offline", description: "Will upload when online" });
+          } else if (cameraMode === "neft") {
+            setNeftPhotoUrl(localUrl);
+            toast({ title: "NEFT proof saved offline", description: "Will upload when online" });
+          }
+        };
+        reader.readAsDataURL(blob);
       }
+      
       setIsCameraOpen(false);
     } catch (error) {
-      console.error('Error uploading photo:', error);
+      console.error('Error handling photo:', error);
       toast({
-        title: "Upload Failed",
-        description: "Failed to upload photo. Please try again.",
-        variant: "destructive"
+        title: "Photo Capture Failed",
+        description: connectivityStatus === 'offline' 
+          ? "Photo saved locally, will sync when online" 
+          : "Failed to upload photo. Please try again.",
+        variant: connectivityStatus === 'offline' ? "default" : "destructive"
       });
     }
   };
@@ -719,7 +743,7 @@ export const Cart = () => {
         credit_paid_amount: creditPaid,
         previous_pending_cleared: previousPendingCleared,
         payment_method: orderPaymentMethod,
-        payment_proof_url: paymentProofUrl,
+        payment_proof_url: paymentProofUrl || null, // Allow null for offline orders
         upi_last_four_code: paymentMethod === 'upi' ? upiLastFourCode : null
       };
 

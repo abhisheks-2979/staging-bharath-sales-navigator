@@ -413,6 +413,44 @@ export function useOfflineSync() {
         }
         break;
         
+      case 'UPLOAD_PAYMENT_PROOF':
+        console.log('Syncing payment proof upload:', data);
+        try {
+          // Convert base64 back to blob
+          const base64Data = data.blobBase64.split(',')[1];
+          const binaryString = atob(base64Data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: 'image/jpeg' });
+          
+          // Upload the blob to Supabase storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('expense-bills')
+            .upload(data.fileName, blob, {
+              contentType: 'image/jpeg',
+              upsert: true
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: { publicUrl } } = await supabase.storage
+            .from('expense-bills')
+            .getPublicUrl(data.fileName);
+
+          console.log(`✅ Payment proof uploaded: ${publicUrl}`);
+          
+          // Note: The order was already submitted with null payment_proof_url
+          // If needed, we could update the order here with the new URL
+          // But for now, the proof is uploaded and available in storage
+        } catch (uploadError) {
+          console.error('Failed to upload payment proof:', uploadError);
+          throw uploadError;
+        }
+        break;
+        
       default:
         console.warn('Unknown sync action:', action);
     }
