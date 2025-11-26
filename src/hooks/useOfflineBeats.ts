@@ -239,10 +239,10 @@ export function useOfflineBeats() {
       setLoading(true);
 
       if (isOnline) {
-        // Online: Submit directly
+        // Online: Insert as additional beat plan (don't overwrite existing ones)
         const { data, error } = await supabase
           .from('beat_plans')
-          .upsert(beatPlanData, { onConflict: 'user_id,plan_date,beat_id' })
+          .insert(beatPlanData)
           .select()
           .single();
 
@@ -253,7 +253,7 @@ export function useOfflineBeats() {
 
         toast({
           title: "Beat Added to Plan",
-          description: "Beat has been added to today's plan.",
+          description: "Beat has been added as an additional beat for the day.",
         });
 
         return { success: true, offline: false, data };
