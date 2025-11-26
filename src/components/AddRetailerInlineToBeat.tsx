@@ -498,6 +498,13 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
       setIsSaving(false);
       
+      console.log('[Offline] Retailer saved to IndexedDB:', {
+        tempId,
+        retailerName: retailerData.name,
+        beatId: selectedBeatId,
+        beatName: selectedBeatName
+      });
+      
       toast({ 
         title: 'Retailer Saved Offline', 
         description: `${retailerData.name} saved to ${selectedBeatName}. Will sync when online.`,
@@ -505,6 +512,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       });
 
       // Dispatch event to refresh My Visits page
+      console.log('[Offline] Dispatching visitDataChanged event to refresh My Visits');
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
       
       // Call parent callback with temporary ID

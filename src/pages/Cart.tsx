@@ -604,9 +604,21 @@ export const Cart = () => {
     // This allows offline orders to submit without payment proof photos
     const isDefinitelyOnline = (connectivityStatus === 'online' && navigator.onLine);
     
+    console.log('💳 [Cart] Payment validation:', {
+      isPaymentProofMandatory,
+      isDefinitelyOnline,
+      willValidate: isPaymentProofMandatory && isDefinitelyOnline,
+      paymentMethod,
+      chequePhotoUrl,
+      upiPhotoUrl,
+      neftPhotoUrl
+    });
+    
     // ONLY validate payment proofs when definitely online AND payment proof is mandatory
     if (isPaymentProofMandatory && isDefinitelyOnline) {
+      console.log('✅ [Cart] Running payment proof validation (ONLINE MODE)');
       if (paymentMethod === "cheque" && !chequePhotoUrl) {
+        console.log('❌ [Cart] Blocking: cheque photo required');
         toast({
           title: "Cheque Photo Required",
           description: "Please capture cheque photo",
@@ -615,6 +627,7 @@ export const Cart = () => {
         return;
       }
       if (paymentMethod === "upi" && !upiPhotoUrl) {
+        console.log('❌ [Cart] Blocking: UPI photo required');
         toast({
           title: "Payment Confirmation Required",
           description: "Please capture payment confirmation photo",
@@ -623,6 +636,7 @@ export const Cart = () => {
         return;
       }
       if (paymentMethod === "neft" && !neftPhotoUrl) {
+        console.log('❌ [Cart] Blocking: NEFT photo required');
         toast({
           title: "NEFT Confirmation Required",
           description: "Please capture NEFT confirmation photo",
@@ -630,6 +644,9 @@ export const Cart = () => {
         });
         return;
       }
+      console.log('✅ [Cart] Payment proof validation passed');
+    } else {
+      console.log('⏭️ [Cart] SKIPPING payment proof validation (offline or not mandatory)');
     }
 
     // Check if order can be submitted today - BLOCK submission if not today
