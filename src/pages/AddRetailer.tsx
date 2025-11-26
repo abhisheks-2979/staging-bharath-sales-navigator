@@ -1227,7 +1227,31 @@ export const AddRetailer = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="beat">Assign to Beat *</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="beat">Assign to Beat *</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'default'} className="text-xs">
+                      {connectivityStatus === 'offline' ? '📴 Offline' : connectivityStatus === 'unknown' ? '❓ Unknown' : '🌐 Online'} • {beats.length} beats
+                    </Badge>
+                    {connectivityStatus === 'offline' && beats.length === 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          toast({
+                            title: "Offline Mode",
+                            description: "Connect to internet first to sync beats to offline storage.",
+                            variant: "destructive"
+                          });
+                        }}
+                        className="text-xs h-7"
+                      >
+                        Sync Needed
+                      </Button>
+                    )}
+                  </div>
+                </div>
                 <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
                   <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select a beat" />
