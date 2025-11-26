@@ -394,6 +394,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up data loading for date:', selectedDate);
+    
+    // Clear existing data immediately when date changes for instant UI feedback
+    setBeatPlans([]);
+    setVisits([]);
+    setRetailers([]);
+    setOrders([]);
+    setPointsData({ total: 0, byRetailer: new Map() });
+    setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+    
+    // Then load new data
     loadData();
 
     // Listen for manual refresh events with reduced delay for faster updates

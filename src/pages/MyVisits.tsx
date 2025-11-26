@@ -323,6 +323,10 @@ export const MyVisits = () => {
       setPlannedBeats(optimizedBeatPlans);
       const beatNames = optimizedBeatPlans.map(plan => plan.beat_name).join(', ');
       setCurrentBeatName(beatNames);
+    } else {
+      // Reset when no beats planned for selected date
+      setPlannedBeats([]);
+      setCurrentBeatName("No beats planned");
     }
   }, [optimizedBeatPlans]);
 
