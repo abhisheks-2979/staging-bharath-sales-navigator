@@ -89,38 +89,57 @@ export const AddRetailer = () => {
 
   // Load beats from the beats table (online) or from cache (offline)
   const loadBeats = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[AddRetailer] Cannot load beats - no user');
+      return;
+    }
+    
+    console.log('[AddRetailer] Loading beats. User ID:', user.id, 'Connectivity status:', connectivityStatus);
     
     if (connectivityStatus === 'online') {
       // ONLINE: Load from Supabase (existing behavior)
-      const { data, error } = await supabase
-        .from('beats')
-        .select('beat_id, beat_name')
-        .eq('created_by', user.id)
-        .eq('is_active', true)
-        .order('beat_name');
-      
-      if (error) {
-        console.error('Failed to load beats:', error);
-        setBeats([]);
-      } else {
+      try {
+        const { data, error } = await supabase
+          .from('beats')
+          .select('beat_id, beat_name')
+          .eq('created_by', user.id)
+          .eq('is_active', true)
+          .order('beat_name');
+        
+        if (error) throw error;
+        
         setBeats(data || []);
+        console.log('[AddRetailer Online] Loaded beats from Supabase:', data?.length || 0, data);
+      } catch (error) {
+        console.error('[AddRetailer Online] Failed to load beats:', error);
+        setBeats([]);
       }
     } else {
-      // OFFLINE: Load from IndexedDB cache
+      // OFFLINE or UNKNOWN: Load from IndexedDB cache
       try {
+        console.log('[AddRetailer Offline] Initializing offline storage...');
         await offlineStorage.init();
+        
+        console.log('[AddRetailer Offline] Getting all cached beats...');
         const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
-        const userBeats = cachedBeats.filter((beat: any) => 
-          beat.created_by === user.id && beat.is_active
-        );
-        setBeats(userBeats.map((beat: any) => ({
+        console.log('[AddRetailer Offline] Total cached beats:', cachedBeats.length, cachedBeats);
+        
+        console.log('[AddRetailer Offline] Filtering beats for user:', user.id);
+        const userBeats = cachedBeats.filter((beat: any) => {
+          const matches = beat.created_by === user.id && beat.is_active;
+          console.log('[AddRetailer Offline] Beat:', beat.beat_name, 'created_by:', beat.created_by, 'is_active:', beat.is_active, 'matches:', matches);
+          return matches;
+        });
+        
+        const mappedBeats = userBeats.map((beat: any) => ({
           beat_id: beat.beat_id,
           beat_name: beat.beat_name
-        })));
-        console.log('[Offline] Loaded beats from cache:', userBeats.length);
+        }));
+        
+        setBeats(mappedBeats);
+        console.log('[AddRetailer Offline] Final beats to display:', mappedBeats.length, mappedBeats);
       } catch (error) {
-        console.error('[Offline] Error loading beats from cache:', error);
+        console.error('[AddRetailer Offline] Error loading beats from cache:', error);
         setBeats([]);
       }
     }
@@ -148,7 +167,7 @@ export const AddRetailer = () => {
       loadTerritories();
       loadCreditConfig();
     }
-  }, [user]);
+  }, [user, connectivityStatus]); // Re-run when connectivity changes
 
   // Auto-select beat if coming from My Visits with planned beat(s)
   useEffect(() => {
