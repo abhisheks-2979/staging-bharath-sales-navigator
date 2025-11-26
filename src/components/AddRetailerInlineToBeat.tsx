@@ -33,6 +33,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
   const [territories, setTerritories] = useState<{id: string, name: string, region: string}[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
+  const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
 
   const [retailerData, setRetailerData] = useState({
     name: "",
@@ -52,7 +53,8 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     competitor3: "",
     latitude: "",
     longitude: "",
-    photo_url: ""
+    photo_url: "",
+    manual_credit_score: ""
   });
 
   const categories = ["Category A", "Category B", "Category C"];
@@ -65,8 +67,24 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     if (user && open) {
       loadDistributors();
       loadTerritories();
+      loadCreditConfig();
     }
   }, [user, open]);
+
+  const loadCreditConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('credit_management_config')
+        .select('is_enabled, scoring_mode')
+        .single();
+      
+      if (!error && data) {
+        setCreditConfig(data);
+      }
+    } catch (error) {
+      console.error('Error loading credit config:', error);
+    }
+  };
 
   const loadDistributors = async () => {
     if (!user) return;
@@ -355,6 +373,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       photo_url: retailerData.photo_url || null,
       latitude: retailerData.latitude ? parseFloat(retailerData.latitude) : null,
       longitude: retailerData.longitude ? parseFloat(retailerData.longitude) : null,
+      manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
     };
 
     const { data, error } = await supabase.from('retailers').insert(payload).select('id, name').maybeSingle();
@@ -389,7 +408,8 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       competitor3: "",
       latitude: "",
       longitude: "",
-      photo_url: ""
+      photo_url: "",
+      manual_credit_score: ""
     });
     setCapturedPhotoPreview(null);
     onClose();
@@ -618,6 +638,24 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
               )}
             </div>
 
+            {/* Manual Credit Score - Only show when credit management is enabled and mode is manual */}
+            {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
+              <div className="space-y-2">
+                <Label htmlFor="manual_credit_score">Credit Score (Manual)</Label>
+                <Input
+                  id="manual_credit_score"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  placeholder="Enter credit score (0-10)"
+                  value={retailerData.manual_credit_score}
+                  onChange={(e) => handleInputChange("manual_credit_score", e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Manual credit score out of 10</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Category</Label>
@@ -666,66 +704,82 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Potential</Label>
-                <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select potential" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {potentials.map((pot) => (
-                      <SelectItem key={pot} value={pot}>{pot}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Territory</Label>
-                <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={territoryComboOpen}
-                      className="w-full justify-between"
-                    >
-                      {selectedTerritoryId
-                        ? territories.find((t) => t.id === selectedTerritoryId)?.name
-                        : "Select territory"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Search territory..." />
+            <div className="space-y-2">
+              <Label>Potential</Label>
+              <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select potential" />
+                </SelectTrigger>
+                <SelectContent>
+                  {potentials.map((pot) => (
+                    <SelectItem key={pot} value={pot}>{pot}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Assign to Territory</Label>
+              <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={territoryComboOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedTerritoryId
+                      ? territories.find((t) => t.id === selectedTerritoryId)?.name
+                      : "Select territory..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search territory..." />
+                    <CommandList>
                       <CommandEmpty>No territory found.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup>
-                          {territories.map((territory) => (
-                            <CommandItem
-                              key={territory.id}
-                              value={territory.name}
-                              onSelect={() => {
-                                setSelectedTerritoryId(territory.id);
-                                setTerritoryComboOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {territory.name} ({territory.region})
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+                      <CommandGroup>
+                        <CommandItem
+                          onSelect={() => {
+                            setSelectedTerritoryId(null);
+                            setTerritoryComboOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              !selectedTerritoryId ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          None
+                        </CommandItem>
+                        {territories.map((territory) => (
+                          <CommandItem
+                            key={territory.id}
+                            onSelect={() => {
+                              setSelectedTerritoryId(territory.id);
+                              setTerritoryComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span>{territory.name}</span>
+                              <span className="text-xs text-muted-foreground">{territory.region}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">Optionally assign this retailer to a sales territory</p>
             </div>
 
             {/* Photo Capture */}
