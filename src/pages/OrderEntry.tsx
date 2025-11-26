@@ -1742,7 +1742,8 @@ export const OrderEntry = () => {
                     noOrderReason, 
                     customNoOrderReason,
                     visitId,
-                    retailerId
+                    retailerId,
+                    isOnline
                   });
                   
                   const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
@@ -1774,6 +1775,92 @@ export const OrderEntry = () => {
                     return;
                   }
                   
+                  // OFFLINE MODE: Store in sync queue
+                  if (!isOnline) {
+                    console.log('📴 NO ORDER OFFLINE: Storing in sync queue');
+                    try {
+                      const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
+                      
+                      const today = new Date().toISOString().split('T')[0];
+                      let effectiveVisitId = visitId;
+                      
+                      // If no visit ID, try to find one from cache
+                      if (!effectiveVisitId) {
+                        console.log('📴 Looking for visit in offline cache');
+                        const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
+                        const todayVisit = cachedVisits.find(
+                          v => v.retailer_id === retailerId && 
+                               v.user_id === userId && 
+                               v.planned_date === today
+                        );
+                        
+                        if (todayVisit) {
+                          effectiveVisitId = todayVisit.id;
+                          console.log('✅ Found cached visit:', effectiveVisitId);
+                        }
+                      }
+                      
+                      // Store in sync queue
+                      await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
+                        visitId: effectiveVisitId,
+                        retailerId,
+                        userId,
+                        noOrderReason: finalReason,
+                        plannedDate: today,
+                        timestamp: new Date().toISOString()
+                      });
+                      
+                      // Update local cache if visit exists
+                      if (effectiveVisitId) {
+                        const cachedVisit = await offlineStorage.getById<any>(STORES.VISITS, effectiveVisitId);
+                        if (cachedVisit) {
+                          await offlineStorage.save(STORES.VISITS, {
+                            ...cachedVisit,
+                            status: 'unproductive',
+                            no_order_reason: finalReason,
+                            updated_at: new Date().toISOString()
+                          });
+                          console.log('✅ Updated visit in offline cache');
+                        }
+                      }
+                      
+                      toast({
+                        title: "📴 Saved Offline",
+                        description: "No order reason will sync when online",
+                        duration: 3000
+                      });
+                      
+                      // Clear cart and navigate
+                      try {
+                        const storageKey = validVisitId && validRetailerId 
+                          ? `order_cart:${validVisitId}:${validRetailerId}` 
+                          : validRetailerId 
+                            ? `order_cart:temp:${validRetailerId}` 
+                            : 'order_cart:fallback';
+                        localStorage.removeItem(storageKey);
+                      } catch (storageError) {
+                        console.log('⚠️ Cart clear skipped:', storageError);
+                      }
+                      
+                      window.dispatchEvent(new Event('visitDataChanged'));
+                      
+                      setTimeout(() => {
+                        navigate("/visits/retailers");
+                      }, 300);
+                      
+                      return;
+                    } catch (error: any) {
+                      console.error('❌ Offline no-order save failed:', error);
+                      toast({
+                        title: "Failed to Save",
+                        description: error?.message || "Please try again",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                  }
+                  
+                  // ONLINE MODE: Continue with existing logic
                   try {
                     let effectiveVisitId = visitId;
                     
