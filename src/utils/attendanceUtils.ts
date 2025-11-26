@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
 
 /**
  * Marks attendance for today and also checks in to all planned visits
@@ -57,7 +58,7 @@ export const markDayStarted = async (
 };
 
 /**
- * Checks if attendance has been marked for today
+ * Checks if attendance has been marked for today (ONLINE ONLY - existing function preserved)
  */
 export const hasAttendanceToday = async (userId: string): Promise<boolean> => {
   const today = new Date().toISOString().split('T')[0];
@@ -70,6 +71,65 @@ export const hasAttendanceToday = async (userId: string): Promise<boolean> => {
     .single();
 
   return !error && !!data;
+};
+
+/**
+ * NEW FEATURE: Checks attendance with offline support
+ * First tries online (Supabase), falls back to offline cache
+ */
+export const hasAttendanceTodayOfflineSupport = async (userId: string): Promise<boolean> => {
+  const today = new Date().toISOString().split('T')[0];
+  
+  try {
+    // Try online first
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .single();
+
+    // If successful online, cache the attendance record
+    if (!error && data) {
+      try {
+        await offlineStorage.init();
+        await offlineStorage.save(STORES.ATTENDANCE, {
+          id: data.id,
+          user_id: userId,
+          date: today,
+          cached_at: new Date().toISOString()
+        });
+        console.log('[Attendance] ✅ Cached attendance record for offline access');
+      } catch (cacheError) {
+        console.error('[Attendance] Failed to cache attendance:', cacheError);
+      }
+      return true;
+    }
+    
+    // If not found online, check cache (offline mode)
+    throw new Error('Not found online, checking cache');
+  } catch (onlineError) {
+    // Fallback to offline cache
+    console.log('[Attendance] Checking offline cache for attendance...');
+    try {
+      await offlineStorage.init();
+      const cachedAttendance = await offlineStorage.getAll(STORES.ATTENDANCE);
+      const todayAttendance = cachedAttendance.find((att: any) => 
+        att.user_id === userId && att.date === today
+      );
+      
+      if (todayAttendance) {
+        console.log('[Attendance] ✅ Found attendance in offline cache');
+        return true;
+      }
+      
+      console.log('[Attendance] ❌ No attendance found in cache');
+      return false;
+    } catch (cacheError) {
+      console.error('[Attendance] Cache check failed:', cacheError);
+      return false;
+    }
+  }
 };
 
 /**
