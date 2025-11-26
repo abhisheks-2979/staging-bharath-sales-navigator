@@ -79,10 +79,11 @@ export async function submitOrderWithOfflineSupport(
   // Save to offline storage
   await offlineStorage.save(STORES.ORDERS, { ...offlineOrder, items: offlineItems });
   
-  // Queue for sync
+  // Queue for sync with visitId for proper status updates
   await offlineStorage.addToSyncQueue('CREATE_ORDER', {
     order: offlineOrder,
-    items: offlineItems
+    items: offlineItems,
+    visitId: orderData.visit_id  // Include visitId for sync event dispatch
   });
 
   options.onOffline?.();
