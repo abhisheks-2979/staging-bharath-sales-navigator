@@ -1334,7 +1334,7 @@ export const Cart = () => {
                   onClick={handleSubmitOrder} 
                   className="w-full h-9 text-sm" 
                   variant="default" 
-                  disabled={!paymentType || isSubmitting}
+                  disabled={!canSubmitOrder() || !paymentType || isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
