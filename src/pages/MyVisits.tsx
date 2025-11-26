@@ -262,7 +262,16 @@ export const MyVisits = () => {
     selectedDate,
   });
 
-  // Auto-refresh Today's Progress every 30 seconds (only for today's date)
+  // Clear local retailers and beat info immediately when date changes
+  useEffect(() => {
+    if (!selectedDate) return;
+    console.log('🔄 MyVisits: date changed, clearing local retailers and beats for instant UI update', selectedDate);
+    setRetailers([]);
+    setPlannedBeats([]);
+    setCurrentBeatName('No beats planned');
+  }, [selectedDate]);
+ 
+   // Auto-refresh Today's Progress every 30 seconds (only for today's date)
   useEffect(() => {
     const isToday = selectedDate === new Date().toISOString().split('T')[0];
     if (!isToday || !invalidateData) return;
