@@ -593,8 +593,10 @@ export const Cart = () => {
       });
       return;
     }
-    // Check payment proof only if mandatory
-    if (isPaymentProofMandatory) {
+    // Check payment proof only if mandatory AND online
+    // Skip proof validation when offline - photos can't upload to storage anyway
+    const isOnline = connectivityStatus === 'online';
+    if (isPaymentProofMandatory && isOnline) {
       if (paymentMethod === "cheque" && !chequePhotoUrl) {
         toast({
           title: "Cheque Photo Required",

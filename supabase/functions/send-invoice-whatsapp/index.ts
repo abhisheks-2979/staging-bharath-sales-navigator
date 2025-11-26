@@ -21,9 +21,9 @@ serve(async (req) => {
     try {
       const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
       const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-      const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
+      const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER');
 
-      if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+      if (!twilioAccountSid || !twilioAuthToken || !twilioFromNumber) {
         throw new Error('Twilio credentials not configured');
       }
 
@@ -36,7 +36,7 @@ serve(async (req) => {
       const message = `Thank you for your order with ${businessName}!\n\nInvoice Number: ${invoiceNumber || 'N/A'}\n\nClick here to view your invoice: ${pdfUrl || ''}`;
 
       const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
-      const formBody = new URLSearchParams({ To: toPhone, From: twilioPhoneNumber, Body: message });
+      const formBody = new URLSearchParams({ To: toPhone, From: twilioFromNumber, Body: message });
 
       const response = await fetch(twilioUrl, {
         method: 'POST',
