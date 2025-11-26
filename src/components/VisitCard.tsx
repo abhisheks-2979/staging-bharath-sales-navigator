@@ -197,18 +197,20 @@ export const VisitCard = ({
   
   // Track current visit status (separate from prop to allow dynamic updates)
   const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled">(visit.status);
+  const [statusLoadedFromDB, setStatusLoadedFromDB] = useState(false);
   
   // Update currentStatus when visit prop changes (important for parent re-renders with fresh data)
+  // BUT only if we haven't loaded from database yet, to avoid overriding DB status with stale prop
   useEffect(() => {
-    if (visit.status !== currentStatus) {
-      console.log('🔄 [VisitCard] Visit prop status changed, updating currentStatus:', {
+    if (visit.status !== currentStatus && !statusLoadedFromDB) {
+      console.log('🔄 [VisitCard] Visit prop status changed (pre-DB load), updating currentStatus:', {
         visitId: visit.id,
         oldStatus: currentStatus,
         newStatus: visit.status
       });
       setCurrentStatus(visit.status);
     }
-  }, [visit.status]);
+  }, [visit.status, statusLoadedFromDB]);
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -303,6 +305,7 @@ export const VisitCard = ({
               hasCheckOut: !!visitData.check_out_time
             });
             setCurrentStatus(validStatus);
+            setStatusLoadedFromDB(true); // Mark that we've loaded from DB
             
             if (visitData.no_order_reason) {
               setIsNoOrderMarked(true);
@@ -386,6 +389,7 @@ export const VisitCard = ({
             // CRITICAL: Update local status to productive immediately when orders exist
             console.log('✅ [VisitCard] Orders exist - setting status to productive immediately');
             setCurrentStatus('productive');
+            setStatusLoadedFromDB(true); // Mark that we've loaded from DB
 
             // ALSO update database if needed
             // This handles cases where visit was cancelled/planned but has orders
@@ -408,6 +412,7 @@ export const VisitCard = ({
                 console.log('✅ [VisitCard] Visit status updated to productive');
                 // Update local status state immediately
                 setCurrentStatus('productive');
+                setStatusLoadedFromDB(true); // Mark that we've loaded from DB
               }
             }
             
