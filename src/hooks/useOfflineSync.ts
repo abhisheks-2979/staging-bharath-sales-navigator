@@ -160,7 +160,7 @@ export function useOfflineSync() {
         setTimeout(() => {
           console.log('✅ Dispatching visitDataChanged for unproductive count update');
           window.dispatchEvent(new Event('visitDataChanged'));
-        }, 500);
+        }, 800); // Increased delay to ensure database update completes
         
         break;
         

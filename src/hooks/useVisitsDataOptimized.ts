@@ -459,10 +459,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }, 300);
     };
     
+    // Listen for online/offline changes to refresh data
+    const handleOnline = () => {
+      console.log('🌐 Connection restored! Refreshing data to pick up synced changes...');
+      setTimeout(() => {
+        loadData();
+      }, 1000); // Give sync a moment to complete
+    };
+    
     window.addEventListener('visitDataChanged', handleRefresh);
+    window.addEventListener('online', handleOnline);
     
     return () => {
       window.removeEventListener('visitDataChanged', handleRefresh);
+      window.removeEventListener('online', handleOnline);
     };
   }, [loadData, selectedDate]);
 
