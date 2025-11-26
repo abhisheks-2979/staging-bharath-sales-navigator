@@ -801,8 +801,8 @@ export const Cart = () => {
         window.dispatchEvent(new CustomEvent('visitDataChanged'));
       }
 
-      // Clear cart immediately - user sees success
-      localStorage.removeItem('cart');
+      // Clear cart storage for this visit/retailer
+      localStorage.removeItem(activeStorageKey);
       setCartItems([]);
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
