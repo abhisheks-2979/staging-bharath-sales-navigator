@@ -596,8 +596,31 @@ export const MyBeats = () => {
           const dayOfWeek = currentDate.getDay();
           shouldAddDate = repeatDays.includes(dayOfWeek);
         } else if (repeatType === 'monthly') {
-          // Keep existing simple monthly behaviour: same date each month
-          shouldAddDate = currentDate.getDate() === today.getDate();
+          if (monthlyType === 'date') {
+            // Specific date of the month (e.g., 20th of each month)
+            shouldAddDate = currentDate.getDate() === monthlyDateOfMonth;
+          } else {
+            // Specific week and day (e.g., First Monday)
+            const dayOfWeek = currentDate.getDay();
+            if (dayOfWeek === monthlyDayOfWeek) {
+              const dateOfMonth = currentDate.getDate();
+              const weekOfMonth = Math.ceil(dateOfMonth / 7);
+              
+              if (monthlyWeek === 'first') {
+                shouldAddDate = weekOfMonth === 1;
+              } else if (monthlyWeek === 'second') {
+                shouldAddDate = weekOfMonth === 2;
+              } else if (monthlyWeek === 'third') {
+                shouldAddDate = weekOfMonth === 3;
+              } else if (monthlyWeek === 'fourth') {
+                shouldAddDate = weekOfMonth === 4;
+              } else if (monthlyWeek === 'last') {
+                // Check if this is the last occurrence of this day in the month
+                const nextWeek = addDays(currentDate, 7);
+                shouldAddDate = nextWeek.getMonth() !== currentDate.getMonth();
+              }
+            }
+          }
         } else if (repeatType === 'custom') {
           const daysDiff = Math.floor((currentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
           shouldAddDate = daysDiff % customIntervalDays === 0;
