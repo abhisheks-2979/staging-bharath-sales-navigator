@@ -487,6 +487,16 @@ export const MyBeats = () => {
       return;
     }
 
+    // Check for duplicate beat name
+    const duplicateBeat = beats.find(
+      beat => beat.name.toLowerCase() === beatName.trim().toLowerCase()
+    );
+    
+    if (duplicateBeat) {
+      toast.error(`Beat name "${beatName.trim()}" already exists. Please use a different name.`);
+      return;
+    }
+
     if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
       toast.error("Please select at least one day for weekly repeat");
       return;
