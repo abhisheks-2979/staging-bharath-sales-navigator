@@ -435,8 +435,12 @@ export const VisitCard = ({
       });
       
       if (event.detail.visitId === visit.id || event.detail.retailerId === (visit.retailerId || visit.id)) {
-        console.log('✅ [VisitCard] Event matches this visit, reloading status...');
-        checkStatus();
+        console.log('✅ [VisitCard] Event matches this visit, waiting for DB trigger to complete...');
+        // Wait 1 second for database trigger to complete updating visit status
+        setTimeout(() => {
+          console.log('🔄 [VisitCard] Now reloading status after DB trigger delay...');
+          checkStatus();
+        }, 1000);
       } else {
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
       }
