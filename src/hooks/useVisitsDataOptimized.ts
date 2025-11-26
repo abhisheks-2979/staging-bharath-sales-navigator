@@ -95,8 +95,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Combine all retailer IDs: from visits, planned beats, AND orders
       const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
       
-      const filteredRetailers = cachedRetailers.filter(
-        (r: any) => allRetailerIds.includes(r.id)
+      // NEW OFFLINE FEATURE: Include offline retailers for planned beats
+      const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+      const filteredRetailers = cachedRetailers.filter((r: any) => 
+        allRetailerIds.includes(r.id) || (r.beat_id && plannedBeatIds.includes(r.beat_id))
       );
 
       // Display cached data immediately
@@ -301,6 +303,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           ordersData = ordersResult.data || [];
         }
 
+        // NEW OFFLINE FEATURE: Merge offline retailers for planned beats
+        const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
+        const cachedRetailersAll = await offlineStorage.getAll<any>(STORES.RETAILERS);
+        const offlineRetailersForBeats = cachedRetailersAll.filter((r: any) => 
+          r.beat_id && plannedBeatIds.includes(r.beat_id) && 
+          !retailersData.some((onlineR: any) => onlineR.id === r.id)
+        );
+        retailersData = [...retailersData, ...offlineRetailersForBeats];
+
         // Process points data into efficient structure
         const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
         const retailerPointsMap = new Map<string, { name: string; points: number; visitId: string | null }>();
@@ -390,10 +401,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         console.log('[VisitsData] ✅ Cached beat plans and visits for current date');
 
         // Update state with fresh data
-        setBeatPlans(beatPlansData);
-        setVisits(visitsData);
-        setRetailers(retailersData);
-        setOrders(ordersData);
+      setBeatPlans(beatPlansData);
+      setVisits(visitsData);
+      setRetailers(retailersData);
+      setOrders(ordersData);
         
         console.log('🔄 [NETWORK] State updated with fresh data:', {
           beatPlans: beatPlansData.length,
