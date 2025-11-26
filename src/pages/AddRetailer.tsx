@@ -101,27 +101,31 @@ export const AddRetailer = () => {
       try {
         const { data, error } = await supabase
           .from('beats')
-          .select('beat_id, beat_name')
+          .select('beat_id, beat_name, created_by, is_active, id')
           .eq('created_by', user.id)
           .eq('is_active', true)
           .order('beat_name');
         
         if (error) throw error;
         
-        // Cache beats immediately after loading
+        // Cache beats immediately after loading for offline access
         if (data && data.length > 0) {
           await offlineStorage.init();
+          console.log('[AddRetailer Online] Caching beats to IndexedDB:', data.length);
           for (const beat of data) {
             await offlineStorage.save(STORES.BEATS, {
-              ...beat,
+              id: beat.id,
+              beat_id: beat.beat_id,
+              beat_name: beat.beat_name,
               created_by: user.id,
               is_active: true
             });
           }
+          console.log('[AddRetailer Online] ✅ Beats cached successfully');
         }
         
         setBeats(data || []);
-        console.log('[AddRetailer Online] Loaded beats from Supabase:', data?.length || 0, data);
+        console.log('[AddRetailer Online] Loaded beats from Supabase:', data?.length || 0);
       } catch (error) {
         console.error('[AddRetailer Online] Failed to load beats:', error);
         

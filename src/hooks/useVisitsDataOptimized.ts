@@ -392,11 +392,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         });
 
         // Cache current date data for offline access
-        // Beat plans and visits are cached for immediate display
+        // Beat plans, visits, retailers, and orders are cached for immediate display
         await Promise.all([
           ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
-          ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit))
+          ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit)),
+          ...retailersData.map(retailer => offlineStorage.save(STORES.RETAILERS, retailer)),
+          ...ordersData.map(order => offlineStorage.save(STORES.ORDERS, order))
         ]);
+        
+        console.log('💾 [CACHE] Saved to offline storage:', {
+          beatPlans: beatPlansData.length,
+          visits: visitsData.length,
+          retailers: retailersData.length,
+          orders: ordersData.length
+        });
         
         console.log('[VisitsData] ✅ Cached beat plans and visits for current date');
 
