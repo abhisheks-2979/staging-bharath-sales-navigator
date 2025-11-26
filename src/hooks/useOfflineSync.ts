@@ -153,8 +153,14 @@ export function useOfflineSync() {
         
         // Dispatch event to update UI
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-          detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive' }
+          detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive', retailerId: noOrderRetailerId }
         }));
+        
+        // ALSO dispatch visitDataChanged to trigger full page reload and update unproductive count
+        setTimeout(() => {
+          console.log('✅ Dispatching visitDataChanged for unproductive count update');
+          window.dispatchEvent(new Event('visitDataChanged'));
+        }, 500);
         
         break;
         
