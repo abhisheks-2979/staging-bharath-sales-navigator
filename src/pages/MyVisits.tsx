@@ -1231,7 +1231,29 @@ export const MyVisits = () => {
 
         {/* Visits List */}
         <div className="space-y-2 sm:space-y-3">
-          {filteredVisits.length === 0 ? <Card className="shadow-card">
+          {/* Show beat plans with 0 retailers */}
+          {plannedBeats.length > 0 && filteredVisits.length === 0 && searchTerm === '' && (
+            <Card className="shadow-card border-primary/20">
+              <CardContent className="p-4 text-center">
+                <Users size={32} className="mx-auto text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-muted-foreground mb-2">
+                  {plannedBeats.map(bp => bp.beat_name).join(', ')}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  This beat has 0 retailers assigned
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/my-beats')}
+                >
+                  Add Retailers to Beat
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          
+          {filteredVisits.length === 0 && (plannedBeats.length === 0 || searchTerm !== '') ? <Card className="shadow-card">
               <CardContent className="p-4 sm:p-8 text-center">
                 <CalendarIcon size={32} className="sm:w-12 sm:h-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
                 <h3 className="font-semibold text-muted-foreground mb-2 text-sm sm:text-base">{t('visits.noVisitsFound')}</h3>
