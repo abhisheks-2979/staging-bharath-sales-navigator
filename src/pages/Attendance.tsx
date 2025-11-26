@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { useFaceMatching } from '@/hooks/useFaceMatching';
 import { CameraCapture } from '@/components/CameraCapture';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { shouldSuppressError } from '@/utils/offlineErrorHandler';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -409,14 +410,18 @@ const Attendance = () => {
             face_match_confidence: confidence
           });
 
-        if (attendanceError) {
+        const isOfflineInsertError = !!attendanceError && shouldSuppressError(attendanceError);
+
+        if (attendanceError && !isOfflineInsertError) {
           console.error('Attendance insert error:', attendanceError);
           throw attendanceError;
         }
         
-        console.log('Attendance marked successfully');
+        console.log(isOfflineInsertError 
+          ? 'Attendance cached locally due to offline mode'
+          : 'Attendance marked successfully');
 
-        // NEW FEATURE: Cache attendance for offline access
+        // Cache attendance for offline access (works for both online and offline insert flows)
         try {
           await offlineStorage.init();
           await offlineStorage.save(STORES.ATTENDANCE, {
@@ -431,31 +436,34 @@ const Attendance = () => {
           // Don't throw - caching failure shouldn't block attendance marking
         }
 
-        // Check in to all planned visits for today
-        const { data: plannedVisits } = await supabase
-          .from('visits')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('planned_date', today)
-          .is('check_in_time', null);
+        // Only attempt to update visits when we successfully reached Supabase
+        if (!isOfflineInsertError) {
+          // Check in to all planned visits for today
+          const { data: plannedVisits } = await supabase
+            .from('visits')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('planned_date', today)
+            .is('check_in_time', null);
 
-        console.log('Planned visits found:', plannedVisits?.length || 0);
+          console.log('Planned visits found:', plannedVisits?.length || 0);
 
-        if (plannedVisits && plannedVisits.length > 0) {
-          for (const visit of plannedVisits) {
-            await supabase
-              .from('visits')
-              .update({
-                check_in_time: timestamp,
-                check_in_location: freshLocation,
-                check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
-                check_in_photo_url: photoPath,
-                location_match_in: true,
-                status: 'in-progress'
-              })
-              .eq('id', visit.id);
+          if (plannedVisits && plannedVisits.length > 0) {
+            for (const visit of plannedVisits) {
+              await supabase
+                .from('visits')
+                .update({
+                  check_in_time: timestamp,
+                  check_in_location: freshLocation,
+                  check_in_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
+                  check_in_photo_url: photoPath,
+                  location_match_in: true,
+                  status: 'in-progress'
+                })
+                .eq('id', visit.id);
+            }
+            console.log('All planned visits checked in');
           }
-          console.log('All planned visits checked in');
         }
 
         // Close camera modal
@@ -478,46 +486,6 @@ const Attendance = () => {
           startTracking();
         }, 500);
 
-      } else {
-        console.log('Starting check-out process...');
-        
-        // Update existing record with check-out
-        const { error: updateError } = await supabase
-          .from('attendance')
-          .update({
-            check_out_time: timestamp,
-            check_out_location: freshLocation,
-            check_out_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
-            check_out_photo_url: photoPath,
-            face_verification_status_out: matchStatus,
-            face_match_confidence_out: confidence
-          })
-          .eq('user_id', user.id)
-          .eq('date', today);
-
-        if (updateError) {
-          console.error('Check-out update error:', updateError);
-          throw updateError;
-        }
-        
-        console.log('Check-out marked successfully');
-
-        // Cancel all remaining planned visits for today (only on "End My Day")
-        const { error: cancelVisitsError } = await supabase
-          .from('visits')
-          .update({ status: 'cancelled' })
-          .eq('user_id', user.id)
-          .eq('planned_date', today)
-          .eq('status', 'planned');
-        
-        if (cancelVisitsError) {
-          console.error('Error cancelling remaining planned visits on day end:', cancelVisitsError);
-        } else {
-          console.log('✅ Remaining planned visits cancelled for today');
-        }
-
-        // Close camera modal
-        setShowCamera(false);
         setAttendanceType(null);
         setIsMarkingAttendance(false);
 
