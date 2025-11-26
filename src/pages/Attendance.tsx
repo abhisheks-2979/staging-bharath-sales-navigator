@@ -21,6 +21,7 @@ import { TimelineView } from '@/components/TimelineView';
 import { cn } from '@/lib/utils';
 import { useFaceMatching } from '@/hooks/useFaceMatching';
 import { CameraCapture } from '@/components/CameraCapture';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -414,6 +415,21 @@ const Attendance = () => {
         }
         
         console.log('Attendance marked successfully');
+
+        // NEW FEATURE: Cache attendance for offline access
+        try {
+          await offlineStorage.init();
+          await offlineStorage.save(STORES.ATTENDANCE, {
+            id: `${user.id}_${today}`, // Unique ID for offline
+            user_id: user.id,
+            date: today,
+            cached_at: timestamp
+          });
+          console.log('[Attendance] ✅ Cached attendance record for offline access');
+        } catch (cacheError) {
+          console.error('[Attendance] Failed to cache attendance (non-critical):', cacheError);
+          // Don't throw - caching failure shouldn't block attendance marking
+        }
 
         // Check in to all planned visits for today
         const { data: plannedVisits } = await supabase

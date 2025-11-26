@@ -29,7 +29,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
 import { useVisitsDataOptimized } from "@/hooks/useVisitsDataOptimized";
 import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
-import { hasAttendanceToday } from "@/utils/attendanceUtils";
+import { hasAttendanceTodayOfflineSupport } from "@/utils/attendanceUtils";
 interface Visit {
   id: string;
   retailerName: string;
@@ -195,7 +195,7 @@ export const MyVisits = () => {
       }
 
       try {
-        const hasMarkedAttendance = await hasAttendanceToday(user.id);
+        const hasMarkedAttendance = await hasAttendanceTodayOfflineSupport(user.id);
         setHasAttendance(hasMarkedAttendance);
       } catch (error) {
         console.error('Error checking attendance:', error);
