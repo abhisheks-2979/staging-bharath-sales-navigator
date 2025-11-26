@@ -136,9 +136,9 @@ export const Navbar = () => {
           {/* User Profile Section */}
           <SheetHeader className="pb-3 border-b bg-gradient-primary text-primary-foreground rounded-lg -mx-6 -mt-6 px-6 pt-4 mb-6 pr-12">
             <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
+              <div className="flex flex-col items-start flex-1 min-w-0">
                 <SheetTitle 
-                  className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity truncate" 
+                  className="text-lg font-bold text-primary-foreground cursor-pointer hover:opacity-80 transition-opacity truncate w-full text-left" 
                   onClick={() => {
                     navigate('/employee-profile');
                     handleMenuItemClick();
@@ -153,7 +153,7 @@ export const Navbar = () => {
                   </div>
                 )}
               </div>
-              <div className="flex items-center flex-shrink-0 pt-0.5">
+              <div className="flex items-center flex-shrink-0">
                 <button
                   onClick={() => {
                     signOut();
