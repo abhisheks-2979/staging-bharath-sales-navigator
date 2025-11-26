@@ -90,6 +90,74 @@ export function useOfflineSync() {
     const { supabase } = await import('@/integrations/supabase/client');
     
     switch (action) {
+      case 'UPDATE_VISIT_NO_ORDER':
+        console.log('Syncing no-order visit update:', data);
+        const { visitId: noOrderVisitId, retailerId: noOrderRetailerId, userId: noOrderUserId, noOrderReason, plannedDate } = data;
+        
+        let effectiveNoOrderVisitId = noOrderVisitId;
+        
+        // If no visit ID was stored, try to find or create the visit
+        if (!effectiveNoOrderVisitId) {
+          console.log('No visit ID in queue, looking for existing visit...');
+          const { data: existingVisit } = await supabase
+            .from('visits')
+            .select('id')
+            .eq('retailer_id', noOrderRetailerId)
+            .eq('user_id', noOrderUserId)
+            .eq('planned_date', plannedDate)
+            .maybeSingle();
+          
+          if (existingVisit) {
+            effectiveNoOrderVisitId = existingVisit.id;
+            console.log('Found existing visit:', effectiveNoOrderVisitId);
+          } else {
+            // Create new visit
+            console.log('Creating new visit for no-order...');
+            const { data: newVisit, error: createError } = await supabase
+              .from('visits')
+              .insert({
+                retailer_id: noOrderRetailerId,
+                user_id: noOrderUserId,
+                planned_date: plannedDate,
+                status: 'unproductive',
+                no_order_reason: noOrderReason,
+                visit_type: 'Regular Visit',
+                created_at: new Date().toISOString()
+              })
+              .select()
+              .single();
+            
+            if (createError) throw createError;
+            
+            effectiveNoOrderVisitId = newVisit.id;
+            console.log('Created new visit:', effectiveNoOrderVisitId);
+            
+            // Cache the new visit
+            await offlineStorage.save(STORES.VISITS, newVisit);
+          }
+        }
+        
+        // Update the visit with no-order reason
+        const { error: updateError } = await supabase
+          .from('visits')
+          .update({
+            status: 'unproductive',
+            no_order_reason: noOrderReason,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', effectiveNoOrderVisitId);
+        
+        if (updateError) throw updateError;
+        
+        console.log('✅ Visit updated with no-order reason');
+        
+        // Dispatch event to update UI
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive' }
+        }));
+        
+        break;
+        
       case 'CREATE_ORDER':
         console.log('Syncing order creation:', data);
         // Handle both old format (single data) and new format (order + items)
