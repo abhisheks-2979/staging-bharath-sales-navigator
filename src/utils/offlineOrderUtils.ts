@@ -17,11 +17,17 @@ export async function submitOrderWithOfflineSupport(
     connectivityStatus?: 'online' | 'offline' | 'unknown';
   } = {}
 ) {
-  // Double-check connectivity: use both provided status and navigator.onLine
-  const connectivityCheck = options.connectivityStatus !== 'offline' && navigator.onLine;
+  // Double-check connectivity: treat 'unknown' as offline to ensure queue works
+  const isDefinitelyOnline = options.connectivityStatus === 'online' && navigator.onLine;
   
-  // Try online submission first if we think we're online
-  if (connectivityCheck) {
+  console.log('🌐 [ORDER] Connectivity check:', { 
+    connectivityStatus: options.connectivityStatus, 
+    navigatorOnline: navigator.onLine,
+    isDefinitelyOnline 
+  });
+  
+  // Try online submission ONLY if we're definitely online
+  if (isDefinitelyOnline) {
     try {
       // Online: Submit directly
       const { data: order, error: orderError } = await supabase
