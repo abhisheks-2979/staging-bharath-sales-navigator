@@ -631,10 +631,6 @@ export const Cart = () => {
       return; // This prevents any further execution
     }
     setIsSubmitting(true);
-    toast({
-      title: "Processing Order",
-      description: "Please wait while we submit your order...",
-    });
 
     try {
       // Get current user
