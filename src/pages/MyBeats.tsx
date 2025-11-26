@@ -605,7 +605,7 @@ export const MyBeats = () => {
         if (shouldAddDate) {
           beatPlans.push({
             beat_id: beatId,
-            planned_date: currentDate.toISOString().split('T')[0],
+            plan_date: currentDate.toISOString().split('T')[0],
             status: 'pending',
             user_id: user?.id
           });
