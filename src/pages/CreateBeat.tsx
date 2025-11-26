@@ -432,9 +432,32 @@ export const CreateBeat = () => {
         const dayOfWeek = currentDate.getDay();
         shouldInclude = repeatDays.includes(dayOfWeek);
       } else if (repeatType === "monthly") {
-        // For monthly, use the first selected day of each month
-        const dayOfWeek = currentDate.getDay();
-        shouldInclude = repeatDays.includes(dayOfWeek);
+        if (monthlyType === "day") {
+          // For "day" type: First Monday, Last Friday, etc.
+          const dayOfWeek = currentDate.getDay();
+          
+          // Check if the current day matches the selected day of week
+          if (dayOfWeek === monthlyDayOfWeek) {
+            // Calculate which occurrence of this weekday in the month
+            const dateNum = currentDate.getDate();
+            const weekOfMonth = Math.ceil(dateNum / 7);
+            
+            // Check for "last" week
+            if (monthlyWeek === "last") {
+              // Check if this is the last occurrence of this weekday in the month
+              const nextWeek = addDays(currentDate, 7);
+              shouldInclude = nextWeek.getMonth() !== currentDate.getMonth();
+            } else {
+              // Map week string to number
+              const weekMap = { first: 1, second: 2, third: 3, fourth: 4 };
+              shouldInclude = weekOfMonth === weekMap[monthlyWeek];
+            }
+          }
+        } else if (monthlyType === "date") {
+          // For "date" type: 1st, 15th, 31st of each month
+          const dateOfMonth = currentDate.getDate();
+          shouldInclude = dateOfMonth === monthlyDateOfMonth;
+        }
       } else if (repeatType === "custom") {
         // For custom interval, include every Nth day
         const daysDiff = Math.floor((currentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -453,17 +476,19 @@ export const CreateBeat = () => {
         });
       }
 
-      // Increment date based on repeat type
-      if (repeatType === "daily") {
-        currentDate = addDays(currentDate, 1);
-      } else if (repeatType === "weekly") {
-        currentDate = addDays(currentDate, 1);
-      } else if (repeatType === "monthly") {
-        currentDate = addDays(currentDate, 1);
-      } else if (repeatType === "custom") {
-        currentDate = addDays(currentDate, 1);
-      }
+      // Always increment by 1 day to check all dates
+      currentDate = addDays(currentDate, 1);
     }
+
+    console.log(`✅ Generated ${plans.length} beat plans for ${beatName}:`, {
+      repeatType,
+      monthlyType: repeatType === 'monthly' ? monthlyType : undefined,
+      monthlyWeek: repeatType === 'monthly' && monthlyType === 'day' ? monthlyWeek : undefined,
+      monthlyDayOfWeek: repeatType === 'monthly' && monthlyType === 'day' ? monthlyDayOfWeek : undefined,
+      monthlyDateOfMonth: repeatType === 'monthly' && monthlyType === 'date' ? monthlyDateOfMonth : undefined,
+      repeatDays: repeatType === 'weekly' ? repeatDays : undefined,
+      plans: plans.map(p => p.plan_date)
+    });
 
     return plans;
   };
