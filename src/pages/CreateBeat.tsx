@@ -722,31 +722,38 @@ export const CreateBeat = () => {
               
               {/* Schedule Recurring Visits */}
               <div className={cn(
-                "space-y-3 p-3 border rounded-lg transition-colors",
-                repeatEnabled ? "bg-primary/5 border-primary/30" : "bg-background"
+                "space-y-3 p-4 border-2 rounded-lg transition-all",
+                repeatEnabled ? "bg-primary/10 border-primary shadow-md" : "bg-muted/30 border-muted"
               )}>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="repeatEnabled"
-                    checked={repeatEnabled}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setRepeatEnabled(checked);
-                      console.log("📋 Repeat checkbox toggled:", checked);
-                    }}
-                    className="h-4 w-4 rounded border-primary"
-                  />
-                  <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer font-medium">
-                    <Repeat size={16} className={repeatEnabled ? "text-primary" : ""} />
-                    Schedule Recurring Visits
-                  </Label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="repeatEnabled"
+                      checked={repeatEnabled}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setRepeatEnabled(checked);
+                        console.log("📋 Repeat checkbox toggled:", checked);
+                      }}
+                      className="h-5 w-5 rounded border-primary cursor-pointer"
+                    />
+                    <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer font-semibold text-base">
+                      <Repeat size={18} className={repeatEnabled ? "text-primary" : "text-muted-foreground"} />
+                      Schedule Recurring Visits
+                    </Label>
+                  </div>
+                  {repeatEnabled && (
+                    <Badge variant="default" className="bg-primary">Active</Badge>
+                  )}
                 </div>
                 
                 {!repeatEnabled && (
-                  <p className="text-xs text-muted-foreground pl-6">
-                    ✓ Check the box above to schedule recurring visits for this beat
-                  </p>
+                  <div className="pl-8">
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border border-dashed">
+                      ⚠️ <strong>Important:</strong> Check the box above to enable recurring visits. Without this, the beat will only be created without any scheduled visits.
+                    </p>
+                  </div>
                 )}
 
                 {repeatEnabled && (
@@ -978,6 +985,45 @@ export const CreateBeat = () => {
                     ))}
                 </div>
               </div>
+              
+              {/* Beat Creation Summary */}
+              {beatName.trim() && selectedRetailers.length > 0 && (
+                <div className={cn(
+                  "p-4 rounded-lg border-2",
+                  repeatEnabled ? "bg-primary/10 border-primary" : "bg-muted/50 border-muted"
+                )}>
+                  <div className="space-y-2 text-sm">
+                    <div className="font-semibold">What will be created:</div>
+                    <div className="space-y-1 text-muted-foreground">
+                      <div>✓ Beat "{beatName}" with {selectedRetailers.length} retailer(s)</div>
+                      {repeatEnabled ? (
+                        <>
+                          <div className="text-primary font-medium">
+                            ✓ Recurring visits will be scheduled:
+                          </div>
+                          <div className="pl-4 space-y-0.5">
+                            <div>• Type: {repeatType.charAt(0).toUpperCase() + repeatType.slice(1)}</div>
+                            {repeatType === "weekly" && repeatDays.length > 0 && (
+                              <div>• Days: {repeatDays.map(d => weekDays.find(w => w.value === d)?.label).join(", ")}</div>
+                            )}
+                            {repeatType === "monthly" && monthlyType === "day" && (
+                              <div>• Schedule: {monthlyWeek.charAt(0).toUpperCase() + monthlyWeek.slice(1)} {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][monthlyDayOfWeek]}</div>
+                            )}
+                            {repeatType === "monthly" && monthlyType === "date" && (
+                              <div>• Date: {monthlyDateOfMonth}{monthlyDateOfMonth === 1 ? 'st' : monthlyDateOfMonth === 2 ? 'nd' : monthlyDateOfMonth === 3 ? 'rd' : 'th'} of each month</div>
+                            )}
+                            <div>• Until: {repeatUntilMode === "permanent" ? "Permanent" : (repeatEndDate ? format(repeatEndDate, "PPP") : "Select end date")}</div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-warning">
+                          ⚠️ No recurring visits scheduled (checkbox not checked)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <Button onClick={handleCreateBeat} className="w-full" disabled={isCreating}>
                 <Save size={16} className="mr-2" />
