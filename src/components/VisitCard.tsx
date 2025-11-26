@@ -360,6 +360,7 @@ export const VisitCard = ({
               orders: ordersToday.map((o: any) => ({ id: o.id, amount: o.total_amount }))
             });
             setActualOrderValue(totalOrderValue);
+            setHasOrderToday(true);
 
             // Calculate total previous pending cleared
             const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
@@ -382,10 +383,14 @@ export const VisitCard = ({
             setPaidTodayAmount(totalPaidToday); // Total paid amount today (cash + credit)
             setCreditPendingAmount(updatedPending); // Updated pending after today's order
 
-            // CRITICAL FIX: If orders exist for this visit but status is not productive, update it
+            // CRITICAL: Update local status to productive immediately when orders exist
+            console.log('✅ [VisitCard] Orders exist - setting status to productive immediately');
+            setCurrentStatus('productive');
+
+            // ALSO update database if needed
             // This handles cases where visit was cancelled/planned but has orders
             if (visitData && visitData.status !== 'productive') {
-              console.log('🔄 [VisitCard] Visit has orders but status is not productive - fixing:', {
+              console.log('🔄 [VisitCard] Visit has orders but DB status is not productive - updating DB:', {
                 visitId: visitData.id,
                 currentStatus: visitData.status,
                 orderCount: ordersToday.length,

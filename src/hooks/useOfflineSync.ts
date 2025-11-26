@@ -182,6 +182,12 @@ export function useOfflineSync() {
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
               detail: { visitId, status: 'productive', retailerId }
             }));
+            
+            // ALSO dispatch visitDataChanged to trigger full page reload
+            setTimeout(() => {
+              console.log('✅ Dispatching visitDataChanged for full page reload');
+              window.dispatchEvent(new Event('visitDataChanged'));
+            }, 500);
           }
         } else {
           // Old format - just the order data
@@ -200,6 +206,12 @@ export function useOfflineSync() {
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
               detail: { visitId: data.visit_id, status: 'productive', retailerId: data.retailer_id }
             }));
+            
+            // ALSO dispatch visitDataChanged to trigger full page reload
+            setTimeout(() => {
+              console.log('✅ Dispatching visitDataChanged for full page reload');
+              window.dispatchEvent(new Event('visitDataChanged'));
+            }, 500);
           }
         }
         break;
