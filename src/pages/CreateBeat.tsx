@@ -278,10 +278,10 @@ export const CreateBeat = () => {
       return;
     }
 
-    if (repeatEnabled && (repeatType === "weekly" || repeatType === "monthly") && repeatDays.length === 0) {
+    if (repeatEnabled && repeatType === "weekly" && repeatDays.length === 0) {
       toast({
         title: "Days Required",
-        description: `Please select at least one day for ${repeatType} recurring beats`,
+        description: "Please select at least one day for weekly recurring beats",
         variant: "destructive"
       });
       return;
@@ -295,6 +295,20 @@ export const CreateBeat = () => {
       });
       return;
     }
+
+    console.log("🔄 Creating beat with recurring settings:", {
+      beatName,
+      repeatEnabled,
+      repeatType,
+      repeatDays,
+      repeatUntilMode,
+      repeatEndDate: repeatEndDate ? format(repeatEndDate, 'yyyy-MM-dd') : null,
+      monthlyType,
+      monthlyWeek,
+      monthlyDayOfWeek,
+      monthlyDateOfMonth,
+      selectedRetailersCount: selectedRetailers.length
+    });
 
     if (!user) {
       toast({
@@ -343,16 +357,36 @@ export const CreateBeat = () => {
 
         // Create beat plans based on recurrence settings
         if (repeatEnabled) {
+          console.log("✅ repeatEnabled is TRUE, generating beat plans...");
           const endDate = repeatUntilMode === "permanent" ? addDays(new Date(), 365) : repeatEndDate;
           if (endDate) {
+            console.log("📅 End date for beat plans:", format(endDate, 'yyyy-MM-dd'));
             const beatPlans = generateBeatPlans(beatId, beatName, endDate);
             
-            const { error: planError } = await supabase
-              .from('beat_plans')
-              .insert(beatPlans);
+            if (beatPlans.length === 0) {
+              console.warn("⚠️ No beat plans generated! Check your recurrence settings.");
+              toast({
+                title: "Warning",
+                description: "Beat created but no recurring visits were scheduled. Please check your recurrence settings.",
+                variant: "destructive"
+              });
+            } else {
+              console.log(`📝 Inserting ${beatPlans.length} beat plans to database...`);
+              const { error: planError } = await supabase
+                .from('beat_plans')
+                .insert(beatPlans);
 
-            if (planError) throw planError;
+              if (planError) {
+                console.error("❌ Failed to insert beat plans:", planError);
+                throw planError;
+              }
+              console.log("✅ Beat plans inserted successfully");
+            }
+          } else {
+            console.warn("⚠️ No end date available for beat plans");
           }
+        } else {
+          console.log("ℹ️ repeatEnabled is FALSE, skipping beat plan generation");
         }
 
         // Cache beat and updated retailers
@@ -415,6 +449,15 @@ export const CreateBeat = () => {
   };
 
   const generateBeatPlans = (beatId: string, beatName: string, endDate: Date) => {
+    console.log("🔧 generateBeatPlans called with:", {
+      beatId,
+      beatName,
+      endDate: format(endDate, 'yyyy-MM-dd'),
+      repeatType,
+      repeatDays: repeatType === 'weekly' ? repeatDays : undefined,
+      selectedRetailersCount: selectedRetailers.length
+    });
+
     const plans = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -431,6 +474,10 @@ export const CreateBeat = () => {
       } else if (repeatType === "weekly") {
         const dayOfWeek = currentDate.getDay();
         shouldInclude = repeatDays.includes(dayOfWeek);
+        
+        if (shouldInclude) {
+          console.log(`✓ Weekly match: ${format(currentDate, 'EEE, MMM dd yyyy')} (day ${dayOfWeek})`);
+        }
       } else if (repeatType === "monthly") {
         if (monthlyType === "day") {
           // For "day" type: First Monday, Last Friday, etc.
@@ -674,20 +721,33 @@ export const CreateBeat = () => {
               </div>
               
               {/* Schedule Recurring Visits */}
-              <div className="space-y-3 p-3 border rounded-lg bg-background">
+              <div className={cn(
+                "space-y-3 p-3 border rounded-lg transition-colors",
+                repeatEnabled ? "bg-primary/5 border-primary/30" : "bg-background"
+              )}>
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id="repeatEnabled"
                     checked={repeatEnabled}
-                    onChange={(e) => setRepeatEnabled(e.target.checked)}
-                    className="h-4 w-4 rounded border-muted"
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setRepeatEnabled(checked);
+                      console.log("📋 Repeat checkbox toggled:", checked);
+                    }}
+                    className="h-4 w-4 rounded border-primary"
                   />
-                  <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer">
-                    <Repeat size={16} />
+                  <Label htmlFor="repeatEnabled" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <Repeat size={16} className={repeatEnabled ? "text-primary" : ""} />
                     Schedule Recurring Visits
                   </Label>
                 </div>
+                
+                {!repeatEnabled && (
+                  <p className="text-xs text-muted-foreground pl-6">
+                    ✓ Check the box above to schedule recurring visits for this beat
+                  </p>
+                )}
 
                 {repeatEnabled && (
                   <div className="space-y-3 pl-6">
