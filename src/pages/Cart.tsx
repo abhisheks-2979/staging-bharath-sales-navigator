@@ -781,6 +781,26 @@ export const Cart = () => {
         retailerId: validRetailerId
       });
 
+      // Dispatch visit status changed event for real-time UI updates
+      if (actualVisitId) {
+        console.log('📡 Dispatching visitStatusChanged event for online order:', {
+          visitId: actualVisitId,
+          retailerId: validRetailerId,
+          status: 'productive'
+        });
+        
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { 
+            visitId: actualVisitId, 
+            status: 'productive', 
+            retailerId: validRetailerId 
+          }
+        }));
+        
+        // Also dispatch visitDataChanged to refresh Today's Progress
+        window.dispatchEvent(new CustomEvent('visitDataChanged'));
+      }
+
       // Clear cart immediately - user sees success
       localStorage.removeItem('cart');
       setCartItems([]);
