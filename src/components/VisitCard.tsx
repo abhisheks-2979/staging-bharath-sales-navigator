@@ -1239,12 +1239,6 @@ export const VisitCard = ({
                 </button>
               )}
             </div>
-            {(distributorName || visit.distributor) && <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
-                <Store size={12} className="sm:size-3.5 flex-shrink-0" />
-                <span className="truncate" title="Mapped Distributor">
-                  {distributorName || visit.distributor}
-                </span>
-              </div>}
             {visit.retailerId && (
               <div className="mt-2">
                 <CreditScoreDisplay retailerId={visit.retailerId} variant="compact" />
