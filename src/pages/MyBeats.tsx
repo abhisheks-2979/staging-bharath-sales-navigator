@@ -581,11 +581,13 @@ export const MyBeats = () => {
   const generateBeatPlans = async (beatId: string, endDate: Date) => {
     try {
       const beatPlans: any[] = [];
-      let currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-      const today = new Date(currentDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let currentDate = new Date(today);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
 
-      while (currentDate <= endDate) {
+      while (currentDate <= end) {
         let shouldAddDate = false;
 
         if (repeatType === 'daily') {
@@ -594,20 +596,22 @@ export const MyBeats = () => {
           const dayOfWeek = currentDate.getDay();
           shouldAddDate = repeatDays.includes(dayOfWeek);
         } else if (repeatType === 'monthly') {
-          // Add on the same date each month
-          shouldAddDate = currentDate.getDate() === new Date().getDate();
+          // Keep existing simple monthly behaviour: same date each month
+          shouldAddDate = currentDate.getDate() === today.getDate();
         } else if (repeatType === 'custom') {
-          // For custom interval, include every Nth day
           const daysDiff = Math.floor((currentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
           shouldAddDate = daysDiff % customIntervalDays === 0;
         }
 
         if (shouldAddDate) {
           beatPlans.push({
+            user_id: user?.id,
             beat_id: beatId,
-            plan_date: currentDate.toISOString().split('T')[0],
-            status: 'pending',
-            user_id: user?.id
+            beat_name: beatName.trim(),
+            plan_date: format(currentDate, 'yyyy-MM-dd'),
+            beat_data: {
+              retailer_ids: Array.from(selectedRetailers)
+            }
           });
         }
 
@@ -615,34 +619,21 @@ export const MyBeats = () => {
       }
 
       if (beatPlans.length > 0) {
-        // Save beat plans with offline support
-        for (const plan of beatPlans) {
-          const planWithId = {
-            ...plan,
-            id: `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            beat_name: beatName,
-            beat_data: {},
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          // Insert beat plan into database
-          const { error: planError } = await supabase
-            .from('beat_plans')
-            .insert([planWithId]);
-          
-          if (planError) {
-            console.error('Error creating beat plan:', planError);
-          }
+        const { error: planError } = await supabase
+          .from('beat_plans')
+          .insert(beatPlans);
+
+        if (planError) {
+          console.error('Error creating beat plans:', planError);
+        } else {
+          toast.success(`Created ${beatPlans.length} scheduled visits`);
         }
-        
-        toast.success(`Created ${beatPlans.length} scheduled visits`);
       }
     } catch (error: any) {
       console.error('Error generating beat plans:', error);
       toast.error('Failed to create beat schedule');
     }
   };
-
   const handleRetailerAdded = (retailerId: string, retailerName: string) => {
     setSelectedRetailers(prev => new Set(prev).add(retailerId));
     loadAllRetailers();
