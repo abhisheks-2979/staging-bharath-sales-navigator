@@ -38,6 +38,12 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
   const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
+  
+  // NEW OFFLINE FEATURE: States for beat selection
+  const [availableBeats, setAvailableBeats] = useState<{id: string, beat_id: string, beat_name: string}[]>([]);
+  const [selectedBeatId, setSelectedBeatId] = useState<string>('');
+  const [selectedBeatName, setSelectedBeatName] = useState<string>(beatName);
+  const [beatComboOpen, setBeatComboOpen] = useState(false);
 
   const [retailerData, setRetailerData] = useState({
     name: "",
@@ -85,11 +91,33 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
   const loadOfflineData = async () => {
     try {
       await offlineStorage.init();
-      console.log('[Offline] Retailer form ready - data will be saved locally');
-      // Note: Territories are optional, not cached for offline mode
-      // User can still create retailers without territory assignment offline
+      
+      // Load beat plans from cache for today
+      const cachedBeatPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+      const today = new Date().toISOString().split('T')[0];
+      const todayBeats = cachedBeatPlans.filter((plan: any) => 
+        plan.plan_date === today && plan.user_id === user?.id
+      );
+      
+      // Set beats to dropdown
+      const beatsList = todayBeats.map((plan: any) => ({
+        id: plan.beat_id,
+        beat_id: plan.beat_id,
+        beat_name: plan.beat_name
+      }));
+      
+      setAvailableBeats(beatsList);
+      
+      // If beatName prop matches a beat, pre-select it
+      const matchingBeat = beatsList.find((b: any) => b.beat_name === beatName);
+      if (matchingBeat) {
+        setSelectedBeatId(matchingBeat.beat_id);
+        setSelectedBeatName(matchingBeat.beat_name);
+      }
+      
+      console.log('[Offline] Loaded beats from cache:', beatsList.length);
     } catch (error) {
-      console.error('[Offline] Error initializing offline storage:', error);
+      console.error('[Offline] Error loading offline data:', error);
     }
   };
 
@@ -374,6 +402,10 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
     setIsSaving(true);
 
+    // NEW OFFLINE FEATURE: Use selected beat when offline, otherwise use prop
+    const useBeatId = isOffline ? (selectedBeatId || 'temporary') : 'temporary';
+    const useBeatName = isOffline ? (selectedBeatName || beatName) : beatName;
+    
     const payload: any = {
       user_id: user.id,
       name: retailerData.name,
@@ -381,8 +413,8 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       phone: retailerData.phone,
       address: retailerData.address,
       category: retailerData.category || null,
-      beat_id: 'temporary', // Will be set by CreateBeat
-      beat_name: beatName,
+      beat_id: useBeatId,
+      beat_name: useBeatName,
       territory_id: selectedTerritoryId || null,
       status: 'active',
       notes: retailerData.notes || null,
@@ -451,7 +483,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       
       toast({ 
         title: 'Retailer Saved Offline', 
-        description: `${retailerData.name} saved locally. Will sync when online.`,
+        description: `${retailerData.name} saved to ${selectedBeatName}. Will sync when online.`,
         duration: 4000
       });
 
@@ -532,6 +564,57 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
               </Button>
             </div>
           </div>
+
+          {/* NEW OFFLINE FEATURE: Beat Selection - Only show when offline */}
+          {isOffline && (
+            <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border">
+              <Label>Select Beat *</Label>
+              <Popover open={beatComboOpen} onOpenChange={setBeatComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={beatComboOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedBeatName || "Select beat..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search beat..." />
+                    <CommandList>
+                      <CommandEmpty>No beat found.</CommandEmpty>
+                      <CommandGroup>
+                        {availableBeats.map((beat) => (
+                          <CommandItem
+                            key={beat.id}
+                            onSelect={() => {
+                              setSelectedBeatId(beat.beat_id);
+                              setSelectedBeatName(beat.beat_name);
+                              setBeatComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedBeatId === beat.beat_id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {beat.beat_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Offline mode: Select beat from today's planned beats
+              </p>
+            </div>
+          )}
 
           {/* Basic Information */}
           <div className="space-y-4">
