@@ -197,6 +197,19 @@ export const AddRetailer = () => {
     }
   }, [user, connectivityStatus]); // Re-run when connectivity changes
 
+  // Listen for beat creation events to reload beats
+  useEffect(() => {
+    const handleBeatCreated = () => {
+      console.log('[AddRetailer] Beat created event received, reloading beats...');
+      if (user) {
+        loadBeats();
+      }
+    };
+
+    window.addEventListener('beatCreated', handleBeatCreated);
+    return () => window.removeEventListener('beatCreated', handleBeatCreated);
+  }, [user]);
+
   // Auto-select beat if coming from My Visits with planned beat(s)
   useEffect(() => {
     if (plannedBeats.length > 0 && !selectedBeat) {

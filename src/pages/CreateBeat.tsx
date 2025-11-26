@@ -399,6 +399,9 @@ export const CreateBeat = () => {
           }
         }
 
+        // Dispatch event to notify AddRetailer page to reload beats
+        window.dispatchEvent(new CustomEvent('beatCreated', { detail: { beatId, beatName } }));
+
         // Show options dialog for beat placement
         setCreatedBeatData({ beatId, beatName });
         setShowOptionsDialog(true);
@@ -431,6 +434,9 @@ export const CreateBeat = () => {
             }
           }
         }
+
+        // Dispatch event to notify AddRetailer page to reload beats
+        window.dispatchEvent(new CustomEvent('beatCreated', { detail: { beatId, beatName } }));
 
         // Show options dialog for beat placement
         setCreatedBeatData({ beatId, beatName });

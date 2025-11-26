@@ -87,6 +87,23 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     }
   }, [user, open, isOffline]);
 
+  // Listen for beat creation events to reload beats
+  useEffect(() => {
+    if (!open) return;
+
+    const handleBeatCreated = () => {
+      console.log('[AddRetailerInlineToBeat] Beat created event received, reloading beats...');
+      if (user) {
+        if (isOffline) {
+          loadOfflineData();
+        }
+      }
+    };
+
+    window.addEventListener('beatCreated', handleBeatCreated);
+    return () => window.removeEventListener('beatCreated', handleBeatCreated);
+  }, [user, open, isOffline]);
+
   // NEW OFFLINE FEATURE: Load data from IndexedDB cache
   const loadOfflineData = async () => {
     try {
