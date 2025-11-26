@@ -557,6 +557,13 @@ export const Cart = () => {
     }
   };
   const handleSubmitOrder = async () => {
+    console.log('🧾 [Cart] handleSubmitOrder called', {
+      connectivityStatus,
+      navigatorOnline: navigator.onLine,
+      paymentType,
+      paymentMethod,
+      cartItemsCount: cartItems.length
+    });
     if (isSubmitting) return;
     
     if (cartItems.length === 0) {
