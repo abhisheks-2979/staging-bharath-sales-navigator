@@ -440,16 +440,24 @@ export const VisitCard = ({
       console.log('🔔 [VisitCard] Received visitStatusChanged event:', {
         eventDetail: event.detail,
         currentVisitId: visit.id,
-        matches: event.detail.visitId === visit.id
+        currentRetailerId: visit.retailerId || visit.id,
+        matches: event.detail.visitId === visit.id || event.detail.retailerId === (visit.retailerId || visit.id)
       });
       
-      if (event.detail.visitId === visit.id || event.detail.retailerId === (visit.retailerId || visit.id)) {
-        console.log('✅ [VisitCard] Event matches this visit, waiting for DB trigger to complete...');
-        // Wait 1 second for database trigger to complete updating visit status
+      // Match by either visitId or retailerId to catch all sync scenarios
+      const matchesVisit = event.detail.visitId === visit.id;
+      const matchesRetailer = event.detail.retailerId && event.detail.retailerId === (visit.retailerId || visit.id);
+      
+      if (matchesVisit || matchesRetailer) {
+        console.log('✅ [VisitCard] Event matches - refreshing status immediately');
+        // Refresh status immediately to show synced offline orders/no-orders
+        checkStatus();
+        
+        // Also refresh again after 1.5s to catch any delayed DB trigger updates
         setTimeout(() => {
-          console.log('🔄 [VisitCard] Now reloading status after DB trigger delay...');
+          console.log('🔄 [VisitCard] Second refresh after DB trigger delay');
           checkStatus();
-        }, 1000);
+        }, 1500);
       } else {
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
       }

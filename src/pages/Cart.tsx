@@ -593,10 +593,12 @@ export const Cart = () => {
       });
       return;
     }
-    // Check payment proof only if mandatory AND clearly online
-    // Skip proof validation when offline - photos can't upload to storage anyway
-    const isOnline = connectivityStatus === 'online' && navigator.onLine;
-    if (isPaymentProofMandatory && isOnline) {
+    // Check payment proof ONLY when clearly online - SKIP entirely when offline
+    // This allows offline orders to submit without payment proof photos
+    const isDefinitelyOnline = (connectivityStatus === 'online' && navigator.onLine);
+    
+    // ONLY validate payment proofs when definitely online AND payment proof is mandatory
+    if (isPaymentProofMandatory && isDefinitelyOnline) {
       if (paymentMethod === "cheque" && !chequePhotoUrl) {
         toast({
           title: "Cheque Photo Required",
