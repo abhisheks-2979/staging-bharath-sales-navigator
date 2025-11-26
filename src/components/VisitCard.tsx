@@ -30,7 +30,6 @@ import { useLocationFeature } from "@/hooks/useLocationFeature";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
-import { VisitPointsDisplay } from "./VisitPointsDisplay";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -1261,7 +1260,6 @@ export const VisitCard = ({
                   <Phone size={12} className="mr-1" />
                   Phone Order
                 </Badge>}
-              <VisitPointsDisplay visitId={currentVisitId} userId={userId} selectedDate={selectedDate} />
             </div>
             {hasStockRecords && <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1 cursor-pointer transition-all" variant="secondary" onClick={() => setShowStockDataModal(true)}>
                 <Package size={12} className="mr-1" />
