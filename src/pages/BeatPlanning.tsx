@@ -70,6 +70,7 @@ export const BeatPlanning = () => {
         .from('beats')
         .select('*')
         .eq('is_active', true)
+        .eq('created_by', user.id)
         .order('created_at', { ascending: true });
 
       if (beatsError) throw beatsError;
