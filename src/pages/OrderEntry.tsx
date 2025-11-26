@@ -1738,12 +1738,18 @@ export const OrderEntry = () => {
               <Button 
                 onClick={async (e) => {
                   e.preventDefault();
+                  
+                  // Check online status at click time (more reliable than hook state)
+                  const isCurrentlyOnline = navigator.onLine;
+                  
                   console.log('🔴 NO ORDER: Submit clicked', { 
                     noOrderReason, 
                     customNoOrderReason,
                     visitId,
                     retailerId,
-                    isOnline
+                    isOnline,
+                    isCurrentlyOnline,
+                    navigatorOnLine: navigator.onLine
                   });
                   
                   const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
@@ -1775,8 +1781,8 @@ export const OrderEntry = () => {
                     return;
                   }
                   
-                  // OFFLINE MODE: Store in sync queue
-                  if (!isOnline) {
+                  // OFFLINE MODE: Store in sync queue (check current online status)
+                  if (!isCurrentlyOnline) {
                     console.log('📴 NO ORDER OFFLINE: Storing in sync queue');
                     try {
                       const { offlineStorage, STORES } = await import('@/lib/offlineStorage');
@@ -1800,6 +1806,15 @@ export const OrderEntry = () => {
                         }
                       }
                       
+                      console.log('📴 Adding to sync queue with data:', {
+                        action: 'UPDATE_VISIT_NO_ORDER',
+                        visitId: effectiveVisitId,
+                        retailerId,
+                        userId,
+                        noOrderReason: finalReason,
+                        plannedDate: today
+                      });
+                      
                       // Store in sync queue
                       await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
                         visitId: effectiveVisitId,
@@ -1809,6 +1824,12 @@ export const OrderEntry = () => {
                         plannedDate: today,
                         timestamp: new Date().toISOString()
                       });
+                      
+                      console.log('✅ Successfully added to sync queue');
+                      
+                      // Verify it was saved
+                      const queueItems = await offlineStorage.getSyncQueue();
+                      console.log('📦 Sync queue now contains:', queueItems.length, 'items');
                       
                       // Update local cache if visit exists
                       if (effectiveVisitId) {
@@ -1851,6 +1872,11 @@ export const OrderEntry = () => {
                       return;
                     } catch (error: any) {
                       console.error('❌ Offline no-order save failed:', error);
+                      console.error('❌ Error details:', {
+                        message: error?.message,
+                        stack: error?.stack,
+                        name: error?.name
+                      });
                       toast({
                         title: "Failed to Save",
                         description: error?.message || "Please try again",
