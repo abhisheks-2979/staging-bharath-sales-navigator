@@ -14,6 +14,8 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { useConnectivity } from "@/hooks/useConnectivity";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 
 interface AddRetailerInlineToBeatProps {
   open: boolean;
@@ -25,6 +27,8 @@ interface AddRetailerInlineToBeatProps {
 export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdded }: AddRetailerInlineToBeatProps) => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const connectivityStatus = useConnectivity();
+  const isOffline = connectivityStatus === 'offline';
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [capturedPhotoPreview, setCapturedPhotoPreview] = useState<string | null>(null);
@@ -65,11 +69,29 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
   useEffect(() => {
     if (user && open) {
-      loadDistributors();
-      loadTerritories();
-      loadCreditConfig();
+      if (isOffline) {
+        // OFFLINE: Load from cache
+        loadOfflineData();
+      } else {
+        // ONLINE: Load from Supabase (existing behavior)
+        loadDistributors();
+        loadTerritories();
+        loadCreditConfig();
+      }
     }
-  }, [user, open]);
+  }, [user, open, isOffline]);
+
+  // NEW OFFLINE FEATURE: Load data from IndexedDB cache
+  const loadOfflineData = async () => {
+    try {
+      await offlineStorage.init();
+      console.log('[Offline] Retailer form ready - data will be saved locally');
+      // Note: Territories are optional, not cached for offline mode
+      // User can still create retailers without territory assignment offline
+    } catch (error) {
+      console.error('[Offline] Error initializing offline storage:', error);
+    }
+  };
 
   const loadCreditConfig = async () => {
     try {
@@ -376,6 +398,16 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
     };
 
+    // NEW OFFLINE FEATURE: Save offline or online based on connectivity
+    if (isOffline) {
+      await handleOfflineSave(payload);
+    } else {
+      await handleOnlineSave(payload);
+    }
+  };
+
+  // EXISTING ONLINE SAVE (unchanged)
+  const handleOnlineSave = async (payload: any) => {
     const { data, error } = await supabase.from('retailers').insert(payload).select('id, name').maybeSingle();
     setIsSaving(false);
 
@@ -389,7 +421,59 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     // Call parent callback with the new retailer
     onRetailerAdded(data.id, data.name);
     
-    // Reset form and close
+    resetForm();
+  };
+
+  // NEW OFFLINE FEATURE: Save to IndexedDB and sync queue
+  const handleOfflineSave = async (payload: any) => {
+    try {
+      await offlineStorage.init();
+      
+      // Generate temporary ID for offline retailer
+      const tempId = `offline_retailer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const offlineRetailer = {
+        ...payload,
+        id: tempId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Save to IndexedDB cache
+      await offlineStorage.save(STORES.RETAILERS, offlineRetailer);
+      
+      // Add to sync queue for later upload
+      await offlineStorage.addToSyncQueue('CREATE_RETAILER', {
+        retailer: payload,
+        tempId: tempId
+      });
+
+      setIsSaving(false);
+      
+      toast({ 
+        title: 'Retailer Saved Offline', 
+        description: `${retailerData.name} saved locally. Will sync when online.`,
+        duration: 4000
+      });
+
+      // Dispatch event to refresh My Visits page
+      window.dispatchEvent(new CustomEvent('visitDataChanged'));
+      
+      // Call parent callback with temporary ID
+      onRetailerAdded(tempId, retailerData.name);
+      
+      resetForm();
+    } catch (error: any) {
+      setIsSaving(false);
+      console.error('[Offline] Error saving retailer:', error);
+      toast({ 
+        title: 'Save Failed', 
+        description: 'Could not save retailer offline. Please try again.', 
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  const resetForm = () => {
     setRetailerData({
       name: "",
       gstNumber: "",
