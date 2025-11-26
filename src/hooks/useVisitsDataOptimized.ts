@@ -70,10 +70,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
       // Get retailer IDs from visits, planned beats, AND orders
       const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
-      const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-      const plannedRetailerIds = cachedRetailers
-        .filter((r: any) => r.user_id === userId && plannedBeatIds.includes(r.beat_id))
-        .map((r: any) => r.id);
+
+      // Extract retailer IDs from beat_data.retailer_ids if specified
+      let plannedRetailerIds: string[] = [];
+      let hasBeatDataWithRetailerIdsDefined = false;
+      for (const beatPlan of filteredBeatPlans) {
+        const beatData = (beatPlan as any).beat_data as any;
+        if (beatData && Array.isArray(beatData.retailer_ids)) {
+          hasBeatDataWithRetailerIdsDefined = true;
+          plannedRetailerIds.push(...beatData.retailer_ids);
+        }
+      }
+
+      // If no specific retailer IDs are defined in beat_data for any plan, fall back to beat_id mapping
+      if (!hasBeatDataWithRetailerIdsDefined) {
+        const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+        plannedRetailerIds = cachedRetailers
+          .filter((r: any) => r.user_id === userId && plannedBeatIds.includes(r.beat_id))
+          .map((r: any) => r.id);
+      }
+
       const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
       
       // Combine all retailer IDs: from visits, planned beats, AND orders
@@ -211,18 +227,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         
         // Extract retailer IDs from beat_data.retailer_ids if specified
         let plannedRetailerIds: string[] = [];
+        let hasBeatDataWithRetailerIdsDefined = false;
         for (const beatPlan of beatPlansData) {
           const beatData = beatPlan.beat_data as any;
-          if (beatData?.retailer_ids && Array.isArray(beatData.retailer_ids)) {
-            // Use specific retailer IDs from beat plan
+          if (beatData && Array.isArray(beatData.retailer_ids)) {
+            hasBeatDataWithRetailerIdsDefined = true;
             plannedRetailerIds.push(...beatData.retailer_ids);
           }
         }
         
         console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds);
         
-        // If no specific retailer IDs in beat_data, fall back to fetching by beat_id
-        if (plannedRetailerIds.length === 0) {
+        // If no specific retailer IDs are defined in beat_data for any plan, fall back to fetching by beat_id
+        if (!hasBeatDataWithRetailerIdsDefined) {
           const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
           if (plannedBeatIds.length > 0) {
             const { data: plannedRetailers, error: retailersError } = await supabase
