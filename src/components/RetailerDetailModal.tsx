@@ -187,13 +187,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
         .from('invoices')
         .getPublicUrl(fileName);
 
-      // Send via WhatsApp/SMS
+      // Send via WhatsApp/SMS - use correct parameter names expected by edge function
       const { error: sendError } = await supabase.functions.invoke('send-invoice-whatsapp', {
         body: {
-          orderId,
-          retailerPhone: formData.phone,
-          retailerName: formData.name,
-          invoiceUrl: publicUrl,
+          invoiceId: orderId,
+          customerPhone: formData.phone,
+          pdfUrl: publicUrl,
           invoiceNumber
         }
       });
