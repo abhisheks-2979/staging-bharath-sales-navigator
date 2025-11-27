@@ -12,9 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, Check, ChevronsUpDown, FileText, Eye } from "lucide-react";
+import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, Check, ChevronsUpDown, FileText, Download, Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
 
 interface RetailerInvoice {
   id: string;
@@ -80,6 +81,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
   const [invoices, setInvoices] = useState<RetailerInvoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (retailer) {
@@ -120,6 +123,96 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       setInvoices([]);
     } finally {
       setInvoicesLoading(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (orderId: string, invoiceNumber: string) => {
+    setDownloadingInvoiceId(orderId);
+    try {
+      const { blob } = await fetchAndGenerateInvoice(orderId);
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Invoice Downloaded",
+        description: `${invoiceNumber} has been downloaded successfully`,
+      });
+    } catch (error: any) {
+      console.error('Error downloading invoice:', error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download invoice",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
+  const handleSendInvoice = async (orderId: string, invoiceNumber: string) => {
+    if (!formData?.phone) {
+      toast({
+        title: "Cannot Send Invoice",
+        description: "Retailer phone number is not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingInvoiceId(orderId);
+    try {
+      // First generate and upload the invoice PDF
+      const { blob } = await fetchAndGenerateInvoice(orderId);
+      
+      // Upload to Supabase storage
+      const fileName = `${invoiceNumber}_${Date.now()}.pdf`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('invoices')
+        .upload(fileName, blob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('invoices')
+        .getPublicUrl(fileName);
+
+      // Send via WhatsApp/SMS
+      const { error: sendError } = await supabase.functions.invoke('send-invoice-whatsapp', {
+        body: {
+          orderId,
+          retailerPhone: formData.phone,
+          retailerName: formData.name,
+          invoiceUrl: publicUrl,
+          invoiceNumber
+        }
+      });
+
+      if (sendError) throw sendError;
+
+      toast({
+        title: "Invoice Sent",
+        description: `${invoiceNumber} has been sent to ${formData.phone}`,
+      });
+    } catch (error: any) {
+      console.error('Error sending invoice:', error);
+      toast({
+        title: "Send Failed",
+        description: error.message || "Failed to send invoice",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingInvoiceId(null);
     }
   };
 
@@ -839,18 +932,36 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    navigate(`/invoice-management?invoiceId=${invoice.id}`);
-                                    onClose();
-                                  }}
-                                  className="h-7 px-2"
-                                >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  View
-                                </Button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)}
+                                    disabled={downloadingInvoiceId === invoice.id}
+                                    className="h-7 px-2"
+                                    title="Download Invoice"
+                                  >
+                                    {downloadingInvoiceId === invoice.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Download className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleSendInvoice(invoice.id, invoice.invoice_number)}
+                                    disabled={sendingInvoiceId === invoice.id || !formData?.phone}
+                                    className="h-7 px-2"
+                                    title={formData?.phone ? "Send Invoice via WhatsApp" : "No phone number available"}
+                                  >
+                                    {sendingInvoiceId === invoice.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Send className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
