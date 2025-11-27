@@ -19,10 +19,9 @@ import { useNavigate } from "react-router-dom";
 interface RetailerInvoice {
   id: string;
   invoice_number: string;
-  invoice_date: string;
+  created_at: string;
   total_amount: number;
   status: string;
-  order_id: string;
 }
 
 interface Retailer {
@@ -106,32 +105,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const loadInvoices = async (retailerId: string) => {
     setInvoicesLoading(true);
     try {
-      // First get all orders for this retailer
-      const { data: orders, error: ordersError } = await supabase
+      // Fetch orders directly - invoice data is stored in orders table
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('id')
-        .eq('retailer_id', retailerId);
+        .select('id, invoice_number, created_at, total_amount, status')
+        .eq('retailer_id', retailerId)
+        .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
 
-      if (!orders || orders.length === 0) {
-        setInvoices([]);
-        setInvoicesLoading(false);
-        return;
-      }
-
-      const orderIds = orders.map(o => o.id);
-
-      // Then get all invoices for those orders
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, invoice_date, total_amount, status, order_id')
-        .in('order_id', orderIds)
-        .order('invoice_date', { ascending: false });
-
-      if (invoicesError) throw invoicesError;
-
-      setInvoices(invoicesData || []);
+      setInvoices(ordersData || []);
     } catch (error: any) {
       console.error('Error loading invoices:', error);
       setInvoices([]);
@@ -839,20 +822,20 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                                 {invoice.invoice_number}
                               </TableCell>
                               <TableCell>
-                                {new Date(invoice.invoice_date).toLocaleDateString()}
+                                {new Date(invoice.created_at).toLocaleDateString()}
                               </TableCell>
                               <TableCell>
                                 ₹{(invoice.total_amount || 0).toLocaleString()}
                               </TableCell>
                               <TableCell>
                                 <Badge 
-                                  variant={invoice.status === 'paid' ? 'default' : invoice.status === 'draft' ? 'secondary' : 'outline'}
+                                  variant={invoice.status === 'confirmed' ? 'default' : invoice.status === 'pending' ? 'secondary' : 'outline'}
                                   className={cn(
-                                    invoice.status === 'paid' && 'bg-success text-success-foreground',
+                                    invoice.status === 'confirmed' && 'bg-success text-success-foreground',
                                     invoice.status === 'pending' && 'bg-amber-100 text-amber-800'
                                   )}
                                 >
-                                  {invoice.status || 'draft'}
+                                  {invoice.status || 'pending'}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">
