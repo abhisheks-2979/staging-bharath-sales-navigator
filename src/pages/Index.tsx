@@ -84,7 +84,7 @@ const Index = () => {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
         {/* Header */}
-        <div className="relative overflow-hidden bg-gradient-hero text-primary-foreground">
+        <div className="relative overflow-hidden bg-gradient-hero text-primary-foreground" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-4">
             <div className="flex items-center gap-3">
