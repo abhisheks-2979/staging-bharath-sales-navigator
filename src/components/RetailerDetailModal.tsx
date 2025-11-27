@@ -7,12 +7,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, Check, ChevronsUpDown } from "lucide-react";
+import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, Check, ChevronsUpDown, FileText, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+
+interface RetailerInvoice {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  total_amount: number;
+  status: string;
+  order_id: string;
+}
 
 interface Retailer {
   id: string;
@@ -68,6 +79,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [territories, setTerritories] = useState<{ id: string; name: string; region: string }[]>([]);
   const [territoryOpen, setTerritoryOpen] = useState(false);
   const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
+  const [invoices, setInvoices] = useState<RetailerInvoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   useEffect(() => {
     if (retailer) {
@@ -83,6 +96,49 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       loadCreditConfig();
     }
   }, [user, isOpen]);
+
+  useEffect(() => {
+    if (retailer?.id && isOpen) {
+      loadInvoices(retailer.id);
+    }
+  }, [retailer?.id, isOpen]);
+
+  const loadInvoices = async (retailerId: string) => {
+    setInvoicesLoading(true);
+    try {
+      // First get all orders for this retailer
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('retailer_id', retailerId);
+
+      if (ordersError) throw ordersError;
+
+      if (!orders || orders.length === 0) {
+        setInvoices([]);
+        setInvoicesLoading(false);
+        return;
+      }
+
+      const orderIds = orders.map(o => o.id);
+
+      // Then get all invoices for those orders
+      const { data: invoicesData, error: invoicesError } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, invoice_date, total_amount, status, order_id')
+        .in('order_id', orderIds)
+        .order('invoice_date', { ascending: false });
+
+      if (invoicesError) throw invoicesError;
+
+      setInvoices(invoicesData || []);
+    } catch (error: any) {
+      console.error('Error loading invoices:', error);
+      setInvoices([]);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
 
   const loadCreditConfig = async () => {
     try {
@@ -742,6 +798,83 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       )}
                     </p>
                   </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* All Invoices Section */}
+            <AccordionItem value="invoices">
+              <AccordionTrigger className="text-lg font-semibold">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  All Invoices ({invoices.length})
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-2">
+                  {invoicesLoading ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      Loading invoices...
+                    </div>
+                  ) : invoices.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No invoices found for this retailer
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Invoice #</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {invoices.map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">
+                                {invoice.invoice_number}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(invoice.invoice_date).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                ₹{(invoice.total_amount || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={invoice.status === 'paid' ? 'default' : invoice.status === 'draft' ? 'secondary' : 'outline'}
+                                  className={cn(
+                                    invoice.status === 'paid' && 'bg-success text-success-foreground',
+                                    invoice.status === 'pending' && 'bg-amber-100 text-amber-800'
+                                  )}
+                                >
+                                  {invoice.status || 'draft'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    navigate(`/invoice-management?invoiceId=${invoice.id}`);
+                                    onClose();
+                                  }}
+                                  className="h-7 px-2"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>
