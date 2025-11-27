@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown } from "lucide-react";
@@ -271,31 +271,37 @@ export const MyVisits = () => {
     setCurrentBeatName('No beats planned');
   }, [selectedDate]);
  
-   // Auto-refresh Today's Progress every 30 seconds (only for today's date)
+  // Ref to always have the latest invalidateData function (prevents stale closures)
+  const invalidateDataRef = useRef(invalidateData);
+  useEffect(() => {
+    invalidateDataRef.current = invalidateData;
+  }, [invalidateData]);
+
+  // Auto-refresh Today's Progress every 30 seconds (only for today's date)
   useEffect(() => {
     const isToday = selectedDate === new Date().toISOString().split('T')[0];
-    if (!isToday || !invalidateData) return;
+    if (!isToday) return;
 
     console.log('⏰ Setting up auto-refresh for Today\'s Progress');
 
-    // 30-second interval for auto-refresh
+    // 30-second interval for auto-refresh - uses ref to avoid stale closure
     const intervalId = setInterval(() => {
       console.log('🔄 Auto-refreshing Today\'s Progress (30s interval)');
-      invalidateData();
+      invalidateDataRef.current?.();
     }, 30000);
 
     // Refresh when tab becomes visible
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log('👀 Tab became visible, refreshing data');
-        invalidateData();
+        invalidateDataRef.current?.();
       }
     };
 
     // Refresh when window gains focus
     const handleFocus = () => {
       console.log('🎯 Window focused, refreshing data');
-      invalidateData();
+      invalidateDataRef.current?.();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -307,7 +313,7 @@ export const MyVisits = () => {
       window.removeEventListener('focus', handleFocus);
       console.log('🧹 Cleaned up auto-refresh listeners');
     };
-  }, [selectedDate, invalidateData]);
+  }, [selectedDate]);
 
   // Update points from optimized hook
   useEffect(() => {
