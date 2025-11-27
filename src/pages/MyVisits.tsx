@@ -1184,13 +1184,17 @@ export const MyVisits = () => {
                </button>
                 <button onClick={() => handleStatusClick("planned")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "planned" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25" : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 border border-blue-200"}`}>
                   <div className="text-base sm:text-xl font-bold leading-tight">{plannedVisitsCount}</div>
-                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">Planned/Canceled</div>
+                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.planned')}</div>
                 </button>
+               <button onClick={() => handleStatusClick("productive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "productive" ? "bg-success text-success-foreground shadow-lg shadow-success/25" : "bg-gradient-to-br from-success/10 to-success/20 hover:from-success/20 hover:to-success/30 border border-success/30 text-success"}`}>
+                 <div className="text-base sm:text-xl font-bold leading-tight">{productiveVisits}</div>
+                 <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.productive')}</div>
+               </button>
                <button onClick={() => handleStatusClick("unproductive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
                  <div className="text-base sm:text-xl font-bold leading-tight">{unproductiveVisits}</div>
                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.unproductive')}</div>
                </button>
-               <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-2 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center col-span-2 min-h-[70px] sm:min-h-[85px]">
+               <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-2 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
                  <div className="text-base sm:text-xl font-bold text-amber-600 leading-tight">{pointsEarnedToday}</div>
                  <div className="text-[9px] sm:text-xs text-amber-600/80 font-medium mt-1 leading-tight">Points Earned Today</div>
                </button>
