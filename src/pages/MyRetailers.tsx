@@ -405,10 +405,11 @@ export const MyRetailers = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                 <Input placeholder="Search by name, phone, address, category, beat" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
               </div>
-              <Button variant="secondary" asChild>
-                <Link to="/add-retailer">
-                  <Plus className="mr-2 h-4 w-4" /> Add
-                </Link>
+              <Button 
+                variant="secondary" 
+                onClick={() => navigate('/add-retailer', { state: { returnTo: '/my-retailers' } })}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
             </div>
             
