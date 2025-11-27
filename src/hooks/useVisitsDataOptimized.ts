@@ -129,7 +129,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
         });
 
-        const progressPlannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+        // Use the same plannedRetailerIds logic as network to ensure consistency
+        const progressPlannedRetailerIds: string[] = [];
+        for (const beatPlan of filteredBeatPlans) {
+          const beatData = beatPlan.beat_data as any;
+          if (beatData && Array.isArray(beatData.retailer_ids)) {
+            progressPlannedRetailerIds.push(...beatData.retailer_ids);
+          }
+        }
 
         let planned = 0;
         let productive = 0;
@@ -154,13 +161,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        // Count retailers from beat plans that don't have visit records yet as planned
-        const plannedRetailersFromBeats = filteredRetailers.filter((r: any) => 
-          progressPlannedBeatIds.includes(r.beat_id) && 
-          !visitRetailerIdsSet.has(r.id) &&
-          !ordersByRetailer.has(r.id)
-        );
-        planned += plannedRetailersFromBeats.length;
+        // Count retailers from beat_data.retailer_ids that don't have visit records yet as planned
+        // This matches the network calculation logic for consistency
+        progressPlannedRetailerIds.forEach((retailerId: string) => {
+          if (!visitRetailerIdsSet.has(retailerId) && !ordersByRetailer.has(retailerId)) {
+            planned++;
+          }
+        });
 
         setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
         console.log('📊 [CACHE] Progress stats calculated from cache:', { 
