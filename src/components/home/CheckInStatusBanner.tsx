@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, LogOut, Briefcase, Calendar } from "lucide-react";
+import { CheckCircle2, Clock, LogOut, Briefcase, Calendar, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -6,9 +6,11 @@ import { format, differenceInMinutes } from "date-fns";
 
 interface CheckInStatusBannerProps {
   attendance: any | null;
+  onStartDay?: () => void;
+  onEndDay?: () => void;
 }
 
-export const CheckInStatusBanner = ({ attendance }: CheckInStatusBannerProps) => {
+export const CheckInStatusBanner = ({ attendance, onStartDay, onEndDay }: CheckInStatusBannerProps) => {
   const navigate = useNavigate();
   const isCheckedIn = attendance?.check_in_time;
   const isCheckedOut = attendance?.check_out_time;
@@ -46,16 +48,30 @@ export const CheckInStatusBanner = ({ attendance }: CheckInStatusBannerProps) =>
     return (
       <Card className="bg-gradient-to-r from-success/10 to-success/5 border-success/20">
         <div className="p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-success" />
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-success">Day Start</p>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(attendance.check_in_time), 'h:mm a')}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-success">Checked In</p>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(attendance.check_in_time), 'h:mm a')}
-              </p>
-            </div>
+            
+            {!isCheckedOut && onEndDay && (
+              <Button 
+                onClick={onEndDay}
+                variant="outline"
+                size="sm"
+                className="border-success/30 text-success hover:bg-success/10"
+              >
+                <LogOut className="h-3.5 w-3.5 mr-1.5" />
+                End My Day
+              </Button>
+            )}
           </div>
           
           <div className="flex items-center gap-4 text-xs text-muted-foreground ml-13">
@@ -85,15 +101,16 @@ export const CheckInStatusBanner = ({ attendance }: CheckInStatusBannerProps) =>
             <Clock className="h-5 w-5 text-warning-foreground" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-warning-foreground">Not Checked In</p>
+            <p className="text-sm font-semibold text-warning-foreground">Day Not Started</p>
             <p className="text-xs text-muted-foreground">Start your day by marking attendance</p>
           </div>
         </div>
         <Button 
-          onClick={() => navigate('/attendance')}
+          onClick={onStartDay || (() => navigate('/attendance'))}
           className="w-full bg-warning hover:bg-warning/90 text-warning-foreground"
         >
-          Check In Now
+          <LogIn className="h-4 w-4 mr-2" />
+          Start My Day
         </Button>
       </div>
     </Card>

@@ -1,23 +1,29 @@
-import { Store, Users, Trophy, BarChart, CreditCard, MapPin } from "lucide-react";
+import { Store, Users, Trophy, BarChart, CreditCard, MapPin, Plus, ShoppingCart, TrendingUp } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useHomeDashboard } from "@/hooks/useHomeDashboard";
 import { DashboardSkeleton } from "@/components/home/DashboardSkeleton";
 import { CheckInStatusBanner } from "@/components/home/CheckInStatusBanner";
 import { TodaysBeatCard } from "@/components/home/TodaysBeatCard";
-import { PerformanceSnapshot } from "@/components/home/PerformanceSnapshot";
 import { UrgentAlertsSection } from "@/components/home/UrgentAlertsSection";
 import { QuickNavGrid } from "@/components/home/QuickNavGrid";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
+import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { useRecommendations } from "@/hooks/useRecommendations";
 
 const Index = () => {
   const { userProfile, user, userRole } = useAuth();
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { todayData, performance, urgentItems, isLoading, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+  const { recommendations, loading: recLoading, generateRecommendation, provideFeedback } = useRecommendations("home", user?.id);
 
   const refreshProfilePicture = async () => {
     if (!user?.id) return;
@@ -119,7 +125,11 @@ const Index = () => {
           ) : (
             <>
               {/* Check-in Status */}
-              <CheckInStatusBanner attendance={todayData.attendance} />
+              <CheckInStatusBanner 
+                attendance={todayData.attendance}
+                onStartDay={() => navigate('/attendance')}
+                onEndDay={() => navigate('/attendance')}
+              />
 
               {/* Today's Beat */}
               <TodaysBeatCard 
@@ -130,13 +140,50 @@ const Index = () => {
                 revenueAchieved={todayData.revenueAchieved}
                 newRetailers={todayData.newRetailers}
                 potentialRevenue={todayData.potentialRevenue}
-                points={performance.pointsEarned}
+                points={todayData.points}
                 selectedDate={selectedDate}
                 onDateChange={setSelectedDate}
               />
 
-              {/* Performance */}
-              <PerformanceSnapshot performance={performance} />
+              {/* Quick Actions */}
+              <Card className="p-4">
+                <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex flex-col h-auto py-3 gap-1"
+                    onClick={() => navigate('/retailers/add')}
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="text-xs">Add Retailer</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex flex-col h-auto py-3 gap-1"
+                    onClick={() => navigate('/visits/retailers')}
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="text-xs">Add Order</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex flex-col h-auto py-3 gap-1"
+                    onClick={() => navigate('/competition')}
+                  >
+                    <TrendingUp className="h-5 w-5" />
+                    <span className="text-xs">Add Competition</span>
+                  </Button>
+                </div>
+              </Card>
+
+              {/* AI Recommendations */}
+              <AIRecommendationBanner
+                recommendations={recommendations}
+                onGenerate={() => generateRecommendation("optimal_day", user?.id)}
+                onFeedback={provideFeedback}
+                loading={recLoading}
+                type="optimal_day"
+              />
 
               {/* Urgent Alerts */}
               <UrgentAlertsSection urgentItems={urgentItems} />

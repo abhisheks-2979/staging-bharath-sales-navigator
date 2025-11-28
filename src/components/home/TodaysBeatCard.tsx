@@ -118,7 +118,7 @@ export const TodaysBeatCard = ({
             </div>
           </div>
           
-          <div className="relative h-8 flex items-center">
+          <div className="relative h-12 flex items-center">
             {/* Track */}
             <div className="absolute inset-0 flex items-center">
               <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
@@ -129,24 +129,24 @@ export const TodaysBeatCard = ({
               </div>
             </div>
 
-            {/* Pin Marker */}
+            {/* Pin Marker - positioned above the line */}
             <div 
               className="absolute -translate-x-1/2 z-10 transition-all duration-500"
-              style={{ left: `${Math.max(revenueProgress, 5)}%` }}
+              style={{ left: `${Math.max(revenueProgress, 5)}%`, top: '-16px' }}
             >
               <div className="flex flex-col items-center">
-                <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold mb-1 whitespace-nowrap border-2 border-background">
+                <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
                   {formatCurrency(revenueAchieved)}
                 </div>
-                <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary" />
+                <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary -mt-0.5" />
               </div>
             </div>
 
-            {/* Gap indicator */}
-            {revenueGap > 0 && revenueProgress < 90 && (
+            {/* Gap indicator - positioned below the line */}
+            {revenueGap > 0 && (
               <div 
-                className="absolute text-[10px] font-medium text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm"
-                style={{ right: '8px' }}
+                className="absolute text-[10px] font-medium text-muted-foreground"
+                style={{ right: '8px', bottom: '-18px' }}
               >
                 {formatCurrency(revenueGap)} to go
               </div>
@@ -208,16 +208,25 @@ export const TodaysBeatCard = ({
           </div>
         </div>
 
-        {/* CTA Button */}
-        {isToday && (
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-2">
           <Button 
             onClick={() => navigate('/visits/retailers')}
-            className="w-full"
+            variant="outline"
             size="sm"
+            className="w-full"
           >
-            Continue Visits →
+            My Visits
           </Button>
-        )}
+          <Button 
+            onClick={() => navigate('/today-summary')}
+            variant="default"
+            size="sm"
+            className="w-full"
+          >
+            Today's Summary
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
