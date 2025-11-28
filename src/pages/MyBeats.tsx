@@ -800,7 +800,7 @@ export const MyBeats = () => {
       const { error: beatError } = await supabase
         .from('beats')
         .update({ is_active: false })
-        .eq('beat_id', beatId);
+        .eq('id', beatId);
 
       if (beatError) console.error('Error marking beat as inactive:', beatError);
 

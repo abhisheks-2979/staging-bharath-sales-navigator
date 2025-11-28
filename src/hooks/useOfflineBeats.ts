@@ -166,16 +166,18 @@ export function useOfflineBeats() {
 
         return { success: true, data: data || [] };
       } else {
-        // Offline: Load from cache
+        // Offline: Load from cache, filter out inactive beats
         const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
-        return { success: true, data: cachedBeats || [] };
+        const activeBeats = (cachedBeats as any[]).filter((beat: any) => beat.is_active !== false);
+        return { success: true, data: activeBeats || [] };
       }
     } catch (error: any) {
       console.error('Error fetching beats:', error);
       
-      // Try cache on error
+      // Try cache on error, filter out inactive beats
       const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
-      return { success: true, data: cachedBeats || [] };
+      const activeBeats = (cachedBeats as any[]).filter((beat: any) => beat.is_active !== false);
+      return { success: true, data: activeBeats || [] };
     } finally {
       setLoading(false);
     }
