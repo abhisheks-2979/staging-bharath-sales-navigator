@@ -44,6 +44,8 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
 
         if (ordersError) throw ordersError;
 
+        console.log('Weekly orders fetched:', orders?.length);
+
         // Fetch visits and retailers separately
         const visitIds = orders?.map(o => o.visit_id).filter(Boolean) || [];
         let visitsMap = new Map();
@@ -59,6 +61,8 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
             .in('id', visitIds);
 
           if (visitsError) throw visitsError;
+          
+          console.log('Visits fetched:', visits?.length);
           
           visits?.forEach(visit => {
             visitsMap.set(visit.id, visit);
@@ -79,6 +83,8 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
 
           if (itemsError) throw itemsError;
 
+          console.log('Order items fetched:', orderItems?.length);
+
           // Aggregate sales by product
           const productSales = new Map<string, number>();
           orderItems?.forEach(item => {
@@ -92,6 +98,7 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
             .sort((a, b) => b.total_sales - a.total_sales)
             .slice(0, 6);
 
+          console.log('Sales by product:', salesData);
           setSalesByProduct(salesData);
         }
 
@@ -120,6 +127,7 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
           .sort((a, b) => b.total_revenue - a.total_revenue)
           .slice(0, 6);
 
+        console.log('Top retailers:', retailersData);
         setTopRetailers(retailersData);
       } catch (error) {
         console.error('Error fetching weekly data:', error);
@@ -160,6 +168,10 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
     );
   }
 
+  // Show message when no data
+  const hasProductData = salesByProduct.length > 0;
+  const hasRetailerData = topRetailers.length > 0;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Sales by Product - Donut Chart */}
@@ -168,27 +180,33 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
           <CardTitle className="text-sm">Sales by Product (This Week)</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={salesByProduct}
-                dataKey="total_sales"
-                nameKey="product_name"
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={2}
-                label={(entry) => `₹${entry.total_sales.toFixed(2)}`}
-              >
-                {salesByProduct.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          {hasProductData ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={salesByProduct}
+                  dataKey="total_sales"
+                  nameKey="product_name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={2}
+                  label={(entry) => `₹${entry.total_sales.toFixed(2)}`}
+                >
+                  {salesByProduct.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => `₹${value.toFixed(2)}`} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-muted-foreground text-sm">No sales data for this week</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -198,33 +216,39 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
           <CardTitle className="text-sm">Top 6 Retailers by Revenue (This Week)</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={topRetailers}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="retailer_name" 
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                tick={{ fontSize: 10 }}
-              />
-              <YAxis 
-                tick={{ fontSize: 10 }}
-                tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
-              />
-              <Tooltip 
-                formatter={(value: number) => `₹${value.toFixed(2)}`}
-                labelStyle={{ fontSize: 12 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="total_revenue" 
-                stroke="#8884d8" 
-                strokeWidth={2}
-                dot={{ fill: '#8884d8', r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {hasRetailerData ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={topRetailers}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="retailer_name" 
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  tick={{ fontSize: 10 }}
+                />
+                <YAxis 
+                  tick={{ fontSize: 10 }}
+                  tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => `₹${value.toFixed(2)}`}
+                  labelStyle={{ fontSize: 12 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="total_revenue" 
+                  stroke="#8884d8" 
+                  strokeWidth={2}
+                  dot={{ fill: '#8884d8', r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center">
+              <p className="text-muted-foreground text-sm">No retailer data for this week</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
