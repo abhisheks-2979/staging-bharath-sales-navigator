@@ -96,7 +96,7 @@ const Index = () => {
         <div className="relative overflow-hidden bg-gradient-hero text-primary-foreground" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-2 text-center">
               {user && (
                 <ProfilePictureUpload
                   userId={user.id}
@@ -109,7 +109,7 @@ const Index = () => {
                   size="sm"
                 />
               )}
-              <div className="flex-1">
+              <div>
                 <p className="text-xs opacity-90">
                   Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
                 </p>
