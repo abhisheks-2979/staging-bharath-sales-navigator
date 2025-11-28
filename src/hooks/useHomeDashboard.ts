@@ -14,6 +14,9 @@ interface HomeDashboardData {
       total: number;
       completed: number;
       remaining: number;
+      planned: number;
+      productive: number;
+      unproductive: number;
     };
     revenueTarget: number;
     revenueAchieved: number;
@@ -55,7 +58,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       visits: [],
       nextVisit: null,
       attendance: null,
-      beatProgress: { total: 0, completed: 0, remaining: 0 },
+      beatProgress: { total: 0, completed: 0, remaining: 0, planned: 0, productive: 0, unproductive: 0 },
       revenueTarget: 10000,
       revenueAchieved: 0,
       newRetailers: 0,
@@ -170,7 +173,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         // Calculate beat progress
         const beatData = beatPlan?.beat_data as any;
         const beatRetailerIds = beatData?.retailer_ids || [];
-        const completed = visits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
+        const completed = visits.filter((v: any) => v.status === 'completed' || v.status === 'productive' || v.status === 'unproductive').length;
+        const planned = visits.filter((v: any) => v.status === 'planned').length;
+        const productive = visits.filter((v: any) => v.status === 'productive').length;
+        const unproductive = visits.filter((v: any) => v.status === 'unproductive').length;
 
         // Calculate revenue target and achieved
         const revenueTarget = 10000; // Default target, can be made dynamic
@@ -259,7 +265,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             beatProgress: {
               total: beatRetailerIds.length,
               completed,
-              remaining: beatRetailerIds.length - completed
+              remaining: beatRetailerIds.length - completed,
+              planned,
+              productive,
+              unproductive,
             },
             revenueTarget,
             revenueAchieved,
@@ -296,6 +305,9 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   const updateDashboardState = ({ todayBeatPlan, todayVisits, todayAttendance, cachedRetailers, beatRetailerIds, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
     const beatName = todayBeatPlan?.beat_name || (todayVisits.length > 0 ? todayVisits[0].beat_name : null);
+    const planned = todayVisits.filter((v: any) => v.status === 'planned').length;
+    const productive = todayVisits.filter((v: any) => v.status === 'productive').length;
+    const unproductive = todayVisits.filter((v: any) => v.status === 'unproductive').length;
     
     setData(prev => ({
       ...prev,
@@ -309,7 +321,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         beatProgress: {
           total: beatRetailerIds.length,
           completed,
-          remaining: beatRetailerIds.length - completed
+          remaining: beatRetailerIds.length - completed,
+          planned,
+          productive,
+          unproductive,
         }
       },
       isLoading: false

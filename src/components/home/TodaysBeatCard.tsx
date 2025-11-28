@@ -54,9 +54,18 @@ export const TodaysBeatCard = ({
   const revenueGap = Math.max(revenueTarget - revenueAchieved, 0);
 
   const formatCurrency = (amount: number) => {
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
-    return `₹${amount}`;
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const formatCurrencyShort = (amount: number) => {
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(2)}K`;
+    return formatCurrency(amount);
   };
 
   const displayBeatName = beatName || beatPlan?.beat_name || 'Not Planned';
@@ -109,8 +118,8 @@ export const TodaysBeatCard = ({
         <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Daily Target</p>
-              <p className="text-sm font-bold text-foreground">{formatCurrency(revenueTarget)}</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Revenue Today</p>
+              <p className="text-sm font-bold text-foreground">{formatCurrency(revenueAchieved)}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground mb-0.5">Progress</p>
@@ -135,18 +144,18 @@ export const TodaysBeatCard = ({
               style={{ left: `${Math.max(revenueProgress, 5)}%`, top: '-16px' }}
             >
               <div className="flex flex-col items-center">
-                <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
+              <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
                   {formatCurrency(revenueAchieved)}
                 </div>
                 <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary -mt-0.5" />
               </div>
             </div>
 
-            {/* Gap indicator - positioned below the line */}
+            {/* Gap indicator - highlighted below the line */}
             {revenueGap > 0 && (
               <div 
-                className="absolute text-[10px] font-medium text-muted-foreground"
-                style={{ right: '8px', bottom: '-18px' }}
+                className="absolute text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-md border border-primary/20"
+                style={{ right: '8px', bottom: '-24px' }}
               >
                 {formatCurrency(revenueGap)} to go
               </div>
@@ -157,11 +166,11 @@ export const TodaysBeatCard = ({
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-3 rounded-lg bg-primary/5 border border-primary/10">
-            <div className="flex items-center justify-center gap-1 mb-1.5">
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-xl font-bold text-foreground">{beatProgress.completed}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Visits Done</p>
+              <div className="flex items-center justify-center gap-1 mb-1.5">
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-xl font-bold text-foreground">{beatProgress.total}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Planned</p>
           </div>
 
           <div className="text-center p-3 rounded-lg bg-success/5 border border-success/10">
@@ -195,7 +204,7 @@ export const TodaysBeatCard = ({
             <div className="flex items-center justify-center gap-1 mb-1">
               <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
             </div>
-            <p className="text-base font-bold text-foreground">{formatCurrency(potentialRevenue)}</p>
+            <p className="text-base font-bold text-foreground">{formatCurrencyShort(potentialRevenue)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Potential</p>
           </div>
 
@@ -209,9 +218,9 @@ export const TodaysBeatCard = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 mt-2">
           <Button 
-            onClick={() => navigate('/visits/retailers')}
+            onClick={() => navigate(`/my-visits?date=${format(selectedDate, 'yyyy-MM-dd')}`)}
             variant="outline"
             size="sm"
             className="w-full"
@@ -219,7 +228,7 @@ export const TodaysBeatCard = ({
             My Visits
           </Button>
           <Button 
-            onClick={() => navigate('/today-summary')}
+            onClick={() => navigate(`/today-summary?date=${format(selectedDate, 'yyyy-MM-dd')}`)}
             variant="default"
             size="sm"
             className="w-full"

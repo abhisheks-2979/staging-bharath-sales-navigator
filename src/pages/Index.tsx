@@ -9,13 +9,13 @@ import { UrgentAlertsSection } from "@/components/home/UrgentAlertsSection";
 import { QuickNavGrid } from "@/components/home/QuickNavGrid";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
-import { AIRecommendationBanner } from "@/components/AIRecommendationBanner";
+import { PerformanceCalendar } from "@/components/PerformanceCalendar";
+import { WeeklySalesCharts } from "@/components/home/WeeklySalesCharts";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useRecommendations } from "@/hooks/useRecommendations";
 
 const Index = () => {
   const { userProfile, user, userRole } = useAuth();
@@ -23,7 +23,6 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { todayData, performance, urgentItems, isLoading, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
-  const { recommendations, loading: recLoading, generateRecommendation, provideFeedback } = useRecommendations("beat_visit");
 
   const refreshProfilePicture = async () => {
     if (!user?.id) return;
@@ -176,17 +175,14 @@ const Index = () => {
                 </div>
               </Card>
 
-              {/* AI Recommendations */}
-              <AIRecommendationBanner
-                recommendations={recommendations}
-                onGenerate={() => generateRecommendation("beat_visit")}
-                onFeedback={provideFeedback}
-                loading={recLoading}
-                type="beat_visit"
-              />
-
               {/* Urgent Alerts */}
               <UrgentAlertsSection urgentItems={urgentItems} />
+
+              {/* Weekly Sales Charts */}
+              {userProfile?.id && <WeeklySalesCharts userId={userProfile.id} />}
+
+              {/* Performance Calendar */}
+              <PerformanceCalendar />
 
               {/* Quick Navigation */}
               <QuickNavGrid items={quickNavItems} />
