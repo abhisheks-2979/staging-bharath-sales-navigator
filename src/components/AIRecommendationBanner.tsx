@@ -10,7 +10,7 @@ interface AIRecommendationBannerProps {
   onGenerate: () => void;
   onFeedback: (recId: string, feedbackType: 'like' | 'dislike' | 'implemented' | 'ignored') => void;
   loading?: boolean;
-  type: 'retailer_priority' | 'discussion_points' | 'optimal_day';
+  type: 'beat_visit' | 'retailer_priority' | 'discussion_points' | 'optimal_day';
   beatId?: string;
   retailerId?: string;
 }
@@ -26,6 +26,8 @@ export function AIRecommendationBanner({
 
   const getTitle = () => {
     switch (type) {
+      case 'beat_visit':
+        return 'Beat Recommendations';
       case 'retailer_priority':
         return 'Priority Retailers';
       case 'discussion_points':
@@ -39,6 +41,8 @@ export function AIRecommendationBanner({
 
   const getDescription = () => {
     switch (type) {
+      case 'beat_visit':
+        return 'AI-recommended beats to visit for maximum impact';
       case 'retailer_priority':
         return 'AI-recommended retailers to visit based on potential and last visit';
       case 'discussion_points':
