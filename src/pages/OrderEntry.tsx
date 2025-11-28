@@ -1574,7 +1574,12 @@ export const OrderEntry = () => {
               }} className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 min-w-[50px] sm:min-w-[60px]" disabled={getSelectionValue() === 0}>
                   <div className="text-center">
                     <p className="text-[9px] sm:text-[10px] text-primary-foreground/80 leading-tight">Current</p>
-                    <p className="text-xs sm:text-sm font-bold leading-tight break-all">₹{getSelectionValue().toLocaleString()}</p>
+                    <p className="text-xs sm:text-sm font-bold leading-tight break-all">
+                      ₹{getSelectionValue().toLocaleString()}
+                      <span className="text-[8px] sm:text-[9px] font-normal opacity-80 ml-0.5">
+                        (incl. GST: ₹{(getSelectionValue() * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
+                      </span>
+                    </p>
                   </div>
                 </Button>
               </div>
