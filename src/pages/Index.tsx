@@ -15,7 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const { userProfile, user, userRole } = useAuth();
-  const { todayData, performance, urgentItems, isLoading, refresh } = useHomeDashboard(userProfile?.id);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const { todayData, performance, urgentItems, isLoading, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
 
   const refreshProfilePicture = async () => {
@@ -122,8 +123,16 @@ const Index = () => {
 
               {/* Today's Beat */}
               <TodaysBeatCard 
-                beatPlan={todayData.beatPlan} 
+                beatPlan={todayData.beatPlan}
+                beatName={todayData.beatName}
                 beatProgress={todayData.beatProgress}
+                revenueTarget={todayData.revenueTarget}
+                revenueAchieved={todayData.revenueAchieved}
+                newRetailers={todayData.newRetailers}
+                potentialRevenue={todayData.potentialRevenue}
+                points={performance.pointsEarned}
+                selectedDate={selectedDate}
+                onDateChange={setSelectedDate}
               />
 
               {/* Performance */}
