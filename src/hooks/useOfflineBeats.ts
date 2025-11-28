@@ -200,6 +200,25 @@ export function useOfflineBeats() {
         // Remove from cache
         await offlineStorage.delete(STORES.BEATS, beatId);
 
+        // Clear all beat_plans associated with this beat from cache
+        const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+        const plansToDelete = (cachedPlans as any[]).filter((plan: any) => plan.beat_id === beatId);
+        for (const plan of plansToDelete) {
+          await offlineStorage.delete(STORES.BEAT_PLANS, (plan as any).id);
+        }
+
+        // Update retailers in cache to unassign from this beat
+        const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+        const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === beatId);
+        for (const retailer of retailersToUpdate) {
+          const retailerData = retailer as any;
+          await offlineStorage.save(STORES.RETAILERS, {
+            ...retailerData,
+            beat_id: 'unassigned',
+            beat_name: null
+          });
+        }
+
         toast({
           title: "Beat Deleted",
           description: "Beat has been deleted successfully.",
@@ -209,6 +228,26 @@ export function useOfflineBeats() {
       } else {
         // Offline: Queue for sync
         await offlineStorage.delete(STORES.BEATS, beatId);
+        
+        // Clear beat plans from cache
+        const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+        const plansToDelete = (cachedPlans as any[]).filter((plan: any) => plan.beat_id === beatId);
+        for (const plan of plansToDelete) {
+          await offlineStorage.delete(STORES.BEAT_PLANS, (plan as any).id);
+        }
+        
+        // Update retailers in cache
+        const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+        const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === beatId);
+        for (const retailer of retailersToUpdate) {
+          const retailerData = retailer as any;
+          await offlineStorage.save(STORES.RETAILERS, {
+            ...retailerData,
+            beat_id: 'unassigned',
+            beat_name: null
+          });
+        }
+        
         await offlineStorage.addToSyncQueue('DELETE_BEAT', { id: beatId });
 
         toast({
