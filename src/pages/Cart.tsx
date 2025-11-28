@@ -931,11 +931,16 @@ export const Cart = () => {
         hasOrder: !!result.order,
         orderId: result.order?.id,
         validRetailerId,
+        connectivityStatus,
+        navigatorOnline: navigator.onLine,
         willSendSMS: !result.offline && !!result.order && !!validRetailerId
       });
 
       try {
-        if (!result.offline && result.order && validRetailerId) {
+        // Force online SMS if navigator.onLine is true, regardless of result.offline
+        const shouldSendSMSNow = navigator.onLine && result.order && validRetailerId;
+        
+        if (shouldSendSMSNow) {
           // ONLINE: Send immediately
           console.log('🔄 Starting invoice WhatsApp/SMS process (online)...');
 
@@ -986,6 +991,13 @@ export const Cart = () => {
               console.log('🔗 Public URL for invoice:', publicUrl);
 
               console.log('📨 Invoking send-invoice-whatsapp edge function (WhatsApp + SMS)...');
+              console.log('📨 Edge function payload:', {
+                invoiceId: result.order.id,
+                customerPhone: retailer.phone,
+                invoiceNumber: invoiceNumber,
+                pdfUrlLength: publicUrl?.length
+              });
+
               const { data: fnResult, error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
                 body: {
                   invoiceId: result.order.id,
@@ -997,16 +1009,24 @@ export const Cart = () => {
 
               if (fnError) {
                 console.error('❌ Edge function error (send-invoice-whatsapp):', fnError);
+                console.error('❌ Edge function error details:', JSON.stringify(fnError, null, 2));
                 toast({
                   title: 'Invoice Message Failed',
-                  description: fnError.message || 'Could not send invoice link via SMS/WhatsApp. Please contact admin.',
+                  description: `${fnError.message || 'Could not send invoice link via SMS/WhatsApp'}. Order saved successfully. Error: ${JSON.stringify(fnError)}`,
                   variant: 'destructive',
+                  duration: 10000,
                 });
                 throw fnError;
               }
 
               console.log('✅ Edge function response:', fnResult);
-              // Toast already shown in onOnline callback - no need for duplicate notification
+              console.log('✅ SMS/WhatsApp sent successfully!');
+              
+              toast({
+                title: 'SMS Sent',
+                description: 'Invoice delivered via SMS/WhatsApp successfully',
+                duration: 3000,
+              });
             }
           } else {
             console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
@@ -1036,10 +1056,13 @@ export const Cart = () => {
         }
       } catch (notifyError: any) {
         console.error('❌ Failed to send/queue invoice via WhatsApp/SMS:', notifyError);
+        console.error('❌ Full error details:', JSON.stringify(notifyError, null, 2));
+        console.error('❌ Error stack:', notifyError.stack);
         toast({
           title: 'SMS Send Failed',
-          description: `Could not send invoice SMS: ${notifyError.message || 'Unknown error'}. Order was saved successfully.`,
+          description: `Could not send invoice SMS: ${notifyError.message || 'Unknown error'}. Order was saved successfully. Check console for details.`,
           variant: 'destructive',
+          duration: 10000,
         });
       }
 

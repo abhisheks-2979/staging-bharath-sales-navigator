@@ -11,6 +11,13 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 5000) {
 
   const probe = async () => {
     try {
+      // Also check browser's navigator.onLine as a quick indicator
+      if (!navigator.onLine) {
+        console.log('❌ Browser reports offline (navigator.onLine = false)');
+        setStatus('offline');
+        return;
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
       
@@ -23,16 +30,16 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 5000) {
       clearTimeout(timeoutId);
       
       if (res.ok) {
+        console.log('✅ Connectivity check: ONLINE');
         setStatus('online');
       } else {
+        console.log('⚠️ Connectivity check: OFFLINE (fetch failed)');
         setStatus('offline');
       }
     } catch (error) {
-      // Only set offline if this is NOT the first check or if we've had a successful check before
-      if (!isFirstCheck.current || status === 'online') {
-        setStatus('offline');
-      }
-      // On first check failure, keep status as 'unknown' to let app work from cache
+      console.log('❌ Connectivity check: OFFLINE (error)', error);
+      // Set offline immediately on error
+      setStatus('offline');
     }
     
     isFirstCheck.current = false;
