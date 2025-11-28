@@ -36,22 +36,39 @@ export const WeekAISummary = ({ userId, weekType }: WeekAISummaryProps) => {
         .gte('plan_date', format(start, 'yyyy-MM-dd'))
         .lte('plan_date', format(end, 'yyyy-MM-dd'));
 
-      if (beatError) throw beatError;
+      if (beatError) {
+        console.error('Beat plans fetch error:', beatError);
+        throw beatError;
+      }
 
       if (weekType === 'current') {
         // Fetch performance data for current week
         const { data: visits, error: visitsError } = await supabase
           .from('visits')
-          .select('status, orders(total_amount)')
+          .select('status')
           .eq('user_id', userId)
           .gte('created_at', format(start, 'yyyy-MM-dd'))
           .lte('created_at', format(end, 'yyyy-MM-dd'));
 
-        if (visitsError) throw visitsError;
+        if (visitsError) {
+          console.error('Visits fetch error:', visitsError);
+          throw visitsError;
+        }
 
-        const totalRevenue = visits?.reduce((sum, v: any) => {
-          const orderTotal = v.orders?.[0]?.total_amount || 0;
-          return sum + orderTotal;
+        const { data: orders, error: ordersError } = await supabase
+          .from('orders')
+          .select('total_amount')
+          .eq('user_id', userId)
+          .gte('created_at', format(start, 'yyyy-MM-dd'))
+          .lte('created_at', format(end, 'yyyy-MM-dd'));
+
+        if (ordersError) {
+          console.error('Orders fetch error:', ordersError);
+          throw ordersError;
+        }
+
+        const totalRevenue = orders?.reduce((sum, o: any) => {
+          return sum + (o.total_amount || 0);
         }, 0) || 0;
 
         const productiveVisits = visits?.filter(v => v.status === 'productive').length || 0;
@@ -67,19 +84,21 @@ ${beatPlans?.length ? `Key beats: ${beatPlans.slice(0, 3).map(b => b.beat_name).
         const uniqueBeats = [...new Set(beatNames)];
 
         // Fetch historical performance for these beats
-        const { data: historicalVisits, error: histError } = await supabase
-          .from('visits')
-          .select('status, orders(total_amount), beats(beat_name)')
+        const { data: historicalOrders, error: histError } = await supabase
+          .from('orders')
+          .select('total_amount, visit_id')
           .eq('user_id', userId)
-          .in('beats.beat_name', uniqueBeats)
           .gte('created_at', format(addWeeks(start, -4), 'yyyy-MM-dd'))
           .limit(100);
 
-        if (histError) throw histError;
+        if (histError) {
+          console.error('Historical orders fetch error:', histError);
+          throw histError;
+        }
 
-        const avgRevenue = historicalVisits?.reduce((sum: number, v: any) => {
-          return sum + (v.orders?.[0]?.total_amount || 0);
-        }, 0) / (historicalVisits?.length || 1);
+        const avgRevenue = historicalOrders?.reduce((sum: number, o: any) => {
+          return sum + (o.total_amount || 0);
+        }, 0) / (historicalOrders?.length || 1);
 
         const summary = `Next week: ${beatPlans?.length || 0} beats planned across ${uniqueBeats.length} territories.
 Based on past performance, estimated potential: ₹${(avgRevenue * (beatPlans?.length || 0)).toLocaleString('en-IN')}.
@@ -89,7 +108,7 @@ Focus beats: ${uniqueBeats.slice(0, 3).join(', ')}`;
       }
     } catch (error) {
       console.error('Error generating AI summary:', error);
-      toast.error('Failed to generate AI summary');
+      toast.error('Failed to generate AI summary. Please try again.');
     } finally {
       setGenerating(false);
     }

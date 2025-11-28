@@ -55,7 +55,10 @@ export const TomorrowBeatPlan = ({ userId }: TomorrowBeatPlanProps) => {
         .eq('beat_id', beatPlan.beat_id)
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Retailers fetch error:', error);
+        throw error;
+      }
 
       const summary = `Tomorrow you'll be visiting ${beatPlan.beat_name} with ${retailers?.length || 0} retailers planned. 
 Focus on: ${retailers?.slice(0, 3).map(r => r.name).join(', ')}. 
@@ -64,7 +67,7 @@ Get ready for a productive day!`;
       setAiSummary(summary);
     } catch (error) {
       console.error('Error generating AI summary:', error);
-      toast.error('Failed to generate AI summary');
+      toast.error('Failed to generate AI summary. Please try again.');
     } finally {
       setGeneratingAI(false);
     }
