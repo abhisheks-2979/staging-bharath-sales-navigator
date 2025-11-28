@@ -68,6 +68,15 @@ export const TodaysBeatCard = ({
     return formatCurrency(amount);
   };
 
+  const formatCurrencyNoDecimal = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   const displayBeatName = beatName || beatPlan?.beat_name || 'Not Planned';
 
   return (
@@ -141,26 +150,25 @@ export const TodaysBeatCard = ({
             {/* Pin Marker - positioned above the line */}
             <div 
               className="absolute -translate-x-1/2 z-10 transition-all duration-500"
-              style={{ left: `${Math.max(revenueProgress, 5)}%`, top: '-16px' }}
+              style={{ left: `${Math.max(revenueProgress, 5)}%`, top: '-18px' }}
             >
               <div className="flex flex-col items-center">
-              <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
+                <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
                   {formatCurrency(revenueAchieved)}
                 </div>
                 <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary -mt-0.5" />
               </div>
             </div>
-
-            {/* Gap indicator - highlighted below the line */}
-            {revenueGap > 0 && (
-              <div 
-                className="absolute text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-md border border-primary/20"
-                style={{ right: '8px', bottom: '-24px' }}
-              >
-                {formatCurrency(revenueGap)} to go
-              </div>
-            )}
           </div>
+
+          {/* Gap indicator - highlighted below the line, outside the relative container */}
+          {revenueGap > 0 && (
+            <div className="flex justify-end mt-2">
+              <div className="text-sm font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-md border border-primary/20">
+                {formatCurrencyNoDecimal(revenueGap)} to go
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -220,7 +228,7 @@ export const TodaysBeatCard = ({
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-2 mt-2">
           <Button 
-            onClick={() => navigate(`/my-visits?date=${format(selectedDate, 'yyyy-MM-dd')}`)}
+            onClick={() => navigate(`/visits/retailers?date=${format(selectedDate, 'yyyy-MM-dd')}`)}
             variant="outline"
             size="sm"
             className="w-full"
