@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { format } from 'date-fns';
 
 interface HomeDashboardData {
   todayData: {
     beatPlan: any | null;
+    beatName: string | null;
     visits: any[];
     nextVisit: any | null;
     attendance: any | null;
@@ -13,6 +15,10 @@ interface HomeDashboardData {
       completed: number;
       remaining: number;
     };
+    revenueTarget: number;
+    revenueAchieved: number;
+    newRetailers: number;
+    potentialRevenue: number;
   };
   performance: {
     visitsCount: number;
@@ -40,14 +46,19 @@ interface HomeDashboardData {
   error: any;
 }
 
-export const useHomeDashboard = (userId: string | undefined) => {
+export const useHomeDashboard = (userId: string | undefined, selectedDate: Date = new Date()) => {
   const [data, setData] = useState<HomeDashboardData>({
     todayData: {
       beatPlan: null,
+      beatName: null,
       visits: [],
       nextVisit: null,
       attendance: null,
-      beatProgress: { total: 0, completed: 0, remaining: 0 }
+      beatProgress: { total: 0, completed: 0, remaining: 0 },
+      revenueTarget: 10000,
+      revenueAchieved: 0,
+      newRetailers: 0,
+      potentialRevenue: 0,
     },
     performance: {
       visitsCount: 0,
@@ -65,7 +76,8 @@ export const useHomeDashboard = (userId: string | undefined) => {
     error: null
   });
 
-  const today = new Date().toISOString().split('T')[0];
+  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+  const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
@@ -74,40 +86,42 @@ export const useHomeDashboard = (userId: string | undefined) => {
     let hasLoadedFromCache = false;
 
     try {
-      // STEP 1: Load from cache immediately
-      const [cachedBeatPlans, cachedVisits, cachedAttendance, cachedRetailers] = await Promise.all([
-        offlineStorage.getAll<any>(STORES.BEAT_PLANS),
-        offlineStorage.getAll<any>(STORES.VISITS),
-        offlineStorage.getAll<any>(STORES.ATTENDANCE),
-        offlineStorage.getAll<any>(STORES.RETAILERS)
-      ]);
+      // STEP 1: Load from cache immediately (only for today)
+      if (isToday) {
+        const [cachedBeatPlans, cachedVisits, cachedAttendance, cachedRetailers] = await Promise.all([
+          offlineStorage.getAll<any>(STORES.BEAT_PLANS),
+          offlineStorage.getAll<any>(STORES.VISITS),
+          offlineStorage.getAll<any>(STORES.ATTENDANCE),
+          offlineStorage.getAll<any>(STORES.RETAILERS)
+        ]);
 
-      const todayBeatPlan = cachedBeatPlans.find(
-        (plan: any) => plan.user_id === userId && plan.plan_date === today
-      );
-      const todayVisits = cachedVisits.filter(
-        (v: any) => v.user_id === userId && v.planned_date === today
-      );
-      const todayAttendance = cachedAttendance.find(
-        (a: any) => a.user_id === userId && a.date === today
-      );
+        const todayBeatPlan = cachedBeatPlans.find(
+          (plan: any) => plan.user_id === userId && plan.plan_date === dateStr
+        );
+        const todayVisits = cachedVisits.filter(
+          (v: any) => v.user_id === userId && v.planned_date === dateStr
+        );
+        const todayAttendance = cachedAttendance.find(
+          (a: any) => a.user_id === userId && a.date === dateStr
+        );
 
-      if (todayBeatPlan || todayVisits.length > 0) {
-        const completed = todayVisits.filter(v => v.status === 'completed' || v.status === 'productive').length;
-        const beatData = todayBeatPlan?.beat_data as any;
-        const beatRetailerIds = beatData?.retailer_ids || [];
-        
-        updateDashboardState({
-          todayBeatPlan,
-          todayVisits,
-          todayAttendance,
-          cachedRetailers,
-          beatRetailerIds,
-          completed
-        });
-        
-        hasLoadedFromCache = true;
-        setData(prev => ({ ...prev, isLoading: false }));
+        if (todayBeatPlan || todayVisits.length > 0) {
+          const completed = todayVisits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
+          const beatData = todayBeatPlan?.beat_data as any;
+          const beatRetailerIds = beatData?.retailer_ids || [];
+          
+          updateDashboardState({
+            todayBeatPlan,
+            todayVisits,
+            todayAttendance,
+            cachedRetailers,
+            beatRetailerIds,
+            completed
+          });
+          
+          hasLoadedFromCache = true;
+          setData(prev => ({ ...prev, isLoading: false }));
+        }
       }
     } catch (cacheError) {
       console.log('Cache read error:', cacheError);
@@ -116,87 +130,144 @@ export const useHomeDashboard = (userId: string | undefined) => {
     // STEP 2: Background sync from network if online
     if (navigator.onLine) {
       try {
-        const dateStart = new Date(today);
+        const dateStart = new Date(dateStr);
         dateStart.setHours(0, 0, 0, 0);
-        const dateEnd = new Date(today);
+        const dateEnd = new Date(dateStr);
         dateEnd.setHours(23, 59, 59, 999);
 
-        const [beatPlanRes, visitsRes, attendanceRes, ordersRes, pointsRes] = await Promise.all([
-          supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', today).single(),
-          supabase.from('visits').select('*').eq('user_id', userId).eq('planned_date', today),
-          supabase.from('attendance').select('*').eq('user_id', userId).eq('date', today).maybeSingle(),
-          supabase.from('orders').select('retailer_id, total_amount').eq('user_id', userId).eq('status', 'confirmed')
-            .gte('created_at', `${today}T00:00:00.000Z`).lte('created_at', `${today}T23:59:59.999Z`),
-          supabase.from('gamification_points').select('points').eq('user_id', userId)
-            .gte('earned_at', dateStart.toISOString()).lte('earned_at', dateEnd.toISOString())
-        ]);
+        // Fetch data - using any to avoid type issues
+        const beatPlanRes: any = await supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', dateStr).maybeSingle();
+        const visitsRes: any = await supabase.from('visits').select('*').eq('user_id', userId).eq('planned_date', dateStr);
+        const attendanceRes: any = await supabase.from('attendance').select('*').eq('user_id', userId).eq('date', dateStr).maybeSingle();
+        const ordersRes: any = await supabase.from('orders').select('*').eq('user_id', userId).eq('status', 'confirmed')
+          .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
+        const pointsRes: any = await supabase.from('gamification_points').select('points').eq('user_id', userId)
+          .gte('earned_at', dateStart.toISOString()).lte('earned_at', dateEnd.toISOString());
+        // @ts-expect-error - Supabase type instantiation issue
+        const retailersRes = await supabase.from('retailers').select('*').eq('created_by', userId);
+        const newRetailersRes: any = await supabase.from('retailers').select('id').eq('created_by', userId)
+          .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
+        const leaveRes: any = await supabase.from('leave_applications').select('*').eq('user_id', userId).eq('status', 'approved')
+          .lte('start_date', dateStr).gte('end_date', dateStr).maybeSingle();
 
         const beatPlan = beatPlanRes.data;
         const visits = visitsRes.data || [];
         const attendance = attendanceRes.data;
         const orders = ordersRes.data || [];
         const points = pointsRes.data || [];
+        const retailers = retailersRes.data || [];
+        const newRetailers = newRetailersRes.data || [];
+        const leave = leaveRes.data;
 
-        // Fetch urgent items
-        const [pendingPaymentsRes, priorityRetailersRes] = await Promise.all([
-          supabase.from('retailers').select('id, name, pending_amount, phone')
-            .eq('user_id', userId).gt('pending_amount', 0).order('pending_amount', { ascending: false }).limit(5),
-          supabase.from('retailers').select('id, name, last_visit_date, priority')
-            .eq('user_id', userId).eq('priority', 'high').order('last_visit_date', { ascending: true }).limit(5)
-        ]);
+        // Get beat name from first visit or beat plan
+        let beatName = beatPlan?.beat_name || null;
+        if (!beatName && visits.length > 0 && (visits[0] as any).beat_name) {
+          beatName = (visits[0] as any).beat_name;
+        }
 
-        const pendingPayments = (pendingPaymentsRes.data || []).map(r => ({
-          id: r.id,
-          name: r.name,
-          amount: r.pending_amount || 0,
-          phone: r.phone || ''
-        }));
-
-        const priorityRetailers = (priorityRetailersRes.data || []).map(r => {
-          const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : null;
-          const daysSinceVisit = lastVisit 
-            ? Math.floor((new Date().getTime() - lastVisit.getTime()) / (1000 * 60 * 60 * 24))
-            : 999;
-          return {
-            id: r.id,
-            name: r.name,
-            daysSinceVisit,
-            priority: r.priority || 'high'
-          };
-        }).filter(r => r.daysSinceVisit >= 14);
-
-        // Calculate performance
-        const salesAmount = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-        const pointsEarned = points.reduce((sum, p) => sum + p.points, 0);
-        const completed = visits.filter(v => v.status === 'completed' || v.status === 'productive').length;
+        // Calculate beat progress
         const beatData = beatPlan?.beat_data as any;
         const beatRetailerIds = beatData?.retailer_ids || [];
+        const completed = visits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
+
+        // Calculate revenue target and achieved
+        const revenueTarget = 10000; // Default target, can be made dynamic
+        const revenueAchieved = orders.reduce((sum: number, order: any) => sum + (order.total_amount || 0), 0);
+
+        // Calculate potential revenue from remaining visits
+        const visitedIds = new Set(orders.map((o: any) => o.visit_id).filter(Boolean));
+        const remainingVisits = visits.filter((v: any) => !visitedIds.has(v.id));
+        
+        // Get average order value from retailers
+        const avgOrderValue = retailers.length > 0
+          ? retailers.reduce((sum: any, r: any) => sum + (r.order_value || 0), 0) / retailers.length
+          : 0;
+        
+        const potentialRevenue = Math.round(remainingVisits.length * avgOrderValue);
+
+        // Calculate performance
+        const salesAmount = revenueAchieved;
+        const pointsEarned = points.reduce((sum: number, p: any) => sum + p.points, 0);
         const dailyProgress = beatRetailerIds.length > 0 ? Math.round((completed / beatRetailerIds.length) * 100) : 0;
 
-        // Cache the data
-        if (beatPlan) await offlineStorage.save(STORES.BEAT_PLANS, beatPlan);
-        await Promise.all([
-          ...visits.map(v => offlineStorage.save(STORES.VISITS, v)),
-          attendance ? offlineStorage.save(STORES.ATTENDANCE, attendance) : Promise.resolve()
-        ]);
+        // Fetch urgent items (only for today)
+        let pendingPayments: any[] = [];
+        let priorityRetailers: any[] = [];
+        
+        if (isToday) {
+          pendingPayments = retailers
+            .filter((r: any) => (r.pending_amount || 0) > 0)
+            .sort((a: any, b: any) => (b.pending_amount || 0) - (a.pending_amount || 0))
+            .slice(0, 5)
+            .map((r: any) => ({
+              id: r.id,
+              name: r.shop_name,
+              amount: r.pending_amount || 0,
+              phone: r.phone || ''
+            }));
+
+          priorityRetailers = retailers
+            .filter((r: any) => {
+              if (r.priority !== 'high') return false;
+              if (!r.last_visit_date) return true;
+              const daysSinceVisit = Math.floor(
+                (new Date().getTime() - new Date(r.last_visit_date).getTime()) / (1000 * 60 * 60 * 24)
+              );
+              return daysSinceVisit >= 14;
+            })
+            .slice(0, 5)
+            .map((r: any) => {
+              const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : null;
+              const daysSinceVisit = lastVisit 
+                ? Math.floor((new Date().getTime() - lastVisit.getTime()) / (1000 * 60 * 60 * 24))
+                : 999;
+              return {
+                id: r.id,
+                name: r.shop_name,
+                daysSinceVisit,
+                priority: r.priority || 'high'
+              };
+            });
+        }
+
+        // Enhance attendance with leave info
+        const enhancedAttendance = attendance ? {
+          ...attendance,
+          on_leave: !!leave,
+          leave_type_id: leave?.leave_type_id,
+        } : null;
+
+        // Cache the data (only for today)
+        if (isToday) {
+          if (beatPlan) await offlineStorage.save(STORES.BEAT_PLANS, beatPlan);
+          await Promise.all([
+            ...visits.map((v: any) => offlineStorage.save(STORES.VISITS, v)),
+            enhancedAttendance ? offlineStorage.save(STORES.ATTENDANCE, enhancedAttendance) : Promise.resolve()
+          ]);
+        }
 
         // Update state with fresh data
         setData({
           todayData: {
             beatPlan,
+            beatName,
             visits,
-            nextVisit: visits.find(v => !v.check_in_time) || null,
-            attendance,
+            nextVisit: visits.find((v: any) => !v.check_in_time) || null,
+            attendance: enhancedAttendance,
             beatProgress: {
               total: beatRetailerIds.length,
               completed,
               remaining: beatRetailerIds.length - completed
-            }
+            },
+            revenueTarget,
+            revenueAchieved,
+            newRetailers: newRetailers.length,
+            potentialRevenue,
           },
           performance: {
             visitsCount: visits.length,
             salesAmount,
-            pointsEarned,
+            pointsEarned: pointsEarned,
             leaderboardPosition: null,
             dailyProgress
           },
@@ -217,15 +288,18 @@ export const useHomeDashboard = (userId: string | undefined) => {
     } else {
       setData(prev => ({ ...prev, isLoading: false }));
     }
-  }, [userId, today]);
+  }, [userId, dateStr, isToday]);
 
   const updateDashboardState = ({ todayBeatPlan, todayVisits, todayAttendance, cachedRetailers, beatRetailerIds, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
+    const beatName = todayBeatPlan?.beat_name || (todayVisits.length > 0 ? todayVisits[0].beat_name : null);
     
     setData(prev => ({
       ...prev,
       todayData: {
+        ...prev.todayData,
         beatPlan: todayBeatPlan,
+        beatName,
         visits: todayVisits,
         nextVisit,
         attendance: todayAttendance,
@@ -242,11 +316,12 @@ export const useHomeDashboard = (userId: string | undefined) => {
   useEffect(() => {
     loadDashboardData();
     
-    // Refresh every 60 seconds
-    const interval = setInterval(loadDashboardData, 60000);
-    
-    return () => clearInterval(interval);
-  }, [loadDashboardData]);
+    // Refresh every 60 seconds (only for today)
+    if (isToday) {
+      const interval = setInterval(loadDashboardData, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [loadDashboardData, isToday]);
 
   return { ...data, refresh: loadDashboardData };
 };
