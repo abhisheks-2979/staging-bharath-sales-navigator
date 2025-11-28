@@ -36,15 +36,34 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
             id,
             total_amount,
             created_at,
-            visits!inner(
-              retailers(name)
-            )
+            visit_id
           `)
           .eq('user_id', userId)
           .gte('created_at', format(weekStart, 'yyyy-MM-dd'))
           .lte('created_at', format(weekEnd, 'yyyy-MM-dd'));
 
         if (ordersError) throw ordersError;
+
+        // Fetch visits and retailers separately
+        const visitIds = orders?.map(o => o.visit_id).filter(Boolean) || [];
+        let visitsMap = new Map();
+        
+        if (visitIds.length > 0) {
+          const { data: visits, error: visitsError } = await supabase
+            .from('visits')
+            .select(`
+              id,
+              retailer_id,
+              retailers(name)
+            `)
+            .in('id', visitIds);
+
+          if (visitsError) throw visitsError;
+          
+          visits?.forEach(visit => {
+            visitsMap.set(visit.id, visit);
+          });
+        }
 
         // Fetch order items for product breakdown
         const orderIds = orders?.map(o => o.id) || [];
@@ -79,7 +98,7 @@ export const WeeklySalesCharts = ({ userId }: { userId: string }) => {
         // Aggregate revenue by retailer
         const retailerRevenue = new Map<string, { total: number; dates: string[] }>();
         orders?.forEach(order => {
-          const visit = order.visits as any;
+          const visit = visitsMap.get(order.visit_id);
           const retailer = visit?.retailers as any;
           const retailerName = retailer?.name || 'Unknown';
           const date = format(new Date(order.created_at), 'MMM dd');

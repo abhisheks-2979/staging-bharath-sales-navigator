@@ -11,6 +11,8 @@ import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { PerformanceCalendar } from "@/components/PerformanceCalendar";
 import { WeeklySalesCharts } from "@/components/home/WeeklySalesCharts";
+import { TomorrowBeatPlan } from "@/components/home/TomorrowBeatPlan";
+import { WeekAISummary } from "@/components/home/WeekAISummary";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -178,11 +180,22 @@ const Index = () => {
               {/* Urgent Alerts */}
               <UrgentAlertsSection urgentItems={urgentItems} />
 
+              {/* Tomorrow's Beat Plan */}
+              {userProfile?.id && <TomorrowBeatPlan userId={userProfile.id} />}
+
+              {/* Week AI Summaries */}
+              {userProfile?.id && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <WeekAISummary userId={userProfile.id} weekType="current" />
+                  <WeekAISummary userId={userProfile.id} weekType="next" />
+                </div>
+              )}
+
               {/* Weekly Sales Charts */}
               {userProfile?.id && <WeeklySalesCharts userId={userProfile.id} />}
 
               {/* Performance Calendar */}
-              <PerformanceCalendar />
+              {userProfile?.id && <PerformanceCalendar />}
 
               {/* Quick Navigation */}
               <QuickNavGrid items={quickNavItems} />
