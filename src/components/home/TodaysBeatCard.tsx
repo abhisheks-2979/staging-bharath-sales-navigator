@@ -62,8 +62,8 @@ export const TodaysBeatCard = ({
   const displayBeatName = beatName || beatPlan?.beat_name || 'Not Planned';
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-      <CardContent className="p-4 space-y-4">
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/5 shadow-lg overflow-hidden">
+      <CardContent className="p-5 space-y-5">
         {/* Date Navigation Header */}
         <div className="flex items-center justify-between">
           <Button
@@ -105,102 +105,106 @@ export const TodaysBeatCard = ({
           </div>
         </div>
 
-        {/* Revenue Target Line with Geo Pin */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-muted-foreground">Daily Revenue Target</span>
-            <span className="font-medium text-foreground">{formatCurrency(revenueTarget)}</span>
+        {/* Revenue Target Progress */}
+        <div className="space-y-3 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Daily Target</p>
+              <p className="text-sm font-bold text-foreground">{formatCurrency(revenueTarget)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground mb-0.5">Progress</p>
+              <p className="text-sm font-bold text-success">{revenueProgress}%</p>
+            </div>
           </div>
           
-          <div className="relative h-6 flex items-center">
-            {/* Background line */}
-            <div className="absolute inset-0 flex">
-              <div 
-                className="h-1 bg-success rounded-l"
-                style={{ width: `${revenueProgress}%` }}
-              />
-              <div 
-                className="h-1 bg-muted flex-1 rounded-r"
-              />
-            </div>
-
-            {/* Geo Pin Marker */}
-            <div 
-              className="absolute -translate-x-1/2 -translate-y-1"
-              style={{ left: `${revenueProgress}%` }}
-            >
-              <div className="relative">
-                <div className="w-8 h-10 bg-primary rounded-full rounded-br-none rotate-45 flex items-center justify-center shadow-lg">
-                  <span className="text-[8px] font-bold text-primary-foreground -rotate-45">
-                    {formatCurrency(revenueAchieved)}
-                  </span>
-                </div>
+          <div className="relative h-8 flex items-center">
+            {/* Track */}
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-success to-success/80 rounded-full transition-all duration-500"
+                  style={{ width: `${revenueProgress}%` }}
+                />
               </div>
             </div>
 
-            {/* Gap indicator on black side */}
-            {revenueGap > 0 && revenueProgress < 100 && (
+            {/* Pin Marker */}
+            <div 
+              className="absolute -translate-x-1/2 z-10 transition-all duration-500"
+              style={{ left: `${Math.max(revenueProgress, 5)}%` }}
+            >
+              <div className="flex flex-col items-center">
+                <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold mb-1 whitespace-nowrap border-2 border-background">
+                  {formatCurrency(revenueAchieved)}
+                </div>
+                <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary" />
+              </div>
+            </div>
+
+            {/* Gap indicator */}
+            {revenueGap > 0 && revenueProgress < 90 && (
               <div 
-                className="absolute text-[10px] text-muted-foreground"
-                style={{ left: `${Math.min(revenueProgress + 10, 70)}%` }}
+                className="absolute text-[10px] font-medium text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full backdrop-blur-sm"
+                style={{ right: '8px' }}
               >
-                {formatCurrency(revenueGap)} left
+                {formatCurrency(revenueGap)} to go
               </div>
             )}
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/50">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Users className="h-3 w-3 text-primary" />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center p-3 rounded-lg bg-primary/5 border border-primary/10">
+            <div className="flex items-center justify-center gap-1 mb-1.5">
+              <Users className="h-4 w-4 text-primary" />
             </div>
-            <p className="text-lg font-bold text-foreground">{beatProgress.completed}</p>
-            <p className="text-[10px] text-muted-foreground">Visits Done</p>
+            <p className="text-xl font-bold text-foreground">{beatProgress.completed}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Visits Done</p>
           </div>
 
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <CheckCircle className="h-3 w-3 text-success" />
+          <div className="text-center p-3 rounded-lg bg-success/5 border border-success/10">
+            <div className="flex items-center justify-center gap-1 mb-1.5">
+              <CheckCircle className="h-4 w-4 text-success" />
             </div>
-            <p className="text-lg font-bold text-foreground">{formatCurrency(revenueAchieved)}</p>
-            <p className="text-[10px] text-muted-foreground">Achieved</p>
+            <p className="text-xl font-bold text-foreground">{beatProgress.completed}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Productive</p>
           </div>
 
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <Clock className="h-3 w-3 text-warning" />
+          <div className="text-center p-3 rounded-lg bg-warning/5 border border-warning/10">
+            <div className="flex items-center justify-center gap-1 mb-1.5">
+              <Clock className="h-4 w-4 text-warning" />
             </div>
-            <p className="text-lg font-bold text-foreground">{beatProgress.remaining}</p>
-            <p className="text-[10px] text-muted-foreground">Remaining</p>
+            <p className="text-xl font-bold text-foreground">{beatProgress.remaining}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Remaining</p>
           </div>
         </div>
 
         {/* Additional Stats Row */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="text-center">
+          <div className="text-center p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/10">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <UserPlus className="h-3 w-3 text-blue-500" />
+              <UserPlus className="h-3.5 w-3.5 text-blue-500" />
             </div>
-            <p className="text-sm font-bold text-foreground">{newRetailers}</p>
-            <p className="text-[10px] text-muted-foreground">New Added</p>
+            <p className="text-base font-bold text-foreground">{newRetailers}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">New Added</p>
           </div>
 
-          <div className="text-center">
+          <div className="text-center p-2.5 rounded-lg bg-purple-500/5 border border-purple-500/10">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <TrendingUp className="h-3 w-3 text-purple-500" />
+              <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
             </div>
-            <p className="text-sm font-bold text-foreground">{formatCurrency(potentialRevenue)}</p>
-            <p className="text-[10px] text-muted-foreground">Potential</p>
+            <p className="text-base font-bold text-foreground">{formatCurrency(potentialRevenue)}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Potential</p>
           </div>
 
-          <div className="text-center">
+          <div className="text-center p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <Zap className="h-3 w-3 text-amber-500" />
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
             </div>
-            <p className="text-sm font-bold text-foreground">{points}</p>
-            <p className="text-[10px] text-muted-foreground">Points</p>
+            <p className="text-base font-bold text-foreground">{points}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Points</p>
           </div>
         </div>
 
