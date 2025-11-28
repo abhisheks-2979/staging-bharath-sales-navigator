@@ -804,7 +804,32 @@ export const MyBeats = () => {
 
       if (beatError) console.error('Error marking beat as inactive:', beatError);
 
+      // Clear offline cache for this beat's plans
+      const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
+      const plansToDelete = (cachedPlans as any[]).filter((plan: any) => plan.beat_id === beatId);
+      for (const plan of plansToDelete) {
+        await offlineStorage.delete(STORES.BEAT_PLANS, (plan as any).id);
+      }
+
+      // Clear the deleted beat from cache
+      await offlineStorage.delete(STORES.BEATS, beatId);
+
+      // Update cached retailers to remove beat assignment
+      const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+      const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === beatId && r.user_id === user.id);
+      for (const retailer of retailersToUpdate) {
+        const retailerData = retailer as any;
+        await offlineStorage.save(STORES.RETAILERS, {
+          ...retailerData,
+          beat_id: 'unassigned',
+          beat_name: null
+        });
+      }
+
       toast.success(`Beat "${beatName}" deleted successfully`);
+      
+      // Dispatch event to refresh My Visits page
+      window.dispatchEvent(new CustomEvent('visitDataChanged'));
       
       // Reload data
       loadBeats();
