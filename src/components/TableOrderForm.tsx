@@ -660,10 +660,13 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Total</p>
           <p className="text-lg font-bold">₹{getTotalValue().toFixed(2)}</p>
+          <p className="text-xs text-muted-foreground">
+            (incl. GST: ₹{(getTotalValue() * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
+          </p>
         </div>
       </div>
 
-      <Button 
+      <Button
         onClick={addToCart}
         className="w-full"
         disabled={getTotalValue() === 0 || isAddingToCart}
