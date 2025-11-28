@@ -13,6 +13,7 @@ import { PerformanceCalendar } from "@/components/PerformanceCalendar";
 import { WeeklySalesCharts } from "@/components/home/WeeklySalesCharts";
 import { TomorrowBeatPlan } from "@/components/home/TomorrowBeatPlan";
 import { WeekAISummary } from "@/components/home/WeekAISummary";
+import { PendingPayments } from "@/components/home/PendingPayments";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -176,6 +177,9 @@ const Index = () => {
                   </Button>
                 </div>
               </Card>
+
+              {/* Pending Payments - Real-time */}
+              {userProfile?.id && <PendingPayments userId={userProfile.id} />}
 
               {/* Urgent Alerts */}
               <UrgentAlertsSection urgentItems={urgentItems} />
