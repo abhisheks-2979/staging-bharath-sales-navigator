@@ -179,10 +179,10 @@ const Index = () => {
               {/* AI Recommendations */}
               <AIRecommendationBanner
                 recommendations={recommendations}
-                onGenerate={() => generateRecommendation("optimal_day", user?.id)}
+                onGenerate={() => generateRecommendation("beat_visit", user?.id)}
                 onFeedback={provideFeedback}
                 loading={recLoading}
-                type="optimal_day"
+                type="beat_visit"
               />
 
               {/* Urgent Alerts */}
