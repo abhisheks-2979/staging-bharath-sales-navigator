@@ -1139,131 +1139,6 @@ export const AddRetailer = () => {
                 <p className="text-xs text-muted-foreground">This will be used to verify visit authenticity</p>
               </div>
 
-              {/* Advanced Options Collapsible */}
-              <Collapsible open={advancedOptionsOpen} onOpenChange={setAdvancedOptionsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    <span className="font-medium">Advanced Options</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${advancedOptionsOpen ? 'rotate-180' : ''}`} />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg bg-muted/20">
-                  {/* Category */}
-                  <div className="space-y-2">
-                    <Label>{t('retailer.category')}</Label>
-                    <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder={t('retailer.selectCategory')} />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border z-50">
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>{category}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Potential */}
-                  <div className="space-y-2">
-                    <Label>Potential</Label>
-                    <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select potential" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border z-50">
-                        {potentials.map((potential) => (
-                          <SelectItem key={potential} value={potential}>{potential}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Assign Territory */}
-                  <div className="space-y-2">
-                    <Label>Assign to Territory</Label>
-                    <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={territoryComboOpen}
-                          className="w-full justify-between bg-background"
-                        >
-                          {selectedTerritoryId
-                            ? territories.find((t) => t.id === selectedTerritoryId)?.name
-                            : "Select territory..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full p-0">
-                        <Command>
-                          <CommandInput placeholder="Search territory..." />
-                          <CommandList>
-                            <CommandEmpty>No territory found.</CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => {
-                                  setSelectedTerritoryId(null);
-                                  setTerritoryComboOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    !selectedTerritoryId ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                None
-                              </CommandItem>
-                              {territories.map((territory) => (
-                                <CommandItem
-                                  key={territory.id}
-                                  onSelect={() => {
-                                    setSelectedTerritoryId(territory.id);
-                                    setTerritoryComboOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span>{territory.name}</span>
-                                    <span className="text-xs text-muted-foreground">{territory.region}</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <p className="text-xs text-muted-foreground">Optionally assign this retailer to a sales territory</p>
-                  </div>
-
-                  {/* Quick Info */}
-                  <div className="p-3 bg-muted/30 rounded-lg">
-                    <h4 className="font-semibold mb-2 text-sm">Quick Info</h4>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Store size={12} />
-                        <span>Retailer will be added to today's visit plan</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin size={12} />
-                        <span>Location will be verified before visit</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone size={12} />
-                        <span>Contact details will be saved for future visits</span>
-                      </div>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
               {/* Manual Credit Score - Only show when credit management is enabled and mode is manual */}
               {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
                 <div className="space-y-2">
@@ -1420,6 +1295,131 @@ export const AddRetailer = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Advanced Options Collapsible */}
+          <Collapsible open={advancedOptionsOpen} onOpenChange={setAdvancedOptionsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <span className="font-medium">Advanced Options</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${advancedOptionsOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg bg-muted/20">
+              {/* Category */}
+              <div className="space-y-2">
+                <Label>{t('retailer.category')}</Label>
+                <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder={t('retailer.selectCategory')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Potential */}
+              <div className="space-y-2">
+                <Label>Potential</Label>
+                <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select potential" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    {potentials.map((potential) => (
+                      <SelectItem key={potential} value={potential}>{potential}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Assign Territory */}
+              <div className="space-y-2">
+                <Label>Assign to Territory</Label>
+                <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={territoryComboOpen}
+                      className="w-full justify-between bg-background"
+                    >
+                      {selectedTerritoryId
+                        ? territories.find((t) => t.id === selectedTerritoryId)?.name
+                        : "Select territory..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search territory..." />
+                      <CommandList>
+                        <CommandEmpty>No territory found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => {
+                              setSelectedTerritoryId(null);
+                              setTerritoryComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                !selectedTerritoryId ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            None
+                          </CommandItem>
+                          {territories.map((territory) => (
+                            <CommandItem
+                              key={territory.id}
+                              onSelect={() => {
+                                setSelectedTerritoryId(territory.id);
+                                setTerritoryComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{territory.name}</span>
+                                <span className="text-xs text-muted-foreground">{territory.region}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">Optionally assign this retailer to a sales territory</p>
+              </div>
+
+              {/* Quick Info */}
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <h4 className="font-semibold mb-2 text-sm">Quick Info</h4>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Store size={12} />
+                    <span>Retailer will be added to today's visit plan</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin size={12} />
+                    <span>Location will be verified before visit</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone size={12} />
+                    <span>Contact details will be saved for future visits</span>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Actions */}
           <div className="flex gap-2">
