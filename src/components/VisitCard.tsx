@@ -30,6 +30,7 @@ import { useLocationFeature } from "@/hooks/useLocationFeature";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -1055,42 +1056,104 @@ export const VisitCard = ({
         // Auto check-out when marking as no order
         const checkOutTime = new Date().toISOString();
 
-        // Update visit status to unproductive and store the reason
-        const {
-          data,
-          error
-        } = await supabase.from('visits').update({
-          status: 'unproductive',
-          no_order_reason: reason,
-          check_out_time: checkOutTime
-        }).eq('id', visitId).select();
-        if (error) {
-          console.error('Error updating visit:', error);
-          throw error;
-        }
-        console.log('Visit updated successfully:', data);
-
-        // Update local state to reflect the change immediately
-        setPhase('completed');
-        setIsCheckedOut(true);
-
-        // Trigger a manual refresh of the parent component's data
-        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-          detail: {
-            visitId,
-            status: 'unproductive',
-            retailerId
-          }
-        }));
+        // Check connectivity for offline support
+        const isOnline = navigator.onLine;
         
-        // Also trigger data refresh for progress updates
-        window.dispatchEvent(new Event('visitDataChanged'));
+        if (isOnline) {
+          try {
+            // ONLINE: Update visit status to unproductive and store the reason
+            const {
+              data,
+              error
+            } = await supabase.from('visits').update({
+              status: 'unproductive',
+              no_order_reason: reason,
+              check_out_time: checkOutTime
+            }).eq('id', visitId).select();
+            
+            if (error) {
+              console.error('Error updating visit:', error);
+              throw error;
+            }
+            console.log('Visit updated successfully:', data);
+
+            // Update local state to reflect the change immediately
+            setPhase('completed');
+            setIsCheckedOut(true);
+
+            // Trigger a manual refresh of the parent component's data
+            window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+              detail: {
+                visitId,
+                status: 'unproductive',
+                retailerId
+              }
+            }));
+            
+            // Also trigger data refresh for progress updates
+            window.dispatchEvent(new Event('visitDataChanged'));
+            
+            setShowNoOrderModal(false);
+            toast({
+              title: "Visit Marked as Unproductive",
+              description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`
+            });
+          } catch (error: any) {
+            // If online update fails, fall back to offline mode
+            console.warn('Online update failed, falling back to offline:', error);
+            await handleOfflineNoOrder();
+          }
+        } else {
+          // OFFLINE: Queue for sync
+          await handleOfflineNoOrder();
+        }
+
+        async function handleOfflineNoOrder() {
+          console.log('📵 Offline mode - queuing no-order update');
+          
+          // Save to offline sync queue
+          await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
+            visitId,
+            retailerId,
+            userId: user.id,
+            noOrderReason: reason,
+            checkOutTime,
+            plannedDate: today
+          });
+
+          // Update local visit in cache
+          const cachedVisit = await offlineStorage.getById(STORES.VISITS, visitId);
+          if (cachedVisit) {
+            await offlineStorage.save(STORES.VISITS, {
+              ...(cachedVisit as any),
+              status: 'unproductive',
+              no_order_reason: reason,
+              check_out_time: checkOutTime,
+              updated_at: new Date().toISOString()
+            });
+          }
+
+          // Update local state
+          setPhase('completed');
+          setIsCheckedOut(true);
+
+          // Trigger UI updates
+          window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+            detail: {
+              visitId,
+              status: 'unproductive',
+              retailerId
+            }
+          }));
+          window.dispatchEvent(new Event('visitDataChanged'));
+
+          setShowNoOrderModal(false);
+          toast({
+            title: "📵 No Order Saved Offline",
+            description: "Will sync when you're back online"
+          });
+        }
       }
-      setShowNoOrderModal(false);
-      toast({
-        title: "Visit Marked as Unproductive",
-        description: `Reason: ${reason.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`
-      });
     } catch (err: any) {
       console.error('Mark unproductive error', err);
       toast({
