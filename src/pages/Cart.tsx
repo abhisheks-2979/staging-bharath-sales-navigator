@@ -1031,27 +1031,53 @@ export const Cart = () => {
           } else {
             console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
           }
-        } else if (result.offline && result.order && validRetailerId) {
-          // OFFLINE: Queue message for later
-          console.log('📵 Offline mode - queueing invoice SMS/WhatsApp for sync...');
+        } else {
+          // OFFLINE or not online: Queue message for later
+          console.log('📵 Offline/Non-online mode detected:', {
+            offline: result.offline,
+            hasOrder: !!result.order,
+            validRetailerId,
+            navigatorOnline: navigator.onLine
+          });
           
-          // Fetch retailer phone from offline cache
-          const cachedRetailers = await offlineStorage.getAll('retailers');
-          const retailer = cachedRetailers.find((r: any) => r.id === validRetailerId) as any;
-          
-          if (retailer?.phone) {
-            // Add to sync queue
-            await offlineStorage.addToSyncQueue('SEND_INVOICE_SMS', {
-              orderId: result.order.id,
-              customerPhone: String(retailer.phone),
-              retailerName: retailerName,
-              queuedAt: new Date().toISOString()
+          if (result.order && validRetailerId) {
+            console.log('📵 Queueing invoice SMS/WhatsApp for sync...');
+            
+            // Fetch retailer phone from offline cache
+            const cachedRetailers = await offlineStorage.getAll('retailers');
+            const retailer = cachedRetailers.find((r: any) => r.id === validRetailerId) as any;
+            
+            console.log('📱 Cached retailer found:', {
+              found: !!retailer,
+              hasPhone: !!retailer?.phone,
+              phone: retailer?.phone
             });
             
-            console.log('✅ Invoice message queued for sync');
-            // Toast already shown in onOffline callback - no need for duplicate notification
+            if (retailer?.phone) {
+              // Add to sync queue with all necessary data
+              const smsQueueItem = {
+                orderId: result.order.id,
+                customerPhone: String(retailer.phone),
+                retailerName: retailerName,
+                queuedAt: new Date().toISOString()
+              };
+              
+              console.log('📦 Adding to SMS sync queue:', smsQueueItem);
+              
+              await offlineStorage.addToSyncQueue('SEND_INVOICE_SMS', smsQueueItem);
+              
+              console.log('✅ Invoice SMS/WhatsApp queued for sync successfully');
+              
+              toast({
+                title: '📵 SMS Queued',
+                description: 'Invoice SMS will be sent automatically when online',
+                duration: 3000,
+              });
+            } else {
+              console.log('⚠️ No phone number in offline cache; skipping SMS queue');
+            }
           } else {
-            console.log('⚠️ No phone number in offline cache; skipping message queue');
+            console.log('⚠️ Missing order or retailer ID, cannot queue SMS');
           }
         }
       } catch (notifyError: any) {

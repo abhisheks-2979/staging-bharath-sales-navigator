@@ -456,13 +456,19 @@ export function useOfflineSync() {
         break;
         
       case 'SEND_INVOICE_SMS':
-        console.log('Syncing invoice SMS/WhatsApp:', data);
+        console.log('📨 Syncing invoice SMS/WhatsApp from offline queue:', data);
         try {
+          console.log('📄 Generating invoice PDF for order:', data.orderId);
+          
           // Generate invoice PDF
           const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
           const { blob, invoiceNumber } = await fetchAndGenerateInvoice(data.orderId);
           
+          console.log('✅ Invoice generated:', invoiceNumber);
+          
           const fileName = `invoice-${invoiceNumber}.pdf`;
+          
+          console.log('☁️ Uploading PDF to storage:', fileName);
           
           // Upload to storage
           const { data: uploadData, error: uploadError } = await supabase.storage
@@ -472,16 +478,24 @@ export function useOfflineSync() {
               upsert: true
             });
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('❌ Storage upload failed during sync:', uploadError);
+            throw uploadError;
+          }
 
           if (uploadData) {
+            console.log('✅ PDF uploaded successfully');
+            
             // Get public URL
             const { data: { publicUrl } } = await supabase.storage
               .from('invoices')
               .getPublicUrl(uploadData.path);
 
+            console.log('🔗 Public URL:', publicUrl);
+            console.log('📨 Invoking send-invoice-whatsapp edge function...');
+
             // Send via edge function
-            const { error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
+            const { data: fnResult, error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
               body: {
                 invoiceId: data.orderId,
                 customerPhone: data.customerPhone,
@@ -490,11 +504,23 @@ export function useOfflineSync() {
               }
             });
 
-            if (fnError) throw fnError;
-            console.log('✅ Invoice SMS/WhatsApp sent during sync');
+            if (fnError) {
+              console.error('❌ Edge function error during sync:', fnError);
+              throw fnError;
+            }
+            
+            console.log('✅ Invoice SMS/WhatsApp sent successfully during sync:', fnResult);
+            
+            // Show success notification
+            toast({
+              title: '✅ SMS Sent',
+              description: 'Offline invoice SMS delivered successfully',
+              duration: 3000,
+            });
           }
         } catch (smsError) {
-          console.error('Failed to send invoice SMS during sync:', smsError);
+          console.error('❌ Failed to send invoice SMS during sync:', smsError);
+          console.error('❌ SMS error details:', JSON.stringify(smsError, null, 2));
           throw smsError;
         }
         break;
