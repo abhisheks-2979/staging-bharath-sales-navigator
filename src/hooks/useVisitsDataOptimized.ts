@@ -50,19 +50,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
       const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
 
-      // Filter beat plans and validate that the beat still exists and is active
-      const allCachedBeats = await offlineStorage.getAll<any>(STORES.BEATS);
-      const activeBeatIds = new Set(
-        allCachedBeats
-          .filter((beat: any) => beat.is_active !== false)
-          .map((beat: any) => beat.id || beat.beat_id)
-      );
-      
+      // Filter beat plans by user and date only
+      // Don't filter by beat ownership - allow any beat that's referenced in beat_plans
       const filteredBeatPlans = cachedBeatPlans.filter(
         (plan: any) => 
           plan.user_id === userId && 
-          plan.plan_date === selectedDate &&
-          activeBeatIds.has(plan.beat_id)
+          plan.plan_date === selectedDate
       );
       const filteredVisits = cachedVisits.filter(
         (v: any) => v.user_id === userId && v.planned_date === selectedDate
@@ -211,13 +204,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const [beatPlansResult, visitsResult, pointsResult] = await Promise.all([
           supabase
             .from('beat_plans')
-            .select(`
-              *,
-              beats!inner(is_active)
-            `)
+            .select('*')
             .eq('user_id', userId)
-            .eq('plan_date', selectedDate)
-            .eq('beats.is_active', true),
+            .eq('plan_date', selectedDate),
           supabase
             .from('visits')
             .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, check_out_time')
