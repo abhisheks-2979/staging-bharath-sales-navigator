@@ -47,19 +47,25 @@ serve(async (req) => {
     // Generate AI recommendation
     const aiResponse = await generateAIRecommendation(recommendationType, contextData);
 
+    // Log what we're about to insert for debugging
+    const insertData = {
+      user_id: user.id,
+      recommendation_type: recommendationType,
+      entity_id: entityId || null,
+      entity_name: contextData.entityName || null,
+      recommendation_data: aiResponse.recommendation,
+      confidence_score: aiResponse.confidence,
+      reasoning: aiResponse.reasoning,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+    };
+    
+    console.log('Inserting recommendation with data:', JSON.stringify(insertData, null, 2));
+    console.log('Recommendation type:', typeof recommendationType, recommendationType);
+
     // Store recommendation
     const { data: recommendation, error: insertError } = await supabaseClient
       .from('recommendations')
-      .insert({
-        user_id: user.id,
-        recommendation_type: recommendationType,
-        entity_id: entityId || null,
-        entity_name: contextData.entityName || null,
-        recommendation_data: aiResponse.recommendation,
-        confidence_score: aiResponse.confidence,
-        reasoning: aiResponse.reasoning,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-      })
+      .insert(insertData)
       .select()
       .single();
 

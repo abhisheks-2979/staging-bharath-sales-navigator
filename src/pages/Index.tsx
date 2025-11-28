@@ -23,7 +23,7 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { todayData, performance, urgentItems, isLoading, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
-  const { recommendations, loading: recLoading, generateRecommendation, provideFeedback } = useRecommendations("home", user?.id);
+  const { recommendations, loading: recLoading, generateRecommendation, provideFeedback } = useRecommendations("beat_visit");
 
   const refreshProfilePicture = async () => {
     if (!user?.id) return;
@@ -179,7 +179,7 @@ const Index = () => {
               {/* AI Recommendations */}
               <AIRecommendationBanner
                 recommendations={recommendations}
-                onGenerate={() => generateRecommendation("beat_visit", user?.id)}
+                onGenerate={() => generateRecommendation("beat_visit")}
                 onFeedback={provideFeedback}
                 loading={recLoading}
                 type="beat_visit"
