@@ -1127,7 +1127,7 @@ export const MyVisits = () => {
                 <Route size={12} className="mr-1 sm:mr-1.5" />
                 <span className="whitespace-nowrap">All Beat</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/my-retailers')}>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate('/my-retailers', { state: { returnTo: '/visits/retailers' } })}>
                 <Users size={12} className="mr-1 sm:mr-1.5" />
                 <span className="whitespace-nowrap">All Retailers</span>
               </Button>

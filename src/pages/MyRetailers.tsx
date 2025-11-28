@@ -407,7 +407,10 @@ export const MyRetailers = () => {
               </div>
               <Button 
                 variant="secondary" 
-                onClick={() => navigate('/add-retailer', { state: { returnTo: '/my-retailers' } })}
+                onClick={() => {
+                  const originalReturnTo = location.state?.returnTo || '/my-retailers';
+                  navigate('/add-retailer', { state: { returnTo: originalReturnTo } });
+                }}
               >
                 <Plus className="mr-2 h-4 w-4" /> Add
               </Button>
