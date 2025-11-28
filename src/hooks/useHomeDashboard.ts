@@ -19,6 +19,7 @@ interface HomeDashboardData {
     revenueAchieved: number;
     newRetailers: number;
     potentialRevenue: number;
+    points: number;
   };
   performance: {
     visitsCount: number;
@@ -59,6 +60,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       revenueAchieved: 0,
       newRetailers: 0,
       potentialRevenue: 0,
+      points: 0,
     },
     performance: {
       visitsCount: 0,
@@ -263,6 +265,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             revenueAchieved,
             newRetailers: newRetailers.length,
             potentialRevenue,
+            points: pointsEarned,
           },
           performance: {
             visitsCount: visits.length,
