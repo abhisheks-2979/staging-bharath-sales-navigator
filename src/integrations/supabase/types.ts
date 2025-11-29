@@ -2501,6 +2501,60 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_comments: {
+        Row: {
+          created_at: string | null
+          hr_comment: string | null
+          hr_id: string | null
+          hr_rating: number | null
+          id: string
+          manager_comment: string | null
+          manager_id: string | null
+          manager_rating: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          self_comment: string | null
+          self_rating: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          hr_comment?: string | null
+          hr_id?: string | null
+          hr_rating?: number | null
+          id?: string
+          manager_comment?: string | null
+          manager_id?: string | null
+          manager_rating?: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          self_comment?: string | null
+          self_rating?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          hr_comment?: string | null
+          hr_id?: string | null
+          hr_rating?: number | null
+          id?: string
+          manager_comment?: string | null
+          manager_id?: string | null
+          manager_rating?: number | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          self_comment?: string | null
+          self_rating?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       performance_module_config: {
         Row: {
           active_module: string

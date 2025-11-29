@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
 
-export type PeriodType = 'month' | 'quarter' | 'year';
+export type PeriodType = 'day' | 'month' | 'quarter' | 'year';
 
 export const useMyTargets = (periodType: PeriodType, date: Date = new Date()) => {
   const { data: targets, isLoading: targetsLoading } = useQuery({
@@ -15,6 +15,12 @@ export const useMyTargets = (periodType: PeriodType, date: Date = new Date()) =>
       let periodEnd: Date;
 
       switch (periodType) {
+        case 'day':
+          periodStart = new Date(date);
+          periodStart.setHours(0, 0, 0, 0);
+          periodEnd = new Date(date);
+          periodEnd.setHours(23, 59, 59, 999);
+          break;
         case 'month':
           periodStart = startOfMonth(date);
           periodEnd = endOfMonth(date);
