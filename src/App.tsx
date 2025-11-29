@@ -85,6 +85,9 @@ import RetailerLoyaltyAdmin from "./pages/RetailerLoyaltyAdmin";
 import RetailerLoyalty from "./pages/RetailerLoyalty";
 import SecurityManagement from "./pages/SecurityManagement";
 import PushContentSetup from "./pages/admin/PushContentSetup";
+import PerformanceModuleAdmin from "./pages/admin/PerformanceModuleAdmin";
+import MyTargets from "./pages/MyTargets";
+import TeamTargets from "./pages/TeamTargets";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -252,6 +255,9 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/retailer-loyalty-admin" element={<ProtectedRoute><RetailerLoyaltyAdmin /></ProtectedRoute>} />
               <Route path="/retailer-loyalty" element={<ProtectedRoute><RetailerLoyalty /></ProtectedRoute>} />
               <Route path="/invoice-management" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
+              <Route path="/admin/performance-module" element={<ProtectedRoute><PerformanceModuleAdmin /></ProtectedRoute>} />
+              <Route path="/my-targets" element={<ProtectedRoute><MyTargets /></ProtectedRoute>} />
+              <Route path="/team-targets" element={<ProtectedRoute><TeamTargets /></ProtectedRoute>} />
               <Route path="/features/beat-planning" element={<Suspense fallback={<LoadingScreen />}><BeatPlanningFeature /></Suspense>} />
               <Route path="/features/retailer-management" element={<Suspense fallback={<LoadingScreen />}><RetailerManagementFeature /></Suspense>} />
               <Route path="/features/visit-scheduling" element={<Suspense fallback={<LoadingScreen />}><VisitSchedulingFeature /></Suspense>} />
