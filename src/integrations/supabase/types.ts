@@ -2501,6 +2501,33 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_module_config: {
+        Row: {
+          active_module: string
+          created_at: string | null
+          enabled_periods: string[] | null
+          id: string
+          rating_thresholds: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          active_module?: string
+          created_at?: string | null
+          enabled_periods?: string[] | null
+          id?: string
+          rating_thresholds?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          active_module?: string
+          created_at?: string | null
+          enabled_periods?: string[] | null
+          id?: string
+          rating_thresholds?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -3861,6 +3888,66 @@ export type Database = {
         }
         Relationships: []
       }
+      role_targets: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          kpi_id: string | null
+          monthly_target: number
+          quarterly_target: number
+          role_name: string
+          territory_id: string | null
+          updated_at: string | null
+          yearly_target: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          kpi_id?: string | null
+          monthly_target?: number
+          quarterly_target?: number
+          role_name: string
+          territory_id?: string | null
+          updated_at?: string | null
+          yearly_target?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          kpi_id?: string | null
+          monthly_target?: number
+          quarterly_target?: number
+          role_name?: string
+          territory_id?: string | null
+          updated_at?: string | null
+          yearly_target?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_targets_kpi_id_fkey"
+            columns: ["kpi_id"]
+            isOneToOne: false
+            referencedRelation: "target_kpi_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_targets_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_reports: {
         Row: {
           conversation_id: string | null
@@ -4193,6 +4280,89 @@ export type Database = {
         }
         Relationships: []
       }
+      target_actual_logs: {
+        Row: {
+          created_at: string | null
+          daily_actual: number | null
+          id: string
+          kpi_id: string | null
+          log_date: string
+          reference_id: string | null
+          reference_type: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          daily_actual?: number | null
+          id?: string
+          kpi_id?: string | null
+          log_date?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          daily_actual?: number | null
+          id?: string
+          kpi_id?: string | null
+          log_date?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "target_actual_logs_kpi_id_fkey"
+            columns: ["kpi_id"]
+            isOneToOne: false
+            referencedRelation: "target_kpi_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      target_kpi_definitions: {
+        Row: {
+          calculation_method: string
+          created_at: string | null
+          data_source: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          kpi_key: string
+          kpi_name: string
+          unit: string | null
+          weightage: number | null
+        }
+        Insert: {
+          calculation_method: string
+          created_at?: string | null
+          data_source: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          kpi_key: string
+          kpi_name: string
+          unit?: string | null
+          weightage?: number | null
+        }
+        Update: {
+          calculation_method?: string
+          created_at?: string | null
+          data_source?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          kpi_key?: string
+          kpi_name?: string
+          unit?: string | null
+          weightage?: number | null
+        }
+        Relationships: []
+      }
       territories: {
         Row: {
           assigned_distributor_ids: Json | null
@@ -4408,6 +4578,95 @@ export type Database = {
           status?: string | null
         }
         Relationships: []
+      }
+      user_performance_scores: {
+        Row: {
+          calculated_at: string | null
+          id: string
+          kpi_scores: Json | null
+          performance_rating: string | null
+          period_end: string
+          period_start: string
+          period_type: string
+          user_id: string
+          weighted_average_score: number | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          id?: string
+          kpi_scores?: Json | null
+          performance_rating?: string | null
+          period_end: string
+          period_start: string
+          period_type: string
+          user_id: string
+          weighted_average_score?: number | null
+        }
+        Update: {
+          calculated_at?: string | null
+          id?: string
+          kpi_scores?: Json | null
+          performance_rating?: string | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          user_id?: string
+          weighted_average_score?: number | null
+        }
+        Relationships: []
+      }
+      user_period_targets: {
+        Row: {
+          achievement_percent: number | null
+          actual_value: number | null
+          created_at: string | null
+          id: string
+          kpi_id: string | null
+          last_calculated_at: string | null
+          period_end: string
+          period_start: string
+          period_type: string
+          status: string | null
+          target_value: number
+          user_id: string
+        }
+        Insert: {
+          achievement_percent?: number | null
+          actual_value?: number | null
+          created_at?: string | null
+          id?: string
+          kpi_id?: string | null
+          last_calculated_at?: string | null
+          period_end: string
+          period_start: string
+          period_type: string
+          status?: string | null
+          target_value?: number
+          user_id: string
+        }
+        Update: {
+          achievement_percent?: number | null
+          actual_value?: number | null
+          created_at?: string | null
+          id?: string
+          kpi_id?: string | null
+          last_calculated_at?: string | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          status?: string | null
+          target_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_period_targets_kpi_id_fkey"
+            columns: ["kpi_id"]
+            isOneToOne: false
+            referencedRelation: "target_kpi_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_profiles: {
         Row: {
@@ -5484,6 +5743,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_beat_adherence: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
+      calculate_new_retailers: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
+      calculate_productive_visits: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
+      calculate_revenue_contribution: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
+      calculate_user_kpi_actual: {
+        Args: {
+          p_end: string
+          p_kpi_key: string
+          p_start: string
+          p_user_id: string
+        }
+        Returns: number
+      }
+      calculate_visit_completion_rate: {
+        Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
       can_access_invitation: {
         Args: { _invitation_token: string }
         Returns: boolean
