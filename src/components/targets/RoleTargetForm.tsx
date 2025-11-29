@@ -19,6 +19,18 @@ export const RoleTargetForm = () => {
   const [quarterlyTarget, setQuarterlyTarget] = useState<string>("");
   const [yearlyTarget, setYearlyTarget] = useState<string>("");
 
+  const { data: securityProfiles } = useQuery({
+    queryKey: ['security-profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('security_profiles')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: kpis } = useQuery({
     queryKey: ['active-kpis'],
     queryFn: async () => {
@@ -118,16 +130,17 @@ export const RoleTargetForm = () => {
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label>Role (Security Profile)</Label>
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
+                    <SelectValue placeholder="Select role from security profiles" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="fse">Field Sales Executive (FSE)</SelectItem>
-                    <SelectItem value="asm">Area Sales Manager (ASM)</SelectItem>
-                    <SelectItem value="rsm">Regional Sales Manager (RSM)</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    {securityProfiles?.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
