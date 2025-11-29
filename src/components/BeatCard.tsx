@@ -121,7 +121,7 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
           <div className="flex items-center justify-between p-2 bg-muted/20 rounded">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="h-3 w-3" />
-              <span className="text-xs">Last Visited:</span>
+              <span className="text-xs">Last Visited Date:</span>
             </div>
             <span className="font-semibold text-xs">
               {loading ? '...' : metrics.lastVisited ? new Date(metrics.lastVisited).toLocaleDateString() : 'Never'}

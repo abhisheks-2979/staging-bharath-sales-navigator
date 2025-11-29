@@ -55,17 +55,33 @@ export function useBeatMetrics(beatId: string, userId: string) {
         return;
       }
 
-      // Last visited date from completed visits (only past dates)
-      const { data: lastVisit } = await supabase
+      // Last visited date from completed visits with at least one check-in (only past dates)
+      const { data: completedVisits } = await supabase
         .from('visits')
         .select('planned_date, id')
         .in('retailer_id', retailerIds)
         .eq('user_id', userId)
         .eq('status', 'completed')
         .lte('planned_date', new Date().toISOString().split('T')[0])
-        .order('planned_date', { ascending: false })
-        .limit(1)
-        .single();
+        .order('planned_date', { ascending: false });
+
+      // Get all visit IDs to check for check-ins
+      let lastVisit = null;
+      if (completedVisits && completedVisits.length > 0) {
+        const visitIds = completedVisits.map(v => v.id);
+        
+        // Get all check-ins for these visits in one query
+        const { data: visitLogs } = await supabase
+          .from('retailer_visit_logs')
+          .select('visit_id')
+          .in('visit_id', visitIds);
+        
+        // Create a set of visit IDs that have check-ins
+        const visitIdsWithCheckIns = new Set(visitLogs?.map(log => log.visit_id) || []);
+        
+        // Find the first (most recent) visit that has a check-in
+        lastVisit = completedVisits.find(visit => visitIdsWithCheckIns.has(visit.id)) || null;
+      }
 
       // Get last visit order value
       let lastVisitOrderValue = 0;
