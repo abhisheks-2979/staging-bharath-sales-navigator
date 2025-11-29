@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles, CalendarDays, Repeat, ChevronDown } from "lucide-react";
+import { Plus, Users, MapPin, Calendar, BarChart, Edit2, Trash2, Clock, Truck, Sparkles, CalendarDays, Repeat, ChevronDown, TrendingUp, Package, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BeatAnalyticsModal } from "@/components/BeatAnalyticsModal";
+import { BeatCard } from "@/components/BeatCard";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -87,6 +89,9 @@ export const MyBeats = () => {
   const [selectedRetailerId, setSelectedRetailerId] = useState<string | null>(null);
   const [isAddRetailerModalOpen, setIsAddRetailerModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [beatSearchTerm, setBeatSearchTerm] = useState("");
+  const [selectedBeatForAnalytics, setSelectedBeatForAnalytics] = useState<Beat | null>(null);
+  const [selectedBeatForAI, setSelectedBeatForAI] = useState<string | null>(null);
   
   // Connectivity status
   const connectivityStatus = useConnectivity();
@@ -872,6 +877,10 @@ export const MyBeats = () => {
     retailer.phone.includes(searchTerm)
   );
 
+  const filteredBeats = beats.filter((beat) =>
+    beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase())
+  );
+
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200';
@@ -955,20 +964,22 @@ export const MyBeats = () => {
           </Card>
         </div>
 
-        {/* Tabs for Beats and AI Recommendations */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="beats" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Beats ({beats.length})
-            </TabsTrigger>
-            <TabsTrigger value="recommendations" className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              AI Insights ({recommendations.length})
-            </TabsTrigger>
-          </TabsList>
+        {/* Search Bar */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="Search beats by name..."
+              value={beatSearchTerm}
+              onChange={(e) => setBeatSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
 
-          <TabsContent value="beats" className="mt-6">
+        {/* Beats Section */}
+        <div className="mt-6">
             {/* Beats Grid */}
             {beats.length === 0 ? (
               <Card>
@@ -989,196 +1000,28 @@ export const MyBeats = () => {
             ) : (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <h2 className="text-lg font-semibold">Your Beats ({beats.length})</h2>
+                  <h2 className="text-lg font-semibold">Your Beats ({filteredBeats.length} of {beats.length})</h2>
                 </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {beats.map((beat) => (
-                <Card key={beat.id} className="hover:shadow-lg transition-all duration-200 hover:scale-105">
-                  <CardHeader className="pb-3">
-                     <div className="flex items-start justify-between">
-                       <div className="space-y-2 flex-1">
-                         <div className="flex items-center gap-2 flex-wrap">
-                           <Badge variant="default" className="text-xs font-semibold">
-                             Beat #{beat.beat_number}
-                           </Badge>
-                           <Badge 
-                             className={`text-xs ${
-                               beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' : // Platinum
-                               beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' : // Silver
-                               beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' : // Gold
-                               'bg-amber-100 text-amber-800' // Bronze
-                             }`}
-                           >
-                             {beat.retailer_count >= 30 ? 'Platinum' : 
-                              beat.retailer_count >= 20 ? 'Silver' : 
-                              beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
-                           </Badge>
-                           {beat.category && (
-                             <Badge variant="outline" className="text-xs">
-                               {beat.category}
-                             </Badge>
-                           )}
-                         </div>
-                         <CardTitle className="text-lg leading-tight">{beat.name}</CardTitle>
-                       </div>
-                       <Button 
-                         variant="ghost" 
-                         size="sm"
-                         onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}
-                         className="flex items-center gap-2"
-                       >
-                         <BarChart className="h-4 w-4" />
-                         <span className="hidden sm:inline">Analytics</span>
-                       </Button>
-                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                       {/* Beat Stats */}
-                       <div className="grid grid-cols-3 gap-3 text-center">
-                         <div>
-                           <div className="flex items-center justify-center mb-1">
-                             <Users size={16} className="text-primary mr-1" />
-                           </div>
-                           <div className="text-lg font-bold text-primary">{beat.retailer_count}</div>
-                           <div className="text-xs text-muted-foreground">Retailers</div>
-                         </div>
-                         <div>
-                           <div className="text-lg font-bold text-green-600">
-                             {beat.average_km ? `${beat.average_km} km` : 'N/A'}
-                           </div>
-                           <div className="text-xs text-muted-foreground">Avg Distance</div>
-                         </div>
-                          <div>
-                            <div className="text-lg font-bold text-blue-600">
-                              {beat.average_time_minutes ? formatTime(beat.average_time_minutes) : 'N/A'}
-                            </div>
-                            <div className="text-xs text-muted-foreground">Avg Time</div>
-                          </div>
-                       </div>
-                       
-                       {/* Territory Info */}
-                       {beat.territory_name && (
-                         <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                           <MapPin className="h-4 w-4 text-primary" />
-                           <span className="text-sm text-muted-foreground">Territory:</span>
-                           <span className="text-sm font-medium">{beat.territory_name}</span>
-                         </div>
-                       )}
-                       
-                       {/* Travel Allowance */}
-                      {beat.travel_allowance > 0 && (
-                        <div className="flex items-center justify-center gap-2 text-sm bg-muted/30 rounded-lg p-2">
-                          <Truck className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Travel Allowance:</span>
-                          <span className="font-semibold">₹{beat.travel_allowance}</span>
-                        </div>
-                      )}
-                      
-                      {/* Additional Info */}
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>Last visited: {beat.last_visited ? new Date(beat.last_visited).toLocaleDateString() : 'Never'}</span>
-                        </div>
-                      </div>
-                     
-                      {/* Beat Actions */}
-                      <div className="flex gap-2 pt-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="flex-1 flex items-center justify-center gap-2"
-                          onClick={() => handleEditBeat(beat)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                          Edit
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="flex-1 flex items-center justify-center gap-2"
-                          onClick={() => navigate(`/beat/${beat.id}`)}
-                        >
-                          <BarChart className="h-4 w-4" />
-                          Details
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive" 
-                          className="flex items-center justify-center gap-2"
-                          onClick={() => handleDeleteBeat(beat.id, beat.name)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    
-                    {/* Creation Date */}
-                    <div className="text-xs text-muted-foreground pt-2 border-t">
-                      Created: {new Date(beat.created_at).toLocaleDateString()}
-                    </div>
-                  </CardContent>
-                </Card>
+              {filteredBeats.map((beat) => (
+                <BeatCard
+                  key={beat.id}
+                  beat={beat}
+                  userId={user?.id || ''}
+                  onEdit={() => handleEditBeat(beat)}
+                  onDelete={() => handleDeleteBeat(beat.id, beat.name)}
+                  onDetails={() => setSelectedBeatForAnalytics(beat)}
+                  onAIInsights={() => {
+                    setSelectedBeatForAI(beat.id);
+                    generateRecommendation('beat_visit', beat.id);
+                  }}
+                />
               ))}
             </div>
           </div>
         )}
-          </TabsContent>
-
-          <TabsContent value="recommendations" className="mt-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">AI-Powered Beat Insights</h2>
-                  <p className="text-sm text-muted-foreground">Recommendations on which beats to visit next</p>
-                </div>
-                <Button
-                  onClick={() => generateRecommendation('beat_visit')}
-                  disabled={recsLoading}
-                  className="flex items-center gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {recsLoading ? 'Generating...' : 'Generate New Insights'}
-                </Button>
-              </div>
-
-              {recommendations.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <Sparkles className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">No recommendations yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Generate AI-powered insights to help you prioritize which beats to visit
-                    </p>
-                    <Button
-                      onClick={() => generateRecommendation('beat_visit')}
-                      disabled={recsLoading || beats.length === 0}
-                      className="flex items-center gap-2"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      {recsLoading ? 'Generating...' : 'Generate Recommendations'}
-                    </Button>
-                    {beats.length === 0 && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Create beats first to get recommendations
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {recommendations.map((rec) => (
-                    <RecommendationCard
-                      key={rec.id}
-                      recommendation={rec}
-                      onFeedback={(feedbackType) => provideFeedback(rec.id, feedbackType)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+        </div>
 
         {/* Create Beat Modal */}
         <Dialog open={isCreateBeatOpen} onOpenChange={setIsCreateBeatOpen}>
@@ -1697,6 +1540,17 @@ export const MyBeats = () => {
             isOpen={!!selectedAnalyticsRetailer}
             retailer={selectedAnalyticsRetailer}
             onClose={() => setSelectedAnalyticsRetailer(null)}
+          />
+        )}
+
+        {/* Beat Analytics Modal */}
+        {selectedBeatForAnalytics && (
+          <BeatAnalyticsModal
+            isOpen={!!selectedBeatForAnalytics}
+            onClose={() => setSelectedBeatForAnalytics(null)}
+            beatId={selectedBeatForAnalytics.id}
+            beatName={selectedBeatForAnalytics.name}
+            userId={user?.id || ''}
           />
         )}
       </div>
