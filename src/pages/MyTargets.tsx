@@ -6,15 +6,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PerformanceGauge } from "@/components/targets/PerformanceGauge";
 import { KPICard } from "@/components/targets/KPICard";
 import { PerformanceSummaryTable } from "@/components/targets/PerformanceSummaryTable";
+import { PerformanceComments } from "@/components/targets/PerformanceComments";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, Target as TargetIcon } from "lucide-react";
-import { format, subMonths, subQuarters, subYears } from "date-fns";
+import { format, subMonths, subQuarters, subYears, startOfQuarter, endOfQuarter, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
 
-type PeriodType = 'month' | 'quarter' | 'year';
+type PeriodType = 'day' | 'month' | 'quarter' | 'year';
 
 export default function MyTargets() {
+  const { userProfile } = useAuth();
   const [periodType, setPeriodType] = useState<PeriodType>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedQuarter, setSelectedQuarter] = useState<string>("Q1");
   
   const { targets, performanceScore, isLoading } = useMyTargets(periodType, selectedDate);
 
@@ -33,9 +37,34 @@ export default function MyTargets() {
   };
 
   const getPeriodLabel = () => {
+    if (periodType === 'day') return format(selectedDate, 'MMMM d, yyyy');
     if (periodType === 'month') return format(selectedDate, 'MMMM yyyy');
-    if (periodType === 'quarter') return `Q${Math.floor(selectedDate.getMonth() / 3) + 1} ${selectedDate.getFullYear()}`;
+    if (periodType === 'quarter') return `${selectedQuarter} ${selectedDate.getFullYear()}`;
     return selectedDate.getFullYear().toString();
+  };
+
+  const getPeriodDates = () => {
+    let start: Date, end: Date;
+    
+    if (periodType === 'day') {
+      start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(selectedDate);
+      end.setHours(23, 59, 59, 999);
+    } else if (periodType === 'month') {
+      start = startOfMonth(selectedDate);
+      end = endOfMonth(selectedDate);
+    } else if (periodType === 'quarter') {
+      const quarterNum = parseInt(selectedQuarter.replace('Q', ''));
+      const quarterStart = new Date(selectedDate.getFullYear(), (quarterNum - 1) * 3, 1);
+      start = startOfQuarter(quarterStart);
+      end = endOfQuarter(quarterStart);
+    } else {
+      start = startOfYear(selectedDate);
+      end = endOfYear(selectedDate);
+    }
+    
+    return { start, end };
   };
 
   const getHistoricalData = () => {
@@ -85,16 +114,33 @@ export default function MyTargets() {
             </p>
           </div>
 
-          <Select value={periodType} onValueChange={(value) => setPeriodType(value as PeriodType)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Monthly</SelectItem>
-              <SelectItem value="quarter">Quarterly</SelectItem>
-              <SelectItem value="year">Yearly</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select value={periodType} onValueChange={(value) => setPeriodType(value as PeriodType)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Daily</SelectItem>
+                <SelectItem value="month">Monthly</SelectItem>
+                <SelectItem value="quarter">Quarterly</SelectItem>
+                <SelectItem value="year">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {periodType === 'quarter' && (
+              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Q1">Quarter 1</SelectItem>
+                  <SelectItem value="Q2">Quarter 2</SelectItem>
+                  <SelectItem value="Q3">Quarter 3</SelectItem>
+                  <SelectItem value="Q4">Quarter 4</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* Header Stats */}
@@ -171,6 +217,16 @@ export default function MyTargets() {
             <PerformanceSummaryTable data={getHistoricalData()} />
           </CardContent>
         </Card>
+
+        {/* Comments Section */}
+        {userProfile && (
+          <PerformanceComments
+            userId={userProfile.id}
+            periodType={periodType}
+            periodStart={getPeriodDates().start.toISOString().split('T')[0]}
+            periodEnd={getPeriodDates().end.toISOString().split('T')[0]}
+          />
+        )}
       </div>
     </Layout>
   );

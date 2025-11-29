@@ -4,34 +4,45 @@ import { useTeamTargets } from "@/hooks/useTeamTargets";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamMemberCard } from "@/components/targets/TeamMemberCard";
+import { PerformanceComments } from "@/components/targets/PerformanceComments";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Users, TrendingUp, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfQuarter, endOfQuarter } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 type PeriodType = 'day' | 'month' | 'quarter' | 'year';
 
 export default function TeamTargets() {
+  const { userProfile, userRole } = useAuth();
   const [periodType, setPeriodType] = useState<PeriodType>('month');
   const [selectedDate] = useState(new Date());
   const [selectedMember, setSelectedMember] = useState<string>("all");
+  const [selectedQuarter, setSelectedQuarter] = useState<string>("Q1");
   
   const { teamMembers, isLoading } = useTeamTargets(periodType, selectedDate) as { teamMembers: any[], isLoading: boolean };
 
-  // Fetch all team members for dropdown
+  // Fetch all team members from employee hierarchy
   const { data: allTeamMembers } = useQuery({
     queryKey: ['all-team-members'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      const { data: subordinates } = await supabase.rpc('get_subordinate_users', {
-        user_id_param: user.id
-      });
+      // Get subordinates from employees table where manager_id matches current user
+      const { data: subordinates, error } = await supabase
+        .from('employees')
+        .select('user_id')
+        .eq('manager_id', user.id);
 
-      const subordinateIds = subordinates?.map((s: any) => s.subordinate_user_id) || [];
+      if (error) {
+        console.error('Error fetching subordinates:', error);
+        return [];
+      }
+
+      const subordinateIds = subordinates?.map((s: any) => s.user_id) || [];
 
       if (subordinateIds.length === 0) return [];
 
@@ -72,8 +83,29 @@ export default function TeamTargets() {
   const getPeriodLabel = () => {
     if (periodType === 'day') return format(selectedDate, 'MMMM d, yyyy');
     if (periodType === 'month') return format(selectedDate, 'MMMM yyyy');
-    if (periodType === 'quarter') return `Q${Math.floor(selectedDate.getMonth() / 3) + 1} ${selectedDate.getFullYear()}`;
+    if (periodType === 'quarter') return `${selectedQuarter} ${selectedDate.getFullYear()}`;
     return selectedDate.getFullYear().toString();
+  };
+
+  const getPeriodDates = () => {
+    let start: Date, end: Date;
+    
+    if (periodType === 'day') {
+      start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(selectedDate);
+      end.setHours(23, 59, 59, 999);
+    } else if (periodType === 'quarter') {
+      const quarterNum = parseInt(selectedQuarter.replace('Q', ''));
+      const quarterStart = new Date(selectedDate.getFullYear(), (quarterNum - 1) * 3, 1);
+      start = startOfQuarter(quarterStart);
+      end = endOfQuarter(quarterStart);
+    } else {
+      start = new Date(selectedDate);
+      end = new Date(selectedDate);
+    }
+    
+    return { start, end };
   };
 
   // Sample data for demonstration when no real data exists
@@ -121,6 +153,20 @@ export default function TeamTargets() {
                 <SelectItem value="year">Yearly</SelectItem>
               </SelectContent>
             </Select>
+
+            {periodType === 'quarter' && (
+              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Q1">Quarter 1</SelectItem>
+                  <SelectItem value="Q2">Quarter 2</SelectItem>
+                  <SelectItem value="Q3">Quarter 3</SelectItem>
+                  <SelectItem value="Q4">Quarter 4</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
             <Select value={selectedMember} onValueChange={setSelectedMember}>
               <SelectTrigger className="w-[200px]">
@@ -281,6 +327,18 @@ export default function TeamTargets() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Comments Section for selected team member */}
+        {selectedMember && selectedMember !== "all" && userProfile && (
+          <PerformanceComments
+            userId={selectedMember}
+            periodType={periodType}
+            periodStart={getPeriodDates().start.toISOString().split('T')[0]}
+            periodEnd={getPeriodDates().end.toISOString().split('T')[0]}
+            isManager={true}
+            isHR={userRole === 'admin'}
+          />
         )}
       </div>
     </Layout>
