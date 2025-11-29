@@ -1553,6 +1553,40 @@ export const MyBeats = () => {
             userId={user?.id || ''}
           />
         )}
+
+        {/* AI Insights Modal */}
+        <Dialog open={!!selectedBeatForAI} onOpenChange={(open) => !open && setSelectedBeatForAI(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                AI Insights for Beat
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {recsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+              ) : recommendations.length > 0 ? (
+                recommendations
+                  .filter(rec => rec.entity_id === selectedBeatForAI)
+                  .map((rec) => (
+                    <RecommendationCard
+                      key={rec.id}
+                      recommendation={rec}
+                      onFeedback={(liked) => provideFeedback(rec.id, liked ? 'like' : 'dislike')}
+                    />
+                  ))
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No AI insights available yet. Generating recommendations...</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
