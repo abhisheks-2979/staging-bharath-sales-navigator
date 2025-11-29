@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type PerformanceModuleType = 'gamification' | 'target_actual' | 'none';
+export type PerformanceModuleType = 'gamification' | 'target_actual' | 'both' | 'none';
 
 export const useActivePerformanceModule = () => {
   const { data: config, isLoading, error } = useQuery({
@@ -19,8 +19,8 @@ export const useActivePerformanceModule = () => {
 
   return {
     activeModule: (config?.active_module as PerformanceModuleType) || 'none',
-    isGamificationActive: config?.active_module === 'gamification',
-    isTargetActualActive: config?.active_module === 'target_actual',
+    isGamificationActive: config?.active_module === 'gamification' || config?.active_module === 'both',
+    isTargetActualActive: config?.active_module === 'target_actual' || config?.active_module === 'both',
     isLoading,
     error,
     config,

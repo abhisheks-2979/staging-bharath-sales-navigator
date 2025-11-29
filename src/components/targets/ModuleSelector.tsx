@@ -60,7 +60,7 @@ export const ModuleSelector = ({ currentModule }: ModuleSelectorProps) => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Only one module can be active at a time. Switching modules will not delete historical data.
+            Choose one or both modules. Switching modules will not delete historical data.
           </AlertDescription>
         </Alert>
 
@@ -70,7 +70,7 @@ export const ModuleSelector = ({ currentModule }: ModuleSelectorProps) => {
             <div className="flex-1">
               <Label htmlFor="gamification" className="flex items-center gap-2 cursor-pointer">
                 <Trophy className="h-4 w-4 text-primary" />
-                <span className="font-semibold">Gamification</span>
+                <span className="font-semibold">Gamification Only</span>
               </Label>
               <p className="text-sm text-muted-foreground mt-1">
                 Activity-based points system with badges, leaderboards, and redemptions. 
@@ -84,11 +84,26 @@ export const ModuleSelector = ({ currentModule }: ModuleSelectorProps) => {
             <div className="flex-1">
               <Label htmlFor="target_actual" className="flex items-center gap-2 cursor-pointer">
                 <Target className="h-4 w-4 text-primary" />
-                <span className="font-semibold">Target vs. Actual</span>
+                <span className="font-semibold">Target vs. Actual Only</span>
               </Label>
               <p className="text-sm text-muted-foreground mt-1">
                 KPI-based performance tracking with monthly, quarterly, and yearly targets. 
                 Focus on goal achievement and performance ratings.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start space-x-3 space-y-0 rounded-lg border p-4 hover:bg-accent/50 transition-colors">
+            <RadioGroupItem value="both" id="both" />
+            <div className="flex-1">
+              <Label htmlFor="both" className="flex items-center gap-2 cursor-pointer">
+                <Trophy className="h-4 w-4 text-primary" />
+                <Target className="h-4 w-4 text-primary" />
+                <span className="font-semibold">Both Modules</span>
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Enable both Gamification and Target vs. Actual modules simultaneously. 
+                Get comprehensive performance tracking with points, badges, and KPI targets.
               </p>
             </div>
           </div>
