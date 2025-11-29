@@ -10,6 +10,7 @@ interface BeatMetrics {
   retailersAdded3Months: number;
   isRecurring: boolean;
   recurringDetails: string | null;
+  lastVisitOrderValue: number;
 }
 
 export function useBeatMetrics(beatId: string, userId: string) {
@@ -21,7 +22,8 @@ export function useBeatMetrics(beatId: string, userId: string) {
     visitsPerMonth: 0,
     retailersAdded3Months: 0,
     isRecurring: false,
-    recurringDetails: null
+    recurringDetails: null,
+    lastVisitOrderValue: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -53,16 +55,29 @@ export function useBeatMetrics(beatId: string, userId: string) {
         return;
       }
 
-      // Last visited date from completed visits
+      // Last visited date from completed visits (only past dates)
       const { data: lastVisit } = await supabase
         .from('visits')
-        .select('planned_date')
+        .select('planned_date, id')
         .in('retailer_id', retailerIds)
         .eq('user_id', userId)
         .eq('status', 'completed')
+        .lte('planned_date', new Date().toISOString().split('T')[0])
         .order('planned_date', { ascending: false })
         .limit(1)
         .single();
+
+      // Get last visit order value
+      let lastVisitOrderValue = 0;
+      if (lastVisit?.id) {
+        const { data: lastVisitOrders } = await supabase
+          .from('orders')
+          .select('total_amount')
+          .eq('visit_id', lastVisit.id)
+          .eq('status', 'confirmed');
+        
+        lastVisitOrderValue = lastVisitOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+      }
 
       // Orders this month
       const { data: ordersThisMonth } = await supabase
@@ -87,13 +102,14 @@ export function useBeatMetrics(beatId: string, userId: string) {
       const lastMonthRevenue = lastMonthOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
       const growth = lastMonthRevenue > 0 ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
 
-      // Visits this month
+      // Visits planned in current month
       const { data: visits } = await supabase
         .from('visits')
         .select('id')
         .in('retailer_id', retailerIds)
         .eq('user_id', userId)
-        .gte('planned_date', currentMonthStart);
+        .gte('planned_date', currentMonthStart)
+        .lte('planned_date', new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
 
       // Retailers added in last 3 months
       const newRetailers = retailers?.filter(r => 
@@ -128,7 +144,8 @@ export function useBeatMetrics(beatId: string, userId: string) {
         visitsPerMonth: visits?.length || 0,
         retailersAdded3Months: newRetailers,
         isRecurring,
-        recurringDetails
+        recurringDetails,
+        lastVisitOrderValue
       });
     } catch (error) {
       console.error('Error loading beat metrics:', error);

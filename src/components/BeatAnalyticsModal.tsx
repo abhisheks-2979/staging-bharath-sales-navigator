@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, TrendingDown, Package, Users, Calendar } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RetailerDetailModal } from '@/components/RetailerDetailModal';
 
 interface BeatAnalyticsModalProps {
   isOpen: boolean;
@@ -38,6 +41,11 @@ export function BeatAnalyticsModal({ isOpen, onClose, beatId, beatName, userId }
   const [topRetailers, setTopRetailers] = useState<any[]>([]);
   const [revenueGrowthData, setRevenueGrowthData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lifetimeMetrics, setLifetimeMetrics] = useState({ totalOrderValue: 0, totalVisits: 0 });
+  const [lastTenVisits, setLastTenVisits] = useState<any[]>([]);
+  const [allRetailersInBeat, setAllRetailersInBeat] = useState<any[]>([]);
+  const [selectedRetailerId, setSelectedRetailerId] = useState<string | null>(null);
+  const [showRetailerDetail, setShowRetailerDetail] = useState(false);
 
   useEffect(() => {
     if (isOpen && beatId) {
@@ -185,6 +193,87 @@ export function BeatAnalyticsModal({ isOpen, onClose, beatId, beatName, userId }
 
       setRevenueGrowthData(monthlyData);
 
+      // Lifetime metrics
+      const { data: allTimeOrders } = await supabase
+        .from('orders')
+        .select('total_amount')
+        .in('retailer_id', retailerIds)
+        .eq('status', 'confirmed');
+
+      const lifetimeOrderValue = allTimeOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+
+      const { data: allTimeVisits } = await supabase
+        .from('visits')
+        .select('id')
+        .in('retailer_id', retailerIds)
+        .eq('user_id', userId);
+
+      setLifetimeMetrics({
+        totalOrderValue: lifetimeOrderValue,
+        totalVisits: allTimeVisits?.length || 0
+      });
+
+      // Last 10 visits
+      const { data: lastVisits } = await supabase
+        .from('visits')
+        .select(`
+          id,
+          planned_date,
+          status,
+          retailer_id,
+          user_id
+        `)
+        .in('retailer_id', retailerIds)
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .order('planned_date', { ascending: false })
+        .limit(10);
+
+      if (lastVisits) {
+        const visitsWithDetails = await Promise.all(
+          lastVisits.map(async (visit) => {
+            // Get order value for this visit
+            const { data: visitOrders } = await supabase
+              .from('orders')
+              .select('total_amount')
+              .eq('visit_id', visit.id)
+              .eq('status', 'confirmed');
+
+            const orderValue = visitOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+
+            // Get new retailers added on this visit date
+            const { data: newRetailersOnVisit } = await supabase
+              .from('retailers')
+              .select('id')
+              .eq('beat_id', beatId)
+              .eq('user_id', userId)
+              .gte('created_at', visit.planned_date)
+              .lte('created_at', new Date(new Date(visit.planned_date).getTime() + 24 * 60 * 60 * 1000).toISOString());
+
+            // Get team member name
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', visit.user_id)
+              .single();
+
+            return {
+              id: visit.id,
+              visit_date: visit.planned_date,
+              order_value: orderValue,
+              is_productive: orderValue > 0,
+              new_retailers_count: newRetailersOnVisit?.length || 0,
+              team_member_name: profile?.full_name || 'Unknown'
+            };
+          })
+        );
+
+        setLastTenVisits(visitsWithDetails);
+      }
+
+      // All retailers in beat
+      setAllRetailersInBeat(retailers || []);
+
       setMetrics({
         ordersThisMonth: ordersCount,
         avgBusiness: totalRevenue / (ordersCount || 1),
@@ -265,10 +354,12 @@ export function BeatAnalyticsModal({ isOpen, onClose, beatId, beatName, userId }
 
             {/* Charts */}
             <Tabs defaultValue="products" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="products">Sales by Product</TabsTrigger>
-                <TabsTrigger value="retailers">Top Retailers</TabsTrigger>
-                <TabsTrigger value="growth">Revenue Trend</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-1">
+                <TabsTrigger value="products" className="text-xs md:text-sm">Sales by Product</TabsTrigger>
+                <TabsTrigger value="retailers" className="text-xs md:text-sm">Retailers</TabsTrigger>
+                <TabsTrigger value="growth" className="text-xs md:text-sm">Revenue Trend</TabsTrigger>
+                <TabsTrigger value="lifetime" className="text-xs md:text-sm">Lifetime Value</TabsTrigger>
+                <TabsTrigger value="visits" className="text-xs md:text-sm">Last 10 Visits</TabsTrigger>
               </TabsList>
 
               <TabsContent value="products" className="space-y-4">
@@ -323,15 +414,40 @@ export function BeatAnalyticsModal({ isOpen, onClose, beatId, beatName, userId }
                   </CardHeader>
                   <CardContent>
                     {topRetailers.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={topRetailers} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" />
-                          <YAxis dataKey="name" type="category" width={150} />
-                          <Tooltip formatter={(value: any) => `₹${value.toLocaleString()}`} />
-                          <Bar dataKey="revenue" fill="#00C49F" />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={topRetailers} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" />
+                            <YAxis dataKey="name" type="category" width={150} />
+                            <Tooltip formatter={(value: any) => `₹${value.toLocaleString()}`} />
+                            <Bar dataKey="revenue" fill="#00C49F" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        
+                        <div className="mt-6">
+                          <h4 className="font-semibold mb-3">All Retailers in Beat</h4>
+                          <div className="space-y-2">
+                            {allRetailersInBeat.map((retailer) => (
+                              <div 
+                                key={retailer.id}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                                onClick={() => {
+                                  // Open retailer detail modal
+                                  setSelectedRetailerId(retailer.id);
+                                  setShowRetailerDetail(true);
+                                }}
+                              >
+                                <div>
+                                  <p className="font-medium">{retailer.name}</p>
+                                  <p className="text-xs text-muted-foreground">{retailer.address}</p>
+                                </div>
+                                <Badge variant="outline">View Details</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         No retailer revenue data available
@@ -365,8 +481,102 @@ export function BeatAnalyticsModal({ isOpen, onClose, beatId, beatName, userId }
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="lifetime" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Lifetime Value</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="text-center p-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border">
+                        <div className="text-3xl font-bold text-primary mb-2">
+                          ₹{(lifetimeMetrics.totalOrderValue / 1000).toFixed(1)}K
+                        </div>
+                        <div className="text-sm text-muted-foreground">Total Lifetime Order Value</div>
+                      </div>
+                      <div className="text-center p-6 bg-gradient-to-br from-blue-500/10 to-blue-500/5 rounded-lg border">
+                        <div className="text-3xl font-bold text-blue-600 mb-2">
+                          {lifetimeMetrics.totalVisits}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Total Visits (All Time)</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="visits" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Last 10 Visits Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {lastTenVisits.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left p-2">Date</th>
+                              <th className="text-left p-2">Order Value</th>
+                              <th className="text-left p-2">Status</th>
+                              <th className="text-left p-2">New Retailers</th>
+                              <th className="text-left p-2">Team Member</th>
+                              <th className="text-left p-2">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {lastTenVisits.map((visit) => (
+                              <tr key={visit.id} className="border-b hover:bg-muted/50">
+                                <td className="p-2">{new Date(visit.visit_date).toLocaleDateString()}</td>
+                                <td className="p-2">₹{(visit.order_value / 1000).toFixed(1)}K</td>
+                                <td className="p-2">
+                                  <Badge variant={visit.is_productive ? 'default' : 'secondary'}>
+                                    {visit.is_productive ? 'Productive' : 'Unproductive'}
+                                  </Badge>
+                                </td>
+                                <td className="p-2">{visit.new_retailers_count || 0}</td>
+                                <td className="p-2">{visit.team_member_name}</td>
+                                <td className="p-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => window.open(`/visit-detail/${visit.id}`, '_blank')}
+                                  >
+                                    Read More
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        No visit history available
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           </div>
+        )}
+        
+        {/* Retailer Detail Modal */}
+        {selectedRetailerId && (
+          <RetailerDetailModal
+            isOpen={showRetailerDetail}
+            onClose={() => {
+              setShowRetailerDetail(false);
+              setSelectedRetailerId(null);
+            }}
+            retailer={allRetailersInBeat.find(r => r.id === selectedRetailerId) || null}
+            onSuccess={() => {
+              // Reload analytics data
+              loadAnalytics();
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>

@@ -105,9 +105,18 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
           <div className="flex items-center justify-between p-2 bg-muted/20 rounded">
             <div className="flex items-center gap-2 text-muted-foreground">
               <UserPlus className="h-3 w-3" />
-              <span className="text-xs">New (3M):</span>
+              <span className="text-xs">New retailers (3M):</span>
             </div>
             <span className="font-semibold">{loading ? '...' : metrics.retailersAdded3Months}</span>
+          </div>
+          <div className="flex items-center justify-between p-2 bg-muted/20 rounded">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Package className="h-3 w-3" />
+              <span className="text-xs">Last Visit Value:</span>
+            </div>
+            <span className="font-semibold">
+              {loading ? '...' : metrics.lastVisitOrderValue ? `₹${(metrics.lastVisitOrderValue / 1000).toFixed(1)}K` : '₹0'}
+            </span>
           </div>
           <div className="flex items-center justify-between p-2 bg-muted/20 rounded">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -164,7 +173,7 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
             onClick={onDetails}
           >
             <BarChart className="h-4 w-4" />
-            Details
+            Analytics
           </Button>
           <Button 
             size="sm" 
