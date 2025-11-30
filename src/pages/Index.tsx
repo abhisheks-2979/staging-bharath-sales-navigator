@@ -1,16 +1,14 @@
-import { Store, Users, Trophy, BarChart, CreditCard, MapPin, Plus, ShoppingCart, TrendingUp } from "lucide-react";
+import { Store, Users, Trophy, BarChart, CreditCard, MapPin, Plus, ShoppingCart, TrendingUp, MoreHorizontal } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useHomeDashboard } from "@/hooks/useHomeDashboard";
 import { DashboardSkeleton } from "@/components/home/DashboardSkeleton";
 import { CheckInStatusBanner } from "@/components/home/CheckInStatusBanner";
 import { TodaysBeatCard } from "@/components/home/TodaysBeatCard";
-import { UrgentAlertsSection } from "@/components/home/UrgentAlertsSection";
 import { QuickNavGrid } from "@/components/home/QuickNavGrid";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { PerformanceCalendar } from "@/components/PerformanceCalendar";
-import { WeeklySalesCharts } from "@/components/home/WeeklySalesCharts";
 import { TomorrowBeatPlan } from "@/components/home/TomorrowBeatPlan";
 import { WeekAISummary } from "@/components/home/WeekAISummary";
 import { PendingPayments } from "@/components/home/PendingPayments";
@@ -19,6 +17,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const Index = () => {
   const { userProfile, user, userRole } = useAuth();
@@ -150,53 +150,50 @@ const Index = () => {
               {/* Quick Actions */}
               <Card className="p-4">
                 <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col h-auto py-3 gap-1"
-                    onClick={() => navigate('/retailers/add')}
-                  >
-                    <Plus className="h-5 w-5" />
-                    <span className="text-xs">Add Retailer</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col h-auto py-3 gap-1"
-                    onClick={() => navigate('/visits/retailers')}
-                  >
-                    <ShoppingCart className="h-5 w-5" />
-                    <span className="text-xs">Add Order</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col h-auto py-3 gap-1"
-                    onClick={() => navigate('/competition')}
-                  >
-                    <TrendingUp className="h-5 w-5" />
-                    <span className="text-xs">Add Competition</span>
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                      <MoreHorizontal className="h-4 w-4 mr-2" />
+                      Add New
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-[200px]">
+                    <DropdownMenuItem onClick={() => navigate('/retailers/add')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Retailer
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/visits/retailers')}>
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Add Order
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/competition')}>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Add Competition
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </Card>
 
               {/* Pending Payments - Real-time */}
               {userProfile?.id && <PendingPayments userId={userProfile.id} />}
 
-              {/* Urgent Alerts */}
-              <UrgentAlertsSection urgentItems={urgentItems} />
-
               {/* Tomorrow's Beat Plan */}
               {userProfile?.id && <TomorrowBeatPlan userId={userProfile.id} />}
 
-              {/* Week AI Summaries */}
+              {/* Week AI Summaries - Enhanced prominence */}
               {userProfile?.id && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <WeekAISummary userId={userProfile.id} weekType="current" />
-                  <WeekAISummary userId={userProfile.id} weekType="next" />
+                <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-xl p-5 border-2 border-primary/20 shadow-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-8 w-1 bg-primary rounded-full" />
+                    <h2 className="text-xl font-bold">AI Weekly Insights</h2>
+                    <Badge variant="secondary" className="ml-auto">Your USP</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <WeekAISummary userId={userProfile.id} weekType="current" />
+                    <WeekAISummary userId={userProfile.id} weekType="next" />
+                  </div>
                 </div>
               )}
-
-              {/* Weekly Sales Charts */}
-              {userProfile?.id && <WeeklySalesCharts userId={userProfile.id} />}
 
               {/* Performance Calendar */}
               {userProfile?.id && <PerformanceCalendar />}

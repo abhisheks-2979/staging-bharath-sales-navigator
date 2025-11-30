@@ -6,6 +6,7 @@ import { CreditCard, RefreshCw, ChevronRight, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 
 interface PendingPayment {
   retailerId: string;
@@ -24,6 +25,8 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
   const [totalPending, setTotalPending] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [selectedRetailer, setSelectedRetailer] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const fetchPendingPayments = async () => {
     try {
@@ -125,6 +128,23 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
     };
   }, [userId]);
 
+  const handleRetailerClick = async (retailerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('retailers')
+        .select('*')
+        .eq('id', retailerId)
+        .single();
+
+      if (error) throw error;
+
+      setSelectedRetailer(data);
+      setShowDetailModal(true);
+    } catch (error) {
+      console.error('Error fetching retailer details:', error);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -195,7 +215,7 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
               <div 
                 key={payment.retailerId}
                 className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
-                onClick={() => navigate(`/retailers/${payment.retailerId}`)}
+                onClick={() => handleRetailerClick(payment.retailerId)}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{payment.retailerName}</p>
@@ -225,12 +245,27 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
           <Button 
             variant="outline" 
             className="w-full text-sm"
-            onClick={() => navigate('/credit-management')}
+            onClick={() => navigate('/pending-payments-all')}
           >
             View All Pending Payments
           </Button>
         )}
       </CardContent>
+
+      {/* Retailer Detail Modal */}
+      {selectedRetailer && (
+        <RetailerDetailModal
+          isOpen={showDetailModal}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedRetailer(null);
+          }}
+          retailer={selectedRetailer}
+          onSuccess={() => {
+            fetchPendingPayments();
+          }}
+        />
+      )}
     </Card>
   );
 };
