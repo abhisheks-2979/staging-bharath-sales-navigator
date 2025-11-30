@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { CompetitionInsightModal } from "./CompetitionInsightModal";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
+import { JointSalesFeedbackModal } from "./JointSalesFeedbackModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
 import { StockCycleModal } from "./StockCycleModal";
@@ -130,6 +131,9 @@ export const VisitCard = ({
   const [skipCheckInReasonType, setSkipCheckInReasonType] = useState<string>('');
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showVanSales, setShowVanSales] = useState(false);
+  const [showJointSalesFeedback, setShowJointSalesFeedback] = useState(false);
+  const [isJointVisit, setIsJointVisit] = useState(false);
+  const [jointSalesManagerId, setJointSalesManagerId] = useState<string>("");
   const {
     isVanSalesEnabled
   } = useVanSales();
@@ -286,7 +290,7 @@ export const VisitCard = ({
           const {
             data: visitData,
             error: visitError
-          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
+          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id, beat_id').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
           
           if (!visitError && visitData) {
             console.log('📊 Visit data from DB:', visitData);
@@ -322,7 +326,20 @@ export const VisitCard = ({
             }
           }
 
-          // Check stock records - @ts-ignore to bypass TypeScript deep type inference issue
+            // Check if this is a joint visit where current user is the manager
+            const { data: beatPlan } = await supabase
+              .from('beat_plans')
+              .select('joint_sales_manager_id')
+              .eq('beat_id', visitData.beat_id || '')
+              .eq('plan_date', targetDate)
+              .maybeSingle();
+            
+            if (beatPlan?.joint_sales_manager_id === user.user.id) {
+              setIsJointVisit(true);
+              setJointSalesManagerId(beatPlan.joint_sales_manager_id);
+            }
+
+            // Check stock records - @ts-ignore to bypass TypeScript deep type inference issue
           // @ts-ignore
           const stockResponse = await supabase
             .from('stock')

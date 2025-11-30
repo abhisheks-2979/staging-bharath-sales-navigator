@@ -324,6 +324,7 @@ export type Database = {
           beat_name: string
           created_at: string
           id: string
+          joint_sales_manager_id: string | null
           plan_date: string
           updated_at: string
           user_id: string
@@ -334,6 +335,7 @@ export type Database = {
           beat_name: string
           created_at?: string
           id?: string
+          joint_sales_manager_id?: string | null
           plan_date: string
           updated_at?: string
           user_id: string
@@ -344,6 +346,7 @@ export type Database = {
           beat_name?: string
           created_at?: string
           id?: string
+          joint_sales_manager_id?: string | null
           plan_date?: string
           updated_at?: string
           user_id?: string
@@ -2142,6 +2145,189 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      joint_sales_feedback: {
+        Row: {
+          action_items: string | null
+          additional_notes: string | null
+          beat_plan_id: string | null
+          branding_rating: number | null
+          branding_status: string | null
+          competition_presence: string | null
+          competition_rating: number | null
+          conversation_highlights: string | null
+          created_at: string | null
+          distributor_feedback_rating: number | null
+          distributor_service: string | null
+          feedback_date: string
+          fse_user_id: string
+          future_growth_rating: number | null
+          growth_potential: string | null
+          id: string
+          manager_id: string
+          pricing_compliance: string | null
+          pricing_feedback_rating: number | null
+          product_feedback_rating: number | null
+          retailer_id: string
+          retailer_notes: string | null
+          retailing_rating: number | null
+          sales_trend: string | null
+          sales_trends_rating: number | null
+          sampling_rating: number | null
+          sampling_status: string | null
+          scheme_awareness: string | null
+          schemes_rating: number | null
+          shelf_visibility: string | null
+          updated_at: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          action_items?: string | null
+          additional_notes?: string | null
+          beat_plan_id?: string | null
+          branding_rating?: number | null
+          branding_status?: string | null
+          competition_presence?: string | null
+          competition_rating?: number | null
+          conversation_highlights?: string | null
+          created_at?: string | null
+          distributor_feedback_rating?: number | null
+          distributor_service?: string | null
+          feedback_date?: string
+          fse_user_id: string
+          future_growth_rating?: number | null
+          growth_potential?: string | null
+          id?: string
+          manager_id: string
+          pricing_compliance?: string | null
+          pricing_feedback_rating?: number | null
+          product_feedback_rating?: number | null
+          retailer_id: string
+          retailer_notes?: string | null
+          retailing_rating?: number | null
+          sales_trend?: string | null
+          sales_trends_rating?: number | null
+          sampling_rating?: number | null
+          sampling_status?: string | null
+          scheme_awareness?: string | null
+          schemes_rating?: number | null
+          shelf_visibility?: string | null
+          updated_at?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          action_items?: string | null
+          additional_notes?: string | null
+          beat_plan_id?: string | null
+          branding_rating?: number | null
+          branding_status?: string | null
+          competition_presence?: string | null
+          competition_rating?: number | null
+          conversation_highlights?: string | null
+          created_at?: string | null
+          distributor_feedback_rating?: number | null
+          distributor_service?: string | null
+          feedback_date?: string
+          fse_user_id?: string
+          future_growth_rating?: number | null
+          growth_potential?: string | null
+          id?: string
+          manager_id?: string
+          pricing_compliance?: string | null
+          pricing_feedback_rating?: number | null
+          product_feedback_rating?: number | null
+          retailer_id?: string
+          retailer_notes?: string | null
+          retailing_rating?: number | null
+          sales_trend?: string | null
+          sales_trends_rating?: number | null
+          sampling_rating?: number | null
+          sampling_status?: string | null
+          scheme_awareness?: string | null
+          schemes_rating?: number | null
+          shelf_visibility?: string | null
+          updated_at?: string | null
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "joint_sales_feedback_beat_plan_id_fkey"
+            columns: ["beat_plan_id"]
+            isOneToOne: false
+            referencedRelation: "beat_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "joint_sales_feedback_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "joint_sales_feedback_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      joint_sales_sessions: {
+        Row: {
+          beat_id: string | null
+          beat_name: string | null
+          beat_plan_id: string | null
+          created_at: string | null
+          fse_user_id: string
+          id: string
+          manager_id: string
+          session_date: string
+          session_end_time: string | null
+          session_start_time: string | null
+          total_feedback_captured: number | null
+          total_retailers_visited: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          beat_id?: string | null
+          beat_name?: string | null
+          beat_plan_id?: string | null
+          created_at?: string | null
+          fse_user_id: string
+          id?: string
+          manager_id: string
+          session_date: string
+          session_end_time?: string | null
+          session_start_time?: string | null
+          total_feedback_captured?: number | null
+          total_retailers_visited?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          beat_id?: string | null
+          beat_name?: string | null
+          beat_plan_id?: string | null
+          created_at?: string | null
+          fse_user_id?: string
+          id?: string
+          manager_id?: string
+          session_date?: string
+          session_end_time?: string | null
+          session_start_time?: string | null
+          total_feedback_captured?: number | null
+          total_retailers_visited?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "joint_sales_sessions_beat_plan_id_fkey"
+            columns: ["beat_plan_id"]
+            isOneToOne: false
+            referencedRelation: "beat_plans"
             referencedColumns: ["id"]
           },
         ]
