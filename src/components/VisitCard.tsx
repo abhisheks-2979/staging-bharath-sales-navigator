@@ -290,7 +290,7 @@ export const VisitCard = ({
           const {
             data: visitData,
             error: visitError
-          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id, beat_id').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
+          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
           
           if (!visitError && visitData) {
             console.log('📊 Visit data from DB:', visitData);
@@ -327,16 +327,20 @@ export const VisitCard = ({
           }
 
             // Check if this is a joint visit where current user is the manager
-            const { data: beatPlan } = await supabase
+            // Find beat_plan that contains this retailer
+            const { data: beatPlans } = await supabase
               .from('beat_plans')
-              .select('joint_sales_manager_id')
-              .eq('beat_id', visitData.beat_id || '')
-              .eq('plan_date', targetDate)
-              .maybeSingle();
+              .select('beat_id, joint_sales_manager_id, beat_data')
+              .eq('plan_date', targetDate);
             
-            if (beatPlan?.joint_sales_manager_id === user.user.id) {
+            const matchingBeatPlan = beatPlans?.find(bp => {
+              const beatData = bp.beat_data as any;
+              return beatData?.retailers?.some((r: any) => r.id === visitRetailerId);
+            });
+            
+            if (matchingBeatPlan?.joint_sales_manager_id === user.user.id) {
               setIsJointVisit(true);
-              setJointSalesManagerId(beatPlan.joint_sales_manager_id);
+              setJointSalesManagerId(matchingBeatPlan.joint_sales_manager_id);
             }
 
             // Check stock records - @ts-ignore to bypass TypeScript deep type inference issue
