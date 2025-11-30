@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, startOfDay, addDays, addWeeks, subWeeks, subDays, startOfYear, endOfYear } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 interface DayData {
   date: Date;
@@ -20,13 +25,26 @@ interface DayData {
   isLeave: boolean;
 }
 
+type ViewMode = "day" | "week" | "month";
+
 export const PerformanceCalendar = () => {
   const navigate = useNavigate();
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Map<string, DayData>>(new Map());
   const [loading, setLoading] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("self");
+  const [selectedUserId, setSelectedUserId] = useState<string>("all");
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [filters, setFilters] = useState({
+    productive: true,
+    unproductive: true,
+    storeClosed: true,
+    planned: true,
+    holidays: true,
+    leaves: true
+  });
 
   const fetchTeamMembers = async () => {
     try {
@@ -65,8 +83,19 @@ export const PerformanceCalendar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const monthStart = startOfMonth(currentMonth);
-      const monthEnd = endOfMonth(currentMonth);
+      let rangeStart: Date;
+      let rangeEnd: Date;
+
+      if (viewMode === "day") {
+        rangeStart = startOfDay(currentDate);
+        rangeEnd = startOfDay(currentDate);
+      } else if (viewMode === "week") {
+        rangeStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+        rangeEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
+      } else {
+        rangeStart = startOfMonth(currentDate);
+        rangeEnd = endOfMonth(currentDate);
+      }
 
       // Determine which user ID to use for data fetching
       let targetUserId = user.id;
@@ -85,23 +114,23 @@ export const PerformanceCalendar = () => {
         userIds = [selectedUserId];
       }
 
-      // Fetch beat plans for the month
+      // Fetch beat plans for the range
       const { data: beatPlans, error: beatPlansError } = await supabase
         .from('beat_plans')
         .select('plan_date, beat_name')
         .in('user_id', userIds)
-        .gte('plan_date', format(monthStart, 'yyyy-MM-dd'))
-        .lte('plan_date', format(monthEnd, 'yyyy-MM-dd'));
+        .gte('plan_date', format(rangeStart, 'yyyy-MM-dd'))
+        .lte('plan_date', format(rangeEnd, 'yyyy-MM-dd'));
 
       if (beatPlansError) throw beatPlansError;
 
-      // Fetch visits for the month
+      // Fetch visits for the range
       const { data: visits, error: visitsError } = await supabase
         .from('visits')
         .select('*')
         .in('user_id', userIds)
-        .gte('planned_date', format(monthStart, 'yyyy-MM-dd'))
-        .lte('planned_date', format(monthEnd, 'yyyy-MM-dd'));
+        .gte('planned_date', format(rangeStart, 'yyyy-MM-dd'))
+        .lte('planned_date', format(rangeEnd, 'yyyy-MM-dd'));
 
       if (visitsError) throw visitsError;
 
@@ -123,18 +152,18 @@ export const PerformanceCalendar = () => {
       const { data: holidays, error: holidaysError } = await supabase
         .from('holidays')
         .select('date')
-        .gte('date', format(monthStart, 'yyyy-MM-dd'))
-        .lte('date', format(monthEnd, 'yyyy-MM-dd'));
+        .gte('date', format(rangeStart, 'yyyy-MM-dd'))
+        .lte('date', format(rangeEnd, 'yyyy-MM-dd'));
 
       if (holidaysError) throw holidaysError;
 
-      // Fetch leave applications
+      // Fetch leave applications for selected users
       const { data: leaves, error: leavesError } = await supabase
         .from('leave_applications')
-        .select('start_date, end_date')
-        .eq('user_id', user.id)
+        .select('start_date, end_date, user_id')
+        .in('user_id', userIds)
         .eq('status', 'approved')
-        .or(`start_date.lte.${format(monthEnd, 'yyyy-MM-dd')},end_date.gte.${format(monthStart, 'yyyy-MM-dd')}`);
+        .or(`start_date.lte.${format(rangeEnd, 'yyyy-MM-dd')},end_date.gte.${format(rangeStart, 'yyyy-MM-dd')}`);
 
       if (leavesError) throw leavesError;
 
@@ -224,14 +253,37 @@ export const PerformanceCalendar = () => {
 
   useEffect(() => {
     fetchCalendarData();
-  }, [currentMonth, selectedUserId]);
+  }, [currentDate, selectedUserId, viewMode, filters]);
 
-  const handlePreviousMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
+  useEffect(() => {
+    // Sync currentDate with selectedYear and selectedMonth
+    setCurrentDate(new Date(selectedYear, selectedMonth, 1));
+  }, [selectedYear, selectedMonth]);
+
+  const handlePrevious = () => {
+    if (viewMode === "day") {
+      setCurrentDate(subDays(currentDate, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      const newDate = subMonths(currentDate, 1);
+      setCurrentDate(newDate);
+      setSelectedMonth(newDate.getMonth());
+      setSelectedYear(newDate.getFullYear());
+    }
   };
 
-  const handleNextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
+  const handleNext = () => {
+    if (viewMode === "day") {
+      setCurrentDate(addDays(currentDate, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      const newDate = addMonths(currentDate, 1);
+      setCurrentDate(newDate);
+      setSelectedMonth(newDate.getMonth());
+      setSelectedYear(newDate.getFullYear());
+    }
   };
 
   const handleDateClick = (date: Date) => {
@@ -240,8 +292,9 @@ export const PerformanceCalendar = () => {
 
   const getColorClass = (dayData: DayData | undefined) => {
     if (!dayData) return 'bg-background';
-    if (dayData.isHoliday || dayData.isLeave) return 'bg-muted';
-    if (dayData.completedVisits === 0) return 'bg-background';
+    if (dayData.isHoliday && filters.holidays) return 'bg-muted';
+    if (dayData.isLeave && filters.leaves) return 'bg-muted';
+    if (dayData.completedVisits === 0 && filters.planned) return 'bg-background';
     
     if (dayData.productivity >= 50) return 'bg-success/20 border-success/40';
     if (dayData.productivity >= 30) return 'bg-warning/20 border-warning/40';
@@ -249,42 +302,427 @@ export const PerformanceCalendar = () => {
     return 'bg-muted';
   };
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const shouldShowDay = (dayData: DayData | undefined) => {
+    if (!dayData) return true;
+    if (dayData.isHoliday && !filters.holidays) return false;
+    if (dayData.isLeave && !filters.leaves) return false;
+    return true;
+  };
+
+  const getDateRange = () => {
+    if (viewMode === "day") {
+      return format(currentDate, 'MMMM d, yyyy');
+    } else if (viewMode === "week") {
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
+      return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+    } else {
+      return format(currentDate, 'MMMM yyyy');
+    }
+  };
+
+  const renderMonthView = () => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(currentDate);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+    return (
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
+            {day}
+          </div>
+        ))}
+        
+        {calendarDays.map(day => {
+          const dateKey = format(day, 'yyyy-MM-dd');
+          const dayData = calendarData.get(dateKey);
+          const isCurrentMonth = isSameMonth(day, currentDate);
+          const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+          if (!shouldShowDay(dayData)) return null;
+
+          return (
+            <button
+              key={dateKey}
+              onClick={() => handleDateClick(day)}
+              disabled={!isCurrentMonth}
+              className={cn(
+                "min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border rounded-lg transition-all",
+                "hover:shadow-md hover:scale-105",
+                "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
+                getColorClass(dayData),
+                isToday && "ring-2 ring-primary"
+              )}
+            >
+              <div className="text-left space-y-0.5 sm:space-y-1">
+                <div className={cn(
+                  "text-xs sm:text-sm font-semibold",
+                  isToday && "text-primary"
+                )}>
+                  {format(day, 'd')}
+                </div>
+                
+                {isCurrentMonth && dayData && dayData.completedVisits > 0 && (
+                  <div className="text-[10px] sm:text-xs space-y-0.5">
+                    {dayData.beatName && (
+                      <div className="font-medium truncate" title={dayData.beatName}>
+                        {dayData.beatName}
+                      </div>
+                    )}
+                    <div className="text-muted-foreground">
+                      P: {dayData.plannedVisits} | C: {dayData.completedVisits}
+                    </div>
+                    <div className="text-success font-medium">
+                      Prod: {dayData.productiveVisits}
+                    </div>
+                    {dayData.revenue > 0 && (
+                      <div className="text-primary font-semibold">
+                        ₹{(dayData.revenue / 1000).toFixed(1)}k
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isCurrentMonth && dayData && (dayData.isHoliday || dayData.isLeave) && (
+                  <div className="text-[10px] sm:text-xs text-muted-foreground">
+                    {dayData.isHoliday ? 'Holiday' : 'Leave'}
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderWeekView = () => {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
+    return (
+      <div className="overflow-x-auto">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-8 gap-1 border-b">
+            <div className="p-2 text-xs font-semibold">Time</div>
+            {weekDays.map(day => {
+              const dateKey = format(day, 'yyyy-MM-dd');
+              const dayData = calendarData.get(dateKey);
+              const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+              
+              return (
+                <div 
+                  key={dateKey} 
+                  className={cn(
+                    "p-2 text-center border-l",
+                    isToday && "bg-primary/10"
+                  )}
+                >
+                  <div className="text-xs font-semibold">{format(day, 'EEE')}</div>
+                  <div className={cn("text-lg font-bold", isToday && "text-primary")}>
+                    {format(day, 'd')}
+                  </div>
+                  {dayData && dayData.completedVisits > 0 && (
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      {dayData.completedVisits} visits
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-8 gap-1">
+            {hours.map(hour => (
+              <>
+                <div key={`hour-${hour}`} className="p-2 text-xs text-muted-foreground border-b">
+                  {format(new Date().setHours(hour, 0), 'h a')}
+                </div>
+                {weekDays.map(day => {
+                  const dateKey = format(day, 'yyyy-MM-dd');
+                  const dayData = calendarData.get(dateKey);
+                  
+                  return (
+                    <button
+                      key={`${dateKey}-${hour}`}
+                      onClick={() => handleDateClick(day)}
+                      className={cn(
+                        "min-h-[60px] p-1 border-b border-l hover:bg-accent transition-colors text-left",
+                        hour >= 9 && hour <= 17 && dayData && "cursor-pointer"
+                      )}
+                    >
+                      {hour === 9 && dayData && dayData.beatName && (
+                        <div className="text-[10px] font-medium truncate bg-primary/10 p-1 rounded">
+                          {dayData.beatName}
+                        </div>
+                      )}
+                      {hour === 10 && dayData && dayData.completedVisits > 0 && (
+                        <div className="text-[10px] space-y-0.5">
+                          <div>✓ {dayData.completedVisits} visits</div>
+                          <div className="text-success">Prod: {dayData.productiveVisits}</div>
+                          {dayData.revenue > 0 && (
+                            <div className="text-primary font-semibold">
+                              ₹{(dayData.revenue / 1000).toFixed(1)}k
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const dateKey = format(currentDate, 'yyyy-MM-dd');
+    const dayData = calendarData.get(dateKey);
+
+    return (
+      <div className="space-y-1">
+        <div className="bg-accent/50 p-4 rounded-lg mb-4">
+          <h3 className="text-lg font-semibold mb-2">{format(currentDate, 'EEEE, MMMM d, yyyy')}</h3>
+          {dayData ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>
+                <div className="text-muted-foreground">Beat</div>
+                <div className="font-semibold">{dayData.beatName || 'N/A'}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Planned Visits</div>
+                <div className="font-semibold">{dayData.plannedVisits}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Completed</div>
+                <div className="font-semibold text-success">{dayData.completedVisits}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Revenue</div>
+                <div className="font-semibold text-primary">
+                  ₹{(dayData.revenue / 1000).toFixed(1)}k
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">No activities recorded for this day</div>
+          )}
+        </div>
+
+        <div className="border rounded-lg overflow-hidden">
+          {hours.map(hour => (
+            <div 
+              key={hour}
+              className={cn(
+                "flex items-start border-b last:border-b-0 min-h-[80px] hover:bg-accent/50 transition-colors",
+                hour >= 9 && hour <= 17 && "bg-accent/10"
+              )}
+            >
+              <div className="w-24 p-3 text-sm font-medium text-muted-foreground border-r">
+                {format(new Date().setHours(hour, 0), 'h:mm a')}
+              </div>
+              <div className="flex-1 p-3">
+                {hour === 9 && dayData?.beatName && (
+                  <div className="bg-primary/10 p-2 rounded mb-2">
+                    <div className="font-medium text-sm">📍 Beat: {dayData.beatName}</div>
+                  </div>
+                )}
+                {hour === 10 && dayData && dayData.completedVisits > 0 && (
+                  <div className="space-y-2">
+                    <div className="bg-success/10 p-2 rounded">
+                      <div className="font-medium text-sm">
+                        ✓ {dayData.completedVisits} visits completed ({dayData.productiveVisits} productive)
+                      </div>
+                    </div>
+                    {dayData.revenue > 0 && (
+                      <div className="bg-primary/10 p-2 rounded">
+                        <div className="font-medium text-sm">
+                          💰 Revenue: ₹{(dayData.revenue / 1000).toFixed(1)}k
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-lg">Performance on Calendar View</CardTitle>
-            <div className="flex items-center gap-1 sm:gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handlePreviousMonth}>
-                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
-              <span className="text-xs sm:text-sm font-medium min-w-[100px] sm:min-w-[120px] text-center">
-                {format(currentMonth, 'MMMM yyyy')}
-              </span>
-              <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleNextMonth}>
-                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-lg">Performance Calendar</CardTitle>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* View Mode Selector */}
+              <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+                <SelectTrigger className="w-[120px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Day</SelectItem>
+                  <SelectItem value="week">Week</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filter Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Filter
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64" align="end">
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm">Filter Calendar</h4>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="productive" 
+                          checked={filters.productive}
+                          onCheckedChange={(checked) => setFilters(prev => ({ ...prev, productive: checked as boolean }))}
+                        />
+                        <Label htmlFor="productive" className="text-sm">Productive Visits</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="unproductive" 
+                          checked={filters.unproductive}
+                          onCheckedChange={(checked) => setFilters(prev => ({ ...prev, unproductive: checked as boolean }))}
+                        />
+                        <Label htmlFor="unproductive" className="text-sm">Unproductive Visits</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="storeClosed" 
+                          checked={filters.storeClosed}
+                          onCheckedChange={(checked) => setFilters(prev => ({ ...prev, storeClosed: checked as boolean }))}
+                        />
+                        <Label htmlFor="storeClosed" className="text-sm">Store Closed</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="planned" 
+                          checked={filters.planned}
+                          onCheckedChange={(checked) => setFilters(prev => ({ ...prev, planned: checked as boolean }))}
+                        />
+                        <Label htmlFor="planned" className="text-sm">Planned Visits</Label>
+                      </div>
+                      <Separator />
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="holidays" 
+                          checked={filters.holidays}
+                          onCheckedChange={(checked) => setFilters(prev => ({ ...prev, holidays: checked as boolean }))}
+                        />
+                        <Label htmlFor="holidays" className="text-sm">Show Holidays</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="leaves" 
+                          checked={filters.leaves}
+                          onCheckedChange={(checked) => setFilters(prev => ({ ...prev, leaves: checked as boolean }))}
+                        />
+                        <Label htmlFor="leaves" className="text-sm">Show Leaves</Label>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
-          
-          {/* User Selection Dropdown */}
-          {teamMembers.length > 0 && (
+
+          {/* Navigation and Date Picker Row */}
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">View:</label>
+              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={handlePrevious}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* Date/Month/Year Picker */}
+              {viewMode === "month" ? (
+                <div className="flex items-center gap-2">
+                  <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+                    <SelectTrigger className="w-[130px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {months.map((month, index) => (
+                        <SelectItem key={month} value={index.toString()}>
+                          {month}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                    <SelectTrigger className="w-[100px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-9">
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {getDateRange()}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={currentDate}
+                      onSelect={(date) => date && setCurrentDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={handleNext}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Team Member Selector */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium whitespace-nowrap">Team Member:</label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[150px] h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="self">Self</SelectItem>
-                  <SelectItem value="all">All</SelectItem>
+                  {teamMembers.length > 0 && <SelectItem value="all">All Team</SelectItem>}
                   {teamMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
@@ -293,97 +731,43 @@ export const PerformanceCalendar = () => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Legend - Only show in month view */}
+          {viewMode === "month" && (
+            <div className="flex flex-wrap gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-success/20 border border-success/40" />
+                <span className="text-muted-foreground">&gt;50% Productive</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-warning/20 border border-warning/40" />
+                <span className="text-muted-foreground">&gt;30% Productive</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-destructive/20 border border-destructive/40" />
+                <span className="text-muted-foreground">&lt;20% Productive</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded bg-muted border" />
+                <span className="text-muted-foreground">Holiday/Leave</span>
+              </div>
+            </div>
           )}
-        </div>
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-4 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-success/20 border border-success/40" />
-            <span className="text-muted-foreground">&gt;50% Productive</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-warning/20 border border-warning/40" />
-            <span className="text-muted-foreground">&gt;30% Productive</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-destructive/20 border border-destructive/40" />
-            <span className="text-muted-foreground">&lt;20% Productive</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-muted border" />
-            <span className="text-muted-foreground">Holiday/Leave</span>
-          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
-          {/* Day headers */}
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
-              {day}
-            </div>
-          ))}
-          
-          {/* Calendar days */}
-          {calendarDays.map(day => {
-            const dateKey = format(day, 'yyyy-MM-dd');
-            const dayData = calendarData.get(dateKey);
-            const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-
-            return (
-              <button
-                key={dateKey}
-                onClick={() => handleDateClick(day)}
-                disabled={!isCurrentMonth}
-                className={cn(
-                  "min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border rounded-lg transition-all",
-                  "hover:shadow-md hover:scale-105",
-                  "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
-                  getColorClass(dayData),
-                  isToday && "ring-2 ring-primary"
-                )}
-              >
-                <div className="text-left space-y-0.5 sm:space-y-1">
-                  <div className={cn(
-                    "text-xs sm:text-sm font-semibold",
-                    isToday && "text-primary"
-                  )}>
-                    {format(day, 'd')}
-                  </div>
-                  
-                  {isCurrentMonth && dayData && dayData.completedVisits > 0 && (
-                    <div className="text-[10px] sm:text-xs space-y-0.5">
-                      {dayData.beatName && (
-                        <div className="font-medium truncate" title={dayData.beatName}>
-                          {dayData.beatName}
-                        </div>
-                      )}
-                      <div className="text-muted-foreground">
-                        P: {dayData.plannedVisits} | C: {dayData.completedVisits}
-                      </div>
-                      <div className="text-success font-medium">
-                        Prod: {dayData.productiveVisits}
-                      </div>
-                      {dayData.revenue > 0 && (
-                        <div className="text-primary font-semibold">
-                          ₹{(dayData.revenue / 1000).toFixed(1)}k
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {isCurrentMonth && dayData && (dayData.isHoliday || dayData.isLeave) && (
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">
-                      {dayData.isHoliday ? 'Holiday' : 'Leave'}
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-muted-foreground">Loading calendar data...</div>
+          </div>
+        ) : (
+          <>
+            {viewMode === "month" && renderMonthView()}
+            {viewMode === "week" && renderWeekView()}
+            {viewMode === "day" && renderDayView()}
+          </>
+        )}
       </CardContent>
     </Card>
   );
