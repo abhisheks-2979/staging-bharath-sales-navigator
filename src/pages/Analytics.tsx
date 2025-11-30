@@ -577,28 +577,40 @@ const Analytics = () => {
                   <p className="text-primary-foreground/80 text-sm">Real-time business analytics</p>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLike}
-                className={`text-primary-foreground hover:bg-primary-foreground/20 ${
-                  hasLiked ? "bg-primary-foreground/20" : ""
-                }`}
-              >
-                <Heart size={20} className={hasLiked ? "fill-current" : ""} />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/joint-sales-analytics')}
+                  className="text-primary-foreground hover:bg-primary-foreground/20"
+                >
+                  <Users size={16} className="mr-2" />
+                  Joint Sales
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLike}
+                  className={`text-primary-foreground hover:bg-primary-foreground/20 ${
+                    hasLiked ? "bg-primary-foreground/20" : ""
+                  }`}
+                >
+                  <Heart size={20} className={hasLiked ? "fill-current" : ""} />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="p-4 -mt-4 relative z-10">
           <Tabs defaultValue="kpi" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="kpi">KPI</TabsTrigger>
               <TabsTrigger value="progress">Progress</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="retailers">Retailers</TabsTrigger>
-              <TabsTrigger value="predictions">Predictive</TabsTrigger>
+              <TabsTrigger value="predictions">Predictions</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
             </TabsList>
 
             {/* KPI Dashboard */}
