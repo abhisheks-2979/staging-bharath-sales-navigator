@@ -6,6 +6,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMo
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface DayData {
   date: Date;
@@ -24,6 +25,39 @@ export const PerformanceCalendar = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Map<string, DayData>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>("self");
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
+
+  const fetchTeamMembers = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get subordinates
+      const { data: subordinates } = await supabase.rpc('get_subordinate_users', {
+        user_id_param: user.id
+      });
+
+      if (subordinates && subordinates.length > 0) {
+        const subordinateIds = subordinates.map((s: any) => s.subordinate_user_id);
+        
+        // Get profiles for subordinates
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', subordinateIds);
+
+        const formattedProfiles = profiles?.map(p => ({
+          id: p.id,
+          name: p.full_name || 'Unknown'
+        })) || [];
+
+        setTeamMembers(formattedProfiles);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    }
+  };
 
   const fetchCalendarData = async () => {
     try {
@@ -34,11 +68,28 @@ export const PerformanceCalendar = () => {
       const monthStart = startOfMonth(currentMonth);
       const monthEnd = endOfMonth(currentMonth);
 
+      // Determine which user ID to use for data fetching
+      let targetUserId = user.id;
+      let userIds: string[] = [user.id];
+
+      if (selectedUserId === "all") {
+        // Get all subordinates
+        const { data: subordinates } = await supabase.rpc('get_subordinate_users', {
+          user_id_param: user.id
+        });
+        if (subordinates) {
+          userIds = [user.id, ...subordinates.map((s: any) => s.subordinate_user_id)];
+        }
+      } else if (selectedUserId !== "self") {
+        targetUserId = selectedUserId;
+        userIds = [selectedUserId];
+      }
+
       // Fetch beat plans for the month
       const { data: beatPlans, error: beatPlansError } = await supabase
         .from('beat_plans')
         .select('plan_date, beat_name')
-        .eq('user_id', user.id)
+        .in('user_id', userIds)
         .gte('plan_date', format(monthStart, 'yyyy-MM-dd'))
         .lte('plan_date', format(monthEnd, 'yyyy-MM-dd'));
 
@@ -48,7 +99,7 @@ export const PerformanceCalendar = () => {
       const { data: visits, error: visitsError } = await supabase
         .from('visits')
         .select('*')
-        .eq('user_id', user.id)
+        .in('user_id', userIds)
         .gte('planned_date', format(monthStart, 'yyyy-MM-dd'))
         .lte('planned_date', format(monthEnd, 'yyyy-MM-dd'));
 
@@ -61,7 +112,7 @@ export const PerformanceCalendar = () => {
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select('visit_id, total_amount')
-          .eq('user_id', user.id)
+          .in('user_id', userIds)
           .in('visit_id', visitIds);
 
         if (ordersError) throw ordersError;
@@ -168,8 +219,12 @@ export const PerformanceCalendar = () => {
   };
 
   useEffect(() => {
+    fetchTeamMembers();
+  }, []);
+
+  useEffect(() => {
     fetchCalendarData();
-  }, [currentMonth]);
+  }, [currentMonth, selectedUserId]);
 
   const handlePreviousMonth = () => {
     setCurrentMonth(subMonths(currentMonth, 1));
@@ -203,19 +258,42 @@ export const PerformanceCalendar = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Performance on Calendar View</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePreviousMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium min-w-[120px] text-center">
-              {format(currentMonth, 'MMMM yyyy')}
-            </span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-lg">Performance on Calendar View</CardTitle>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handlePreviousMonth}>
+                <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <span className="text-xs sm:text-sm font-medium min-w-[100px] sm:min-w-[120px] text-center">
+                {format(currentMonth, 'MMMM yyyy')}
+              </span>
+              <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleNextMonth}>
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
           </div>
+          
+          {/* User Selection Dropdown */}
+          {teamMembers.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">View:</label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="self">Self</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         {/* Legend */}
         <div className="flex flex-wrap gap-3 mt-4 text-xs">

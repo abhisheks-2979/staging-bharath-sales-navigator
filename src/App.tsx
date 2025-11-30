@@ -88,6 +88,7 @@ import PushContentSetup from "./pages/admin/PushContentSetup";
 import PerformanceModuleAdmin from "./pages/admin/PerformanceModuleAdmin";
 import MyTargets from "./pages/MyTargets";
 import TeamTargets from "./pages/TeamTargets";
+import PendingPaymentsAll from "./pages/PendingPaymentsAll";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -255,6 +256,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/retailer-loyalty-admin" element={<ProtectedRoute><RetailerLoyaltyAdmin /></ProtectedRoute>} />
               <Route path="/retailer-loyalty" element={<ProtectedRoute><RetailerLoyalty /></ProtectedRoute>} />
               <Route path="/invoice-management" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
+              <Route path="/pending-payments-all" element={<ProtectedRoute><PendingPaymentsAll /></ProtectedRoute>} />
               <Route path="/admin/performance-module" element={<ProtectedRoute><PerformanceModuleAdmin /></ProtectedRoute>} />
               <Route path="/my-targets" element={<ProtectedRoute><MyTargets /></ProtectedRoute>} />
               <Route path="/team-targets" element={<ProtectedRoute><TeamTargets /></ProtectedRoute>} />
