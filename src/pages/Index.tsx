@@ -89,6 +89,16 @@ const Index = () => {
     { icon: MapPin, label: "Territories", href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
   ];
 
+  // Add Joint Sales for admins (managers will see it when they have joint visits)
+  if (userRole === 'admin') {
+    quickNavItems.push({ 
+      icon: Users, 
+      label: "Joint Sales", 
+      href: "/joint-sales-analytics", 
+      color: "from-blue-500 to-blue-600" 
+    });
+  }
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
