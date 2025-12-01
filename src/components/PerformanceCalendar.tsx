@@ -330,10 +330,10 @@ export const PerformanceCalendar = () => {
 
     return (
       <div className="overflow-x-auto -mx-2 px-2">
-        <div className="min-w-[600px] md:min-w-0">
-          <div className="grid grid-cols-7 gap-1 md:gap-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
+        <div className="min-w-[560px] md:min-w-0">
+          <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+              <div key={i} className="text-center text-[10px] md:text-xs font-semibold text-muted-foreground py-1">
                 {day}
               </div>
             ))}
@@ -352,29 +352,29 @@ export const PerformanceCalendar = () => {
                   onClick={() => handleDateClick(day)}
                   disabled={!isCurrentMonth}
                   className={cn(
-                    "min-h-[90px] md:min-h-[100px] p-1.5 md:p-2 border rounded-lg transition-all",
-                    "hover:shadow-md active:scale-95 md:hover:scale-105",
+                    "min-h-[68px] md:min-h-[78px] p-1 md:p-1.5 border rounded transition-all",
+                    "hover:shadow active:scale-95 md:hover:scale-[1.02]",
                     "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
                     getColorClass(dayData),
-                    isToday && "ring-2 ring-primary"
+                    isToday && "ring-1.5 ring-primary"
                   )}
                 >
-                  <div className="text-left space-y-0.5">
+                  <div className="text-left space-y-px">
                     <div className={cn(
-                      "text-sm font-bold",
+                      "text-xs md:text-sm font-bold leading-none",
                       isToday && "text-primary"
                     )}>
                       {format(day, 'd')}
                     </div>
                     
                     {isCurrentMonth && dayData && dayData.completedVisits > 0 && (
-                      <div className="text-[11px] md:text-xs space-y-0.5">
+                      <div className="text-[9px] md:text-[10px] space-y-px leading-tight">
                         {dayData.beatName && (
-                          <div className="font-semibold text-foreground truncate leading-tight" title={dayData.beatName}>
-                            {dayData.beatName.length > 12 ? dayData.beatName.substring(0, 12) + '...' : dayData.beatName}
+                          <div className="font-semibold text-foreground truncate" title={dayData.beatName}>
+                            {dayData.beatName.length > 10 ? dayData.beatName.substring(0, 10) + '..' : dayData.beatName}
                           </div>
                         )}
-                        <div className="text-muted-foreground font-medium">
+                        <div className="text-muted-foreground">
                           P:{dayData.plannedVisits} C:{dayData.completedVisits}
                         </div>
                         <div className="text-success font-semibold">
@@ -389,8 +389,8 @@ export const PerformanceCalendar = () => {
                     )}
 
                     {isCurrentMonth && dayData && (dayData.isHoliday || dayData.isLeave) && (
-                      <div className="text-[11px] md:text-xs text-muted-foreground font-medium">
-                        {dayData.isHoliday ? '🏖️' : '🏠'}
+                      <div className="text-[9px] text-muted-foreground">
+                        {dayData.isHoliday ? '🏖' : '🏠'}
                       </div>
                     )}
                   </div>
@@ -570,12 +570,12 @@ export const PerformanceCalendar = () => {
   ];
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex flex-col gap-2 md:gap-3">
+    <Card className="overflow-hidden">
+      <CardHeader className="py-2 px-3 md:px-4 md:py-3">
+        <div className="flex flex-col gap-1.5 md:gap-2">
           {/* Title Row with View & Filter */}
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-base md:text-lg">Performance Calendar</CardTitle>
+          <div className="flex items-center justify-between gap-1.5">
+            <CardTitle className="text-sm md:text-base">Performance Calendar</CardTitle>
             
             <div className="flex items-center gap-1.5 md:gap-2">
               {/* View Mode Selector */}
@@ -740,31 +740,31 @@ export const PerformanceCalendar = () => {
 
           {/* Legend - Compact on mobile, only in month view */}
           {viewMode === "month" && (
-            <div className="flex flex-wrap gap-2 md:gap-3 text-[10px] md:text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-success/20 border border-success/40" />
+            <div className="flex flex-wrap gap-1.5 md:gap-2 text-[9px] md:text-[10px]">
+              <div className="flex items-center gap-0.5">
+                <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-sm bg-success/20 border border-success/40" />
                 <span className="text-muted-foreground">&gt;50%</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-warning/20 border border-warning/40" />
+              <div className="flex items-center gap-0.5">
+                <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-sm bg-warning/20 border border-warning/40" />
                 <span className="text-muted-foreground">&gt;30%</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-destructive/20 border border-destructive/40" />
+              <div className="flex items-center gap-0.5">
+                <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-sm bg-destructive/20 border border-destructive/40" />
                 <span className="text-muted-foreground">&lt;20%</span>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-muted border" />
-                <span className="text-muted-foreground">Holiday/Leave</span>
+              <div className="flex items-center gap-0.5">
+                <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-sm bg-muted border" />
+                <span className="text-muted-foreground">Off</span>
               </div>
             </div>
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-2 md:p-4 pt-0">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-muted-foreground">Loading calendar data...</div>
+          <div className="flex items-center justify-center py-6">
+            <div className="text-muted-foreground text-sm">Loading...</div>
           </div>
         ) : (
           <>
