@@ -112,15 +112,12 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
 
         if (todayBeatPlan || todayVisits.length > 0) {
           const completed = todayVisits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
-          const beatData = todayBeatPlan?.beat_data as any;
-          const beatRetailerIds = beatData?.retailer_ids || [];
           
           updateDashboardState({
             todayBeatPlan,
             todayVisits,
             todayAttendance,
             cachedRetailers,
-            beatRetailerIds,
             completed
           });
           
@@ -170,13 +167,12 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           beatName = (visits[0] as any).beat_name;
         }
 
-        // Calculate beat progress
-        const beatData = beatPlan?.beat_data as any;
-        const beatRetailerIds = beatData?.retailer_ids || [];
+        // Calculate beat progress - use visits.length as the total since it represents actual planned visits
         const completed = visits.filter((v: any) => v.status === 'completed' || v.status === 'productive' || v.status === 'unproductive').length;
         const planned = visits.filter((v: any) => v.status === 'planned').length;
         const productive = visits.filter((v: any) => v.status === 'productive').length;
         const unproductive = visits.filter((v: any) => v.status === 'unproductive').length;
+        const totalVisits = visits.length;
 
         // Calculate revenue target and achieved
         const revenueTarget = 10000; // Default target, can be made dynamic
@@ -196,7 +192,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         // Calculate performance
         const salesAmount = revenueAchieved;
         const pointsEarned = points.reduce((sum: number, p: any) => sum + p.points, 0);
-        const dailyProgress = beatRetailerIds.length > 0 ? Math.round((completed / beatRetailerIds.length) * 100) : 0;
+        const dailyProgress = totalVisits > 0 ? Math.round((completed / totalVisits) * 100) : 0;
 
         // Fetch urgent items (only for today)
         let pendingPayments: any[] = [];
@@ -263,9 +259,9 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             nextVisit: visits.find((v: any) => !v.check_in_time) || null,
             attendance: enhancedAttendance,
             beatProgress: {
-              total: beatRetailerIds.length,
+              total: totalVisits,
               completed,
-              remaining: beatRetailerIds.length - completed,
+              remaining: planned,
               planned,
               productive,
               unproductive,
@@ -302,12 +298,13 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     }
   }, [userId, dateStr, isToday]);
 
-  const updateDashboardState = ({ todayBeatPlan, todayVisits, todayAttendance, cachedRetailers, beatRetailerIds, completed }: any) => {
+  const updateDashboardState = ({ todayBeatPlan, todayVisits, todayAttendance, cachedRetailers, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
     const beatName = todayBeatPlan?.beat_name || (todayVisits.length > 0 ? todayVisits[0].beat_name : null);
     const planned = todayVisits.filter((v: any) => v.status === 'planned').length;
     const productive = todayVisits.filter((v: any) => v.status === 'productive').length;
     const unproductive = todayVisits.filter((v: any) => v.status === 'unproductive').length;
+    const totalVisits = todayVisits.length;
     
     setData(prev => ({
       ...prev,
@@ -319,9 +316,9 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         nextVisit,
         attendance: todayAttendance,
         beatProgress: {
-          total: beatRetailerIds.length,
+          total: totalVisits,
           completed,
-          remaining: beatRetailerIds.length - completed,
+          remaining: planned,
           planned,
           productive,
           unproductive,
