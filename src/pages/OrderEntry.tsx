@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Layout } from "@/components/Layout";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1514,34 +1515,31 @@ export const OrderEntry = () => {
     setFilteredSchemes(productSchemes);
     setShowSchemeModal(true);
   };
-  return <div className="min-h-screen bg-background pb-20">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-        <div className="w-full px-2 sm:px-4 py-2 sm:py-4">
-          <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
-              {/* Left side - Back button and title */}
-              <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
-                <Button variant="ghost" size="sm" onClick={() => navigate(isPhoneOrder ? "/my-retailers" : "/visits/retailers")} className="text-primary-foreground hover:bg-primary-foreground/20 p-1.5 sm:p-2 shrink-0">
-                  <ArrowLeft size={18} />
-                </Button>
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">
-                    {isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry')}
-                  </CardTitle>
-                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    {isOnline ? (
-                      <Wifi className="h-2.5 w-2.5 text-primary-foreground/60" />
-                    ) : (
-                      <WifiOff className="h-2.5 w-2.5 text-orange-400" />
-                    )}
-                    <span className="text-[9px] text-primary-foreground/60">
-                      {isOnline ? 'Online' : 'Offline'}
-                    </span>
-                  </div>
+  return <Layout>
+    <div className="min-h-screen bg-background pb-20">
+      {/* Page Header */}
+      <div className="w-full px-2 sm:px-4 py-2 sm:py-3">
+        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
+            {/* Left side - Title */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">
+                  {isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry')}
+                </CardTitle>
+                <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {isOnline ? (
+                    <Wifi className="h-2.5 w-2.5 text-primary-foreground/60" />
+                  ) : (
+                    <WifiOff className="h-2.5 w-2.5 text-orange-400" />
+                  )}
+                  <span className="text-[9px] text-primary-foreground/60">
+                    {isOnline ? 'Online' : 'Offline'}
+                  </span>
                 </div>
               </div>
+            </div>
               
               {/* Right side - Clear, Cart and Current value */}
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -1583,9 +1581,8 @@ export const OrderEntry = () => {
             </CardHeader>
           </Card>
         </div>
-      </div>
 
-      <div className="w-full px-2 sm:px-4 space-y-3 pt-24 sm:pt-28">
+      <div className="w-full px-2 sm:px-4 space-y-3">
 
         {/* Order Mode Toggle */}
         <Card>
@@ -2717,5 +2714,6 @@ export const OrderEntry = () => {
         }
       }} />
       </div>
-    </div>;
+    </div>
+  </Layout>;
 };

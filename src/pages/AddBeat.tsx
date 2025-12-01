@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowLeft, Plus, MapPin, Users, Calendar } from "lucide-react";
+import { Layout } from "@/components/Layout";
+import { Plus, MapPin, Users, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,20 +71,13 @@ export const AddBeat = () => {
   };
 
   return (
+    <Layout>
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate('/visits')}
-                className="text-primary-foreground hover:bg-primary-foreground/20"
-              >
-                <ArrowLeft size={20} />
-              </Button>
               <div>
                 <CardTitle className="text-xl font-bold">Add Beat</CardTitle>
                 <p className="text-primary-foreground/80">Add another beat to today's plan</p>
@@ -181,5 +175,6 @@ export const AddBeat = () => {
         </Button>
       </div>
     </div>
+    </Layout>
   );
 };

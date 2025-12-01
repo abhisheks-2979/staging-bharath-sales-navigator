@@ -85,9 +85,9 @@ export const Navbar = () => {
             <div className="flex items-center gap-2">
               {showBackButton && (
                 <button
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate(-1)}
                   className="p-1 rounded-lg hover:bg-white/10 transition-colors text-white"
-                  title="Go to dashboard"
+                  title="Go back"
                 >
                   <ArrowLeft size={16} />
                 </button>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Store, Package, Calendar, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Layout } from "@/components/Layout";
+import { MapPin, Phone, Store, Package, Calendar, TrendingUp, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -160,34 +161,27 @@ export const RetailerDetail = () => {
 
   if (!retailer) {
     return (
+      <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4">
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">Retailer not found</p>
             <Button onClick={() => navigate('/my-retailers')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Retailers
             </Button>
           </div>
         </div>
       </div>
+      </Layout>
     );
   }
 
   return (
+    <Layout>
     <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => window.close()}
-            className="shrink-0"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Close
-          </Button>
           <div>
             <h1 className="text-2xl font-bold text-card-foreground">Retailer Details</h1>
             <p className="text-sm text-muted-foreground">Complete information about the retailer</p>
@@ -399,5 +393,6 @@ export const RetailerDetail = () => {
         </Card>
       </div>
     </div>
+    </Layout>
   );
 };
