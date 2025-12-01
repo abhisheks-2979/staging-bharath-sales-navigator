@@ -1003,7 +1003,7 @@ export const Cart = () => {
 
           if (retailerError) {
             console.error('❌ Failed to fetch retailer for SMS/WhatsApp:', retailerError);
-            throw retailerError;
+            // Don't throw - let navigation continue
           }
 
           console.log('📱 Retailer phone:', retailer?.phone);
@@ -1028,7 +1028,7 @@ export const Cart = () => {
 
             if (uploadError) {
               console.error('❌ Storage upload failed (invoice SMS/WhatsApp):', uploadError);
-              throw uploadError;
+              // Don't throw - let navigation continue
             }
 
             if (uploadData) {
@@ -1062,11 +1062,11 @@ export const Cart = () => {
                 console.error('❌ Edge function error details:', JSON.stringify(fnError, null, 2));
                 toast({
                   title: 'Invoice Message Failed',
-                  description: `${fnError.message || 'Could not send invoice link via SMS/WhatsApp'}. Order saved successfully. Error: ${JSON.stringify(fnError)}`,
+                  description: `Order saved successfully, but SMS delivery failed.`,
                   variant: 'destructive',
-                  duration: 10000,
+                  duration: 5000,
                 });
-                throw fnError;
+                // Don't throw - let navigation continue
               }
 
               console.log('✅ Edge function response:', fnResult);
@@ -1146,6 +1146,13 @@ export const Cart = () => {
       // The trigger runs async, so we need a longer delay to prevent showing stale 'cancelled' status
       console.log('⏳ Waiting for database trigger to update visit status...');
       await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Show success toast
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your order has been submitted.",
+        duration: 3000,
+      });
 
       // Navigate to My Visits page after successful order submission
       console.log('✅ Navigating to My Visits');
