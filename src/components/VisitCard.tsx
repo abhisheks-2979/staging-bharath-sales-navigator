@@ -229,10 +229,10 @@ export const VisitCard = ({
     const checkStatus = async () => {
       try {
         console.log('🔍 Checking status for visit:', visit.id, 'retailerId:', visit.retailerId);
-        const {
-          data: user
-        } = await supabase.auth.getUser();
-        if (user.user) {
+        // Use getSession() instead of getUser() for offline support - reads from localStorage
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id || userId;
+        if (currentUserId) {
           const visitRetailerId = visit.retailerId || visit.id;
           const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
 
@@ -240,7 +240,7 @@ export const VisitCard = ({
           const {
             data: distributorMapping,
             error: mappingError
-          } = await supabase.from('distributor_retailer_mappings').select('distributor_id').eq('retailer_id', visitRetailerId).eq('user_id', user.user.id).maybeSingle();
+          } = await supabase.from('distributor_retailer_mappings').select('distributor_id').eq('retailer_id', visitRetailerId).eq('user_id', currentUserId).maybeSingle();
           if (!mappingError && distributorMapping?.distributor_id) {
             // Try to get distributor from retailers table (distributors are stored as retailers with entity_type = 'distributor')
             const {
@@ -278,7 +278,7 @@ export const VisitCard = ({
           // Check if analytics viewed
           const {
             data: analyticsView
-          } = await supabase.from('analytics_views').select('id').eq('visit_id', visit.id).eq('user_id', user.user.id).maybeSingle();
+          } = await supabase.from('analytics_views').select('id').eq('visit_id', visit.id).eq('user_id', currentUserId).maybeSingle();
           if (analyticsView) {
             setHasViewedAnalytics(true);
           }
@@ -287,7 +287,7 @@ export const VisitCard = ({
           const {
             data: visitData,
             error: visitError
-          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', user.user.id).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
+          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', currentUserId).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
           
           if (!visitError && visitData) {
             console.log('📊 Visit data from DB:', visitData);
@@ -335,7 +335,7 @@ export const VisitCard = ({
               return beatData?.retailers?.some((r: any) => r.id === visitRetailerId);
             });
             
-            if (matchingBeatPlan?.joint_sales_manager_id === user.user.id) {
+            if (matchingBeatPlan?.joint_sales_manager_id === currentUserId) {
               setIsJointVisit(true);
               setJointSalesManagerId(matchingBeatPlan.joint_sales_manager_id);
             }
@@ -346,7 +346,7 @@ export const VisitCard = ({
             .from('stock')
             .select('id')
             .eq('retailer_id', visitRetailerId)
-            .eq('user_id', user.user.id)
+            .eq('user_id', currentUserId)
             .eq('stock_date', targetDate);
           
           const stockRecords = stockResponse.data;
@@ -481,19 +481,34 @@ export const VisitCard = ({
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
       }
     };
+    
+    // Also listen for general visitDataChanged event (dispatched after sync completes)
+    const handleDataChange = () => {
+      console.log('🔔 [VisitCard] Received visitDataChanged event - refreshing all data');
+      checkStatus();
+      
+      // Also refresh again after 2s to catch DB trigger updates
+      setTimeout(() => {
+        console.log('🔄 [VisitCard] Second refresh after visitDataChanged');
+        checkStatus();
+      }, 2000);
+    };
+    
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
+    window.addEventListener('visitDataChanged', handleDataChange);
     return () => {
       window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
+      window.removeEventListener('visitDataChanged', handleDataChange);
     };
   }, [visit.id, visit.retailerId, selectedDate]);
 
   // Set up real-time listener for orders to automatically update visit status
   useEffect(() => {
     const setupListener = async () => {
-      const {
-        data: user
-      } = await supabase.auth.getUser();
-      if (!user.user) return;
+      // Use getSession() for offline support
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      if (!currentUserId) return;
       const retailerId = visit.retailerId || visit.id;
       const channel = supabase.channel('order-updates').on('postgres_changes', {
         event: 'INSERT',
@@ -508,13 +523,13 @@ export const VisitCard = ({
         if (createdDate !== targetDate) {
           return;
         }
-        const {
-          data: userData
-        } = await supabase.auth.getUser();
-        if (userData.user) {
+        // Use getSession() for offline support
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const activeUserId = currentSession?.user?.id || userId;
+        if (activeUserId) {
           const {
             data: visitData
-          } = await supabase.from('visits').select('id, status, check_in_time').eq('user_id', userData.user.id).eq('retailer_id', retailerId).eq('planned_date', targetDate).maybeSingle();
+          } = await supabase.from('visits').select('id, status, check_in_time').eq('user_id', activeUserId).eq('retailer_id', retailerId).eq('planned_date', targetDate).maybeSingle();
           if (visitData?.check_in_time && (visitData.status === 'in-progress' || visitData.status === 'unproductive')) {
             // Get order time for auto check-out
             const orderTime = createdAt || new Date().toISOString();
@@ -541,7 +556,7 @@ export const VisitCard = ({
       };
     };
     setupListener();
-  }, [visit.retailerId, visit.id, selectedDate]);
+  }, [visit.retailerId, visit.id, selectedDate, userId]);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "productive":

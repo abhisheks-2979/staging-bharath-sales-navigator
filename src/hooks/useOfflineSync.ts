@@ -160,7 +160,7 @@ export function useOfflineSync() {
         setTimeout(() => {
           console.log('✅ Dispatching visitDataChanged for unproductive count update');
           window.dispatchEvent(new Event('visitDataChanged'));
-        }, 800); // Increased delay to ensure database update completes
+        }, 1000); // Increased delay to ensure database update completes
         
         break;
         
@@ -227,17 +227,35 @@ export function useOfflineSync() {
           if (data.visitId || data.order?.visit_id) {
             const visitId = data.visitId || data.order.visit_id;
             const retailerId = data.order?.retailer_id;
+            
+            // Explicitly update visit status to productive (don't rely only on DB trigger)
+            console.log('🔄 Updating visit status to productive after order sync:', { visitId });
+            const { error: visitUpdateError } = await supabase
+              .from('visits')
+              .update({
+                status: 'productive',
+                no_order_reason: null,
+                check_out_time: new Date().toISOString()
+              })
+              .eq('id', visitId);
+            
+            if (visitUpdateError) {
+              console.error('❌ Error updating visit status:', visitUpdateError);
+            } else {
+              console.log('✅ Visit status updated to productive');
+            }
+            
             console.log('✅ Order synced, dispatching visitStatusChanged event:', { visitId, retailerId });
             
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
               detail: { visitId, status: 'productive', retailerId }
             }));
             
-            // ALSO dispatch visitDataChanged to trigger full page reload
+            // ALSO dispatch visitDataChanged to trigger full page reload with increased delay
             setTimeout(() => {
               console.log('✅ Dispatching visitDataChanged for full page reload');
               window.dispatchEvent(new Event('visitDataChanged'));
-            }, 500);
+            }, 1000);
           }
         } else {
           // Old format - just the order data
@@ -281,6 +299,23 @@ export function useOfflineSync() {
 
           // Trigger visit status refresh (database trigger auto-updates visit status)
           if (data.visit_id) {
+            // Explicitly update visit status to productive (don't rely only on DB trigger)
+            console.log('🔄 Updating visit status to productive after order sync (old format):', { visitId: data.visit_id });
+            const { error: visitUpdateError } = await supabase
+              .from('visits')
+              .update({
+                status: 'productive',
+                no_order_reason: null,
+                check_out_time: new Date().toISOString()
+              })
+              .eq('id', data.visit_id);
+            
+            if (visitUpdateError) {
+              console.error('❌ Error updating visit status:', visitUpdateError);
+            } else {
+              console.log('✅ Visit status updated to productive');
+            }
+            
             console.log('✅ Order synced, dispatching visitStatusChanged event:', { 
               visitId: data.visit_id, 
               retailerId: data.retailer_id 
@@ -290,11 +325,11 @@ export function useOfflineSync() {
               detail: { visitId: data.visit_id, status: 'productive', retailerId: data.retailer_id }
             }));
             
-            // ALSO dispatch visitDataChanged to trigger full page reload
+            // ALSO dispatch visitDataChanged to trigger full page reload with increased delay
             setTimeout(() => {
               console.log('✅ Dispatching visitDataChanged for full page reload');
               window.dispatchEvent(new Event('visitDataChanged'));
-            }, 500);
+            }, 1000);
           }
         }
         break;
