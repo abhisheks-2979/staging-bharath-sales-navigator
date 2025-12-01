@@ -376,15 +376,26 @@ const Attendance = () => {
       }
 
       const confidence = faceMatchResult?.confidence || 0;
-      const matchStatus = confidence >= 70 ? 'match' : confidence >= 40 ? 'partial' : 'nomatch';
+      const matchStatus = confidence >= 70 ? 'match' : confidence >= 50 ? 'partial' : 'nomatch';
+      
+      // BLOCK attendance if face match is below 50%
+      if (confidence < 50) {
+        toast({
+          title: "Face Verification Failed ❌",
+          description: `Match confidence ${Math.round(confidence)}% is below the required 50%. Please try again with better lighting or a clearer photo.`,
+          variant: "destructive"
+        });
+        setShowCamera(false);
+        setAttendanceType(null);
+        setIsMarkingAttendance(false);
+        return; // Do NOT record attendance
+      }
       
       const statusMessage = confidence >= 70 
         ? 'Face Match Verified ✅' 
-        : confidence >= 40 
-        ? 'Partial Face Match ⚠️' 
-        : 'Face Match Failed ❌';
+        : 'Partial Face Match ⚠️ (Above 50% threshold)';
       
-      const statusVariant = confidence >= 70 ? 'default' : 'destructive';
+      const statusVariant = confidence >= 70 ? 'default' : 'default';
       
       toast({
         title: statusMessage,
