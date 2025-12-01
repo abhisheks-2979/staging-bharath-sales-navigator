@@ -1329,6 +1329,30 @@ export const AddRetailer = () => {
                 </Select>
               </div>
 
+              {/* Assign to Beat */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="advancedBeat">Assign to Beat</Label>
+                  <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'default'} className="text-xs">
+                    {connectivityStatus === 'offline' ? '📴 Offline' : connectivityStatus === 'unknown' ? '❓ Unknown' : '🌐 Online'} • {beats.length} beats
+                  </Badge>
+                </div>
+                <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select a beat" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="unassigned">Unassigned (No Beat)</SelectItem>
+                    {beats.map((beat) => (
+                      <SelectItem key={beat.beat_id} value={beat.beat_id}>
+                        {beat.beat_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Assign this retailer to a beat for visit planning</p>
+              </div>
+
               {/* Assign Territory */}
               <div className="space-y-2">
                 <Label>Assign to Territory</Label>
