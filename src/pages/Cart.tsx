@@ -857,14 +857,20 @@ export const Cart = () => {
         }
       }
 
-      // Dispatch visit status changed event for real-time UI updates
+      // Clear cart storage for this visit/retailer
+      localStorage.removeItem(activeStorageKey);
+      setCartItems([]);
+
+      // Show success toast and navigate IMMEDIATELY - don't wait for SMS
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your order has been submitted.",
+        duration: 3000,
+      });
+
+      // Dispatch events for UI updates
       if (actualVisitId) {
-        console.log('📡 Dispatching visitStatusChanged event for online order:', {
-          visitId: actualVisitId,
-          retailerId: validRetailerId,
-          status: 'productive'
-        });
-        
+        console.log('📡 Dispatching visitStatusChanged event');
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { 
             visitId: actualVisitId, 
@@ -872,14 +878,12 @@ export const Cart = () => {
             retailerId: validRetailerId 
           }
         }));
-        
-        // Also dispatch visitDataChanged to refresh Today's Progress
         window.dispatchEvent(new CustomEvent('visitDataChanged'));
       }
 
-      // Clear cart storage for this visit/retailer
-      localStorage.removeItem(activeStorageKey);
-      setCartItems([]);
+      // Navigate to My Visits page immediately
+      console.log('✅ Navigating to My Visits');
+      navigate('/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
       // Gamification, retailer sequences, and invoice DB records run in background
@@ -1134,29 +1138,8 @@ export const Cart = () => {
         console.error('❌ Failed to send/queue invoice via WhatsApp/SMS:', notifyError);
         console.error('❌ Full error details:', JSON.stringify(notifyError, null, 2));
         console.error('❌ Error stack:', notifyError.stack);
-        toast({
-          title: 'SMS Send Failed',
-          description: `Could not send invoice SMS: ${notifyError.message || 'Unknown error'}. Order was saved successfully. Check console for details.`,
-          variant: 'destructive',
-          duration: 10000,
-        });
+        // Don't show error toast since user already navigated - just log
       }
-
-      // CRITICAL: Wait for database trigger to update visit status to 'productive'
-      // The trigger runs async, so we need a longer delay to prevent showing stale 'cancelled' status
-      console.log('⏳ Waiting for database trigger to update visit status...');
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Show success toast
-      toast({
-        title: "Order Placed Successfully",
-        description: "Your order has been submitted.",
-        duration: 3000,
-      });
-
-      // Navigate to My Visits page after successful order submission
-      console.log('✅ Navigating to My Visits');
-      navigate('/visits/retailers');
     } catch (error: any) {
       console.error('Error submitting order:', error);
       toast({
