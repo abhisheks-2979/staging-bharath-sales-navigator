@@ -100,7 +100,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           offlineStorage.getAll<any>(STORES.RETAILERS)
         ]);
 
-        const todayBeatPlan = cachedBeatPlans.find(
+        const todayBeatPlans = cachedBeatPlans.filter(
           (plan: any) => plan.user_id === userId && plan.plan_date === dateStr
         );
         const todayVisits = cachedVisits.filter(
@@ -110,11 +110,11 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           (a: any) => a.user_id === userId && a.date === dateStr
         );
 
-        if (todayBeatPlan || todayVisits.length > 0) {
+        if (todayBeatPlans.length > 0 || todayVisits.length > 0) {
           const completed = todayVisits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
           
           updateDashboardState({
-            todayBeatPlan,
+            todayBeatPlans,
             todayVisits,
             todayAttendance,
             cachedRetailers,
@@ -138,7 +138,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         dateEnd.setHours(23, 59, 59, 999);
 
         // Fetch data - using any to avoid type issues
-        const beatPlanRes: any = await supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', dateStr).maybeSingle();
+        const beatPlanRes: any = await supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', dateStr);
         const visitsRes: any = await supabase.from('visits').select('*').eq('user_id', userId).eq('planned_date', dateStr);
         const attendanceRes: any = await supabase.from('attendance').select('*').eq('user_id', userId).eq('date', dateStr).maybeSingle();
         const ordersRes: any = await supabase.from('orders').select('*').eq('user_id', userId).eq('status', 'confirmed')
@@ -152,7 +152,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         const leaveRes: any = await supabase.from('leave_applications').select('*').eq('user_id', userId).eq('status', 'approved')
           .lte('start_date', dateStr).gte('end_date', dateStr).maybeSingle();
 
-        const beatPlan = beatPlanRes.data;
+        const beatPlans = beatPlanRes.data || [];
+        const beatPlan = beatPlans.length > 0 ? beatPlans[0] : null;
         const visits = visitsRes.data || [];
         const attendance = attendanceRes.data;
         const orders = ordersRes.data || [];
@@ -161,10 +162,11 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         const newRetailers = newRetailersRes.data || [];
         const leave = leaveRes.data;
 
-        // Get beat name from first visit or beat plan
-        let beatName = beatPlan?.beat_name || null;
-        if (!beatName && visits.length > 0 && (visits[0] as any).beat_name) {
-          beatName = (visits[0] as any).beat_name;
+        // Get beat name(s) from all beat plans for the day
+        let beatName: string | null = null;
+        if (beatPlans.length > 0) {
+          const beatNames = beatPlans.map((bp: any) => bp.beat_name).filter(Boolean);
+          beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
         }
 
         // Calculate beat progress - use visits.length as the total since it represents actual planned visits
@@ -243,8 +245,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
 
         // Cache the data (only for today)
         if (isToday) {
-          if (beatPlan) await offlineStorage.save(STORES.BEAT_PLANS, beatPlan);
           await Promise.all([
+            ...beatPlans.map((bp: any) => offlineStorage.save(STORES.BEAT_PLANS, bp)),
             ...visits.map((v: any) => offlineStorage.save(STORES.VISITS, v)),
             enhancedAttendance ? offlineStorage.save(STORES.ATTENDANCE, enhancedAttendance) : Promise.resolve()
           ]);
@@ -298,9 +300,17 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     }
   }, [userId, dateStr, isToday]);
 
-  const updateDashboardState = ({ todayBeatPlan, todayVisits, todayAttendance, cachedRetailers, completed }: any) => {
+  const updateDashboardState = ({ todayBeatPlans, todayVisits, todayAttendance, cachedRetailers, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
-    const beatName = todayBeatPlan?.beat_name || (todayVisits.length > 0 ? todayVisits[0].beat_name : null);
+    
+    // Get beat name(s) from all beat plans
+    let beatName: string | null = null;
+    const beatPlansArray = Array.isArray(todayBeatPlans) ? todayBeatPlans : (todayBeatPlans ? [todayBeatPlans] : []);
+    if (beatPlansArray.length > 0) {
+      const beatNames = beatPlansArray.map((bp: any) => bp.beat_name).filter(Boolean);
+      beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
+    }
+    
     const planned = todayVisits.filter((v: any) => v.status === 'planned').length;
     const productive = todayVisits.filter((v: any) => v.status === 'productive').length;
     const unproductive = todayVisits.filter((v: any) => v.status === 'unproductive').length;
@@ -310,7 +320,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       ...prev,
       todayData: {
         ...prev.todayData,
-        beatPlan: todayBeatPlan,
+        beatPlan: beatPlansArray[0] || null,
         beatName,
         visits: todayVisits,
         nextVisit,
