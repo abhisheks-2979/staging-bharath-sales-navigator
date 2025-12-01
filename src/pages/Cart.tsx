@@ -18,7 +18,7 @@ import { usePaymentProofMandatory } from '@/hooks/usePaymentProofMandatory';
 import { awardPointsForOrder, updateRetailerSequence } from "@/utils/gamificationPointsAwarder";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
-import { offlineStorage } from "@/lib/offlineStorage";
+import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
 interface CartItem {
   id: string;
@@ -735,27 +735,50 @@ export const Cart = () => {
       let actualVisitId = validVisitId;
       if (isPhoneOrder && !validVisitId && validRetailerId) {
         const today = new Date().toISOString().split('T')[0];
-        const {
-          data: newVisit,
-          error: visitError
-        } = await supabase.from('visits').insert({
-          user_id: currentUserId,
-          retailer_id: validRetailerId,
-          planned_date: today,
-          status: 'productive',
-          skip_check_in_reason: 'phone-order',
-          skip_check_in_time: new Date().toISOString()
-        }).select().single();
-        if (visitError) {
-          console.error('Error creating phone order visit:', visitError);
-          toast({
-            title: "Error",
-            description: "Failed to create visit for phone order",
-            variant: "destructive"
-          });
-          return;
+        const isOnline = connectivityStatus === 'online' && navigator.onLine;
+        
+        if (isOnline) {
+          // Online: Create visit via Supabase
+          const {
+            data: newVisit,
+            error: visitError
+          } = await supabase.from('visits').insert({
+            user_id: currentUserId,
+            retailer_id: validRetailerId,
+            planned_date: today,
+            status: 'productive',
+            skip_check_in_reason: 'phone-order',
+            skip_check_in_time: new Date().toISOString()
+          }).select().single();
+          
+          if (visitError) {
+            console.error('Error creating phone order visit:', visitError);
+            // Don't block offline - continue without visit ID
+            console.warn('Continuing without visit ID for offline sync');
+          } else {
+            actualVisitId = newVisit.id;
+          }
+        } else {
+          // Offline: Generate local visit ID and queue for sync
+          const localVisitId = crypto.randomUUID();
+          actualVisitId = localVisitId;
+          
+          const offlineVisit = {
+            id: localVisitId,
+            user_id: currentUserId,
+            retailer_id: validRetailerId,
+            planned_date: today,
+            status: 'productive',
+            skip_check_in_reason: 'phone-order',
+            skip_check_in_time: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          };
+          
+          // Queue visit creation for sync
+          await offlineStorage.addToSyncQueue('CREATE_VISIT', offlineVisit);
+          await offlineStorage.save(STORES.VISITS, offlineVisit);
+          console.log('📵 Phone order visit queued for offline sync:', localVisitId);
         }
-        actualVisitId = newVisit.id;
       }
 
       // Prepare order data - use currentUserId which works both online and offline

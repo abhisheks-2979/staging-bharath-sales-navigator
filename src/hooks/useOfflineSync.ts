@@ -404,15 +404,6 @@ export function useOfflineSync() {
           .eq('user_id', user_id);
         if (updateRetailerError) throw updateRetailerError;
         break;
-
-      case 'CREATE_VISIT':
-        console.log('Syncing visit creation:', data);
-        const { id: visitTempId, ...visitInsertData } = data;
-        const { error: createVisitError } = await supabase
-          .from('visits')
-          .insert(visitInsertData);
-        if (createVisitError) throw createVisitError;
-        break;
         
       case 'CREATE_ATTENDANCE':
         console.log('Syncing attendance check-in:', data);
