@@ -226,23 +226,27 @@ export const Cart = () => {
   };
   React.useEffect(() => {
     const fetchUserData = async () => {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
+      // Use getSession() for offline support (reads from localStorage cache)
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
       if (user) {
         setUserId(user.id);
 
-        // Fetch user profile to get the name
-        const {
-          data: profile
-        } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).single();
-        if (profile) {
-          setLoggedInUserName(profile.full_name || profile.username || user.email?.split('@')[0] || "User");
+        // Fetch user profile to get the name (only if online)
+        if (navigator.onLine) {
+          const {
+            data: profile
+          } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).single();
+          if (profile) {
+            setLoggedInUserName(profile.full_name || profile.username || user.email?.split('@')[0] || "User");
+          } else {
+            // Fallback to email username if no profile
+            setLoggedInUserName(user.email?.split('@')[0] || "User");
+          }
         } else {
-          // Fallback to email username if no profile
-          setLoggedInUserName(user.email?.split('@')[0] || "User");
+          // Offline: Use metadata or email
+          setLoggedInUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || "User");
         }
       }
     };
@@ -661,13 +665,16 @@ export const Cart = () => {
     setIsSubmitting(true);
 
     try {
-      // Get current user
+      // Get current user - use getSession() for offline support (reads from localStorage cache)
       const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (!user) {
+        data: { session }
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+      
+      // Fallback to cached userId if session is unavailable (deep offline)
+      const currentUserId = user?.id || userId;
+      
+      if (!currentUserId) {
         toast({
           title: "Authentication Required",
           description: "Please sign in to submit orders",
@@ -732,7 +739,7 @@ export const Cart = () => {
           data: newVisit,
           error: visitError
         } = await supabase.from('visits').insert({
-          user_id: user.id,
+          user_id: currentUserId,
           retailer_id: validRetailerId,
           planned_date: today,
           status: 'productive',
@@ -751,9 +758,9 @@ export const Cart = () => {
         actualVisitId = newVisit.id;
       }
 
-      // Prepare order data
+      // Prepare order data - use currentUserId which works both online and offline
       const orderData = {
-        user_id: user.id,
+        user_id: currentUserId,
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
         retailer_name: retailerName,
@@ -855,14 +862,14 @@ export const Cart = () => {
       (async () => {
         try {
           // Only run background tasks if online
-          if (!result.offline) {
+          if (!result.offline && currentUserId) {
             const order = result.order;
 
             // Check if this is the first order
             const { count: previousOrdersCount } = await supabase
               .from('orders')
               .select('*', { count: 'exact', head: true })
-              .eq('user_id', user.id)
+              .eq('user_id', currentUserId)
               .eq('retailer_id', validRetailerId)
               .neq('id', order.id);
 
@@ -870,7 +877,7 @@ export const Cart = () => {
 
             // Award gamification points
             await awardPointsForOrder({
-              userId: user.id,
+              userId: currentUserId,
               retailerId: validRetailerId,
               orderValue: totalAmount,
               orderItems: orderItems.map(item => ({
@@ -881,7 +888,7 @@ export const Cart = () => {
             });
 
             // Update retailer sequence
-            await updateRetailerSequence(user.id, validRetailerId);
+            await updateRetailerSequence(currentUserId, validRetailerId);
 
             // Create invoice record (for future editing/management)
             const invoiceDate = new Date().toISOString().split('T')[0];
@@ -903,7 +910,7 @@ export const Cart = () => {
                 sub_total: subtotal,
                 total_tax: cgstAmount + sgstAmount,
                 total_amount: totalAmount,
-                created_by: user.id,
+                created_by: currentUserId,
                 status: 'issued',
                 place_of_supply: '29-Karnataka',
                 order_id: order.id

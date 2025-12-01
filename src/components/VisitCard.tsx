@@ -149,12 +149,9 @@ export const VisitCard = ({
   const [userId, setUserId] = useState<string>('');
   useEffect(() => {
     const getUserId = async () => {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
+      // Use getSession() for offline support (reads from localStorage cache)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) setUserId(session.user.id);
     };
     getUserId();
   }, []);
@@ -1061,17 +1058,25 @@ export const VisitCard = ({
     try {
       setNoOrderReason(reason);
       setIsNoOrderMarked(true);
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
-      if (user) {
-        // Use selectedDate if available, otherwise use today's date
-        const today = selectedDate || new Date().toISOString().split('T')[0];
-        const retailerId = (visit.retailerId || visit.id) as string;
-        const visitId = await ensureVisit(user.id, retailerId, today);
-        setCurrentVisitId(visitId);
+      
+      // Use getSession() for offline support (reads from localStorage cache)
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      
+      if (!currentUserId) {
+        toast({
+          title: 'Authentication Required',
+          description: 'Please sign in to mark visits',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      // Use selectedDate if available, otherwise use today's date
+      const today = selectedDate || new Date().toISOString().split('T')[0];
+      const retailerId = (visit.retailerId || visit.id) as string;
+      const visitId = await ensureVisit(currentUserId, retailerId, today);
+      setCurrentVisitId(visitId);
         console.log('Updating visit status to unproductive for visitId:', visitId);
 
         // Auto check-out when marking as no order
@@ -1136,7 +1141,7 @@ export const VisitCard = ({
           await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
             visitId,
             retailerId,
-            userId: user.id,
+            userId: currentUserId,
             noOrderReason: reason,
             checkOutTime,
             plannedDate: today
@@ -1174,7 +1179,6 @@ export const VisitCard = ({
             description: "Will sync when you're back online"
           });
         }
-      }
     } catch (err: any) {
       console.error('Mark unproductive error', err);
       toast({
