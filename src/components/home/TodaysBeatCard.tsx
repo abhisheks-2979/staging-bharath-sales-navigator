@@ -147,18 +147,6 @@ export const TodaysBeatCard = ({
               </div>
             </div>
 
-            {/* Pin Marker - positioned above the line */}
-            <div 
-              className="absolute -translate-x-1/2 z-10 transition-all duration-500"
-              style={{ left: `${Math.max(revenueProgress, 5)}%`, top: '-18px' }}
-            >
-              <div className="flex flex-col items-center">
-                <div className="bg-primary text-primary-foreground px-2.5 py-1 rounded-lg shadow-lg text-[10px] font-bold whitespace-nowrap border-2 border-background">
-                  {formatCurrency(revenueAchieved)}
-                </div>
-                <MapPin className="h-5 w-5 text-primary drop-shadow-lg fill-primary -mt-0.5" />
-              </div>
-            </div>
           </div>
 
           {/* Gap indicator - highlighted below the line, outside the relative container */}
