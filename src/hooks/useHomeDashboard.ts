@@ -138,8 +138,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         dateEnd.setHours(23, 59, 59, 999);
 
         // Fetch data - using any to avoid type issues
-        // Use .limit(1) instead of .maybeSingle() to handle multiple beat plans for the same day
-        const beatPlanRes: any = await supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', dateStr).order('created_at', { ascending: false }).limit(1);
+        const beatPlanRes: any = await supabase.from('beat_plans').select('*').eq('user_id', userId).eq('plan_date', dateStr).maybeSingle();
         const visitsRes: any = await supabase.from('visits').select('*').eq('user_id', userId).eq('planned_date', dateStr);
         const attendanceRes: any = await supabase.from('attendance').select('*').eq('user_id', userId).eq('date', dateStr).maybeSingle();
         const ordersRes: any = await supabase.from('orders').select('*').eq('user_id', userId).eq('status', 'confirmed')
@@ -153,7 +152,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         const leaveRes: any = await supabase.from('leave_applications').select('*').eq('user_id', userId).eq('status', 'approved')
           .lte('start_date', dateStr).gte('end_date', dateStr).maybeSingle();
 
-        const beatPlan = beatPlanRes.data?.[0] || null;
+        const beatPlan = beatPlanRes.data;
         const visits = visitsRes.data || [];
         const attendance = attendanceRes.data;
         const orders = ordersRes.data || [];
