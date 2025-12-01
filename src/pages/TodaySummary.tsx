@@ -56,7 +56,9 @@ export const TodaySummary = () => {
     visitEfficiency: 0,
     orderConversionRate: 0,
     distanceCovered: 0,
-    travelTime: "0h 0m"
+    travelTime: "0h 0m",
+    jointSalesCount: 0,
+    jointRetailersVisited: 0,
   });
 
   const [visitBreakdown, setVisitBreakdown] = useState([
@@ -256,6 +258,17 @@ export const TodaySummary = () => {
       const totalPointsEarned = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
       setPointsEarnedToday(totalPointsEarned);
 
+      // Fetch joint sales feedback for the date range (if user is a manager)
+      const { data: jointFeedback } = await supabase
+        .from('joint_sales_feedback')
+        .select('*, retailers(name)')
+        .eq('manager_id', user.id)
+        .gte('feedback_date', format(fromDate, 'yyyy-MM-dd'))
+        .lte('feedback_date', format(toDate, 'yyyy-MM-dd'));
+
+      const jointSalesCount = jointFeedback?.length || 0;
+      const jointRetailersVisited = new Set(jointFeedback?.map(f => f.retailer_id)).size || 0;
+
       // Fetch beat plans for the date range
       let beatPlansQuery = supabase
         .from('beat_plans')
@@ -442,6 +455,8 @@ export const TodaySummary = () => {
         startTime: formatTime(firstCheckIn),
         endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
         plannedVisits: totalPlanned,
+        jointSalesCount,
+        jointRetailersVisited,
         completedVisits: completedVisits.length,
         productiveVisits: productiveVisits.length,
         totalOrders: totalOrdersCount,
@@ -1241,6 +1256,28 @@ export const TodaySummary = () => {
                 <div className="text-xs text-muted-foreground mt-1">Tap to view details in Leaderboard</div>
               </div>
             </div>
+
+            {/* Joint Sales Section - Only show if user has joint sales activities */}
+            {summaryData.jointSalesCount > 0 && (
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div
+                  role="button"
+                  onClick={() => navigate('/joint-sales-analytics')}
+                  className="text-center p-4 bg-blue-500/10 rounded-lg cursor-pointer hover:bg-blue-500/20 transition border border-blue-500/20"
+                >
+                  <div className="text-2xl font-bold text-blue-600">
+                    {loading ? "Loading..." : summaryData.jointSalesCount}
+                  </div>
+                  <div className="text-sm text-blue-600/80 font-medium">Joint Sales Feedback</div>
+                </div>
+                <div className="text-center p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {loading ? "Loading..." : summaryData.jointRetailersVisited}
+                  </div>
+                  <div className="text-sm text-blue-600/80 font-medium">Retailers Visited</div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -262,6 +262,10 @@ export const MyVisits = () => {
     selectedDate,
   });
 
+  // State for joint visits
+  const [jointVisits, setJointVisits] = useState<any[]>([]);
+  const [jointRetailers, setJointRetailers] = useState<any[]>([]);
+
   // Clear local retailers and beat info immediately when date changes
   useEffect(() => {
     if (!selectedDate) return;
@@ -332,6 +336,68 @@ export const MyVisits = () => {
     }
   }, [pointsData]);
 
+  // Fetch joint visits where user is the manager
+  useEffect(() => {
+    const fetchJointVisits = async () => {
+      if (!user?.id || !selectedDate) return;
+
+      try {
+        // Find beat plans where user is the joint sales manager
+        const { data: jointBeatPlans } = await supabase
+          .from('beat_plans')
+          .select('*, beat_data')
+          .eq('joint_sales_manager_id', user.id)
+          .eq('plan_date', selectedDate);
+
+        if (!jointBeatPlans || jointBeatPlans.length === 0) {
+          setJointVisits([]);
+          setJointRetailers([]);
+          return;
+        }
+
+        // Get FSE user IDs and retailer IDs from beat plans
+        const fseUserIds = jointBeatPlans.map(bp => bp.user_id);
+        const allRetailerIds: string[] = [];
+        
+        jointBeatPlans.forEach(plan => {
+          const beatData = plan.beat_data as any;
+          if (beatData?.retailers) {
+            beatData.retailers.forEach((r: any) => {
+              if (r.id) allRetailerIds.push(r.id);
+            });
+          }
+        });
+
+        if (allRetailerIds.length === 0) {
+          setJointVisits([]);
+          setJointRetailers([]);
+          return;
+        }
+
+        // Fetch visits for these retailers and FSEs on the selected date
+        const { data: visits } = await supabase
+          .from('visits')
+          .select('*')
+          .in('user_id', fseUserIds)
+          .in('retailer_id', allRetailerIds)
+          .eq('planned_date', selectedDate);
+
+        // Fetch retailer details
+        const { data: retailers } = await supabase
+          .from('retailers')
+          .select('*')
+          .in('id', allRetailerIds);
+
+        setJointVisits(visits || []);
+        setJointRetailers(retailers || []);
+      } catch (error) {
+        console.error('Error fetching joint visits:', error);
+      }
+    };
+
+    fetchJointVisits();
+  }, [user?.id, selectedDate]);
+
   // Update local state when optimized data loads
   useEffect(() => {
     if (optimizedBeatPlans.length > 0) {
@@ -355,7 +421,8 @@ export const MyVisits = () => {
 
   useEffect(() => {
     // Process retailers with visit and order data
-    if (optimizedRetailers.length > 0) {
+    if (optimizedRetailers.length > 0 || jointRetailers.length > 0) {
+      // Process own retailers
       const processedRetailers = optimizedRetailers.map(retailer => {
         const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
         const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
@@ -377,11 +444,38 @@ export const MyVisits = () => {
           noOrderReason: visit?.no_order_reason,
           distributor: retailer.parent_name,
           priority: retailer.potential,
+          isJointVisit: false,
         };
       });
-      setRetailers(processedRetailers);
+
+      // Process joint retailers
+      const processedJointRetailers = jointRetailers.map(retailer => {
+        const visit = jointVisits.find(v => v.retailer_id === retailer.id);
+        
+        return {
+          id: retailer.id,
+          retailerId: retailer.id,
+          retailerName: `[Joint] ${retailer.name || ''}`,
+          address: retailer.address || '',
+          phone: retailer.phone || '',
+          retailerCategory: retailer.category || '',
+          status: visit?.status || 'planned',
+          visitType: 'Joint Sales Visit',
+          visitId: visit?.id,
+          hasOrder: false, // Joint visits show FSE orders, not manager orders
+          orderValue: 0,
+          visitStatus: visit?.status,
+          noOrderReason: visit?.no_order_reason,
+          distributor: retailer.parent_name,
+          priority: retailer.potential,
+          isJointVisit: true,
+        };
+      });
+
+      // Combine both lists
+      setRetailers([...processedRetailers, ...processedJointRetailers]);
     }
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders]);
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, jointRetailers, jointVisits]);
 
   // Initialize selected day to today
   useEffect(() => {
