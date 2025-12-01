@@ -329,72 +329,76 @@ export const PerformanceCalendar = () => {
     const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
     return (
-      <div className="grid grid-cols-7 gap-1 sm:gap-2">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
-            {day}
-          </div>
-        ))}
-        
-        {calendarDays.map(day => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayData = calendarData.get(dateKey);
-          const isCurrentMonth = isSameMonth(day, currentDate);
-          const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-
-          if (!shouldShowDay(dayData)) return null;
-
-          return (
-            <button
-              key={dateKey}
-              onClick={() => handleDateClick(day)}
-              disabled={!isCurrentMonth}
-              className={cn(
-                "min-h-[80px] sm:min-h-[100px] p-1 sm:p-2 border rounded-lg transition-all",
-                "hover:shadow-md hover:scale-105",
-                "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
-                getColorClass(dayData),
-                isToday && "ring-2 ring-primary"
-              )}
-            >
-              <div className="text-left space-y-0.5 sm:space-y-1">
-                <div className={cn(
-                  "text-xs sm:text-sm font-semibold",
-                  isToday && "text-primary"
-                )}>
-                  {format(day, 'd')}
-                </div>
-                
-                {isCurrentMonth && dayData && dayData.completedVisits > 0 && (
-                  <div className="text-[10px] sm:text-xs space-y-0.5">
-                    {dayData.beatName && (
-                      <div className="font-medium truncate" title={dayData.beatName}>
-                        {dayData.beatName}
-                      </div>
-                    )}
-                    <div className="text-muted-foreground">
-                      P: {dayData.plannedVisits} | C: {dayData.completedVisits}
-                    </div>
-                    <div className="text-success font-medium">
-                      Prod: {dayData.productiveVisits}
-                    </div>
-                    {dayData.revenue > 0 && (
-                      <div className="text-primary font-semibold">
-                        ₹{(dayData.revenue / 1000).toFixed(1)}k
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {isCurrentMonth && dayData && (dayData.isHoliday || dayData.isLeave) && (
-                  <div className="text-[10px] sm:text-xs text-muted-foreground">
-                    {dayData.isHoliday ? 'Holiday' : 'Leave'}
-                  </div>
-                )}
+      <div className="overflow-x-auto -mx-2 px-2">
+        <div className="min-w-[600px] md:min-w-0">
+          <div className="grid grid-cols-7 gap-1 md:gap-2">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
+                {day}
               </div>
-            </button>
-          );
-        })}
+            ))}
+            
+            {calendarDays.map(day => {
+              const dateKey = format(day, 'yyyy-MM-dd');
+              const dayData = calendarData.get(dateKey);
+              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+              if (!shouldShowDay(dayData)) return null;
+
+              return (
+                <button
+                  key={dateKey}
+                  onClick={() => handleDateClick(day)}
+                  disabled={!isCurrentMonth}
+                  className={cn(
+                    "min-h-[90px] md:min-h-[100px] p-1.5 md:p-2 border rounded-lg transition-all",
+                    "hover:shadow-md active:scale-95 md:hover:scale-105",
+                    "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100",
+                    getColorClass(dayData),
+                    isToday && "ring-2 ring-primary"
+                  )}
+                >
+                  <div className="text-left space-y-0.5">
+                    <div className={cn(
+                      "text-sm font-bold",
+                      isToday && "text-primary"
+                    )}>
+                      {format(day, 'd')}
+                    </div>
+                    
+                    {isCurrentMonth && dayData && dayData.completedVisits > 0 && (
+                      <div className="text-[11px] md:text-xs space-y-0.5">
+                        {dayData.beatName && (
+                          <div className="font-semibold text-foreground truncate leading-tight" title={dayData.beatName}>
+                            {dayData.beatName.length > 12 ? dayData.beatName.substring(0, 12) + '...' : dayData.beatName}
+                          </div>
+                        )}
+                        <div className="text-muted-foreground font-medium">
+                          P:{dayData.plannedVisits} C:{dayData.completedVisits}
+                        </div>
+                        <div className="text-success font-semibold">
+                          ✓{dayData.productiveVisits}
+                        </div>
+                        {dayData.revenue > 0 && (
+                          <div className="text-primary font-bold">
+                            ₹{dayData.revenue >= 1000 ? (dayData.revenue / 1000).toFixed(1) + 'k' : dayData.revenue}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {isCurrentMonth && dayData && (dayData.isHoliday || dayData.isLeave) && (
+                      <div className="text-[11px] md:text-xs text-muted-foreground font-medium">
+                        {dayData.isHoliday ? '🏖️' : '🏠'}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   };
@@ -567,15 +571,16 @@ export const PerformanceCalendar = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <CardTitle className="text-lg">Performance Calendar</CardTitle>
+      <CardHeader className="pb-3">
+        <div className="flex flex-col gap-2 md:gap-3">
+          {/* Title Row with View & Filter */}
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-base md:text-lg">Performance Calendar</CardTitle>
             
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 md:gap-2">
               {/* View Mode Selector */}
               <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
-                <SelectTrigger className="w-[120px] h-9">
+                <SelectTrigger className="w-[80px] md:w-[100px] h-8 text-xs md:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -588,9 +593,9 @@ export const PerformanceCalendar = () => {
               {/* Filter Popover */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9">
-                    <Filter className="h-4 w-4 mr-1" />
-                    Filter
+                  <Button variant="outline" size="sm" className="h-8 px-2 md:px-3">
+                    <Filter className="h-3.5 w-3.5 md:mr-1" />
+                    <span className="hidden md:inline text-xs">Filter</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64" align="end">
@@ -654,18 +659,18 @@ export const PerformanceCalendar = () => {
             </div>
           </div>
 
-          {/* Navigation and Date Picker Row */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={handlePrevious}>
+          {/* Navigation Row - Stacked on mobile */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={handlePrevious}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               
               {/* Date/Month/Year Picker */}
               {viewMode === "month" ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                    <SelectTrigger className="w-[130px] h-9">
+                    <SelectTrigger className="w-[90px] md:w-[120px] h-8 text-xs md:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -677,7 +682,7 @@ export const PerformanceCalendar = () => {
                     </SelectContent>
                   </Select>
                   <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                    <SelectTrigger className="w-[100px] h-9">
+                    <SelectTrigger className="w-[70px] md:w-[90px] h-8 text-xs md:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -692,8 +697,8 @@ export const PerformanceCalendar = () => {
               ) : (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="h-9">
-                      <CalendarIcon className="h-4 w-4 mr-2" />
+                    <Button variant="outline" className="h-8 text-xs md:text-sm">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
                       {getDateRange()}
                     </Button>
                   </PopoverTrigger>
@@ -708,16 +713,16 @@ export const PerformanceCalendar = () => {
                 </Popover>
               )}
 
-              <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={handleNext}>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={handleNext}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
             {/* Team Member Selector */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium whitespace-nowrap">Team Member:</label>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <label className="text-xs md:text-sm font-medium whitespace-nowrap">Team:</label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="w-[150px] h-9">
+                <SelectTrigger className="w-[120px] md:w-[150px] h-8 text-xs md:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -733,23 +738,23 @@ export const PerformanceCalendar = () => {
             </div>
           </div>
 
-          {/* Legend - Only show in month view */}
+          {/* Legend - Compact on mobile, only in month view */}
           {viewMode === "month" && (
-            <div className="flex flex-wrap gap-3 text-xs">
+            <div className="flex flex-wrap gap-2 md:gap-3 text-[10px] md:text-xs">
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-success/20 border border-success/40" />
-                <span className="text-muted-foreground">&gt;50% Productive</span>
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-success/20 border border-success/40" />
+                <span className="text-muted-foreground">&gt;50%</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-warning/20 border border-warning/40" />
-                <span className="text-muted-foreground">&gt;30% Productive</span>
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-warning/20 border border-warning/40" />
+                <span className="text-muted-foreground">&gt;30%</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-destructive/20 border border-destructive/40" />
-                <span className="text-muted-foreground">&lt;20% Productive</span>
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-destructive/20 border border-destructive/40" />
+                <span className="text-muted-foreground">&lt;20%</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-muted border" />
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-muted border" />
                 <span className="text-muted-foreground">Holiday/Leave</span>
               </div>
             </div>
