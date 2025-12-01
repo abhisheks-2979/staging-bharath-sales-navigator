@@ -179,6 +179,50 @@ export function useOfflineSync() {
             .insert(data.items);
           if (itemsError) throw itemsError;
 
+          // Update retailer's pending_amount and last_order_date
+          const orderRetailerId = data.order?.retailer_id;
+          if (orderRetailerId) {
+            // Get current pending amount from retailer
+            const { data: retailerData } = await supabase
+              .from('retailers')
+              .select('pending_amount')
+              .eq('id', orderRetailerId)
+              .single();
+            
+            const currentPending = retailerData?.pending_amount || 0;
+            const creditPending = data.order?.credit_pending_amount || 0;
+            const creditPaid = data.order?.credit_paid_amount || 0;
+            const previousCleared = data.order?.previous_pending_cleared || 0;
+            
+            // Calculate new pending: current + new credit - paid amount (that clears previous)
+            const newPending = data.order?.is_credit_order 
+              ? currentPending + creditPending - previousCleared
+              : 0; // Full payment clears everything
+            
+            console.log('💰 Updating retailer pending amount from sync:', { 
+              orderRetailerId, 
+              currentPending, 
+              creditPending,
+              creditPaid,
+              previousCleared,
+              newPending 
+            });
+            
+            const { error: retailerUpdateError } = await supabase
+              .from('retailers')
+              .update({ 
+                pending_amount: Math.max(0, newPending),
+                last_order_date: new Date().toISOString().split('T')[0]
+              })
+              .eq('id', orderRetailerId);
+            
+            if (retailerUpdateError) {
+              console.error('❌ Failed to update retailer pending amount during sync:', retailerUpdateError);
+            } else {
+              console.log('✅ Retailer pending amount updated during sync');
+            }
+          }
+
           // Trigger visit status refresh (database trigger auto-updates visit status)
           if (data.visitId || data.order?.visit_id) {
             const visitId = data.visitId || data.order.visit_id;
@@ -201,6 +245,39 @@ export function useOfflineSync() {
             .from('orders')
             .insert(data);
           if (orderError) throw orderError;
+
+          // Update retailer's pending_amount for old format too
+          if (data.retailer_id) {
+            const { data: retailerData } = await supabase
+              .from('retailers')
+              .select('pending_amount')
+              .eq('id', data.retailer_id)
+              .single();
+            
+            const currentPending = retailerData?.pending_amount || 0;
+            const creditPending = data.credit_pending_amount || 0;
+            const previousCleared = data.previous_pending_cleared || 0;
+            
+            const newPending = data.is_credit_order 
+              ? currentPending + creditPending - previousCleared
+              : 0;
+            
+            console.log('💰 Updating retailer pending amount from sync (old format):', { 
+              retailerId: data.retailer_id, 
+              currentPending, 
+              creditPending,
+              previousCleared,
+              newPending 
+            });
+            
+            await supabase
+              .from('retailers')
+              .update({ 
+                pending_amount: Math.max(0, newPending),
+                last_order_date: new Date().toISOString().split('T')[0]
+              })
+              .eq('id', data.retailer_id);
+          }
 
           // Trigger visit status refresh (database trigger auto-updates visit status)
           if (data.visit_id) {

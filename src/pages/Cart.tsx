@@ -804,8 +804,27 @@ export const Cart = () => {
       console.log('✅ Order created successfully:', {
         orderId: result.order?.id,
         offline: result.offline,
-        retailerId: validRetailerId
+        retailerId: validRetailerId,
+        newTotalPending
       });
+
+      // Update retailer's pending_amount and last_order_date
+      if (validRetailerId && !result.offline) {
+        console.log('💰 Updating retailer pending amount:', { retailerId: validRetailerId, newTotalPending });
+        const { error: retailerUpdateError } = await supabase
+          .from('retailers')
+          .update({ 
+            pending_amount: newTotalPending,
+            last_order_date: new Date().toISOString().split('T')[0]
+          })
+          .eq('id', validRetailerId);
+        
+        if (retailerUpdateError) {
+          console.error('❌ Failed to update retailer pending amount:', retailerUpdateError);
+        } else {
+          console.log('✅ Retailer pending amount updated successfully');
+        }
+      }
 
       // Dispatch visit status changed event for real-time UI updates
       if (actualVisitId) {
