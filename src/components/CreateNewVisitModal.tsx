@@ -5,11 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Users, MapPin, UserPlus } from "lucide-react";
+import { CalendarIcon, Users, MapPin } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useJointSales } from "@/hooks/useJointSales";
 import { format } from "date-fns";
 
 interface Beat {
@@ -32,9 +31,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [availableBeats, setAvailableBeats] = useState<Beat[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedManagerId, setSelectedManagerId] = useState<string>("");
   const { user } = useAuth();
-  const { managers } = useJointSales();
 
   // Reset date when modal opens with initialDate
   useEffect(() => {
@@ -144,7 +141,6 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
           beat_id: selectedBeat,
           beat_name: selectedBeat,
           plan_date: formattedDate,
-          joint_sales_manager_id: selectedManagerId || null,
           beat_data: {
             id: selectedBeat,
             name: selectedBeat,
@@ -231,28 +227,6 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
             />
           </div>
 
-          {managers.length > 0 && (
-            <div className="space-y-2">
-              <Label>Joint Sales (Optional)</Label>
-              <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select manager for joint sales" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No joint sales</SelectItem>
-                  {managers.map((manager) => (
-                    <SelectItem key={manager.id} value={manager.id}>
-                      <div className="flex items-center gap-2">
-                        <UserPlus className="h-4 w-4" />
-                        {manager.full_name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {selectedBeat && (
             <div className="p-3 bg-muted/50 rounded-lg">
               <h4 className="font-medium mb-2">Selected Beat Details</h4>
@@ -267,14 +241,6 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
                     {availableBeats.find(b => b.id === selectedBeat)?.retailerCount || 0} retailers
                   </span>
                 </div>
-                {selectedManagerId && (
-                  <div className="flex items-center gap-2">
-                    <UserPlus className="h-4 w-4 text-primary" />
-                    <span className="text-primary font-medium">
-                      Joint sales with {managers.find(m => m.id === selectedManagerId)?.full_name}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           )}

@@ -89,7 +89,6 @@ import PerformanceModuleAdmin from "./pages/admin/PerformanceModuleAdmin";
 import MyTargets from "./pages/MyTargets";
 import TeamTargets from "./pages/TeamTargets";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
-import { JointSalesAnalytics } from "./pages/JointSalesAnalytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -261,11 +260,6 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/admin/performance-module" element={<ProtectedRoute><PerformanceModuleAdmin /></ProtectedRoute>} />
               <Route path="/my-targets" element={<ProtectedRoute><MyTargets /></ProtectedRoute>} />
               <Route path="/team-targets" element={<ProtectedRoute><TeamTargets /></ProtectedRoute>} />
-              <Route path="/joint-sales-analytics" element={<ProtectedRoute><JointSalesAnalytics /></ProtectedRoute>} />
-              {/* Redirect underscore routes to hyphenated version */}
-              <Route path="/joint_sales_feedback" element={<ProtectedRoute><JointSalesAnalytics /></ProtectedRoute>} />
-              <Route path="/joint_sales_sessions" element={<ProtectedRoute><JointSalesAnalytics /></ProtectedRoute>} />
-              <Route path="/joint_sales_manager_id" element={<ProtectedRoute><JointSalesAnalytics /></ProtectedRoute>} />
               <Route path="/features/beat-planning" element={<Suspense fallback={<LoadingScreen />}><BeatPlanningFeature /></Suspense>} />
               <Route path="/features/retailer-management" element={<Suspense fallback={<LoadingScreen />}><RetailerManagementFeature /></Suspense>} />
               <Route path="/features/visit-scheduling" element={<Suspense fallback={<LoadingScreen />}><VisitSchedulingFeature /></Suspense>} />

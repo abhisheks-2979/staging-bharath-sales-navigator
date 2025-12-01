@@ -11,7 +11,6 @@ import { toast } from "@/hooks/use-toast";
 import { CompetitionInsightModal } from "./CompetitionInsightModal";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
-import { JointSalesFeedbackModal } from "./JointSalesFeedbackModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
 import { StockCycleModal } from "./StockCycleModal";
@@ -131,9 +130,6 @@ export const VisitCard = ({
   const [skipCheckInReasonType, setSkipCheckInReasonType] = useState<string>('');
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showVanSales, setShowVanSales] = useState(false);
-  const [showJointSalesFeedback, setShowJointSalesFeedback] = useState(false);
-  const [isJointVisit, setIsJointVisit] = useState(false);
-  const [jointSalesManagerId, setJointSalesManagerId] = useState<string>("");
   const {
     isVanSalesEnabled
   } = useVanSales();
@@ -322,23 +318,6 @@ export const VisitCard = ({
               setPhase('completed');
             }
           }
-
-            // Check if this is a joint visit where current user is the manager
-            // Find beat_plan that contains this retailer
-            const { data: beatPlans } = await supabase
-              .from('beat_plans')
-              .select('beat_id, joint_sales_manager_id, beat_data')
-              .eq('plan_date', targetDate);
-            
-            const matchingBeatPlan = beatPlans?.find(bp => {
-              const beatData = bp.beat_data as any;
-              return beatData?.retailers?.some((r: any) => r.id === visitRetailerId);
-            });
-            
-            if (matchingBeatPlan?.joint_sales_manager_id === currentUserId) {
-              setIsJointVisit(true);
-              setJointSalesManagerId(matchingBeatPlan.joint_sales_manager_id);
-            }
 
             // Check stock records - @ts-ignore to bypass TypeScript deep type inference issue
           // @ts-ignore
@@ -1634,21 +1613,6 @@ export const VisitCard = ({
               <span className="text-xs">AI</span>
             </Button>
           </div>
-
-          {/* Joint Sales Feedback Button - Only for managers on joint visits after checkout */}
-          {isJointVisit && isCheckedOut && (
-            <div className="mt-2">
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
-                onClick={() => setShowJointSalesFeedback(true)}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Submit Joint Sales Feedback
-              </Button>
-            </div>
-          )}
 
           {(visit.hasOrder || hasOrderToday) && <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
