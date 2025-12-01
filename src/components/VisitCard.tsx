@@ -1616,6 +1616,21 @@ export const VisitCard = ({
             </Button>
           </div>
 
+          {/* Joint Sales Feedback Button - Only for managers on joint visits after checkout */}
+          {isJointVisit && isCheckedOut && (
+            <div className="mt-2">
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
+                onClick={() => setShowJointSalesFeedback(true)}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Submit Joint Sales Feedback
+              </Button>
+            </div>
+          )}
+
           {(visit.hasOrder || hasOrderToday) && <div className="mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
