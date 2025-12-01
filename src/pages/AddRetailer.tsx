@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown, WifiOff, ChevronDown } from "lucide-react";
+import { Layout } from "@/components/Layout";
+import { Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown, WifiOff, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -599,20 +600,13 @@ export const AddRetailer = () => {
   };
 
   return (
+    <Layout>
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate(returnTo)}
-                className="text-primary-foreground hover:bg-primary-foreground/20"
-              >
-                <ArrowLeft size={20} />
-              </Button>
               <div>
                 <CardTitle className="text-xl font-bold">{t('retailer.addRetailer')}</CardTitle>
                 <p className="text-primary-foreground/80">{t('retailer.subtitle')}</p>
@@ -1468,5 +1462,6 @@ export const AddRetailer = () => {
         </Dialog>
       </div>
     </div>
+    </Layout>
   );
 };

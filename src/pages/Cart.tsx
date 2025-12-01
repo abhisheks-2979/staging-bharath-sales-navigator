@@ -1,9 +1,10 @@
 import React from "react";
+import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InvoiceTemplateRenderer from "@/components/invoice/InvoiceTemplateRenderer";
-import { ArrowLeft, Trash2, Gift, ShoppingCart, Eye, Camera, FileText } from "lucide-react";
+import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
@@ -1162,22 +1163,14 @@ export const Cart = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-        <div className="w-full px-2 sm:px-4 py-2 sm:py-4">
+    <Layout>
+      <div className="min-h-screen bg-background pb-20">
+        {/* Page Header */}
+        <div className="w-full px-2 sm:px-4 py-2 sm:py-3">
           <Card className="shadow-card bg-gradient-primary text-primary-foreground">
             <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
-              {/* Left side - Back button and title */}
+              {/* Left side - Title */}
               <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate(`/order-entry?visitId=${visitId}&retailer=${retailerName}&retailerId=${retailerId}${isPhoneOrder ? '&phoneOrder=true' : ''}`)}
-                  className="text-primary-foreground hover:bg-primary-foreground/20 p-1.5 sm:p-2 shrink-0"
-                >
-                  <ArrowLeft size={18} />
-                </Button>
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <CardTitle className="text-base sm:text-lg font-semibold leading-tight truncate">Cart</CardTitle>
                   <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
@@ -1203,10 +1196,9 @@ export const Cart = () => {
             </CardHeader>
           </Card>
         </div>
-      </div>
 
-      {/* Scrollable Content with top padding for fixed header */}
-      <div className="w-full px-2 sm:px-4 space-y-3 pt-24 sm:pt-28">
+        {/* Scrollable Content */}
+        <div className="w-full px-2 sm:px-4 space-y-3">
         {/* Cart Items */}
         {cartItems.length === 0 ? <Card>
             <CardContent className="p-8 text-center">
@@ -1522,6 +1514,7 @@ export const Cart = () => {
         </Dialog>
       </div>
     </div>
+    </Layout>
   );
 };
 
