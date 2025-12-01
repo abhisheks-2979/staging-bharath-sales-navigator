@@ -581,15 +581,6 @@ const Analytics = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/joint-sales-analytics')}
-                  className="text-primary-foreground hover:bg-primary-foreground/20"
-                >
-                  <Users size={16} className="mr-2" />
-                  Joint Sales
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
                   onClick={handleLike}
                   className={`text-primary-foreground hover:bg-primary-foreground/20 ${
                     hasLiked ? "bg-primary-foreground/20" : ""
