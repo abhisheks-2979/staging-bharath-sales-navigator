@@ -2290,8 +2290,47 @@ export const OrderEntry = () => {
                                        </div>}
                                     </div>
                                   </div>
-                                  <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
-                                  <div className="text-xs text-muted-foreground">{product.unit || 'kg'}</div>
+                                  <div className="font-medium">
+                                    {(() => {
+                                      const selectedUnit = selectedUnits[variantCompositeId] || product.unit || 'kg';
+                                      const baseUnit = product.base_unit?.toLowerCase() || 'kg';
+                                      const targetUnit = selectedUnit.toLowerCase();
+                                      let conversionFactor = 1;
+                                      if (baseUnit === 'kg') {
+                                        if (targetUnit === 'grams' || targetUnit === 'gram') {
+                                          conversionFactor = 0.001;
+                                        }
+                                      }
+                                      const pricePerUnit = variantPrice * conversionFactor;
+                                      return conversionFactor !== 1 ? (
+                                        <div className="flex flex-col">
+                                          <span>₹{pricePerUnit.toFixed(2)}</span>
+                                          <span className="text-[9px] text-muted-foreground">
+                                            (₹{variantPrice.toFixed(2)}/{baseUnit})
+                                          </span>
+                                        </div>
+                                      ) : `₹${variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}`;
+                                    })()}
+                                  </div>
+                                  <div>
+                                    <Select 
+                                      value={selectedUnits[variantCompositeId] || product.unit || 'kg'} 
+                                      onValueChange={(value) => {
+                                        setSelectedUnits(prev => ({
+                                          ...prev,
+                                          [variantCompositeId]: value
+                                        }));
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-6 text-xs p-1 w-full">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="kg">kg</SelectItem>
+                                        <SelectItem value="grams">grams</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                  <div>
                                   <Input type="number" placeholder="0" value={variantQuantity || ""} onChange={e => {
                                   const qty = parseInt(e.target.value) || 0;
