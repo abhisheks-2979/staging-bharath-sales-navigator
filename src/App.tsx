@@ -95,9 +95,13 @@ import JointSalesAnalytics from "./pages/JointSalesAnalytics";
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
 import LeadManagement from "./pages/institutional/LeadManagement";
 import AccountManagement from "./pages/institutional/AccountManagement";
+import AccountDetail from "./pages/institutional/AccountDetail";
 import ContactManagement from "./pages/institutional/ContactManagement";
+import ContactDetail from "./pages/institutional/ContactDetail";
 import OpportunityManagement from "./pages/institutional/OpportunityManagement";
+import OpportunityDetail from "./pages/institutional/OpportunityDetail";
 import QuoteManagement from "./pages/institutional/QuoteManagement";
+import QuoteDetail from "./pages/institutional/QuoteDetail";
 import InstitutionalProducts from "./pages/institutional/InstitutionalProducts";
 import OrderCommitments from "./pages/institutional/OrderCommitments";
 import InstitutionalInvoices from "./pages/institutional/InstitutionalInvoices";
@@ -289,9 +293,13 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/institutional-sales" element={<ProtectedRoute><InstitutionalSalesDashboard /></ProtectedRoute>} />
               <Route path="/institutional-sales/leads" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
               <Route path="/institutional-sales/accounts" element={<ProtectedRoute><AccountManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/accounts/:id" element={<ProtectedRoute><AccountDetail /></ProtectedRoute>} />
               <Route path="/institutional-sales/contacts" element={<ProtectedRoute><ContactManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/contacts/:id" element={<ProtectedRoute><ContactDetail /></ProtectedRoute>} />
               <Route path="/institutional-sales/opportunities" element={<ProtectedRoute><OpportunityManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/opportunities/:id" element={<ProtectedRoute><OpportunityDetail /></ProtectedRoute>} />
               <Route path="/institutional-sales/quotes" element={<ProtectedRoute><QuoteManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/quotes/:id" element={<ProtectedRoute><QuoteDetail /></ProtectedRoute>} />
               <Route path="/institutional-sales/products" element={<ProtectedRoute><InstitutionalProducts /></ProtectedRoute>} />
               <Route path="/institutional-sales/order-commitments" element={<ProtectedRoute><OrderCommitments /></ProtectedRoute>} />
               <Route path="/institutional-sales/invoices" element={<ProtectedRoute><InstitutionalInvoices /></ProtectedRoute>} />
