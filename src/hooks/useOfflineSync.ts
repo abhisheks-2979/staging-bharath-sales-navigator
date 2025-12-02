@@ -92,7 +92,7 @@ export function useOfflineSync() {
     switch (action) {
       case 'UPDATE_VISIT_NO_ORDER':
         console.log('Syncing no-order visit update:', data);
-        const { visitId: noOrderVisitId, retailerId: noOrderRetailerId, userId: noOrderUserId, noOrderReason, plannedDate } = data;
+        const { visitId: noOrderVisitId, retailerId: noOrderRetailerId, userId: noOrderUserId, noOrderReason, checkOutTime, plannedDate } = data;
         
         let effectiveNoOrderVisitId = noOrderVisitId;
         
@@ -137,12 +137,13 @@ export function useOfflineSync() {
           }
         }
         
-        // Update the visit with no-order reason
+        // Update the visit with no-order reason and check-out time
         const { error: updateError } = await supabase
           .from('visits')
           .update({
             status: 'unproductive',
             no_order_reason: noOrderReason,
+            check_out_time: checkOutTime || new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', effectiveNoOrderVisitId);
@@ -406,10 +407,18 @@ export function useOfflineSync() {
         
       case 'CREATE_RETAILER':
         console.log('Syncing retailer creation:', data);
+        // Handle both data formats: wrapped { retailer, tempId } or direct retailer object
+        const retailerPayload = data.retailer || data;
+        // Remove tempId if present (it's not a database field)
+        const { tempId, ...retailerData } = retailerPayload;
         const { error: retailerError } = await supabase
           .from('retailers')
-          .insert(data);
+          .insert(retailerData);
         if (retailerError) throw retailerError;
+        
+        // Dispatch event to refresh retailer list
+        window.dispatchEvent(new Event('retailerDataChanged'));
+        console.log('✅ Retailer created successfully');
         break;
         
       case 'UPDATE_RETAILER':
