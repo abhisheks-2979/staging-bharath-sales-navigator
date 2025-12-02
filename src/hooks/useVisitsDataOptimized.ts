@@ -155,12 +155,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
           const hasOrder = orderValue > 0;
           
-          // Check visit status directly from the visit record
-          if (visit.status === 'unproductive' || (visit.no_order_reason && !hasOrder)) {
+          // SIMPLIFIED LOGIC: Count visits based on their actual status only
+          if (visit.status === 'unproductive') {
             unproductive++;
-          } else if (hasOrder || visit.status === 'productive') {
+          } else if (visit.status === 'productive' || hasOrder) {
             productive++;
-          } else if (visit.status === 'planned' || !visit.check_in_time) {
+          } else if (visit.status === 'planned') {
             planned++;
           }
         });
@@ -372,12 +372,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         visitsData.forEach((visit: any) => {
           const hasOrder = ordersMap.has(visit.retailer_id);
           
-          // Check visit status directly - match cache section logic
-          if (visit.status === 'unproductive' || (visit.no_order_reason && !hasOrder)) {
+          // SIMPLIFIED LOGIC: Count visits based on their actual status only
+          if (visit.status === 'unproductive') {
             unproductive++;
-          } else if (hasOrder || visit.status === 'productive') {
+          } else if (visit.status === 'productive' || hasOrder) {
             productive++;
-          } else if (visit.status === 'planned' || !visit.check_in_time) {
+          } else if (visit.status === 'planned') {
             planned++;
           }
         });
