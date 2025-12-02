@@ -1460,6 +1460,40 @@ export const OrderEntry = () => {
                     {isOnline ? 'Online' : 'Offline'}
                   </span>
                 </div>
+                
+                {/* Location Status Badge */}
+                {validRetailerId && currentLog && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {locationStatus === 'at_store' && (
+                      <Badge variant="default" className="bg-success text-success-foreground h-4 px-1 text-[8px]">
+                        <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                        At Store
+                      </Badge>
+                    )}
+                    {locationStatus === 'within_range' && (
+                      <Badge variant="default" className="bg-warning text-warning-foreground h-4 px-1 text-[8px]">
+                        <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                        &lt;50m from Store
+                      </Badge>
+                    )}
+                    {locationStatus === 'not_at_store' && (
+                      <Badge variant="destructive" className="h-4 px-1 text-[8px]">
+                        <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                        Not at Store
+                      </Badge>
+                    )}
+                    <span className="text-[9px] text-primary-foreground/60">•</span>
+                    <span className="text-[9px] font-medium text-primary-foreground/80">{formattedTimeSpent}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowVisitDetailsModal(true)}
+                      className="h-4 px-1 text-[8px] text-primary-foreground/70 hover:text-primary-foreground"
+                    >
+                      Details
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
               
