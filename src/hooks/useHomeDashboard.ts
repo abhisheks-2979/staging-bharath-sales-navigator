@@ -169,12 +169,26 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
         }
 
-        // Calculate beat progress - use visits.length as the total since it represents actual planned visits
-        const completed = visits.filter((v: any) => v.status === 'completed' || v.status === 'productive' || v.status === 'unproductive').length;
-        const planned = visits.filter((v: any) => v.status === 'planned').length;
-        const productive = visits.filter((v: any) => v.status === 'productive').length;
-        const unproductive = visits.filter((v: any) => v.status === 'unproductive').length;
-        const totalVisits = visits.length;
+        // Calculate beat progress - planned should include all beat retailers marked/planned for today
+        const beatIds = beatPlans.map((bp: any) => bp.beat_id);
+        const retailersForBeat = retailers.filter((r: any) => beatIds.includes(r.beat_id));
+        const visitsAny = (visits || []) as any[];
+        const visitByRetailer = new Map(visitsAny.map((v: any) => [v.retailer_id, v]));
+
+        const completed = visitsAny.filter((v: any) => v.status === 'completed' || v.status === 'productive' || v.status === 'unproductive').length;
+
+        let planned = 0;
+        retailersForBeat.forEach((r: any) => {
+          const visit = visitByRetailer.get(r.id);
+          if (!visit || visit.status === 'planned') {
+            planned++;
+          }
+        });
+
+        const productive = visitsAny.filter((v: any) => v.status === 'productive').length;
+        const unproductive = visitsAny.filter((v: any) => v.status === 'unproductive').length;
+        const totalVisits = retailersForBeat.length;
+
 
         // Calculate revenue target and achieved
         const revenueTarget = 10000; // Default target, can be made dynamic
