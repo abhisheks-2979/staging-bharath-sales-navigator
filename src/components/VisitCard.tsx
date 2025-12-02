@@ -95,6 +95,7 @@ export const VisitCard = ({
   const [beatPlanId, setBeatPlanId] = useState<string | null>(null);
   const [showJointSalesFeedback, setShowJointSalesFeedback] = useState(false);
   const [jointSalesChecked, setJointSalesChecked] = useState(false);
+  const [hasJointSalesFeedback, setHasJointSalesFeedback] = useState(false);
   const { user } = useAuth();
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
@@ -301,6 +302,16 @@ export const VisitCard = ({
             if (beatPlanData.joint_sales_manager_id) {
               setIsJointSalesVisit(true);
               setJointSalesMemberId(beatPlanData.joint_sales_manager_id);
+              
+              // Check if feedback exists for this joint sales visit
+              const { data: feedbackData } = await supabase
+                .from('joint_sales_feedback')
+                .select('id')
+                .eq('beat_plan_id', beatPlanData.id)
+                .eq('retailer_id', visitRetailerId)
+                .maybeSingle();
+              
+              setHasJointSalesFeedback(!!feedbackData);
             }
           }
 
@@ -1403,8 +1414,8 @@ export const VisitCard = ({
                   <Phone size={12} className="mr-1" />
                   Phone Order
                 </Badge>}
-              {isJointSalesVisit && <Badge className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1">
-                  <Users size={12} className="mr-1" />
+              {isJointSalesVisit && hasJointSalesFeedback && <Badge className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1">
+                  <UserCheck size={12} className="mr-1" />
                   Joint Sales
                 </Badge>}
             </div>
@@ -2016,17 +2027,20 @@ export const VisitCard = ({
         <NoOrderModal isOpen={showNoOrderModal} onClose={() => setShowNoOrderModal(false)} onReasonSelect={handleNoOrderReasonSelect} currentReason={noOrderReason} />
 
          {/* Unified Feedback Modal with Tabs */}
-        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => setShowFeedbackModal(false)} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
+        {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
 
-        {showFeedbackModal && feedbackActiveTab === "competition" && <CompetitionInsightModal isOpen={true} onClose={() => setShowFeedbackModal(false)} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
+        {showFeedbackModal && feedbackActiveTab === "competition" && <CompetitionInsightModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
 
-        {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => setShowFeedbackModal(false)} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
+        {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
 
-        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => setShowFeedbackModal(false)} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId || ""} managerId={jointSalesMemberId || ""} />}
+        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId || ""} managerId={jointSalesMemberId || ""} />}
 
-        {/* Tab Selector Modal */}
+         {/* Tab Selector Modal */}
         <Dialog open={showFeedbackModal && !['retailer-feedback', 'competition', 'branding', 'joint-sales-feedback'].includes(feedbackActiveTab)} onOpenChange={open => {
-        if (!open) setShowFeedbackModal(false);
+        if (!open) {
+          setShowFeedbackModal(false);
+          setFeedbackActiveTab("menu");
+        }
       }}>
           <DialogContent className="max-w-[95vw] sm:max-w-lg">
             <DialogHeader>

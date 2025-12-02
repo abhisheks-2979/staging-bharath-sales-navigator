@@ -24,6 +24,8 @@ interface DayData {
   productivity: number;
   isHoliday: boolean;
   isLeave: boolean;
+  hasJointSales: boolean;
+  jointSalesMemberName?: string;
 }
 
 type ViewMode = "day" | "week" | "month";
@@ -121,12 +123,27 @@ export const PerformanceCalendar = () => {
       // Fetch beat plans for the range
       const { data: beatPlans, error: beatPlansError } = await supabase
         .from('beat_plans')
-        .select('plan_date, beat_name')
+        .select('plan_date, beat_name, joint_sales_manager_id')
         .in('user_id', userIds)
         .gte('plan_date', format(rangeStart, 'yyyy-MM-dd'))
         .lte('plan_date', format(rangeEnd, 'yyyy-MM-dd'));
 
       if (beatPlansError) throw beatPlansError;
+
+      // Get joint sales member names
+      const jointSalesManagerIds = beatPlans?.filter(bp => bp.joint_sales_manager_id).map(bp => bp.joint_sales_manager_id as string) || [];
+      const jointSalesMemberMap = new Map<string, string>();
+      
+      if (jointSalesManagerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', jointSalesManagerIds);
+        
+        profiles?.forEach(p => {
+          jointSalesMemberMap.set(p.id, p.full_name);
+        });
+      }
 
       // Fetch visits for the range
       const { data: visits, error: visitsError } = await supabase
@@ -186,13 +203,22 @@ export const PerformanceCalendar = () => {
         });
       });
 
-      // Create beat plan map
-      const beatPlanMap = new Map<string, string[]>();
+      // Create beat plan map with joint sales info
+      const beatPlanMap = new Map<string, { beatNames: string[]; hasJointSales: boolean; jointSalesMemberName?: string }>();
       beatPlans?.forEach(plan => {
         if (!beatPlanMap.has(plan.plan_date)) {
-          beatPlanMap.set(plan.plan_date, []);
+          beatPlanMap.set(plan.plan_date, { 
+            beatNames: [], 
+            hasJointSales: false,
+            jointSalesMemberName: undefined
+          });
         }
-        beatPlanMap.get(plan.plan_date)!.push(plan.beat_name);
+        const dayData = beatPlanMap.get(plan.plan_date)!;
+        dayData.beatNames.push(plan.beat_name);
+        if (plan.joint_sales_manager_id) {
+          dayData.hasJointSales = true;
+          dayData.jointSalesMemberName = jointSalesMemberMap.get(plan.joint_sales_manager_id);
+        }
       });
 
       // Create order map by visit_id
@@ -206,17 +232,19 @@ export const PerformanceCalendar = () => {
       visits?.forEach(visit => {
         const dateKey = visit.planned_date;
         if (!dataByDate.has(dateKey)) {
-          const beatNames = beatPlanMap.get(dateKey) || [];
+          const beatPlanInfo = beatPlanMap.get(dateKey);
           dataByDate.set(dateKey, {
             date: new Date(dateKey),
-            beatName: beatNames.join(', ') || '',
+            beatName: beatPlanInfo?.beatNames.join(', ') || '',
             plannedVisits: 0,
             completedVisits: 0,
             productiveVisits: 0,
             revenue: 0,
             productivity: 0,
             isHoliday: holidayDates.has(dateKey),
-            isLeave: leaveDates.has(dateKey)
+            isLeave: leaveDates.has(dateKey),
+            hasJointSales: beatPlanInfo?.hasJointSales || false,
+            jointSalesMemberName: beatPlanInfo?.jointSalesMemberName
           });
         }
 
@@ -380,8 +408,18 @@ export const PerformanceCalendar = () => {
                             {dayData.beatName.length > 10 ? dayData.beatName.substring(0, 10) + '..' : dayData.beatName}
                           </div>
                         )}
-                        <div className="text-muted-foreground">
-                          P:{dayData.plannedVisits} C:{dayData.completedVisits}
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">
+                            P:{dayData.plannedVisits} C:{dayData.completedVisits}
+                          </span>
+                          {dayData.hasJointSales && (
+                            <span 
+                              className="text-blue-600 cursor-help" 
+                              title={dayData.jointSalesMemberName ? `Joint Sales with ${dayData.jointSalesMemberName}` : "Joint Sales Visit"}
+                            >
+                              🔵
+                            </span>
+                          )}
                         </div>
                         <div className="text-success font-semibold">
                           ✓{dayData.productiveVisits}
