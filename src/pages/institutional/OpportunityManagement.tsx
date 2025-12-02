@@ -386,7 +386,7 @@ export default function OpportunityManagement() {
             filteredOpportunities.map((opp) => {
               const stageInfo = getStageInfo(opp.stage);
               return (
-                <Card key={opp.id} className="overflow-hidden">
+                <Card key={opp.id} className="overflow-hidden cursor-pointer hover:shadow-md" onClick={() => navigate(`/institutional-sales/opportunities/${opp.id}`)}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -426,7 +426,7 @@ export default function OpportunityManagement() {
                         )}
                       </div>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
@@ -435,13 +435,13 @@ export default function OpportunityManagement() {
                           {stages.map((stage) => (
                             <DropdownMenuItem 
                               key={stage.value}
-                              onClick={() => handleStageChange(opp.id, stage.value)}
+                              onClick={(e) => { e.stopPropagation(); handleStageChange(opp.id, stage.value); }}
                               disabled={opp.stage === stage.value}
                             >
                               Move to {stage.label}
                             </DropdownMenuItem>
                           ))}
-                          <DropdownMenuItem onClick={() => navigate(`/institutional-sales/quotes?opportunity=${opp.id}`)}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/institutional-sales/quotes?opportunity=${opp.id}`); }}>
                             <FileText className="h-4 w-4 mr-2" /> Create Quote
                           </DropdownMenuItem>
                         </DropdownMenuContent>

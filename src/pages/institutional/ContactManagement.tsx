@@ -371,7 +371,7 @@ export default function ContactManagement() {
             </div>
           ) : (
             filteredContacts.map((contact) => (
-              <Card key={contact.id} className="overflow-hidden">
+              <Card key={contact.id} className="overflow-hidden cursor-pointer hover:shadow-md" onClick={() => navigate(`/institutional-sales/contacts/${contact.id}`)}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -424,16 +424,16 @@ export default function ContactManagement() {
                       </div>
                     </div>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => togglePrimary(contact)}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); togglePrimary(contact); }}>
                           {contact.is_primary_contact ? 'Remove as Primary' : 'Set as Primary'}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(contact.id)} className="text-destructive">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDelete(contact.id); }} className="text-destructive">
                           <Trash2 className="h-4 w-4 mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
