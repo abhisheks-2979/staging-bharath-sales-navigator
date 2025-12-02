@@ -295,7 +295,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           const [retailersResult, ordersResult] = await Promise.all([
             supabase
               .from('retailers')
-              .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount')
+              .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude')
               .in('id', allRetailerIds),
             supabase
               .from('orders')
