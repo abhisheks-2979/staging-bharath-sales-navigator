@@ -8,8 +8,10 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     cleartext: true
   },
+  webView: {
+    allowMixedContent: true
+  },
   android: {
-    allowMixedContent: true,
     // Enable WebView for better storage persistence
     webContentsDebuggingEnabled: true
   },
