@@ -11,6 +11,9 @@ interface TodaysBeatCardProps {
     total: number;
     completed: number;
     remaining: number;
+    planned: number;
+    productive: number;
+    unproductive: number;
   };
   revenueTarget: number;
   revenueAchieved: number;
@@ -177,7 +180,7 @@ export const TodaysBeatCard = ({
               <div className="flex items-center justify-center gap-1 mb-1.5">
                 <Users className="h-4 w-4 text-primary" />
               </div>
-              <p className="text-xl font-bold text-foreground">{beatProgress.total}</p>
+              <p className="text-xl font-bold text-foreground">{beatProgress.planned}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">Planned</p>
           </div>
 
@@ -185,7 +188,7 @@ export const TodaysBeatCard = ({
             <div className="flex items-center justify-center gap-1 mb-1.5">
               <CheckCircle className="h-4 w-4 text-success" />
             </div>
-            <p className="text-xl font-bold text-foreground">{beatProgress.completed}</p>
+            <p className="text-xl font-bold text-foreground">{beatProgress.productive}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Productive</p>
           </div>
 
