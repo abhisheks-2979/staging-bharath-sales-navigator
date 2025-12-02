@@ -18,34 +18,47 @@ interface FaceMatchResponse {
   message?: string;
 }
 
-async function fetchImageAsBase64(url: string): Promise<string | null> {
+async function fetchImageAsBase64FromSupabase(
+  url: string,
+  supabaseClient: ReturnType<typeof createClient>
+): Promise<string | null> {
   try {
-    console.log(`Fetching image from: ${url}`);
-    
-    // Add retry logic with delay for newly uploaded images
-    let response;
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts) {
-      response = await fetch(url);
-      if (response.ok) break;
-      
-      attempts++;
-      if (attempts < maxAttempts) {
-        console.log(`Fetch attempt ${attempts} failed with ${response.status}, retrying in 1s...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`Fetching image (smart) from: ${url}`);
+
+    // Try to parse Supabase storage URL: .../storage/v1/object/public/<bucket>/<path>
+    const storageMatch = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+
+    let arrayBuffer: ArrayBuffer | null = null;
+
+    if (storageMatch) {
+      const bucket = storageMatch[1];
+      const path = decodeURIComponent(storageMatch[2]);
+      console.log(`Detected Supabase storage URL. Bucket: ${bucket}, Path: ${path}`);
+
+      const { data, error } = await supabaseClient
+        .storage
+        .from(bucket)
+        .download(path);
+
+      if (error || !data) {
+        console.error('Supabase storage download error:', error);
+        return null;
       }
+
+      arrayBuffer = await data.arrayBuffer();
+    } else {
+      // Fallback to direct HTTP fetch for non-Supabase URLs
+      console.log('Non-Supabase URL detected, using direct fetch');
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`Failed to fetch image from ${url}: ${response.status}`);
+        return null;
+      }
+      arrayBuffer = await response.arrayBuffer();
     }
-    
-    if (!response || !response.ok) {
-      console.error(`Failed to fetch image from ${url} after ${maxAttempts} attempts: ${response?.status}`);
-      return null;
-    }
-    
-    const arrayBuffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    
+
+    const bytes = new Uint8Array(arrayBuffer!);
+
     // Convert to base64 in chunks to avoid stack overflow
     const chunkSize = 0x8000; // 32KB chunks
     let binary = '';
@@ -53,7 +66,7 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
       const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
       binary += String.fromCharCode.apply(null, Array.from(chunk));
     }
-    
+
     const base64 = btoa(binary);
     console.log(`Successfully converted image to base64 (${base64.length} chars)`);
     return base64;
@@ -121,10 +134,10 @@ serve(async (req) => {
       )
     }
 
-    // Fetch both images as base64
+    // Fetch both images as base64 using Supabase storage when possible
     const [baselineBase64, attendanceBase64] = await Promise.all([
-      fetchImageAsBase64(baselinePhotoUrl),
-      fetchImageAsBase64(attendancePhotoUrl)
+      fetchImageAsBase64FromSupabase(baselinePhotoUrl, supabaseClient),
+      fetchImageAsBase64FromSupabase(attendancePhotoUrl, supabaseClient)
     ]);
 
     if (!baselineBase64 || !attendanceBase64) {
