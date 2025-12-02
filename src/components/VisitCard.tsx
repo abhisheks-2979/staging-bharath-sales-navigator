@@ -1303,32 +1303,56 @@ export const VisitCard = ({
                   className="flex items-center gap-1.5 text-xs hover:text-primary transition-colors cursor-pointer" 
                   title="Click to view visit details"
                 >
-                  {/* Location Status with Color */}
-                  {trackingLocationStatus === 'at_store' && (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <span>🟢</span>
-                      <span className="font-medium">At Store</span>
-                    </span>
-                  )}
-                  {trackingLocationStatus === 'within_range' && (
-                    <span className="flex items-center gap-1 text-orange-500">
-                      <span>🟠</span>
-                      <span className="font-medium">Within 15m</span>
-                    </span>
-                  )}
-                  {trackingLocationStatus === 'not_at_store' && (
-                    <span className="flex items-center gap-1 text-red-600">
-                      <span>🔴</span>
-                      <span className="font-medium">Not at Store</span>
-                    </span>
-                  )}
-                  {trackingLocationStatus === 'location_unavailable' && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <span>⚠️</span>
-                      <span className="font-medium">Location N/A</span>
-                    </span>
-                  )}
-                  
+                  {(() => {
+                    // Prefer live tracking status when available
+                    let status = trackingLocationStatus;
+
+                    // If tracking has no location (e.g. old logs without GPS),
+                    // try to infer from visit location match flags
+                    if (status === 'location_unavailable') {
+                      if (locationMatchOut === true || locationMatchIn === true) {
+                        status = 'at_store';
+                      } else if (locationMatchOut === false || locationMatchIn === false) {
+                        status = 'not_at_store';
+                      }
+                    }
+
+                    if (status === 'at_store') {
+                      return (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <span>🟢</span>
+                          <span className="font-medium">At Store</span>
+                        </span>
+                      );
+                    }
+
+                    if (status === 'within_range') {
+                      return (
+                        <span className="flex items-center gap-1 text-orange-500">
+                          <span>🟠</span>
+                          <span className="font-medium">Within 15m</span>
+                        </span>
+                      );
+                    }
+
+                    if (status === 'not_at_store') {
+                      return (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <span>🔴</span>
+                          <span className="font-medium">Not at Store</span>
+                        </span>
+                      );
+                    }
+
+                    // Default when we really don't know
+                    return (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <span>⚠️</span>
+                        <span className="font-medium">Location N/A</span>
+                      </span>
+                    );
+                  })()}
+
                   {/* Phone Order Badge */}
                   {currentLog.is_phone_order && (
                     <>
