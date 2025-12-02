@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Users, MapPin } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, Users, MapPin, UserPlus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +32,9 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [availableBeats, setAvailableBeats] = useState<Beat[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isJointSales, setIsJointSales] = useState(false);
+  const [jointSalesMember, setJointSalesMember] = useState<string>("");
+  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const { user } = useAuth();
 
   // Reset date when modal opens with initialDate
@@ -47,6 +51,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
   useEffect(() => {
     if (isOpen && user) {
       loadAvailableBeats();
+      loadAvailableUsers();
     }
   }, [isOpen, user]);
 
@@ -97,11 +102,41 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
     }
   };
 
+  const loadAvailableUsers = async () => {
+    try {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, username')
+        .neq('id', user?.id || '');
+
+      if (error) throw error;
+
+      const users = (profiles || []).map(p => ({
+        id: p.id,
+        name: p.full_name || p.username,
+        role: 'Team Member'
+      }));
+
+      setAvailableUsers(users);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
+
   const handleCreateVisit = async () => {
     if (!selectedBeat || !user) {
       toast({
         title: "Missing Information",
         description: "Please select a beat to create a visit",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isJointSales && !jointSalesMember) {
+      toast({
+        title: "Missing Joint Sales Member",
+        description: "Please select a joint sales member",
         variant: "destructive"
       });
       return;
@@ -141,6 +176,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
           beat_id: selectedBeat,
           beat_name: selectedBeat,
           plan_date: formattedDate,
+          joint_sales_manager_id: isJointSales ? jointSalesMember : null,
           beat_data: {
             id: selectedBeat,
             name: selectedBeat,
@@ -226,6 +262,52 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
               className="rounded-md border"
             />
           </div>
+
+          <div className="flex items-center space-x-2 p-3 bg-muted/30 rounded-lg">
+            <Checkbox 
+              id="jointSales" 
+              checked={isJointSales}
+              onCheckedChange={(checked) => {
+                setIsJointSales(checked === true);
+                if (!checked) setJointSalesMember("");
+              }}
+            />
+            <label
+              htmlFor="jointSales"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Joint Sales Visit
+            </label>
+          </div>
+
+          {isJointSales && (
+            <div className="space-y-2">
+              <Label className="text-sm flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Joint Sales Member <span className="text-destructive">*</span>
+              </Label>
+              <Select value={jointSalesMember} onValueChange={setJointSalesMember}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{user.name}</span>
+                        <Badge variant="outline" className="text-xs ml-2">
+                          {user.role}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This team member will also see this beat in their visits
+              </p>
+            </div>
+          )}
 
           {selectedBeat && (
             <div className="p-3 bg-muted/50 rounded-lg">
