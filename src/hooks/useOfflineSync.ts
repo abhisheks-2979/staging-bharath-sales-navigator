@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useConnectivity } from './useConnectivity';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
@@ -85,9 +86,6 @@ export function useOfflineSync() {
   // Process individual sync items
   const processSyncItem = async (item: any) => {
     const { action, data } = item;
-    
-    // Import supabase client dynamically to avoid circular dependencies
-    const { supabase } = await import('@/integrations/supabase/client');
     
     switch (action) {
       case 'UPDATE_VISIT_NO_ORDER':
