@@ -2123,12 +2123,7 @@ export const OrderEntry = () => {
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-sm cursor-pointer text-primary hover:underline flex items-center gap-1.5" onClick={() => {
-                        // Close all other products and open this one
-                        setExpandedProducts({
-                          [product.id]: true
-                        });
-                      }}>
+                      <h3 className="font-semibold text-sm text-primary flex items-center gap-1.5">
                         {isFocusedProductActive(product) && (
                           <Star size={14} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
                         )}
@@ -2177,23 +2172,12 @@ export const OrderEntry = () => {
                     
                   </div>
 
-                  {/* Variant Grid */}
+                  {/* Variant Grid - Always Expanded in Grid View */}
                   {product.variants && product.variants.length > 0 && <div className="mb-3">
-                      <Collapsible open={expandedProducts[product.id]} onOpenChange={open => {
-                      setExpandedProducts(prev => ({
-                        ...prev,
-                        [product.id]: open
-                      }));
-                    }}>
-                        <CollapsibleTrigger asChild>
-                          <div className="flex items-center justify-between mb-2 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors">
-                            <label className="text-xs text-muted-foreground">Available Variants</label>
-                            <div className="flex items-center">
-                              {expandedProducts[product.id] ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
-                            </div>
-                          </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
+                      {/* No collapsible - always show variants in Grid view */}
+                      <div className="mb-2">
+                        <label className="text-xs text-muted-foreground font-semibold">Available Variants</label>
+                      </div>
                         <div className="border rounded-lg overflow-hidden">
                           <div className="bg-muted/50 grid grid-cols-5 gap-1 p-2 text-xs font-medium">
                             <div>Variant</div>
@@ -2291,7 +2275,7 @@ export const OrderEntry = () => {
 
                             // Get variant-specific schemes
                             const variantSchemes = schemes.filter(scheme => scheme.product_id === product.id && scheme.variant_id === variant.id && scheme.is_active && (!scheme.start_date || new Date(scheme.start_date) <= new Date()) && (!scheme.end_date || new Date(scheme.end_date) >= new Date()));
-                            return <div key={variant.id} className={`grid grid-cols-4 gap-1 p-2 text-xs border-t ${hasVariantScheme ? 'bg-green-50 border-green-200' : ''}`}>
+                            return <div key={variant.id} className={`grid grid-cols-5 gap-1 p-2 text-xs border-t ${hasVariantScheme ? 'bg-green-50 border-green-200' : ''}`}>
                                  <div className="text-xs flex items-center gap-1">
                                    {isFocusedProductActive(variant) && (
                                      <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
@@ -2304,10 +2288,11 @@ export const OrderEntry = () => {
                                      {variantSchemes.length > 0 && <div className="text-orange-500 font-medium mt-1">
                                          {variantSchemes.map(scheme => scheme.description).join(', ')}
                                        </div>}
-                                   </div>
-                                 </div>
-                                 <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
-                                <div>
+                                    </div>
+                                  </div>
+                                  <div className="font-medium">₹{variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}</div>
+                                  <div className="text-xs text-muted-foreground">{product.unit || 'kg'}</div>
+                                 <div>
                                   <Input type="number" placeholder="0" value={variantQuantity || ""} onChange={e => {
                                   const qty = parseInt(e.target.value) || 0;
                                   const variantCompositeId = `${product.id}_variant_${variant.id}`;
@@ -2333,15 +2318,13 @@ export const OrderEntry = () => {
                                 }} className={`h-6 text-xs p-1 ${(() => {
                                   const variantCompositeId = `${product.id}_variant_${variant.id}`;
                                   const stock = closingStocks[variantCompositeId] ?? variant.stock_quantity;
-                                  return stock === 0 ? "text-muted-foreground" : "";
-                                })()}`} min="0" />
-                                </div>
-                              </div>;
-                          })}
-                         </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                      </div>}
+                                   return stock === 0 ? "text-muted-foreground" : "";
+                                 })()}`} min="0" />
+                                 </div>
+                               </div>;
+                           })}
+                        </div>
+                    </div>}
 
                    {/* Simple table for products without variants */}
                    {(!product.variants || product.variants.length === 0) && <div className="mb-3">
