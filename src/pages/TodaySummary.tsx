@@ -73,6 +73,15 @@ export const TodaySummary = () => {
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
   
+  // Joint Sales Data
+  const [jointSalesData, setJointSalesData] = useState<{
+    totalVisits: number;
+    retailersCovered: number;
+    memberName: string;
+    orderIncrease: number;
+    feedback: Array<{ retailerName: string; impact: string; orderIncrease: number }>;
+  } | null>(null);
+  
   // Retailer-based report data
   const [retailerReportData, setRetailerReportData] = useState<Array<{
     retailerName: string;
@@ -274,6 +283,44 @@ export const TodaySummary = () => {
 
       const { data: beatPlans } = await beatPlansQuery;
       const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
+      
+      // Fetch joint sales feedback if this is a joint sales visit
+      if (beatPlan?.joint_sales_manager_id) {
+        const { data: jointSalesFeedback } = await supabase
+          .from('joint_sales_feedback')
+          .select('*, retailers(name)')
+          .eq('beat_plan_id', beatPlan.id)
+          .gte('feedback_date', format(dateRange.from, 'yyyy-MM-dd'))
+          .lte('feedback_date', format(dateRange.to, 'yyyy-MM-dd'));
+        
+        if (jointSalesFeedback && jointSalesFeedback.length > 0) {
+          // Get joint sales member name
+          const { data: memberProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', beatPlan.joint_sales_manager_id)
+            .single();
+          
+          const totalOrderIncrease = jointSalesFeedback.reduce((sum, f) => sum + (f.order_increase_amount || 0), 0);
+          const uniqueRetailers = new Set(jointSalesFeedback.map(f => f.retailer_id)).size;
+          
+          setJointSalesData({
+            totalVisits: jointSalesFeedback.length,
+            retailersCovered: uniqueRetailers,
+            memberName: memberProfile?.full_name || 'Unknown',
+            orderIncrease: totalOrderIncrease,
+            feedback: jointSalesFeedback.map(f => ({
+              retailerName: (f.retailers as any)?.name || 'Unknown',
+              impact: f.joint_sales_impact || 'No impact notes',
+              orderIncrease: f.order_increase_amount || 0
+            }))
+          });
+        } else {
+          setJointSalesData(null);
+        }
+      } else {
+        setJointSalesData(null);
+      }
       
       // Collect all unique beat names
       const uniqueBeatNames = beatPlans 
@@ -875,6 +922,60 @@ export const TodaySummary = () => {
         yPosition = 20;
       }
       
+      // Joint Sales Highlight (if available)
+      if (jointSalesData) {
+        doc.setFontSize(14);
+        doc.setTextColor(60, 60, 60);
+        doc.text("Joint Sales Visit Highlight", 14, yPosition);
+        yPosition += 10;
+        
+        const jointSalesMetrics = [
+          ['Joint Sales Member', sanitizeText(jointSalesData.memberName)],
+          ['Retailers Covered', jointSalesData.retailersCovered.toString()],
+          ['Total Feedback Entries', jointSalesData.totalVisits.toString()],
+          ['Order Increase', `Rs. ${jointSalesData.orderIncrease.toLocaleString('en-IN')}`]
+        ];
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Metric', 'Value']],
+          body: jointSalesMetrics,
+          theme: 'grid',
+          headStyles: { fillColor: [147, 51, 234], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 10 },
+          margin: { left: 14, right: 14 }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 10;
+        
+        // Joint Sales Feedback Details
+        if (jointSalesData.feedback.length > 0) {
+          const feedbackData = jointSalesData.feedback.map(f => [
+            sanitizeText(f.retailerName),
+            sanitizeText(f.impact).substring(0, 50) + (f.impact.length > 50 ? '...' : ''),
+            `Rs. ${f.orderIncrease.toLocaleString('en-IN')}`
+          ]);
+          
+          autoTable(doc, {
+            startY: yPosition,
+            head: [['Retailer', 'Impact Notes', 'Order Increase']],
+            body: feedbackData,
+            theme: 'grid',
+            headStyles: { fillColor: [147, 51, 234], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 8 },
+            margin: { left: 14, right: 14 }
+          });
+          
+          yPosition = (doc as any).lastAutoTable.finalY + 15;
+        }
+      }
+      
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
       // Performance Summary
       doc.setFontSize(14);
       doc.setTextColor(60, 60, 60);
@@ -1305,6 +1406,59 @@ export const TodaySummary = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Joint Sales Highlight Section */}
+        {jointSalesData && (
+          <Card className="border-purple-200 bg-purple-50/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <span className="text-purple-600">🤝</span>
+                Joint Sales Visit Highlight
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-700">
+                    {jointSalesData.retailersCovered}
+                  </div>
+                  <div className="text-sm text-purple-600">Retailers Covered</div>
+                </div>
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <div className="text-xl font-bold text-purple-700">
+                    ₹{jointSalesData.orderIncrease.toLocaleString()}
+                  </div>
+                  <div className="text-sm text-purple-600">Order Increase</div>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-white rounded-lg border border-purple-200">
+                <div className="text-sm text-muted-foreground mb-1">Joint Sales Member</div>
+                <div className="font-semibold text-purple-700">{jointSalesData.memberName}</div>
+              </div>
+
+              {jointSalesData.feedback.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-purple-700">Feedback Summary</div>
+                  {jointSalesData.feedback.slice(0, 3).map((feedback, index) => (
+                    <div key={index} className="p-2 bg-white rounded border border-purple-100 text-sm">
+                      <div className="font-medium">{feedback.retailerName}</div>
+                      <div className="text-muted-foreground text-xs line-clamp-1">{feedback.impact}</div>
+                      <div className="text-purple-600 font-semibold text-xs">
+                        +₹{feedback.orderIncrease.toLocaleString()} increase
+                      </div>
+                    </div>
+                  ))}
+                  {jointSalesData.feedback.length > 3 && (
+                    <div className="text-xs text-center text-muted-foreground">
+                      +{jointSalesData.feedback.length - 3} more entries
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Product-wise Sales */}
         <Card>

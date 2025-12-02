@@ -20,6 +20,7 @@ interface Visit {
   order_quantity?: number;
   no_order_reason?: string;
   activity_time?: string;
+  is_joint_sales?: boolean;
 }
 
 interface TimelineViewProps {
@@ -135,9 +136,23 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         if (visit.order_quantity) {
           doc.text(`Qty: ${visit.order_quantity}`, 100, yPosition);
         }
+        if (visit.is_joint_sales) {
+          yPosition += 5;
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(147, 51, 234);
+          doc.text('Joint Sales Visit', 25, yPosition);
+          doc.setTextColor(0, 0, 0);
+        }
       } else {
         doc.setFont('helvetica', 'italic');
         doc.text(`Reason: ${formatNoOrderReason(visit.no_order_reason)}`, 25, yPosition);
+        if (visit.is_joint_sales) {
+          yPosition += 5;
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(147, 51, 234);
+          doc.text('Joint Sales Visit', 25, yPosition);
+          doc.setTextColor(0, 0, 0);
+        }
       }
       
       yPosition += 10;
@@ -279,6 +294,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     <Badge variant="outline" className="bg-primary/10 text-xs">OUTLET</Badge>
                     {visit.order_value && visit.order_value > 0 && (
                       <Badge className="bg-green-500 text-xs">ORDER PLACED</Badge>
+                    )}
+                    {visit.is_joint_sales && (
+                      <Badge className="bg-purple-500 text-white text-xs">
+                        🤝 JOINT SALES
+                      </Badge>
                     )}
                     {getStatusBadge(visit.status)}
                   </div>

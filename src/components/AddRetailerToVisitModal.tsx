@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,13 +33,82 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
   const { isOnline } = useOfflineSync();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [loading, setLoading] = useState(false);
+  const [isJointSales, setIsJointSales] = useState(false);
+  const [jointSalesMember, setJointSalesMember] = useState<string>('');
+  const [availableUsers, setAvailableUsers] = useState<{ id: string; name: string }[]>([]);
+
+  // Fetch available users for joint sales
+  useState(() => {
+    const fetchUsers = async () => {
+      if (!isOpen) return;
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .order('full_name');
+        
+        setAvailableUsers(data?.map(u => ({ id: u.id, name: u.full_name })) || []);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+    fetchUsers();
+  });
 
   const handleCreateVisit = async () => {
     if (!retailer || !selectedDate || !user) return;
 
+    // Validate joint sales member if joint sales is checked
+    if (isJointSales && !jointSalesMember) {
+      toast({
+        title: "Joint Sales Member Required",
+        description: "Please select a joint sales member",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const plannedDate = format(selectedDate, 'yyyy-MM-dd');
+      
+      // Check if beat plan exists for this date
+      let beatPlanId = null;
+      const { data: existingPlan } = await supabase
+        .from('beat_plans')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('plan_date', plannedDate)
+        .maybeSingle();
+      
+      if (existingPlan) {
+        beatPlanId = existingPlan.id;
+        
+        // Update beat plan with joint sales member if selected
+        if (isJointSales && jointSalesMember) {
+          await supabase
+            .from('beat_plans')
+            .update({ joint_sales_manager_id: jointSalesMember })
+            .eq('id', beatPlanId);
+        }
+      } else if (isJointSales && jointSalesMember) {
+        // Create beat plan if it doesn't exist and joint sales is selected
+        const { data: newPlan } = await supabase
+          .from('beat_plans')
+          .insert({
+            user_id: user.id,
+            beat_id: retailer.beat_id,
+            beat_name: retailer.beat_id,
+            plan_date: plannedDate,
+            beat_data: {},
+            joint_sales_manager_id: jointSalesMember
+          })
+          .select('id')
+          .single();
+        
+        beatPlanId = newPlan?.id;
+      }
+      
       const visitData = {
         id: `${user.id}_${retailer.id}_${plannedDate}_${Date.now()}`,
         user_id: user.id,
@@ -68,11 +138,14 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
 
       toast({
         title: "Visit Added",
-        description: `Unplanned visit scheduled for ${retailer.name} on ${format(selectedDate, 'MMM dd, yyyy')}${!isOnline ? ' (will sync when online)' : ''}`,
+        description: `Unplanned visit scheduled for ${retailer.name} on ${format(selectedDate, 'MMM dd, yyyy')}${!isOnline ? ' (will sync when online)' : ''}${isJointSales ? ` with ${availableUsers.find(u => u.id === jointSalesMember)?.name}` : ''}`,
       });
 
       onVisitCreated();
       onClose();
+      // Reset form
+      setIsJointSales(false);
+      setJointSalesMember('');
     } catch (error: any) {
       toast({
         title: "Failed to create visit",
@@ -124,6 +197,44 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* Joint Sales Checkbox */}
+            <div className="space-y-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="joint-sales"
+                  checked={isJointSales}
+                  onCheckedChange={(checked) => {
+                    setIsJointSales(checked as boolean);
+                    if (!checked) setJointSalesMember('');
+                  }}
+                />
+                <label
+                  htmlFor="joint-sales"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Joint Sales Visit
+                </label>
+              </div>
+
+              {isJointSales && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Joint Sales Member *</label>
+                  <select
+                    className="w-full p-2 border rounded-md bg-background"
+                    value={jointSalesMember}
+                    onChange={(e) => setJointSalesMember(e.target.value)}
+                  >
+                    <option value="">Select member...</option>
+                    {availableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2">

@@ -548,6 +548,29 @@ const Attendance = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check if this date has a joint sales visit
+      const { data: beatPlan } = await supabase
+        .from('beat_plans')
+        .select('id, joint_sales_manager_id')
+        .eq('user_id', user.id)
+        .eq('plan_date', date)
+        .maybeSingle();
+
+      const hasJointSales = !!beatPlan?.joint_sales_manager_id;
+      let jointSalesFeedbackMap = new Map<string, boolean>();
+      
+      if (hasJointSales && beatPlan?.id) {
+        // Check which retailers have joint sales feedback
+        const { data: feedbacks } = await supabase
+          .from('joint_sales_feedback')
+          .select('retailer_id')
+          .eq('beat_plan_id', beatPlan.id);
+        
+        feedbacks?.forEach(f => {
+          jointSalesFeedbackMap.set(f.retailer_id, true);
+        });
+      }
+
       // First get visits with basic info
       const { data: visits, error: visitsError } = await supabase
         .from('visits')
@@ -597,6 +620,7 @@ const Attendance = () => {
 
       const formattedVisits = visits.map(visit => {
         const order = orderMap.get(visit.id);
+        const hasJointFeedback = jointSalesFeedbackMap.has(visit.retailer_id);
         return {
           id: visit.id,
           retailer_name: retailerMap.get(visit.retailer_id) || 'Unknown',
@@ -605,7 +629,8 @@ const Attendance = () => {
           check_in_address: visit.check_in_address,
           status: visit.status,
           order_value: order?.total_amount || 0,
-          order_quantity: order ? (orderItemsMap.get(order.id) || 0) : 0
+          order_quantity: order ? (orderItemsMap.get(order.id) || 0) : 0,
+          is_joint_sales: hasJointSales && hasJointFeedback
         };
       });
 
