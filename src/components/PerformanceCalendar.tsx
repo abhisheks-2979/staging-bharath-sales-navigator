@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DayData {
   date: Date;
@@ -29,10 +30,11 @@ type ViewMode = "day" | "week" | "month";
 
 export const PerformanceCalendar = () => {
   const navigate = useNavigate();
+  const { userRole, userProfile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Map<string, DayData>>(new Map());
   const [loading, setLoading] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("all");
+  const [selectedUserId, setSelectedUserId] = useState<string>("self");
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -46,24 +48,19 @@ export const PerformanceCalendar = () => {
     leaves: true
   });
 
+  const isAdmin = userRole === 'admin';
+
   const fetchTeamMembers = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get subordinates
-      const { data: subordinates } = await supabase.rpc('get_subordinate_users', {
-        user_id_param: user.id
-      });
-
-      if (subordinates && subordinates.length > 0) {
-        const subordinateIds = subordinates.map((s: any) => s.subordinate_user_id);
-        
-        // Get profiles for subordinates
+      if (isAdmin) {
+        // For admin users, fetch ALL users from profiles
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', subordinateIds);
+          .order('full_name');
 
         const formattedProfiles = profiles?.map(p => ({
           id: p.id,
@@ -71,6 +68,12 @@ export const PerformanceCalendar = () => {
         })) || [];
 
         setTeamMembers(formattedProfiles);
+        // Set default to "all" for admin
+        setSelectedUserId("all");
+      } else {
+        // For normal users, no team members (they can only see their own data)
+        setTeamMembers([]);
+        setSelectedUserId("self");
       }
     } catch (error) {
       console.error('Error fetching team members:', error);
@@ -101,13 +104,14 @@ export const PerformanceCalendar = () => {
       let targetUserId = user.id;
       let userIds: string[] = [user.id];
 
-      if (selectedUserId === "all") {
-        // Get all subordinates
-        const { data: subordinates } = await supabase.rpc('get_subordinate_users', {
-          user_id_param: user.id
-        });
-        if (subordinates) {
-          userIds = [user.id, ...subordinates.map((s: any) => s.subordinate_user_id)];
+      if (selectedUserId === "all" && isAdmin) {
+        // For admin viewing all users, get all user IDs
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('id');
+        
+        if (allProfiles) {
+          userIds = allProfiles.map(p => p.id);
         }
       } else if (selectedUserId !== "self") {
         targetUserId = selectedUserId;
@@ -248,8 +252,10 @@ export const PerformanceCalendar = () => {
   };
 
   useEffect(() => {
-    fetchTeamMembers();
-  }, []);
+    if (isAdmin !== undefined) {
+      fetchTeamMembers();
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     fetchCalendarData();
@@ -718,24 +724,26 @@ export const PerformanceCalendar = () => {
               </Button>
             </div>
 
-            {/* Team Member Selector */}
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <label className="text-xs md:text-sm font-medium whitespace-nowrap">Team:</label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="w-[120px] md:w-[150px] h-8 text-xs md:text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="self">Self</SelectItem>
-                  {teamMembers.length > 0 && <SelectItem value="all">All Team</SelectItem>}
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Team Member Selector - Only for Admin */}
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <label className="text-xs md:text-sm font-medium whitespace-nowrap">View:</label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger className="w-[120px] md:w-[150px] h-8 text-xs md:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="self">Self</SelectItem>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Legend - Compact on mobile, only in month view */}
