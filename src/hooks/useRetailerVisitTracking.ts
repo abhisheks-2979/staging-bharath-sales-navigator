@@ -95,22 +95,29 @@ export const useRetailerVisitTracking = ({
         .maybeSingle();
 
       if (!error && data) {
-        setCurrentLog(data as VisitLog);
-        currentLogIdRef.current = data.id;
+        const log = data as VisitLog;
+        setCurrentLog(log);
+        currentLogIdRef.current = log.id;
         
-        if (data.distance_meters !== null) {
-          setDistance(data.distance_meters);
-          setLocationStatus(data.location_status as 'at_store' | 'within_range' | 'not_at_store' | 'location_unavailable');
+        // Restore distance and location status
+        if (log.distance_meters !== null) {
+          setDistance(log.distance_meters);
+        }
+        if (log.location_status) {
+          setLocationStatus(log.location_status as 'at_store' | 'within_range' | 'not_at_store' | 'location_unavailable');
+        } else {
+          // Fallback to location_unavailable when status is missing
+          setLocationStatus('location_unavailable');
         }
 
         // Calculate time spent if still active (no end_time)
-        if (!data.end_time) {
-          const startTime = new Date(data.start_time).getTime();
+        if (!log.end_time) {
+          const startTime = new Date(log.start_time).getTime();
           const now = Date.now();
           const spent = Math.floor((now - startTime) / 1000);
           setTimeSpent(spent);
-        } else if (data.time_spent_seconds) {
-          setTimeSpent(data.time_spent_seconds);
+        } else if (log.time_spent_seconds) {
+          setTimeSpent(log.time_spent_seconds);
         }
       }
     };
@@ -176,8 +183,33 @@ export const useRetailerVisitTracking = ({
       }
     }
 
-    // If already tracking for this retailer today, don't create a new log
+    // If already tracking for this retailer today, update the existing log's
+    // end_time to reflect the latest activity time instead of creating a new log.
     if (currentLogIdRef.current) {
+      const endTime = new Date().toISOString();
+      const { data: logData } = await supabase
+        .from('retailer_visit_logs')
+        .select('start_time')
+        .eq('id', currentLogIdRef.current)
+        .single();
+
+      if (logData) {
+        const startTimeMs = new Date(logData.start_time).getTime();
+        const endTimeMs = new Date(endTime).getTime();
+        const timeSpentSeconds = Math.floor((endTimeMs - startTimeMs) / 1000);
+
+        await supabase
+          .from('retailer_visit_logs')
+          .update({
+            end_time: endTime,
+            time_spent_seconds: timeSpentSeconds
+          })
+          .eq('id', currentLogIdRef.current);
+
+        setTimeSpent(timeSpentSeconds);
+      }
+
+      // Do not create a new log for the same retailer/date
       return;
     }
 
