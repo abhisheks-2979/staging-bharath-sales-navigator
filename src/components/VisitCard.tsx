@@ -302,16 +302,22 @@ export const VisitCard = ({
             if (beatPlanData.joint_sales_manager_id) {
               setIsJointSalesVisit(true);
               setJointSalesMemberId(beatPlanData.joint_sales_manager_id);
-              
-              // Check if feedback exists for this joint sales visit
-              const { data: feedbackData } = await supabase
-                .from('joint_sales_feedback')
-                .select('id')
-                .eq('beat_plan_id', beatPlanData.id)
-                .eq('retailer_id', visitRetailerId)
-                .maybeSingle();
-              
-              setHasJointSalesFeedback(!!feedbackData);
+            }
+          }
+
+          // Check if joint feedback exists - either with beat plan or by date/retailer
+          const { data: feedbackData } = await supabase
+            .from('joint_sales_feedback')
+            .select('id, manager_id')
+            .eq('retailer_id', visitRetailerId)
+            .eq('feedback_date', targetDate)
+            .maybeSingle();
+          
+          if (feedbackData) {
+            setHasJointSalesFeedback(true);
+            // If we found feedback but didn't have joint sales visit from beat plan
+            if (!beatPlanData?.joint_sales_manager_id && feedbackData.manager_id) {
+              setJointSalesMemberId(feedbackData.manager_id);
             }
           }
 
@@ -1418,6 +1424,10 @@ export const VisitCard = ({
                   <UserCheck size={12} className="mr-1" />
                   Joint Sales
                 </Badge>}
+              {!isJointSalesVisit && hasJointSalesFeedback && <Badge className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1">
+                  <UserCheck size={12} className="mr-1" />
+                  Joint Visit
+                </Badge>}
             </div>
             {hasStockRecords && <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1 cursor-pointer transition-all" variant="secondary" onClick={() => setShowStockDataModal(true)}>
                 <Package size={12} className="mr-1" />
@@ -2033,7 +2043,7 @@ export const VisitCard = ({
 
         {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
 
-        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId || ""} managerId={jointSalesMemberId || ""} />}
+        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId} managerId={jointSalesMemberId} onFeedbackSubmitted={() => setHasJointSalesFeedback(true)} />}
 
          {/* Tab Selector Modal */}
         <Dialog open={showFeedbackModal && !['retailer-feedback', 'competition', 'branding', 'joint-sales-feedback'].includes(feedbackActiveTab)} onOpenChange={open => {
@@ -2078,6 +2088,16 @@ export const VisitCard = ({
                   <div className="text-center">
                     <div className="font-medium">Joint Sales Feedback</div>
                     <div className="text-xs text-muted-foreground">Record joint visit feedback</div>
+                  </div>
+                </Button>
+              )}
+              
+              {!isJointSalesVisit && (
+                <Button variant="outline" className="h-16 flex flex-col items-center gap-2 border-purple-300 hover:bg-purple-50 dark:border-purple-700 dark:hover:bg-purple-950" onClick={() => setFeedbackActiveTab("joint-sales-feedback")}>
+                  <UserCheck size={24} className="text-purple-600" />
+                  <div className="text-center">
+                    <div className="font-medium">Joint Visit Feedback</div>
+                    <div className="text-xs text-muted-foreground">Record feedback from joint visit</div>
                   </div>
                 </Button>
               )}
@@ -2126,7 +2146,7 @@ export const VisitCard = ({
         {currentLog && <RetailerVisitDetailsModal open={showVisitDetailsModal} onOpenChange={setShowVisitDetailsModal} retailerName={visit.retailerName} startTime={currentLog.start_time} endTime={currentLog.end_time} timeSpent={timeSpent} distance={trackingDistance} locationStatus={trackingLocationStatus} actionType={currentLog.action_type} isPhoneOrder={currentLog.is_phone_order} logId={currentLog.id} />}
         
         {/* Joint Sales Feedback Modal */}
-        {showJointSalesFeedback && beatPlanId && jointSalesMemberId && (
+        {showJointSalesFeedback && (
           <JointSalesFeedbackModal
             isOpen={showJointSalesFeedback}
             onClose={() => setShowJointSalesFeedback(false)}
@@ -2135,6 +2155,7 @@ export const VisitCard = ({
             beatPlanId={beatPlanId}
             visitId={currentVisitId || undefined}
             managerId={jointSalesMemberId}
+            onFeedbackSubmitted={() => setHasJointSalesFeedback(true)}
           />
         )}
       </CardContent>

@@ -14,9 +14,10 @@ interface JointSalesFeedbackModalProps {
   onClose: () => void;
   retailerId: string;
   retailerName: string;
-  beatPlanId: string;
+  beatPlanId?: string | null;
   visitId?: string;
-  managerId: string;
+  managerId?: string | null;
+  onFeedbackSubmitted?: () => void;
 }
 
 export const JointSalesFeedbackModal = ({
@@ -26,9 +27,12 @@ export const JointSalesFeedbackModal = ({
   retailerName,
   beatPlanId,
   visitId,
-  managerId
+  managerId,
+  onFeedbackSubmitted
 }: JointSalesFeedbackModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedManagerId, setSelectedManagerId] = useState(managerId || "");
+  const [availableManagers, setAvailableManagers] = useState<Array<{ id: string; name: string }>>([]);
   const [feedback, setFeedback] = useState({
     retailing_feedback: "",
     placement_feedback: "",
@@ -45,18 +49,56 @@ export const JointSalesFeedbackModal = ({
     order_increase_amount: ""
   });
 
+  // Load available managers (users with manager/admin roles)
+  useEffect(() => {
+    const loadManagers = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get all profiles except current user for potential joint visit partners
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .neq('id', user.id)
+          .order('full_name');
+
+        if (!error && data) {
+          setAvailableManagers(data.map(p => ({ 
+            id: p.id, 
+            name: p.full_name || p.username || 'Unknown User'
+          })));
+        }
+      } catch (error) {
+        console.error('Error loading managers:', error);
+      }
+    };
+
+    if (isOpen && !managerId) {
+      loadManagers();
+    }
+  }, [isOpen, managerId]);
+
   // Load existing feedback
   useEffect(() => {
     const loadExistingFeedback = async () => {
       try {
-        const { data, error } = await supabase
+        // Try to find existing feedback by retailer and date
+        const today = new Date().toISOString().split('T')[0];
+        let query = supabase
           .from('joint_sales_feedback')
           .select('*')
-          .eq('beat_plan_id', beatPlanId)
           .eq('retailer_id', retailerId)
-          .maybeSingle();
+          .eq('feedback_date', today);
+
+        if (beatPlanId) {
+          query = query.eq('beat_plan_id', beatPlanId);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (!error && data) {
+          setSelectedManagerId(data.manager_id);
           setFeedback({
             retailing_feedback: data.retailing_feedback || "",
             placement_feedback: data.placement_feedback || "",
@@ -78,48 +120,78 @@ export const JointSalesFeedbackModal = ({
       }
     };
 
-    if (isOpen && beatPlanId && retailerId) {
+    if (isOpen && retailerId) {
       loadExistingFeedback();
     }
   }, [isOpen, beatPlanId, retailerId]);
 
+  // Update selectedManagerId when managerId prop changes
+  useEffect(() => {
+    if (managerId) {
+      setSelectedManagerId(managerId);
+    }
+  }, [managerId]);
+
   const handleSubmit = async () => {
+    if (!selectedManagerId) {
+      toast({
+        title: "Manager Required",
+        description: "Please select the joint visit partner/manager",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const feedbackData: any = {
+        manager_id: selectedManagerId,
+        fse_user_id: user.id,
+        retailer_id: retailerId,
+        visit_id: visitId || null,
+        feedback_date: new Date().toISOString().split('T')[0],
+        retailing_feedback: feedback.retailing_feedback,
+        placement_feedback: feedback.placement_feedback,
+        sales_increase_feedback: feedback.sales_increase_feedback,
+        new_products_introduced: feedback.new_products_introduced,
+        competition_knowledge: feedback.competition_knowledge,
+        trends_feedback: feedback.trends_feedback,
+        product_quality_feedback: feedback.product_quality_feedback,
+        service_feedback: feedback.service_feedback,
+        schemes_feedback: feedback.schemes_feedback,
+        pricing_feedback: feedback.pricing_feedback,
+        consumer_feedback: feedback.consumer_feedback,
+        joint_sales_impact: feedback.joint_sales_impact,
+        order_increase_amount: parseFloat(feedback.order_increase_amount) || 0,
+        updated_at: new Date().toISOString()
+      };
+
+      // Only include beat_plan_id if it exists
+      if (beatPlanId) {
+        feedbackData.beat_plan_id = beatPlanId;
+      }
+
       const { error } = await supabase
         .from('joint_sales_feedback')
-        .upsert({
-          manager_id: managerId,
-          fse_user_id: user.id,
-          beat_plan_id: beatPlanId,
-          retailer_id: retailerId,
-          visit_id: visitId || null,
-          feedback_date: new Date().toISOString().split('T')[0],
-          retailing_feedback: feedback.retailing_feedback,
-          placement_feedback: feedback.placement_feedback,
-          sales_increase_feedback: feedback.sales_increase_feedback,
-          new_products_introduced: feedback.new_products_introduced,
-          competition_knowledge: feedback.competition_knowledge,
-          trends_feedback: feedback.trends_feedback,
-          product_quality_feedback: feedback.product_quality_feedback,
-          service_feedback: feedback.service_feedback,
-          schemes_feedback: feedback.schemes_feedback,
-          pricing_feedback: feedback.pricing_feedback,
-          consumer_feedback: feedback.consumer_feedback,
-          joint_sales_impact: feedback.joint_sales_impact,
-          order_increase_amount: parseFloat(feedback.order_increase_amount) || 0,
-          updated_at: new Date().toISOString()
-        });
+        .upsert(feedbackData);
 
       if (error) throw error;
 
       toast({
-        title: "Feedback Submitted",
+        title: "Joint Visit Recorded",
         description: "Joint sales feedback has been saved successfully",
       });
+
+      // Notify parent component
+      onFeedbackSubmitted?.();
+      
+      // Dispatch event for VisitCard to refresh
+      window.dispatchEvent(new CustomEvent('jointSalesFeedbackSubmitted', {
+        detail: { retailerId }
+      }));
 
       onClose();
     } catch (error) {
@@ -166,6 +238,28 @@ export const JointSalesFeedbackModal = ({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Joint Visit Partner Selection */}
+          {!managerId && (
+            <div className="space-y-2 p-3 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg">
+              <Label className="text-purple-800 dark:text-purple-200 font-medium">Joint Visit Partner *</Label>
+              <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select who joined the visit" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableManagers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-purple-600 dark:text-purple-400">
+                Select the team member who joined you on this visit
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Retailing Performance</Label>
