@@ -2156,8 +2156,10 @@ export type Database = {
           beat_plan_id: string | null
           branding_rating: number | null
           branding_status: string | null
+          competition_knowledge: string | null
           competition_presence: string | null
           competition_rating: number | null
+          consumer_feedback: string | null
           conversation_highlights: string | null
           created_at: string | null
           distributor_feedback_rating: number | null
@@ -2167,20 +2169,31 @@ export type Database = {
           future_growth_rating: number | null
           growth_potential: string | null
           id: string
+          joint_sales_impact: string | null
           manager_id: string
+          new_products_introduced: string | null
+          order_increase_amount: number | null
+          placement_feedback: string | null
           pricing_compliance: string | null
+          pricing_feedback: string | null
           pricing_feedback_rating: number | null
           product_feedback_rating: number | null
+          product_quality_feedback: string | null
           retailer_id: string
           retailer_notes: string | null
+          retailing_feedback: string | null
           retailing_rating: number | null
+          sales_increase_feedback: string | null
           sales_trend: string | null
           sales_trends_rating: number | null
           sampling_rating: number | null
           sampling_status: string | null
           scheme_awareness: string | null
+          schemes_feedback: string | null
           schemes_rating: number | null
+          service_feedback: string | null
           shelf_visibility: string | null
+          trends_feedback: string | null
           updated_at: string | null
           visit_id: string | null
         }
@@ -2190,8 +2203,10 @@ export type Database = {
           beat_plan_id?: string | null
           branding_rating?: number | null
           branding_status?: string | null
+          competition_knowledge?: string | null
           competition_presence?: string | null
           competition_rating?: number | null
+          consumer_feedback?: string | null
           conversation_highlights?: string | null
           created_at?: string | null
           distributor_feedback_rating?: number | null
@@ -2201,20 +2216,31 @@ export type Database = {
           future_growth_rating?: number | null
           growth_potential?: string | null
           id?: string
+          joint_sales_impact?: string | null
           manager_id: string
+          new_products_introduced?: string | null
+          order_increase_amount?: number | null
+          placement_feedback?: string | null
           pricing_compliance?: string | null
+          pricing_feedback?: string | null
           pricing_feedback_rating?: number | null
           product_feedback_rating?: number | null
+          product_quality_feedback?: string | null
           retailer_id: string
           retailer_notes?: string | null
+          retailing_feedback?: string | null
           retailing_rating?: number | null
+          sales_increase_feedback?: string | null
           sales_trend?: string | null
           sales_trends_rating?: number | null
           sampling_rating?: number | null
           sampling_status?: string | null
           scheme_awareness?: string | null
+          schemes_feedback?: string | null
           schemes_rating?: number | null
+          service_feedback?: string | null
           shelf_visibility?: string | null
+          trends_feedback?: string | null
           updated_at?: string | null
           visit_id?: string | null
         }
@@ -2224,8 +2250,10 @@ export type Database = {
           beat_plan_id?: string | null
           branding_rating?: number | null
           branding_status?: string | null
+          competition_knowledge?: string | null
           competition_presence?: string | null
           competition_rating?: number | null
+          consumer_feedback?: string | null
           conversation_highlights?: string | null
           created_at?: string | null
           distributor_feedback_rating?: number | null
@@ -2235,20 +2263,31 @@ export type Database = {
           future_growth_rating?: number | null
           growth_potential?: string | null
           id?: string
+          joint_sales_impact?: string | null
           manager_id?: string
+          new_products_introduced?: string | null
+          order_increase_amount?: number | null
+          placement_feedback?: string | null
           pricing_compliance?: string | null
+          pricing_feedback?: string | null
           pricing_feedback_rating?: number | null
           product_feedback_rating?: number | null
+          product_quality_feedback?: string | null
           retailer_id?: string
           retailer_notes?: string | null
+          retailing_feedback?: string | null
           retailing_rating?: number | null
+          sales_increase_feedback?: string | null
           sales_trend?: string | null
           sales_trends_rating?: number | null
           sampling_rating?: number | null
           sampling_status?: string | null
           scheme_awareness?: string | null
+          schemes_feedback?: string | null
           schemes_rating?: number | null
+          service_feedback?: string | null
           shelf_visibility?: string | null
+          trends_feedback?: string | null
           updated_at?: string | null
           visit_id?: string | null
         }

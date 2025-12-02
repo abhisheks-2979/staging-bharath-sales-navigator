@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +31,9 @@ import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { JointSalesFeedbackModal } from "./JointSalesFeedbackModal";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/hooks/useAuth";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -87,6 +90,12 @@ export const VisitCard = ({
   const [isNoOrderMarked, setIsNoOrderMarked] = useState(!!visit.noOrderReason);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isCheckedOut, setIsCheckedOut] = useState(false);
+  const [isJointSalesVisit, setIsJointSalesVisit] = useState(false);
+  const [jointSalesMemberId, setJointSalesMemberId] = useState<string | null>(null);
+  const [beatPlanId, setBeatPlanId] = useState<string | null>(null);
+  const [showJointSalesFeedback, setShowJointSalesFeedback] = useState(false);
+  const [jointSalesChecked, setJointSalesChecked] = useState(false);
+  const { user } = useAuth();
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
   const [distributorName, setDistributorName] = useState<string>('');
@@ -277,6 +286,22 @@ export const VisitCard = ({
           } = await supabase.from('analytics_views').select('id').eq('visit_id', visit.id).eq('user_id', currentUserId).maybeSingle();
           if (analyticsView) {
             setHasViewedAnalytics(true);
+          }
+
+            // Check if this is a joint sales visit
+          const { data: beatPlanData } = await supabase
+            .from('beat_plans')
+            .select('id, joint_sales_manager_id')
+            .eq('plan_date', targetDate)
+            .or(`user_id.eq.${currentUserId},joint_sales_manager_id.eq.${currentUserId}`)
+            .maybeSingle();
+          
+          if (beatPlanData) {
+            setBeatPlanId(beatPlanData.id);
+            if (beatPlanData.joint_sales_manager_id) {
+              setIsJointSalesVisit(true);
+              setJointSalesMemberId(beatPlanData.joint_sales_manager_id);
+            }
           }
 
           // Fetch visit data from database to get latest check-in/out status
@@ -2069,6 +2094,19 @@ export const VisitCard = ({
         
         {/* Visit Details Modal */}
         {currentLog && <RetailerVisitDetailsModal open={showVisitDetailsModal} onOpenChange={setShowVisitDetailsModal} retailerName={visit.retailerName} startTime={currentLog.start_time} endTime={currentLog.end_time} timeSpent={timeSpent} distance={trackingDistance} locationStatus={trackingLocationStatus} actionType={currentLog.action_type} isPhoneOrder={currentLog.is_phone_order} logId={currentLog.id} />}
+        
+        {/* Joint Sales Feedback Modal */}
+        {showJointSalesFeedback && beatPlanId && jointSalesMemberId && (
+          <JointSalesFeedbackModal
+            isOpen={showJointSalesFeedback}
+            onClose={() => setShowJointSalesFeedback(false)}
+            retailerId={visit.retailerId || visit.id}
+            retailerName={visit.retailerName}
+            beatPlanId={beatPlanId}
+            visitId={currentVisitId || undefined}
+            managerId={jointSalesMemberId}
+          />
+        )}
       </CardContent>
     </Card>;
 };
