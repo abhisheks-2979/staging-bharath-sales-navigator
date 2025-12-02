@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles } from "lucide-react";
+import { ShoppingCart, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -454,237 +454,195 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="p-0">
-          <div className="w-full">
-            {/* Table Header - Responsive */}
-            <div className="grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 bg-muted/50 border-b border-border">
-              <div className="font-semibold text-xs md:text-sm">Product</div>
-              <div className="font-semibold text-xs md:text-sm">Unit</div>
-              <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
-              <div className="font-semibold text-xs md:text-sm text-center">Stock</div>
-              <div className="w-8"></div>
-            </div>
-              
-              {/* Table Rows - Responsive */}
-              <div className="divide-y divide-border">
-                {orderRows.map((row, index) => (
-                  <div 
-                  key={row.id} 
-                  className={cn(
-                    "grid grid-cols-[1.5fr_0.8fr_0.6fr_0.6fr_auto] md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 md:py-3 items-center",
-                    index % 2 === 0 ? "bg-background" : "bg-muted/20"
-                  )}
-                >
-                    {/* Product Column */}
-                    <div>
-                      <Popover 
-                        open={openComboboxes[row.id]} 
-                        onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={openComboboxes[row.id]}
-                            className="w-full justify-start h-auto min-h-[44px] md:min-h-[52px] text-xs md:text-sm font-normal bg-background px-3 py-2"
-                          >
-                            {row.product ? (
-                              <div className="flex flex-col items-start w-full gap-2">
-                                <div className="flex items-center gap-1.5 w-full">
-                                  {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
-                                    <Star size={14} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
-                                  )}
-                                  {hasActiveSchemes(row.product) && (
-                                    <Sparkles size={14} className="fill-orange-500 text-orange-500 flex-shrink-0" />
-                                  )}
-                                  <span className="truncate text-left flex-1 font-medium text-foreground">
-                                    {row.variant ? (() => {
-                                      let variantDisplayName = row.variant.variant_name;
-                                      if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
-                                        variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                        variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-                                      }
-                                      return variantDisplayName || row.variant.variant_name;
-                                    })() : row.product.name}
-                                  </span>
-                                </div>
-                                {row.product.base_unit ? (() => {
-                                  const pricePerUnit = getPricePerUnit(row.product!, row.variant, row.unit);
-                                  const baseUnit = (row.product!.base_unit || row.product!.unit || '').toLowerCase();
-                                  const selectedUnit = (row.unit || row.product!.unit || '').toLowerCase();
-                                  const showBase = baseUnit && selectedUnit && baseUnit !== selectedUnit;
-                                  return (
-                                    <div className="flex flex-col gap-0.5 w-full">
-                                      <span className="text-[10px] md:text-xs text-muted-foreground">
-                                        ₹{pricePerUnit.toFixed(2)} per {row.unit}
-                                      </span>
-                                      {showBase && (
-                                        <span className="text-[9px] md:text-[10px] text-muted-foreground/70">
-                                          (₹{Number(row.variant?.price || row.product!.rate).toFixed(2)} per {row.product!.base_unit})
-                                        </span>
-                                      )}
-                                    </div>
-                                  );
-                                })() : (
-                                  <span className="text-[10px] md:text-xs text-muted-foreground">
-                                    ₹{Number(row.variant?.price || row.product.rate || 0).toFixed(2)} per {row.unit || row.product?.unit}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs md:text-sm">Select...</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[280px] md:w-[320px] p-0 bg-background z-50" align="start">
-                          <Command className="bg-background">
-                            <CommandInput placeholder="Search products..." className="h-9 md:h-10 text-xs md:text-sm" />
-                            <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
-                              <CommandEmpty>No product found.</CommandEmpty>
-                              <CommandGroup className="bg-background">
-                                {getProductOptions().map((option) => (
-                                  <CommandItem
-                                    key={option.value}
-                                    value={option.label}
-                                    onSelect={() => handleProductSelect(row.id, option.value)}
-                                    className="text-xs md:text-sm bg-background hover:bg-accent py-2"
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-3 w-3 md:h-4 md:w-4",
-                                        row.product?.id === option.product.id && 
-                                        (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    <div className="flex-1 flex items-center gap-1.5">
-                                      {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
-                                        <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
-                                      )}
-                                      {hasActiveSchemes(option.product) && (
-                                        <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
-                                      )}
-                                      <div className="flex-1">
-                                        <div className="font-medium">{option.label}</div>
-                                        <div className="text-[10px] md:text-xs text-muted-foreground">
-                                          SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    {/* Unit Column */}
-                    <div>
-                      <Select
-                        value={row.unit}
-                        onValueChange={(value) => updateRow(row.id, "unit", value)}
-                      >
-                        <SelectTrigger className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2 [&>svg]:hidden">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          <SelectItem value="KG" className="text-xs md:text-sm">KG</SelectItem>
-                          <SelectItem value="Grams" className="text-xs md:text-sm">Grams</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Qty Column */}
-                    <div>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={row.quantity || ""}
-                        onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
-                        className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
-                        disabled={!row.product}
-                      />
-                    </div>
-                    
-                    {/* Stock Column */}
-                    <div>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={row.closingStock === 0 ? "" : row.closingStock}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
-                        }}
-                        className={cn(
-                          "h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1",
-                          row.closingStock === 0 && "text-muted-foreground"
-                        )}
-                        disabled={!row.product}
-                      />
-                    </div>
-                    
-                    {/* Delete Button */}
-                    <div className="flex justify-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeRow(row.id)}
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        disabled={orderRows.length === 1}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-              ))}
-              </div>
-            </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-between items-center">
-        <Button
-          variant="outline"
-          onClick={addNewRow}
-          className="flex items-center gap-2"
-        >
-          <Plus size={14} />
-          Add Row
-        </Button>
-        
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Total</p>
-          <p className="text-lg font-bold">₹{getTotalValue().toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground">
-            (incl. GST: ₹{(getTotalValue() * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
-          </p>
-        </div>
-      </div>
-
+      {/* Go to Cart Button - Top */}
       <Button
         onClick={addToCart}
         className="w-full"
+        size="lg"
         disabled={getTotalValue() === 0 || isAddingToCart}
       >
-        {isAddingToCart ? (
-          <>
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Loading...
-          </>
-        ) : (
-          "Preview Order"
-        )}
+        <ShoppingCart className="mr-2 h-4 w-4" />
+        {isAddingToCart ? "Loading..." : "Go to Cart"}
+      </Button>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="w-full">
+            {/* Table Header */}
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-3 bg-muted/50 border-b border-border">
+              <div className="font-semibold text-sm">Product Name</div>
+              <div className="font-semibold text-sm text-center">Unit</div>
+              <div className="font-semibold text-sm text-center">Qty</div>
+              <div className="font-semibold text-sm text-center">Stock</div>
+            </div>
+              
+            {/* Table Rows */}
+            <div className="divide-y divide-border">
+              {orderRows.map((row, index) => (
+                <div 
+                  key={row.id} 
+                  className={cn(
+                    "grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-4 py-3 items-center",
+                    index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                  )}
+                >
+                  {/* Product Column - Name and Price */}
+                  <div>
+                    <Popover 
+                      open={openComboboxes[row.id]} 
+                      onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openComboboxes[row.id]}
+                          className="w-full justify-start h-auto min-h-[56px] text-sm font-normal bg-background px-3 py-2"
+                        >
+                          {row.product ? (
+                            <div className="flex flex-col items-start w-full gap-1">
+                              <div className="flex items-center gap-1.5 w-full">
+                                {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
+                                  <Star size={14} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                )}
+                                {hasActiveSchemes(row.product) && (
+                                  <Sparkles size={14} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                )}
+                                <span className="truncate text-left flex-1 font-semibold text-foreground">
+                                  {row.variant ? row.variant.variant_name : row.product.name}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground font-medium">
+                                ₹{getPricePerUnit(row.product!, row.variant, row.unit).toFixed(2)} per {row.unit}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Select Product...</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[320px] p-0 bg-background z-50" align="start">
+                        <Command className="bg-background">
+                          <CommandInput placeholder="Search products..." className="h-10 text-sm" />
+                          <CommandList className="bg-background max-h-[300px]">
+                            <CommandEmpty>No product found.</CommandEmpty>
+                            <CommandGroup className="bg-background">
+                              {getProductOptions().map((option) => (
+                                <CommandItem
+                                  key={option.value}
+                                  value={option.label}
+                                  onSelect={() => handleProductSelect(row.id, option.value)}
+                                  className="text-sm bg-background hover:bg-accent py-2"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      row.product?.id === option.product.id && 
+                                      (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex-1 flex items-center gap-1.5">
+                                    {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
+                                      <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                    )}
+                                    {hasActiveSchemes(option.product) && (
+                                      <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                    )}
+                                    <div className="flex-1">
+                                      <div className="font-medium">{option.label}</div>
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  {/* Unit Column */}
+                  <div>
+                    <Select
+                      value={row.unit}
+                      onValueChange={(value) => updateRow(row.id, "unit", value)}
+                    >
+                      <SelectTrigger className="h-11 text-sm w-full bg-background">
+                        <SelectValue placeholder="Unit" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="KG" className="text-sm">KG</SelectItem>
+                        <SelectItem value="Grams" className="text-sm">Grams</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Qty Column */}
+                  <div>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={row.quantity || ""}
+                      onChange={(e) => updateRow(row.id, "quantity", parseInt(e.target.value) || 0)}
+                      className="h-11 text-sm text-center bg-background"
+                      disabled={!row.product}
+                    />
+                  </div>
+                  
+                  {/* Stock Column */}
+                  <div>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={row.closingStock === 0 ? "" : row.closingStock}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
+                      }}
+                      className={cn(
+                        "h-11 text-sm text-center bg-background",
+                        row.closingStock === 0 && "text-muted-foreground"
+                      )}
+                      disabled={!row.product}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Totals Section */}
+      <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
+        <CardContent className="p-4">
+          <div className="space-y-3">
+            <div className="flex justify-between items-center pb-2 border-b border-border">
+              <span className="text-base font-medium text-muted-foreground">Subtotal (Without GST)</span>
+              <span className="text-xl font-bold text-foreground">₹{getTotalValue().toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-base font-medium text-muted-foreground">Total (Including GST)</span>
+              <span className="text-2xl font-bold text-primary">₹{(getTotalValue() * 1.05).toFixed(2)}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Go to Cart Button - Bottom */}
+      <Button
+        onClick={addToCart}
+        className="w-full"
+        size="lg"
+        disabled={getTotalValue() === 0 || isAddingToCart}
+      >
+        <ShoppingCart className="mr-2 h-4 w-4" />
+        {isAddingToCart ? "Loading..." : "Go to Cart"}
       </Button>
       
-      <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
+      <p className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border text-center">
         <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
       </p>
     </div>
