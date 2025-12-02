@@ -211,20 +211,20 @@ export default function InstitutionalProducts() {
     }).format(value);
   };
 
-  const ProductForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-4 py-4">
+  const renderFormFields = () => (
+    <>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label>Product Code *</Label>
           <Input
             value={formData.product_code}
-            onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, product_code: e.target.value }))}
             placeholder="e.g., PRD001"
           />
         </div>
         <div className="space-y-2">
           <Label>Category</Label>
-          <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+          <Select value={formData.category} onValueChange={(v) => setFormData(prev => ({ ...prev, category: v }))}>
             <SelectTrigger>
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
@@ -240,7 +240,7 @@ export default function InstitutionalProducts() {
         <Label>Product Name *</Label>
         <Input
           value={formData.product_name}
-          onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, product_name: e.target.value }))}
           placeholder="Product name"
         />
       </div>
@@ -248,7 +248,7 @@ export default function InstitutionalProducts() {
         <Label>Description</Label>
         <Textarea
           value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
           placeholder="Product description"
           rows={2}
         />
@@ -259,13 +259,13 @@ export default function InstitutionalProducts() {
           <Input
             type="number"
             value={formData.base_price}
-            onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, base_price: e.target.value }))}
             placeholder="0"
           />
         </div>
         <div className="space-y-2">
           <Label>Unit</Label>
-          <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v })}>
+          <Select value={formData.unit} onValueChange={(v) => setFormData(prev => ({ ...prev, unit: v }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -281,7 +281,7 @@ export default function InstitutionalProducts() {
           <Input
             type="number"
             value={formData.min_order_quantity}
-            onChange={(e) => setFormData({ ...formData, min_order_quantity: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, min_order_quantity: e.target.value }))}
             placeholder="1"
           />
         </div>
@@ -291,7 +291,7 @@ export default function InstitutionalProducts() {
           <Label>HSN Code</Label>
           <Input
             value={formData.hsn_code}
-            onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, hsn_code: e.target.value }))}
             placeholder="HSN/SAC code"
           />
         </div>
@@ -300,7 +300,7 @@ export default function InstitutionalProducts() {
           <Input
             type="number"
             value={formData.gst_rate}
-            onChange={(e) => setFormData({ ...formData, gst_rate: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, gst_rate: e.target.value }))}
             placeholder="18"
           />
         </div>
@@ -309,13 +309,10 @@ export default function InstitutionalProducts() {
         <Label>Active</Label>
         <Switch
           checked={formData.is_active}
-          onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
         />
       </div>
-      <Button onClick={isEdit ? handleUpdate : handleCreate} className="w-full">
-        {isEdit ? 'Update Product' : 'Create Product'}
-      </Button>
-    </div>
+    </>
   );
 
   return (
@@ -340,7 +337,12 @@ export default function InstitutionalProducts() {
               <DialogHeader>
                 <DialogTitle>Create New Product</DialogTitle>
               </DialogHeader>
-              <ProductForm />
+              <div className="space-y-4 py-4">
+                {renderFormFields()}
+                <Button onClick={handleCreate} className="w-full">
+                  Create Product
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
@@ -441,7 +443,12 @@ export default function InstitutionalProducts() {
             <DialogHeader>
               <DialogTitle>Edit Product</DialogTitle>
             </DialogHeader>
-            <ProductForm isEdit />
+            <div className="space-y-4 py-4">
+              {renderFormFields()}
+              <Button onClick={handleUpdate} className="w-full">
+                Update Product
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
