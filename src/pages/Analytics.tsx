@@ -212,14 +212,17 @@ const Analytics = () => {
         .select('id, name, beat_name')
         .in('id', retailerIds);
 
-      const visitIds = visits?.map(v => v.id) || [];
+      // Fetch orders by date range instead of visit_id
       const { data: orders } = await supabase
         .from('orders')
-        .select('visit_id, total_amount')
-        .in('visit_id', visitIds);
+        .select('id, total_amount, created_at, visit_id')
+        .eq('user_id', user.id)
+        .gte('created_at', dateRange.from.toISOString())
+        .lte('created_at', dateRange.to.toISOString());
 
       const progressByDate: any = {};
       
+      // First process visits
       visits?.forEach(visit => {
         const dateKey = visit.planned_date;
         const retailer = retailers?.find(r => r.id === visit.retailer_id);
@@ -239,13 +242,27 @@ const Analytics = () => {
         
         if (visit.check_in_time && visit.check_out_time) {
           progressByDate[dateKey].completedVisits += 1;
-          
-          const visitOrders = orders?.filter(o => o.visit_id === visit.id) || [];
-          if (visitOrders.length > 0) {
+          if (visit.status === 'productive') {
             progressByDate[dateKey].productiveVisits += 1;
-            progressByDate[dateKey].orderValue += visitOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
           }
         }
+      });
+
+      // Then add order values by date (using created_at date)
+      orders?.forEach(order => {
+        const orderDate = format(new Date(order.created_at), 'yyyy-MM-dd');
+        if (!progressByDate[orderDate]) {
+          progressByDate[orderDate] = {
+            date: orderDate,
+            day: format(new Date(orderDate), 'EEE'),
+            beatName: 'N/A',
+            plannedVisits: 0,
+            completedVisits: 0,
+            productiveVisits: 0,
+            orderValue: 0
+          };
+        }
+        progressByDate[orderDate].orderValue += Number(order.total_amount || 0);
       });
 
       setWeeklyProgress(Object.values(progressByDate));
