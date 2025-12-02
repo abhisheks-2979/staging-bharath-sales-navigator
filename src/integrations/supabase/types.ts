@@ -2005,6 +2005,946 @@ export type Database = {
         }
         Relationships: []
       }
+      inst_accounts: {
+        Row: {
+          account_name: string
+          account_owner: string | null
+          account_type: string | null
+          annual_revenue: number | null
+          billing_address: string | null
+          city: string | null
+          created_at: string
+          credit_limit: number | null
+          email: string | null
+          employee_count: number | null
+          gst_number: string | null
+          id: string
+          industry: string | null
+          is_active: boolean | null
+          pan_number: string | null
+          parent_account_id: string | null
+          payment_terms: number | null
+          phone: string | null
+          pincode: string | null
+          shipping_address: string | null
+          state: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          account_name: string
+          account_owner?: string | null
+          account_type?: string | null
+          annual_revenue?: number | null
+          billing_address?: string | null
+          city?: string | null
+          created_at?: string
+          credit_limit?: number | null
+          email?: string | null
+          employee_count?: number | null
+          gst_number?: string | null
+          id?: string
+          industry?: string | null
+          is_active?: boolean | null
+          pan_number?: string | null
+          parent_account_id?: string | null
+          payment_terms?: number | null
+          phone?: string | null
+          pincode?: string | null
+          shipping_address?: string | null
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          account_name?: string
+          account_owner?: string | null
+          account_type?: string | null
+          annual_revenue?: number | null
+          billing_address?: string | null
+          city?: string | null
+          created_at?: string
+          credit_limit?: number | null
+          email?: string | null
+          employee_count?: number | null
+          gst_number?: string | null
+          id?: string
+          industry?: string | null
+          is_active?: boolean | null
+          pan_number?: string | null
+          parent_account_id?: string | null
+          payment_terms?: number | null
+          phone?: string | null
+          pincode?: string | null
+          shipping_address?: string | null
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_accounts_parent_account_id_fkey"
+            columns: ["parent_account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_collections: {
+        Row: {
+          account_id: string
+          amount: number
+          bank_name: string | null
+          cheque_number: string | null
+          collected_by: string | null
+          collection_date: string
+          collection_number: string
+          created_at: string
+          id: string
+          invoice_id: string
+          notes: string | null
+          payment_method: string | null
+          reference_number: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount?: number
+          bank_name?: string | null
+          cheque_number?: string | null
+          collected_by?: string | null
+          collection_date?: string
+          collection_number: string
+          created_at?: string
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          bank_name?: string | null
+          cheque_number?: string | null
+          collected_by?: string | null
+          collection_date?: string
+          collection_number?: string
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_collections_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_collections_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "inst_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_contacts: {
+        Row: {
+          account_id: string
+          created_at: string
+          department: string | null
+          designation: string | null
+          email: string | null
+          first_name: string
+          id: string
+          is_decision_maker: boolean | null
+          is_primary_contact: boolean | null
+          last_name: string | null
+          mobile: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          department?: string | null
+          designation?: string | null
+          email?: string | null
+          first_name: string
+          id?: string
+          is_decision_maker?: boolean | null
+          is_primary_contact?: boolean | null
+          last_name?: string | null
+          mobile?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          department?: string | null
+          designation?: string | null
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_decision_maker?: boolean | null
+          is_primary_contact?: boolean | null
+          last_name?: string | null
+          mobile?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_contacts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_invoice_lines: {
+        Row: {
+          commitment_line_id: string | null
+          created_at: string
+          description: string | null
+          discount_amount: number | null
+          id: string
+          invoice_id: string
+          line_total: number
+          product_id: string
+          quantity: number
+          tax_amount: number | null
+          unit_price: number
+        }
+        Insert: {
+          commitment_line_id?: string | null
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          id?: string
+          invoice_id: string
+          line_total?: number
+          product_id: string
+          quantity?: number
+          tax_amount?: number | null
+          unit_price?: number
+        }
+        Update: {
+          commitment_line_id?: string | null
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          id?: string
+          invoice_id?: string
+          line_total?: number
+          product_id?: string
+          quantity?: number
+          tax_amount?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_invoice_lines_commitment_line_id_fkey"
+            columns: ["commitment_line_id"]
+            isOneToOne: false
+            referencedRelation: "inst_order_commitment_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "inst_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_invoice_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inst_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_invoices: {
+        Row: {
+          account_id: string
+          balance_amount: number | null
+          created_at: string
+          created_by: string
+          discount_amount: number | null
+          due_date: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          order_commitment_id: string | null
+          paid_amount: number | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          balance_amount?: number | null
+          created_at?: string
+          created_by: string
+          discount_amount?: number | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          notes?: string | null
+          order_commitment_id?: string | null
+          paid_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          balance_amount?: number | null
+          created_at?: string
+          created_by?: string
+          discount_amount?: number | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          order_commitment_id?: string | null
+          paid_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_invoices_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_invoices_order_commitment_id_fkey"
+            columns: ["order_commitment_id"]
+            isOneToOne: false
+            referencedRelation: "inst_order_commitments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_leads: {
+        Row: {
+          address: string | null
+          annual_potential_value: number | null
+          assigned_to: string | null
+          city: string | null
+          company_name: string
+          converted_account_id: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          industry_type: string | null
+          lead_name: string
+          lead_source: string | null
+          lead_status: string | null
+          notes: string | null
+          phone: string | null
+          pincode: string | null
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          annual_potential_value?: number | null
+          assigned_to?: string | null
+          city?: string | null
+          company_name: string
+          converted_account_id?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          industry_type?: string | null
+          lead_name: string
+          lead_source?: string | null
+          lead_status?: string | null
+          notes?: string | null
+          phone?: string | null
+          pincode?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          annual_potential_value?: number | null
+          assigned_to?: string | null
+          city?: string | null
+          company_name?: string
+          converted_account_id?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          industry_type?: string | null
+          lead_name?: string
+          lead_source?: string | null
+          lead_status?: string | null
+          notes?: string | null
+          phone?: string | null
+          pincode?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inst_opportunities: {
+        Row: {
+          account_id: string
+          amount: number | null
+          closed_date: string | null
+          competitors: string | null
+          contact_id: string | null
+          created_at: string
+          description: string | null
+          expected_close_date: string | null
+          id: string
+          lead_source: string | null
+          next_step: string | null
+          opportunity_name: string
+          owner_id: string | null
+          probability: number | null
+          stage: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount?: number | null
+          closed_date?: string | null
+          competitors?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          expected_close_date?: string | null
+          id?: string
+          lead_source?: string | null
+          next_step?: string | null
+          opportunity_name: string
+          owner_id?: string | null
+          probability?: number | null
+          stage?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number | null
+          closed_date?: string | null
+          competitors?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          expected_close_date?: string | null
+          id?: string
+          lead_source?: string | null
+          next_step?: string | null
+          opportunity_name?: string
+          owner_id?: string | null
+          probability?: number | null
+          stage?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_opportunities_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_opportunities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "inst_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_order_commitment_lines: {
+        Row: {
+          actual_delivery_date: string | null
+          actual_quantity: number | null
+          actual_value: number | null
+          created_at: string
+          delivered_quantity: number | null
+          id: string
+          order_commitment_id: string
+          planned_delivery_date: string | null
+          planned_quantity: number
+          planned_value: number | null
+          product_id: string
+          status: string | null
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          actual_quantity?: number | null
+          actual_value?: number | null
+          created_at?: string
+          delivered_quantity?: number | null
+          id?: string
+          order_commitment_id: string
+          planned_delivery_date?: string | null
+          planned_quantity?: number
+          planned_value?: number | null
+          product_id: string
+          status?: string | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          actual_quantity?: number | null
+          actual_value?: number | null
+          created_at?: string
+          delivered_quantity?: number | null
+          id?: string
+          order_commitment_id?: string
+          planned_delivery_date?: string | null
+          planned_quantity?: number
+          planned_value?: number | null
+          product_id?: string
+          status?: string | null
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_order_commitment_lines_order_commitment_id_fkey"
+            columns: ["order_commitment_id"]
+            isOneToOne: false
+            referencedRelation: "inst_order_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_order_commitment_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inst_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_order_commitments: {
+        Row: {
+          account_id: string
+          commitment_date: string
+          commitment_number: string
+          created_at: string
+          created_by: string
+          delivery_end_date: string | null
+          delivery_start_date: string | null
+          id: string
+          notes: string | null
+          opportunity_id: string | null
+          quote_id: string | null
+          status: string | null
+          total_actual_value: number | null
+          total_planned_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          commitment_date?: string
+          commitment_number: string
+          created_at?: string
+          created_by: string
+          delivery_end_date?: string | null
+          delivery_start_date?: string | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string | null
+          quote_id?: string | null
+          status?: string | null
+          total_actual_value?: number | null
+          total_planned_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          commitment_date?: string
+          commitment_number?: string
+          created_at?: string
+          created_by?: string
+          delivery_end_date?: string | null
+          delivery_start_date?: string | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string | null
+          quote_id?: string | null
+          status?: string | null
+          total_actual_value?: number | null
+          total_planned_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_order_commitments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_order_commitments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "inst_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_order_commitments_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "inst_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_price_book_entries: {
+        Row: {
+          created_at: string
+          discount_percentage: number | null
+          final_price: number
+          id: string
+          list_price: number
+          max_quantity: number | null
+          min_quantity: number | null
+          price_book_id: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_percentage?: number | null
+          final_price?: number
+          id?: string
+          list_price?: number
+          max_quantity?: number | null
+          min_quantity?: number | null
+          price_book_id: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_percentage?: number | null
+          final_price?: number
+          id?: string
+          list_price?: number
+          max_quantity?: number | null
+          min_quantity?: number | null
+          price_book_id?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_price_book_entries_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "inst_price_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_price_book_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inst_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_price_books: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          currency: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_active: boolean | null
+          is_standard: boolean | null
+          price_book_name: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          currency?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_standard?: boolean | null
+          price_book_name: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          currency?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_standard?: boolean | null
+          price_book_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_price_books_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_products: {
+        Row: {
+          base_price: number
+          category: string | null
+          created_at: string
+          description: string | null
+          gst_rate: number | null
+          hsn_code: string | null
+          id: string
+          is_active: boolean | null
+          min_order_quantity: number | null
+          product_code: string
+          product_name: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_price?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          gst_rate?: number | null
+          hsn_code?: string | null
+          id?: string
+          is_active?: boolean | null
+          min_order_quantity?: number | null
+          product_code: string
+          product_name: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          gst_rate?: number | null
+          hsn_code?: string | null
+          id?: string
+          is_active?: boolean | null
+          min_order_quantity?: number | null
+          product_code?: string
+          product_name?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inst_quote_line_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          id: string
+          line_total: number
+          product_id: string
+          quantity: number
+          quote_id: string
+          sort_order: number | null
+          tax_amount: number | null
+          tax_rate: number | null
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          line_total?: number
+          product_id: string
+          quantity?: number
+          quote_id: string
+          sort_order?: number | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          line_total?: number
+          product_id?: string
+          quantity?: number
+          quote_id?: string
+          sort_order?: number | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_quote_line_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inst_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_quote_line_items_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "inst_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inst_quotes: {
+        Row: {
+          account_id: string
+          approved_by: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string
+          discount_amount: number | null
+          id: string
+          notes: string | null
+          opportunity_id: string | null
+          price_book_id: string | null
+          quote_date: string
+          quote_number: string
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          terms_and_conditions: string | null
+          total_amount: number | null
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          account_id: string
+          approved_by?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by: string
+          discount_amount?: number | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string | null
+          price_book_id?: string | null
+          quote_date?: string
+          quote_number: string
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          terms_and_conditions?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          account_id?: string
+          approved_by?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string
+          discount_amount?: number | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string | null
+          price_book_id?: string | null
+          quote_date?: string
+          quote_number?: string
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          terms_and_conditions?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inst_quotes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "inst_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_quotes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "inst_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_quotes_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "inst_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inst_quotes_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "inst_price_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           cgst_amount: number | null
@@ -2503,6 +3443,39 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      license_config: {
+        Row: {
+          created_at: string
+          field_sales_enabled: boolean | null
+          id: string
+          institutional_sales_enabled: boolean | null
+          license_type: string
+          max_users: number | null
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          field_sales_enabled?: boolean | null
+          id?: string
+          institutional_sales_enabled?: boolean | null
+          license_type?: string
+          max_users?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          field_sales_enabled?: boolean | null
+          id?: string
+          institutional_sales_enabled?: boolean | null
+          license_type?: string
+          max_users?: number | null
+          updated_at?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
