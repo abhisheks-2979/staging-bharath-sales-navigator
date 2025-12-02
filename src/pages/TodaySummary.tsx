@@ -225,22 +225,27 @@ export const TodaySummary = () => {
       // Execute visits query first
       const { data: visits } = await visitsQuery;
 
-      // Get visit IDs to fetch associated orders
-      const visitIds = visits?.map(v => v.id) || [];
-      
-      // Fetch orders based on visit_ids (not created_at)
+      // Fetch orders based on created_at date (not visit_id, since many orders don't have visit_id linked)
       let todayOrders: any[] = [];
-      if (visitIds.length > 0) {
-        const { data } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            order_items(*)
-          `)
-          .eq('user_id', user.id)
-          .in('visit_id', visitIds);
-        todayOrders = data || [];
-      }
+      
+      // Build date range for orders query
+      const orderFromDate = new Date(dateRange.from);
+      orderFromDate.setHours(0, 0, 0, 0);
+      const orderToDate = new Date(dateRange.to);
+      orderToDate.setHours(23, 59, 59, 999);
+      
+      const { data: fetchedOrders } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items(*)
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'confirmed')
+        .gte('created_at', orderFromDate.toISOString())
+        .lte('created_at', orderToDate.toISOString());
+      
+      todayOrders = fetchedOrders || [];
 
       // Fetch retailers for today's visits
       const retailerIds = visits?.map(v => v.retailer_id) || [];
@@ -1142,12 +1147,16 @@ export const TodaySummary = () => {
                       className="h-9 w-9"
                       onClick={() => {
                         const newDate = new Date(selectedDate);
-                        if (filterType === 'week' || filterType === 'lastWeek') {
+                        if (filterType === 'today' || filterType === 'custom') {
+                          newDate.setDate(newDate.getDate() - 1);
+                          handleDateFilterChange('custom', newDate);
+                        } else if (filterType === 'week' || filterType === 'lastWeek') {
                           newDate.setDate(newDate.getDate() - 7);
+                          handleDateFilterChange(filterType, newDate);
                         } else if (filterType === 'month') {
                           newDate.setMonth(newDate.getMonth() - 1);
+                          handleDateFilterChange(filterType, newDate);
                         }
-                        handleDateFilterChange(filterType, newDate);
                       }}
                     >
                       ←
@@ -1158,12 +1167,16 @@ export const TodaySummary = () => {
                       className="h-9 w-9"
                       onClick={() => {
                         const newDate = new Date(selectedDate);
-                        if (filterType === 'week' || filterType === 'lastWeek') {
+                        if (filterType === 'today' || filterType === 'custom') {
+                          newDate.setDate(newDate.getDate() + 1);
+                          handleDateFilterChange('custom', newDate);
+                        } else if (filterType === 'week' || filterType === 'lastWeek') {
                           newDate.setDate(newDate.getDate() + 7);
+                          handleDateFilterChange(filterType, newDate);
                         } else if (filterType === 'month') {
                           newDate.setMonth(newDate.getMonth() + 1);
+                          handleDateFilterChange(filterType, newDate);
                         }
-                        handleDateFilterChange(filterType, newDate);
                       }}
                     >
                       →
