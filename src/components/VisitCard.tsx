@@ -13,6 +13,7 @@ import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
+import { JointSalesFeedbackModal } from "./JointSalesFeedbackModal";
 import { StockCycleModal } from "./StockCycleModal";
 import { AnalyticsModal } from "./AnalyticsModal";
 import { StockDataModal } from "./StockDataModal";
@@ -31,7 +32,6 @@ import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
-import { JointSalesFeedbackModal } from "./JointSalesFeedbackModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 interface Visit {
@@ -1403,6 +1403,10 @@ export const VisitCard = ({
                   <Phone size={12} className="mr-1" />
                   Phone Order
                 </Badge>}
+              {isJointSalesVisit && <Badge className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1">
+                  <Users size={12} className="mr-1" />
+                  Joint Sales
+                </Badge>}
             </div>
             {hasStockRecords && <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1 cursor-pointer transition-all" variant="secondary" onClick={() => setShowStockDataModal(true)}>
                 <Package size={12} className="mr-1" />
@@ -2011,15 +2015,17 @@ export const VisitCard = ({
         {/* Modals */}
         <NoOrderModal isOpen={showNoOrderModal} onClose={() => setShowNoOrderModal(false)} onReasonSelect={handleNoOrderReasonSelect} currentReason={noOrderReason} />
 
-        {/* Unified Feedback Modal with Tabs */}
+         {/* Unified Feedback Modal with Tabs */}
         {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => setShowFeedbackModal(false)} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
 
         {showFeedbackModal && feedbackActiveTab === "competition" && <CompetitionInsightModal isOpen={true} onClose={() => setShowFeedbackModal(false)} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
 
         {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => setShowFeedbackModal(false)} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
 
+        {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => setShowFeedbackModal(false)} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId || ""} managerId={jointSalesMemberId || ""} />}
+
         {/* Tab Selector Modal */}
-        <Dialog open={showFeedbackModal && !['retailer-feedback', 'competition', 'branding'].includes(feedbackActiveTab)} onOpenChange={open => {
+        <Dialog open={showFeedbackModal && !['retailer-feedback', 'competition', 'branding', 'joint-sales-feedback'].includes(feedbackActiveTab)} onOpenChange={open => {
         if (!open) setShowFeedbackModal(false);
       }}>
           <DialogContent className="max-w-[95vw] sm:max-w-lg">
@@ -2051,6 +2057,16 @@ export const VisitCard = ({
                   <div className="text-xs text-muted-foreground">Request branding materials</div>
                 </div>
               </Button>
+              
+              {isJointSalesVisit && (
+                <Button variant="outline" className="h-16 flex flex-col items-center gap-2" onClick={() => setFeedbackActiveTab("joint-sales-feedback")}>
+                  <Users size={24} />
+                  <div className="text-center">
+                    <div className="font-medium">Joint Sales Feedback</div>
+                    <div className="text-xs text-muted-foreground">Record joint visit feedback</div>
+                  </div>
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>
