@@ -37,7 +37,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string; role: string }>>([]);
   const { user } = useAuth();
 
-  // Reset date when modal opens with initialDate
+  // Reset date and joint sales state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       if (initialDate) {
@@ -45,6 +45,11 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
       } else {
         setSelectedDate(new Date());
       }
+    } else {
+      // Reset joint sales state when modal closes
+      setIsJointSales(false);
+      setJointSalesMember("");
+      setSelectedBeat("");
     }
   }, [isOpen, initialDate]);
 
