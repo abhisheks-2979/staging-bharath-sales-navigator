@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
 
 interface VisitLog {
   id: string;
@@ -155,76 +156,21 @@ export const useRetailerVisitTracking = ({
     actionType: 'order' | 'feedback' | 'ai' | 'phone_order',
     isPhoneOrder: boolean = false
   ) => {
-    // First, end any previous active log for different retailer
     const targetDate = selectedDate || new Date().toISOString().split('T')[0];
-    
-    const { data: previousActiveLogs } = await supabase
-      .from('retailer_visit_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('visit_date', targetDate)
-      .is('end_time', null)
-      .neq('retailer_id', retailerId);
+    const isOffline = !navigator.onLine;
 
-    if (previousActiveLogs && previousActiveLogs.length > 0) {
-      const endTime = new Date().toISOString();
-      for (const log of previousActiveLogs) {
-        const startTime = new Date(log.start_time).getTime();
-        const endTimeMs = new Date(endTime).getTime();
-        const timeSpentSeconds = Math.floor((endTimeMs - startTime) / 1000);
-
-        await supabase
-          .from('retailer_visit_logs')
-          .update({
-            end_time: endTime,
-            time_spent_seconds: timeSpentSeconds
-          })
-          .eq('id', log.id);
-      }
-    }
-
-    // If already tracking for this retailer today, update the existing log's
-    // end_time to reflect the latest activity time instead of creating a new log.
-    if (currentLogIdRef.current) {
-      const endTime = new Date().toISOString();
-      const { data: logData } = await supabase
-        .from('retailer_visit_logs')
-        .select('start_time')
-        .eq('id', currentLogIdRef.current)
-        .single();
-
-      if (logData) {
-        const startTimeMs = new Date(logData.start_time).getTime();
-        const endTimeMs = new Date(endTime).getTime();
-        const timeSpentSeconds = Math.floor((endTimeMs - startTimeMs) / 1000);
-
-        await supabase
-          .from('retailer_visit_logs')
-          .update({
-            end_time: endTime,
-            time_spent_seconds: timeSpentSeconds
-          })
-          .eq('id', currentLogIdRef.current);
-
-        setTimeSpent(timeSpentSeconds);
-      }
-
-      // Do not create a new log for the same retailer/date
-      return;
-    }
-
+    // Get current GPS location (works offline)
     let userLat: number | undefined;
     let userLng: number | undefined;
     let calculatedDistance: number | null = null;
     let status: 'at_store' | 'within_range' | 'not_at_store' | 'location_unavailable' = 'location_unavailable';
 
-    // Get current GPS location
     if (navigator.geolocation) {
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 10000, // Increased timeout to 10 seconds
+            timeout: 10000,
             maximumAge: 0
           });
         });
@@ -232,7 +178,7 @@ export const useRetailerVisitTracking = ({
         userLat = position.coords.latitude;
         userLng = position.coords.longitude;
 
-        console.log('User location captured:', { userLat, userLng });
+        console.log('User location captured (offline mode):', { userLat, userLng, isOffline });
         console.log('Retailer location:', { retailerLat, retailerLng });
 
         // Calculate distance if retailer coordinates are available
@@ -241,7 +187,7 @@ export const useRetailerVisitTracking = ({
           status = getLocationStatus(calculatedDistance);
           setDistance(calculatedDistance);
           setLocationStatus(status);
-          console.log('Location tracking:', { calculatedDistance, status });
+          console.log('Location tracking (offline mode):', { calculatedDistance, status });
         } else {
           console.warn('Retailer coordinates not available:', { retailerLat, retailerLng });
           status = 'location_unavailable';
@@ -250,35 +196,128 @@ export const useRetailerVisitTracking = ({
         console.error('GPS error:', error);
         status = 'location_unavailable';
       }
-    } else {
-      console.error('Geolocation not supported by browser');
     }
 
     const startTime = new Date().toISOString();
+    const logId = `offline_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    // Create new log entry
-    const { data, error } = await supabase
-      .from('retailer_visit_logs')
-      .insert({
-        user_id: userId,
-        retailer_id: retailerId,
-        visit_id: visitId || null,
-        start_time: startTime,
-        start_latitude: userLat || null,
-        start_longitude: userLng || null,
-        distance_meters: calculatedDistance,
-        location_status: status,
-        action_type: actionType,
-        is_phone_order: isPhoneOrder,
-        visit_date: targetDate
-      })
-      .select()
-      .single();
+    const logData = {
+      id: logId,
+      user_id: userId,
+      retailer_id: retailerId,
+      visit_id: visitId || null,
+      start_time: startTime,
+      end_time: null,
+      start_latitude: userLat || null,
+      start_longitude: userLng || null,
+      distance_meters: calculatedDistance,
+      location_status: status,
+      action_type: actionType,
+      is_phone_order: isPhoneOrder,
+      visit_date: targetDate,
+      time_spent_seconds: null
+    };
 
-    if (!error && data) {
-      setCurrentLog(data as VisitLog);
-      currentLogIdRef.current = data.id;
-      setTimeSpent(0);
+    if (isOffline) {
+      // Store in IndexedDB when offline
+      console.log('📍 Storing visit log offline:', logData);
+      try {
+        await offlineStorage.save(STORES.RETAILER_VISIT_LOGS, logData);
+        
+        // Add to sync queue for later syncing
+        await offlineStorage.addToSyncQueue('CREATE_VISIT_LOG', logData);
+        
+        setCurrentLog(logData as VisitLog);
+        currentLogIdRef.current = logId;
+        setTimeSpent(0);
+        
+        console.log('✅ Visit log stored offline successfully');
+      } catch (error) {
+        console.error('❌ Failed to store visit log offline:', error);
+      }
+    } else {
+      // Store in Supabase when online
+      try {
+        // First, end any previous active log for different retailer
+        const { data: previousActiveLogs } = await supabase
+          .from('retailer_visit_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('visit_date', targetDate)
+          .is('end_time', null)
+          .neq('retailer_id', retailerId);
+
+        if (previousActiveLogs && previousActiveLogs.length > 0) {
+          const endTime = new Date().toISOString();
+          for (const log of previousActiveLogs) {
+            const startTime = new Date(log.start_time).getTime();
+            const endTimeMs = new Date(endTime).getTime();
+            const timeSpentSeconds = Math.floor((endTimeMs - startTime) / 1000);
+
+            await supabase
+              .from('retailer_visit_logs')
+              .update({
+                end_time: endTime,
+                time_spent_seconds: timeSpentSeconds
+              })
+              .eq('id', log.id);
+          }
+        }
+
+        // If already tracking for this retailer today, update the existing log
+        if (currentLogIdRef.current && !currentLogIdRef.current.startsWith('offline_')) {
+          const endTime = new Date().toISOString();
+          const { data: existingLog } = await supabase
+            .from('retailer_visit_logs')
+            .select('start_time')
+            .eq('id', currentLogIdRef.current)
+            .single();
+
+          if (existingLog) {
+            const startTimeMs = new Date(existingLog.start_time).getTime();
+            const endTimeMs = new Date(endTime).getTime();
+            const timeSpentSeconds = Math.floor((endTimeMs - startTimeMs) / 1000);
+
+            await supabase
+              .from('retailer_visit_logs')
+              .update({
+                end_time: endTime,
+                time_spent_seconds: timeSpentSeconds
+              })
+              .eq('id', currentLogIdRef.current);
+
+            setTimeSpent(timeSpentSeconds);
+          }
+          return;
+        }
+
+        // Create new log in Supabase
+        const { data, error } = await supabase
+          .from('retailer_visit_logs')
+          .insert({
+            user_id: userId,
+            retailer_id: retailerId,
+            visit_id: visitId || null,
+            start_time: startTime,
+            start_latitude: userLat || null,
+            start_longitude: userLng || null,
+            distance_meters: calculatedDistance,
+            location_status: status,
+            action_type: actionType,
+            is_phone_order: isPhoneOrder,
+            visit_date: targetDate
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          setCurrentLog(data as VisitLog);
+          currentLogIdRef.current = data.id;
+          setTimeSpent(0);
+        }
+      } catch (error) {
+        console.error('Failed to save visit log online:', error);
+      }
     }
   }, [userId, retailerId, visitId, retailerLat, retailerLng, selectedDate]);
 

@@ -369,6 +369,24 @@ export function useOfflineSync() {
         if (checkoutError) throw checkoutError;
         break;
         
+      case 'CREATE_VISIT_LOG':
+        console.log('Syncing retailer visit log:', data);
+        // Remove the offline-generated ID before inserting to let Supabase generate a new one
+        const { id: offlineId, ...visitLogData } = data;
+        const { error: visitLogError } = await supabase
+          .from('retailer_visit_logs')
+          .insert(visitLogData);
+        if (visitLogError) throw visitLogError;
+        
+        // Remove from offline storage after successful sync
+        try {
+          await offlineStorage.delete(STORES.RETAILER_VISIT_LOGS, data.id);
+          console.log('✅ Removed synced visit log from offline storage');
+        } catch (deleteError) {
+          console.log('Note: Could not remove visit log from offline storage:', deleteError);
+        }
+        break;
+        
       case 'CREATE_STOCK':
         console.log('Syncing stock creation:', data);
         const { error: stockError } = await supabase
