@@ -20,13 +20,42 @@ interface FaceMatchResponse {
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`Failed to fetch image from ${url}: ${response.status}`);
+    console.log(`Fetching image from: ${url}`);
+    
+    // Add retry logic with delay for newly uploaded images
+    let response;
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      response = await fetch(url);
+      if (response.ok) break;
+      
+      attempts++;
+      if (attempts < maxAttempts) {
+        console.log(`Fetch attempt ${attempts} failed with ${response.status}, retrying in 1s...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    if (!response || !response.ok) {
+      console.error(`Failed to fetch image from ${url} after ${maxAttempts} attempts: ${response?.status}`);
       return null;
     }
+    
     const arrayBuffer = await response.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64 in chunks to avoid stack overflow
+    const chunkSize = 0x8000; // 32KB chunks
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    const base64 = btoa(binary);
+    console.log(`Successfully converted image to base64 (${base64.length} chars)`);
     return base64;
   } catch (error) {
     console.error(`Error fetching image: ${error}`);
@@ -77,6 +106,20 @@ serve(async (req) => {
     console.log(`Face verification attempt by user ${user.id}`)
     console.log(`Baseline URL: ${baselinePhotoUrl}`)
     console.log(`Attendance URL: ${attendancePhotoUrl}`)
+
+    // If URLs are identical, return 100% match immediately
+    if (baselinePhotoUrl === attendancePhotoUrl) {
+      console.log('Same photo URL detected - returning 100% match');
+      return new Response(
+        JSON.stringify({
+          status: 'match',
+          confidence: 100,
+          verified: true,
+          message: 'Same photo used for both baseline and attendance'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Fetch both images as base64
     const [baselineBase64, attendanceBase64] = await Promise.all([
