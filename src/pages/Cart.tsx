@@ -859,7 +859,23 @@ export const Cart = () => {
 
       // Clear cart storage for this visit/retailer
       localStorage.removeItem(activeStorageKey);
+      
+      // COMPREHENSIVE STATE CLEARING - Reset all cart and payment states for fresh order entry
       setCartItems([]);
+      setPaymentType("");
+      setPaymentMethod("");
+      setPartialAmount("");
+      setChequePhotoUrl("");
+      setUpiPhotoUrl("");
+      setUpiLastFourCode("");
+      setNeftPhotoUrl("");
+      setIsCameraOpen(false);
+      setShowInvoicePreview(false);
+      setSelectedItem(null);
+      setShowItemDetail(false);
+      setPendingAmountFromPrevious(0);
+
+      console.log('🧹 All cart and payment states cleared for fresh order entry');
 
       // Show success toast and navigate IMMEDIATELY - don't wait for SMS
       toast({
