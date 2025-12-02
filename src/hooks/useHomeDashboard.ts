@@ -169,16 +169,60 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
         }
 
-        // Calculate beat progress - use simple status-based counting to match My Visits
+        // Calculate beat progress using unified logic (same as My Visits)
         const visitsAny = (visits || []) as any[];
-        
-        const completed = visitsAny.filter((v: any) => v.status === 'completed' || v.status === 'productive' || v.status === 'unproductive').length;
-        const planned = visitsAny.filter((v: any) => v.status === 'planned').length;
-        const productive = visitsAny.filter((v: any) => v.status === 'productive').length;
-        const unproductive = visitsAny.filter((v: any) => v.status === 'unproductive').length;
+
+        // Build order maps to detect productive visits via orders
+        const ordersMap = new Map<string, boolean>();
+        orders.forEach((o: any) => {
+          if (o.retailer_id) {
+            ordersMap.set(o.retailer_id, true);
+          }
+        });
+
+        // Extract planned retailer IDs from beat plans (beat_data.retailer_ids or fallback by beat_id)
+        let plannedRetailerIds: string[] = [];
+        let hasBeatDataWithRetailerIdsDefined = false;
+        for (const bp of beatPlans) {
+          const beatData = (bp as any).beat_data as any;
+          if (beatData && Array.isArray(beatData.retailer_ids)) {
+            hasBeatDataWithRetailerIdsDefined = true;
+            plannedRetailerIds.push(...beatData.retailer_ids);
+          }
+        }
+
+        if (!hasBeatDataWithRetailerIdsDefined && beatPlans.length > 0) {
+          const plannedBeatIds = beatPlans.map((bp: any) => bp.beat_id);
+          const retailersForBeats = retailers.filter((r: any) => plannedBeatIds.includes(r.beat_id));
+          plannedRetailerIds = retailersForBeats.map((r: any) => r.id);
+        }
+
+        let planned = 0;
+        let productive = 0;
+        let unproductive = 0;
+
+        const visitRetailerIdsSet = new Set(visitsAny.map((v: any) => v.retailer_id));
+
+        visitsAny.forEach((v: any) => {
+          const hasOrder = v.retailer_id ? ordersMap.has(v.retailer_id) : false;
+          if (v.status === 'unproductive') {
+            unproductive++;
+          } else if (v.status === 'productive' || hasOrder) {
+            productive++;
+          } else if (v.status === 'planned') {
+            planned++;
+          }
+        });
+
+        // Count retailers from beat plans that don't yet have visits or orders as planned
+        plannedRetailerIds.forEach((retailerId: string) => {
+          if (!visitRetailerIdsSet.has(retailerId) && !ordersMap.has(retailerId)) {
+            planned++;
+          }
+        });
+
         const totalVisits = visitsAny.length;
-
-
+        const completed = productive + unproductive;
         // Calculate revenue target and achieved
         const revenueTarget = 10000; // Default target, can be made dynamic
         const revenueAchieved = orders.reduce((sum: number, order: any) => sum + (order.total_amount || 0), 0);
@@ -314,11 +358,39 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
     }
     
-    const planned = todayVisits.filter((v: any) => v.status === 'planned').length;
-    const productive = todayVisits.filter((v: any) => v.status === 'productive').length;
-    const unproductive = todayVisits.filter((v: any) => v.status === 'unproductive').length;
+    // Unified beat progress logic for cache path (approximate My Visits logic)
+    let planned = 0;
+    let productive = 0;
+    let unproductive = 0;
+    const visitRetailerIdsSet = new Set(todayVisits.map((v: any) => v.retailer_id));
+
+    todayVisits.forEach((v: any) => {
+      if (v.status === 'unproductive') {
+        unproductive++;
+      } else if (v.status === 'productive') {
+        productive++;
+      } else if (v.status === 'planned') {
+        planned++;
+      }
+    });
+
+    // Add retailers from beat plans without visit records as planned
+    const plannedRetailerIds: string[] = [];
+    for (const bp of beatPlansArray) {
+      const beatData = (bp as any).beat_data as any;
+      if (beatData && Array.isArray(beatData.retailer_ids)) {
+        plannedRetailerIds.push(...beatData.retailer_ids);
+      }
+    }
+
+    plannedRetailerIds.forEach((retailerId: string) => {
+      if (!visitRetailerIdsSet.has(retailerId)) {
+        planned++;
+      }
+    });
+
     const totalVisits = todayVisits.length;
-    
+
     setData(prev => ({
       ...prev,
       todayData: {
@@ -330,7 +402,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         attendance: todayAttendance,
         beatProgress: {
           total: totalVisits,
-          completed,
+          completed: productive + unproductive,
           remaining: planned,
           planned,
           productive,
