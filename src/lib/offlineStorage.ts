@@ -7,7 +7,7 @@
 // - ORDERS: ONLY pending orders in sync queue (not all historical orders)
 // - SYNC_QUEUE: Pending actions to sync when online
 const DB_NAME = 'OfflineAppDB';
-const DB_VERSION = 5; // Increased for attendance store
+const DB_VERSION = 6; // Increased for retailer visit logs store
 
 // Object store names
 export const STORES = {
@@ -24,7 +24,8 @@ export const STORES = {
   COMPETITION_MASTER: 'competitionMaster',
   COMPETITION_SKUS: 'competitionSkus',
   COMPETITION_DATA: 'competitionData',
-  ATTENDANCE: 'attendance'
+  ATTENDANCE: 'attendance',
+  RETAILER_VISIT_LOGS: 'retailerVisitLogs'
 } as const;
 
 class OfflineStorage {
@@ -137,6 +138,13 @@ class OfflineStorage {
           const attendanceStore = db.createObjectStore(STORES.ATTENDANCE, { keyPath: 'id' });
           attendanceStore.createIndex('userId', 'user_id', { unique: false });
           attendanceStore.createIndex('date', 'date', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORES.RETAILER_VISIT_LOGS)) {
+          const visitLogsStore = db.createObjectStore(STORES.RETAILER_VISIT_LOGS, { keyPath: 'id' });
+          visitLogsStore.createIndex('userId', 'user_id', { unique: false });
+          visitLogsStore.createIndex('retailerId', 'retailer_id', { unique: false });
+          visitLogsStore.createIndex('visitDate', 'visit_date', { unique: false });
         }
         console.log('[OfflineStorage] ✅ Database schema upgraded successfully');
       };
