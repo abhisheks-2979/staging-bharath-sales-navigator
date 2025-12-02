@@ -99,6 +99,10 @@ import ContactManagement from "./pages/institutional/ContactManagement";
 import OpportunityManagement from "./pages/institutional/OpportunityManagement";
 import QuoteManagement from "./pages/institutional/QuoteManagement";
 import InstitutionalProducts from "./pages/institutional/InstitutionalProducts";
+import OrderCommitments from "./pages/institutional/OrderCommitments";
+import InstitutionalInvoices from "./pages/institutional/InstitutionalInvoices";
+import PriceBooks from "./pages/institutional/PriceBooks";
+import Collections from "./pages/institutional/Collections";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -289,6 +293,10 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/institutional-sales/opportunities" element={<ProtectedRoute><OpportunityManagement /></ProtectedRoute>} />
               <Route path="/institutional-sales/quotes" element={<ProtectedRoute><QuoteManagement /></ProtectedRoute>} />
               <Route path="/institutional-sales/products" element={<ProtectedRoute><InstitutionalProducts /></ProtectedRoute>} />
+              <Route path="/institutional-sales/order-commitments" element={<ProtectedRoute><OrderCommitments /></ProtectedRoute>} />
+              <Route path="/institutional-sales/invoices" element={<ProtectedRoute><InstitutionalInvoices /></ProtectedRoute>} />
+              <Route path="/institutional-sales/price-books" element={<ProtectedRoute><PriceBooks /></ProtectedRoute>} />
+              <Route path="/institutional-sales/collections" element={<ProtectedRoute><Collections /></ProtectedRoute>} />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
