@@ -1,4 +1,6 @@
-// IndexedDB setup for offline storage
+import { Preferences } from '@capacitor/preferences';
+
+// Capacitor Preferences for offline storage (works in both PWA and APK)
 // STORAGE STRATEGY: Only cache essential data needed for offline operations
 // - PRODUCTS, VARIANTS, SCHEMES, CATEGORIES: Active items for order entry
 // - BEATS, RETAILERS: User's active beats and retailers
@@ -6,8 +8,6 @@
 // - VISITS: Only current date visits
 // - ORDERS: ONLY pending orders in sync queue (not all historical orders)
 // - SYNC_QUEUE: Pending actions to sync when online
-const DB_NAME = 'OfflineAppDB';
-const DB_VERSION = 6; // Increased for retailer visit logs store
 
 // Object store names
 export const STORES = {
@@ -29,142 +29,45 @@ export const STORES = {
 } as const;
 
 class OfflineStorage {
-  private db: IDBDatabase | null = null;
-  private initPromise: Promise<void> | null = null;
+  private initialized = false;
 
   async init(): Promise<void> {
-    // Return existing initialization promise if already initializing
-    if (this.initPromise) {
-      return this.initPromise;
-    }
-
-    // Return immediately if already initialized
-    if (this.db) {
-      return Promise.resolve();
-    }
-
-    this.initPromise = new Promise((resolve, reject) => {
-      try {
-        console.log('[OfflineStorage] Initializing IndexedDB for persistent storage...');
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = () => {
-          console.error('[OfflineStorage] Failed to open database:', request.error);
-          this.initPromise = null;
-          reject(request.error);
-        };
-        
-        request.onsuccess = () => {
-          this.db = request.result;
-          console.log('[OfflineStorage] ✅ Database initialized successfully - data will persist across app restarts');
-          this.initPromise = null;
-          resolve();
-        };
-
-      request.onupgradeneeded = (event) => {
-        console.log('[OfflineStorage] Upgrading database schema...');
-        const db = (event.target as IDBOpenDBRequest).result;
-        
-        // Create object stores if they don't exist
-        if (!db.objectStoreNames.contains(STORES.ORDERS)) {
-          const ordersStore = db.createObjectStore(STORES.ORDERS, { keyPath: 'id' });
-          ordersStore.createIndex('retailerId', 'retailerId', { unique: false });
-          ordersStore.createIndex('createdAt', 'created_at', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.VARIANTS)) {
-          const variantsStore = db.createObjectStore(STORES.VARIANTS, { keyPath: 'id' });
-          variantsStore.createIndex('productId', 'productId', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.RETAILERS)) {
-          const retailersStore = db.createObjectStore(STORES.RETAILERS, { keyPath: 'id' });
-          retailersStore.createIndex('beatId', 'beatId', { unique: false });
-          retailersStore.createIndex('userId', 'user_id', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.VISITS)) {
-          const visitsStore = db.createObjectStore(STORES.VISITS, { keyPath: 'id' });
-          visitsStore.createIndex('retailerId', 'retailerId', { unique: false });
-          visitsStore.createIndex('visitDate', 'planned_date', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.SYNC_QUEUE)) {
-          const syncStore = db.createObjectStore(STORES.SYNC_QUEUE, { keyPath: 'id', autoIncrement: true });
-          syncStore.createIndex('action', 'action', { unique: false });
-          syncStore.createIndex('timestamp', 'timestamp', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.PRODUCTS)) {
-          db.createObjectStore(STORES.PRODUCTS, { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.BEATS)) {
-          const beatsStore = db.createObjectStore(STORES.BEATS, { keyPath: 'id' });
-          beatsStore.createIndex('beatId', 'beat_id', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.CATEGORIES)) {
-          db.createObjectStore(STORES.CATEGORIES, { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.SCHEMES)) {
-          const schemesStore = db.createObjectStore(STORES.SCHEMES, { keyPath: 'id' });
-          schemesStore.createIndex('productId', 'productId', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.BEAT_PLANS)) {
-          const beatPlansStore = db.createObjectStore(STORES.BEAT_PLANS, { keyPath: 'id' });
-          beatPlansStore.createIndex('userId', 'user_id', { unique: false });
-          beatPlansStore.createIndex('planDate', 'plan_date', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.COMPETITION_MASTER)) {
-          db.createObjectStore(STORES.COMPETITION_MASTER, { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.COMPETITION_SKUS)) {
-          const competitionSkusStore = db.createObjectStore(STORES.COMPETITION_SKUS, { keyPath: 'id' });
-          competitionSkusStore.createIndex('competitorId', 'competitor_id', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.COMPETITION_DATA)) {
-          const competitionDataStore = db.createObjectStore(STORES.COMPETITION_DATA, { keyPath: 'id' });
-          competitionDataStore.createIndex('retailerId', 'retailer_id', { unique: false });
-          competitionDataStore.createIndex('visitId', 'visit_id', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.ATTENDANCE)) {
-          const attendanceStore = db.createObjectStore(STORES.ATTENDANCE, { keyPath: 'id' });
-          attendanceStore.createIndex('userId', 'user_id', { unique: false });
-          attendanceStore.createIndex('date', 'date', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(STORES.RETAILER_VISIT_LOGS)) {
-          const visitLogsStore = db.createObjectStore(STORES.RETAILER_VISIT_LOGS, { keyPath: 'id' });
-          visitLogsStore.createIndex('userId', 'user_id', { unique: false });
-          visitLogsStore.createIndex('retailerId', 'retailer_id', { unique: false });
-          visitLogsStore.createIndex('visitDate', 'visit_date', { unique: false });
-        }
-        console.log('[OfflineStorage] ✅ Database schema upgraded successfully');
-      };
-      } catch (error) {
-        console.error('[OfflineStorage] Error during initialization:', error);
-        this.initPromise = null;
-        reject(error);
-      }
-    });
-
-    return this.initPromise;
+    if (this.initialized) return;
+    console.log('[OfflineStorage] ✅ Capacitor Preferences ready - data persists across app restarts');
+    this.initialized = true;
   }
 
-  // Verify database is ready
   private async ensureReady(): Promise<void> {
-    if (!this.db) {
+    if (!this.initialized) {
       await this.init();
     }
-    if (!this.db) {
-      throw new Error('Database initialization failed');
+  }
+
+  // Helper to get store key
+  private getStoreKey(storeName: string): string {
+    return `offline_${storeName}`;
+  }
+
+  // Helper to get data from Preferences
+  private async getStoreData<T>(storeName: string): Promise<T[]> {
+    try {
+      const key = this.getStoreKey(storeName);
+      const { value } = await Preferences.get({ key });
+      return value ? JSON.parse(value) : [];
+    } catch (error) {
+      console.error(`[OfflineStorage] Error reading ${storeName}:`, error);
+      return [];
+    }
+  }
+
+  // Helper to save data to Preferences
+  private async setStoreData(storeName: string, data: any[]): Promise<void> {
+    try {
+      const key = this.getStoreKey(storeName);
+      await Preferences.set({ key, value: JSON.stringify(data) });
+    } catch (error) {
+      console.error(`[OfflineStorage] Error writing ${storeName}:`, error);
+      throw error;
     }
   }
 
@@ -172,88 +75,80 @@ class OfflineStorage {
   async save<T>(storeName: string, data: T): Promise<void> {
     await this.ensureReady();
     
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(storeName);
-        const request = store.put(data);
-        
-        request.onsuccess = () => {
-          console.log(`[OfflineStorage] ✅ Saved to ${storeName}`);
-          resolve();
-        };
-        request.onerror = () => {
-          console.error(`[OfflineStorage] ❌ Failed to save to ${storeName}:`, request.error);
-          reject(request.error);
-        };
-      } catch (error) {
-        console.error(`[OfflineStorage] ❌ Transaction error in ${storeName}:`, error);
-        reject(error);
+    try {
+      const items = await this.getStoreData<T>(storeName);
+      const dataWithId = data as any;
+      
+      // Auto-generate ID if not present
+      if (!dataWithId.id) {
+        dataWithId.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
       }
-    });
+      
+      const existingIndex = items.findIndex((item: any) => item.id === dataWithId.id);
+      
+      if (existingIndex >= 0) {
+        items[existingIndex] = dataWithId;
+      } else {
+        items.push(dataWithId);
+      }
+      
+      await this.setStoreData(storeName, items);
+      console.log(`[OfflineStorage] ✅ Saved to ${storeName}`);
+    } catch (error) {
+      console.error(`[OfflineStorage] ❌ Failed to save to ${storeName}:`, error);
+      throw error;
+    }
   }
 
   async getById<T>(storeName: string, id: string): Promise<T | null> {
     await this.ensureReady();
     
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.get(id);
-        
-        request.onsuccess = () => resolve(request.result || null);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
+    try {
+      const items = await this.getStoreData<T>(storeName);
+      const item = items.find((item: any) => item.id === id);
+      return item || null;
+    } catch (error) {
+      console.error(`[OfflineStorage] Error getting item from ${storeName}:`, error);
+      return null;
+    }
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
     await this.ensureReady();
     
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.getAll();
-        
-        request.onsuccess = () => {
-          console.log(`[OfflineStorage] Retrieved ${request.result?.length || 0} items from ${storeName}`);
-          resolve(request.result || []);
-        };
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
+    try {
+      const items = await this.getStoreData<T>(storeName);
+      console.log(`[OfflineStorage] Retrieved ${items.length} items from ${storeName}`);
+      return items;
+    } catch (error) {
+      console.error(`[OfflineStorage] Error getting all from ${storeName}:`, error);
+      return [];
+    }
   }
 
   async delete(storeName: string, id: string | number): Promise<void> {
-    if (!this.db) await this.init();
+    await this.ensureReady();
     
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.delete(id);
-      
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    try {
+      const items = await this.getStoreData(storeName);
+      const filtered = items.filter((item: any) => item.id !== id);
+      await this.setStoreData(storeName, filtered);
+    } catch (error) {
+      console.error(`[OfflineStorage] Error deleting from ${storeName}:`, error);
+      throw error;
+    }
   }
 
   async clear(storeName: string): Promise<void> {
-    if (!this.db) await this.init();
+    await this.ensureReady();
     
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.clear();
-      
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    try {
+      await this.setStoreData(storeName, []);
+      console.log(`[OfflineStorage] Cleared ${storeName}`);
+    } catch (error) {
+      console.error(`[OfflineStorage] Error clearing ${storeName}:`, error);
+      throw error;
+    }
   }
 
   // Sync queue operations for offline actions
@@ -282,38 +177,24 @@ class OfflineStorage {
     const now = Date.now();
     const cutoffTime = now - maxAgeMs;
 
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction([STORES.SYNC_QUEUE], 'readwrite');
-        const store = transaction.objectStore(STORES.SYNC_QUEUE);
-        const request = store.getAll();
-
-        request.onsuccess = () => {
-          const allItems = request.result || [];
-          let deletedCount = 0;
-
-          allItems.forEach((item: any) => {
-            if (item.timestamp && item.timestamp < cutoffTime) {
-              store.delete(item.id);
-              deletedCount++;
-            }
-          });
-
-          if (deletedCount > 0) {
-            console.log(`[OfflineStorage] 🗑️ Deleted ${deletedCount} old synced items (older than 3 days)`);
-          }
-        };
-
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-      } catch (error) {
-        reject(error);
+    try {
+      const items = await this.getStoreData<any>(STORES.SYNC_QUEUE);
+      const recentItems = items.filter((item: any) => 
+        !item.timestamp || item.timestamp >= cutoffTime
+      );
+      
+      const deletedCount = items.length - recentItems.length;
+      
+      if (deletedCount > 0) {
+        await this.setStoreData(STORES.SYNC_QUEUE, recentItems);
+        console.log(`[OfflineStorage] 🗑️ Deleted ${deletedCount} old synced items (older than 3 days)`);
       }
-    });
+    } catch (error) {
+      console.error('[OfflineStorage] Error deleting old items:', error);
+      throw error;
+    }
   }
 }
 
 // Export singleton instance
 export const offlineStorage = new OfflineStorage();
-
-// Note: Initialization is handled in main.tsx to avoid blocking app startup
