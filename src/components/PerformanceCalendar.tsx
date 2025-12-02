@@ -155,19 +155,16 @@ export const PerformanceCalendar = () => {
 
       if (visitsError) throw visitsError;
 
-      // Fetch orders for the month
-      const visitIds = visits?.map(v => v.id) || [];
-      let orders: any[] = [];
-      if (visitIds.length > 0) {
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select('visit_id, total_amount')
-          .in('user_id', userIds)
-          .in('visit_id', visitIds);
+      // Fetch orders for the date range - use created_at date, not visit_id
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, total_amount, created_at, visit_id')
+        .in('user_id', userIds)
+        .gte('created_at', format(rangeStart, 'yyyy-MM-dd'))
+        .lt('created_at', format(addDays(rangeEnd, 1), 'yyyy-MM-dd'));
 
-        if (ordersError) throw ordersError;
-        orders = ordersData || [];
-      }
+      if (ordersError) throw ordersError;
+      const orders = ordersData || [];
 
       // Fetch holidays
       const { data: holidays, error: holidaysError } = await supabase
@@ -221,11 +218,12 @@ export const PerformanceCalendar = () => {
         }
       });
 
-      // Create order map by visit_id
-      const orderMap = new Map<string, number>();
+      // Create order map by date (from created_at)
+      const orderByDateMap = new Map<string, number>();
       orders?.forEach(order => {
-        const existing = orderMap.get(order.visit_id) || 0;
-        orderMap.set(order.visit_id, existing + parseFloat(order.total_amount || 0));
+        const orderDate = format(new Date(order.created_at), 'yyyy-MM-dd');
+        const existing = orderByDateMap.get(orderDate) || 0;
+        orderByDateMap.set(orderDate, existing + Number(order.total_amount || 0));
       });
 
       // Group visits by date
@@ -258,10 +256,28 @@ export const PerformanceCalendar = () => {
         if (visit.status === 'productive') {
           dayData.productiveVisits++;
         }
+      });
 
-        // Add revenue from this visit
-        const orderRevenue = orderMap.get(visit.id) || 0;
-        dayData.revenue += orderRevenue;
+      // Add revenue from orders by date (not by visit_id)
+      orderByDateMap.forEach((revenue, dateKey) => {
+        if (dataByDate.has(dateKey)) {
+          dataByDate.get(dateKey)!.revenue = revenue;
+        } else {
+          // Create entry for days with orders but no visits
+          dataByDate.set(dateKey, {
+            date: new Date(dateKey),
+            beatName: beatPlanMap.get(dateKey)?.beatNames.join(', ') || '',
+            plannedVisits: 0,
+            completedVisits: 0,
+            productiveVisits: 0,
+            revenue: revenue,
+            productivity: 0,
+            isHoliday: holidayDates.has(dateKey),
+            isLeave: leaveDates.has(dateKey),
+            hasJointSales: beatPlanMap.get(dateKey)?.hasJointSales || false,
+            jointSalesMemberName: beatPlanMap.get(dateKey)?.jointSalesMemberName
+          });
+        }
       });
 
       // Calculate productivity percentage
