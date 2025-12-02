@@ -192,7 +192,7 @@ export const useRetailerVisitTracking = ({
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 5000,
+            timeout: 10000, // Increased timeout to 10 seconds
             maximumAge: 0
           });
         });
@@ -200,17 +200,26 @@ export const useRetailerVisitTracking = ({
         userLat = position.coords.latitude;
         userLng = position.coords.longitude;
 
+        console.log('User location captured:', { userLat, userLng });
+        console.log('Retailer location:', { retailerLat, retailerLng });
+
         // Calculate distance if retailer coordinates are available
-        if (retailerLat !== undefined && retailerLng !== undefined) {
+        if (retailerLat !== undefined && retailerLng !== undefined && retailerLat !== null && retailerLng !== null) {
           calculatedDistance = calculateDistance(userLat, userLng, retailerLat, retailerLng);
           status = getLocationStatus(calculatedDistance);
           setDistance(calculatedDistance);
           setLocationStatus(status);
+          console.log('Location tracking:', { calculatedDistance, status });
+        } else {
+          console.warn('Retailer coordinates not available:', { retailerLat, retailerLng });
+          status = 'location_unavailable';
         }
       } catch (error) {
-        console.log('GPS error:', error);
+        console.error('GPS error:', error);
         status = 'location_unavailable';
       }
+    } else {
+      console.error('Geolocation not supported by browser');
     }
 
     const startTime = new Date().toISOString();

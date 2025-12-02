@@ -92,7 +92,7 @@ export const RetailerVisitDetailsModal = ({
       case 'at_store':
         return 'At Store';
       case 'within_range':
-        return 'Within 15m Range';
+        return '<50m from Store';
       case 'not_at_store':
         return 'Not at Store';
       default:
