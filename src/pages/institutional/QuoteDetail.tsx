@@ -7,12 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { 
-  ArrowLeft, FileText, Building2, Calendar, DollarSign,
-  Edit, Save, X, Send, CheckCircle, XCircle, Package
+  ArrowLeft, FileText, Building2, Calendar, IndianRupee,
+  Edit, Save, X, Send, CheckCircle, XCircle, Package, Plus, Trash2, Search
 } from "lucide-react";
 
 interface Quote {
@@ -20,6 +22,7 @@ interface Quote {
   quote_number: string;
   account_id: string;
   opportunity_id: string | null;
+  price_book_id: string | null;
   quote_date: string;
   valid_until: string | null;
   status: string;
@@ -30,17 +33,42 @@ interface Quote {
   terms_and_conditions: string | null;
   notes: string | null;
   inst_accounts: { account_name: string } | null;
-  inst_opportunities: { opportunity_name: string } | null;
+  inst_opportunities: { opportunity_name: string; id: string } | null;
 }
 
 interface QuoteItem {
   id: string;
+  product_id: string;
   description: string | null;
   quantity: number;
   unit_price: number;
   discount_percentage: number;
+  discount_amount: number;
   tax_rate: number;
+  tax_amount: number;
   line_total: number;
+}
+
+interface Product {
+  id: string;
+  product_code: string;
+  product_name: string;
+  category: string | null;
+  unit: string | null;
+  base_price: number;
+  gst_rate: number | null;
+}
+
+interface PriceBook {
+  id: string;
+  price_book_name: string;
+}
+
+interface PriceBookEntry {
+  product_id: string;
+  list_price: number;
+  discount_percentage: number | null;
+  final_price: number;
 }
 
 const statuses = [
@@ -56,22 +84,42 @@ export default function QuoteDetail() {
   const { id } = useParams();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [items, setItems] = useState<QuoteItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [priceBooks, setPriceBooks] = useState<PriceBook[]>([]);
+  const [priceBookEntries, setPriceBookEntries] = useState<PriceBookEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<Quote>>({});
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newItem, setNewItem] = useState({
+    product_id: "",
+    quantity: 1,
+    unit_price: 0,
+    discount_percentage: 0,
+    tax_rate: 18,
+  });
 
   useEffect(() => {
     if (id) {
       fetchQuote();
       fetchItems();
+      fetchProducts();
+      fetchPriceBooks();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (quote?.price_book_id) {
+      fetchPriceBookEntries(quote.price_book_id);
+    }
+  }, [quote?.price_book_id]);
 
   const fetchQuote = async () => {
     try {
       const { data, error } = await supabase
         .from('inst_quotes')
-        .select('*, inst_accounts(account_name), inst_opportunities(opportunity_name)')
+        .select('*, inst_accounts(account_name), inst_opportunities(id, opportunity_name)')
         .eq('id', id)
         .single();
 
@@ -88,8 +136,190 @@ export default function QuoteDetail() {
   };
 
   const fetchItems = async () => {
-    const { data } = await supabase.from('inst_quote_line_items').select('*').eq('quote_id', id).order('sort_order');
+    const { data } = await supabase
+      .from('inst_quote_line_items')
+      .select('*')
+      .eq('quote_id', id)
+      .order('sort_order');
     setItems(data || []);
+  };
+
+  const fetchProducts = async () => {
+    const { data } = await supabase
+      .from('inst_products')
+      .select('id, product_code, product_name, category, unit, base_price, gst_rate')
+      .eq('is_active', true)
+      .order('product_name');
+    setProducts(data || []);
+  };
+
+  const fetchPriceBooks = async () => {
+    const { data } = await supabase
+      .from('inst_price_books')
+      .select('id, price_book_name')
+      .eq('is_active', true)
+      .order('price_book_name');
+    setPriceBooks(data || []);
+  };
+
+  const fetchPriceBookEntries = async (priceBookId: string) => {
+    const { data } = await supabase
+      .from('inst_price_book_entries')
+      .select('product_id, list_price, discount_percentage, final_price')
+      .eq('price_book_id', priceBookId);
+    setPriceBookEntries(data || []);
+  };
+
+  const getProductPrice = (productId: string): number => {
+    // Check price book first
+    const priceBookEntry = priceBookEntries.find(e => e.product_id === productId);
+    if (priceBookEntry) return priceBookEntry.final_price;
+    
+    // Fallback to base price
+    const product = products.find(p => p.id === productId);
+    return product?.base_price || 0;
+  };
+
+  const handleProductSelect = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const price = getProductPrice(productId);
+      setNewItem({
+        ...newItem,
+        product_id: productId,
+        unit_price: price,
+        tax_rate: product.gst_rate || 18,
+      });
+    }
+  };
+
+  const calculateLineTotal = () => {
+    const baseAmount = newItem.quantity * newItem.unit_price;
+    const discountAmount = (baseAmount * newItem.discount_percentage) / 100;
+    const afterDiscount = baseAmount - discountAmount;
+    const taxAmount = (afterDiscount * newItem.tax_rate) / 100;
+    return afterDiscount + taxAmount;
+  };
+
+  const handleAddItem = async () => {
+    if (!newItem.product_id) {
+      toast.error('Please select a product');
+      return;
+    }
+
+    const product = products.find(p => p.id === newItem.product_id);
+    const baseAmount = newItem.quantity * newItem.unit_price;
+    const discountAmount = (baseAmount * newItem.discount_percentage) / 100;
+    const afterDiscount = baseAmount - discountAmount;
+    const taxAmount = (afterDiscount * newItem.tax_rate) / 100;
+    const lineTotal = afterDiscount + taxAmount;
+
+    try {
+      const { error } = await supabase.from('inst_quote_line_items').insert({
+        quote_id: id,
+        product_id: newItem.product_id,
+        description: product?.product_name,
+        quantity: newItem.quantity,
+        unit_price: newItem.unit_price,
+        discount_percentage: newItem.discount_percentage,
+        discount_amount: discountAmount,
+        tax_rate: newItem.tax_rate,
+        tax_amount: taxAmount,
+        line_total: lineTotal,
+        sort_order: items.length,
+      });
+
+      if (error) throw error;
+      
+      toast.success('Item added');
+      setIsAddItemOpen(false);
+      setNewItem({ product_id: "", quantity: 1, unit_price: 0, discount_percentage: 0, tax_rate: 18 });
+      setSearchQuery("");
+      await fetchItems();
+      await updateQuoteTotals();
+    } catch (error) {
+      console.error('Error adding item:', error);
+      toast.error('Failed to add item');
+    }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    try {
+      const { error } = await supabase
+        .from('inst_quote_line_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+      toast.success('Item removed');
+      await fetchItems();
+      await updateQuoteTotals();
+    } catch (error) {
+      console.error('Error removing item:', error);
+      toast.error('Failed to remove item');
+    }
+  };
+
+  const updateQuoteTotals = async () => {
+    // Fetch updated items
+    const { data: updatedItems } = await supabase
+      .from('inst_quote_line_items')
+      .select('*')
+      .eq('quote_id', id);
+
+    if (!updatedItems) return;
+
+    const subtotal = updatedItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    const discountAmount = updatedItems.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
+    const taxAmount = updatedItems.reduce((sum, item) => sum + (item.tax_amount || 0), 0);
+    const totalAmount = subtotal - discountAmount + taxAmount;
+
+    // Update quote totals
+    const { error } = await supabase
+      .from('inst_quotes')
+      .update({ 
+        subtotal, 
+        discount_amount: discountAmount, 
+        tax_amount: taxAmount, 
+        total_amount: totalAmount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating quote totals:', error);
+    } else {
+      // Update opportunity value if linked
+      if (quote?.opportunity_id) {
+        await supabase
+          .from('inst_opportunities')
+          .update({ expected_value: totalAmount, updated_at: new Date().toISOString() })
+          .eq('id', quote.opportunity_id);
+      }
+      await fetchQuote();
+    }
+  };
+
+  const handlePriceBookChange = async (priceBookId: string) => {
+    try {
+      const actualPriceBookId = priceBookId === "none" ? null : priceBookId;
+      const { error } = await supabase
+        .from('inst_quotes')
+        .update({ price_book_id: actualPriceBookId, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Price book updated');
+      setQuote({ ...quote!, price_book_id: actualPriceBookId });
+      if (actualPriceBookId) {
+        fetchPriceBookEntries(actualPriceBookId);
+      } else {
+        setPriceBookEntries([]);
+      }
+    } catch (error) {
+      console.error('Error updating price book:', error);
+      toast.error('Failed to update price book');
+    }
   };
 
   const handleSave = async () => {
@@ -133,6 +363,11 @@ export default function QuoteDetail() {
   const getStatusInfo = (status: string) => statuses.find(s => s.value === status) || statuses[0];
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 
+  const filteredProducts = products.filter(p => 
+    p.product_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.product_code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return <Layout><div className="p-4 text-center text-muted-foreground">Loading...</div></Layout>;
   }
@@ -140,6 +375,7 @@ export default function QuoteDetail() {
   if (!quote) return null;
 
   const statusInfo = getStatusInfo(quote.status);
+  const canEdit = quote.status === 'draft';
 
   return (
     <Layout>
@@ -170,14 +406,16 @@ export default function QuoteDetail() {
               </Button>
             </div>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
-              <Edit className="h-4 w-4 mr-1" /> Edit
-            </Button>
+            canEdit && (
+              <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
+                <Edit className="h-4 w-4 mr-1" /> Edit
+              </Button>
+            )
           )}
         </div>
 
         {/* Status Actions */}
-        {quote.status === 'draft' && (
+        {quote.status === 'draft' && items.length > 0 && (
           <Card>
             <CardContent className="p-3 flex justify-center">
               <Button size="sm" onClick={() => handleStatusChange('sent')}>
@@ -219,19 +457,247 @@ export default function QuoteDetail() {
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <DollarSign className="h-5 w-5 mx-auto text-primary mb-1" />
+              <IndianRupee className="h-5 w-5 mx-auto text-primary mb-1" />
               <p className="text-lg font-bold">{formatCurrency(quote.total_amount)}</p>
               <p className="text-xs text-muted-foreground">Total Amount</p>
             </CardContent>
           </Card>
         </div>
 
+        {/* Price Book Selection */}
+        {canEdit && (
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <Label className="whitespace-nowrap">Price Book:</Label>
+                <Select value={quote.price_book_id || "none"} onValueChange={handlePriceBookChange}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select price book" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Default (Base Prices)</SelectItem>
+                    {priceBooks.map((pb) => (
+                      <SelectItem key={pb.id} value={pb.id}>{pb.price_book_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Tabs */}
-        <Tabs defaultValue="details">
+        <Tabs defaultValue="items">
           <TabsList className="w-full">
-            <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
             <TabsTrigger value="items" className="flex-1">Items ({items.length})</TabsTrigger>
+            <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="items" className="mt-4 space-y-3">
+            {/* Add Item Button */}
+            {canEdit && (
+              <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+                <DialogTrigger asChild>
+                  <Button className="w-full">
+                    <Plus className="h-4 w-4 mr-1" /> Add Item
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add Item to Quote</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    {/* Product Search */}
+                    <div className="space-y-2">
+                      <Label>Search Product</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by name or code..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Product List */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
+                      {filteredProducts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No products found</p>
+                      ) : (
+                        filteredProducts.map((product) => {
+                          const price = getProductPrice(product.id);
+                          const isSelected = newItem.product_id === product.id;
+                          return (
+                            <div
+                              key={product.id}
+                              onClick={() => handleProductSelect(product.id)}
+                              className={`p-2 rounded-md cursor-pointer transition-colors ${
+                                isSelected ? 'bg-primary/10 border border-primary' : 'hover:bg-muted'
+                              }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-sm">{product.product_name}</p>
+                                  <p className="text-xs text-muted-foreground">{product.product_code} • {product.category}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-sm">{formatCurrency(price)}</p>
+                                  <p className="text-xs text-muted-foreground">per {product.unit || 'unit'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Quantity & Pricing */}
+                    {newItem.product_id && (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Quantity</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={newItem.quantity}
+                              onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Unit Price (₹)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newItem.unit_price}
+                              onChange={(e) => setNewItem({ ...newItem, unit_price: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Discount (%)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={newItem.discount_percentage}
+                              onChange={(e) => setNewItem({ ...newItem, discount_percentage: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>GST Rate (%)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={newItem.tax_rate}
+                              onChange={(e) => setNewItem({ ...newItem, tax_rate: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Line Total Preview */}
+                        <div className="bg-muted p-3 rounded-md">
+                          <div className="flex justify-between text-sm">
+                            <span>Base Amount:</span>
+                            <span>{formatCurrency(newItem.quantity * newItem.unit_price)}</span>
+                          </div>
+                          {newItem.discount_percentage > 0 && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Discount ({newItem.discount_percentage}%):</span>
+                              <span>-{formatCurrency((newItem.quantity * newItem.unit_price * newItem.discount_percentage) / 100)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>GST ({newItem.tax_rate}%):</span>
+                            <span>+{formatCurrency(((newItem.quantity * newItem.unit_price * (1 - newItem.discount_percentage/100)) * newItem.tax_rate) / 100)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold border-t mt-2 pt-2">
+                            <span>Line Total:</span>
+                            <span>{formatCurrency(calculateLineTotal())}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <Button onClick={handleAddItem} className="w-full" disabled={!newItem.product_id}>
+                      Add to Quote
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Items List */}
+            {items.length === 0 ? (
+              <Card>
+                <CardContent className="p-4 text-center text-muted-foreground">
+                  No items added yet. {canEdit && "Click 'Add Item' to add products to this quote."}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {items.map((item) => {
+                  const product = products.find(p => p.id === item.product_id);
+                  return (
+                    <Card key={item.id}>
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.description || product?.product_name || 'Item'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.quantity} × {formatCurrency(item.unit_price)}
+                              {item.discount_percentage > 0 && ` (-${item.discount_percentage}%)`}
+                              {item.tax_rate > 0 && ` +GST ${item.tax_rate}%`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold">{formatCurrency(item.line_total)}</p>
+                            {canEdit && (
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => handleRemoveItem(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
+                {/* Totals Summary */}
+                <Card>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatCurrency(quote.subtotal)}</span>
+                    </div>
+                    {quote.discount_amount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Discount</span>
+                        <span className="text-red-600">-{formatCurrency(quote.discount_amount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Tax (GST)</span>
+                      <span>{formatCurrency(quote.tax_amount)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold border-t pt-2">
+                      <span>Total</span>
+                      <span>{formatCurrency(quote.total_amount)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="details" className="mt-4">
             <Card>
@@ -281,24 +747,6 @@ export default function QuoteDetail() {
                         <p className="text-sm">{quote.valid_until ? format(new Date(quote.valid_until), 'MMM dd, yyyy') : '-'}</p>
                       </div>
                     </div>
-                    <div className="border-t pt-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>{formatCurrency(quote.subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Discount</span>
-                        <span>-{formatCurrency(quote.discount_amount)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Tax</span>
-                        <span>{formatCurrency(quote.tax_amount)}</span>
-                      </div>
-                      <div className="flex justify-between font-bold border-t pt-2">
-                        <span>Total</span>
-                        <span>{formatCurrency(quote.total_amount)}</span>
-                      </div>
-                    </div>
                     {quote.terms_and_conditions && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Terms & Conditions</p>
@@ -315,30 +763,6 @@ export default function QuoteDetail() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="items" className="mt-4">
-            {items.length === 0 ? (
-              <Card><CardContent className="p-4 text-center text-muted-foreground">No items added yet</CardContent></Card>
-            ) : (
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <Card key={item.id}>
-                    <CardContent className="p-3">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{item.description || 'Item'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Qty: {item.quantity} × {formatCurrency(item.unit_price)}
-                          </p>
-                        </div>
-                        <p className="font-semibold">{formatCurrency(item.line_total)}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
           </TabsContent>
         </Tabs>
       </div>
