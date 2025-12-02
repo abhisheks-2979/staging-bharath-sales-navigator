@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => ({
           '**/*.map',
           '**/lovable-uploads/**/*',
         ],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         // Ensure service worker updates immediately
         dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
       },
