@@ -268,12 +268,12 @@ export default function QuoteManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label>Opportunity (Optional)</Label>
-                  <Select value={formData.opportunity_id} onValueChange={(v) => setFormData({ ...formData, opportunity_id: v })}>
+                  <Select value={formData.opportunity_id || "none"} onValueChange={(v) => setFormData({ ...formData, opportunity_id: v === "none" ? "" : v })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select opportunity" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No opportunity</SelectItem>
+                      <SelectItem value="none">No opportunity</SelectItem>
                       {opportunities
                         .filter(opp => !formData.account_id || opp.account_id === formData.account_id)
                         .map((opp) => (
