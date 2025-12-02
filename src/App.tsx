@@ -91,6 +91,15 @@ import TeamTargets from "./pages/TeamTargets";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
 import JointSalesAnalytics from "./pages/JointSalesAnalytics";
 
+// Institutional Sales pages
+import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
+import LeadManagement from "./pages/institutional/LeadManagement";
+import AccountManagement from "./pages/institutional/AccountManagement";
+import ContactManagement from "./pages/institutional/ContactManagement";
+import OpportunityManagement from "./pages/institutional/OpportunityManagement";
+import QuoteManagement from "./pages/institutional/QuoteManagement";
+import InstitutionalProducts from "./pages/institutional/InstitutionalProducts";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -271,6 +280,16 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/onboarding" element={<ProtectedRoute><EmployeeOnboarding /></ProtectedRoute>} />
               <Route path="/employee-profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
               <Route path="/employee/:userId" element={<ProtectedRoute><Employee360 /></ProtectedRoute>} />
+              
+              {/* Institutional Sales Routes */}
+              <Route path="/institutional-sales" element={<ProtectedRoute><InstitutionalSalesDashboard /></ProtectedRoute>} />
+              <Route path="/institutional-sales/leads" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/accounts" element={<ProtectedRoute><AccountManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/contacts" element={<ProtectedRoute><ContactManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/opportunities" element={<ProtectedRoute><OpportunityManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/quotes" element={<ProtectedRoute><QuoteManagement /></ProtectedRoute>} />
+              <Route path="/institutional-sales/products" element={<ProtectedRoute><InstitutionalProducts /></ProtectedRoute>} />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
     </>
