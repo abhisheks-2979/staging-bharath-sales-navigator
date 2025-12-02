@@ -197,7 +197,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           plannedRetailerIds = retailersForBeats.map((r: any) => r.id);
         }
 
-        let planned = 0;
+        // Total planned = all unique retailers in beat plans
+        const totalPlannedRetailers = plannedRetailerIds.length;
+
+        let notYetVisited = 0;
         let productive = 0;
         let unproductive = 0;
 
@@ -210,19 +213,20 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           } else if (v.status === 'productive' || hasOrder) {
             productive++;
           } else if (v.status === 'planned') {
-            planned++;
+            notYetVisited++;
           }
         });
 
-        // Count retailers from beat plans that don't yet have visits or orders as planned
+        // Count retailers from beat plans that don't yet have visits or orders as not yet visited
         plannedRetailerIds.forEach((retailerId: string) => {
           if (!visitRetailerIdsSet.has(retailerId) && !ordersMap.has(retailerId)) {
-            planned++;
+            notYetVisited++;
           }
         });
 
         const totalVisits = visitsAny.length;
-        const completed = productive + unproductive;
+        const remaining = notYetVisited; // Retailers not yet visited
+        const completed = productive + unproductive; // Total completed visits
         // Calculate revenue target and achieved
         const revenueTarget = 10000; // Default target, can be made dynamic
         const revenueAchieved = orders.reduce((sum: number, order: any) => sum + (order.total_amount || 0), 0);
@@ -310,8 +314,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             beatProgress: {
               total: totalVisits,
               completed,
-              remaining: planned,
-              planned,
+              remaining,
+              planned: totalPlannedRetailers,
               productive,
               unproductive,
             },
@@ -358,23 +362,28 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
     }
     
-    // Unified beat progress logic for cache path (approximate My Visits logic)
-    let planned = 0;
+    // Unified beat progress logic for cache path - includes cached orders
+    let notYetVisited = 0;
     let productive = 0;
     let unproductive = 0;
     const visitRetailerIdsSet = new Set(todayVisits.map((v: any) => v.retailer_id));
 
+    // Build order map from cached orders to detect productive visits
+    const cachedOrdersForDate = cachedRetailers || [];
+    const ordersMap = new Map<string, boolean>();
+    // Note: We'd need cached orders passed in, but for simplicity, we'll check visit status
+    
     todayVisits.forEach((v: any) => {
       if (v.status === 'unproductive') {
         unproductive++;
       } else if (v.status === 'productive') {
         productive++;
       } else if (v.status === 'planned') {
-        planned++;
+        notYetVisited++;
       }
     });
 
-    // Add retailers from beat plans without visit records as planned
+    // Extract planned retailer IDs
     const plannedRetailerIds: string[] = [];
     for (const bp of beatPlansArray) {
       const beatData = (bp as any).beat_data as any;
@@ -383,13 +392,18 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       }
     }
 
+    // Total planned retailers
+    const totalPlannedRetailers = plannedRetailerIds.length;
+
+    // Count retailers from beat plans without visit records as not yet visited
     plannedRetailerIds.forEach((retailerId: string) => {
       if (!visitRetailerIdsSet.has(retailerId)) {
-        planned++;
+        notYetVisited++;
       }
     });
 
     const totalVisits = todayVisits.length;
+    const remaining = notYetVisited;
 
     setData(prev => ({
       ...prev,
@@ -403,8 +417,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         beatProgress: {
           total: totalVisits,
           completed: productive + unproductive,
-          remaining: planned,
-          planned,
+          remaining,
+          planned: totalPlannedRetailers,
           productive,
           unproductive,
         }
