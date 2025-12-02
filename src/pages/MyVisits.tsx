@@ -471,6 +471,29 @@ export const MyVisits = () => {
         setTimelineDayStart('Not checked in');
       }
 
+      // Check if this date has a joint sales visit
+      const { data: beatPlan } = await supabase
+        .from('beat_plans')
+        .select('id, joint_sales_manager_id')
+        .eq('user_id', user.id)
+        .eq('plan_date', dateStr)
+        .maybeSingle();
+
+      const hasJointSales = !!beatPlan?.joint_sales_manager_id;
+      let jointSalesFeedbackMap = new Map<string, boolean>();
+      
+      if (hasJointSales && beatPlan?.id) {
+        // Check which retailers have joint sales feedback
+        const { data: feedbacks } = await supabase
+          .from('joint_sales_feedback')
+          .select('retailer_id')
+          .eq('beat_plan_id', beatPlan.id);
+        
+        feedbacks?.forEach(f => {
+          jointSalesFeedbackMap.set(f.retailer_id, true);
+        });
+      }
+
       // Get ALL visits for the selected date (both checked in and not)
       const {
         data: visits,
@@ -552,6 +575,7 @@ export const MyVisits = () => {
         const retailer = retailerMap.get(visit.retailer_id);
         const order = orderMap.get(visit.retailer_id);
         const feedbackTime = feedbackMap.get(visit.retailer_id);
+        const hasJointFeedback = jointSalesFeedbackMap.has(visit.retailer_id);
         
         // Determine activity time based on what action was taken
         let activityTime = null;
@@ -581,7 +605,8 @@ export const MyVisits = () => {
           order_quantity: order?.quantity || 0,
           no_order_reason: visit.no_order_reason,
           activity_time: activityTime,
-          is_planned: !effectiveTime // Flag for planned visits
+          is_planned: !effectiveTime, // Flag for planned visits
+          is_joint_sales: hasJointSales && hasJointFeedback
         };
       })
       // Filter to only show visits with an activity (order, no_order_reason, or feedback)
