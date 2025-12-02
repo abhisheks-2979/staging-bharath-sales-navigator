@@ -180,8 +180,7 @@ export default function QuoteManagement() {
       toast.success('Quote created successfully');
       setIsCreateOpen(false);
       resetForm();
-      // Navigate to quote builder
-      navigate(`/institutional-sales/quotes/${data.id}/edit`);
+      fetchQuotes();
     } catch (error) {
       console.error('Error creating quote:', error);
       toast.error('Failed to create quote');

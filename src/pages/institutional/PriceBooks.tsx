@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Search, BookOpen, Calendar, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -28,6 +31,49 @@ const PriceBooks = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    price_book_name: '',
+    currency: 'INR',
+    is_standard: false,
+    is_active: true,
+    effective_from: '',
+    effective_to: '',
+  });
+
+  const handleCreate = async () => {
+    if (!formData.price_book_name.trim()) {
+      toast.error('Price book name is required');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('inst_price_books').insert({
+        price_book_name: formData.price_book_name,
+        currency: formData.currency,
+        is_standard: formData.is_standard,
+        is_active: formData.is_active,
+        effective_from: formData.effective_from || null,
+        effective_to: formData.effective_to || null,
+      });
+
+      if (error) throw error;
+      toast.success('Price book created successfully');
+      setIsCreateOpen(false);
+      setFormData({
+        price_book_name: '',
+        currency: 'INR',
+        is_standard: false,
+        is_active: true,
+        effective_from: '',
+        effective_to: '',
+      });
+      fetchPriceBooks();
+    } catch (error) {
+      console.error('Error creating price book:', error);
+      toast.error('Failed to create price book');
+    }
+  };
 
   useEffect(() => {
     fetchPriceBooks();
@@ -76,10 +122,68 @@ const PriceBooks = () => {
               <p className="text-muted-foreground text-sm">{filteredPriceBooks.length} price books</p>
             </div>
           </div>
-          <Button onClick={() => toast.info('Price book creation coming soon')}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Price Book
-          </Button>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Price Book
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create Price Book</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Price Book Name *</Label>
+                  <Input
+                    value={formData.price_book_name}
+                    onChange={(e) => setFormData({ ...formData, price_book_name: e.target.value })}
+                    placeholder="Enter price book name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Input
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    placeholder="INR"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Effective From</Label>
+                  <Input
+                    type="date"
+                    value={formData.effective_from}
+                    onChange={(e) => setFormData({ ...formData, effective_from: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Effective To</Label>
+                  <Input
+                    type="date"
+                    value={formData.effective_to}
+                    onChange={(e) => setFormData({ ...formData, effective_to: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Standard Price Book</Label>
+                  <Switch
+                    checked={formData.is_standard}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_standard: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Active</Label>
+                  <Switch
+                    checked={formData.is_active}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  />
+                </div>
+                <Button onClick={handleCreate} className="w-full">Create Price Book</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="space-y-4 mb-6">
