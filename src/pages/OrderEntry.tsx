@@ -21,7 +21,10 @@ import { CompetitionDataForm } from "@/components/CompetitionDataForm";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
-import { WifiOff, Wifi } from "lucide-react";
+import { WifiOff, Wifi, MapPin, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
+import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
+
 interface Product {
   id: string;
   name: string;
@@ -158,6 +161,7 @@ export const OrderEntry = () => {
       }
     }
   }, [products, selectedCategory, hasAutoExpanded]);
+  
   const [showOrderSummary, setShowOrderSummary] = useState(false);
   const [currentProductName, setCurrentProductName] = useState<string>("Product");
   const [showSchemeModal, setShowSchemeModal] = useState(false);
@@ -212,142 +216,60 @@ export const OrderEntry = () => {
       console.error('Error in handleAutoSelectOverStocked:', error);
     }
   };
-  // Load user data from cache first, then sync in background
-  useEffect(() => {
-    const fetchUserData = async () => {
-      // Get from cache first (localStorage)
-      const cachedUserId = localStorage.getItem('cached_user_id');
-      const cachedUserName = localStorage.getItem('cached_user_name');
-      
-      if (cachedUserId) {
-        setUserId(cachedUserId);
-      }
-      if (cachedUserName) {
-        setLoggedInUserName(cachedUserName);
-      }
-
-      // Then fetch fresh data in background
-      try {
-        const {
-          data: {
-            user
-          }
-        } = await supabase.auth.getUser();
-        if (user) {
-          setUserId(user.id);
-          localStorage.setItem('cached_user_id', user.id);
-
-          // Fetch user profile to get the name
-          const {
-            data: profile
-          } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).maybeSingle();
-          if (profile) {
-            const userName = profile.full_name || profile.username || user.email?.split('@')[0] || "User";
-            setLoggedInUserName(userName);
-            localStorage.setItem('cached_user_name', userName);
-          } else {
-            // Fallback to email username if no profile
-            const userName = user.email?.split('@')[0] || "User";
-            setLoggedInUserName(userName);
-            localStorage.setItem('cached_user_name', userName);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      }
-    };
-    fetchUserData();
-  }, []);
-
-  // Check if user has started their day when feature is enabled (non-blocking)
-  useEffect(() => {
-    // Don't block UI, run check in background with delay
-    const timeoutId = setTimeout(() => {
-      const checkDayStarted = async () => {
-        // Skip check if feature is loading or not mandatory
-        if (checkInMandatoryLoading || !isCheckInMandatory) {
-          return;
-        }
-        try {
-          const cachedUserId = localStorage.getItem('cached_user_id');
-          const userId = cachedUserId || (await supabase.auth.getUser()).data.user?.id;
-          if (!userId) return;
-          
-          const today = new Date().toISOString().split('T')[0];
-          const cacheKey = `attendance_check_${userId}_${today}`;
-          const cachedCheck = localStorage.getItem(cacheKey);
-          
-          // Use cached check if available
-          if (cachedCheck === 'checked') return;
-
-          // Check if user has started their day (attendance check-in)
-          const {
-            data: attendance,
-            error
-          } = await supabase.from('attendance').select('check_in_time').eq('user_id', userId).eq('date', today).maybeSingle();
-          
-          if (error) {
-            console.error('Error checking attendance:', error);
-            return;
-          }
-
-          // If no attendance record or no check-in time, redirect to attendance page
-          if (!attendance || !attendance.check_in_time) {
-            toast({
-              title: "Start Your Day First",
-              description: "Please start your day from the Attendance page before entering orders.",
-              variant: "destructive"
-            });
-            navigate('/attendance');
-          } else {
-            // Cache successful check
-            localStorage.setItem(cacheKey, 'checked');
-          }
-        } catch (error) {
-          console.error('Error in day start validation:', error);
-        }
-      };
-      checkDayStarted();
-    }, 500); // Delay check by 500ms to not block initial render
-
-    return () => clearTimeout(timeoutId);
-  }, [isCheckInMandatory, checkInMandatoryLoading, navigate]);
-
-  // Check if competition data exists for this visit (non-blocking, low priority)
-  useEffect(() => {
-    // Run in background, don't block UI
-    const timeoutId = setTimeout(() => {
-      const checkCompetitionData = async () => {
-        if (!visitId || !retailerId) return;
-        
-        try {
-          const { data, error } = await supabase
-            .from('competition_data')
-            .select('id')
-            .eq('visit_id', visitId)
-            .eq('retailer_id', retailerId)
-            .limit(1);
-
-          if (error) throw error;
-          
-          if (data && data.length > 0) {
-            setHasCompetitionData(true);
-          }
-        } catch (error) {
-          console.error('Error checking competition data:', error);
-        }
-      };
-
-      checkCompetitionData();
-    }, 1000); // Low priority check after 1s
-
-    return () => clearTimeout(timeoutId);
-  }, [visitId, retailerId]);
-
+  
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
   const validVisitId = visitId && visitId.length > 1 ? visitId : null;
 
+  // Retailer visit tracking states
+  const [retailerLat, setRetailerLat] = useState<number | undefined>(undefined);
+  const [retailerLng, setRetailerLng] = useState<number | undefined>(undefined);
+  const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
+  const [hasTrackedVisit, setHasTrackedVisit] = useState(false);
+  
+  // Initialize visit tracking hook
+  const {
+    currentLog,
+    locationStatus,
+    distance,
+    timeSpent,
+    formattedTimeSpent,
+    startTracking,
+    endTracking
+  } = useRetailerVisitTracking({
+    retailerId: validRetailerId || '',
+    retailerLat,
+    retailerLng,
+    visitId: validVisitId || undefined,
+    userId: userId || '',
+    selectedDate: new Date().toISOString().split('T')[0]
+  });
+  
+  // Fetch retailer coordinates
+  useEffect(() => {
+    const fetchRetailerCoordinates = async () => {
+      if (!validRetailerId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('retailers')
+          .select('latitude, longitude')
+          .eq('id', validRetailerId)
+          .single();
+        
+        if (!error && data) {
+          setRetailerLat(data.latitude);
+          setRetailerLng(data.longitude);
+        }
+      } catch (error) {
+        console.error('Error fetching retailer coordinates:', error);
+      }
+    };
+    
+    fetchRetailerCoordinates();
+  }, [validRetailerId]);
+
+  
   // Use visitId and retailerId from URL params consistently
   const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
 
@@ -1590,15 +1512,49 @@ export const OrderEntry = () => {
             <div className="space-y-1.5">
               {/* First Row: Grid, Table, AI Stock */}
               <div className="flex gap-1.5">
-                <Button variant={orderMode === "grid" ? "default" : "outline"} onClick={() => setOrderMode("grid")} className="flex-1 h-7 text-xs" size="sm">
+                <Button 
+                  variant={orderMode === "grid" ? "default" : "outline"} 
+                  onClick={async () => {
+                    setOrderMode("grid");
+                    if (!hasTrackedVisit && userId) {
+                      await startTracking('order', isPhoneOrder);
+                      setHasTrackedVisit(true);
+                    }
+                  }} 
+                  className="flex-1 h-7 text-xs" 
+                  size="sm"
+                >
                   <Grid3X3 size={12} className="mr-0.5" />
                   Grid
                 </Button>
-                <Button variant={orderMode === "table" ? "default" : "outline"} onClick={() => setOrderMode("table")} className="flex-1 h-7 text-xs" size="sm">
+                <Button 
+                  variant={orderMode === "table" ? "default" : "outline"} 
+                  onClick={async () => {
+                    setOrderMode("table");
+                    if (!hasTrackedVisit && userId) {
+                      await startTracking('order', isPhoneOrder);
+                      setHasTrackedVisit(true);
+                    }
+                  }} 
+                  className="flex-1 h-7 text-xs" 
+                  size="sm"
+                >
                   <Table size={12} className="mr-0.5" />
                   Table
                 </Button>
-                <Button variant="outline" onClick={() => setShowImageCapture(true)} className="flex-1 h-7 text-xs" size="sm" title="AI Stock Capture">
+                <Button 
+                  variant="outline" 
+                  onClick={async () => {
+                    setShowImageCapture(true);
+                    if (!hasTrackedVisit && userId) {
+                      await startTracking('order', isPhoneOrder);
+                      setHasTrackedVisit(true);
+                    }
+                  }} 
+                  className="flex-1 h-7 text-xs" 
+                  size="sm" 
+                  title="AI Stock Capture"
+                >
                   <Camera size={12} className="mr-0.5" />
                   AI Stock
                 </Button>
@@ -1606,17 +1562,45 @@ export const OrderEntry = () => {
               
               {/* Second Row: Return Stock, No Order, Competition */}
               <div className="flex gap-1.5">
-                <Button variant={orderMode === "return-stock" ? "default" : "outline"} onClick={() => setOrderMode("return-stock")} className="flex-1 h-7 text-xs" size="sm">
+                <Button 
+                  variant={orderMode === "return-stock" ? "default" : "outline"} 
+                  onClick={async () => {
+                    setOrderMode("return-stock");
+                    if (!hasTrackedVisit && userId) {
+                      await startTracking('order', isPhoneOrder);
+                      setHasTrackedVisit(true);
+                    }
+                  }} 
+                  className="flex-1 h-7 text-xs" 
+                  size="sm"
+                >
                   <RotateCcw size={12} className="mr-0.5" />
                   Returns
                 </Button>
-                <Button variant={orderMode === "no-order" ? "default" : "outline"} onClick={() => setOrderMode("no-order")} className="flex-1 h-7 text-xs" size="sm">
+                <Button 
+                  variant={orderMode === "no-order" ? "default" : "outline"} 
+                  onClick={async () => {
+                    setOrderMode("no-order");
+                    if (!hasTrackedVisit && userId) {
+                      await startTracking('order', isPhoneOrder);
+                      setHasTrackedVisit(true);
+                    }
+                  }} 
+                  className="flex-1 h-7 text-xs" 
+                  size="sm"
+                >
                   <XCircle size={12} className="mr-0.5" />
                   No Order
                 </Button>
                 <Button 
                   variant={orderMode === "competition" ? "default" : "outline"} 
-                  onClick={() => setOrderMode("competition")} 
+                  onClick={async () => {
+                    setOrderMode("competition");
+                    if (!hasTrackedVisit && userId) {
+                      await startTracking('order', isPhoneOrder);
+                      setHasTrackedVisit(true);
+                    }
+                  }} 
                   className={`flex-1 h-7 text-xs ${hasCompetitionData ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
                   size="sm"
                 >
@@ -2566,6 +2550,23 @@ export const OrderEntry = () => {
         
         {/* Scheme Details Modal */}
         <SchemeDetailsModal isOpen={showSchemeModal} onClose={() => setShowSchemeModal(false)} productName={selectedProductForScheme?.name || "Product"} schemes={filteredSchemes} />
+
+        {/* Retailer Visit Details Modal */}
+        {currentLog && (
+          <RetailerVisitDetailsModal
+            open={showVisitDetailsModal}
+            onOpenChange={setShowVisitDetailsModal}
+            retailerName={retailerName}
+            startTime={currentLog.start_time}
+            endTime={currentLog.end_time}
+            timeSpent={timeSpent}
+            distance={distance}
+            locationStatus={locationStatus}
+            actionType={currentLog.action_type}
+            isPhoneOrder={isPhoneOrder}
+            logId={currentLog.id}
+          />
+        )}
 
         {/* Image Stock Capture Modal */}
         <ImageStockCapture isOpen={showImageCapture} onClose={() => setShowImageCapture(false)} onApprove={async stockCounts => {
