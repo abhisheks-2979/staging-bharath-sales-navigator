@@ -134,6 +134,19 @@ async function executeQuery(supabase: any, userId: string, params: any) {
   }
 }
 
+// Use faster model for simple queries
+function selectModel(messages: any[]): { model: string; maxTokens: number } {
+  const lastMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+  const simpleQueries = ['my visits', 'sales summary', 'stock levels', 'top retailers', 'attendance', 'pending payments'];
+  
+  const isSimple = simpleQueries.some(q => lastMessage.includes(q));
+  
+  return {
+    model: isSimple ? 'google/gemini-2.5-flash-lite' : 'google/gemini-2.5-flash',
+    maxTokens: isSimple ? 800 : 1500
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -270,6 +283,10 @@ Use the available tools to fetch real data and help the user efficiently.`;
       ...messages
     ];
     
+    // Select model based on query complexity
+    const { model, maxTokens } = selectModel(messages);
+    console.log(`Using model: ${model}, maxTokens: ${maxTokens}`);
+    
     // Call Lovable AI with optimized settings
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -278,13 +295,13 @@ Use the available tools to fetch real data and help the user efficiently.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: model,
         messages: aiMessages,
         tools: tools,
         tool_choice: 'auto', // Let AI decide when to use tools
         stream: true,
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: maxTokens,
       }),
     });
 
