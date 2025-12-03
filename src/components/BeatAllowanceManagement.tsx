@@ -61,6 +61,15 @@ const BeatAllowanceManagement = () => {
       const user = await supabase.auth.getUser();
       if (!user.data.user) return;
 
+      // Fetch expense master config for TA type
+      const { data: configData } = await supabase
+        .from('expense_master_config')
+        .select('ta_type, fixed_ta_amount')
+        .single();
+
+      const taType = configData?.ta_type || 'from_beat';
+      const fixedTaAmount = configData?.fixed_ta_amount || 0;
+
       // Fetch beat plans (journey plans) to get dates and beats
       const { data: beatPlans, error: beatPlansError } = await supabase
         .from('beat_plans')
@@ -160,8 +169,8 @@ const BeatAllowanceManagement = () => {
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
         const orderValue = orderMap.get(key) || 0;
         
-        // Get TA from beats table (My Beat / Travel Allowance field)
-        const ta = beatTAMap.get(plan.beat_id) || 0;
+        // Get TA based on expense master config - Fixed TA or from Beat
+        const ta = taType === 'fixed' ? fixedTaAmount : (beatTAMap.get(plan.beat_id) || 0);
         const productiveVisits = productiveVisitsMap.get(plan.plan_date) || 0;
         
         rows.push({
@@ -194,16 +203,13 @@ const BeatAllowanceManagement = () => {
       const user = await supabase.auth.getUser();
       if (!user.data.user) return;
 
-      // Fetch user's DA per day from employees table
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('daily_da_allowance')
-        .eq('user_id', user.data.user.id)
+      // Fetch DA amount from expense_master_config
+      const { data: configData } = await supabase
+        .from('expense_master_config')
+        .select('da_amount')
         .single();
 
-      if (employeeError) throw employeeError;
-
-      const daPerDay = employeeData?.daily_da_allowance || 0;
+      const daPerDay = configData?.da_amount || 0;
 
       // Fetch attendance data with check-in/check-out times
       const { data: attendanceData, error: attendanceError } = await supabase
@@ -552,7 +558,7 @@ const BeatAllowanceManagement = () => {
                       <TableRow>
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
                         <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">DA Amount</TableHead>
-                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Attendance Time</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Market Active Hours</TableHead>
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Work Duration</TableHead>
                       </TableRow>
                     </TableHeader>

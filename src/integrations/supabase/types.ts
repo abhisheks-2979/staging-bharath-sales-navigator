@@ -1547,6 +1547,33 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_master_config: {
+        Row: {
+          created_at: string
+          da_amount: number | null
+          fixed_ta_amount: number | null
+          id: string
+          ta_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          da_amount?: number | null
+          fixed_ta_amount?: number | null
+          id?: string
+          ta_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          da_amount?: number | null
+          fixed_ta_amount?: number | null
+          id?: string
+          ta_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feature_flag_audit: {
         Row: {
           changed_at: string
