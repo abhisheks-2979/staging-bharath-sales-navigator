@@ -65,21 +65,35 @@ export const useRetailerVisitTracking = ({
   const [locationStatus, setLocationStatus] = useState<'at_store' | 'within_range' | 'not_at_store' | 'location_unavailable'>('location_unavailable');
   const [timeSpent, setTimeSpent] = useState<number>(0); // in seconds
   const [distance, setDistance] = useState<number | null>(null);
-  const [hasCheckedLocation, setHasCheckedLocation] = useState(false);
   const currentLogIdRef = useRef<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastCheckedCoordsRef = useRef<string>('');
 
-  // Calculate location status on mount when retailer has coordinates
+  // Calculate location status when retailer has coordinates
   useEffect(() => {
     const checkLocationOnMount = async () => {
-      if (hasCheckedLocation || !retailerLat || !retailerLng) return;
+      // Skip if no retailer coordinates
+      if (!retailerLat || !retailerLng) {
+        console.log('📍 No retailer coordinates available:', { retailerLat, retailerLng });
+        setLocationStatus('location_unavailable');
+        return;
+      }
+      
+      // Create a key to track if we've already checked these exact coordinates
+      const coordsKey = `${retailerLat}-${retailerLng}`;
+      if (lastCheckedCoordsRef.current === coordsKey) {
+        console.log('📍 Already checked these coordinates, skipping');
+        return;
+      }
+      
+      console.log('📍 Starting location check for retailer:', { retailerLat, retailerLng });
       
       if (navigator.geolocation) {
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
-              timeout: 10000,
+              timeout: 15000,
               maximumAge: 60000 // Allow cached position up to 1 minute
             });
           });
@@ -89,21 +103,31 @@ export const useRetailerVisitTracking = ({
           const calculatedDistance = calculateDistance(userLat, userLng, retailerLat, retailerLng);
           const status = getLocationStatus(calculatedDistance);
           
-          console.log('📍 Initial location check:', { userLat, userLng, retailerLat, retailerLng, calculatedDistance, status });
+          console.log('📍 Location check complete:', { 
+            userLat, 
+            userLng, 
+            retailerLat, 
+            retailerLng, 
+            calculatedDistance: Math.round(calculatedDistance), 
+            status 
+          });
           
           setDistance(calculatedDistance);
           setLocationStatus(status);
-          setHasCheckedLocation(true);
-        } catch (error) {
-          console.error('GPS error on mount:', error);
+          lastCheckedCoordsRef.current = coordsKey;
+        } catch (error: any) {
+          console.error('📍 GPS error on mount:', error.message || error);
           setLocationStatus('location_unavailable');
-          setHasCheckedLocation(true);
+          lastCheckedCoordsRef.current = coordsKey;
         }
+      } else {
+        console.error('📍 Geolocation not supported');
+        setLocationStatus('location_unavailable');
       }
     };
 
     checkLocationOnMount();
-  }, [retailerLat, retailerLng, hasCheckedLocation]);
+  }, [retailerLat, retailerLng]);
 
   // Format time spent for display
   const formatTimeSpent = useCallback((seconds: number): string => {

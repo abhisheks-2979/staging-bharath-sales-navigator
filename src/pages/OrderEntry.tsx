@@ -1537,37 +1537,41 @@ export const OrderEntry = () => {
                     {locationStatus === 'at_store' && retailerLat && retailerLng && (
                       <Badge variant="default" className="bg-green-500 text-white h-5 px-1.5 text-[9px]">
                         <CheckCircle2 className="h-3 w-3 mr-0.5" />
-                        At Store
+                        At Store {distance !== null && `(${Math.round(distance)}m)`}
                       </Badge>
                     )}
                     {locationStatus === 'within_range' && retailerLat && retailerLng && (
                       <Badge variant="default" className="bg-yellow-500 text-black h-5 px-1.5 text-[9px]">
                         <AlertTriangle className="h-3 w-3 mr-0.5" />
-                        &lt;50m
+                        {distance !== null ? `${Math.round(distance)}m away` : '<50m'}
                       </Badge>
                     )}
                     {locationStatus === 'not_at_store' && retailerLat && retailerLng && (
                       <Badge variant="default" className="bg-red-500 text-white h-5 px-1.5 text-[9px]">
                         <MapPin className="h-3 w-3 mr-0.5" />
-                        Not at Store
+                        {distance !== null ? `${Math.round(distance)}m away` : 'Not at Store'}
                       </Badge>
                     )}
-                    {/* Show Set Location when retailer has no GPS */}
+                    {/* Show Set Location when retailer has no GPS - make it prominent */}
                     {(!retailerLat || !retailerLng) && (
                       <Badge 
                         variant="default" 
-                        className="bg-orange-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-orange-600"
+                        className="bg-orange-500 text-white h-6 px-2 text-[10px] cursor-pointer hover:bg-orange-600 animate-pulse"
                         onClick={!isSettingLocation ? setRetailerLocation : undefined}
                       >
-                        <MapPin className="h-3 w-3 mr-0.5" />
+                        <MapPin className="h-3.5 w-3.5 mr-1" />
                         {isSettingLocation ? 'Setting GPS...' : '📍 Set Store GPS'}
                       </Badge>
                     )}
-                    {/* Show location unavailable badge when GPS couldn't be retrieved */}
+                    {/* Show location unavailable badge when GPS couldn't be retrieved but retailer has coords */}
                     {retailerLat && retailerLng && locationStatus === 'location_unavailable' && (
-                      <Badge variant="default" className="bg-gray-500 text-white h-5 px-1.5 text-[9px]">
+                      <Badge 
+                        variant="default" 
+                        className="bg-gray-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-gray-600"
+                        onClick={!isSettingLocation ? setRetailerLocation : undefined}
+                      >
                         <MapPin className="h-3 w-3 mr-0.5" />
-                        Location N/A
+                        {isSettingLocation ? 'Checking...' : '⚠️ Tap to check location'}
                       </Badge>
                     )}
                     {currentLog && (
