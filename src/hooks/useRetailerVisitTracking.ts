@@ -81,12 +81,12 @@ export const useRetailerVisitTracking = ({
       
       // Create a key to track if we've already checked these exact coordinates
       const coordsKey = `${retailerLat}-${retailerLng}`;
-      if (lastCheckedCoordsRef.current === coordsKey) {
-        console.log('📍 Already checked these coordinates, skipping');
+      if (lastCheckedCoordsRef.current === coordsKey && distance !== null) {
+        console.log('📍 Already checked these coordinates successfully, skipping');
         return;
       }
       
-      console.log('📍 Starting location check for retailer:', { retailerLat, retailerLng });
+      console.log('📍 Starting location check for retailer:', { retailerLat, retailerLng, coordsKey });
       
       if (navigator.geolocation) {
         try {
@@ -118,7 +118,7 @@ export const useRetailerVisitTracking = ({
         } catch (error: any) {
           console.error('📍 GPS error on mount:', error.message || error);
           setLocationStatus('location_unavailable');
-          lastCheckedCoordsRef.current = coordsKey;
+          // Don't set lastCheckedCoordsRef on error - allow retry when coordinates change
         }
       } else {
         console.error('📍 Geolocation not supported');
@@ -127,7 +127,7 @@ export const useRetailerVisitTracking = ({
     };
 
     checkLocationOnMount();
-  }, [retailerLat, retailerLng]);
+  }, [retailerLat, retailerLng, distance]);
 
   // Format time spent for display
   const formatTimeSpent = useCallback((seconds: number): string => {
@@ -534,6 +534,50 @@ export const useRetailerVisitTracking = ({
     }
   }, [userId, selectedDate]);
 
+  // Function to manually re-check location
+  const recheckLocation = useCallback(async () => {
+    if (!retailerLat || !retailerLng) {
+      console.log('📍 Cannot recheck - no retailer coordinates');
+      return;
+    }
+    
+    console.log('📍 Manual location recheck triggered');
+    lastCheckedCoordsRef.current = ''; // Reset to force re-check
+    
+    if (navigator.geolocation) {
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+          });
+        });
+
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+        const calculatedDistance = calculateDistance(userLat, userLng, retailerLat, retailerLng);
+        const status = getLocationStatus(calculatedDistance);
+        
+        console.log('📍 Manual recheck complete:', { 
+          userLat, 
+          userLng, 
+          retailerLat, 
+          retailerLng, 
+          calculatedDistance: Math.round(calculatedDistance), 
+          status 
+        });
+        
+        setDistance(calculatedDistance);
+        setLocationStatus(status);
+        lastCheckedCoordsRef.current = `${retailerLat}-${retailerLng}`;
+      } catch (error: any) {
+        console.error('📍 GPS error on recheck:', error.message || error);
+        setLocationStatus('location_unavailable');
+      }
+    }
+  }, [retailerLat, retailerLng]);
+
   return {
     currentLog,
     locationStatus,
@@ -544,6 +588,7 @@ export const useRetailerVisitTracking = ({
     endTracking,
     endAllActiveLogs,
     recordActivity,
-    updateLastActivity
+    updateLastActivity,
+    recheckLocation
   };
 };

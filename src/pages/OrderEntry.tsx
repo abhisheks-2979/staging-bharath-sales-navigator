@@ -298,7 +298,8 @@ export const OrderEntry = () => {
     formattedTimeSpent,
     startTracking,
     endTracking,
-    recordActivity
+    recordActivity,
+    recheckLocation
   } = useRetailerVisitTracking({
     retailerId: validRetailerId || '',
     retailerLat,
@@ -313,6 +314,8 @@ export const OrderEntry = () => {
     const fetchRetailerCoordinates = async () => {
       if (!validRetailerId) return;
       
+      console.log('📍 Fetching retailer coordinates for:', validRetailerId);
+      
       try {
         const { data, error } = await supabase
           .from('retailers')
@@ -320,9 +323,14 @@ export const OrderEntry = () => {
           .eq('id', validRetailerId)
           .single();
         
+        console.log('📍 Retailer coordinates fetched:', { data, error });
+        
         if (!error && data) {
-          setRetailerLat(data.latitude);
-          setRetailerLng(data.longitude);
+          const lat = data.latitude;
+          const lng = data.longitude;
+          console.log('📍 Setting retailer coordinates:', { lat, lng, type_lat: typeof lat, type_lng: typeof lng });
+          setRetailerLat(lat);
+          setRetailerLng(lng);
         }
       } catch (error) {
         console.error('Error fetching retailer coordinates:', error);
@@ -332,6 +340,16 @@ export const OrderEntry = () => {
     fetchRetailerCoordinates();
   }, [validRetailerId]);
 
+  // Debug location tracking state
+  useEffect(() => {
+    console.log('📍 Location tracking state:', {
+      retailerLat,
+      retailerLng,
+      locationStatus,
+      distance,
+      hasCoords: !!(retailerLat && retailerLng)
+    });
+  }, [retailerLat, retailerLng, locationStatus, distance]);
   
   // Use visitId and retailerId from URL params consistently
   const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
@@ -1568,10 +1586,10 @@ export const OrderEntry = () => {
                       <Badge 
                         variant="default" 
                         className="bg-gray-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-gray-600"
-                        onClick={!isSettingLocation ? setRetailerLocation : undefined}
+                        onClick={() => recheckLocation()}
                       >
                         <MapPin className="h-3 w-3 mr-0.5" />
-                        {isSettingLocation ? 'Checking...' : '⚠️ Tap to check location'}
+                        ⚠️ Tap to check location
                       </Badge>
                     )}
                     {currentLog && (
