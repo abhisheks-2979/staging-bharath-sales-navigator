@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,13 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, CalendarIcon, ExternalLink } from 'lucide-react';
+import { Plus, CalendarIcon, ExternalLink, Download, Car, Utensils, Receipt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subWeeks, subMonths, subQuarters, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import AdditionalExpenses from '@/components/AdditionalExpenses';
+import * as XLSX from 'xlsx';
 
 interface ExpenseRow {
   id: string;
@@ -25,13 +26,16 @@ interface ExpenseRow {
   additional_expenses: number;
   order_value: number;
   productive_visits: number;
+  isOnLeave: boolean;
 }
 
 interface DARecord {
   date: string;
   da_amount: number;
-  attendance_time: string;
-  work_duration: string;
+  day_start_time: string;
+  day_end_time: string;
+  market_hours: string;
+  isOnLeave: boolean;
 }
 
 interface AdditionalExpenseData {
@@ -42,19 +46,79 @@ interface AdditionalExpenseData {
   bill_attached: boolean;
 }
 
+type FilterType = 'today' | 'yesterday' | 'current_week' | 'last_week' | 'current_month' | 'last_month' | 'current_quarter' | 'previous_quarter' | 'custom';
+
 const BeatAllowanceManagement = () => {
   const navigate = useNavigate();
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRangeStart, setDateRangeStart] = useState<Date>();
   const [dateRangeEnd, setDateRangeEnd] = useState<Date>();
-  const [filterType, setFilterType] = useState<'day' | 'week' | 'month' | 'date-range'>('day');
+  const [filterType, setFilterType] = useState<FilterType>('current_month');
   const [loading, setLoading] = useState(true);
   const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
   const [daRecords, setDARecords] = useState<DARecord[]>([]);
   const [additionalExpenseData, setAdditionalExpenseData] = useState<AdditionalExpenseData[]>([]);
   const [activeTab, setActiveTab] = useState<'expenses' | 'da' | 'additional'>('expenses');
+  const [leaveDates, setLeaveDates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  // Calculate date range based on filter type
+  const getDateRange = (): { start: Date; end: Date } => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    switch (filterType) {
+      case 'today':
+        return { start: today, end: today };
+      case 'yesterday':
+        const yesterday = subDays(today, 1);
+        return { start: yesterday, end: yesterday };
+      case 'current_week':
+        return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) };
+      case 'last_week':
+        const lastWeek = subWeeks(today, 1);
+        return { start: startOfWeek(lastWeek, { weekStartsOn: 1 }), end: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
+      case 'current_month':
+        return { start: startOfMonth(today), end: endOfMonth(today) };
+      case 'last_month':
+        const lastMonth = subMonths(today, 1);
+        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      case 'current_quarter':
+        return { start: startOfQuarter(today), end: endOfQuarter(today) };
+      case 'previous_quarter':
+        const lastQuarter = subQuarters(today, 1);
+        return { start: startOfQuarter(lastQuarter), end: endOfQuarter(lastQuarter) };
+      case 'custom':
+        if (dateRangeStart && dateRangeEnd) {
+          return { start: dateRangeStart, end: dateRangeEnd };
+        }
+        return { start: startOfMonth(today), end: endOfMonth(today) };
+      default:
+        return { start: startOfMonth(today), end: endOfMonth(today) };
+    }
+  };
+
+  const fetchLeaveDates = async () => {
+    try {
+      const user = await supabase.auth.getUser();
+      if (!user.data.user) return;
+
+      // Fetch attendance records where user is on leave
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('date, status')
+        .eq('user_id', user.data.user.id)
+        .in('status', ['leave', 'on_leave', 'absent']);
+
+      const leaveSet = new Set<string>();
+      attendanceData?.forEach((record: any) => {
+        leaveSet.add(record.date);
+      });
+      setLeaveDates(leaveSet);
+    } catch (error) {
+      console.error('Error fetching leave dates:', error);
+    }
+  };
 
   const fetchExpenseData = async () => {
     try {
@@ -168,9 +232,11 @@ const BeatAllowanceManagement = () => {
         const key = `${plan.beat_id}-${plan.plan_date}`;
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
         const orderValue = orderMap.get(key) || 0;
+        const isOnLeave = leaveDates.has(plan.plan_date);
         
         // Get TA based on expense master config - Fixed TA or from Beat
-        const ta = taType === 'fixed' ? fixedTaAmount : (beatTAMap.get(plan.beat_id) || 0);
+        // If on leave, TA is 0
+        const ta = isOnLeave ? 0 : (taType === 'fixed' ? fixedTaAmount : (beatTAMap.get(plan.beat_id) || 0));
         const productiveVisits = productiveVisitsMap.get(plan.plan_date) || 0;
         
         rows.push({
@@ -182,7 +248,8 @@ const BeatAllowanceManagement = () => {
           da: 0,
           additional_expenses: additionalExpenses,
           order_value: orderValue,
-          productive_visits: productiveVisits
+          productive_visits: productiveVisits,
+          isOnLeave
         });
       });
 
@@ -222,32 +289,41 @@ const BeatAllowanceManagement = () => {
 
       // Create DA records
       const records: DARecord[] = attendanceData?.map((record: any) => {
-        const daAmount = record.status === 'present' ? daPerDay : 0;
+        const isOnLeave = ['leave', 'on_leave', 'absent'].includes(record.status);
+        const daAmount = isOnLeave ? 0 : (record.status === 'present' ? daPerDay : 0);
         
-        let attendanceTime = 'Absent';
-        let workDuration = '0 hours';
+        let dayStartTime = '-';
+        let dayEndTime = '-';
+        let marketHours = '0h 0m';
+        
+        if (record.check_in_time) {
+          const checkIn = new Date(record.check_in_time);
+          dayStartTime = `${checkIn.getHours().toString().padStart(2, '0')}:${checkIn.getMinutes().toString().padStart(2, '0')}`;
+        }
+        
+        if (record.check_out_time) {
+          const checkOut = new Date(record.check_out_time);
+          dayEndTime = `${checkOut.getHours().toString().padStart(2, '0')}:${checkOut.getMinutes().toString().padStart(2, '0')}`;
+        }
         
         if (record.check_in_time && record.check_out_time) {
           const checkIn = new Date(record.check_in_time);
           const checkOut = new Date(record.check_out_time);
-          
-          attendanceTime = `${checkIn.getHours().toString().padStart(2, '0')}:${checkIn.getMinutes().toString().padStart(2, '0')} - ${checkOut.getHours().toString().padStart(2, '0')}:${checkOut.getMinutes().toString().padStart(2, '0')}`;
-          
           const durationMs = checkOut.getTime() - checkIn.getTime();
           const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
           const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-          workDuration = `${durationHours}h ${durationMinutes}m`;
-        } else if (record.check_in_time) {
-          const checkIn = new Date(record.check_in_time);
-          attendanceTime = `${checkIn.getHours().toString().padStart(2, '0')}:${checkIn.getMinutes().toString().padStart(2, '0')} - --:--`;
-          workDuration = 'Ongoing';
+          marketHours = `${durationHours}h ${durationMinutes}m`;
+        } else if (record.check_in_time && !record.check_out_time) {
+          marketHours = 'Ongoing';
         }
 
         return {
           date: record.date,
           da_amount: daAmount,
-          attendance_time: attendanceTime,
-          work_duration: workDuration
+          day_start_time: dayStartTime,
+          day_end_time: dayEndTime,
+          market_hours: marketHours,
+          isOnLeave
         };
       }) || [];
 
@@ -286,6 +362,7 @@ const BeatAllowanceManagement = () => {
 
   useEffect(() => {
     const initializeData = async () => {
+      await fetchLeaveDates();
       await Promise.all([
         fetchExpenseData(),
         fetchDAData(),
@@ -301,57 +378,124 @@ const BeatAllowanceManagement = () => {
     if (!loading) {
       fetchExpenseData();
     }
-  }, [filterType, selectedDate, dateRangeStart, dateRangeEnd]);
+  }, [filterType, dateRangeStart, dateRangeEnd, leaveDates]);
 
   const handleAdditionalExpensesClick = () => {
+    // Check if any selected date is a leave date
+    const { start, end } = getDateRange();
+    const startStr = format(start, 'yyyy-MM-dd');
+    if (leaveDates.has(startStr) && filterType === 'today') {
+      toast({
+        title: "Cannot Add Expense",
+        description: "You cannot add additional expenses on leave dates",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsAdditionalExpensesOpen(true);
   };
 
   const filterByDate = (dateString: string) => {
     const rowDate = new Date(dateString);
-    let dateMatch = true;
-
-    switch (filterType) {
-      case 'day':
-        if (selectedDate) {
-          dateMatch = rowDate.getFullYear() === selectedDate.getFullYear() &&
-                     rowDate.getMonth() === selectedDate.getMonth() &&
-                     rowDate.getDate() === selectedDate.getDate();
-        }
-        break;
-      case 'week':
-        if (selectedDate) {
-          const weekStart = new Date(selectedDate);
-          weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-          weekStart.setHours(0, 0, 0, 0);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 6);
-          weekEnd.setHours(23, 59, 59, 999);
-          dateMatch = rowDate >= weekStart && rowDate <= weekEnd;
-        }
-        break;
-      case 'month':
-        if (selectedDate) {
-          dateMatch = rowDate.getFullYear() === selectedDate.getFullYear() &&
-                     rowDate.getMonth() === selectedDate.getMonth();
-        }
-        break;
-      case 'date-range':
-        if (dateRangeStart && dateRangeEnd) {
-          const rangeStart = new Date(dateRangeStart);
-          rangeStart.setHours(0, 0, 0, 0);
-          const rangeEnd = new Date(dateRangeEnd);
-          rangeEnd.setHours(23, 59, 59, 999);
-          dateMatch = rowDate >= rangeStart && rowDate <= rangeEnd;
-        }
-        break;
-    }
+    rowDate.setHours(0, 0, 0, 0);
+    const { start, end } = getDateRange();
+    const startDate = new Date(start);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(end);
+    endDate.setHours(23, 59, 59, 999);
     
-    return dateMatch;
+    return rowDate >= startDate && rowDate <= endDate;
   };
 
   const filteredExpenseRows = expenseRows.filter(row => filterByDate(row.date));
+  const filteredDARecords = daRecords.filter(record => filterByDate(record.date));
   const filteredAdditionalExpenses = additionalExpenseData.filter(item => filterByDate(item.date));
+
+  // Calculate totals for highlight panel
+  const totalTA = useMemo(() => filteredExpenseRows.reduce((sum, row) => sum + row.ta, 0), [filteredExpenseRows]);
+  const totalDA = useMemo(() => filteredDARecords.reduce((sum, record) => sum + record.da_amount, 0), [filteredDARecords]);
+  const totalAdditionalExpenses = useMemo(() => filteredAdditionalExpenses.reduce((sum, item) => sum + item.value, 0), [filteredAdditionalExpenses]);
+
+  const downloadXLS = () => {
+    const { start, end } = getDateRange();
+    const dateStr = `${format(start, 'dd-MMM-yyyy')}_to_${format(end, 'dd-MMM-yyyy')}`;
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    
+    // My Expenses sheet
+    const expenseSheetData = filteredExpenseRows.map(row => ({
+      'Date': format(new Date(row.date), 'dd-MMM-yyyy'),
+      'Beat': row.beat_name,
+      'TA Amount (₹)': row.ta,
+      'Productive Visits': row.productive_visits,
+      'Order Value (₹)': row.order_value,
+      'On Leave': row.isOnLeave ? 'Yes' : 'No'
+    }));
+    expenseSheetData.push({
+      'Date': 'TOTAL',
+      'Beat': '',
+      'TA Amount (₹)': totalTA,
+      'Productive Visits': filteredExpenseRows.reduce((sum, row) => sum + row.productive_visits, 0),
+      'Order Value (₹)': filteredExpenseRows.reduce((sum, row) => sum + row.order_value, 0),
+      'On Leave': ''
+    });
+    const wsExpenses = XLSX.utils.json_to_sheet(expenseSheetData);
+    XLSX.utils.book_append_sheet(wb, wsExpenses, 'My Expenses');
+    
+    // DA sheet
+    const daSheetData = filteredDARecords.map(record => ({
+      'Date': format(new Date(record.date), 'dd-MMM-yyyy'),
+      'DA Amount (₹)': record.da_amount,
+      'Day Start Time': record.day_start_time,
+      'Day End Time': record.day_end_time,
+      'Market Hours': record.market_hours,
+      'On Leave': record.isOnLeave ? 'Yes' : 'No'
+    }));
+    daSheetData.push({
+      'Date': 'TOTAL',
+      'DA Amount (₹)': totalDA,
+      'Day Start Time': '',
+      'Day End Time': '',
+      'Market Hours': '',
+      'On Leave': ''
+    });
+    const wsDA = XLSX.utils.json_to_sheet(daSheetData);
+    XLSX.utils.book_append_sheet(wb, wsDA, 'DA');
+    
+    // Additional Expenses sheet
+    const additionalSheetData = filteredAdditionalExpenses.map(item => ({
+      'Date': format(new Date(item.date), 'dd-MMM-yyyy'),
+      'Type': item.expense_type,
+      'Details': item.details,
+      'Amount (₹)': item.value,
+      'Bill Attached': item.bill_attached ? 'Yes' : 'No'
+    }));
+    additionalSheetData.push({
+      'Date': 'TOTAL',
+      'Type': '',
+      'Details': '',
+      'Amount (₹)': totalAdditionalExpenses,
+      'Bill Attached': ''
+    });
+    const wsAdditional = XLSX.utils.json_to_sheet(additionalSheetData);
+    XLSX.utils.book_append_sheet(wb, wsAdditional, 'Additional Expenses');
+    
+    // Download file
+    XLSX.writeFile(wb, `Expenses_${dateStr}.xlsx`);
+    
+    toast({
+      title: "Downloaded",
+      description: "Expense report downloaded successfully",
+    });
+  };
+
+  const getFilterLabel = () => {
+    const { start, end } = getDateRange();
+    if (filterType === 'today') return 'Today';
+    if (filterType === 'yesterday') return 'Yesterday';
+    return `${format(start, 'dd MMM')} - ${format(end, 'dd MMM yyyy')}`;
+  };
 
   if (loading) {
     return (
@@ -362,63 +506,30 @@ const BeatAllowanceManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Date Filter - At Top */}
       <Card>
-        <CardHeader className="pb-3 sm:pb-6 px-3 sm:px-6">
-          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 xs:gap-3">
-            <CardTitle className="text-lg sm:text-xl">Expense Details</CardTitle>
-            <Button
-              onClick={handleAdditionalExpensesClick}
-              variant="default"
-              size="sm"
-              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 h-auto"
-            >
-              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">Additional </span>Expenses
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="px-3 sm:px-6">
-          <div className="space-y-4">
-            {/* Filter Controls */}
-            <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3">
-              <Select value={filterType} onValueChange={(value: 'day' | 'week' | 'month' | 'date-range') => setFilterType(value)}>
-                <SelectTrigger className="w-full xs:w-[100px] sm:w-[120px]">
+        <CardContent className="py-3 px-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2 xs:gap-3 w-full sm:w-auto">
+              <Select value={filterType} onValueChange={(value: FilterType) => setFilterType(value)}>
+                <SelectTrigger className="w-full xs:w-[160px] sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="day">Day</SelectItem>
-                  <SelectItem value="week">Week</SelectItem>
-                  <SelectItem value="month">Month</SelectItem>
-                  <SelectItem value="date-range">Date Range</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="current_week">Current Week</SelectItem>
+                  <SelectItem value="last_week">Last Week</SelectItem>
+                  <SelectItem value="current_month">Current Month</SelectItem>
+                  <SelectItem value="last_month">Last Month</SelectItem>
+                  <SelectItem value="current_quarter">Current Quarter</SelectItem>
+                  <SelectItem value="previous_quarter">Previous Quarter</SelectItem>
+                  <SelectItem value="custom">Custom Date</SelectItem>
                 </SelectContent>
               </Select>
 
-              {filterType !== 'date-range' ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full xs:w-[160px] sm:w-[200px] justify-start text-left font-normal text-xs sm:text-sm",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                      {selectedDate ? format(selectedDate, filterType === 'month' ? "MMM yyyy" : filterType === 'week' ? `MMM dd` : "MMM dd, yyyy") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              ) : (
+              {filterType === 'custom' && (
                 <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
@@ -470,7 +581,79 @@ const BeatAllowanceManagement = () => {
                 </div>
               )}
             </div>
+            
+            <Button onClick={downloadXLS} variant="outline" size="sm" className="flex items-center gap-1">
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Download</span> XLS
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Highlight Panel */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <Car className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total TA</p>
+                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">₹{totalTA.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-500/10 rounded-lg">
+                <Utensils className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total DA</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">₹{totalDA.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/10 rounded-lg">
+                <Receipt className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Additional</p>
+                <p className="text-lg font-bold text-purple-600 dark:text-purple-400">₹{totalAdditionalExpenses.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <Card>
+        <CardHeader className="pb-3 sm:pb-6 px-3 sm:px-6">
+          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 xs:gap-3">
+            <CardTitle className="text-lg sm:text-xl">Expense Details</CardTitle>
+            <Button
+              onClick={handleAdditionalExpensesClick}
+              variant="default"
+              size="sm"
+              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 h-auto"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Additional </span>Expenses
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{getFilterLabel()}</p>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6">
+          <div className="space-y-4">
             {/* Main Tabs */}
             <Tabs value={activeTab} onValueChange={(value: 'expenses' | 'da' | 'additional') => setActiveTab(value)} className="w-full">
               <TabsList className="grid w-full grid-cols-3 h-8 sm:h-10">
@@ -502,9 +685,10 @@ const BeatAllowanceManagement = () => {
                       ) : (
                         <>
                           {filteredExpenseRows.map((row) => (
-                            <TableRow key={row.id}>
+                            <TableRow key={row.id} className={row.isOnLeave ? 'bg-muted/50' : ''}>
                               <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
                                 {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                {row.isOnLeave && <span className="ml-1 text-xs text-orange-500">(Leave)</span>}
                               </TableCell>
                               <TableCell className="font-medium text-xs sm:text-sm">{row.beat_name}</TableCell>
                               <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
@@ -534,7 +718,7 @@ const BeatAllowanceManagement = () => {
                             <TableCell className="font-bold text-xs sm:text-sm">Total</TableCell>
                             <TableCell></TableCell>
                             <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
-                              ₹{filteredExpenseRows.reduce((sum, row) => sum + row.ta, 0).toLocaleString()}
+                              ₹{totalTA.toLocaleString()}
                             </TableCell>
                             <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
                               {filteredExpenseRows.reduce((sum, row) => sum + row.productive_visits, 0)}
@@ -558,32 +742,37 @@ const BeatAllowanceManagement = () => {
                       <TableRow>
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
                         <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">DA Amount</TableHead>
-                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Market Active Hours</TableHead>
-                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Work Duration</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Day Start Time</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Day End Time</TableHead>
+                        <TableHead className="text-xs sm:text-sm whitespace-nowrap">Market Hours</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {daRecords.length === 0 ? (
+                      {filteredDARecords.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
-                            No DA records found
+                          <TableCell colSpan={5} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
+                            No DA records found for the selected criteria
                           </TableCell>
                         </TableRow>
                       ) : (
                         <>
-                          {daRecords.map((record, index) => (
-                            <TableRow key={index}>
+                          {filteredDARecords.map((record, index) => (
+                            <TableRow key={index} className={record.isOnLeave ? 'bg-muted/50' : ''}>
                               <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
                                 {new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                {record.isOnLeave && <span className="ml-1 text-xs text-orange-500">(Leave)</span>}
                               </TableCell>
                               <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
                                 ₹{record.da_amount.toLocaleString()}
                               </TableCell>
                               <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                                {record.attendance_time}
+                                {record.day_start_time}
                               </TableCell>
                               <TableCell className="text-xs sm:text-sm whitespace-nowrap">
-                                {record.work_duration}
+                                {record.day_end_time}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                                {record.market_hours}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -591,8 +780,9 @@ const BeatAllowanceManagement = () => {
                           <TableRow className="border-t-2 bg-muted/30">
                             <TableCell className="font-bold text-xs sm:text-sm">Total</TableCell>
                             <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
-                              ₹{daRecords.reduce((sum, record) => sum + record.da_amount, 0).toLocaleString()}
+                              ₹{totalDA.toLocaleString()}
                             </TableCell>
+                            <TableCell></TableCell>
                             <TableCell></TableCell>
                             <TableCell></TableCell>
                           </TableRow>
@@ -647,7 +837,7 @@ const BeatAllowanceManagement = () => {
                             <TableCell></TableCell>
                             <TableCell></TableCell>
                             <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
-                              ₹{filteredAdditionalExpenses.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                              ₹{totalAdditionalExpenses.toLocaleString()}
                             </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
