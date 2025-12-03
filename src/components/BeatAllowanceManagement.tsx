@@ -53,7 +53,7 @@ const BeatAllowanceManagement = () => {
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
   const [dateRangeStart, setDateRangeStart] = useState<Date>();
   const [dateRangeEnd, setDateRangeEnd] = useState<Date>();
-  const [filterType, setFilterType] = useState<FilterType>('current_month');
+  const [filterType, setFilterType] = useState<FilterType>('current_week');
   const [loading, setLoading] = useState(true);
   const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
   const [daRecords, setDARecords] = useState<DARecord[]>([]);
@@ -139,7 +139,7 @@ const BeatAllowanceManagement = () => {
         .from('beat_plans')
         .select('plan_date, beat_id, beat_name')
         .eq('user_id', user.data.user.id)
-        .order('plan_date', { ascending: false });
+        .order('plan_date', { ascending: true });
 
       if (beatPlansError) throw beatPlansError;
 
@@ -175,7 +175,7 @@ const BeatAllowanceManagement = () => {
       // Fetch visits to link orders to beats and count productive visits
       const { data: visitsData, error: visitsError } = await supabase
         .from('visits')
-        .select('id, planned_date, retailer_id, status')
+        .select('id, planned_date, retailer_id, status, order_value')
         .eq('user_id', user.data.user.id);
 
       if (visitsError) throw visitsError;
@@ -201,37 +201,26 @@ const BeatAllowanceManagement = () => {
         retailerToBeatMap.set(retailer.id, { beat_id: retailer.beat_id, beat_name: retailer.beat_name });
       });
 
-      // Count productive visits per date (visits with orders)
+      // Count productive visits per date (visits with status='completed')
       const productiveVisitsMap = new Map();
+      const orderValueByDateMap = new Map();
+      
       visitsData?.forEach((visit: any) => {
-        const hasOrder = ordersData?.some((order: any) => order.visit_id === visit.id);
-        if (hasOrder || visit.status === 'completed') {
+        if (visit.status === 'completed') {
           const date = visit.planned_date;
           productiveVisitsMap.set(date, (productiveVisitsMap.get(date) || 0) + 1);
-        }
-      });
-
-      const orderMap = new Map();
-      ordersData?.forEach((order: any) => {
-        const visit = visitsData?.find((v: any) => v.id === order.visit_id);
-        if (visit) {
-          const retailerInfo = retailerToBeatMap.get(visit.retailer_id);
-          if (retailerInfo) {
-            const date = visit.planned_date;
-            const beatId = retailerInfo.beat_id;
-            const key = `${beatId}-${date}`;
-            const current = orderMap.get(key) || 0;
-            orderMap.set(key, current + parseFloat(order.total_amount || 0));
-          }
+          // Sum order_value from visits table directly
+          const visitOrderValue = parseFloat(visit.order_value || 0);
+          orderValueByDateMap.set(date, (orderValueByDateMap.get(date) || 0) + visitOrderValue);
         }
       });
 
       // Create expense rows from beat plans
       const rows: ExpenseRow[] = [];
       beatPlans?.forEach((plan: any) => {
-        const key = `${plan.beat_id}-${plan.plan_date}`;
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
-        const orderValue = orderMap.get(key) || 0;
+        // Get order value from visits directly for that date
+        const orderValue = orderValueByDateMap.get(plan.plan_date) || 0;
         const isOnLeave = leaveDates.has(plan.plan_date);
         
         // Get TA based on expense master config - Fixed TA or from Beat
@@ -283,7 +272,7 @@ const BeatAllowanceManagement = () => {
         .from('attendance')
         .select('date, check_in_time, check_out_time, status')
         .eq('user_id', user.data.user.id)
-        .order('date', { ascending: false });
+        .order('date', { ascending: true });
 
       if (attendanceError) throw attendanceError;
 
@@ -314,7 +303,8 @@ const BeatAllowanceManagement = () => {
           const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
           marketHours = `${durationHours}h ${durationMinutes}m`;
         } else if (record.check_in_time && !record.check_out_time) {
-          marketHours = 'Ongoing';
+          // No check out yet - show dash instead of "Ongoing"
+          marketHours = '-';
         }
 
         return {
@@ -342,7 +332,7 @@ const BeatAllowanceManagement = () => {
         .from('additional_expenses')
         .select('expense_date, category, custom_category, description, amount, bill_url')
         .eq('user_id', user.data.user.id)
-        .order('expense_date', { ascending: false });
+        .order('expense_date', { ascending: true });
 
       if (error) throw error;
 
