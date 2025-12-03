@@ -256,22 +256,49 @@ export const useRetailerVisitTracking = ({
         userLat = position.coords.latitude;
         userLng = position.coords.longitude;
 
-        console.log('User location captured (offline mode):', { userLat, userLng, isOffline });
-        console.log('Retailer location:', { retailerLat, retailerLng });
+        console.log('📍 User location captured:', { userLat, userLng, isOffline });
+        console.log('📍 Retailer location:', { retailerLat, retailerLng });
 
+        // AUTO-CAPTURE: If retailer doesn't have GPS, save user's current location as retailer's location
+        if ((!retailerLat || !retailerLng) && userLat && userLng && !isOffline) {
+          console.log('📍 Auto-capturing retailer GPS on first visit...');
+          try {
+            const { error: updateError } = await supabase
+              .from('retailers')
+              .update({
+                latitude: userLat,
+                longitude: userLng,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', retailerId);
+            
+            if (!updateError) {
+              console.log('📍 ✅ Retailer GPS auto-captured successfully:', { userLat, userLng });
+              // Status is now "at_store" since we just set the location
+              status = 'at_store';
+              calculatedDistance = 0;
+              setDistance(0);
+              setLocationStatus('at_store');
+            } else {
+              console.error('📍 ❌ Failed to auto-capture retailer GPS:', updateError);
+            }
+          } catch (autoSaveError) {
+            console.error('📍 ❌ Error auto-capturing retailer GPS:', autoSaveError);
+          }
+        }
         // Calculate distance if retailer coordinates are available
-        if (retailerLat !== undefined && retailerLng !== undefined && retailerLat !== null && retailerLng !== null) {
+        else if (retailerLat !== undefined && retailerLng !== undefined && retailerLat !== null && retailerLng !== null) {
           calculatedDistance = calculateDistance(userLat, userLng, retailerLat, retailerLng);
           status = getLocationStatus(calculatedDistance);
           setDistance(calculatedDistance);
           setLocationStatus(status);
-          console.log('Location tracking (offline mode):', { calculatedDistance, status });
+          console.log('📍 Location tracking:', { calculatedDistance, status });
         } else {
-          console.warn('Retailer coordinates not available:', { retailerLat, retailerLng });
+          console.warn('📍 Retailer coordinates not available and offline - cannot auto-capture');
           status = 'location_unavailable';
         }
       } catch (error) {
-        console.error('GPS error:', error);
+        console.error('📍 GPS error:', error);
         status = 'location_unavailable';
       }
     }
