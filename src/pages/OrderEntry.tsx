@@ -1534,35 +1534,33 @@ export const OrderEntry = () => {
                 {validRetailerId && (
                   <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                     {currentLog && locationStatus === 'at_store' && (
-                      <Badge variant="default" className="bg-success text-success-foreground h-4 px-1 text-[8px]">
-                        <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                      <Badge variant="default" className="bg-green-500 text-white h-5 px-1.5 text-[9px]">
+                        <CheckCircle2 className="h-3 w-3 mr-0.5" />
                         At Store
                       </Badge>
                     )}
                     {currentLog && locationStatus === 'within_range' && (
-                      <Badge variant="default" className="bg-warning text-warning-foreground h-4 px-1 text-[8px]">
-                        <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-                        &lt;50m from Store
+                      <Badge variant="default" className="bg-yellow-500 text-black h-5 px-1.5 text-[9px]">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" />
+                        &lt;50m
                       </Badge>
                     )}
                     {currentLog && locationStatus === 'not_at_store' && (
-                      <Badge variant="destructive" className="h-4 px-1 text-[8px]">
-                        <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                      <Badge variant="default" className="bg-red-500 text-white h-5 px-1.5 text-[9px]">
+                        <MapPin className="h-3 w-3 mr-0.5" />
                         Not at Store
                       </Badge>
                     )}
                     {/* Show Set Location when retailer has no GPS or location unavailable */}
                     {(!retailerLat || !retailerLng || (currentLog && locationStatus === 'location_unavailable')) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={setRetailerLocation}
-                        disabled={isSettingLocation}
-                        className="h-4 px-1 text-[8px] bg-muted/50 text-primary-foreground hover:bg-muted"
+                      <Badge 
+                        variant="default" 
+                        className="bg-orange-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-orange-600"
+                        onClick={!isSettingLocation ? setRetailerLocation : undefined}
                       >
-                        <MapPin className="h-2.5 w-2.5 mr-0.5" />
-                        {isSettingLocation ? 'Setting...' : 'Set Location'}
-                      </Button>
+                        <MapPin className="h-3 w-3 mr-0.5" />
+                        {isSettingLocation ? 'Setting GPS...' : '📍 Set Store GPS'}
+                      </Badge>
                     )}
                     {currentLog && (
                       <>
