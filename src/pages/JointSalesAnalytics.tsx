@@ -40,23 +40,30 @@ export default function JointSalesAnalytics() {
 
   const loadMembers = async () => {
     try {
-      const { data: beatPlans } = await supabase
-        .from('beat_plans')
-        .select('joint_sales_manager_id')
-        .not('joint_sales_manager_id', 'is', null);
+      // Get all unique user IDs from joint sales feedback (both managers and FSEs)
+      const { data: feedbackData } = await supabase
+        .from('joint_sales_feedback')
+        .select('manager_id, fse_user_id');
 
-      const uniqueMemberIds = Array.from(new Set(
-        beatPlans?.map(bp => bp.joint_sales_manager_id).filter(Boolean) || []
-      ));
+      const uniqueUserIds = new Set<string>();
+      feedbackData?.forEach(f => {
+        if (f.manager_id) uniqueUserIds.add(f.manager_id);
+        if (f.fse_user_id) uniqueUserIds.add(f.fse_user_id);
+      });
+
+      if (uniqueUserIds.size === 0) {
+        setMembers([]);
+        return;
+      }
 
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, username')
-        .in('id', uniqueMemberIds);
+        .in('id', Array.from(uniqueUserIds));
 
       const membersList = (profiles || []).map(p => ({
         id: p.id,
-        name: p.full_name || p.username
+        name: p.full_name || p.username || 'Unknown'
       }));
 
       setMembers(membersList);
@@ -69,18 +76,21 @@ export default function JointSalesAnalytics() {
     try {
       setLoading(true);
       
+      // Query feedback - include both manager and FSE perspectives
       let query = supabase
         .from('joint_sales_feedback')
         .select(`
           *,
           retailers(name, address),
-          profiles!joint_sales_feedback_manager_id_fkey(full_name, username)
+          manager:profiles!joint_sales_feedback_manager_id_fkey(full_name, username),
+          fse:profiles!joint_sales_feedback_fse_user_id_fkey(full_name, username)
         `)
-        .gte('created_at', dateRange.from.toISOString())
-        .lte('created_at', dateRange.to.toISOString());
+        .gte('feedback_date', format(dateRange.from, 'yyyy-MM-dd'))
+        .lte('feedback_date', format(dateRange.to, 'yyyy-MM-dd'));
 
       if (selectedMember && selectedMember !== 'all') {
-        query = query.eq('manager_id', selectedMember);
+        // Filter by either manager_id or fse_user_id
+        query = query.or(`manager_id.eq.${selectedMember},fse_user_id.eq.${selectedMember}`);
       }
 
       const { data: feedback, error } = await query;
@@ -263,10 +273,10 @@ export default function JointSalesAnalytics() {
                       {feedback.retailers?.name || 'Unknown'}
                     </TableCell>
                     <TableCell>
-                      {format(new Date(feedback.created_at), 'dd MMM yyyy')}
+                      {format(new Date(feedback.feedback_date || feedback.created_at), 'dd MMM yyyy')}
                     </TableCell>
                     <TableCell>
-                      {feedback.profiles?.full_name || feedback.profiles?.username || 'N/A'}
+                      {(feedback.manager as any)?.full_name || (feedback.manager as any)?.username || 'N/A'}
                     </TableCell>
                     <TableCell>
                       ₹{(feedback.order_increase_amount || 0).toLocaleString('en-IN')}

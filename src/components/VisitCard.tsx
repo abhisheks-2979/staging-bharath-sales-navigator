@@ -14,6 +14,7 @@ import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
 import BrandingRequestModal from "./BrandingRequestModal";
 import { JointSalesFeedbackModal } from "./JointSalesFeedbackModal";
+import { JointSalesFeedbackViewModal } from "./JointSalesFeedbackViewModal";
 import { StockCycleModal } from "./StockCycleModal";
 import { AnalyticsModal } from "./AnalyticsModal";
 import { StockDataModal } from "./StockDataModal";
@@ -96,6 +97,7 @@ export const VisitCard = ({
   const [showJointSalesFeedback, setShowJointSalesFeedback] = useState(false);
   const [jointSalesChecked, setJointSalesChecked] = useState(false);
   const [hasJointSalesFeedback, setHasJointSalesFeedback] = useState(false);
+  const [showJointSalesFeedbackView, setShowJointSalesFeedbackView] = useState(false);
   const { user } = useAuth();
   const [hasOrderToday, setHasOrderToday] = useState(!!visit.hasOrder);
   const [actualOrderValue, setActualOrderValue] = useState<number>(0);
@@ -1420,11 +1422,17 @@ export const VisitCard = ({
                   <Phone size={12} className="mr-1" />
                   Phone Order
                 </Badge>}
-              {isJointSalesVisit && hasJointSalesFeedback && <Badge className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1">
+              {isJointSalesVisit && hasJointSalesFeedback && <Badge 
+                  className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); setShowJointSalesFeedbackView(true); }}
+                >
                   <UserCheck size={12} className="mr-1" />
                   Joint Sales
                 </Badge>}
-              {!isJointSalesVisit && hasJointSalesFeedback && <Badge className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1">
+              {!isJointSalesVisit && hasJointSalesFeedback && <Badge 
+                  className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); setShowJointSalesFeedbackView(true); }}
+                >
                   <UserCheck size={12} className="mr-1" />
                   Joint Visit
                 </Badge>}
@@ -2156,6 +2164,25 @@ export const VisitCard = ({
             visitId={currentVisitId || undefined}
             managerId={jointSalesMemberId}
             onFeedbackSubmitted={() => setHasJointSalesFeedback(true)}
+          />
+        )}
+        
+        {/* Joint Sales Feedback View Modal */}
+        {showJointSalesFeedbackView && (
+          <JointSalesFeedbackViewModal
+            isOpen={showJointSalesFeedbackView}
+            onClose={() => setShowJointSalesFeedbackView(false)}
+            retailerId={visit.retailerId || visit.id}
+            retailerName={visit.retailerName}
+            feedbackDate={selectedDate || new Date().toISOString().split('T')[0]}
+            onEdit={() => {
+              setShowJointSalesFeedbackView(false);
+              setShowJointSalesFeedback(true);
+            }}
+            onDeleted={() => {
+              setHasJointSalesFeedback(false);
+              setShowJointSalesFeedbackView(false);
+            }}
           />
         )}
       </CardContent>

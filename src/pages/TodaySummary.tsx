@@ -289,40 +289,56 @@ export const TodaySummary = () => {
       const { data: beatPlans } = await beatPlansQuery;
       const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
       
-      // Fetch joint sales feedback if this is a joint sales visit
-      if (beatPlan?.joint_sales_manager_id) {
-        const { data: jointSalesFeedback } = await supabase
-          .from('joint_sales_feedback')
-          .select('*, retailers(name)')
-          .eq('beat_plan_id', beatPlan.id)
-          .gte('feedback_date', format(dateRange.from, 'yyyy-MM-dd'))
-          .lte('feedback_date', format(dateRange.to, 'yyyy-MM-dd'));
+      // Fetch ALL joint sales feedback for the user in the date range
+      // This includes both beat plan-linked and independently recorded feedback
+      const jointFromDate = format(dateRange.from, 'yyyy-MM-dd');
+      const jointToDate = format(dateRange.to, 'yyyy-MM-dd');
+      
+      const { data: jointSalesFeedback } = await supabase
+        .from('joint_sales_feedback')
+        .select('*, retailers(name)')
+        .eq('fse_user_id', user.id)
+        .gte('feedback_date', jointFromDate)
+        .lte('feedback_date', jointToDate);
+      
+      if (jointSalesFeedback && jointSalesFeedback.length > 0) {
+        // Get unique manager IDs and fetch their names
+        const uniqueManagerIds = [...new Set(jointSalesFeedback.map(f => f.manager_id).filter(Boolean))];
         
-        if (jointSalesFeedback && jointSalesFeedback.length > 0) {
-          // Get joint sales member name
-          const { data: memberProfile } = await supabase
+        let memberNames: string[] = [];
+        if (uniqueManagerIds.length > 0) {
+          const { data: memberProfiles } = await supabase
             .from('profiles')
-            .select('full_name')
-            .eq('id', beatPlan.joint_sales_manager_id)
-            .single();
+            .select('id, full_name')
+            .in('id', uniqueManagerIds);
           
-          const totalOrderIncrease = jointSalesFeedback.reduce((sum, f) => sum + (f.order_increase_amount || 0), 0);
-          const uniqueRetailers = new Set(jointSalesFeedback.map(f => f.retailer_id)).size;
-          
-          setJointSalesData({
-            totalVisits: jointSalesFeedback.length,
-            retailersCovered: uniqueRetailers,
-            memberName: memberProfile?.full_name || 'Unknown',
-            orderIncrease: totalOrderIncrease,
-            feedback: jointSalesFeedback.map(f => ({
-              retailerName: (f.retailers as any)?.name || 'Unknown',
-              impact: f.joint_sales_impact || 'No impact notes',
-              orderIncrease: f.order_increase_amount || 0
-            }))
-          });
-        } else {
-          setJointSalesData(null);
+          memberNames = memberProfiles?.map(p => p.full_name || 'Unknown') || [];
         }
+        
+        const totalOrderIncrease = jointSalesFeedback.reduce((sum, f) => sum + (f.order_increase_amount || 0), 0);
+        const uniqueRetailers = new Set(jointSalesFeedback.map(f => f.retailer_id)).size;
+        
+        // Create a map of manager names for feedback display
+        const managerNameMap = new Map();
+        if (uniqueManagerIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', uniqueManagerIds);
+          profiles?.forEach(p => managerNameMap.set(p.id, p.full_name || 'Unknown'));
+        }
+        
+        setJointSalesData({
+          totalVisits: jointSalesFeedback.length,
+          retailersCovered: uniqueRetailers,
+          memberName: memberNames.length > 0 ? memberNames.join(', ') : 'Unknown',
+          orderIncrease: totalOrderIncrease,
+          feedback: jointSalesFeedback.map(f => ({
+            retailerName: (f.retailers as any)?.name || 'Unknown',
+            impact: f.joint_sales_impact || 'No impact notes',
+            orderIncrease: f.order_increase_amount || 0
+          }))
+        });
       } else {
         setJointSalesData(null);
       }
