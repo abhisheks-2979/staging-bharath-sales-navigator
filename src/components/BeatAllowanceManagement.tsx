@@ -203,7 +203,7 @@ const BeatAllowanceManagement = () => {
         retailerToBeatMap.set(retailer.id, { beat_id: retailer.beat_id, beat_name: retailer.beat_name });
       });
 
-      // Count productive visits per date (visits with status='completed')
+      // Count productive visits per date (visits with status='productive')
       const productiveVisitsMap = new Map();
       const orderValueByDateMap = new Map();
       
@@ -211,20 +211,33 @@ const BeatAllowanceManagement = () => {
       const visitsById = new Map();
       visitsData?.forEach((visit: any) => {
         visitsById.set(visit.id, visit);
-        if (visit.status === 'completed') {
+        // Count visits with status='productive' as productive visits
+        if (visit.status === 'productive') {
           const date = visit.planned_date;
           productiveVisitsMap.set(date, (productiveVisitsMap.get(date) || 0) + 1);
         }
       });
       
       // Calculate order values from orders table by date
+      // Use visit's planned_date if linked, otherwise use order's created_at date
       ordersData?.forEach((order: any) => {
-        const visit = visitsById.get(order.visit_id);
-        if (visit) {
-          const date = visit.planned_date;
-          const orderAmount = parseFloat(order.total_amount || 0);
-          orderValueByDateMap.set(date, (orderValueByDateMap.get(date) || 0) + orderAmount);
+        const orderAmount = parseFloat(order.total_amount || 0);
+        let date: string;
+        
+        if (order.visit_id) {
+          const visit = visitsById.get(order.visit_id);
+          if (visit) {
+            date = visit.planned_date;
+          } else {
+            // Fallback to created_at date if visit not found
+            date = format(new Date(order.created_at), 'yyyy-MM-dd');
+          }
+        } else {
+          // For orders without visit_id, use created_at date
+          date = format(new Date(order.created_at), 'yyyy-MM-dd');
         }
+        
+        orderValueByDateMap.set(date, (orderValueByDateMap.get(date) || 0) + orderAmount);
       });
 
       // Create expense rows from beat plans
