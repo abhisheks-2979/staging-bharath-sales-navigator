@@ -65,8 +65,45 @@ export const useRetailerVisitTracking = ({
   const [locationStatus, setLocationStatus] = useState<'at_store' | 'within_range' | 'not_at_store' | 'location_unavailable'>('location_unavailable');
   const [timeSpent, setTimeSpent] = useState<number>(0); // in seconds
   const [distance, setDistance] = useState<number | null>(null);
+  const [hasCheckedLocation, setHasCheckedLocation] = useState(false);
   const currentLogIdRef = useRef<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Calculate location status on mount when retailer has coordinates
+  useEffect(() => {
+    const checkLocationOnMount = async () => {
+      if (hasCheckedLocation || !retailerLat || !retailerLng) return;
+      
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 60000 // Allow cached position up to 1 minute
+            });
+          });
+
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const calculatedDistance = calculateDistance(userLat, userLng, retailerLat, retailerLng);
+          const status = getLocationStatus(calculatedDistance);
+          
+          console.log('📍 Initial location check:', { userLat, userLng, retailerLat, retailerLng, calculatedDistance, status });
+          
+          setDistance(calculatedDistance);
+          setLocationStatus(status);
+          setHasCheckedLocation(true);
+        } catch (error) {
+          console.error('GPS error on mount:', error);
+          setLocationStatus('location_unavailable');
+          setHasCheckedLocation(true);
+        }
+      }
+    };
+
+    checkLocationOnMount();
+  }, [retailerLat, retailerLng, hasCheckedLocation]);
 
   // Format time spent for display
   const formatTimeSpent = useCallback((seconds: number): string => {
@@ -133,7 +170,8 @@ export const useRetailerVisitTracking = ({
 
   // Update time spent every second for active logs
   useEffect(() => {
-    if (currentLog && !currentLog.end_time) {
+    // Run timer if we have a log - calculate time from start_time to now
+    if (currentLog && currentLog.start_time) {
       intervalRef.current = setInterval(() => {
         const startTime = new Date(currentLog.start_time).getTime();
         const now = Date.now();
