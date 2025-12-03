@@ -214,7 +214,7 @@ async function executeQuery(supabase: any, userId: string, toolName: string, par
     case 'get_retailer_analytics': {
       const { data, error } = await supabase
         .from('retailers')
-        .select(`id, name, address, last_visit_date, last_order_value, avg_monthly_orders_3m, order_value, pending_amount, credit_limit`)
+        .select(`id, name, address, last_visit_date, last_order_value, avg_monthly_orders_3m, order_value, pending_amount`)
         .eq('user_id', userId)
         .order('last_order_value', { ascending: false })
         .limit(20);
@@ -227,7 +227,7 @@ async function executeQuery(supabase: any, userId: string, toolName: string, par
       const { retailer_name } = params;
       const { data, error } = await supabase
         .from('retailers')
-        .select(`id, name, phone, address, last_visit_date, last_order_value, pending_amount, credit_limit, avg_monthly_orders_3m`)
+        .select(`id, name, phone, address, last_visit_date, last_order_value, pending_amount, avg_monthly_orders_3m`)
         .eq('user_id', userId)
         .ilike('name', `%${retailer_name}%`)
         .limit(5);
@@ -711,10 +711,11 @@ Use the available tools to fetch real-time data.`;
                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
                           choices: [{ delta: { content: formattedResult }, index: 0 }]
                         })}\n\n`));
-                      } catch (toolError) {
+                      } catch (toolError: any) {
+                        const errorMsg = toolError?.message || JSON.stringify(toolError) || 'Unknown error';
                         console.error(`Tool error (${toolCall.function.name}):`, toolError);
                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                          choices: [{ delta: { content: `\n\n⚠️ Could not fetch ${toolCall.function.name}: ${toolError}` }, index: 0 }]
+                          choices: [{ delta: { content: `\n\n⚠️ Could not fetch data: ${errorMsg}` }, index: 0 }]
                         })}\n\n`));
                       }
                     }
