@@ -50,6 +50,9 @@ const getLocationStatus = (distance: number | null): 'at_store' | 'within_range'
   return 'not_at_store';
 };
 
+// Global storage for last activity time per retailer (persists across hook instances)
+const lastActivityTimeByRetailer: Map<string, string> = new Map();
+
 export const useRetailerVisitTracking = ({
   retailerId,
   retailerLat,
@@ -151,6 +154,15 @@ export const useRetailerVisitTracking = ({
     };
   }, [currentLog]);
 
+  // Update last activity time for current retailer (call this on any user interaction)
+  const updateLastActivity = useCallback(() => {
+    if (retailerId) {
+      const now = new Date().toISOString();
+      lastActivityTimeByRetailer.set(retailerId, now);
+      console.log('📍 Updated last activity time for retailer:', retailerId, now);
+    }
+  }, [retailerId]);
+
   // Start tracking when action is performed
   const startTracking = useCallback(async (
     actionType: 'order' | 'feedback' | 'ai' | 'phone_order',
@@ -158,6 +170,10 @@ export const useRetailerVisitTracking = ({
   ) => {
     const targetDate = selectedDate || new Date().toISOString().split('T')[0];
     const isOffline = !navigator.onLine;
+    const currentTime = new Date().toISOString();
+
+    // Update last activity time for this retailer immediately
+    lastActivityTimeByRetailer.set(retailerId, currentTime);
 
     // Get current GPS location (works offline)
     let userLat: number | undefined;
@@ -198,7 +214,7 @@ export const useRetailerVisitTracking = ({
       }
     }
 
-    const startTime = new Date().toISOString();
+    const startTime = currentTime;
     const logId = `offline_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const logData = {
@@ -207,7 +223,7 @@ export const useRetailerVisitTracking = ({
       retailer_id: retailerId,
       visit_id: visitId || null,
       start_time: startTime,
-      end_time: null,
+      end_time: startTime, // Set end_time same as start_time initially (updated on each activity)
       start_latitude: userLat || null,
       start_longitude: userLng || null,
       distance_meters: calculatedDistance,
@@ -215,7 +231,7 @@ export const useRetailerVisitTracking = ({
       action_type: actionType,
       is_phone_order: isPhoneOrder,
       visit_date: targetDate,
-      time_spent_seconds: null
+      time_spent_seconds: 0
     };
 
     if (isOffline) {
@@ -238,7 +254,7 @@ export const useRetailerVisitTracking = ({
     } else {
       // Store in Supabase when online
       try {
-        // First, end any previous active log for different retailer
+        // First, end any previous active log for different retailer using their LAST activity time
         const { data: previousActiveLogs } = await supabase
           .from('retailer_visit_logs')
           .select('*')
@@ -248,25 +264,36 @@ export const useRetailerVisitTracking = ({
           .neq('retailer_id', retailerId);
 
         if (previousActiveLogs && previousActiveLogs.length > 0) {
-          const endTime = new Date().toISOString();
           for (const log of previousActiveLogs) {
-            const startTime = new Date(log.start_time).getTime();
-            const endTimeMs = new Date(endTime).getTime();
-            const timeSpentSeconds = Math.floor((endTimeMs - startTime) / 1000);
+            // Use stored last activity time for this retailer, or current time as fallback
+            const lastActivityTime = lastActivityTimeByRetailer.get(log.retailer_id) || currentTime;
+            const startTimeMs = new Date(log.start_time).getTime();
+            const endTimeMs = new Date(lastActivityTime).getTime();
+            const timeSpentSeconds = Math.max(0, Math.floor((endTimeMs - startTimeMs) / 1000));
+
+            console.log('📍 Ending previous retailer log:', {
+              retailerId: log.retailer_id,
+              startTime: log.start_time,
+              endTime: lastActivityTime,
+              timeSpentSeconds
+            });
 
             await supabase
               .from('retailer_visit_logs')
               .update({
-                end_time: endTime,
+                end_time: lastActivityTime,
                 time_spent_seconds: timeSpentSeconds
               })
               .eq('id', log.id);
+            
+            // Clear the stored activity time for that retailer
+            lastActivityTimeByRetailer.delete(log.retailer_id);
           }
         }
 
-        // If already tracking for this retailer today, update the existing log
+        // If already tracking for this retailer today, just update last activity time
         if (currentLogIdRef.current && !currentLogIdRef.current.startsWith('offline_')) {
-          const endTime = new Date().toISOString();
+          // Update the end_time to current time (latest activity)
           const { data: existingLog } = await supabase
             .from('retailer_visit_logs')
             .select('start_time')
@@ -275,18 +302,19 @@ export const useRetailerVisitTracking = ({
 
           if (existingLog) {
             const startTimeMs = new Date(existingLog.start_time).getTime();
-            const endTimeMs = new Date(endTime).getTime();
+            const endTimeMs = new Date(currentTime).getTime();
             const timeSpentSeconds = Math.floor((endTimeMs - startTimeMs) / 1000);
 
             await supabase
               .from('retailer_visit_logs')
               .update({
-                end_time: endTime,
+                end_time: currentTime,
                 time_spent_seconds: timeSpentSeconds
               })
               .eq('id', currentLogIdRef.current);
 
             setTimeSpent(timeSpentSeconds);
+            console.log('📍 Updated existing log with latest activity:', { currentTime, timeSpentSeconds });
           }
           return;
         }
@@ -299,13 +327,15 @@ export const useRetailerVisitTracking = ({
             retailer_id: retailerId,
             visit_id: visitId || null,
             start_time: startTime,
+            end_time: startTime, // Set initial end_time same as start_time
             start_latitude: userLat || null,
             start_longitude: userLng || null,
             distance_meters: calculatedDistance,
             location_status: status,
             action_type: actionType,
             is_phone_order: isPhoneOrder,
-            visit_date: targetDate
+            visit_date: targetDate,
+            time_spent_seconds: 0
           })
           .select()
           .single();
@@ -314,6 +344,7 @@ export const useRetailerVisitTracking = ({
           setCurrentLog(data as VisitLog);
           currentLogIdRef.current = data.id;
           setTimeSpent(0);
+          console.log('📍 Created new visit log:', data.id);
         }
       } catch (error) {
         console.error('Failed to save visit log online:', error);
@@ -321,11 +352,71 @@ export const useRetailerVisitTracking = ({
     }
   }, [userId, retailerId, visitId, retailerLat, retailerLng, selectedDate]);
 
+  // Record activity (updates end_time to current timestamp)
+  const recordActivity = useCallback(async () => {
+    if (!currentLogIdRef.current || !userId) return;
+
+    const currentTime = new Date().toISOString();
+    
+    // Update last activity time
+    lastActivityTimeByRetailer.set(retailerId, currentTime);
+
+    const isOffline = !navigator.onLine;
+
+    if (isOffline) {
+      // Update in IndexedDB
+      try {
+        const existingLog = await offlineStorage.getById<any>(STORES.RETAILER_VISIT_LOGS, currentLogIdRef.current);
+        if (existingLog) {
+          const startTimeMs = new Date(existingLog.start_time).getTime();
+          const endTimeMs = new Date(currentTime).getTime();
+          const timeSpentSeconds = Math.floor((endTimeMs - startTimeMs) / 1000);
+
+          await offlineStorage.save(STORES.RETAILER_VISIT_LOGS, {
+            ...existingLog,
+            end_time: currentTime,
+            time_spent_seconds: timeSpentSeconds
+          });
+          setTimeSpent(timeSpentSeconds);
+        }
+      } catch (error) {
+        console.error('Failed to update activity offline:', error);
+      }
+    } else if (!currentLogIdRef.current.startsWith('offline_')) {
+      // Update in Supabase
+      try {
+        const { data: existingLog } = await supabase
+          .from('retailer_visit_logs')
+          .select('start_time')
+          .eq('id', currentLogIdRef.current)
+          .single();
+
+        if (existingLog) {
+          const startTimeMs = new Date(existingLog.start_time).getTime();
+          const endTimeMs = new Date(currentTime).getTime();
+          const timeSpentSeconds = Math.floor((endTimeMs - startTimeMs) / 1000);
+
+          await supabase
+            .from('retailer_visit_logs')
+            .update({
+              end_time: currentTime,
+              time_spent_seconds: timeSpentSeconds
+            })
+            .eq('id', currentLogIdRef.current);
+
+          setTimeSpent(timeSpentSeconds);
+        }
+      } catch (error) {
+        console.error('Failed to update activity online:', error);
+      }
+    }
+  }, [userId, retailerId]);
+
   // End tracking and calculate time spent
   const endTracking = useCallback(async () => {
     if (!currentLogIdRef.current) return;
 
-    const endTime = new Date().toISOString();
+    const endTime = lastActivityTimeByRetailer.get(retailerId) || new Date().toISOString();
     const { data: logData } = await supabase
       .from('retailer_visit_logs')
       .select('start_time')
@@ -349,12 +440,11 @@ export const useRetailerVisitTracking = ({
     }
 
     // Don't reset currentLogIdRef so we don't create duplicate logs
-  }, []);
+  }, [retailerId]);
 
   // End all active logs on logout
   const endAllActiveLogs = useCallback(async () => {
     const targetDate = selectedDate || new Date().toISOString().split('T')[0];
-    const endTime = new Date().toISOString();
     
     const { data: activeLogs } = await supabase
       .from('retailer_visit_logs')
@@ -365,6 +455,8 @@ export const useRetailerVisitTracking = ({
 
     if (activeLogs && activeLogs.length > 0) {
       for (const log of activeLogs) {
+        // Use stored last activity time or current time
+        const endTime = lastActivityTimeByRetailer.get(log.retailer_id) || new Date().toISOString();
         const startTime = new Date(log.start_time).getTime();
         const endTimeMs = new Date(endTime).getTime();
         const timeSpentSeconds = Math.floor((endTimeMs - startTime) / 1000);
@@ -388,6 +480,8 @@ export const useRetailerVisitTracking = ({
     formattedTimeSpent: formatTimeSpent(timeSpent),
     startTracking,
     endTracking,
-    endAllActiveLogs
+    endAllActiveLogs,
+    recordActivity,
+    updateLastActivity
   };
 };

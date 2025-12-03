@@ -235,7 +235,8 @@ export const OrderEntry = () => {
     timeSpent,
     formattedTimeSpent,
     startTracking,
-    endTracking
+    endTracking,
+    recordActivity
   } = useRetailerVisitTracking({
     retailerId: validRetailerId || '',
     retailerLat,
@@ -655,6 +656,9 @@ export const OrderEntry = () => {
       quantity
     });
 
+    // Track activity for checkout timing
+    recordActivity();
+
     // Store quantity under the actual productId (could be base or variant)
     setQuantities(prev => {
       const newQuantities = {
@@ -892,6 +896,9 @@ export const OrderEntry = () => {
     }
   };
   const addToCart = (product: Product) => {
+    // Track activity for checkout timing
+    recordActivity();
+    
     // Get the display product (could be variant)
     const displayProduct = getDisplayProduct(product as GridProduct);
     // Use the display product ID for quantity lookup (supports both base and variant quantities)
@@ -1550,6 +1557,7 @@ export const OrderEntry = () => {
                   variant={orderMode === "grid" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("grid");
+                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
@@ -1565,6 +1573,7 @@ export const OrderEntry = () => {
                   variant={orderMode === "table" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("table");
+                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
@@ -1580,6 +1589,7 @@ export const OrderEntry = () => {
                   variant="outline" 
                   onClick={async () => {
                     setShowImageCapture(true);
+                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
@@ -1600,6 +1610,7 @@ export const OrderEntry = () => {
                   variant={orderMode === "return-stock" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("return-stock");
+                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
@@ -1615,6 +1626,7 @@ export const OrderEntry = () => {
                   variant={orderMode === "no-order" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("no-order");
+                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
@@ -1630,6 +1642,7 @@ export const OrderEntry = () => {
                   variant={orderMode === "competition" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("competition");
+                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
