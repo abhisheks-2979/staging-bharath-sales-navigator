@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
+import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 
 interface CheckInOutData {
   id: string;
@@ -68,6 +69,7 @@ const Operations = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [userFilter, setUserFilter] = useState('all');
+  const [summaryDateFilter, setSummaryDateFilter] = useState<'today' | 'week' | 'month'>('today');
   
   // Separate date filters for each section
   const [checkinDateFilter, setCheckinDateFilter] = useState('today');
@@ -667,36 +669,11 @@ const Operations = () => {
           </div>
         </div>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Check-ins Today</CardTitle>
-              <Clock className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{todayStats.checkins}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Orders Today</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{todayStats.orders}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Stock Updates Today</CardTitle>
-              <Package className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{todayStats.stockUpdates}</div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Operations Summary Boxes */}
+        <OperationsSummaryBoxes 
+          dateFilter={summaryDateFilter}
+          onDateFilterChange={setSummaryDateFilter}
+        />
 
         {/* Main Content */}
         <Card>
