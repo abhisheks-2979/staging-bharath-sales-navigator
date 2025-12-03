@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, CalendarIcon } from 'lucide-react';
+import { Plus, CalendarIcon, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import AdditionalExpenses from '@/components/AdditionalExpenses';
 
 interface ExpenseRow {
@@ -23,6 +24,7 @@ interface ExpenseRow {
   da: number;
   additional_expenses: number;
   order_value: number;
+  productive_visits: number;
 }
 
 interface DARecord {
@@ -41,6 +43,7 @@ interface AdditionalExpenseData {
 }
 
 const BeatAllowanceManagement = () => {
+  const navigate = useNavigate();
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRangeStart, setDateRangeStart] = useState<Date>();
@@ -67,13 +70,18 @@ const BeatAllowanceManagement = () => {
 
       if (beatPlansError) throw beatPlansError;
 
-      // Fetch beat allowances (TA/DA)
-      const { data: allowanceData, error: allowanceError } = await supabase
-        .from('beat_allowances')
-        .select('*')
-        .eq('user_id', user.data.user.id);
+      // Fetch beats to get travel_allowance from My Beat
+      const { data: beatsData, error: beatsError } = await supabase
+        .from('beats')
+        .select('beat_id, beat_name, travel_allowance');
 
-      if (allowanceError) throw allowanceError;
+      if (beatsError) throw beatsError;
+
+      // Create beat travel allowance map
+      const beatTAMap = new Map();
+      beatsData?.forEach((beat: any) => {
+        beatTAMap.set(beat.beat_id, beat.travel_allowance || 0);
+      });
 
       // Fetch additional expenses
       const { data: expensesData, error: expensesError } = await supabase
@@ -91,10 +99,10 @@ const BeatAllowanceManagement = () => {
 
       if (ordersError) throw ordersError;
 
-      // Fetch visits to link orders to beats
+      // Fetch visits to link orders to beats and count productive visits
       const { data: visitsData, error: visitsError } = await supabase
         .from('visits')
-        .select('id, planned_date, retailer_id')
+        .select('id, planned_date, retailer_id, status')
         .eq('user_id', user.data.user.id);
 
       if (visitsError) throw visitsError;
@@ -107,14 +115,6 @@ const BeatAllowanceManagement = () => {
 
       if (retailersError) throw retailersError;
 
-      // Create maps for easier data lookup
-      const allowanceMap = new Map();
-      allowanceData?.forEach((allowance: any) => {
-        const date = allowance.created_at.split('T')[0];
-        const key = `${allowance.beat_id}-${date}`;
-        allowanceMap.set(key, allowance);
-      });
-
       const expensesMap = new Map();
       expensesData?.forEach((expense: any) => {
         const key = `${expense.expense_date}`;
@@ -126,6 +126,16 @@ const BeatAllowanceManagement = () => {
       const retailerToBeatMap = new Map();
       retailersData?.forEach((retailer: any) => {
         retailerToBeatMap.set(retailer.id, { beat_id: retailer.beat_id, beat_name: retailer.beat_name });
+      });
+
+      // Count productive visits per date (visits with orders)
+      const productiveVisitsMap = new Map();
+      visitsData?.forEach((visit: any) => {
+        const hasOrder = ordersData?.some((order: any) => order.visit_id === visit.id);
+        if (hasOrder || visit.status === 'completed') {
+          const date = visit.planned_date;
+          productiveVisitsMap.set(date, (productiveVisitsMap.get(date) || 0) + 1);
+        }
       });
 
       const orderMap = new Map();
@@ -147,12 +157,12 @@ const BeatAllowanceManagement = () => {
       const rows: ExpenseRow[] = [];
       beatPlans?.forEach((plan: any) => {
         const key = `${plan.beat_id}-${plan.plan_date}`;
-        const allowance = allowanceMap.get(key);
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
         const orderValue = orderMap.get(key) || 0;
         
-        const ta = allowance?.travel_allowance || 0;
-        const da = allowance?.daily_allowance || 0;
+        // Get TA from beats table (My Beat / Travel Allowance field)
+        const ta = beatTAMap.get(plan.beat_id) || 0;
+        const productiveVisits = productiveVisitsMap.get(plan.plan_date) || 0;
         
         rows.push({
           id: plan.plan_date + '-' + plan.beat_id,
@@ -160,9 +170,10 @@ const BeatAllowanceManagement = () => {
           beat_name: plan.beat_name,
           beat_id: plan.beat_id,
           ta: ta,
-          da: da,
+          da: 0,
           additional_expenses: additionalExpenses,
-          order_value: orderValue
+          order_value: orderValue,
+          productive_visits: productiveVisits
         });
       });
 
@@ -290,8 +301,8 @@ const BeatAllowanceManagement = () => {
     setIsAdditionalExpensesOpen(true);
   };
 
-  const filteredExpenseRows = expenseRows.filter(row => {
-    const rowDate = new Date(row.date);
+  const filterByDate = (dateString: string) => {
+    const rowDate = new Date(dateString);
     let dateMatch = true;
 
     switch (filterType) {
@@ -331,7 +342,10 @@ const BeatAllowanceManagement = () => {
     }
     
     return dateMatch;
-  });
+  };
+
+  const filteredExpenseRows = expenseRows.filter(row => filterByDate(row.date));
+  const filteredAdditionalExpenses = additionalExpenseData.filter(item => filterByDate(item.date));
 
   if (loading) {
     return (
@@ -467,13 +481,15 @@ const BeatAllowanceManagement = () => {
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Date</TableHead>
                         <TableHead className="text-xs sm:text-sm whitespace-nowrap">Beat</TableHead>
                         <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">TA Amount</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Productive Visits</TableHead>
                         <TableHead className="text-right text-xs sm:text-sm whitespace-nowrap">Order Value</TableHead>
+                        <TableHead className="text-center text-xs sm:text-sm whitespace-nowrap">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredExpenseRows.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
+                          <TableCell colSpan={6} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
                             No expense records found for the selected criteria
                           </TableCell>
                         </TableRow>
@@ -489,7 +505,21 @@ const BeatAllowanceManagement = () => {
                                 ₹{row.ta.toLocaleString()}
                               </TableCell>
                               <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
+                                {row.productive_visits}
+                              </TableCell>
+                              <TableCell className="text-right text-xs sm:text-sm whitespace-nowrap">
                                 ₹{row.order_value.toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs h-7 px-2"
+                                  onClick={() => navigate(`/today-summary?date=${row.date}`)}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  More details
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -501,8 +531,12 @@ const BeatAllowanceManagement = () => {
                               ₹{filteredExpenseRows.reduce((sum, row) => sum + row.ta, 0).toLocaleString()}
                             </TableCell>
                             <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
+                              {filteredExpenseRows.reduce((sum, row) => sum + row.productive_visits, 0)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
                               ₹{filteredExpenseRows.reduce((sum, row) => sum + row.order_value, 0).toLocaleString()}
                             </TableCell>
+                            <TableCell></TableCell>
                           </TableRow>
                         </>
                       )}
@@ -576,15 +610,15 @@ const BeatAllowanceManagement = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {additionalExpenseData.length === 0 ? (
+                      {filteredAdditionalExpenses.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-4 text-muted-foreground text-xs sm:text-sm">
-                            No additional expenses found
+                            No additional expenses found for the selected criteria
                           </TableCell>
                         </TableRow>
                       ) : (
                         <>
-                          {additionalExpenseData.map((item, index) => (
+                          {filteredAdditionalExpenses.map((item, index) => (
                             <TableRow key={index}>
                               <TableCell className="text-xs sm:text-sm whitespace-nowrap">
                                 {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -607,7 +641,7 @@ const BeatAllowanceManagement = () => {
                             <TableCell></TableCell>
                             <TableCell></TableCell>
                             <TableCell className="text-right font-bold text-xs sm:text-sm whitespace-nowrap">
-                              ₹{additionalExpenseData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                              ₹{filteredAdditionalExpenses.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
                             </TableCell>
                             <TableCell></TableCell>
                           </TableRow>
