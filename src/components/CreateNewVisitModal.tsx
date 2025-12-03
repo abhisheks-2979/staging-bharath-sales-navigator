@@ -64,6 +64,15 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
     if (!user) return;
 
     try {
+      // Get all beats created by this user
+      const { data: beatsData, error: beatsError } = await supabase
+        .from('beats')
+        .select('id, beat_id, beat_name, category')
+        .eq('created_by', user.id)
+        .eq('is_active', true);
+
+      if (beatsError) throw beatsError;
+
       // Get all retailers grouped by beat
       const { data: retailers, error } = await supabase
         .from('retailers')
@@ -72,6 +81,12 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
         .eq('status', 'active');
 
       if (error) throw error;
+
+      // Create a map of beat_id to beat_name
+      const beatNameMap = new Map<string, string>();
+      (beatsData || []).forEach(beat => {
+        beatNameMap.set(beat.beat_id, beat.beat_name);
+      });
 
       // Group retailers by beat and create beat objects
       const beatMap = new Map<string, { retailerCount: number; category: string; priority: string }>();
@@ -90,7 +105,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
 
       const beats: Beat[] = Array.from(beatMap.entries()).map(([beatId, data]) => ({
         id: beatId,
-        name: beatId,
+        name: beatNameMap.get(beatId) || beatId, // Use beat_name from beats table, fallback to beatId
         retailerCount: data.retailerCount,
         category: data.category,
         priority: data.priority
@@ -172,6 +187,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
 
       // Get beat details
       const selectedBeatData = availableBeats.find(b => b.id === selectedBeat);
+      const beatDisplayName = selectedBeatData?.name || selectedBeat;
       
       // Create beat plan
       const { error } = await supabase
@@ -179,12 +195,12 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
         .insert({
           user_id: user.id,
           beat_id: selectedBeat,
-          beat_name: selectedBeat,
+          beat_name: beatDisplayName,
           plan_date: formattedDate,
           joint_sales_manager_id: isJointSales ? jointSalesMember : null,
           beat_data: {
             id: selectedBeat,
-            name: selectedBeat,
+            name: beatDisplayName,
             retailerCount: selectedBeatData?.retailerCount || 0,
             category: selectedBeatData?.category || '',
             priority: selectedBeatData?.priority || ''
@@ -195,7 +211,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
 
       toast({
         title: "Visit Created",
-        description: `Successfully planned ${selectedBeat} for ${format(selectedDate, 'PPP')}`,
+        description: `Successfully planned ${beatDisplayName} for ${format(selectedDate, 'PPP')}`,
       });
 
       onVisitCreated?.();
@@ -320,7 +336,7 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
               <div className="space-y-1 text-sm">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  <span>Beat: {selectedBeat}</span>
+                  <span>Beat: {availableBeats.find(b => b.id === selectedBeat)?.name || selectedBeat}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
