@@ -132,6 +132,22 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
     }
   };
 
+  // Get current page context for the AI
+  const getPageContext = useCallback(() => {
+    const path = window.location.pathname;
+    const pageMap: Record<string, string> = {
+      '/': 'Home Dashboard',
+      '/visits': 'My Visits',
+      '/retailers': 'My Retailers',
+      '/beats': 'Beat Planning',
+      '/analytics': 'Analytics',
+      '/order-entry': 'Order Entry',
+      '/attendance': 'Attendance',
+      '/schemes': 'Schemes',
+    };
+    return pageMap[path] || path;
+  }, []);
+
   const sendMessageWithRetry = useCallback(async (
     userInput: string,
     recentMessages: Message[],
@@ -154,7 +170,8 @@ export const ChatDialog = ({ onClose }: ChatDialogProps) => {
               role: m.role,
               content: m.content
             })),
-            conversationId
+            conversationId,
+            pageContext: getPageContext() // Send current page for context
           }),
         },
         TIMEOUT_MS
