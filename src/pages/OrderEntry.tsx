@@ -226,6 +226,68 @@ export const OrderEntry = () => {
   const [retailerLng, setRetailerLng] = useState<number | undefined>(undefined);
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   const [hasTrackedVisit, setHasTrackedVisit] = useState(false);
+  const [isSettingLocation, setIsSettingLocation] = useState(false);
+
+  // Function to set retailer location from current GPS
+  const setRetailerLocation = async () => {
+    if (!validRetailerId) {
+      toast({
+        title: "Error",
+        description: "No retailer selected",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSettingLocation(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        });
+      });
+
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      // Update retailer in database
+      const { error } = await supabase
+        .from('retailers')
+        .update({
+          latitude: lat,
+          longitude: lng,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', validRetailerId);
+
+      if (error) throw error;
+
+      // Update local state
+      setRetailerLat(lat);
+      setRetailerLng(lng);
+
+      toast({
+        title: "Location Set",
+        description: "Retailer GPS location saved successfully",
+      });
+
+      // Restart tracking with new coordinates
+      if (hasTrackedVisit) {
+        await startTracking('order', isPhoneOrder);
+      }
+    } catch (error: any) {
+      console.error('Error setting retailer location:', error);
+      toast({
+        title: "Location Error",
+        description: error.message || "Failed to capture GPS location",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSettingLocation(false);
+    }
+  };
   
   // Initialize visit tracking hook
   const {
@@ -1469,36 +1531,53 @@ export const OrderEntry = () => {
                 </div>
                 
                 {/* Location Status Badge */}
-                {validRetailerId && currentLog && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    {locationStatus === 'at_store' && (
+                {validRetailerId && (
+                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                    {currentLog && locationStatus === 'at_store' && (
                       <Badge variant="default" className="bg-success text-success-foreground h-4 px-1 text-[8px]">
                         <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
                         At Store
                       </Badge>
                     )}
-                    {locationStatus === 'within_range' && (
+                    {currentLog && locationStatus === 'within_range' && (
                       <Badge variant="default" className="bg-warning text-warning-foreground h-4 px-1 text-[8px]">
                         <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
                         &lt;50m from Store
                       </Badge>
                     )}
-                    {locationStatus === 'not_at_store' && (
+                    {currentLog && locationStatus === 'not_at_store' && (
                       <Badge variant="destructive" className="h-4 px-1 text-[8px]">
                         <MapPin className="h-2.5 w-2.5 mr-0.5" />
                         Not at Store
                       </Badge>
                     )}
-                    <span className="text-[9px] text-primary-foreground/60">•</span>
-                    <span className="text-[9px] font-medium text-primary-foreground/80">{formattedTimeSpent}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowVisitDetailsModal(true)}
-                      className="h-4 px-1 text-[8px] text-primary-foreground/70 hover:text-primary-foreground"
-                    >
-                      Details
-                    </Button>
+                    {/* Show Set Location when retailer has no GPS or location unavailable */}
+                    {(!retailerLat || !retailerLng || (currentLog && locationStatus === 'location_unavailable')) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={setRetailerLocation}
+                        disabled={isSettingLocation}
+                        className="h-4 px-1 text-[8px] bg-muted/50 text-primary-foreground hover:bg-muted"
+                      >
+                        <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                        {isSettingLocation ? 'Setting...' : 'Set Location'}
+                      </Button>
+                    )}
+                    {currentLog && (
+                      <>
+                        <span className="text-[9px] text-primary-foreground/60">•</span>
+                        <span className="text-[9px] font-medium text-primary-foreground/80">{formattedTimeSpent}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowVisitDetailsModal(true)}
+                          className="h-4 px-1 text-[8px] text-primary-foreground/70 hover:text-primary-foreground"
+                        >
+                          Details
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -1553,14 +1632,16 @@ export const OrderEntry = () => {
             <div className="space-y-1.5">
               {/* First Row: Grid, Table, AI Stock */}
               <div className="flex gap-1.5">
-                <Button 
+              <Button 
                   variant={orderMode === "grid" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("grid");
-                    recordActivity(); // Track activity for checkout timing
+                    // FIXED: Start tracking FIRST, then record subsequent activity
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
+                    } else {
+                      recordActivity(); // Only record activity if already tracking
                     }
                   }} 
                   className="flex-1 h-7 text-xs" 
@@ -1573,10 +1654,12 @@ export const OrderEntry = () => {
                   variant={orderMode === "table" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("table");
-                    recordActivity(); // Track activity for checkout timing
+                    // FIXED: Start tracking FIRST, then record subsequent activity
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
+                    } else {
+                      recordActivity();
                     }
                   }} 
                   className="flex-1 h-7 text-xs" 
@@ -1589,10 +1672,12 @@ export const OrderEntry = () => {
                   variant="outline" 
                   onClick={async () => {
                     setShowImageCapture(true);
-                    recordActivity(); // Track activity for checkout timing
+                    // FIXED: Start tracking FIRST, then record subsequent activity
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
+                    } else {
+                      recordActivity();
                     }
                   }} 
                   className="flex-1 h-7 text-xs" 
@@ -1610,10 +1695,11 @@ export const OrderEntry = () => {
                   variant={orderMode === "return-stock" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("return-stock");
-                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
+                    } else {
+                      recordActivity();
                     }
                   }} 
                   className="flex-1 h-7 text-xs" 
@@ -1626,10 +1712,11 @@ export const OrderEntry = () => {
                   variant={orderMode === "no-order" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("no-order");
-                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
+                    } else {
+                      recordActivity();
                     }
                   }} 
                   className="flex-1 h-7 text-xs" 
@@ -1642,10 +1729,11 @@ export const OrderEntry = () => {
                   variant={orderMode === "competition" ? "default" : "outline"} 
                   onClick={async () => {
                     setOrderMode("competition");
-                    recordActivity(); // Track activity for checkout timing
                     if (!hasTrackedVisit && userId) {
                       await startTracking('order', isPhoneOrder);
                       setHasTrackedVisit(true);
+                    } else {
+                      recordActivity();
                     }
                   }} 
                   className={`flex-1 h-7 text-xs ${hasCompetitionData ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
