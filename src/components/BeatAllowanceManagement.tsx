@@ -7,13 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, CalendarIcon, ExternalLink, Download, Car, Utensils, Receipt } from 'lucide-react';
+import { Plus, CalendarIcon, ExternalLink, Download, Car, Utensils, Receipt, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, subWeeks, subMonths, subQuarters, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import AdditionalExpenses from '@/components/AdditionalExpenses';
+import ProductivityTracking from '@/components/ProductivityTracking';
 import * as XLSX from 'xlsx';
 
 interface ExpenseRow {
@@ -56,6 +57,7 @@ const BeatAllowanceManagement = () => {
   const [filterType, setFilterType] = useState<FilterType>('current_week');
   const [loading, setLoading] = useState(true);
   const [isAdditionalExpensesOpen, setIsAdditionalExpensesOpen] = useState(false);
+  const [isProductivityReportOpen, setIsProductivityReportOpen] = useState(false);
   const [daRecords, setDARecords] = useState<DARecord[]>([]);
   const [additionalExpenseData, setAdditionalExpenseData] = useState<AdditionalExpenseData[]>([]);
   const [activeTab, setActiveTab] = useState<'expenses' | 'da' | 'additional'>('expenses');
@@ -175,7 +177,7 @@ const BeatAllowanceManagement = () => {
       // Fetch visits to link orders to beats and count productive visits
       const { data: visitsData, error: visitsError } = await supabase
         .from('visits')
-        .select('id, planned_date, retailer_id, status, order_value')
+        .select('id, planned_date, retailer_id, status')
         .eq('user_id', user.data.user.id);
 
       if (visitsError) throw visitsError;
@@ -205,13 +207,23 @@ const BeatAllowanceManagement = () => {
       const productiveVisitsMap = new Map();
       const orderValueByDateMap = new Map();
       
+      // Map visits by id for lookup
+      const visitsById = new Map();
       visitsData?.forEach((visit: any) => {
+        visitsById.set(visit.id, visit);
         if (visit.status === 'completed') {
           const date = visit.planned_date;
           productiveVisitsMap.set(date, (productiveVisitsMap.get(date) || 0) + 1);
-          // Sum order_value from visits table directly
-          const visitOrderValue = parseFloat(visit.order_value || 0);
-          orderValueByDateMap.set(date, (orderValueByDateMap.get(date) || 0) + visitOrderValue);
+        }
+      });
+      
+      // Calculate order values from orders table by date
+      ordersData?.forEach((order: any) => {
+        const visit = visitsById.get(order.visit_id);
+        if (visit) {
+          const date = visit.planned_date;
+          const orderAmount = parseFloat(order.total_amount || 0);
+          orderValueByDateMap.set(date, (orderValueByDateMap.get(date) || 0) + orderAmount);
         }
       });
 
@@ -572,10 +584,16 @@ const BeatAllowanceManagement = () => {
               )}
             </div>
             
-            <Button onClick={downloadXLS} variant="outline" size="sm" className="flex items-center gap-1">
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Download</span> XLS
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setIsProductivityReportOpen(true)} variant="outline" size="sm" className="flex items-center gap-1">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Productive</span> Report
+              </Button>
+              <Button onClick={downloadXLS} variant="outline" size="sm" className="flex items-center gap-1">
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download</span> XLS
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -855,6 +873,16 @@ const BeatAllowanceManagement = () => {
               setIsAdditionalExpensesOpen(false);
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Productivity Report Dialog */}
+      <Dialog open={isProductivityReportOpen} onOpenChange={setIsProductivityReportOpen}>
+        <DialogContent className="sm:max-w-[95vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Productivity Report</DialogTitle>
+          </DialogHeader>
+          <ProductivityTracking />
         </DialogContent>
       </Dialog>
     </div>
