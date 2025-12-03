@@ -23,6 +23,7 @@ interface CheckInOutData {
   user_id: string;
   user_name: string;
   retailer_name: string;
+  retailer_id: string;
   check_in_time: string | null;
   check_out_time: string | null;
   check_in_location: any;
@@ -40,6 +41,14 @@ interface CheckInOutData {
   face_verification_status?: string | null;
   attendance_photo_url?: string | null;
   profile_picture_url?: string | null;
+  // New fields
+  time_spent_seconds?: number | null;
+  location_status?: string | null;
+  return_data?: {
+    product_name: string;
+    quantity: number;
+    reason?: string;
+  }[];
 }
 
 interface OrderData {
@@ -310,9 +319,67 @@ const Operations = () => {
           }
         }
         
+        // Fetch visit log data for time spent and location status
+        let timeSpentSeconds: number | null = null;
+        let locationStatus: string | null = null;
+        
+        try {
+          const { data: visitLogData } = await supabase
+            .from('retailer_visit_logs')
+            .select('time_spent_seconds, location_status')
+            .eq('visit_id', visit.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (visitLogData) {
+            timeSpentSeconds = visitLogData.time_spent_seconds;
+            locationStatus = visitLogData.location_status;
+          }
+        } catch (err) {
+          console.warn('Error fetching visit log data:', err);
+        }
+
+        // Calculate time spent from check-in/check-out if not from visit log
+        if (!timeSpentSeconds && visit.check_in_time && visit.check_out_time) {
+          const checkIn = new Date(visit.check_in_time).getTime();
+          const checkOut = new Date(visit.check_out_time).getTime();
+          timeSpentSeconds = Math.round((checkOut - checkIn) / 1000);
+        }
+
+        // Return stock data - we'll display from orders with return items if available
+        let returnData: { product_name: string; quantity: number; reason?: string }[] = [];
+        try {
+          // Check for return items in orders associated with this visit
+          const { data: orderData } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('visit_id', visit.id)
+            .maybeSingle();
+          
+          if (orderData) {
+            const { data: returnItems } = await supabase
+              .from('order_items')
+              .select('product_name, quantity')
+              .eq('order_id', orderData.id)
+              .lt('quantity', 0); // Negative quantities indicate returns
+            
+            if (returnItems && returnItems.length > 0) {
+              returnData = returnItems.map(item => ({
+                product_name: item.product_name,
+                quantity: Math.abs(item.quantity),
+                reason: 'Return'
+              }));
+            }
+          }
+        } catch (err) {
+          console.warn('Error fetching return data:', err);
+        }
+
         return {
           id: visit.id,
           user_id: visit.user_id,
+          retailer_id: visit.retailer_id,
           user_name: user?.full_name || user?.username || 'Unknown',
           retailer_name: retailer?.name || 'Unknown',
           check_in_time: visit.check_in_time,
@@ -331,7 +398,10 @@ const Operations = () => {
           face_match_confidence: faceMatchConfidence,
           face_verification_status: faceVerificationStatus,
           attendance_photo_url: attendancePhotoUrl,
-          profile_picture_url: profilePictureUrl
+          profile_picture_url: profilePictureUrl,
+          time_spent_seconds: timeSpentSeconds,
+          location_status: locationStatus,
+          return_data: returnData
         };
       }) || []);
 
@@ -860,17 +930,17 @@ const Operations = () => {
 
               {/* Check-in/Check-out Tab */}
               <TabsContent value="checkins">
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>User Name</TableHead>
                         <TableHead>Retailer Name</TableHead>
                         <TableHead>Type</TableHead>
-                        <TableHead>Check-in Time</TableHead>
-                        <TableHead>Check-out Time</TableHead>
+                        <TableHead>Total Time Spent</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Face Match</TableHead>
+                        <TableHead>Location Match</TableHead>
+                        <TableHead>Return</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -888,282 +958,313 @@ const Operations = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredCheckInData.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.user_name}</TableCell>
-                            <TableCell>{item.retailer_name}</TableCell>
-                            <TableCell>
-                              {item.skip_check_in_time ? (
-                                <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
-                                  {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 'Other Reason'}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                  Normal Visit
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {item.check_in_time ? (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                    {format(new Date(item.check_in_time), 'MMM dd, HH:mm')}
-                                  </Badge>
-                                </div>
-                              ) : item.skip_check_in_time ? (
-                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                  {format(new Date(item.skip_check_in_time), 'MMM dd, HH:mm')}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {item.check_out_time ? (
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                  {format(new Date(item.check_out_time), 'MMM dd, HH:mm')}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                                  In Progress
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {item.status === 'unproductive' && item.no_order_reason ? (
-                                <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200">
-                                  Unproductive
-                                </Badge>
-                              ) : item.status === 'productive' ? (
-                                <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
-                                  Productive
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">
-                                  {item.status || 'Pending'}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {item.face_match_confidence !== null && item.face_match_confidence !== undefined ? (
-                                <Badge 
-                                  variant={
-                                    item.face_match_confidence >= 70 ? 'default' : 
-                                    item.face_match_confidence >= 40 ? 'secondary' : 
-                                    'destructive'
-                                  }
-                                  className={cn(
-                                    item.face_match_confidence >= 70 && "bg-green-500 hover:bg-green-600",
-                                    item.face_match_confidence >= 40 && item.face_match_confidence < 70 && "bg-amber-500 hover:bg-amber-600"
-                                  )}
-                                >
-                                  {item.face_match_confidence >= 70 ? '✅' : 
-                                   item.face_match_confidence >= 40 ? '⚠️' : '❌'}
-                                  {' '}
-                                  {Math.round(item.face_match_confidence)}%
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <Eye size={16} />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Visit Details</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div>
-                                        <label className="text-sm font-medium">User</label>
-                                        <p className="text-sm text-muted-foreground">{item.user_name}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Retailer</label>
-                                        <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Visit Type</label>
-                                        <p className="text-sm text-muted-foreground">
-                                          {item.skip_check_in_time ? (
-                                            <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
-                                              {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 'Other Reason'}
-                                            </Badge>
-                                          ) : (
-                                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                              Normal Visit
-                                            </Badge>
-                                          )}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Status</label>
-                                        <p className="text-sm text-muted-foreground">
-                                          {item.status === 'unproductive' && item.no_order_reason ? (
-                                            <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200">
-                                              Unproductive
-                                            </Badge>
-                                          ) : item.status === 'productive' ? (
-                                            <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
-                                              Productive
-                                            </Badge>
-                                          ) : (
-                                            <Badge variant="secondary">{item.status || 'Pending'}</Badge>
-                                          )}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Check-in Time</label>
-                                        <p className="text-sm text-muted-foreground">
-                                          {item.check_in_time ? format(new Date(item.check_in_time), 'PPpp') : 
-                                           item.skip_check_in_time ? format(new Date(item.skip_check_in_time), 'PPpp') : '-'}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Check-out Time</label>
-                                        <p className="text-sm text-muted-foreground">
-                                          {item.check_out_time ? format(new Date(item.check_out_time), 'PPpp') : 'Still in progress'}
-                                        </p>
-                                      </div>
-                                      {item.check_in_address && (
-                                        <div>
-                                          <label className="text-sm font-medium">Check-in Address</label>
-                                          <p className="text-sm text-muted-foreground">{item.check_in_address}</p>
-                                        </div>
-                                      )}
-                                      {item.check_out_address && (
-                                        <div>
-                                          <label className="text-sm font-medium">Check-out Address</label>
-                                          <p className="text-sm text-muted-foreground">{item.check_out_address}</p>
-                                        </div>
-                                      )}
-                                      {item.skip_check_in_reason && (
-                                        <div className="col-span-2">
-                                          <label className="text-sm font-medium">Skip Check-in Reason</label>
-                                          <p className="text-sm text-muted-foreground">
-                                            {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 
-                                             item.skip_check_in_reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                                          </p>
-                                        </div>
-                                      )}
-                                       {item.no_order_reason && (
-                                        <div className="col-span-2">
-                                          <label className="text-sm font-medium">No Order Reason</label>
-                                          <p className="text-sm text-muted-foreground">
-                                            {item.no_order_reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                                          </p>
-                                        </div>
-                                      )}
-                                     </div>
-                                     
-                                     {/* Face Verification Section */}
-                                     {item.face_match_confidence !== null && item.face_match_confidence !== undefined && (
-                                       <div className="space-y-3 pt-4 border-t">
-                                         <label className="text-sm font-medium">Face Verification</label>
-                                         <div className={`p-4 rounded-lg ${
-                                           item.face_match_confidence >= 70 ? 'bg-green-50 border-green-200' :
-                                           item.face_match_confidence >= 40 ? 'bg-amber-50 border-amber-200' :
-                                           'bg-red-50 border-red-200'
-                                         } border`}>
-                                           <div className="flex items-center justify-between mb-3">
-                                             <div className="flex items-center gap-3">
-                                               <span className="text-2xl">
-                                                 {item.face_match_confidence >= 70 ? '✅' : 
-                                                  item.face_match_confidence >= 40 ? '⚠️' : '❌'}
-                                               </span>
-                                               <div>
-                                                 <p className="font-medium">
-                                                   {item.face_match_confidence >= 70 ? 'Match Verified' :
-                                                    item.face_match_confidence >= 40 ? 'Partial Match' :
-                                                    'Match Failed'}
-                                                 </p>
-                                                 <p className="text-sm text-muted-foreground">
-                                                   Confidence: {item.face_match_confidence.toFixed(1)}%
-                                                 </p>
-                                               </div>
-                                             </div>
-                                             <Badge 
-                                               variant={
-                                                 item.face_match_confidence >= 70 ? 'default' : 
-                                                 item.face_match_confidence >= 40 ? 'secondary' : 
-                                                 'destructive'
-                                               }
-                                               className={`${
-                                                 item.face_match_confidence >= 70 ? 'bg-green-500' :
-                                                 item.face_match_confidence >= 40 ? 'bg-amber-500' : ''
-                                               }`}
-                                             >
-                                               {Math.round(item.face_match_confidence)}%
-                                             </Badge>
-                                           </div>
-                                           
-                                           {/* Display both photos for comparison */}
-                                           {(item.profile_picture_url || item.attendance_photo_url) && (
-                                             <div className="grid grid-cols-2 gap-4 mt-3">
-                                               {item.profile_picture_url && (
-                                                 <div className="space-y-2">
-                                                   <p className="text-xs text-muted-foreground">Profile Photo</p>
-                                                   <img 
-                                                     src={item.profile_picture_url} 
-                                                     alt="Profile" 
-                                                     className="w-full h-32 object-cover rounded-lg border"
-                                                   />
-                                                 </div>
-                                               )}
-                                               {item.attendance_photo_url && (
-                                                 <div className="space-y-2">
-                                                   <p className="text-xs text-muted-foreground">Check-in Photo</p>
-                                                   <img 
-                                                     src={item.attendance_photo_url} 
-                                                     alt="Attendance" 
-                                                     className="w-full h-32 object-cover rounded-lg border"
-                                                   />
-                                                 </div>
-                                               )}
-                                             </div>
-                                           )}
-                                         </div>
-                                       </div>
-                                     )}
+                        filteredCheckInData.map((item) => {
+                          // Format time spent
+                          const formatTimeSpent = (seconds: number | null | undefined) => {
+                            if (!seconds) return '-';
+                            const hours = Math.floor(seconds / 3600);
+                            const minutes = Math.floor((seconds % 3600) / 60);
+                            if (hours > 0) {
+                              return `${hours}h ${minutes}m`;
+                            }
+                            return `${minutes}m`;
+                          };
 
-                                     {(item.check_in_photo_url || item.check_out_photo_url) && (
-                                       <div className="space-y-3 pt-4 border-t">
-                                         <label className="text-sm font-medium">Visit Photos</label>
-                                         <div className="grid grid-cols-2 gap-4">
-                                           {item.check_in_photo_url && (
-                                             <div className="space-y-2">
-                                               <p className="text-xs text-muted-foreground">Check-in Photo</p>
-                                               <img 
-                                                 src={item.check_in_photo_url} 
-                                                 alt="Check-in" 
-                                                 className="w-full h-48 object-cover rounded-lg border"
-                                               />
-                                             </div>
-                                           )}
-                                           {item.check_out_photo_url && (
-                                             <div className="space-y-2">
-                                               <p className="text-xs text-muted-foreground">Check-out Photo</p>
-                                               <img 
-                                                 src={item.check_out_photo_url}
-                                                alt="Check-out" 
-                                                className="w-full h-48 object-cover rounded-lg border"
-                                              />
+                          // Get location match display
+                          const getLocationMatchDisplay = (status: string | null | undefined) => {
+                            if (!status) return { text: 'N/A', color: 'bg-gray-50 text-gray-700 border-gray-200' };
+                            switch (status) {
+                              case 'at_store':
+                                return { text: 'At Store', color: 'bg-green-50 text-green-700 border-green-200' };
+                              case 'within_range':
+                                return { text: '<50m', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
+                              case 'out_of_range':
+                                return { text: 'Not at Store', color: 'bg-red-50 text-red-700 border-red-200' };
+                              default:
+                                return { text: status, color: 'bg-gray-50 text-gray-700 border-gray-200' };
+                            }
+                          };
+
+                          const locationDisplay = getLocationMatchDisplay(item.location_status);
+
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.user_name}</TableCell>
+                              <TableCell>{item.retailer_name}</TableCell>
+                              <TableCell>
+                                {item.skip_check_in_time ? (
+                                  <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
+                                    {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 'Other'}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    Normal
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Clock size={14} className="text-muted-foreground" />
+                                  <span className="font-medium">{formatTimeSpent(item.time_spent_seconds)}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {item.status === 'unproductive' ? (
+                                  <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200">
+                                    Unproductive
+                                  </Badge>
+                                ) : item.status === 'productive' ? (
+                                  <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
+                                    Productive
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary">
+                                    {item.status || 'Pending'}
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={locationDisplay.color}>
+                                  <MapPin size={12} className="mr-1" />
+                                  {locationDisplay.text}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {item.return_data && item.return_data.length > 0 ? (
+                                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                    {item.return_data.length} item(s)
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <Eye size={16} />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                    <DialogHeader>
+                                      <DialogTitle>Visit Details</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <label className="text-sm font-medium">User</label>
+                                          <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                                        </div>
+                                        <div>
+                                          <label className="text-sm font-medium">Retailer</label>
+                                          <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
+                                        </div>
+                                        <div>
+                                          <label className="text-sm font-medium">Visit Type</label>
+                                          <p className="text-sm">
+                                            {item.skip_check_in_time ? (
+                                              <Badge variant="secondary" className="bg-purple-50 text-purple-700 border-purple-200">
+                                                {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 'Other Reason'}
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                Normal Visit
+                                              </Badge>
+                                            )}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <label className="text-sm font-medium">Status</label>
+                                          <p className="text-sm">
+                                            {item.status === 'unproductive' ? (
+                                              <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-200">
+                                                Unproductive
+                                              </Badge>
+                                            ) : item.status === 'productive' ? (
+                                              <Badge variant="default" className="bg-green-50 text-green-700 border-green-200">
+                                                Productive
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant="secondary">{item.status || 'Pending'}</Badge>
+                                            )}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Time Details Section */}
+                                      <div className="p-4 rounded-lg bg-muted/50 border">
+                                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                          <Clock size={16} />
+                                          Time Details
+                                        </h4>
+                                        <div className="grid grid-cols-3 gap-4">
+                                          <div>
+                                            <label className="text-xs text-muted-foreground">Check-in Time</label>
+                                            <p className="text-sm font-medium">
+                                              {item.check_in_time ? format(new Date(item.check_in_time), 'MMM dd, HH:mm') : 
+                                               item.skip_check_in_time ? format(new Date(item.skip_check_in_time), 'MMM dd, HH:mm') : '-'}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <label className="text-xs text-muted-foreground">Check-out Time</label>
+                                            <p className="text-sm font-medium">
+                                              {item.check_out_time ? format(new Date(item.check_out_time), 'MMM dd, HH:mm') : 'In Progress'}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <label className="text-xs text-muted-foreground">Total Time Spent</label>
+                                            <p className="text-sm font-medium text-primary">
+                                              {formatTimeSpent(item.time_spent_seconds)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Location Details Section */}
+                                      <div className="p-4 rounded-lg bg-muted/50 border">
+                                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                          <MapPin size={16} />
+                                          Location Details
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div>
+                                            <label className="text-xs text-muted-foreground">Location Match</label>
+                                            <p className="text-sm">
+                                              <Badge variant="outline" className={locationDisplay.color}>
+                                                {locationDisplay.text}
+                                              </Badge>
+                                            </p>
+                                          </div>
+                                          {item.check_in_address && (
+                                            <div>
+                                              <label className="text-xs text-muted-foreground">Check-in Address</label>
+                                              <p className="text-sm text-muted-foreground">{item.check_in_address}</p>
+                                            </div>
+                                          )}
+                                          {item.check_out_address && (
+                                            <div>
+                                              <label className="text-xs text-muted-foreground">Check-out Address</label>
+                                              <p className="text-sm text-muted-foreground">{item.check_out_address}</p>
                                             </div>
                                           )}
                                         </div>
                                       </div>
-                                    )}
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            </TableCell>
-                          </TableRow>
-                        ))
+
+                                      {/* Return Data Section */}
+                                      {item.return_data && item.return_data.length > 0 && (
+                                        <div className="p-4 rounded-lg bg-orange-50 border border-orange-200">
+                                          <h4 className="text-sm font-medium mb-3 flex items-center gap-2 text-orange-700">
+                                            <Package size={16} />
+                                            Return Stock
+                                          </h4>
+                                          <div className="space-y-2">
+                                            {item.return_data.map((returnItem, idx) => (
+                                              <div key={idx} className="flex justify-between items-center text-sm">
+                                                <span>{returnItem.product_name}</span>
+                                                <span className="font-medium">{returnItem.quantity} units</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Reasons Section */}
+                                      {(item.skip_check_in_reason || item.no_order_reason) && (
+                                        <div className="p-4 rounded-lg bg-muted/50 border">
+                                          <h4 className="text-sm font-medium mb-3">Reasons</h4>
+                                          {item.skip_check_in_reason && (
+                                            <div className="mb-2">
+                                              <label className="text-xs text-muted-foreground">Skip Check-in Reason</label>
+                                              <p className="text-sm">
+                                                {item.skip_check_in_reason === 'phone-order' ? 'Phone Order' : 
+                                                 item.skip_check_in_reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                              </p>
+                                            </div>
+                                          )}
+                                          {item.no_order_reason && (
+                                            <div>
+                                              <label className="text-xs text-muted-foreground">No Order Reason</label>
+                                              <p className="text-sm">
+                                                {item.no_order_reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Face Verification Section */}
+                                      {item.face_match_confidence !== null && item.face_match_confidence !== undefined && (
+                                        <div className={`p-4 rounded-lg border ${
+                                          item.face_match_confidence >= 70 ? 'bg-green-50 border-green-200' :
+                                          item.face_match_confidence >= 40 ? 'bg-amber-50 border-amber-200' :
+                                          'bg-red-50 border-red-200'
+                                        }`}>
+                                          <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                              <span className="text-2xl">
+                                                {item.face_match_confidence >= 70 ? '✅' : 
+                                                 item.face_match_confidence >= 40 ? '⚠️' : '❌'}
+                                              </span>
+                                              <div>
+                                                <p className="font-medium">Face Verification</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                  Confidence: {item.face_match_confidence.toFixed(1)}%
+                                                </p>
+                                              </div>
+                                            </div>
+                                            <Badge 
+                                              variant={item.face_match_confidence >= 70 ? 'default' : item.face_match_confidence >= 40 ? 'secondary' : 'destructive'}
+                                              className={item.face_match_confidence >= 70 ? 'bg-green-500' : item.face_match_confidence >= 40 ? 'bg-amber-500' : ''}
+                                            >
+                                              {Math.round(item.face_match_confidence)}%
+                                            </Badge>
+                                          </div>
+                                          {(item.profile_picture_url || item.attendance_photo_url) && (
+                                            <div className="grid grid-cols-2 gap-4 mt-3">
+                                              {item.profile_picture_url && (
+                                                <div className="space-y-2">
+                                                  <p className="text-xs text-muted-foreground">Profile Photo</p>
+                                                  <img src={item.profile_picture_url} alt="Profile" className="w-full h-32 object-cover rounded-lg border" />
+                                                </div>
+                                              )}
+                                              {item.attendance_photo_url && (
+                                                <div className="space-y-2">
+                                                  <p className="text-xs text-muted-foreground">Check-in Photo</p>
+                                                  <img src={item.attendance_photo_url} alt="Attendance" className="w-full h-32 object-cover rounded-lg border" />
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Visit Photos */}
+                                      {(item.check_in_photo_url || item.check_out_photo_url) && (
+                                        <div className="space-y-3 pt-4 border-t">
+                                          <label className="text-sm font-medium">Visit Photos</label>
+                                          <div className="grid grid-cols-2 gap-4">
+                                            {item.check_in_photo_url && (
+                                              <div className="space-y-2">
+                                                <p className="text-xs text-muted-foreground">Check-in Photo</p>
+                                                <img src={item.check_in_photo_url} alt="Check-in" className="w-full h-48 object-cover rounded-lg border" />
+                                              </div>
+                                            )}
+                                            {item.check_out_photo_url && (
+                                              <div className="space-y-2">
+                                                <p className="text-xs text-muted-foreground">Check-out Photo</p>
+                                                <img src={item.check_out_photo_url} alt="Check-out" className="w-full h-48 object-cover rounded-lg border" />
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
