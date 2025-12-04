@@ -4617,10 +4617,17 @@ export type Database = {
         Row: {
           comments: string | null
           created_at: string
+          feedback_date: string | null
           feedback_type: string
           id: string
+          product_packaging: number | null
+          product_placement: number | null
+          product_quality: number | null
+          product_sku_range: number | null
           rating: number | null
           retailer_id: string
+          score: number | null
+          summary_notes: string | null
           updated_at: string
           user_id: string
           visit_id: string | null
@@ -4628,10 +4635,17 @@ export type Database = {
         Insert: {
           comments?: string | null
           created_at?: string
+          feedback_date?: string | null
           feedback_type: string
           id?: string
+          product_packaging?: number | null
+          product_placement?: number | null
+          product_quality?: number | null
+          product_sku_range?: number | null
           rating?: number | null
           retailer_id: string
+          score?: number | null
+          summary_notes?: string | null
           updated_at?: string
           user_id: string
           visit_id?: string | null
@@ -4639,10 +4653,17 @@ export type Database = {
         Update: {
           comments?: string | null
           created_at?: string
+          feedback_date?: string | null
           feedback_type?: string
           id?: string
+          product_packaging?: number | null
+          product_placement?: number | null
+          product_quality?: number | null
+          product_sku_range?: number | null
           rating?: number | null
           retailer_id?: string
+          score?: number | null
+          summary_notes?: string | null
           updated_at?: string
           user_id?: string
           visit_id?: string | null
