@@ -71,7 +71,7 @@ export const TodaySummary = () => {
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
-  const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string }>>>({});
+  const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string; planDate?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
   
   // Joint Sales Data
@@ -306,13 +306,22 @@ export const TodaySummary = () => {
       const { data: beatPlans } = await beatPlansQuery;
       const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
 
-      // Get all retailer IDs from beat plans' beat_data
+      // Get all retailer IDs from beat plans' beat_data with their plan dates for accurate tracking
       const beatPlanRetailerIds: string[] = [];
+      const beatPlanRetailersByDate: Array<{ retailerId: string; planDate: string; beatName: string }> = [];
+      
       beatPlans?.forEach(bp => {
         const beatData = bp.beat_data as any;
         if (beatData?.retailers && Array.isArray(beatData.retailers)) {
           beatData.retailers.forEach((r: any) => {
-            if (r.id) beatPlanRetailerIds.push(r.id);
+            if (r.id) {
+              beatPlanRetailerIds.push(r.id);
+              beatPlanRetailersByDate.push({
+                retailerId: r.id,
+                planDate: bp.plan_date,
+                beatName: bp.beat_name
+              });
+            }
           });
         }
       });
@@ -431,18 +440,29 @@ export const TodaySummary = () => {
         retailerMap.set(retailer.id, retailer);
       });
 
-      // Process visits data
-      const visitedRetailerIds = new Set(visits?.map(v => v.retailer_id) || []);
+      // Process visits data - track by date for accurate planned count
+      // Create a map of visited retailer+date combos
+      const visitedByDateMap = new Set<string>();
+      visits?.forEach(v => {
+        if (v.retailer_id && v.planned_date) {
+          visitedByDateMap.add(`${v.retailer_id}_${v.planned_date}`);
+        }
+      });
+      
       const completedVisits = visits?.filter(v => v.check_out_time !== null) || [];
       const productiveVisits = visits?.filter(v => v.status === 'productive') || [];
       const pendingVisitsFromDb = visits?.filter(v => v.status === 'planned') || [];
       const closedVisits = visits?.filter(v => v.status === 'store_closed') || [];
       const unproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
       
-      // Find retailers from beat plans that don't have any visit record
-      const beatPlanRetailersWithoutVisits = beatPlanRetailerIds.filter(rid => !visitedRetailerIds.has(rid));
+      // Find retailers from beat plans that don't have a visit record for their specific planned date
+      const beatPlanRetailersWithoutVisits = beatPlanRetailersByDate.filter(bp => 
+        !visitedByDateMap.has(`${bp.retailerId}_${bp.planDate}`)
+      );
       
-      // Total pending = visits with planned status + beat plan retailers without visits
+      // Total planned = all beat plan retailer slots (even if visited, they were planned)
+      // Remaining planned (pending) = beat plan slots without visits + visits with 'planned' status
+      const totalPlannedSlots = beatPlanRetailersByDate.length;
       const totalPendingCount = pendingVisitsFromDb.length + beatPlanRetailersWithoutVisits.length;
       const totalPlanned = (visits?.length || 0) + beatPlanRetailersWithoutVisits.length;
 
@@ -760,7 +780,7 @@ export const TodaySummary = () => {
         }))
       ];
       
-      // Combine planned visits from DB and beat plan retailers without visits - include beat name and address
+      // Combine planned visits from DB and beat plan retailers without visits - include beat name, date and address
       const allPlannedRetailers = [
         ...pendingVisitsFromDb.map(v => {
           const retailer = retailerMap.get(v.retailer_id);
@@ -772,20 +792,17 @@ export const TodaySummary = () => {
           return { 
             retailer: retailer?.name || 'Unknown',
             beatName: beatForRetailer?.beat_name || 'N/A',
-            address: retailer?.address || 'Address not available'
+            address: retailer?.address || 'Address not available',
+            planDate: v.planned_date || 'N/A'
           };
         }),
-        ...beatPlanRetailersWithoutVisits.map(rid => {
-          const retailer = retailerMap.get(rid);
-          // Find which beat this retailer belongs to
-          const beatForRetailer = beatPlans?.find(bp => {
-            const beatData = bp.beat_data as any;
-            return beatData?.retailers?.some((r: any) => r.id === rid);
-          });
+        ...beatPlanRetailersWithoutVisits.map(bp => {
+          const retailer = retailerMap.get(bp.retailerId);
           return { 
             retailer: retailer?.name || 'Unknown',
-            beatName: beatForRetailer?.beat_name || 'N/A',
-            address: retailer?.address || 'Address not available'
+            beatName: bp.beatName || 'N/A',
+            address: retailer?.address || 'Address not available',
+            planDate: bp.planDate || 'N/A'
           };
         })
       ];
@@ -1892,6 +1909,7 @@ export const TodaySummary = () => {
                         <TableRow>
                           <TableHead>Store Name</TableHead>
                           <TableHead>Beat</TableHead>
+                          <TableHead>Date</TableHead>
                           <TableHead className="text-right">Address</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1900,7 +1918,10 @@ export const TodaySummary = () => {
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{v.retailer}</TableCell>
                             <TableCell className="text-muted-foreground">{v.beatName || 'N/A'}</TableCell>
-                            <TableCell className="text-right text-muted-foreground text-xs max-w-[150px] truncate">{v.address || 'N/A'}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {v.planDate ? format(new Date(v.planDate), 'dd MMM') : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground text-xs max-w-[120px] truncate">{v.address || 'N/A'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
