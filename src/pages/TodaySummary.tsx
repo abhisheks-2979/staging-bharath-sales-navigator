@@ -536,9 +536,10 @@ export const TodaySummary = () => {
       // Total planned = all unique retailers from beat plans for the date range
       const totalPlannedFromBeatPlans = beatPlanRetailersByDate.length;
       
-      // Pending = retailers from beat plans that haven't been visited (productive/unproductive) yet
-      // This is beat plan retailers without completed visits
-      const totalPendingCount = beatPlanRetailersWithoutVisits.length;
+      // Pending = Planned - Productive - Unproductive (correct calculation)
+      // This ensures: Planned = Productive + Unproductive + Pending
+      const totalCompletedVisits = productiveVisits.length + unproductiveVisits.length + closedVisits.length;
+      const totalPendingCount = Math.max(0, totalPlannedFromBeatPlans - totalCompletedVisits);
       const totalPlanned = totalPlannedFromBeatPlans;
 
       // Get attendance start/end times from attendance table
