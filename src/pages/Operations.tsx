@@ -94,12 +94,17 @@ const Operations = () => {
   const [checkInData, setCheckInData] = useState<CheckInOutData[]>([]);
   const [orderData, setOrderData] = useState<OrderData[]>([]);
   const [stockData, setStockData] = useState<StockData[]>([]);
+  const [competitorData, setCompetitorData] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   
   // Loading states
   const [loadingCheckins, setLoadingCheckins] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingStock, setLoadingStock] = useState(false);
+  const [loadingCompetitor, setLoadingCompetitor] = useState(false);
+  
+  // Date filter for competitor
+  const [competitorDateFilter, setCompetitorDateFilter] = useState('today');
   
   // Summary counters
   const [todayStats, setTodayStats] = useState({
@@ -605,6 +610,83 @@ const Operations = () => {
     }
   };
 
+  // Fetch competitor data
+  const fetchCompetitorData = async () => {
+    setLoadingCompetitor(true);
+    try {
+      const competitorToday = new Date();
+      const startOfToday = new Date(competitorToday.getFullYear(), competitorToday.getMonth(), competitorToday.getDate());
+      
+      let query = supabase
+        .from('competition_data')
+        .select(`
+          id,
+          user_id,
+          retailer_id,
+          competitor_id,
+          sku_id,
+          stock_quantity,
+          selling_price,
+          insight,
+          impact_level,
+          created_at,
+          competition_master(competitor_name),
+          competition_skus(sku_name),
+          retailers(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (userFilter !== 'all') {
+        query = query.eq('user_id', userFilter);
+      }
+
+      // Apply date filter
+      if (competitorDateFilter === 'today') {
+        query = query.gte('created_at', startOfToday.toISOString());
+      } else if (competitorDateFilter === 'week') {
+        const weekAgo = new Date(startOfToday);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('created_at', weekAgo.toISOString());
+      } else if (competitorDateFilter === 'month') {
+        const monthAgo = new Date(startOfToday);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('created_at', monthAgo.toISOString());
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Get user names
+      const userIds = [...new Set(data?.map(d => d.user_id).filter(Boolean) || [])];
+      let usersData: any[] = [];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+        usersData = profiles || [];
+      }
+
+      const formattedData = data?.map(item => {
+        const user = usersData.find(u => u.id === item.user_id);
+        return {
+          ...item,
+          user_name: user?.full_name || user?.username || 'Unknown',
+          retailer_name: (item.retailers as any)?.name || 'Unknown',
+          competitor_name: (item.competition_master as any)?.competitor_name || 'Unknown',
+          sku_name: (item.competition_skus as any)?.sku_name || '-'
+        };
+      }) || [];
+
+      setCompetitorData(formattedData);
+    } catch (error) {
+      console.error('Error fetching competitor data:', error);
+      toast.error('Failed to fetch competitor data');
+    } finally {
+      setLoadingCompetitor(false);
+    }
+  };
+
   // Filter data based on search term
   const filterData = (data: any[], searchFields: string[]) => {
     if (!searchTerm) return data;
@@ -644,8 +726,9 @@ const Operations = () => {
       await fetchCheckInData();
       await fetchOrderData();
       await fetchStockData();
+      await fetchCompetitorData();
     })();
-  }, [userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
+  }, [userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   // Auto refresh
   useEffect(() => {
@@ -655,10 +738,11 @@ const Operations = () => {
       if (activeTab === 'checkins') fetchCheckInData();
       if (activeTab === 'orders') fetchOrderData();
       if (activeTab === 'stock') fetchStockData();
+      if (activeTab === 'competitor') fetchCompetitorData();
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [activeTab, autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
+  }, [activeTab, autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   // Real-time subscriptions
   useEffect(() => {
@@ -708,6 +792,7 @@ const Operations = () => {
   const filteredCheckInData = filterData(checkInData, ['user_name', 'retailer_name']);
   const filteredOrderData = filterData(orderData, ['user_name', 'retailer_name']);
   const filteredStockData = filterData(stockData, ['user_name', 'retailer_name', 'product_name']);
+  const filteredCompetitorData = filterData(competitorData, ['user_name', 'retailer_name', 'competitor_name']);
 
   return (
     <div className="min-h-screen bg-gradient-subtle p-4">
@@ -766,11 +851,12 @@ const Operations = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="checkins">Check-in & Check-out</TabsTrigger>
-                <TabsTrigger value="orders">Order Data</TabsTrigger>
-                <TabsTrigger value="stock">Stock Data</TabsTrigger>
-                <TabsTrigger value="payments">Payment Proofs</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="checkins">Check-in/Out</TabsTrigger>
+                <TabsTrigger value="orders">Orders</TabsTrigger>
+                <TabsTrigger value="stock">Stock</TabsTrigger>
+                <TabsTrigger value="payments">Payments</TabsTrigger>
+                <TabsTrigger value="competitor">Competitor</TabsTrigger>
               </TabsList>
 
               {/* Filters */}
@@ -1475,6 +1561,72 @@ const Operations = () => {
               {/* Payment Proofs Tab */}
               <TabsContent value="payments">
                 <PaymentProofsView />
+              </TabsContent>
+
+              {/* Competitor Tab */}
+              <TabsContent value="competitor">
+                <div className="flex gap-4 mb-4">
+                  <Select value={competitorDateFilter} onValueChange={setCompetitorDateFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Date Range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>Competitor</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingCompetitor ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredCompetitorData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            No competitor data found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredCompetitorData.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.user_name}</TableCell>
+                            <TableCell>{item.retailer_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                                {item.competitor_name}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{item.sku_name}</TableCell>
+                            <TableCell>₹{item.selling_price?.toLocaleString() || '-'}</TableCell>
+                            <TableCell>{item.stock_quantity || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {format(new Date(item.created_at), 'MMM dd, HH:mm')}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>

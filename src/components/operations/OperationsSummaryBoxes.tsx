@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package, IndianRupee, BoxIcon, RotateCcw, XCircle, Users } from 'lucide-react';
+import { Package, IndianRupee, BoxIcon, RotateCcw, XCircle, CreditCard } from 'lucide-react';
 import { format, startOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns';
 
 interface SummaryStats {
@@ -15,7 +15,7 @@ interface SummaryStats {
   stockCount: number;
   returnCount: number;
   noOrderCount: number;
-  competitorCount: number;
+  totalCredit: number;
 }
 
 interface UserBreakdown {
@@ -25,7 +25,15 @@ interface UserBreakdown {
   count?: number;
 }
 
-type MetricType = 'kg' | 'value' | 'stock' | 'return' | 'noOrder' | 'competitor';
+interface CreditBreakdown {
+  retailerId: string;
+  retailerName: string;
+  pendingAmount: number;
+  ordersCount: number;
+  orders: Array<{ id: string; date: string; amount: number }>;
+}
+
+type MetricType = 'kg' | 'value' | 'stock' | 'return' | 'noOrder' | 'credit';
 
 interface OperationsSummaryBoxesProps {
   dateFilter: 'today' | 'week' | 'month';
@@ -42,11 +50,12 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
     stockCount: 0,
     returnCount: 0,
     noOrderCount: 0,
-    competitorCount: 0
+    totalCredit: 0
   });
   const [loading, setLoading] = useState(true);
   const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
   const [userBreakdown, setUserBreakdown] = useState<UserBreakdown[]>([]);
+  const [creditBreakdown, setCreditBreakdown] = useState<CreditBreakdown[]>([]);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
 
   const getDateRange = useCallback(() => {
@@ -133,14 +142,16 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
 
       if (noOrderError) console.warn('No order error:', noOrderError);
 
-      // Fetch competitor data
-      const { data: competitorData, error: competitorError } = await supabase
-        .from('competition_data')
-        .select('id')
-        .gte('created_at', from.toISOString())
-        .lte('created_at', to.toISOString());
+      // Fetch total credit (unpaid credit orders)
+      const { data: creditOrders, error: creditError } = await supabase
+        .from('orders')
+        .select('id, credit_pending_amount')
+        .eq('is_credit_order', true)
+        .gt('credit_pending_amount', 0);
 
-      if (competitorError) console.warn('Competitor error:', competitorError);
+      if (creditError) console.warn('Credit error:', creditError);
+
+      const totalCreditAmount = creditOrders?.reduce((sum, o) => sum + (o.credit_pending_amount || 0), 0) || 0;
 
       setStats({
         totalKg: Math.round(totalKg * 100) / 100,
@@ -148,7 +159,7 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
         stockCount: stockData?.length || 0,
         returnCount: returnCount || 0,
         noOrderCount: noOrderData?.length || 0,
-        competitorCount: competitorData?.length || 0
+        totalCredit: totalCreditAmount
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -275,34 +286,39 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
             value: count
           };
         });
-      } else if (metric === 'competitor') {
-        const { data, error } = await supabase
-          .from('competition_data')
-          .select('user_id')
-          .gte('created_at', from.toISOString())
-          .lte('created_at', to.toISOString());
+      } else if (metric === 'credit') {
+        // Fetch credit orders grouped by retailer
+        const { data: creditOrders, error } = await supabase
+          .from('orders')
+          .select('id, retailer_id, retailer_name, credit_pending_amount, created_at')
+          .eq('is_credit_order', true)
+          .gt('credit_pending_amount', 0);
 
         if (error) throw error;
 
-        const userCounts = new Map<string, number>();
-        data?.forEach(item => {
-          userCounts.set(item.user_id, (userCounts.get(item.user_id) || 0) + 1);
-        });
-
-        const userIds = Array.from(userCounts.keys());
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, username')
-          .in('id', userIds);
-
-        breakdown = Array.from(userCounts.entries()).map(([userId, count]) => {
-          const profile = profiles?.find(p => p.id === userId);
-          return {
-            userId,
-            userName: profile?.full_name || profile?.username || 'Unknown',
-            value: count
+        // Group by retailer
+        const retailerMap = new Map<string, CreditBreakdown>();
+        creditOrders?.forEach(order => {
+          const existing = retailerMap.get(order.retailer_id) || {
+            retailerId: order.retailer_id,
+            retailerName: order.retailer_name || 'Unknown',
+            pendingAmount: 0,
+            ordersCount: 0,
+            orders: []
           };
+          existing.pendingAmount += order.credit_pending_amount || 0;
+          existing.ordersCount += 1;
+          existing.orders.push({
+            id: order.id,
+            date: order.created_at,
+            amount: order.credit_pending_amount || 0
+          });
+          retailerMap.set(order.retailer_id, existing);
         });
+
+        const creditData = Array.from(retailerMap.values()).sort((a, b) => b.pendingAmount - a.pendingAmount);
+        setCreditBreakdown(creditData);
+        setUserBreakdown([]); // Clear user breakdown for credit
       }
 
       // Sort by value descending
@@ -331,6 +347,10 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
       .channel('operations-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         fetchStats();
+        // If credit dialog is open, refresh breakdown
+        if (selectedMetric === 'credit') {
+          fetchUserBreakdown('credit');
+        }
       })
       .subscribe();
 
@@ -348,20 +368,12 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
       })
       .subscribe();
 
-    const competitorChannel = supabase
-      .channel('operations-competitor')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'competition_data' }, () => {
-        fetchStats();
-      })
-      .subscribe();
-
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(stockChannel);
       supabase.removeChannel(visitsChannel);
-      supabase.removeChannel(competitorChannel);
     };
-  }, [fetchStats]);
+  }, [fetchStats, selectedMetric]);
 
   const getMetricLabel = (metric: MetricType) => {
     switch (metric) {
@@ -370,7 +382,7 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
       case 'stock': return 'Stock Entries';
       case 'return': return 'Returns';
       case 'noOrder': return 'No Order Visits';
-      case 'competitor': return 'Competitor Data';
+      case 'credit': return 'Total Credit';
     }
   };
 
@@ -381,7 +393,7 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
       case 'stock': return 'entries';
       case 'return': return 'returns';
       case 'noOrder': return 'visits';
-      case 'competitor': return 'entries';
+      case 'credit': return '₹';
     }
   };
 
@@ -437,11 +449,11 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
       borderColor: 'border-red-500/20'
     },
     {
-      id: 'competitor' as MetricType,
-      label: 'Competitor',
-      value: stats.competitorCount,
-      format: (v: number) => v.toLocaleString(),
-      icon: Users,
+      id: 'credit' as MetricType,
+      label: 'Total Credit',
+      value: stats.totalCredit,
+      format: (v: number) => `₹${v.toLocaleString()}`,
+      icon: CreditCard,
       bgColor: 'bg-orange-500/10',
       iconColor: 'text-orange-500',
       borderColor: 'border-orange-500/20'
@@ -500,8 +512,16 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              <span>{selectedMetric && getMetricLabel(selectedMetric)} - User Breakdown</span>
-              <Badge variant="outline">{dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'This Week' : 'This Month'}</Badge>
+              <span>
+                {selectedMetric && getMetricLabel(selectedMetric)} - 
+                {selectedMetric === 'credit' ? ' Retailer Breakdown' : ' User Breakdown'}
+              </span>
+              {selectedMetric !== 'credit' && (
+                <Badge variant="outline">{dateFilter === 'today' ? 'Today' : dateFilter === 'week' ? 'This Week' : 'This Month'}</Badge>
+              )}
+              {selectedMetric === 'credit' && (
+                <Badge variant="outline" className="bg-orange-100 text-orange-700">All Pending Credits</Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           
@@ -511,6 +531,44 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
+          ) : selectedMetric === 'credit' ? (
+            // Credit breakdown by retailer
+            creditBreakdown.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No pending credit orders
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Total Pending: <span className="font-semibold text-orange-600">₹{stats.totalCredit.toLocaleString()}</span> across {creditBreakdown.length} retailers
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Retailer</TableHead>
+                      <TableHead className="text-right">Pending Amount</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {creditBreakdown.map((retailer) => (
+                      <TableRow key={retailer.retailerId}>
+                        <TableCell className="font-medium">{retailer.retailerName}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                            ₹{retailer.pendingAmount.toLocaleString()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{retailer.ordersCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="text-xs text-muted-foreground">
+                  * Credits are automatically removed when payments are marked as paid
+                </p>
+              </div>
+            )
           ) : userBreakdown.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No data found for this period
