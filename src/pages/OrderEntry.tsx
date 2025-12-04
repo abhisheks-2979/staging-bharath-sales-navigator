@@ -1578,66 +1578,6 @@ export const OrderEntry = () => {
                   </span>
                 </div>
                 
-                {/* Location Status Badge */}
-                {validRetailerId && (
-                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                    {/* Show location status - works even before tracking starts */}
-                    {locationStatus === 'at_store' && retailerLat && retailerLng && (
-                      <Badge variant="default" className="bg-green-500 text-white h-5 px-1.5 text-[9px]">
-                        <CheckCircle2 className="h-3 w-3 mr-0.5" />
-                        At Store {distance !== null && `(${Math.round(distance)}m)`}
-                      </Badge>
-                    )}
-                    {locationStatus === 'within_range' && retailerLat && retailerLng && (
-                      <Badge variant="default" className="bg-yellow-500 text-black h-5 px-1.5 text-[9px]">
-                        <AlertTriangle className="h-3 w-3 mr-0.5" />
-                        {distance !== null ? `${Math.round(distance)}m away` : '<50m'}
-                      </Badge>
-                    )}
-                    {locationStatus === 'not_at_store' && retailerLat && retailerLng && (
-                      <Badge variant="default" className="bg-red-500 text-white h-5 px-1.5 text-[9px]">
-                        <MapPin className="h-3 w-3 mr-0.5" />
-                        {distance !== null ? `${Math.round(distance)}m away` : 'Not at Store'}
-                      </Badge>
-                    )}
-                    {/* Show Set Location when retailer has no GPS - make it prominent */}
-                    {(!retailerLat || !retailerLng) && (
-                      <Badge 
-                        variant="default" 
-                        className="bg-orange-500 text-white h-6 px-2 text-[10px] cursor-pointer hover:bg-orange-600 animate-pulse"
-                        onClick={!isSettingLocation ? setRetailerLocation : undefined}
-                      >
-                        <MapPin className="h-3.5 w-3.5 mr-1" />
-                        {isSettingLocation ? 'Setting GPS...' : '📍 Set Store GPS'}
-                      </Badge>
-                    )}
-                    {/* Show location unavailable badge when GPS couldn't be retrieved but retailer has coords */}
-                    {retailerLat && retailerLng && locationStatus === 'location_unavailable' && (
-                      <Badge 
-                        variant="default" 
-                        className="bg-gray-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-gray-600"
-                        onClick={() => recheckLocation()}
-                      >
-                        <MapPin className="h-3 w-3 mr-0.5" />
-                        ⚠️ Tap to check location
-                      </Badge>
-                    )}
-                    {currentLog && (
-                      <>
-                        <span className="text-[9px] text-primary-foreground/60">•</span>
-                        <span className="text-[9px] font-medium text-primary-foreground/80">{formattedTimeSpent}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowVisitDetailsModal(true)}
-                          className="h-4 px-1 text-[8px] text-primary-foreground/70 hover:text-primary-foreground"
-                        >
-                          Details
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
               
