@@ -64,9 +64,15 @@ export const OperationsSummaryBoxes: React.FC<OperationsSummaryBoxesProps> = ({
     
     switch (dateFilter) {
       case 'week':
-        return { from: startOfWeek(now, { weekStartsOn: 1 }), to: now };
+        // Last 7 days to match Operations Monitor
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return { from: weekAgo, to: now };
       case 'month':
-        return { from: startOfMonth(now), to: now };
+        // Last 30 days to match Operations Monitor
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return { from: monthAgo, to: now };
       default:
         return { from: today, to: now };
     }
