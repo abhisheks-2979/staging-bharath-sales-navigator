@@ -145,8 +145,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
         const pointsRes: any = await supabase.from('gamification_points').select('points').eq('user_id', userId)
           .gte('earned_at', dateStart.toISOString()).lte('earned_at', dateEnd.toISOString());
-        // Fetch all retailers (no created_by field in table)
-        const retailersRes = await supabase.from('retailers').select('*');
+        // Fetch retailers for this user only (consistent with My Visits)
+        const retailersRes = await supabase.from('retailers').select('*').eq('user_id', userId);
         const newRetailersRes: any = await supabase.from('retailers').select('id')
           .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
         const leaveRes: any = await supabase.from('leave_applications').select('*').eq('user_id', userId).eq('status', 'approved')
