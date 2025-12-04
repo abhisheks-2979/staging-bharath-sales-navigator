@@ -141,6 +141,36 @@ export const OrderEntry = () => {
   }>({});
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false);
 
+  // Fetch and set user ID on component mount
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserId(user.id);
+          console.log('✅ User ID set:', user.id);
+        } else {
+          // Try to get from cached user in localStorage for offline support
+          const cachedUserId = localStorage.getItem('cached_user_id');
+          if (cachedUserId) {
+            setUserId(cachedUserId);
+            console.log('✅ User ID set from cache:', cachedUserId);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        // Fallback to cached user ID
+        const cachedUserId = localStorage.getItem('cached_user_id');
+        if (cachedUserId) {
+          setUserId(cachedUserId);
+          console.log('✅ User ID set from cache (fallback):', cachedUserId);
+        }
+      }
+    };
+    
+    fetchUserId();
+  }, []);
+
   // Reset auto-expand flag whenever category changes
   useEffect(() => {
     setHasAutoExpanded(false);
