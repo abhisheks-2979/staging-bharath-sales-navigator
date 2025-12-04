@@ -1340,6 +1340,28 @@ export const VisitCard = ({
                 </button>
               </h3>
               
+              {/* Location Status Badge - next to retailer name */}
+              {trackingLocationStatus === 'at_store' && visit.retailerLat && visit.retailerLng && (
+                <Badge variant="default" className="bg-green-500 text-white h-5 px-1.5 text-[9px]">
+                  🟢 At Store {trackingDistance !== null && `(${Math.round(trackingDistance)}m)`}
+                </Badge>
+              )}
+              {trackingLocationStatus === 'within_range' && visit.retailerLat && visit.retailerLng && (
+                <Badge variant="default" className="bg-yellow-500 text-black h-5 px-1.5 text-[9px]">
+                  🟠 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : '<50m'}
+                </Badge>
+              )}
+              {trackingLocationStatus === 'not_at_store' && visit.retailerLat && visit.retailerLng && (
+                <Badge variant="default" className="bg-red-500 text-white h-5 px-1.5 text-[9px]">
+                  🔴 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : 'Not at Store'}
+                </Badge>
+              )}
+              {(!visit.retailerLat || !visit.retailerLng) && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
+                  📍 No GPS
+                </Badge>
+              )}
+              
               {/* Phone Order Badge - only shown if applicable */}
               {currentLog?.is_phone_order && (
                 <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
