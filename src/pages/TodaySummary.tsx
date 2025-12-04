@@ -1235,7 +1235,7 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button 
             onClick={handleDownloadPDF}
             className="flex items-center gap-2 text-xs sm:text-sm"
@@ -1243,15 +1243,6 @@ export const TodaySummary = () => {
             <Download size={16} />
             <span className="hidden sm:inline">Download PDF</span>
             <span className="sm:hidden">PDF</span>
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={handleShare}
-            className="flex items-center gap-2 text-xs sm:text-sm"
-          >
-            <Share size={16} />
-            <span className="hidden sm:inline">Share</span>
-            <span className="sm:hidden">Share</span>
           </Button>
           <ReportGenerator 
             data={retailerReportData}
