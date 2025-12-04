@@ -107,18 +107,28 @@ export const TodaySummary = () => {
   const [jointFeedbackViewOpen, setJointFeedbackViewOpen] = useState(false);
   const [selectedJointFeedback, setSelectedJointFeedback] = useState<{ retailerId: string; retailerName: string; feedbackDate: string } | null>(null);
 
-  // Handle URL query parameter for date from Attendance page
+  // Handle URL query parameter for date - default to Today if no date or if date is today
   useEffect(() => {
     const dateParam = searchParams.get('date');
     if (dateParam) {
       try {
         const parsedDate = parse(dateParam, 'yyyy-MM-dd', new Date());
-        handleDateFilterChange('custom', parsedDate);
+        const today = new Date();
+        // Check if the date is today
+        if (format(parsedDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) {
+          handleDateFilterChange('today');
+        } else {
+          handleDateFilterChange('custom', parsedDate);
+        }
       } catch (error) {
         console.error('Error parsing date from URL:', error);
+        handleDateFilterChange('today');
       }
+    } else {
+      // No date param - default to today
+      handleDateFilterChange('today');
     }
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     fetchTodaysData();
