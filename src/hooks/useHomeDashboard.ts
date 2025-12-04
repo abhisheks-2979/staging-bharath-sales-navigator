@@ -312,10 +312,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             nextVisit: visits.find((v: any) => !v.check_in_time) || null,
             attendance: enhancedAttendance,
             beatProgress: {
-              total: totalVisits,
+              total: totalPlannedRetailers,
               completed,
-              remaining,
-              planned: notYetVisited, // Unified logic: visits with status='planned' + retailers from beat plans without visits
+              remaining: notYetVisited,
+              planned: totalPlannedRetailers, // Total planned retailers from beat plans (consistent with My Visits)
               productive,
               unproductive,
             },
