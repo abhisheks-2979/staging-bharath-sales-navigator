@@ -875,10 +875,10 @@ export const TodaySummary = () => {
       yPosition += 10;
       
       const metricsData = [
-        ['Total Order Value', `Rs. ${summaryData.totalOrderValue.toLocaleString('en-IN')}`],
+        ['Total Order Value', `Rs. ${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
         ['Total KG Sold', summaryData.totalKgSoldFormatted],
-        ['Avg Order Value', `Rs. ${summaryData.avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`]
+        ['Avg Order Value', `Rs. ${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`]
       ];
       
       autoTable(doc, {
@@ -934,7 +934,7 @@ export const TodaySummary = () => {
           `#${index + 1}`,
           sanitizeText(retailer.name) || 'Unknown Retailer',
           sanitizeText(retailer.location) || 'Location not available',
-          `Rs. ${retailer.orderValue.toLocaleString('en-IN')}`
+          `Rs. ${Math.round(retailer.orderValue).toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
@@ -966,7 +966,7 @@ export const TodaySummary = () => {
         const productsData = productSales.map(p => [
           sanitizeText(p.name) || 'Unknown Product',
           p.kgFormatted,
-          `Rs. ${p.revenue.toLocaleString('en-IN')}`
+          `Rs. ${Math.round(p.revenue).toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
@@ -999,7 +999,7 @@ export const TodaySummary = () => {
           ['Joint Sales Member', sanitizeText(jointSalesData.memberName)],
           ['Retailers Covered', jointSalesData.retailersCovered.toString()],
           ['Total Feedback Entries', jointSalesData.totalVisits.toString()],
-          ['Order Increase', `Rs. ${jointSalesData.orderIncrease.toLocaleString('en-IN')}`]
+          ['Order Increase', `Rs. ${Math.round(jointSalesData.orderIncrease).toLocaleString('en-IN')}`]
         ];
         
         autoTable(doc, {
@@ -1019,7 +1019,7 @@ export const TodaySummary = () => {
           const feedbackData = jointSalesData.feedback.map(f => [
             sanitizeText(f.retailerName),
             sanitizeText(f.impact).substring(0, 50) + (f.impact.length > 50 ? '...' : ''),
-            `Rs. ${f.orderIncrease.toLocaleString('en-IN')}`
+            `Rs. ${Math.round(f.orderIncrease).toLocaleString('en-IN')}`
           ]);
           
           autoTable(doc, {
@@ -1309,7 +1309,7 @@ export const TodaySummary = () => {
                 className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition overflow-hidden"
               >
                 <div className="text-xl font-bold text-primary break-words">
-                  {loading ? "Loading..." : `₹${summaryData.totalOrderValue.toLocaleString()}`}
+                  {loading ? "Loading..." : `₹${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Total Order Value</div>
               </div>
@@ -1338,7 +1338,7 @@ export const TodaySummary = () => {
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
-                  {loading ? "Loading..." : `₹${summaryData.avgOrderValue.toLocaleString()}`}
+                  {loading ? "Loading..." : `₹${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`}
                 </div>
                 <div className="text-sm text-muted-foreground">Avg Order Value</div>
               </div>
@@ -1418,7 +1418,7 @@ export const TodaySummary = () => {
                 <div key={retailer.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="font-semibold">{retailer.name}</div>
                   <div className="text-right">
-                    <div className="font-bold text-success">₹{retailer.orderValue.toLocaleString()}</div>
+                    <div className="font-bold text-success">₹{Math.round(retailer.orderValue).toLocaleString('en-IN')}</div>
                     <div className="text-xs text-muted-foreground">#{index + 1}</div>
                   </div>
                 </div>
@@ -1461,7 +1461,7 @@ export const TodaySummary = () => {
                 </div>
                 <div className="text-center p-3 bg-green-100 rounded-lg">
                   <div className="text-lg font-bold text-green-700">
-                    ₹{jointSalesData.orderIncrease.toLocaleString()}
+                    ₹{Math.round(jointSalesData.orderIncrease).toLocaleString('en-IN')}
                   </div>
                   <div className="text-xs text-green-600">Order Increase</div>
                 </div>
@@ -1505,7 +1505,7 @@ export const TodaySummary = () => {
                       <div className="text-muted-foreground text-xs line-clamp-1">{feedback.impact}</div>
                       {feedback.orderIncrease > 0 && (
                         <div className="text-green-600 font-medium text-xs mt-1">
-                          +₹{feedback.orderIncrease.toLocaleString()} increase
+                          +₹{Math.round(feedback.orderIncrease).toLocaleString('en-IN')} increase
                         </div>
                       )}
                     </div>
@@ -1553,7 +1553,7 @@ export const TodaySummary = () => {
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
                      <TableCell className="text-right">{p.kgFormatted}</TableCell>
-                     <TableCell className="text-right">₹{p.revenue.toLocaleString()}</TableCell>
+                     <TableCell className="text-right">₹{Math.round(p.revenue).toLocaleString('en-IN')}</TableCell>
                    </TableRow>
                  ))
                )}
@@ -1638,7 +1638,7 @@ export const TodaySummary = () => {
               {dialogContentType === "products" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: ₹{productGroupedOrders.reduce((sum, p) => sum + p.value, 0).toLocaleString()} • {productGroupedOrders.length} products
+                    Total: ₹{Math.round(productGroupedOrders.reduce((sum, p) => sum + p.value, 0)).toLocaleString('en-IN')} • {productGroupedOrders.length} products
                   </div>
                   <Table>
                     <TableHeader>
@@ -1654,7 +1654,7 @@ export const TodaySummary = () => {
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{p.product}</TableCell>
                             <TableCell className="text-right">{p.kgFormatted}</TableCell>
-                            <TableCell className="text-right">₹{p.value.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">₹{Math.round(p.value).toLocaleString('en-IN')}</TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -1672,7 +1672,7 @@ export const TodaySummary = () => {
               {dialogContentType === "orders" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} • {orders.length} orders
+                    Total: ₹{Math.round(orders.reduce((sum, o) => sum + o.amount, 0)).toLocaleString('en-IN')} • {orders.length} orders
                   </div>
                   <Table>
                     <TableHeader>
@@ -1687,7 +1687,7 @@ export const TodaySummary = () => {
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{o.retailer}</TableCell>
                           <TableCell className="text-right">{o.kgFormatted}</TableCell>
-                          <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">₹{Math.round(o.amount).toLocaleString('en-IN')}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1700,19 +1700,19 @@ export const TodaySummary = () => {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="text-center p-3 bg-primary/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-primary whitespace-nowrap">
-                        ₹{orders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()}
+                        ₹{Math.round(orders.reduce((sum, o) => sum + o.amount, 0)).toLocaleString('en-IN')}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Total</div>
                     </div>
                     <div className="text-center p-3 bg-destructive/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-destructive whitespace-nowrap">
-                        ₹{orders.reduce((sum, o) => sum + o.creditAmount, 0).toLocaleString()}
+                        ₹{Math.round(orders.reduce((sum, o) => sum + o.creditAmount, 0)).toLocaleString('en-IN')}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Credit</div>
                     </div>
                     <div className="text-center p-3 bg-success/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-success whitespace-nowrap">
-                        ₹{orders.reduce((sum, o) => sum + o.cashInHand, 0).toLocaleString()}
+                        ₹{Math.round(orders.reduce((sum, o) => sum + o.cashInHand, 0)).toLocaleString('en-IN')}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Amount Collected</div>
                     </div>
@@ -1733,12 +1733,12 @@ export const TodaySummary = () => {
                           orders.map((o, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-medium">{o.retailer}</TableCell>
-                              <TableCell className="text-right">₹{o.amount.toLocaleString()}</TableCell>
+                              <TableCell className="text-right">₹{Math.round(o.amount).toLocaleString('en-IN')}</TableCell>
                               <TableCell className="text-right text-warning">
-                                {o.creditAmount > 0 ? `₹${o.creditAmount.toLocaleString()}` : '-'}
+                                {o.creditAmount > 0 ? `₹${Math.round(o.creditAmount).toLocaleString('en-IN')}` : '-'}
                               </TableCell>
                               <TableCell className="text-right text-success">
-                                ₹{o.cashInHand.toLocaleString()}
+                                ₹{Math.round(o.cashInHand).toLocaleString('en-IN')}
                               </TableCell>
                               <TableCell className="text-center">
                                 <Badge variant="outline" className="text-xs">
