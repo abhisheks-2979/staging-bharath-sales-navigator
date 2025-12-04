@@ -213,6 +213,23 @@ export const TodaySummary = () => {
       
       if (!user) return;
 
+      // Fetch attendance data for the selected period
+      let attendanceQuery = supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (filterType === 'today' || filterType === 'custom') {
+        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
+        attendanceQuery = attendanceQuery.eq('date', targetDate);
+      } else {
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
+        attendanceQuery = attendanceQuery.gte('date', fromDate).lte('date', toDate);
+      }
+
+      const { data: attendanceData } = await attendanceQuery;
+
       // Determine date query based on filter type
       let visitsQuery = supabase
         .from('visits')
@@ -381,15 +398,15 @@ export const TodaySummary = () => {
       const closedVisits = visits?.filter(v => v.status === 'store_closed') || [];
       const unproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
 
-      // Calculate first check-in and last check-out times
-      const allCheckInTimes = visits?.filter(v => v.check_in_time).map(v => new Date(v.check_in_time!)) || [];
-      const allCheckOutTimes = visits?.filter(v => v.check_out_time).map(v => new Date(v.check_out_time!)) || [];
+      // Get attendance start/end times from attendance table
+      const allAttendanceCheckIns = attendanceData?.filter(a => a.check_in_time).map(a => new Date(a.check_in_time!)) || [];
+      const allAttendanceCheckOuts = attendanceData?.filter(a => a.check_out_time).map(a => new Date(a.check_out_time!)) || [];
       
-      const firstCheckIn = allCheckInTimes.length > 0 
-        ? new Date(Math.min(...allCheckInTimes.map(t => t.getTime())))
+      const firstCheckIn = allAttendanceCheckIns.length > 0 
+        ? new Date(Math.min(...allAttendanceCheckIns.map(t => t.getTime())))
         : null;
-      const lastCheckOut = allCheckOutTimes.length > 0 
-        ? new Date(Math.max(...allCheckOutTimes.map(t => t.getTime())))
+      const lastCheckOut = allAttendanceCheckOuts.length > 0 
+        ? new Date(Math.max(...allAttendanceCheckOuts.map(t => t.getTime())))
         : null;
 
       const formatTime = (date: Date | null) => {
@@ -1254,70 +1271,47 @@ export const TodaySummary = () => {
           />
         </div>
 
-        {/* Beat Information */}
+        {/* Selected Period Information */}
         <Card>
           <CardContent className="p-4 space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-sm text-muted-foreground">
-                  {filterType === 'today' ? 'Today' : 
-                   filterType === 'week' ? 'This Week' :
-                   filterType === 'lastWeek' ? 'Last Week' :
-                   filterType === 'month' ? 'This Month' : 
-                   filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
-                   'Selected Period'}
-                </div>
-                {(filterType === 'week' || filterType === 'lastWeek' || filterType === 'month') && false && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => {
-                        const newDate = new Date(selectedDate);
-                        if (filterType === 'week' || filterType === 'lastWeek') {
-                          newDate.setDate(newDate.getDate() - 7);
-                        } else if (filterType === 'month') {
-                          newDate.setMonth(newDate.getMonth() - 1);
-                        }
-                        handleDateFilterChange(filterType, newDate);
-                      }}
-                    >
-                      ←
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => {
-                        const newDate = new Date(selectedDate);
-                        if (filterType === 'week' || filterType === 'lastWeek') {
-                          newDate.setDate(newDate.getDate() + 7);
-                        } else if (filterType === 'month') {
-                          newDate.setMonth(newDate.getMonth() + 1);
-                        }
-                        handleDateFilterChange(filterType, newDate);
-                      }}
-                    >
-                      →
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin size={16} className="text-muted-foreground" />
-                <div className="font-semibold">
-                  {summaryData.beatNames.length > 0 
-                    ? summaryData.beatNames.join(', ')
-                    : 'No beat planned'}
-                </div>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-muted-foreground">Selected Period</div>
+              <div className="text-sm font-semibold">
+                {filterType === 'today' ? 'Today' : 
+                 filterType === 'week' ? 'This Week' :
+                 filterType === 'lastWeek' ? 'Last Week' :
+                 filterType === 'month' ? 'This Month' : 
+                 filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+                 format(selectedDate, 'MMM dd, yyyy')}
               </div>
             </div>
+            
+            {/* Beat Names */}
             <div className="flex items-center gap-2">
-              <Clock size={16} className="text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Start: {summaryData.startTime} | End: {summaryData.endTime}
-              </span>
+              <MapPin size={16} className="text-muted-foreground" />
+              <div className="font-semibold">
+                {summaryData.beatNames.length > 0 
+                  ? summaryData.beatNames.join(', ')
+                  : 'No beat planned'}
+              </div>
+            </div>
+            
+            {/* Attendance Timing */}
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-green-600" />
+                <div>
+                  <div className="text-xs text-muted-foreground">Start Time</div>
+                  <div className="font-semibold text-sm">{summaryData.startTime}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-red-600" />
+                <div>
+                  <div className="text-xs text-muted-foreground">End Time</div>
+                  <div className="font-semibold text-sm">{summaryData.endTime}</div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
