@@ -533,7 +533,8 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { messages, conversationId, pageContext } = await req.json();
+    const requestBody = await req.json();
+    const { messages: rawMessages, message, conversationId, pageContext, context } = requestBody;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const authHeader = req.headers.get('Authorization');
     
@@ -541,9 +542,15 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Validate messages array
-    if (!messages || !Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: 'Messages array is required' }), {
+    // Handle both formats: messages array (chat widget) or single message (AI summary components)
+    let messages: Array<{role: string, content: string}>;
+    if (rawMessages && Array.isArray(rawMessages)) {
+      messages = rawMessages;
+    } else if (message && typeof message === 'string') {
+      // Convert single message to array format
+      messages = [{ role: 'user', content: message }];
+    } else {
+      return new Response(JSON.stringify({ error: 'Either messages array or message string is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
