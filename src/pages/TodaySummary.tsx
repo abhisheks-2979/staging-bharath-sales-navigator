@@ -288,14 +288,45 @@ export const TodaySummary = () => {
       
       todayOrders = fetchedOrders || [];
 
-      // Fetch retailers for today's visits
-      const retailerIds = visits?.map(v => v.retailer_id) || [];
+      // Fetch beat plans for the date range (moved earlier to get retailer IDs)
+      let beatPlansQuery = supabase
+        .from('beat_plans')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (filterType === 'today' || filterType === 'custom') {
+        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
+        beatPlansQuery = beatPlansQuery.eq('plan_date', targetDate);
+      } else {
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
+        beatPlansQuery = beatPlansQuery.gte('plan_date', fromDate).lte('plan_date', toDate);
+      }
+
+      const { data: beatPlans } = await beatPlansQuery;
+      const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
+
+      // Get all retailer IDs from beat plans' beat_data
+      const beatPlanRetailerIds: string[] = [];
+      beatPlans?.forEach(bp => {
+        const beatData = bp.beat_data as any;
+        if (beatData?.retailers && Array.isArray(beatData.retailers)) {
+          beatData.retailers.forEach((r: any) => {
+            if (r.id) beatPlanRetailerIds.push(r.id);
+          });
+        }
+      });
+      
+      // Combine retailer IDs from visits and beat plans
+      const visitRetailerIds = visits?.map(v => v.retailer_id) || [];
+      const allRetailerIds = [...new Set([...visitRetailerIds, ...beatPlanRetailerIds])];
+      
       let retailers: any[] = [];
-      if (retailerIds.length > 0) {
+      if (allRetailerIds.length > 0) {
         const { data } = await supabase
           .from('retailers')
           .select('id, name, address, phone')
-          .in('id', retailerIds);
+          .in('id', allRetailerIds);
         retailers = data || [];
       }
 
@@ -322,24 +353,6 @@ export const TodaySummary = () => {
       const totalPointsEarned = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
       console.log('Total points earned:', totalPointsEarned);
       setPointsEarnedToday(totalPointsEarned);
-
-      // Fetch beat plans for the date range
-      let beatPlansQuery = supabase
-        .from('beat_plans')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (filterType === 'today' || filterType === 'custom') {
-        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
-        beatPlansQuery = beatPlansQuery.eq('plan_date', targetDate);
-      } else {
-        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
-        const toDate = format(dateRange.to, 'yyyy-MM-dd');
-        beatPlansQuery = beatPlansQuery.gte('plan_date', fromDate).lte('plan_date', toDate);
-      }
-
-      const { data: beatPlans } = await beatPlansQuery;
-      const beatPlan = beatPlans && beatPlans.length > 0 ? beatPlans[0] : null;
       
       // Fetch ALL joint sales feedback for the user in the date range
       // This includes both beat plan-linked and independently recorded feedback
@@ -419,12 +432,19 @@ export const TodaySummary = () => {
       });
 
       // Process visits data
-      const totalPlanned = visits?.length || 0;
+      const visitedRetailerIds = new Set(visits?.map(v => v.retailer_id) || []);
       const completedVisits = visits?.filter(v => v.check_out_time !== null) || [];
       const productiveVisits = visits?.filter(v => v.status === 'productive') || [];
-      const pendingVisits = visits?.filter(v => v.status === 'planned') || [];
+      const pendingVisitsFromDb = visits?.filter(v => v.status === 'planned') || [];
       const closedVisits = visits?.filter(v => v.status === 'store_closed') || [];
       const unproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
+      
+      // Find retailers from beat plans that don't have any visit record
+      const beatPlanRetailersWithoutVisits = beatPlanRetailerIds.filter(rid => !visitedRetailerIds.has(rid));
+      
+      // Total pending = visits with planned status + beat plan retailers without visits
+      const totalPendingCount = pendingVisitsFromDb.length + beatPlanRetailersWithoutVisits.length;
+      const totalPlanned = (visits?.length || 0) + beatPlanRetailersWithoutVisits.length;
 
       // Get attendance start/end times from attendance table
       const allAttendanceCheckIns = attendanceData?.filter(a => a.check_in_time).map(a => new Date(a.check_in_time!)) || [];
@@ -598,7 +618,7 @@ export const TodaySummary = () => {
       setVisitBreakdown([
         { status: "Productive", count: productiveVisits.length, color: "success" },
         { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
-        { status: "Pending", count: pendingVisits.length, color: "warning" }
+        { status: "Pending", count: totalPendingCount, color: "warning" }
       ]);
 
       // Process top retailers (based on order value)
@@ -740,10 +760,16 @@ export const TodaySummary = () => {
         }))
       ];
       
+      // Combine pending visits from DB and beat plan retailers without visits
+      const allPendingRetailers = [
+        ...pendingVisitsFromDb.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown' })),
+        ...beatPlanRetailersWithoutVisits.map(rid => ({ retailer: retailerMap.get(rid)?.name || 'Unknown' }))
+      ];
+      
       const visitsByStatusData = {
         Productive: productiveVisitsWithValue,
         Unproductive: allUnproductiveVisits,
-        Pending: pendingVisits.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown' }))
+        Pending: allPendingRetailers
       };
 
       setVisitsByStatus(visitsByStatusData);
