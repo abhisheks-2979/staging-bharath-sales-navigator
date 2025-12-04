@@ -512,11 +512,13 @@ export const TodaySummary = () => {
         }
       });
       
-      const completedVisits = visits?.filter(v => v.check_out_time !== null) || [];
       const productiveVisits = visits?.filter(v => v.status === 'productive') || [];
       const pendingVisitsFromDb = visits?.filter(v => v.status === 'planned') || [];
       const closedVisits = visits?.filter(v => v.status === 'store_closed') || [];
       const unproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
+      
+      // Completed visits = all visits with an outcome (productive, unproductive, or store_closed)
+      const completedVisits = [...productiveVisits, ...unproductiveVisits, ...closedVisits];
       
       // Find retailers from beat plans that don't have a visit record OR have 'planned' status
       const beatPlanRetailersWithoutVisits = beatPlanRetailersByDate.filter(bp => {
