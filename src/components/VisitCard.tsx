@@ -2030,14 +2030,12 @@ export const VisitCard = ({
          {/* Unified Feedback Modal with Tabs */}
         {showFeedbackModal && feedbackActiveTab === "retailer-feedback" && <RetailerFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
 
-        {showFeedbackModal && feedbackActiveTab === "competition" && <CompetitionInsightModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
-
         {showFeedbackModal && feedbackActiveTab === "branding" && <BrandingRequestModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} onBack={() => setFeedbackActiveTab("menu")} defaultVisitId={currentVisitId} defaultRetailerId={(visit.retailerId || visit.id) as string} defaultPincode={null} />}
 
         {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId} managerId={jointSalesMemberId} onFeedbackSubmitted={() => setHasJointSalesFeedback(true)} />}
 
          {/* Tab Selector Modal */}
-        <Dialog open={showFeedbackModal && !['retailer-feedback', 'competition', 'branding', 'joint-sales-feedback'].includes(feedbackActiveTab)} onOpenChange={open => {
+        <Dialog open={showFeedbackModal && !['retailer-feedback', 'branding', 'joint-sales-feedback'].includes(feedbackActiveTab)} onOpenChange={open => {
         if (!open) {
           setShowFeedbackModal(false);
           setFeedbackActiveTab("menu");
@@ -2054,14 +2052,6 @@ export const VisitCard = ({
                 <div className="text-center">
                   <div className="font-medium">Retailer Feedback</div>
                   <div className="text-xs text-muted-foreground">Share feedback about the retailer</div>
-                </div>
-              </Button>
-              
-              <Button variant="outline" className="h-16 flex flex-col items-center gap-2" onClick={() => setFeedbackActiveTab("competition")}>
-                <Users size={24} />
-                <div className="text-center">
-                  <div className="font-medium">Competition Insight</div>
-                  <div className="text-xs text-muted-foreground">Record competitor information</div>
                 </div>
               </Button>
               

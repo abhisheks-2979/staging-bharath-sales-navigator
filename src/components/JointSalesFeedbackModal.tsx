@@ -110,6 +110,7 @@ export const JointSalesFeedbackModal = ({
 }: JointSalesFeedbackModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedManagerId, setSelectedManagerId] = useState(managerId || "");
+  const [selectedManagerName, setSelectedManagerName] = useState("");
   const [availableManagers, setAvailableManagers] = useState<Array<{ id: string; name: string }>>([]);
   const [feedback, setFeedback] = useState({
     product_packaging_feedback: "",
@@ -131,7 +132,7 @@ export const JointSalesFeedbackModal = ({
   // Calculate live score
   const currentScore = calculateJointVisitScore(feedback);
 
-  // Load available managers
+  // Load available managers and selected manager name
   useEffect(() => {
     const loadManagers = async () => {
       try {
@@ -155,8 +156,30 @@ export const JointSalesFeedbackModal = ({
       }
     };
 
-    if (isOpen && !managerId) {
-      loadManagers();
+    const loadManagerName = async (id: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('full_name, username')
+          .eq('id', id)
+          .single();
+
+        if (!error && data) {
+          setSelectedManagerName(data.full_name || data.username || 'Unknown User');
+        }
+      } catch (error) {
+        console.error('Error loading manager name:', error);
+      }
+    };
+
+    if (isOpen) {
+      if (!managerId) {
+        loadManagers();
+      }
+      // Load manager name if we have a managerId or selectedManagerId
+      if (managerId) {
+        loadManagerName(managerId);
+      }
     }
   }, [isOpen, managerId]);
 
@@ -179,6 +202,18 @@ export const JointSalesFeedbackModal = ({
 
         if (!error && data) {
           setSelectedManagerId(data.manager_id);
+          
+          // Load manager name for display
+          const { data: managerProfile } = await supabase
+            .from('profiles')
+            .select('full_name, username')
+            .eq('id', data.manager_id)
+            .single();
+          
+          if (managerProfile) {
+            setSelectedManagerName(managerProfile.full_name || managerProfile.username || 'Unknown User');
+          }
+          
           setFeedback({
             product_packaging_feedback: data.product_packaging_feedback || "",
             product_sku_range_feedback: data.product_sku_range_feedback || "",
@@ -354,11 +389,20 @@ export const JointSalesFeedbackModal = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Joint Visit Partner Selection */}
-          {!managerId && (
-            <div className="p-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg">
-              <Label className="text-purple-800 dark:text-purple-200 font-medium">Joint Visit Partner *</Label>
-              <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
+          {/* Joint Visit Partner Selection or Display */}
+          <div className="p-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg">
+            <Label className="text-purple-800 dark:text-purple-200 font-medium">Joint Visit Partner *</Label>
+            {managerId ? (
+              <div className="mt-2 p-2 bg-background rounded border flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-purple-600" />
+                <span className="font-medium">{selectedManagerName || 'Loading...'}</span>
+              </div>
+            ) : (
+              <Select value={selectedManagerId} onValueChange={(value) => {
+                setSelectedManagerId(value);
+                const manager = availableManagers.find(m => m.id === value);
+                setSelectedManagerName(manager?.name || '');
+              }}>
                 <SelectTrigger className="mt-2 bg-background">
                   <SelectValue placeholder="Select who joined the visit" />
                 </SelectTrigger>
@@ -370,8 +414,8 @@ export const JointSalesFeedbackModal = ({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Section 1: Performance Ratings (Star Ratings) */}
           <div className="space-y-4">
