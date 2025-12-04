@@ -1257,35 +1257,30 @@ export const TodaySummary = () => {
           />
         </div>
 
-        {/* Selected Period Information - Compact Single Row */}
+        {/* Selected Period Information - Beat on top, times below */}
         <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              {/* Beat Name */}
-              <div className="flex items-center gap-1.5 min-w-0">
-                <MapPin size={14} className="text-primary shrink-0" />
-                <span className="font-semibold text-sm truncate">
-                  {summaryData.beatNames.length > 0 
-                    ? summaryData.beatNames.join(', ')
-                    : 'No beat'}
-                </span>
+          <CardContent className="p-3 space-y-2">
+            {/* Beat Name - Top */}
+            <div className="flex items-center gap-1.5">
+              <MapPin size={14} className="text-primary shrink-0" />
+              <span className="font-semibold text-sm">
+                {summaryData.beatNames.length > 0 
+                  ? summaryData.beatNames.join(', ')
+                  : 'No beat'}
+              </span>
+            </div>
+            
+            {/* Start & End Time - Below */}
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="text-green-600">▶</span>
+                <span className="text-muted-foreground">Start:</span>
+                <span className="font-semibold">{summaryData.startTime}</span>
               </div>
-              
-              {/* Divider */}
-              <div className="h-4 w-px bg-border hidden sm:block" />
-              
-              {/* Start & End Time */}
-              <div className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="text-green-600">▶</span>
-                  <span className="text-muted-foreground">Start:</span>
-                  <span className="font-semibold">{summaryData.startTime}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-red-600">■</span>
-                  <span className="text-muted-foreground">End:</span>
-                  <span className="font-semibold">{summaryData.endTime}</span>
-                </div>
+              <div className="flex items-center gap-1">
+                <span className="text-red-600">■</span>
+                <span className="text-muted-foreground">End:</span>
+                <span className="font-semibold">{summaryData.endTime}</span>
               </div>
             </div>
           </CardContent>
