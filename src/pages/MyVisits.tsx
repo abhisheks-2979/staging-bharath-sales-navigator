@@ -1158,9 +1158,9 @@ export const MyVisits = () => {
                 <Users size={12} className="mr-1 sm:mr-1.5" />
                 <span className="whitespace-nowrap">All Retailers</span>
               </Button>
-              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
-                <FileText size={12} className="mr-1 sm:mr-1.5" />
-                <span className="whitespace-nowrap">Today's Summary</span>
+              <Button variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[9px] sm:text-sm h-8 sm:h-9 px-1 sm:px-3 overflow-hidden" onClick={() => navigate(`/today-summary?date=${selectedDate}`)}>
+                <FileText size={10} className="mr-0.5 sm:mr-1.5 flex-shrink-0" />
+                <span className="truncate">Summary</span>
               </Button>
             </div>
             
