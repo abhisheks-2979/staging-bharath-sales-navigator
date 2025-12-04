@@ -1001,9 +1001,9 @@ export const TodaySummary = () => {
       const pageWidth = doc.internal.pageSize.getWidth();
       let yPosition = 20;
 
-      // Header
+      // Header - matches the card display
       doc.setFontSize(20);
-      doc.setTextColor(60, 60, 60);
+      doc.setTextColor(79, 70, 229); // Primary color
       doc.text(
         filterType === 'today' ? "Today's Summary" : 
         filterType === 'week' ? "This Week's Summary" :
@@ -1015,114 +1015,194 @@ export const TodaySummary = () => {
         { align: 'center' }
       );
       
-      yPosition += 10;
+      yPosition += 8;
       doc.setFontSize(11);
       doc.setTextColor(100, 100, 100);
       doc.text(summaryData.date, pageWidth / 2, yPosition, { align: 'center' });
       
-      // Beat Information
-      yPosition += 15;
-      doc.setFontSize(12);
-      doc.setTextColor(40, 40, 40);
-      doc.text(`Beat: ${summaryData.beat}`, 14, yPosition);
-      yPosition += 7;
-      doc.text(`Start: ${summaryData.startTime} | End: ${summaryData.endTime}`, 14, yPosition);
+      // Selected Period Information - Beat & Times (matches the card display)
+      yPosition += 12;
+      doc.setFillColor(245, 245, 250);
+      doc.roundedRect(14, yPosition - 5, pageWidth - 28, 20, 3, 3, 'F');
       
-      // Key Metrics Section
-      yPosition += 15;
+      doc.setFontSize(11);
+      doc.setTextColor(40, 40, 40);
+      const beatNames = summaryData.beatNames.length > 0 ? summaryData.beatNames.join(', ') : 'No beat';
+      doc.text(`Beat: ${sanitizeText(beatNames)}`, 18, yPosition + 3);
+      
+      doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Start: ${summaryData.startTime}  |  End: ${summaryData.endTime}`, 18, yPosition + 11);
+      
+      yPosition += 25;
+      
+      // Key Metrics Section - matches the page display
       doc.setFontSize(14);
       doc.setTextColor(60, 60, 60);
       doc.text("Key Metrics", 14, yPosition);
-      yPosition += 10;
+      yPosition += 8;
       
       const metricsData = [
         ['Total Order Value', `Rs. ${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
-        ['Total KG Sold', summaryData.totalKgSoldFormatted],
-        ['Avg Order Value', `Rs. ${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`]
+        ['Total KG Sold (Unit)', summaryData.totalKgSoldFormatted],
+        ['Avg Order Value', `Rs. ${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`],
+        ['Points Earned', pointsEarnedToday.toString()]
       ];
       
       autoTable(doc, {
         startY: yPosition,
         head: [['Metric', 'Value']],
         body: metricsData,
-        theme: 'grid',
+        theme: 'striped',
         headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 10 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 10, cellPadding: 4 },
         margin: { left: 14, right: 14 }
       });
       
-      yPosition = (doc as any).lastAutoTable.finalY + 15;
+      yPosition = (doc as any).lastAutoTable.finalY + 12;
       
-      // Visit Breakdown Section
+      // Performance Summary Section - matches the page display exactly
       doc.setFontSize(14);
       doc.setTextColor(60, 60, 60);
-      doc.text("Visit Breakdown", 14, yPosition);
-      yPosition += 10;
+      doc.text("Performance Summary", 14, yPosition);
+      yPosition += 8;
       
-      const visitBreakdownData = visitBreakdown.map(item => [
-        item.status,
-        item.count.toString(),
-        `${summaryData.plannedVisits > 0 ? Math.round((item.count / summaryData.plannedVisits) * 100) : 0}%`
-      ]);
+      // Visit breakdown data matching page display
+      const visitBreakdownData = visitBreakdown.map(item => {
+        const percentage = item.status === "Planned" 
+          ? "100%" 
+          : (visitBreakdown[0]?.count > 0 ? Math.round((item.count / visitBreakdown[0].count) * 100) : 0) + "%";
+        return [
+          item.status,
+          `${item.count} ${item.status === "Planned" ? "retailers" : "visits"}`,
+          percentage
+        ];
+      });
+      
+      // Add additional performance metrics
+      visitBreakdownData.push(
+        ['Order Conversion Rate', `${summaryData.orderConversionRate}%`, ''],
+        ['Distance Covered', summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No data', ''],
+        ['Time at Retailers', summaryData.travelTime, '']
+      );
       
       autoTable(doc, {
         startY: yPosition,
-        head: [['Status', 'Count', 'Percentage']],
+        head: [['Status/Metric', 'Count/Value', 'Percentage']],
         body: visitBreakdownData,
-        theme: 'grid',
+        theme: 'striped',
         headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 10 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { fontSize: 10, cellPadding: 4 },
         margin: { left: 14, right: 14 }
       });
       
-      yPosition = (doc as any).lastAutoTable.finalY + 15;
+      yPosition = (doc as any).lastAutoTable.finalY + 12;
       
       // Check if we need a new page
-      if (yPosition > 250) {
+      if (yPosition > 230) {
         doc.addPage();
         yPosition = 20;
       }
       
-      // Top Performing Retailers
+      // Top Performing Retailers - matches page display (top 3)
       if (topRetailers.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(60, 60, 60);
         doc.text("Top Performing Retailers", 14, yPosition);
-        yPosition += 10;
+        yPosition += 8;
         
-        const retailersData = topRetailers.map((retailer, index) => [
+        const retailersData = topRetailers.slice(0, 3).map((retailer, index) => [
           `#${index + 1}`,
           sanitizeText(retailer.name) || 'Unknown Retailer',
-          sanitizeText(retailer.location) || 'Location not available',
           `Rs. ${Math.round(retailer.orderValue).toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
           startY: yPosition,
-          head: [['Rank', 'Retailer', 'Location', 'Order Value']],
+          head: [['Rank', 'Retailer', 'Order Value']],
           body: retailersData,
-          theme: 'grid',
-          headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-          styles: { fontSize: 9 },
+          theme: 'striped',
+          headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          styles: { fontSize: 10, cellPadding: 4 },
           margin: { left: 14, right: 14 }
         });
         
-        yPosition = (doc as any).lastAutoTable.finalY + 15;
+        yPosition = (doc as any).lastAutoTable.finalY + 12;
       }
       
       // Check if we need a new page
-      if (yPosition > 250) {
+      if (yPosition > 230) {
         doc.addPage();
         yPosition = 20;
       }
       
-      // Product-wise Sales
+      // Joint Sales Highlight - matches page display
+      if (jointSalesData) {
+        doc.setFontSize(14);
+        doc.setTextColor(147, 51, 234); // Purple
+        doc.text("Joint Sales Visit", 14, yPosition);
+        doc.setFontSize(10);
+        doc.text(`with ${sanitizeText(jointSalesData.memberName)}`, 14, yPosition + 6);
+        yPosition += 14;
+        
+        const jointSalesMetrics = [
+          ['Retailers Covered', jointSalesData.retailersCovered.toString()],
+          ['Order Increase', `Rs. ${Math.round(jointSalesData.orderIncrease).toLocaleString('en-IN')}`],
+          ['Avg Score', jointSalesData.avgScore > 0 ? `${jointSalesData.avgScore}/10` : '-']
+        ];
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Metric', 'Value']],
+          body: jointSalesMetrics,
+          theme: 'striped',
+          headStyles: { fillColor: [147, 51, 234], textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [250, 245, 255] },
+          styles: { fontSize: 10, cellPadding: 4 },
+          margin: { left: 14, right: 14 }
+        });
+        
+        yPosition = (doc as any).lastAutoTable.finalY + 8;
+        
+        // Joint Sales Feedback Details
+        if (jointSalesData.feedback.length > 0) {
+          const feedbackData = jointSalesData.feedback.map(f => [
+            sanitizeText(f.retailerName),
+            `${f.score}/10`,
+            `Rs. ${Math.round(f.orderIncrease).toLocaleString('en-IN')}`
+          ]);
+          
+          autoTable(doc, {
+            startY: yPosition,
+            head: [['Retailer', 'Score', 'Order Increase']],
+            body: feedbackData,
+            theme: 'striped',
+            headStyles: { fillColor: [147, 51, 234], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [250, 245, 255] },
+            styles: { fontSize: 9, cellPadding: 3 },
+            margin: { left: 14, right: 14 }
+          });
+          
+          yPosition = (doc as any).lastAutoTable.finalY + 12;
+        }
+      }
+      
+      // Check if we need a new page
+      if (yPosition > 230) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      // Product-wise Sales - matches page display
       if (productSales.length > 0) {
         doc.setFontSize(14);
         doc.setTextColor(60, 60, 60);
         doc.text("Product-wise Sales", 14, yPosition);
-        yPosition += 10;
+        yPosition += 8;
         
         const productsData = productSales.map(p => [
           sanitizeText(p.name) || 'Unknown Product',
@@ -1134,98 +1214,13 @@ export const TodaySummary = () => {
           startY: yPosition,
           head: [['Product', 'KG Sold', 'Revenue']],
           body: productsData,
-          theme: 'grid',
+          theme: 'striped',
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-          styles: { fontSize: 9 },
+          alternateRowStyles: { fillColor: [248, 250, 252] },
+          styles: { fontSize: 9, cellPadding: 3 },
           margin: { left: 14, right: 14 }
         });
-        
-        yPosition = (doc as any).lastAutoTable.finalY + 15;
       }
-      
-      // Check if we need a new page
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      // Joint Sales Highlight (if available)
-      if (jointSalesData) {
-        doc.setFontSize(14);
-        doc.setTextColor(60, 60, 60);
-        doc.text("Joint Sales Visit Highlight", 14, yPosition);
-        yPosition += 10;
-        
-        const jointSalesMetrics = [
-          ['Joint Sales Member', sanitizeText(jointSalesData.memberName)],
-          ['Retailers Covered', jointSalesData.retailersCovered.toString()],
-          ['Total Feedback Entries', jointSalesData.totalVisits.toString()],
-          ['Order Increase', `Rs. ${Math.round(jointSalesData.orderIncrease).toLocaleString('en-IN')}`]
-        ];
-        
-        autoTable(doc, {
-          startY: yPosition,
-          head: [['Metric', 'Value']],
-          body: jointSalesMetrics,
-          theme: 'grid',
-          headStyles: { fillColor: [147, 51, 234], textColor: 255, fontStyle: 'bold' },
-          styles: { fontSize: 10 },
-          margin: { left: 14, right: 14 }
-        });
-        
-        yPosition = (doc as any).lastAutoTable.finalY + 10;
-        
-        // Joint Sales Feedback Details
-        if (jointSalesData.feedback.length > 0) {
-          const feedbackData = jointSalesData.feedback.map(f => [
-            sanitizeText(f.retailerName),
-            sanitizeText(f.impact).substring(0, 50) + (f.impact.length > 50 ? '...' : ''),
-            `Rs. ${Math.round(f.orderIncrease).toLocaleString('en-IN')}`
-          ]);
-          
-          autoTable(doc, {
-            startY: yPosition,
-            head: [['Retailer', 'Impact Notes', 'Order Increase']],
-            body: feedbackData,
-            theme: 'grid',
-            headStyles: { fillColor: [147, 51, 234], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 8 },
-            margin: { left: 14, right: 14 }
-          });
-          
-          yPosition = (doc as any).lastAutoTable.finalY + 15;
-        }
-      }
-      
-      // Check if we need a new page
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      // Performance Summary
-      doc.setFontSize(14);
-      doc.setTextColor(60, 60, 60);
-      doc.text("Performance Summary", 14, yPosition);
-      yPosition += 10;
-      
-      const performanceData = [
-        ['Planned Visits', summaryData.plannedVisits.toString()],
-        ['Completed Visits', summaryData.completedVisits.toString()],
-        ['Order Conversion Rate', `${summaryData.orderConversionRate}%`],
-        ['Distance Covered', summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No location data'],
-        ['Time at Retailers', summaryData.travelTime]
-      ];
-      
-      autoTable(doc, {
-        startY: yPosition,
-        head: [['Metric', 'Value']],
-        body: performanceData,
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 10 },
-        margin: { left: 14, right: 14 }
-      });
       
       // Save the PDF
       const fileName = `Summary_${format(selectedDate, 'yyyy-MM-dd')}.pdf`;
