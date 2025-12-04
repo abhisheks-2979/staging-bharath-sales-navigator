@@ -1340,19 +1340,18 @@ export const VisitCard = ({
                 </button>
               </h3>
               
-              {/* Location Status and Time Tracker */}
-              {isTodaysVisit && currentLog && (
+              {/* Location Status - Show for today's visits */}
+              {isTodaysVisit && (
                 <button 
-                  onClick={() => setShowVisitDetailsModal(true)} 
-                  className="flex items-center gap-1.5 text-xs hover:text-primary transition-colors cursor-pointer" 
-                  title="Click to view visit details"
+                  onClick={() => currentLog ? setShowVisitDetailsModal(true) : null} 
+                  className={`flex items-center gap-1.5 text-xs ${currentLog ? 'hover:text-primary cursor-pointer' : 'cursor-default'} transition-colors`}
+                  title={currentLog ? "Click to view visit details" : "Location status"}
                 >
                   {(() => {
-                    // Prefer live tracking status when available
+                    // Use tracking location status (calculated on mount)
                     let status = trackingLocationStatus;
 
-                    // If tracking has no location (e.g. old logs without GPS),
-                    // try to infer from visit location match flags
+                    // If tracking has no location, try to infer from visit location match flags
                     if (status === 'location_unavailable') {
                       if (locationMatchOut === true || locationMatchIn === true) {
                         status = 'at_store';
@@ -1374,7 +1373,7 @@ export const VisitCard = ({
                       return (
                         <span className="flex items-center gap-1 text-orange-500">
                           <span>🟠</span>
-                          <span className="font-medium">Within 15m</span>
+                          <span className="font-medium">&lt;50m</span>
                         </span>
                       );
                     }
@@ -1388,17 +1387,27 @@ export const VisitCard = ({
                       );
                     }
 
-                    // Default when we really don't know
+                    // Check if retailer has coordinates - if not, show "Set Location"
+                    if (!visit.retailerLat || !visit.retailerLng) {
+                      return (
+                        <span className="flex items-center gap-1 text-blue-600">
+                          <MapPin className="h-3 w-3" />
+                          <span className="font-medium">Detecting...</span>
+                        </span>
+                      );
+                    }
+
+                    // Default when location is unavailable
                     return (
                       <span className="flex items-center gap-1 text-muted-foreground">
-                        <span>⚠️</span>
-                        <span className="font-medium">Location N/A</span>
+                        <MapPin className="h-3 w-3" />
+                        <span className="font-medium">Checking...</span>
                       </span>
                     );
                   })()}
 
                   {/* Phone Order Badge */}
-                  {currentLog.is_phone_order && (
+                  {currentLog?.is_phone_order && (
                     <>
                       <span className="text-muted-foreground">•</span>
                       <span className="text-blue-600 font-medium">📞 Phone</span>
