@@ -65,14 +65,13 @@ export const TodaySummary = () => {
   const [visitBreakdown, setVisitBreakdown] = useState([
     { status: "Productive", count: 0, color: "success" },
     { status: "Unproductive", count: 0, color: "destructive" },
-    { status: "Store Closed", count: 0, color: "muted" },
     { status: "Pending", count: 0, color: "warning" }
   ]);
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
-  const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string }>>>({});
+  const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
   
   // Joint Sales Data
@@ -595,11 +594,10 @@ export const TodaySummary = () => {
         orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
       });
 
-      // Update visit breakdown
+      // Update visit breakdown - only Productive, Unproductive, Pending
       setVisitBreakdown([
         { status: "Productive", count: productiveVisits.length, color: "success" },
-        { status: "Unproductive", count: unproductiveVisits.length, color: "destructive" },
-        { status: "Store Closed", count: closedVisits.length, color: "muted" },
+        { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
         { status: "Pending", count: pendingVisits.length, color: "warning" }
       ]);
 
@@ -720,10 +718,31 @@ export const TodaySummary = () => {
       setProductGroupedOrders(productGroupedData);
 
       // Process visits by status for dialog
+      // For Productive: include retailer name and total order value
+      const productiveVisitsWithValue = productiveVisits.map(v => {
+        const retailerOrders = todayOrders?.filter(o => o.retailer_id === v.retailer_id) || [];
+        const totalValue = retailerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        return { 
+          retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown',
+          totalValue 
+        };
+      });
+      
+      // For Unproductive: combine unproductive + store_closed, show reason
+      const allUnproductiveVisits = [
+        ...unproductiveVisits.map(v => ({ 
+          retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown', 
+          note: v.no_order_reason || 'No reason provided' 
+        })),
+        ...closedVisits.map(v => ({ 
+          retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown', 
+          note: 'Store Closed' 
+        }))
+      ];
+      
       const visitsByStatusData = {
-        Productive: productiveVisits.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown' })),
-        Unproductive: unproductiveVisits.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown', note: v.no_order_reason || 'No order placed' })),
-        "Store Closed": closedVisits.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown', note: 'Store was closed' })),
+        Productive: productiveVisitsWithValue,
+        Unproductive: allUnproductiveVisits,
         Pending: pendingVisits.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown' }))
       };
 
@@ -1781,14 +1800,60 @@ export const TodaySummary = () => {
 
               {dialogContentType === "visits" && (
                 <div className="space-y-2">
-                  {(visitsByStatus[dialogFilter || "Productive"] || []).map((v, idx) => (
-                    <div key={idx} className="p-3 rounded-md bg-muted/50">
-                      <div className="font-medium">{v.retailer}</div>
-                      {v.note && <div className="text-sm text-muted-foreground">{v.note}</div>}
-                    </div>
-                  ))}
+                  {dialogFilter === "Productive" ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Store Name</TableHead>
+                          <TableHead className="text-right">Total Value</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(visitsByStatus["Productive"] || []).map((v, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{v.retailer}</TableCell>
+                            <TableCell className="text-right text-success font-semibold">
+                              ₹{Math.round(v.totalValue || 0).toLocaleString('en-IN')}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : dialogFilter === "Unproductive" ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Store Name</TableHead>
+                          <TableHead className="text-right">Reason</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(visitsByStatus["Unproductive"] || []).map((v, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{v.retailer}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{v.note}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Store Name</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(visitsByStatus[dialogFilter || "Pending"] || []).map((v, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{v.retailer}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                   {(!visitsByStatus[dialogFilter || ""] || visitsByStatus[dialogFilter || ""].length === 0) && (
-                    <div className="text-sm text-muted-foreground">No records available.</div>
+                    <div className="text-sm text-muted-foreground text-center py-4">No records available.</div>
                   )}
                 </div>
               )}
