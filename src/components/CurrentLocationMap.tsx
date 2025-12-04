@@ -2,10 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from './ui/button';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, RefreshCw, Clock, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
+import { Switch } from './ui/switch';
 
 // Fix default marker icon
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -20,7 +23,7 @@ interface CurrentLocationMapProps {
   userId?: string;
 }
 
-export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height = '600px', userId }) => {
+export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height = '500px', userId }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -34,10 +37,15 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
     if (!mapContainerRef.current) return;
 
     // Initialize map centered on India
-    mapRef.current = L.map(mapContainerRef.current).setView([20.5937, 78.9629], 5);
+    mapRef.current = L.map(mapContainerRef.current, {
+      zoomControl: false // We'll position it ourselves
+    }).setView([20.5937, 78.9629], 5);
+
+    // Add zoom control to bottom right
+    L.control.zoom({ position: 'bottomright' }).addTo(mapRef.current);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
+      attribution: '© OpenStreetMap',
     }).addTo(mapRef.current);
 
     return () => {
@@ -50,14 +58,12 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
 
   const fetchUserLocation = async () => {
     if (!userId) {
-      toast.error('Please select a user');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Get the latest GPS location for the selected user
       const { data, error } = await supabase
         .from('gps_tracking')
         .select('*')
@@ -68,7 +74,6 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
 
       if (error) {
         console.error('Error fetching location:', error);
-        toast.error('No location data found for this user');
         setLoading(false);
         return;
       }
@@ -83,7 +88,6 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
         setLocation(newLocation);
 
         if (mapRef.current) {
-          // Remove old marker and circle if exists
           if (markerRef.current) {
             markerRef.current.remove();
           }
@@ -91,61 +95,61 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
             circleRef.current.remove();
           }
 
-          // Add new marker with custom icon
-          const blueIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
+          // Custom pulsing marker icon
+          const pulsingIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `
+              <div style="position: relative; width: 24px; height: 24px;">
+                <div style="position: absolute; width: 24px; height: 24px; background: #3b82f6; border-radius: 50%; opacity: 0.3; animation: pulse 2s infinite;"></div>
+                <div style="position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+              </div>
+              <style>
+                @keyframes pulse {
+                  0% { transform: scale(1); opacity: 0.3; }
+                  50% { transform: scale(2); opacity: 0; }
+                  100% { transform: scale(1); opacity: 0.3; }
+                }
+              </style>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
           });
 
-          markerRef.current = L.marker([latitude, longitude], { icon: blueIcon })
+          markerRef.current = L.marker([latitude, longitude], { icon: pulsingIcon })
             .addTo(mapRef.current);
 
-          // Center map on location
           mapRef.current.setView([latitude, longitude], 16);
 
-          // Only show accuracy circle if accuracy is reasonable (less than 200m)
-          // Cap the visual radius at 100m for better UX
-          if (accuracy <= 200) {
-            const displayRadius = Math.min(accuracy, 100);
+          // Only show accuracy circle if accuracy is reasonable
+          if (accuracy <= 150) {
+            const displayRadius = Math.min(accuracy, 80);
             circleRef.current = L.circle([latitude, longitude], {
               radius: displayRadius,
               color: '#3b82f6',
               fillColor: '#3b82f6',
-              fillOpacity: 0.15,
-              weight: 2,
+              fillOpacity: 0.1,
+              weight: 1,
             }).addTo(mapRef.current);
           }
-
-          toast.success('Location updated');
         }
       }
 
       setLoading(false);
     } catch (error) {
       console.error('Error fetching location:', error);
-      toast.error('Failed to fetch user location');
       setLoading(false);
     }
   };
 
-  // Fetch location when user changes
   useEffect(() => {
     if (userId && mapRef.current) {
       fetchUserLocation();
     }
   }, [userId]);
 
-  // Auto-refresh functionality
   useEffect(() => {
     if (autoRefresh && userId) {
-      // Fetch immediately
       fetchUserLocation();
-      
-      // Set up interval for auto-refresh every 15 seconds
       refreshIntervalRef.current = setInterval(() => {
         fetchUserLocation();
       }, 15000);
@@ -158,7 +162,6 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
     };
   }, [autoRefresh, userId]);
 
-  // Get time difference in a human-readable format
   const getTimeDifference = (timestamp: Date) => {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - timestamp.getTime()) / 1000);
@@ -169,7 +172,6 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
-  // Check if location is fresh (within last 5 minutes)
   const isLocationFresh = (timestamp: Date) => {
     const now = new Date();
     const diffInMinutes = (now.getTime() - timestamp.getTime()) / (1000 * 60);
@@ -177,73 +179,108 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold">Live Location</h3>
-            {location?.timestamp && (
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                isLocationFresh(location.timestamp) 
-                  ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
-                  : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
-              }`}>
-                {isLocationFresh(location.timestamp) ? '● Live' : '⚠ Stale'}
-              </span>
-            )}
-          </div>
-          {location && (
-            <div className="text-sm text-muted-foreground mt-1">
-              <p>Lat: {location.lat.toFixed(6)}, Lng: {location.lng.toFixed(6)}</p>
-              {location.timestamp && (
-                <p className="flex items-center gap-1">
-                  Updated: {getTimeDifference(location.timestamp)} 
-                  <span className="text-xs">({format(location.timestamp, 'p')})</span>
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="rounded"
-            />
-            Auto-refresh (15s)
-          </label>
-          <Button 
-            onClick={fetchUserLocation} 
-            disabled={loading || !userId}
-            size="sm"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Updating...
-              </>
-            ) : (
-              <>
-                <MapPin className="mr-2 h-4 w-4" />
-                Refresh Now
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
+    <div className="relative rounded-lg overflow-hidden border shadow-sm" style={{ height }}>
+      {/* Map Container */}
       <div
         ref={mapContainerRef}
-        style={{ height, width: '100%' }}
-        className="rounded-lg border shadow-sm"
+        className="absolute inset-0"
       />
 
-      {!location && !loading && (
-        <div className="text-center p-8 text-muted-foreground">
-          <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>{userId ? 'Fetching latest location...' : 'Select a user to view their location'}</p>
+      {/* Floating Info Card - Top */}
+      {location && (
+        <Card className="absolute top-3 left-3 right-3 z-[1000] bg-background/95 backdrop-blur-sm shadow-lg">
+          <div className="p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Navigation className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="font-medium text-sm truncate">Current Location</span>
+                  <Badge 
+                    variant={location.timestamp && isLocationFresh(location.timestamp) ? "default" : "secondary"}
+                    className={`text-xs ${location.timestamp && isLocationFresh(location.timestamp) ? 'bg-green-500' : 'bg-yellow-500'}`}
+                  >
+                    {location.timestamp && isLocationFresh(location.timestamp) ? 'Live' : 'Stale'}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p className="font-mono">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
+                  {location.timestamp && (
+                    <p className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {getTimeDifference(location.timestamp)} • {format(location.timestamp, 'hh:mm a')}
+                    </p>
+                  )}
+                  {location.accuracy && (
+                    <p className="text-muted-foreground/70">±{Math.round(location.accuracy)}m accuracy</p>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={fetchUserLocation}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Floating Controls - Bottom Left */}
+      <Card className="absolute bottom-3 left-3 z-[1000] bg-background/95 backdrop-blur-sm shadow-lg">
+        <div className="p-2 flex items-center gap-2">
+          <Switch
+            checked={autoRefresh}
+            onCheckedChange={setAutoRefresh}
+            className="scale-75"
+          />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Auto (15s)</span>
+        </div>
+      </Card>
+
+      {/* No Location State */}
+      {!location && !loading && userId && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+          <div className="text-center p-6">
+            <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">No location data available</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3"
+              onClick={fetchUserLocation}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* No User Selected State */}
+      {!userId && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+          <div className="text-center p-6">
+            <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">Select a team member to view location</p>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && !location && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+          <div className="text-center p-6">
+            <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Fetching location...</p>
+          </div>
         </div>
       )}
     </div>
