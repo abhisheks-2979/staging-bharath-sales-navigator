@@ -315,7 +315,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
               total: totalVisits,
               completed,
               remaining,
-              planned: totalPlannedRetailers,
+              planned: notYetVisited, // Unified logic: visits with status='planned' + retailers from beat plans without visits
               productive,
               unproductive,
             },
@@ -418,7 +418,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           total: totalVisits,
           completed: productive + unproductive,
           remaining,
-          planned: totalPlannedRetailers,
+          planned: notYetVisited, // Unified logic: visits with status='planned' + retailers from beat plans without visits
           productive,
           unproductive,
         }
@@ -430,11 +430,41 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   useEffect(() => {
     loadDashboardData();
     
-    // Refresh every 60 seconds (only for today)
+    // Auto-refresh every 30 seconds (only for today) - matches My Visits behavior
+    let interval: NodeJS.Timeout | undefined;
     if (isToday) {
-      const interval = setInterval(loadDashboardData, 60000);
-      return () => clearInterval(interval);
+      interval = setInterval(loadDashboardData, 30000);
     }
+    
+    // Listen for visit data changes
+    const handleVisitDataChanged = () => {
+      loadDashboardData();
+    };
+    
+    // Listen for visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isToday) {
+        loadDashboardData();
+      }
+    };
+    
+    // Listen for window focus
+    const handleFocus = () => {
+      if (isToday) {
+        loadDashboardData();
+      }
+    };
+    
+    window.addEventListener('visitDataChanged', handleVisitDataChanged);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+      window.removeEventListener('visitDataChanged', handleVisitDataChanged);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [loadDashboardData, isToday]);
 
   return { ...data, refresh: loadDashboardData };
