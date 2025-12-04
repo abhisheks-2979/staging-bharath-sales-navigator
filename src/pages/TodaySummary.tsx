@@ -134,6 +134,40 @@ export const TodaySummary = () => {
     fetchTodaysData();
   }, [dateRange, filterType]);
 
+  // Real-time subscription for points updates
+  useEffect(() => {
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel('points-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'gamification_points',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('New points earned:', payload);
+            // Add new points to current total
+            setPointsEarnedToday(prev => prev + (payload.new.points || 0));
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    if (filterType === 'today') {
+      setupRealtimeSubscription();
+    }
+  }, [filterType]);
+
   // Auto-refresh when page becomes visible or when focusing on today's data
   useEffect(() => {
     const handleVisibilityChange = () => {
