@@ -17,16 +17,17 @@ interface RetailerFeedbackModalProps {
   retailerName: string;
 }
 
-// Calculate score for retailer feedback (4 star fields × 5 max = 20 max points, displayed out of 10)
+// Calculate score for retailer feedback (5 star fields × 5 max = 25 max points, displayed out of 10)
 const calculateRetailerFeedbackScore = (feedback: {
   product_packaging: number;
   product_sku_range: number;
   product_quality: number;
   product_placement: number;
+  consumer_satisfaction: number;
 }): number => {
-  const { product_packaging, product_sku_range, product_quality, product_placement } = feedback;
-  const totalPoints = product_packaging + product_sku_range + product_quality + product_placement;
-  const MAX_SCORE = 20; // 4 fields × 5 points each
+  const { product_packaging, product_sku_range, product_quality, product_placement, consumer_satisfaction } = feedback;
+  const totalPoints = product_packaging + product_sku_range + product_quality + product_placement + consumer_satisfaction;
+  const MAX_SCORE = 25; // 5 fields × 5 points each
   
   if (totalPoints === 0) return 0;
   return Math.round((totalPoints / MAX_SCORE) * 100) / 10;
@@ -45,6 +46,7 @@ export const RetailerFeedbackModal = ({
     product_sku_range: 0,
     product_quality: 0,
     product_placement: 0,
+    consumer_satisfaction: 0,
     summary_notes: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,7 +56,8 @@ export const RetailerFeedbackModal = ({
     product_packaging: feedback.product_packaging,
     product_sku_range: feedback.product_sku_range,
     product_quality: feedback.product_quality,
-    product_placement: feedback.product_placement
+    product_placement: feedback.product_placement,
+    consumer_satisfaction: feedback.consumer_satisfaction
   });
 
   // Load existing feedback
@@ -81,6 +84,7 @@ export const RetailerFeedbackModal = ({
             product_sku_range: data.product_sku_range || 0,
             product_quality: data.product_quality || 0,
             product_placement: data.product_placement || 0,
+            consumer_satisfaction: (data as any).consumer_satisfaction || 0,
             summary_notes: data.summary_notes || ""
           });
         }
@@ -99,7 +103,8 @@ export const RetailerFeedbackModal = ({
     const hasRating = feedback.product_packaging > 0 || 
                       feedback.product_sku_range > 0 || 
                       feedback.product_quality > 0 || 
-                      feedback.product_placement > 0;
+                      feedback.product_placement > 0 ||
+                      feedback.consumer_satisfaction > 0;
 
     if (!hasRating) {
       toast({
@@ -126,6 +131,7 @@ export const RetailerFeedbackModal = ({
         product_sku_range: feedback.product_sku_range,
         product_quality: feedback.product_quality,
         product_placement: feedback.product_placement,
+        consumer_satisfaction: feedback.consumer_satisfaction,
         summary_notes: feedback.summary_notes || null,
         score: currentScore,
         updated_at: new Date().toISOString()
@@ -167,6 +173,7 @@ export const RetailerFeedbackModal = ({
         product_sku_range: 0,
         product_quality: 0,
         product_placement: 0,
+        consumer_satisfaction: 0,
         summary_notes: ""
       });
       
@@ -284,6 +291,13 @@ export const RetailerFeedbackModal = ({
                 (value) => setFeedback({ ...feedback, product_placement: value }),
                 "Product Placement",
                 "Visibility and shelf positioning"
+              )}
+              
+              {renderStarRating(
+                feedback.consumer_satisfaction,
+                (value) => setFeedback({ ...feedback, consumer_satisfaction: value }),
+                "Consumer Satisfaction",
+                "End consumer feedback"
               )}
             </div>
           </div>

@@ -4616,6 +4616,7 @@ export type Database = {
       retailer_feedback: {
         Row: {
           comments: string | null
+          consumer_satisfaction: number | null
           created_at: string
           feedback_date: string | null
           feedback_type: string
@@ -4634,6 +4635,7 @@ export type Database = {
         }
         Insert: {
           comments?: string | null
+          consumer_satisfaction?: number | null
           created_at?: string
           feedback_date?: string | null
           feedback_type: string
@@ -4652,6 +4654,7 @@ export type Database = {
         }
         Update: {
           comments?: string | null
+          consumer_satisfaction?: number | null
           created_at?: string
           feedback_date?: string | null
           feedback_type?: string
