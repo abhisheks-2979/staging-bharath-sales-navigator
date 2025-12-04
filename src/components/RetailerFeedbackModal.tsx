@@ -229,42 +229,49 @@ export const RetailerFeedbackModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {onBack && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onBack}
-                  className="p-1 h-8 w-8"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
+        {/* Header with gradient */}
+        <div className="bg-gradient-to-br from-orange-500/10 via-orange-400/5 to-background p-6 pb-4">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {onBack && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBack}
+                    className="p-1 h-8 w-8"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                )}
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <div className="h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center">
+                    <Star className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  Retailer Feedback
+                </DialogTitle>
+              </div>
+              {currentScore > 0 && (
+                <Badge className={`text-sm px-3 py-1.5 font-semibold ${getScoreColor(currentScore)}`}>
+                  Score: {currentScore}/10
+                </Badge>
               )}
-              <DialogTitle className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-orange-600" />
-                Retailer Feedback
-              </DialogTitle>
             </div>
-            {currentScore > 0 && (
-              <Badge className={`text-sm px-2 py-1 ${getScoreColor(currentScore)}`}>
-                Score: {currentScore}/10
-              </Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">{retailerName}</p>
-        </DialogHeader>
+            <div className="mt-3 pl-10">
+              <p className="text-base font-semibold text-foreground">{retailerName}</p>
+            </div>
+          </DialogHeader>
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 pt-4 space-y-6">
           {/* Performance Ratings Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-orange-700 dark:text-orange-300">
               <Star className="h-4 w-4" />
               Performance Ratings
             </div>
-            <div className="grid gap-4 p-4 bg-muted/30 rounded-lg">
+            <div className="grid gap-4 p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-border/50">
               {renderStarRating(
                 feedback.product_packaging,
                 (value) => setFeedback({ ...feedback, product_packaging: value }),
@@ -311,23 +318,23 @@ export const RetailerFeedbackModal = ({
               onChange={(e) => setFeedback({ ...feedback, summary_notes: e.target.value })}
               placeholder="Additional observations and feedback notes..."
               rows={3}
-              className="resize-none"
+              className="resize-none bg-muted/30"
             />
           </div>
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="flex-1"
+              className="flex-1 h-11"
               disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              className="flex-1"
+              className="flex-1 h-11 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Saving..." : "Submit Feedback"}

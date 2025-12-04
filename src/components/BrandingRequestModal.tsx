@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Upload, Star, Plus, Edit2, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Upload, Star, Plus, Edit2, Trash2, ChevronDown, ChevronUp, FileText, Paintbrush } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -35,17 +35,19 @@ interface AssetLineItem {
   quantity: string;
   photoUrls: string[];
   impactToBusiness: string;
+  contractDocUrls: string[];
   // Status fields
   status: string;
   budget: string;
   vendorName: string;
   implementationTargetDate: string;
+  vendorCommittedDate: string;
   inputToVendor: string;
   vendorWorkRating: number;
   // Implementation fields
   implementationPhotoUrls: string[];
-  retailerFeedback: string;
-  fieldSalesTeamFeedback: string;
+  retailerFeedbackRating: number;
+  fieldSalesTeamRating: number;
   impactRating: number;
 }
 
@@ -57,15 +59,17 @@ const emptyAsset: AssetLineItem = {
   quantity: '',
   photoUrls: [],
   impactToBusiness: '',
+  contractDocUrls: [],
   status: 'Request received',
   budget: '',
   vendorName: '',
   implementationTargetDate: '',
+  vendorCommittedDate: '',
   inputToVendor: '',
   vendorWorkRating: 0,
   implementationPhotoUrls: [],
-  retailerFeedback: '',
-  fieldSalesTeamFeedback: '',
+  retailerFeedbackRating: 0,
+  fieldSalesTeamRating: 0,
   impactRating: 0,
 };
 
@@ -105,7 +109,7 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     loadRetailers();
   }, []);
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, assetId: string | null, type: 'request' | 'implementation') => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, assetId: string | null, type: 'request' | 'implementation' | 'contract') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -116,6 +120,7 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
       if (!userId) throw new Error('Not authenticated');
 
       const uploadedUrls: string[] = [];
+      const bucket = type === 'contract' ? 'branding-documents' : 'branding-photos';
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -123,13 +128,13 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         const fileName = `${userId}/${Date.now()}-${i}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('branding-photos')
+          .from(bucket)
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('branding-photos')
+          .from(bucket)
           .getPublicUrl(fileName);
 
         uploadedUrls.push(publicUrl);
@@ -141,6 +146,8 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
           if (item.id === assetId) {
             if (type === 'request') {
               return { ...item, photoUrls: [...item.photoUrls, ...uploadedUrls] };
+            } else if (type === 'contract') {
+              return { ...item, contractDocUrls: [...item.contractDocUrls, ...uploadedUrls] };
             } else {
               return { ...item, implementationPhotoUrls: [...item.implementationPhotoUrls, ...uploadedUrls] };
             }
@@ -151,10 +158,12 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         // Updating current form asset
         if (type === 'request') {
           setCurrentAsset(prev => ({ ...prev, photoUrls: [...prev.photoUrls, ...uploadedUrls] }));
+        } else if (type === 'contract') {
+          setCurrentAsset(prev => ({ ...prev, contractDocUrls: [...prev.contractDocUrls, ...uploadedUrls] }));
         }
       }
       
-      toast({ title: "Photos uploaded", description: `${uploadedUrls.length} photo(s) added` });
+      toast({ title: type === 'contract' ? "Documents uploaded" : "Photos uploaded", description: `${uploadedUrls.length} file(s) added` });
     } catch (error: any) {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     } finally {
@@ -166,6 +175,17 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     if (!currentAsset.assetType) {
       toast({ title: 'Asset type required', variant: 'destructive' });
       return;
+    }
+    
+    // Validate due date is greater than today
+    if (currentAsset.dueDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(currentAsset.dueDate);
+      if (dueDate <= today) {
+        toast({ title: 'Due date must be greater than today', variant: 'destructive' });
+        return;
+      }
     }
     
     if (editingAssetId) {
@@ -210,10 +230,43 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
       if (!retailerId) throw new Error('Please select a retailer');
       if (assetLineItems.length === 0) throw new Error('Please add at least one asset');
 
+      // If no visitId provided, we need to find or create one
+      let finalVisitId = visitId;
+      if (!finalVisitId) {
+        const today = new Date().toISOString().split('T')[0];
+        // Try to find existing visit for this retailer today
+        const { data: existingVisit } = await supabase
+          .from('visits')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('retailer_id', retailerId)
+          .eq('planned_date', today)
+          .maybeSingle();
+        
+        if (existingVisit) {
+          finalVisitId = existingVisit.id;
+        } else {
+          // Create a new visit
+          const { data: newVisit, error: visitError } = await supabase
+            .from('visits')
+            .insert({
+              user_id: uid,
+              retailer_id: retailerId,
+              planned_date: today,
+              status: 'planned'
+            })
+            .select('id')
+            .single();
+          
+          if (visitError) throw visitError;
+          finalVisitId = newVisit.id;
+        }
+      }
+
       const payload: any = {
         user_id: uid,
         retailer_id: retailerId,
-        visit_id: visitId,
+        visit_id: finalVisitId,
         title: 'Branding Request',
       };
 
@@ -225,7 +278,6 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         branding_request_id: data.id,
         asset_type: item.assetType,
         due_date: item.dueDate || null,
-        // Note: Some fields may need to be added to the database
       }));
 
       const { error: itemsError } = await supabase.from('branding_request_items').insert(itemsPayload);
@@ -265,12 +317,18 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     "Request received",
     "Approved",
     "In progress",
+    "Delayed",
     "Work completed",
     "Implemented",
     "Rejected"
   ];
 
-  const showTargetDateStatuses = ["Approved", "In progress", "Work completed", "Implemented"];
+  const showTargetDateStatuses = ["Approved", "In progress", "Delayed", "Work completed", "Implemented"];
+
+  const getTodayString = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
 
   const StarRating = ({ value, onChange, disabled = false }: { value: number; onChange: (val: number) => void; disabled?: boolean }) => (
     <div className="flex items-center gap-1">
@@ -297,53 +355,65 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            {onBack && (
-              <Button variant="ghost" size="sm" onClick={onBack} className="p-1 h-8 w-8">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            )}
-            <DialogTitle>Branding Request</DialogTitle>
-          </div>
-        </DialogHeader>
-
-        <Tabs defaultValue="request" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="request">Request</TabsTrigger>
-            <TabsTrigger value="status">Status</TabsTrigger>
-            <TabsTrigger value="implementation">Implementation</TabsTrigger>
-          </TabsList>
-
-          {/* REQUEST TAB */}
-          <TabsContent value="request" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1">
-                <Label>Retailer *</Label>
-                <Select value={retailerId} onValueChange={setRetailerId} disabled={!!defaultRetailerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select retailer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {retailers.map(r => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        {/* Header with gradient */}
+        <div className="bg-gradient-to-br from-orange-500/10 via-amber-400/5 to-background p-6 pb-4 sticky top-0 z-10">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              {onBack && (
+                <Button variant="ghost" size="sm" onClick={onBack} className="p-1 h-8 w-8">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                <Paintbrush className="h-5 w-5 text-white" />
               </div>
+              <div>
+                <DialogTitle className="text-xl font-bold">Branding Request</DialogTitle>
+                {retailers.find(r => r.id === retailerId) && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{retailers.find(r => r.id === retailerId)?.name}</p>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+        </div>
 
-              {/* Asset Line Items */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Assets</Label>
+        <div className="px-6 pb-6">
+          <Tabs defaultValue="request" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-muted/50">
+              <TabsTrigger value="request" className="data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-700 dark:data-[state=active]:text-orange-300">Request</TabsTrigger>
+              <TabsTrigger value="status" className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-300">Status</TabsTrigger>
+              <TabsTrigger value="implementation" className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-700 dark:data-[state=active]:text-green-300">Implementation</TabsTrigger>
+            </TabsList>
+
+            {/* REQUEST TAB */}
+            <TabsContent value="request" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Retailer *</Label>
+                  <Select value={retailerId} onValueChange={setRetailerId} disabled={!!defaultRetailerId}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select retailer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {retailers.map(r => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Asset Line Items */}
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Assets</Label>
 
                 {showAddAssetForm && (
-                  <Card className="border-primary/50">
-                    <CardContent className="pt-4 space-y-3">
-                      <div className="space-y-1">
-                        <Label>Asset Type Requested *</Label>
+                  <Card className="border-primary/50 shadow-sm">
+                    <CardContent className="pt-5 space-y-5">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Asset Type Requested *</Label>
                         <Select value={currentAsset.assetType} onValueChange={(val) => setCurrentAsset({...currentAsset, assetType: val})}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10">
                             <SelectValue placeholder="Select asset type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -354,26 +424,32 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                         </Select>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label>Due Date Requested</Label>
-                          <Input type="date" value={currentAsset.dueDate} onChange={(e) => setCurrentAsset({...currentAsset, dueDate: e.target.value})} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Due Date Requested</Label>
+                          <Input 
+                            type="date" 
+                            value={currentAsset.dueDate} 
+                            onChange={(e) => setCurrentAsset({...currentAsset, dueDate: e.target.value})} 
+                            min={getTodayString()}
+                            className="h-10"
+                          />
                         </div>
-                        <div className="space-y-1">
-                          <Label>Size</Label>
-                          <Input value={currentAsset.size} onChange={(e) => setCurrentAsset({...currentAsset, size: e.target.value})} placeholder="e.g., 4x6 ft" />
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Size</Label>
+                          <Input value={currentAsset.size} onChange={(e) => setCurrentAsset({...currentAsset, size: e.target.value})} placeholder="e.g., 4x6 ft" className="h-10" />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label>Quantity</Label>
-                          <Input type="number" value={currentAsset.quantity} onChange={(e) => setCurrentAsset({...currentAsset, quantity: e.target.value})} placeholder="1" min="1" />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Quantity</Label>
+                          <Input type="number" value={currentAsset.quantity} onChange={(e) => setCurrentAsset({...currentAsset, quantity: e.target.value})} placeholder="1" min="1" className="h-10" />
                         </div>
-                        <div className="space-y-1">
-                          <Label>Impact to Business</Label>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Impact to Business</Label>
                           <Select value={currentAsset.impactToBusiness} onValueChange={(val) => setCurrentAsset({...currentAsset, impactToBusiness: val})}>
-                            <SelectTrigger>
+                            <SelectTrigger className="h-10">
                               <SelectValue placeholder="Select impact" />
                             </SelectTrigger>
                             <SelectContent>
@@ -385,15 +461,15 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label>Add Photos</Label>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Add Photos</Label>
                         <div className="flex items-center gap-2">
                           <Button
                             type="button"
                             variant="outline"
                             onClick={() => document.getElementById('asset-photos-new')?.click()}
                             disabled={uploadingAssetId === 'current'}
-                            className="flex-1"
+                            className="flex-1 h-10"
                           >
                             <Upload className="h-4 w-4 mr-2" />
                             {uploadingAssetId === 'current' ? 'Uploading...' : 'Upload Photos'}
@@ -407,19 +483,56 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                             className="hidden"
                           />
                           {currentAsset.photoUrls.length > 0 && (
-                            <Badge>{currentAsset.photoUrls.length} photo(s)</Badge>
+                            <Badge variant="secondary">{currentAsset.photoUrls.length} photo(s)</Badge>
                           )}
                         </div>
                         {currentAsset.photoUrls.length > 0 && (
                           <div className="grid grid-cols-4 gap-2 mt-2">
                             {currentAsset.photoUrls.map((url, idx) => (
-                              <img key={idx} src={url} alt={`Photo ${idx + 1}`} className="w-full h-16 object-cover rounded" />
+                              <img key={idx} src={url} alt={`Photo ${idx + 1}`} className="w-full h-16 object-cover rounded-md border" />
                             ))}
                           </div>
                         )}
                       </div>
 
-                      <div className="flex gap-2 justify-end">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Branding Contract Document</Label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('asset-contract-new')?.click()}
+                            disabled={uploadingAssetId === 'current'}
+                            className="flex-1 h-10"
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Upload Documents
+                          </Button>
+                          <input
+                            id="asset-contract-new"
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            multiple
+                            onChange={(e) => handlePhotoUpload(e, null, 'contract')}
+                            className="hidden"
+                          />
+                          {currentAsset.contractDocUrls.length > 0 && (
+                            <Badge variant="secondary">{currentAsset.contractDocUrls.length} doc(s)</Badge>
+                          )}
+                        </div>
+                        {currentAsset.contractDocUrls.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {currentAsset.contractDocUrls.map((url, idx) => (
+                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1 bg-muted px-2 py-1 rounded">
+                                <FileText className="h-3 w-3" />
+                                Document {idx + 1}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 justify-end pt-2">
                         <Button 
                           type="button" 
                           variant="outline" 
@@ -582,10 +695,22 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                               type="date"
                               value={item.implementationTargetDate}
                               onChange={(e) => updateAssetField(item.id, 'implementationTargetDate', e.target.value)}
+                              min={getTodayString()}
                               className="h-9"
                             />
                           </div>
                         )}
+
+                        <div className="space-y-1">
+                          <Label className="text-sm">Vendor Committed Date</Label>
+                          <Input
+                            type="date"
+                            value={item.vendorCommittedDate}
+                            onChange={(e) => updateAssetField(item.id, 'vendorCommittedDate', e.target.value)}
+                            min={getTodayString()}
+                            className="h-9"
+                          />
+                        </div>
 
                         <div className="space-y-1 md:col-span-2">
                           <Label className="text-sm">Input to Vendor</Label>
@@ -690,29 +815,23 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                           )}
                         </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-sm">Feedback to Asset by Retailer</Label>
-                          <Textarea
-                            value={item.retailerFeedback}
-                            onChange={(e) => updateAssetField(item.id, 'retailerFeedback', e.target.value)}
-                            placeholder="Retailer's feedback on the implemented asset"
-                            className="min-h-[60px]"
-                            rows={2}
+                        <div className="space-y-2">
+                          <Label className="text-sm">Feedback on Asset by Retailer</Label>
+                          <StarRating 
+                            value={item.retailerFeedbackRating} 
+                            onChange={(val) => updateAssetField(item.id, 'retailerFeedbackRating', val)} 
                           />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <Label className="text-sm">Field Sales Team Feedback</Label>
-                          <Textarea
-                            value={item.fieldSalesTeamFeedback}
-                            onChange={(e) => updateAssetField(item.id, 'fieldSalesTeamFeedback', e.target.value)}
-                            placeholder="Sales team's observations and feedback"
-                            className="min-h-[60px]"
-                            rows={2}
+                          <StarRating 
+                            value={item.fieldSalesTeamRating} 
+                            onChange={(val) => updateAssetField(item.id, 'fieldSalesTeamRating', val)} 
                           />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <Label className="text-sm">Impact to Business by this Asset</Label>
                           <StarRating 
                             value={item.impactRating} 
@@ -728,9 +847,10 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={loading}>{loading ? 'Submitting...' : 'Submit Request'}</Button>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button variant="outline" onClick={onClose} className="h-10">Cancel</Button>
+          <Button onClick={handleSubmit} disabled={loading} className="h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600">{loading ? 'Submitting...' : 'Submit Request'}</Button>
+        </div>
         </div>
       </DialogContent>
     </Dialog>
