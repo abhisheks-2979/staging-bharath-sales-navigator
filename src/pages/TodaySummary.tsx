@@ -65,13 +65,13 @@ export const TodaySummary = () => {
   const [visitBreakdown, setVisitBreakdown] = useState([
     { status: "Productive", count: 0, color: "success" },
     { status: "Unproductive", count: 0, color: "destructive" },
-    { status: "Pending", count: 0, color: "warning" }
+    { status: "Planned", count: 0, color: "warning" }
   ]);
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
-  const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number }>>>({});
+  const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
   
   // Joint Sales Data
@@ -614,11 +614,11 @@ export const TodaySummary = () => {
         orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
       });
 
-      // Update visit breakdown - only Productive, Unproductive, Pending
+      // Update visit breakdown - only Productive, Unproductive, Planned
       setVisitBreakdown([
         { status: "Productive", count: productiveVisits.length, color: "success" },
         { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
-        { status: "Pending", count: totalPendingCount, color: "warning" }
+        { status: "Planned", count: totalPendingCount, color: "warning" }
       ]);
 
       // Process top retailers (based on order value)
@@ -760,16 +760,40 @@ export const TodaySummary = () => {
         }))
       ];
       
-      // Combine pending visits from DB and beat plan retailers without visits
-      const allPendingRetailers = [
-        ...pendingVisitsFromDb.map(v => ({ retailer: retailerMap.get(v.retailer_id)?.name || 'Unknown' })),
-        ...beatPlanRetailersWithoutVisits.map(rid => ({ retailer: retailerMap.get(rid)?.name || 'Unknown' }))
+      // Combine planned visits from DB and beat plan retailers without visits - include beat name and address
+      const allPlannedRetailers = [
+        ...pendingVisitsFromDb.map(v => {
+          const retailer = retailerMap.get(v.retailer_id);
+          // Find beat name from beat plans for this retailer
+          const beatForRetailer = beatPlans?.find(bp => {
+            const beatData = bp.beat_data as any;
+            return beatData?.retailers?.some((r: any) => r.id === v.retailer_id);
+          });
+          return { 
+            retailer: retailer?.name || 'Unknown',
+            beatName: beatForRetailer?.beat_name || 'N/A',
+            address: retailer?.address || 'Address not available'
+          };
+        }),
+        ...beatPlanRetailersWithoutVisits.map(rid => {
+          const retailer = retailerMap.get(rid);
+          // Find which beat this retailer belongs to
+          const beatForRetailer = beatPlans?.find(bp => {
+            const beatData = bp.beat_data as any;
+            return beatData?.retailers?.some((r: any) => r.id === rid);
+          });
+          return { 
+            retailer: retailer?.name || 'Unknown',
+            beatName: beatForRetailer?.beat_name || 'N/A',
+            address: retailer?.address || 'Address not available'
+          };
+        })
       ];
       
       const visitsByStatusData = {
         Productive: productiveVisitsWithValue,
         Unproductive: allUnproductiveVisits,
-        Pending: allPendingRetailers
+        Planned: allPlannedRetailers
       };
 
       setVisitsByStatus(visitsByStatusData);
@@ -1862,6 +1886,25 @@ export const TodaySummary = () => {
                         ))}
                       </TableBody>
                     </Table>
+                  ) : dialogFilter === "Planned" ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Store Name</TableHead>
+                          <TableHead>Beat</TableHead>
+                          <TableHead className="text-right">Address</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(visitsByStatus["Planned"] || []).map((v, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{v.retailer}</TableCell>
+                            <TableCell className="text-muted-foreground">{v.beatName || 'N/A'}</TableCell>
+                            <TableCell className="text-right text-muted-foreground text-xs max-w-[150px] truncate">{v.address || 'N/A'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   ) : (
                     <Table>
                       <TableHeader>
@@ -1870,7 +1913,7 @@ export const TodaySummary = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(visitsByStatus[dialogFilter || "Pending"] || []).map((v, idx) => (
+                        {(visitsByStatus[dialogFilter || ""] || []).map((v, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{v.retailer}</TableCell>
                           </TableRow>
