@@ -1356,10 +1356,35 @@ export const VisitCard = ({
                   🔴 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : 'Not at Store'}
                 </Badge>
               )}
+              {/* Show checking status when retailer has GPS but location not determined yet */}
+              {trackingLocationStatus === 'location_unavailable' && visit.retailerLat && visit.retailerLng && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
+                  📍 Checking...
+                </Badge>
+              )}
               {(!visit.retailerLat || !visit.retailerLng) && (
                 <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
                   📍 No GPS
                 </Badge>
+              )}
+              
+              {/* Time spent at retailer */}
+              {currentLog && formattedTimeSpent && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
+                  ⏱️ {formattedTimeSpent}
+                </Badge>
+              )}
+              
+              {/* Details button */}
+              {currentLog && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
+                  className="h-5 px-1.5 text-[9px] text-primary hover:text-primary/80"
+                >
+                  Details
+                </Button>
               )}
               
               {/* Phone Order Badge - only shown if applicable */}
