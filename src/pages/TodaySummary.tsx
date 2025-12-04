@@ -174,42 +174,8 @@ export const TodaySummary = () => {
     };
   }, [filterType]);
 
-  // Auto-refresh on visibility/focus - separate from data fetch to avoid loops
-  useEffect(() => {
-    if (filterType !== 'today') return;
-
-    let refreshInterval: number | null = null;
-    let lastRefresh = Date.now();
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden && Date.now() - lastRefresh > 10000) {
-        lastRefresh = Date.now();
-        fetchTodaysData();
-      }
-    };
-
-    const handleFocus = () => {
-      if (Date.now() - lastRefresh > 10000) {
-        lastRefresh = Date.now();
-        fetchTodaysData();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    // Auto-refresh every 60 seconds (reduced frequency)
-    refreshInterval = window.setInterval(() => {
-      lastRefresh = Date.now();
-      fetchTodaysData();
-    }, 60000);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      if (refreshInterval) clearInterval(refreshInterval);
-    };
-  }, [filterType]);
+  // Remove auto-refresh effects to prevent constant reloading
+  // Data will refresh when user navigates to page or changes date filter
 
   const handleDateFilterChange = (type: DateFilterType, date?: Date, rangeTo?: Date) => {
     setFilterType(type);
