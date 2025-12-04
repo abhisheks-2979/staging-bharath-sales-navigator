@@ -130,9 +130,12 @@ export const TodaySummary = () => {
     }
   }, []);
 
+  // Use primitive values for dependencies to avoid infinite loops
+  const dateRangeKey = `${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`;
+  
   useEffect(() => {
     fetchTodaysData();
-  }, [dateRange, filterType]);
+  }, [dateRangeKey, filterType]);
 
   // Real-time subscription for points updates
   useEffect(() => {
