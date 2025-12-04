@@ -1120,120 +1120,115 @@ export const TodaySummary = () => {
         <Card>
           <CardContent className="p-4">
             <div className="space-y-3">
-              {/* Quick Filters Dropdown */}
-              <Select 
-                value={filterType === 'custom' || filterType === 'dateRange' ? filterType : filterType} 
-                onValueChange={(value: DateFilterType) => {
-                  if (value !== 'custom' && value !== 'dateRange') {
-                    handleDateFilterChange(value);
-                  } else if (value === 'dateRange') {
-                    setFilterType('dateRange');
-                    setCalendarOpen(true);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="lastWeek">Last Week</SelectItem>
-                  <SelectItem value="month">Month</SelectItem>
-                  <SelectItem value="dateRange">Date Range</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              {/* Custom Date Picker / Date Range Picker */}
-              <div className="flex items-center gap-2">
+              {/* Quick Filter Buttons */}
+              <div className="grid grid-cols-4 gap-2">
+                <Button
+                  variant={filterType === 'today' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('today')}
+                  className="text-xs"
+                >
+                  Today
+                </Button>
+                <Button
+                  variant={filterType === 'week' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('week')}
+                  className="text-xs"
+                >
+                  Week
+                </Button>
+                <Button
+                  variant={filterType === 'month' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleDateFilterChange('month')}
+                  className="text-xs"
+                >
+                  Month
+                </Button>
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button
-                      variant="outline"
-                      className="flex-1 justify-start text-left font-normal"
+                      variant={filterType === 'dateRange' || filterType === 'custom' ? 'default' : 'outline'}
+                      size="sm"
+                      className="text-xs"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filterType === 'custom'
-                        ? format(selectedDate, 'PPP')
-                        : filterType === 'dateRange'
-                        ? `${format(dateRange.from, 'PPP')} - ${format(dateRange.to, 'PPP')}`
-                        : 'Select custom date'}
+                      <CalendarIcon className="mr-1 h-3 w-3" />
+                      Range
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    {filterType === 'dateRange' ? (
-                      <Calendar
-                        mode="range"
-                        selected={dateRange}
-                        onSelect={(range) => {
-                          if (range?.from && range?.to) {
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(range) => {
+                        if (range?.from) {
+                          if (range.to) {
                             handleDateFilterChange('dateRange', range.from, range.to);
                             setCalendarOpen(false);
+                          } else {
+                            // Single date selected - treat as custom single day
+                            handleDateFilterChange('custom', range.from);
                           }
-                        }}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    ) : (
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => {
-                          if (date) {
-                            handleDateFilterChange('custom', date);
-                            setCalendarOpen(false);
-                          }
-                        }}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    )}
+                        }
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
                   </PopoverContent>
                 </Popover>
-                {filterType !== 'dateRange' && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => {
-                        const newDate = new Date(selectedDate);
-                        if (filterType === 'today' || filterType === 'custom') {
-                          newDate.setDate(newDate.getDate() - 1);
-                          handleDateFilterChange('custom', newDate);
-                        } else if (filterType === 'week' || filterType === 'lastWeek') {
-                          newDate.setDate(newDate.getDate() - 7);
-                          handleDateFilterChange(filterType, newDate);
-                        } else if (filterType === 'month') {
-                          newDate.setMonth(newDate.getMonth() - 1);
-                          handleDateFilterChange(filterType, newDate);
-                        }
-                      }}
-                    >
-                      ←
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => {
-                        const newDate = new Date(selectedDate);
-                        if (filterType === 'today' || filterType === 'custom') {
-                          newDate.setDate(newDate.getDate() + 1);
-                          handleDateFilterChange('custom', newDate);
-                        } else if (filterType === 'week' || filterType === 'lastWeek') {
-                          newDate.setDate(newDate.getDate() + 7);
-                          handleDateFilterChange(filterType, newDate);
-                        } else if (filterType === 'month') {
-                          newDate.setMonth(newDate.getMonth() + 1);
-                          handleDateFilterChange(filterType, newDate);
-                        }
-                      }}
-                    >
-                      →
-                    </Button>
-                  </div>
-                )}
+              </div>
+              
+              {/* Date Display with Navigation */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    if (filterType === 'today' || filterType === 'custom') {
+                      newDate.setDate(newDate.getDate() - 1);
+                      handleDateFilterChange('custom', newDate);
+                    } else if (filterType === 'week') {
+                      newDate.setDate(newDate.getDate() - 7);
+                      handleDateFilterChange('week', newDate);
+                    } else if (filterType === 'month') {
+                      newDate.setMonth(newDate.getMonth() - 1);
+                      handleDateFilterChange('month', newDate);
+                    }
+                  }}
+                >
+                  ←
+                </Button>
+                <div className="flex-1 text-center font-medium text-sm">
+                  {filterType === 'today' ? format(selectedDate, 'EEEE, d MMMM yyyy') :
+                   filterType === 'custom' ? format(selectedDate, 'EEEE, d MMMM yyyy') :
+                   filterType === 'week' ? `${format(dateRange.from, 'd MMM')} - ${format(dateRange.to, 'd MMM yyyy')}` :
+                   filterType === 'month' ? format(selectedDate, 'MMMM yyyy') :
+                   filterType === 'dateRange' ? `${format(dateRange.from, 'd MMM')} - ${format(dateRange.to, 'd MMM yyyy')}` :
+                   format(selectedDate, 'd MMM yyyy')}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    if (filterType === 'today' || filterType === 'custom') {
+                      newDate.setDate(newDate.getDate() + 1);
+                      handleDateFilterChange('custom', newDate);
+                    } else if (filterType === 'week') {
+                      newDate.setDate(newDate.getDate() + 7);
+                      handleDateFilterChange('week', newDate);
+                    } else if (filterType === 'month') {
+                      newDate.setMonth(newDate.getMonth() + 1);
+                      handleDateFilterChange('month', newDate);
+                    }
+                  }}
+                >
+                  →
+                </Button>
               </div>
             </div>
           </CardContent>
