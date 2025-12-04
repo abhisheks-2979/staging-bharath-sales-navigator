@@ -59,14 +59,11 @@ const getDisplayRate = (item: CartItem) => {
   return baseRate;
 };
 
-// Currency formatter that truncates to 2 decimals (no rounding)
+// Currency formatter - rounded to whole number (no decimals)
 const formatINRTrunc2 = (value: number) => {
   const num = Number(value) || 0;
-  const truncated = Math.floor(num * 100) / 100;
-  return truncated.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+  const rounded = Math.round(num);
+  return rounded.toLocaleString('en-IN');
 };
 export const Cart = () => {
   const navigate = useNavigate();
