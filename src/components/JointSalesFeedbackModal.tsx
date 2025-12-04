@@ -21,40 +21,43 @@ interface JointSalesFeedbackModalProps {
   onFeedbackSubmitted?: () => void;
 }
 
-// Scoring configuration
+// Scoring configuration - New model: each positive response = 5 points, low = 1 point
+// 11 feedback fields total, max score = 55, final displayed as average out of 10
 const DROPDOWN_SCORES: Record<string, number> = {
-  // Placement
-  "Excellent - Prime shelf space": 10,
-  "Good - Visible location": 7,
-  "Average - Needs improvement": 4,
-  "Poor - Not visible": 2,
+  // Placement (5=best, 1=worst)
+  "Excellent - Prime shelf space": 5,
+  "Good - Visible location": 4,
+  "Average - Needs improvement": 2,
+  "Poor - Not visible": 1,
   // Willingness to grow range
-  "Highly willing - Ready to expand": 10,
-  "Willing - Open to new products": 7,
-  "Hesitant - Needs convincing": 4,
-  "Not willing - Satisfied with current": 2,
+  "Highly willing - Ready to expand": 5,
+  "Willing - Open to new products": 4,
+  "Hesitant - Needs convincing": 2,
+  "Not willing - Satisfied with current": 1,
   // Schemes
-  "Highly effective - Driving sales": 10,
-  "Moderately effective": 7,
-  "Not very effective": 4,
-  "Needs better schemes": 2,
+  "Highly effective - Driving sales": 5,
+  "Moderately effective": 4,
+  "Not very effective": 2,
+  "Needs better schemes": 1,
   // Pricing
-  "Very competitive": 10,
-  "Competitive": 7,
-  "Slightly higher than competitors": 4,
-  "Too expensive": 2,
+  "Very competitive": 5,
+  "Competitive": 4,
+  "Slightly higher than competitors": 2,
+  "Too expensive": 1,
   // Promotion vs Competition
-  "Actively promotes us over competition": 10,
-  "Promotes equally with competition": 7,
-  "Prefers competition slightly": 4,
-  "Heavily promotes competition": 2,
+  "Actively promotes us over competition": 5,
+  "Promotes equally with competition": 4,
+  "Prefers competition slightly": 2,
+  "Heavily promotes competition": 1,
   // Product USP
-  "Clearly understands and promotes USP": 10,
-  "Aware of key USPs": 7,
-  "Limited awareness": 4,
-  "No awareness of USP": 2,
+  "Clearly understands and promotes USP": 5,
+  "Aware of key USPs": 4,
+  "Limited awareness": 2,
+  "No awareness of USP": 1,
 };
 
+// New scoring model: Star ratings directly count (1-5), dropdowns use mapped values
+// Total max = 55 (5 star fields × 5 + 6 dropdown fields × 5), displayed as score out of 10
 export const calculateJointVisitScore = (feedback: any): number => {
   const starFields = [
     'product_packaging_feedback',
@@ -73,29 +76,28 @@ export const calculateJointVisitScore = (feedback: any): number => {
     'product_usp_feedback'
   ];
   
-  let totalScore = 0;
-  let validFields = 0;
+  let totalPoints = 0;
+  const MAX_SCORE = 55; // 11 fields × 5 points each
   
-  // Star ratings (1-5, convert to 0-10)
+  // Star ratings (1-5 points directly)
   starFields.forEach(field => {
     const value = parseInt(feedback[field]) || 0;
     if (value > 0) {
-      totalScore += value * 2; // Convert 5-star to 10-point scale
-      validFields++;
+      totalPoints += value; // Direct star value (1-5)
     }
   });
   
-  // Dropdown scores
+  // Dropdown scores (1-5 based on response quality)
   dropdownFields.forEach(field => {
     const value = feedback[field];
     if (value && DROPDOWN_SCORES[value]) {
-      totalScore += DROPDOWN_SCORES[value];
-      validFields++;
+      totalPoints += DROPDOWN_SCORES[value];
     }
   });
   
-  if (validFields === 0) return 0;
-  return Math.round((totalScore / validFields) * 10) / 10;
+  if (totalPoints === 0) return 0;
+  // Convert to score out of 10: (totalPoints / 55) * 10
+  return Math.round((totalPoints / MAX_SCORE) * 100) / 10;
 };
 
 export const JointSalesFeedbackModal = ({
