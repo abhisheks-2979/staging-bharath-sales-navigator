@@ -1,4 +1,4 @@
-import { Store, Users, Trophy, BarChart, CreditCard, MapPin, Plus, ShoppingCart, TrendingUp, MoreHorizontal } from "lucide-react";
+import { Store, Users, Trophy, BarChart, CreditCard, MapPin, Plus, ShoppingCart, TrendingUp, Tag, Award } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useHomeDashboard } from "@/hooks/useHomeDashboard";
@@ -16,7 +16,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -92,30 +91,68 @@ const Index = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-        {/* Header */}
+        {/* Header with Quick Actions */}
         <div className="relative overflow-hidden bg-gradient-hero text-primary-foreground" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 to-transparent"></div>
           <div className="relative p-4">
-            <div className="flex flex-col items-center gap-2 text-center">
-              {user && (
-                <ProfilePictureUpload
-                  userId={user.id}
-                  currentPhotoUrl={profilePictureUrl || undefined}
-                  fullName={displayName}
-                  onPhotoUpdate={(newUrl) => {
-                    setProfilePictureUrl(newUrl);
-                    refreshProfilePicture();
-                  }}
-                  size="sm"
-                />
-              )}
-              <div>
-                <p className="text-xs opacity-90">
-                  Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
-                </p>
-                <h1 className="text-xl font-bold">{displayName}</h1>
-                <p className="text-xs opacity-80">{roleDisplay}</p>
+            <div className="flex items-center justify-between">
+              {/* Profile Section */}
+              <div className="flex items-center gap-3">
+                {user && (
+                  <ProfilePictureUpload
+                    userId={user.id}
+                    currentPhotoUrl={profilePictureUrl || undefined}
+                    fullName={displayName}
+                    onPhotoUpdate={(newUrl) => {
+                      setProfilePictureUrl(newUrl);
+                      refreshProfilePicture();
+                    }}
+                    size="sm"
+                  />
+                )}
+                <div>
+                  <p className="text-[10px] opacity-80">
+                    Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}!
+                  </p>
+                  <h1 className="text-base font-bold leading-tight">{displayName}</h1>
+                  <p className="text-[10px] opacity-70">{roleDisplay}</p>
+                </div>
               </div>
+
+              {/* Quick Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    className="bg-white/20 hover:bg-white/30 text-white border-0 h-9 px-3"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Quick Add</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[180px]">
+                  <DropdownMenuItem onClick={() => navigate('/visits/retailers')} className="cursor-pointer">
+                    <ShoppingCart className="h-4 w-4 mr-2 text-blue-500" />
+                    <span>Today's Visit</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/retailers/add')} className="cursor-pointer">
+                    <Plus className="h-4 w-4 mr-2 text-green-500" />
+                    <span>Add Retailer</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/competition')} className="cursor-pointer">
+                    <TrendingUp className="h-4 w-4 mr-2 text-orange-500" />
+                    <span>Add Competition</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/schemes')} className="cursor-pointer">
+                    <Tag className="h-4 w-4 mr-2 text-purple-500" />
+                    <span>Check Schemes</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/leaderboard')} className="cursor-pointer">
+                    <Award className="h-4 w-4 mr-2 text-yellow-500" />
+                    <span>Leaderboard</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -147,37 +184,7 @@ const Index = () => {
                 onDateChange={setSelectedDate}
               />
 
-              {/* Quick Actions */}
-              <Card className="p-4">
-                <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full">
-                      <MoreHorizontal className="h-4 w-4 mr-2" />
-                      Add New
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" className="w-[200px]">
-                    <DropdownMenuItem onClick={() => navigate('/retailers/add')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Retailer
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/visits/retailers')}>
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Add Order
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/competition')}>
-                      <TrendingUp className="h-4 w-4 mr-2" />
-                      Add Competition
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </Card>
-
-              {/* Pending Payments - Real-time */}
-              {userProfile?.id && <PendingPayments userId={userProfile.id} />}
-
-              {/* Tomorrow's Beat Plan */}
+              {/* Tomorrow's Beat Plan - Enhanced */}
               {userProfile?.id && <TomorrowBeatPlan userId={userProfile.id} />}
 
               {/* Week AI Summaries - Enhanced prominence */}
@@ -197,6 +204,9 @@ const Index = () => {
 
               {/* Performance Calendar */}
               {userProfile?.id && <PerformanceCalendar />}
+
+              {/* Pending Payments - Moved below calendar */}
+              {userProfile?.id && <PendingPayments userId={userProfile.id} />}
 
               {/* Quick Navigation */}
               <QuickNavGrid items={quickNavItems} />
