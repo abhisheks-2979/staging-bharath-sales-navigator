@@ -83,6 +83,24 @@ export const BeatPlanning = () => {
 
       if (retailersError) throw retailersError;
 
+      // Get last visited dates from beat_plans
+      const beatIds = (beatsData || []).map((b: any) => b.beat_id);
+      const { data: beatPlansData } = await supabase
+        .from('beat_plans')
+        .select('beat_id, plan_date')
+        .eq('user_id', user.id)
+        .in('beat_id', beatIds)
+        .lte('plan_date', new Date().toISOString().split('T')[0])
+        .order('plan_date', { ascending: false });
+
+      // Create a map of beat_id to last visited date
+      const lastVisitedMap = new Map<string, string>();
+      (beatPlansData || []).forEach((plan: any) => {
+        if (!lastVisitedMap.has(plan.beat_id)) {
+          lastVisitedMap.set(plan.beat_id, new Date(plan.plan_date).toLocaleDateString());
+        }
+      });
+
       // Count retailers per beat and determine priority
       const retailerCountMap = new Map<string, { count: number; priority: 'high' | 'medium' | 'low' }>();
       (retailersData || []).forEach((r: any) => {
@@ -103,6 +121,7 @@ export const BeatPlanning = () => {
           retailerCount: retailerInfo.count,
           category: beat.category || 'all',
           priority: retailerInfo.priority,
+          lastVisited: lastVisitedMap.get(beat.beat_id),
         };
       });
       
@@ -551,7 +570,7 @@ export const BeatPlanning = () => {
                         Last visited: {beat.lastVisited || 'Never'}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Category: {beat.category || 'General'}
+                        {beat.retailerCount} Retailers
                       </p>
                     </div>
                   </div>
@@ -587,24 +606,6 @@ export const BeatPlanning = () => {
                   </div>
                 </div>
 
-                {/* Beat Stats */}
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="flex items-center justify-center mb-1">
-                      <Users size={16} className="text-primary mr-1" />
-                    </div>
-                    <div className="text-lg font-bold text-primary">{beat.retailerCount}</div>
-                    <div className="text-xs text-muted-foreground">Retailers</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-primary">₹{(Math.random() * 150000 + 50000).toFixed(0)}</div>
-                    <div className="text-xs text-muted-foreground">Avg Revenue</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-primary">₹{(Math.random() * 500000 + 200000).toFixed(0)}</div>
-                    <div className="text-xs text-muted-foreground">6M Sales</div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           ))}
