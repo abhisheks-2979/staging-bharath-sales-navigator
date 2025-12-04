@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Calendar, Edit2, BarChart, Trash2, MapPin, Package, TrendingUp, TrendingDown, Sparkles, CalendarDays, UserPlus } from 'lucide-react';
+import { Users, Calendar, Edit2, BarChart, Trash2, MapPin, Package, Sparkles, CalendarDays, UserPlus } from 'lucide-react';
 import { useBeatMetrics } from '@/hooks/useBeatMetrics';
 
 interface BeatCardProps {
@@ -45,11 +45,6 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
                  beat.retailer_count >= 20 ? 'Silver' : 
                  beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
               </Badge>
-              {beat.category && (
-                <Badge variant="outline" className="text-xs">
-                  {beat.category}
-                </Badge>
-              )}
             </div>
             <CardTitle className="text-lg leading-tight">{beat.name}</CardTitle>
           </div>
@@ -67,29 +62,12 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
           </div>
           <div className="text-center p-2 bg-muted/30 rounded-lg">
             <div className="flex items-center justify-center mb-1">
-              <Package size={14} className="text-green-600 mr-1" />
+              <Calendar size={14} className="text-blue-600 mr-1" />
             </div>
-            <div className="text-lg font-bold text-green-600">
-              {loading ? '...' : metrics.ordersThisMonth}
+            <div className="text-sm font-bold text-blue-600">
+              {loading ? '...' : metrics.lastVisited ? new Date(metrics.lastVisited).toLocaleDateString() : 'Never'}
             </div>
-            <div className="text-[10px] text-muted-foreground">Orders (Month)</div>
-          </div>
-          <div className="text-center p-2 bg-muted/30 rounded-lg">
-            <div className="text-lg font-bold text-blue-600">
-              {loading ? '...' : `₹${(metrics.avgBusiness / 1000).toFixed(1)}K`}
-            </div>
-            <div className="text-[10px] text-muted-foreground">Avg Business</div>
-          </div>
-          <div className="text-center p-2 bg-muted/30 rounded-lg">
-            <div className={`text-lg font-bold flex items-center justify-center gap-1 ${metrics.revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {loading ? '...' : (
-                <>
-                  {metrics.revenueGrowth >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  {Math.abs(metrics.revenueGrowth).toFixed(1)}%
-                </>
-              )}
-            </div>
-            <div className="text-[10px] text-muted-foreground">Growth</div>
+            <div className="text-[10px] text-muted-foreground">Last Visited</div>
           </div>
         </div>
 
@@ -116,15 +94,6 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
             </div>
             <span className="font-semibold">
               {loading ? '...' : metrics.lastVisitOrderValue ? `₹${(metrics.lastVisitOrderValue / 1000).toFixed(1)}K` : '₹0'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between p-2 bg-muted/20 rounded">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span className="text-xs">Last Visited Date:</span>
-            </div>
-            <span className="font-semibold text-xs">
-              {loading ? '...' : metrics.lastVisited ? new Date(metrics.lastVisited).toLocaleDateString() : 'Never'}
             </span>
           </div>
           {metrics.isRecurring && (
