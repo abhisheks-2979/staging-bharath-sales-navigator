@@ -354,29 +354,27 @@ async function executeQuery(supabase: any, userId: string, toolName: string, par
 }
 
 // Dynamic model selection based on query complexity and context
-function selectModel(messages: any[], classification: any): { model: string; maxTokens: number } {
+function selectModel(messages: any[], classification: any): { model: string; maxTokens: number; temperature: number } {
   const lastMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
   
-  // Simple queries - use fastest model
-  const simplePatterns = [
-    /^(hi|hello|hey|thanks|ok)$/i,
-    /^my visits$/i,
-    /^sales summary$/i,
-    /^stock levels$/i,
-    /^pending payments$/i,
+  // Very simple greetings - use fast model
+  const greetingPatterns = [
+    /^(hi|hello|hey|thanks|ok|bye|good morning|good evening)$/i,
   ];
   
-  if (simplePatterns.some(p => p.test(lastMessage.trim()))) {
-    return { model: 'google/gemini-2.5-flash-lite', maxTokens: 600 };
+  if (greetingPatterns.some(p => p.test(lastMessage.trim()))) {
+    return { model: 'google/gemini-2.5-flash', maxTokens: 300, temperature: 0.7 };
   }
   
-  // Analytics/complex queries - use better model
-  if (classification.category === 'analytics' || classification.priority === 'high') {
-    return { model: 'google/gemini-2.5-flash', maxTokens: 1500 };
+  // Complex analytics, comparisons, or urgent queries - use pro model
+  if (classification.category === 'analytics' || 
+      classification.priority === 'high' ||
+      /compare|analyze|trend|why|explain|suggest|recommend|help me/i.test(lastMessage)) {
+    return { model: 'google/gemini-2.5-pro', maxTokens: 2000, temperature: 0.5 };
   }
   
-  // Default - balanced model
-  return { model: 'google/gemini-2.5-flash-lite', maxTokens: 800 };
+  // Default - use capable flash model for good conversational quality
+  return { model: 'google/gemini-2.5-flash', maxTokens: 1200, temperature: 0.6 };
 }
 
 // Enhanced tools definition
@@ -558,7 +556,13 @@ serve(async (req) => {
       contextualTips += `\n📍 ${pendingVisits} visits still pending today.`;
     }
     
-    const systemPrompt = `You are an AI assistant for Bharath Beverages Field Sales Management.
+    const systemPrompt = `You are a smart, friendly AI assistant for Bharath Beverages Field Sales Management. You help field sales representatives work more efficiently.
+
+**Your Personality:**
+- Be warm, helpful, and conversational - like a knowledgeable colleague
+- Use natural language, not robotic responses
+- Be proactive - suggest actions and share insights
+- Keep responses concise but informative
 
 **User Profile:**
 - Name: ${userContext.profile?.full_name || 'User'}
@@ -580,30 +584,32 @@ ${contextualTips}
 - Orders: ${userContext.recentPerformance.orderCount}
 - Sales: ₹${userContext.recentPerformance.totalSales.toLocaleString('en-IN')}
 
-**Quick Commands:**
-• "my visits" → Today's schedule
-• "pending payments" → Outstanding collections  
-• "sales summary" → Performance overview
-• "top retailers" → Best performers
-• "schemes" → Active offers
+**How to Respond:**
+- Greet users warmly and address them by name when appropriate
+- For data queries, use the tools to fetch real-time information
+- Present data in a readable format with bullet points
+- Format currency as ₹X,XXX (Indian format)
+- After showing data, offer helpful suggestions or next steps
+- For "how to" questions, give clear step-by-step guidance
+- If something isn't clear, ask clarifying questions
+- Be encouraging and supportive of their sales efforts
 
-**Response Guidelines:**
-- Be brief and action-oriented
-- Use bullet points and tables
-- Format currency as ₹X,XXX
-- Include relevant numbers
-- Suggest next actions when helpful
-- If user asks "how to", provide step-by-step navigation
+**Available Quick Actions (suggest these when relevant):**
+• Check visits → "my visits" or "today's schedule"
+• Review payments → "pending payments" or "collections"
+• Sales overview → "sales summary" or "my performance"
+• Find retailers → "top retailers" or search by name
+• View offers → "active schemes" or "promotions"
 
-Use the available tools to fetch real-time data.`;
+Use the available tools to fetch real-time data. Always interpret the data meaningfully for the user.`;
 
     // Select model based on query
-    const { model, maxTokens } = selectModel(messages, classification);
-    console.log(`Using model: ${model}, maxTokens: ${maxTokens}, category: ${classification.category}`);
+    const { model, maxTokens, temperature } = selectModel(messages, classification);
+    console.log(`Using model: ${model}, maxTokens: ${maxTokens}, temp: ${temperature}, category: ${classification.category}`);
     
     const aiMessages = [
       { role: 'system', content: systemPrompt },
-      ...messages.slice(-10) // Limit history
+      ...messages.slice(-12) // Keep more history for better context
     ];
     
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -619,6 +625,7 @@ Use the available tools to fetch real-time data.`;
         tool_choice: 'auto',
         stream: true,
         max_tokens: maxTokens,
+        temperature,
       }),
     });
 
