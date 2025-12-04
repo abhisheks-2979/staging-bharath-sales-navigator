@@ -345,6 +345,7 @@ export const TodaySummary = () => {
       const beatPlanRetailerIds: string[] = [];
       const beatPlanRetailersByDate: Array<{ retailerId: string; planDate: string; beatName: string }> = [];
       
+      // First, collect retailers from beat_data
       beatPlans?.forEach(bp => {
         const beatData = bp.beat_data as any;
         if (beatData?.retailers && Array.isArray(beatData.retailers)) {
@@ -360,6 +361,33 @@ export const TodaySummary = () => {
           });
         }
       });
+      
+      // Also fetch retailers linked to the beat_id if no retailers in beat_data
+      const beatIds = beatPlans?.map(bp => bp.beat_id).filter(Boolean) || [];
+      if (beatIds.length > 0 && beatPlanRetailersByDate.length === 0) {
+        // Fetch retailers that belong to these beats
+        const { data: beatRetailers } = await supabase
+          .from('retailers')
+          .select('id, name, beat_id')
+          .in('beat_id', beatIds)
+          .eq('status', 'active');
+        
+        if (beatRetailers && beatRetailers.length > 0) {
+          beatPlans?.forEach(bp => {
+            const retailersForBeat = beatRetailers.filter(r => r.beat_id === bp.beat_id);
+            retailersForBeat.forEach(r => {
+              if (!beatPlanRetailerIds.includes(r.id)) {
+                beatPlanRetailerIds.push(r.id);
+                beatPlanRetailersByDate.push({
+                  retailerId: r.id,
+                  planDate: bp.plan_date,
+                  beatName: bp.beat_name
+                });
+              }
+            });
+          });
+        }
+      }
       
       // Combine retailer IDs from visits and beat plans
       const visitRetailerIds = visits?.map(v => v.retailer_id) || [];
@@ -476,11 +504,11 @@ export const TodaySummary = () => {
       });
 
       // Process visits data - track by date for accurate planned count
-      // Create a map of visited retailer+date combos
-      const visitedByDateMap = new Set<string>();
+      // Create a map of visited retailer+date combos with their status
+      const visitedByDateMap = new Map<string, string>();
       visits?.forEach(v => {
         if (v.retailer_id && v.planned_date) {
-          visitedByDateMap.add(`${v.retailer_id}_${v.planned_date}`);
+          visitedByDateMap.set(`${v.retailer_id}_${v.planned_date}`, v.status);
         }
       });
       
@@ -490,16 +518,21 @@ export const TodaySummary = () => {
       const closedVisits = visits?.filter(v => v.status === 'store_closed') || [];
       const unproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
       
-      // Find retailers from beat plans that don't have a visit record for their specific planned date
-      const beatPlanRetailersWithoutVisits = beatPlanRetailersByDate.filter(bp => 
-        !visitedByDateMap.has(`${bp.retailerId}_${bp.planDate}`)
-      );
+      // Find retailers from beat plans that don't have a visit record OR have 'planned' status
+      const beatPlanRetailersWithoutVisits = beatPlanRetailersByDate.filter(bp => {
+        const key = `${bp.retailerId}_${bp.planDate}`;
+        const visitStatus = visitedByDateMap.get(key);
+        // Include if no visit exists OR if visit is still in 'planned' status
+        return !visitStatus || visitStatus === 'planned';
+      });
       
-      // Total planned = all beat plan retailer slots (even if visited, they were planned)
-      // Remaining planned (pending) = beat plan slots without visits + visits with 'planned' status
-      const totalPlannedSlots = beatPlanRetailersByDate.length;
-      const totalPendingCount = pendingVisitsFromDb.length + beatPlanRetailersWithoutVisits.length;
-      const totalPlanned = (visits?.length || 0) + beatPlanRetailersWithoutVisits.length;
+      // Total planned = all unique retailers from beat plans for the date range
+      const totalPlannedFromBeatPlans = beatPlanRetailersByDate.length;
+      
+      // Pending = retailers from beat plans that haven't been visited (productive/unproductive) yet
+      // This is beat plan retailers without completed visits
+      const totalPendingCount = beatPlanRetailersWithoutVisits.length;
+      const totalPlanned = totalPlannedFromBeatPlans;
 
       // Get attendance start/end times from attendance table
       const allAttendanceCheckIns = attendanceData?.filter(a => a.check_in_time).map(a => new Date(a.check_in_time!)) || [];
@@ -639,9 +672,6 @@ export const TodaySummary = () => {
       });
 
       // Update visit breakdown - Planned (total), Productive, Unproductive, Pending
-      // Total planned = all retailers from beat plans for the date range
-      const totalPlannedFromBeatPlans = beatPlanRetailersByDate.length;
-      
       setVisitBreakdown([
         { status: "Planned", count: totalPlannedFromBeatPlans, color: "primary" },
         { status: "Productive", count: productiveVisits.length, color: "success" },
