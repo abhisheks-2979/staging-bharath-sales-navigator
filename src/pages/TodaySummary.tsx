@@ -1257,45 +1257,34 @@ export const TodaySummary = () => {
           />
         </div>
 
-        {/* Selected Period Information */}
+        {/* Selected Period Information - Compact Single Row */}
         <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-muted-foreground">Selected Period</div>
-              <div className="text-sm font-semibold">
-                {filterType === 'today' ? 'Today' : 
-                 filterType === 'week' ? 'This Week' :
-                 filterType === 'lastWeek' ? 'Last Week' :
-                 filterType === 'month' ? 'This Month' : 
-                 filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
-                 format(selectedDate, 'MMM dd, yyyy')}
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              {/* Beat Name */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <MapPin size={14} className="text-primary shrink-0" />
+                <span className="font-semibold text-sm truncate">
+                  {summaryData.beatNames.length > 0 
+                    ? summaryData.beatNames.join(', ')
+                    : 'No beat'}
+                </span>
               </div>
-            </div>
-            
-            {/* Beat Names */}
-            <div className="flex items-center gap-2">
-              <MapPin size={16} className="text-muted-foreground" />
-              <div className="font-semibold">
-                {summaryData.beatNames.length > 0 
-                  ? summaryData.beatNames.join(', ')
-                  : 'No beat planned'}
-              </div>
-            </div>
-            
-            {/* Attendance Timing */}
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-              <div className="flex items-center gap-2">
-                <Clock size={16} className="text-green-600" />
-                <div>
-                  <div className="text-xs text-muted-foreground">Start Time</div>
-                  <div className="font-semibold text-sm">{summaryData.startTime}</div>
+              
+              {/* Divider */}
+              <div className="h-4 w-px bg-border hidden sm:block" />
+              
+              {/* Start & End Time */}
+              <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-green-600">▶</span>
+                  <span className="text-muted-foreground">Start:</span>
+                  <span className="font-semibold">{summaryData.startTime}</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock size={16} className="text-red-600" />
-                <div>
-                  <div className="text-xs text-muted-foreground">End Time</div>
-                  <div className="font-semibold text-sm">{summaryData.endTime}</div>
+                <div className="flex items-center gap-1">
+                  <span className="text-red-600">■</span>
+                  <span className="text-muted-foreground">End:</span>
+                  <span className="font-semibold">{summaryData.endTime}</span>
                 </div>
               </div>
             </div>
