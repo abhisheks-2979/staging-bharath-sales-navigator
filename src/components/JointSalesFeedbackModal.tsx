@@ -28,11 +28,11 @@ const DROPDOWN_SCORES: Record<string, number> = {
   "Good - Visible location": 7,
   "Average - Needs improvement": 4,
   "Poor - Not visible": 2,
-  // New Products
-  "Multiple new SKUs introduced": 10,
-  "1-2 new products added": 7,
-  "Interest shown, will stock later": 4,
-  "No new products introduced": 2,
+  // Willingness to grow range
+  "Highly willing - Ready to expand": 10,
+  "Willing - Open to new products": 7,
+  "Hesitant - Needs convincing": 4,
+  "Not willing - Satisfied with current": 2,
   // Schemes
   "Highly effective - Driving sales": 10,
   "Moderately effective": 7,
@@ -43,12 +43,22 @@ const DROPDOWN_SCORES: Record<string, number> = {
   "Competitive": 7,
   "Slightly higher than competitors": 4,
   "Too expensive": 2,
+  // Promotion vs Competition
+  "Actively promotes us over competition": 10,
+  "Promotes equally with competition": 7,
+  "Prefers competition slightly": 4,
+  "Heavily promotes competition": 2,
+  // Product USP
+  "Clearly understands and promotes USP": 10,
+  "Aware of key USPs": 7,
+  "Limited awareness": 4,
+  "No awareness of USP": 2,
 };
 
 export const calculateJointVisitScore = (feedback: any): number => {
   const starFields = [
-    'retailing_feedback',
-    'competition_knowledge', 
+    'product_packaging_feedback',
+    'product_sku_range_feedback', 
     'product_quality_feedback',
     'service_feedback',
     'consumer_feedback'
@@ -56,9 +66,11 @@ export const calculateJointVisitScore = (feedback: any): number => {
   
   const dropdownFields = [
     'placement_feedback',
-    'new_products_introduced',
+    'willingness_to_grow_range',
     'schemes_feedback',
-    'pricing_feedback'
+    'pricing_feedback',
+    'promotion_vs_competition',
+    'product_usp_feedback'
   ];
   
   let totalScore = 0;
@@ -100,17 +112,20 @@ export const JointSalesFeedbackModal = ({
   const [selectedManagerId, setSelectedManagerId] = useState(managerId || "");
   const [availableManagers, setAvailableManagers] = useState<Array<{ id: string; name: string }>>([]);
   const [feedback, setFeedback] = useState({
-    retailing_feedback: "",
+    product_packaging_feedback: "",
+    product_sku_range_feedback: "",
     placement_feedback: "",
-    new_products_introduced: "",
-    competition_knowledge: "",
+    willingness_to_grow_range: "",
     product_quality_feedback: "",
     service_feedback: "",
     schemes_feedback: "",
     pricing_feedback: "",
     consumer_feedback: "",
+    promotion_vs_competition: "",
+    product_usp_feedback: "",
     joint_sales_impact: "",
-    order_increase_amount: ""
+    order_increase_amount: "",
+    monthly_potential_6months: ""
   });
 
   // Calculate live score
@@ -165,17 +180,20 @@ export const JointSalesFeedbackModal = ({
         if (!error && data) {
           setSelectedManagerId(data.manager_id);
           setFeedback({
-            retailing_feedback: data.retailing_feedback || "",
+            product_packaging_feedback: data.product_packaging_feedback || "",
+            product_sku_range_feedback: data.product_sku_range_feedback || "",
             placement_feedback: data.placement_feedback || "",
-            new_products_introduced: data.new_products_introduced || "",
-            competition_knowledge: data.competition_knowledge || "",
+            willingness_to_grow_range: data.willingness_to_grow_range || data.new_products_introduced || "",
             product_quality_feedback: data.product_quality_feedback || "",
             service_feedback: data.service_feedback || "",
             schemes_feedback: data.schemes_feedback || "",
             pricing_feedback: data.pricing_feedback || "",
             consumer_feedback: data.consumer_feedback || "",
+            promotion_vs_competition: data.promotion_vs_competition || "",
+            product_usp_feedback: data.product_usp_feedback || "",
             joint_sales_impact: data.joint_sales_impact || "",
-            order_increase_amount: data.order_increase_amount?.toString() || ""
+            order_increase_amount: data.order_increase_amount?.toString() || "",
+            monthly_potential_6months: data.monthly_potential_6months?.toString() || ""
           });
         }
       } catch (error) {
@@ -215,17 +233,20 @@ export const JointSalesFeedbackModal = ({
         retailer_id: retailerId,
         visit_id: visitId || null,
         feedback_date: new Date().toISOString().split('T')[0],
-        retailing_feedback: feedback.retailing_feedback,
-        placement_feedback: feedback.placement_feedback,
-        new_products_introduced: feedback.new_products_introduced,
-        competition_knowledge: feedback.competition_knowledge,
-        product_quality_feedback: feedback.product_quality_feedback,
-        service_feedback: feedback.service_feedback,
-        schemes_feedback: feedback.schemes_feedback,
-        pricing_feedback: feedback.pricing_feedback,
-        consumer_feedback: feedback.consumer_feedback,
-        joint_sales_impact: feedback.joint_sales_impact,
+        product_packaging_feedback: feedback.product_packaging_feedback || null,
+        product_sku_range_feedback: feedback.product_sku_range_feedback || null,
+        placement_feedback: feedback.placement_feedback || null,
+        willingness_to_grow_range: feedback.willingness_to_grow_range || null,
+        product_quality_feedback: feedback.product_quality_feedback || null,
+        service_feedback: feedback.service_feedback || null,
+        schemes_feedback: feedback.schemes_feedback || null,
+        pricing_feedback: feedback.pricing_feedback || null,
+        consumer_feedback: feedback.consumer_feedback || null,
+        promotion_vs_competition: feedback.promotion_vs_competition || null,
+        product_usp_feedback: feedback.product_usp_feedback || null,
+        joint_sales_impact: feedback.joint_sales_impact || null,
         order_increase_amount: parseFloat(feedback.order_increase_amount) || 0,
+        monthly_potential_6months: parseFloat(feedback.monthly_potential_6months) || 0,
         updated_at: new Date().toISOString()
       };
 
@@ -233,11 +254,35 @@ export const JointSalesFeedbackModal = ({
         feedbackData.beat_plan_id = beatPlanId;
       }
 
-      const { error } = await supabase
+      // Check if record exists
+      const { data: existing } = await supabase
         .from('joint_sales_feedback')
-        .upsert(feedbackData);
+        .select('id')
+        .eq('retailer_id', retailerId)
+        .eq('feedback_date', feedbackData.feedback_date)
+        .eq('fse_user_id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      let error;
+      if (existing) {
+        // Update existing
+        const result = await supabase
+          .from('joint_sales_feedback')
+          .update(feedbackData)
+          .eq('id', existing.id);
+        error = result.error;
+      } else {
+        // Insert new
+        const result = await supabase
+          .from('joint_sales_feedback')
+          .insert(feedbackData);
+        error = result.error;
+      }
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       toast({
         title: "Joint Visit Recorded",
@@ -250,11 +295,11 @@ export const JointSalesFeedbackModal = ({
       }));
 
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting feedback:', error);
       toast({
         title: "Error",
-        description: "Failed to submit feedback. Please try again.",
+        description: error.message || "Failed to submit feedback. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -314,10 +359,10 @@ export const JointSalesFeedbackModal = ({
             <div className="p-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg">
               <Label className="text-purple-800 dark:text-purple-200 font-medium">Joint Visit Partner *</Label>
               <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 bg-background">
                   <SelectValue placeholder="Select who joined the visit" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background z-50">
                   {availableManagers.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id}>
                       {manager.name}
@@ -337,11 +382,21 @@ export const JointSalesFeedbackModal = ({
             <div className="grid gap-4 p-4 bg-muted/30 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">Retailing Performance</Label>
-                  <p className="text-xs text-muted-foreground">Display & selling approach</p>
+                  <Label className="font-medium">Product Packaging</Label>
+                  <p className="text-xs text-muted-foreground">Packaging quality & appeal</p>
                 </div>
-                {renderStarRating(feedback.retailing_feedback, (value) => 
-                  setFeedback({ ...feedback, retailing_feedback: value })
+                {renderStarRating(feedback.product_packaging_feedback, (value) => 
+                  setFeedback({ ...feedback, product_packaging_feedback: value })
+                )}
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium">Product SKU Range</Label>
+                  <p className="text-xs text-muted-foreground">Variety of products stocked</p>
+                </div>
+                {renderStarRating(feedback.product_sku_range_feedback, (value) => 
+                  setFeedback({ ...feedback, product_sku_range_feedback: value })
                 )}
               </div>
               
@@ -367,16 +422,6 @@ export const JointSalesFeedbackModal = ({
               
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-medium">Competition Knowledge</Label>
-                  <p className="text-xs text-muted-foreground">Awareness of competitor activities</p>
-                </div>
-                {renderStarRating(feedback.competition_knowledge, (value) => 
-                  setFeedback({ ...feedback, competition_knowledge: value })
-                )}
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
                   <Label className="font-medium">Consumer Satisfaction</Label>
                   <p className="text-xs text-muted-foreground">End consumer feedback</p>
                 </div>
@@ -393,21 +438,57 @@ export const JointSalesFeedbackModal = ({
               <Store className="h-4 w-4" />
               Store Assessment
             </div>
-            <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
               <div className="space-y-2">
                 <Label className="font-medium">Product Placement</Label>
                 <Select
                   value={feedback.placement_feedback}
                   onValueChange={(value) => setFeedback({ ...feedback, placement_feedback: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background z-50">
                     <SelectItem value="Excellent - Prime shelf space">Excellent - Prime shelf</SelectItem>
                     <SelectItem value="Good - Visible location">Good - Visible</SelectItem>
                     <SelectItem value="Average - Needs improvement">Average</SelectItem>
                     <SelectItem value="Poor - Not visible">Poor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-medium">Promotes Us vs Competition</Label>
+                <Select
+                  value={feedback.promotion_vs_competition}
+                  onValueChange={(value) => setFeedback({ ...feedback, promotion_vs_competition: value })}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="Actively promotes us over competition">Actively promotes us</SelectItem>
+                    <SelectItem value="Promotes equally with competition">Promotes equally</SelectItem>
+                    <SelectItem value="Prefers competition slightly">Prefers competition</SelectItem>
+                    <SelectItem value="Heavily promotes competition">Heavily promotes competition</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-medium">Product USP Awareness</Label>
+                <Select
+                  value={feedback.product_usp_feedback}
+                  onValueChange={(value) => setFeedback({ ...feedback, product_usp_feedback: value })}
+                >
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="Clearly understands and promotes USP">Understands & promotes USP</SelectItem>
+                    <SelectItem value="Aware of key USPs">Aware of key USPs</SelectItem>
+                    <SelectItem value="Limited awareness">Limited awareness</SelectItem>
+                    <SelectItem value="No awareness of USP">No awareness</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -418,10 +499,10 @@ export const JointSalesFeedbackModal = ({
                   value={feedback.schemes_feedback}
                   onValueChange={(value) => setFeedback({ ...feedback, schemes_feedback: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background z-50">
                     <SelectItem value="Highly effective - Driving sales">Highly effective</SelectItem>
                     <SelectItem value="Moderately effective">Moderate</SelectItem>
                     <SelectItem value="Not very effective">Low</SelectItem>
@@ -436,10 +517,10 @@ export const JointSalesFeedbackModal = ({
                   value={feedback.pricing_feedback}
                   onValueChange={(value) => setFeedback({ ...feedback, pricing_feedback: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background z-50">
                     <SelectItem value="Very competitive">Very competitive</SelectItem>
                     <SelectItem value="Competitive">Competitive</SelectItem>
                     <SelectItem value="Slightly higher than competitors">Slightly higher</SelectItem>
@@ -449,19 +530,19 @@ export const JointSalesFeedbackModal = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="font-medium">New Products Introduced</Label>
+                <Label className="font-medium">Willingness to Grow Range</Label>
                 <Select
-                  value={feedback.new_products_introduced}
-                  onValueChange={(value) => setFeedback({ ...feedback, new_products_introduced: value })}
+                  value={feedback.willingness_to_grow_range}
+                  onValueChange={(value) => setFeedback({ ...feedback, willingness_to_grow_range: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Multiple new SKUs introduced">Multiple SKUs</SelectItem>
-                    <SelectItem value="1-2 new products added">1-2 products</SelectItem>
-                    <SelectItem value="Interest shown, will stock later">Interest shown</SelectItem>
-                    <SelectItem value="No new products introduced">None</SelectItem>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="Highly willing - Ready to expand">Highly willing</SelectItem>
+                    <SelectItem value="Willing - Open to new products">Willing</SelectItem>
+                    <SelectItem value="Hesitant - Needs convincing">Hesitant</SelectItem>
+                    <SelectItem value="Not willing - Satisfied with current">Not willing</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -475,15 +556,30 @@ export const JointSalesFeedbackModal = ({
               Sales Outcome
             </div>
             <div className="p-4 bg-muted/30 rounded-lg space-y-4">
-              <div className="space-y-2">
-                <Label className="font-medium">Order Increase Amount (₹)</Label>
-                <Input
-                  type="number"
-                  value={feedback.order_increase_amount}
-                  onChange={(e) => setFeedback({ ...feedback, order_increase_amount: e.target.value })}
-                  placeholder="Enter additional order value due to joint visit"
-                  className="max-w-xs"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-medium">Order Increase (₹)</Label>
+                  <Input
+                    type="number"
+                    value={feedback.order_increase_amount}
+                    onChange={(e) => setFeedback({ ...feedback, order_increase_amount: e.target.value })}
+                    placeholder="Additional order value"
+                    className="bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground">Due to this joint visit</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="font-medium">6-Month Growth Potential (₹)</Label>
+                  <Input
+                    type="number"
+                    value={feedback.monthly_potential_6months}
+                    onChange={(e) => setFeedback({ ...feedback, monthly_potential_6months: e.target.value })}
+                    placeholder="Expected monthly value"
+                    className="bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground">Avg monthly purchase in 6 months</p>
+                </div>
               </div>
             </div>
           </div>
@@ -500,6 +596,7 @@ export const JointSalesFeedbackModal = ({
                 onChange={(e) => setFeedback({ ...feedback, joint_sales_impact: e.target.value })}
                 placeholder="Summarize key discussion points, action items, and overall impact of this joint visit..."
                 rows={3}
+                className="bg-background"
               />
             </div>
           </div>
