@@ -63,9 +63,10 @@ export const TodaySummary = () => {
   });
 
   const [visitBreakdown, setVisitBreakdown] = useState([
+    { status: "Planned", count: 0, color: "primary" },
     { status: "Productive", count: 0, color: "success" },
     { status: "Unproductive", count: 0, color: "destructive" },
-    { status: "Planned", count: 0, color: "warning" }
+    { status: "Pending", count: 0, color: "warning" }
   ]);
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
@@ -634,11 +635,15 @@ export const TodaySummary = () => {
         orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
       });
 
-      // Update visit breakdown - only Productive, Unproductive, Planned
+      // Update visit breakdown - Planned (total), Productive, Unproductive, Pending
+      // Total planned = all retailers from beat plans for the date range
+      const totalPlannedFromBeatPlans = beatPlanRetailersByDate.length;
+      
       setVisitBreakdown([
+        { status: "Planned", count: totalPlannedFromBeatPlans, color: "primary" },
         { status: "Productive", count: productiveVisits.length, color: "success" },
         { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
-        { status: "Planned", count: totalPendingCount, color: "warning" }
+        { status: "Pending", count: totalPendingCount, color: "warning" }
       ]);
 
       // Process top retailers (based on order value)
@@ -780,11 +785,21 @@ export const TodaySummary = () => {
         }))
       ];
       
-      // Combine planned visits from DB and beat plan retailers without visits - include beat name, date and address
-      const allPlannedRetailers = [
+      // All retailers from beat plans (total planned for the period)
+      const allBeatPlanRetailers = beatPlanRetailersByDate.map(bp => {
+        const retailer = retailerMap.get(bp.retailerId);
+        return { 
+          retailer: retailer?.name || 'Unknown',
+          beatName: bp.beatName || 'N/A',
+          address: retailer?.address || 'Address not available',
+          planDate: bp.planDate || 'N/A'
+        };
+      });
+      
+      // Pending visits - beat plan retailers without visits yet
+      const pendingRetailers = [
         ...pendingVisitsFromDb.map(v => {
           const retailer = retailerMap.get(v.retailer_id);
-          // Find beat name from beat plans for this retailer
           const beatForRetailer = beatPlans?.find(bp => {
             const beatData = bp.beat_data as any;
             return beatData?.retailers?.some((r: any) => r.id === v.retailer_id);
@@ -808,9 +823,10 @@ export const TodaySummary = () => {
       ];
       
       const visitsByStatusData = {
+        Planned: allBeatPlanRetailers,
         Productive: productiveVisitsWithValue,
         Unproductive: allUnproductiveVisits,
-        Planned: allPlannedRetailers
+        Pending: pendingRetailers
       };
 
       setVisitsByStatus(visitsByStatusData);
@@ -1487,6 +1503,7 @@ export const TodaySummary = () => {
                   <div className="flex items-center gap-3">
                     <Badge 
                       className={
+                        item.color === "primary" ? "bg-primary text-primary-foreground" :
                         item.color === "success" ? "bg-success text-success-foreground" :
                         item.color === "destructive" ? "bg-destructive text-destructive-foreground" :
                         item.color === "warning" ? "bg-warning text-warning-foreground" :
@@ -1495,10 +1512,13 @@ export const TodaySummary = () => {
                     >
                       {item.status}
                     </Badge>
-                    <span className="text-sm">{item.count} visits</span>
+                    <span className="text-sm">{item.count} {item.status === "Planned" ? "retailers" : "visits"}</span>
                   </div>
                   <div className="text-sm font-medium">
-                    {summaryData.plannedVisits > 0 ? Math.round((item.count / summaryData.plannedVisits) * 100) : 0}%
+                    {item.status === "Planned" 
+                      ? "100%" 
+                      : (visitBreakdown[0]?.count > 0 ? Math.round((item.count / visitBreakdown[0].count) * 100) : 0) + "%"
+                    }
                   </div>
                 </div>
               ))
@@ -1915,6 +1935,29 @@ export const TodaySummary = () => {
                       </TableHeader>
                       <TableBody>
                         {(visitsByStatus["Planned"] || []).map((v, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">{v.retailer}</TableCell>
+                            <TableCell className="text-muted-foreground">{v.beatName || 'N/A'}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {v.planDate ? format(new Date(v.planDate), 'dd MMM') : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground text-xs max-w-[120px] truncate">{v.address || 'N/A'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : dialogFilter === "Pending" ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Store Name</TableHead>
+                          <TableHead>Beat</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Address</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(visitsByStatus["Pending"] || []).map((v, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{v.retailer}</TableCell>
                             <TableCell className="text-muted-foreground">{v.beatName || 'N/A'}</TableCell>
