@@ -92,8 +92,8 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
           }
 
           // Add new marker with custom icon
-          const redIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+          const blueIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
             iconSize: [25, 41],
             iconAnchor: [12, 41],
@@ -101,27 +101,24 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({ height =
             shadowSize: [41, 41]
           });
 
-          markerRef.current = L.marker([latitude, longitude], { icon: redIcon })
-            .addTo(mapRef.current)
-            .bindPopup(
-              `<b>Current Location</b><br>` +
-              `Lat: ${latitude.toFixed(6)}<br>` +
-              `Lng: ${longitude.toFixed(6)}<br>` +
-              `Time: ${format(timestamp, 'PPp')}<br>` +
-              `Accuracy: ${accuracy.toFixed(0)}m`
-            )
-            .openPopup();
+          markerRef.current = L.marker([latitude, longitude], { icon: blueIcon })
+            .addTo(mapRef.current);
 
           // Center map on location
-          mapRef.current.setView([latitude, longitude], 15);
+          mapRef.current.setView([latitude, longitude], 16);
 
-          // Add accuracy circle
-          circleRef.current = L.circle([latitude, longitude], {
-            radius: accuracy,
-            color: '#ef4444',
-            fillColor: '#ef4444',
-            fillOpacity: 0.2,
-          }).addTo(mapRef.current);
+          // Only show accuracy circle if accuracy is reasonable (less than 200m)
+          // Cap the visual radius at 100m for better UX
+          if (accuracy <= 200) {
+            const displayRadius = Math.min(accuracy, 100);
+            circleRef.current = L.circle([latitude, longitude], {
+              radius: displayRadius,
+              color: '#3b82f6',
+              fillColor: '#3b82f6',
+              fillOpacity: 0.15,
+              weight: 2,
+            }).addTo(mapRef.current);
+          }
 
           toast.success('Location updated');
         }
