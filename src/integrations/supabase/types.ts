@@ -3138,6 +3138,7 @@ export type Database = {
           id: string
           joint_sales_impact: string | null
           manager_id: string
+          monthly_potential_6months: number | null
           new_products_introduced: string | null
           order_increase_amount: number | null
           placement_feedback: string | null
@@ -3145,7 +3146,11 @@ export type Database = {
           pricing_feedback: string | null
           pricing_feedback_rating: number | null
           product_feedback_rating: number | null
+          product_packaging_feedback: string | null
           product_quality_feedback: string | null
+          product_sku_range_feedback: string | null
+          product_usp_feedback: string | null
+          promotion_vs_competition: string | null
           retailer_id: string
           retailer_notes: string | null
           retailing_feedback: string | null
@@ -3163,6 +3168,7 @@ export type Database = {
           trends_feedback: string | null
           updated_at: string | null
           visit_id: string | null
+          willingness_to_grow_range: string | null
         }
         Insert: {
           action_items?: string | null
@@ -3185,6 +3191,7 @@ export type Database = {
           id?: string
           joint_sales_impact?: string | null
           manager_id: string
+          monthly_potential_6months?: number | null
           new_products_introduced?: string | null
           order_increase_amount?: number | null
           placement_feedback?: string | null
@@ -3192,7 +3199,11 @@ export type Database = {
           pricing_feedback?: string | null
           pricing_feedback_rating?: number | null
           product_feedback_rating?: number | null
+          product_packaging_feedback?: string | null
           product_quality_feedback?: string | null
+          product_sku_range_feedback?: string | null
+          product_usp_feedback?: string | null
+          promotion_vs_competition?: string | null
           retailer_id: string
           retailer_notes?: string | null
           retailing_feedback?: string | null
@@ -3210,6 +3221,7 @@ export type Database = {
           trends_feedback?: string | null
           updated_at?: string | null
           visit_id?: string | null
+          willingness_to_grow_range?: string | null
         }
         Update: {
           action_items?: string | null
@@ -3232,6 +3244,7 @@ export type Database = {
           id?: string
           joint_sales_impact?: string | null
           manager_id?: string
+          monthly_potential_6months?: number | null
           new_products_introduced?: string | null
           order_increase_amount?: number | null
           placement_feedback?: string | null
@@ -3239,7 +3252,11 @@ export type Database = {
           pricing_feedback?: string | null
           pricing_feedback_rating?: number | null
           product_feedback_rating?: number | null
+          product_packaging_feedback?: string | null
           product_quality_feedback?: string | null
+          product_sku_range_feedback?: string | null
+          product_usp_feedback?: string | null
+          promotion_vs_competition?: string | null
           retailer_id?: string
           retailer_notes?: string | null
           retailing_feedback?: string | null
@@ -3257,6 +3274,7 @@ export type Database = {
           trends_feedback?: string | null
           updated_at?: string | null
           visit_id?: string | null
+          willingness_to_grow_range?: string | null
         }
         Relationships: [
           {

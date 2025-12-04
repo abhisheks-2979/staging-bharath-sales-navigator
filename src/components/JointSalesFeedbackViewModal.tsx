@@ -33,17 +33,20 @@ interface FeedbackData {
   manager_id: string;
   manager_name?: string;
   feedback_date: string;
-  retailing_feedback: string;
+  product_packaging_feedback: string;
+  product_sku_range_feedback: string;
   placement_feedback: string;
-  new_products_introduced: string;
-  competition_knowledge: string;
+  willingness_to_grow_range: string;
   product_quality_feedback: string;
   service_feedback: string;
   schemes_feedback: string;
   pricing_feedback: string;
   consumer_feedback: string;
+  promotion_vs_competition: string;
+  product_usp_feedback: string;
   joint_sales_impact: string;
   order_increase_amount: number;
+  monthly_potential_6months: number;
   created_at: string;
 }
 
@@ -216,6 +219,12 @@ export const JointSalesFeedbackViewModal = ({
                       +{feedback.order_increase_amount.toLocaleString('en-IN')}
                     </div>
                   )}
+                  {feedback.monthly_potential_6months > 0 && (
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <TrendingUp className="h-3 w-3" />
+                      6M: ₹{feedback.monthly_potential_6months.toLocaleString('en-IN')}/mo
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -226,10 +235,16 @@ export const JointSalesFeedbackViewModal = ({
                   Performance Ratings
                 </div>
                 <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-                  {feedback.retailing_feedback && (
+                  {feedback.product_packaging_feedback && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Retailing</span>
-                      {renderStars(feedback.retailing_feedback)}
+                      <span className="text-sm text-muted-foreground">Product Packaging</span>
+                      {renderStars(feedback.product_packaging_feedback)}
+                    </div>
+                  )}
+                  {feedback.product_sku_range_feedback && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">SKU Range</span>
+                      {renderStars(feedback.product_sku_range_feedback)}
                     </div>
                   )}
                   {feedback.product_quality_feedback && (
@@ -244,12 +259,6 @@ export const JointSalesFeedbackViewModal = ({
                       {renderStars(feedback.service_feedback)}
                     </div>
                   )}
-                  {feedback.competition_knowledge && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Competition Knowledge</span>
-                      {renderStars(feedback.competition_knowledge)}
-                    </div>
-                  )}
                   {feedback.consumer_feedback && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Consumer Satisfaction</span>
@@ -260,7 +269,7 @@ export const JointSalesFeedbackViewModal = ({
               </div>
 
               {/* Store Assessment */}
-              {(feedback.placement_feedback || feedback.schemes_feedback || feedback.pricing_feedback || feedback.new_products_introduced) && (
+              {(feedback.placement_feedback || feedback.schemes_feedback || feedback.pricing_feedback || feedback.willingness_to_grow_range || feedback.promotion_vs_competition || feedback.product_usp_feedback) && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
                     <Store className="h-3 w-3" />
@@ -271,6 +280,18 @@ export const JointSalesFeedbackViewModal = ({
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Placement</span>
                         <span className="font-medium">{feedback.placement_feedback.split(' - ')[0]}</span>
+                      </div>
+                    )}
+                    {feedback.promotion_vs_competition && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Promotion vs Competition</span>
+                        <span className="font-medium">{feedback.promotion_vs_competition.split(' - ')[0]}</span>
+                      </div>
+                    )}
+                    {feedback.product_usp_feedback && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">USP Awareness</span>
+                        <span className="font-medium">{feedback.product_usp_feedback.split(' - ')[0]}</span>
                       </div>
                     )}
                     {feedback.schemes_feedback && (
@@ -285,10 +306,10 @@ export const JointSalesFeedbackViewModal = ({
                         <span className="font-medium">{feedback.pricing_feedback}</span>
                       </div>
                     )}
-                    {feedback.new_products_introduced && (
+                    {feedback.willingness_to_grow_range && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">New Products</span>
-                        <span className="font-medium">{feedback.new_products_introduced.split(' - ')[0]}</span>
+                        <span className="text-muted-foreground">Willingness to Grow</span>
+                        <span className="font-medium">{feedback.willingness_to_grow_range.split(' - ')[0]}</span>
                       </div>
                     )}
                   </div>
