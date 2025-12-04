@@ -35,6 +35,7 @@ import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
+import { RetailerDetailModal } from "./RetailerDetailModal";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -142,6 +143,8 @@ export const VisitCard = ({
   const [skipCheckInReasonType, setSkipCheckInReasonType] = useState<string>('');
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showVanSales, setShowVanSales] = useState(false);
+  const [showRetailerOverview, setShowRetailerOverview] = useState(false);
+  const [retailerOverviewData, setRetailerOverviewData] = useState<any>(null);
   const {
     isVanSalesEnabled
   } = useVanSales();
@@ -231,6 +234,26 @@ export const VisitCard = ({
       try { endTracking?.(); } catch {}
     };
   }, [endTracking]);
+
+  // Load retailer data for overview modal
+  useEffect(() => {
+    const loadRetailerData = async () => {
+      if (!showRetailerOverview) return;
+      const retailerId = visit.retailerId || visit.id;
+      try {
+        const { data } = await supabase
+          .from('retailers')
+          .select('*')
+          .eq('id', retailerId)
+          .maybeSingle();
+        if (data) setRetailerOverviewData(data);
+      } catch (e) {
+        console.error('Error loading retailer:', e);
+      }
+    };
+    loadRetailerData();
+  }, [showRetailerOverview, visit.retailerId, visit.id]);
+
 
   // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
@@ -1335,7 +1358,7 @@ export const VisitCard = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-card-foreground text-sm sm:text-base">
-                <button onClick={() => window.open(`/retailer/${visit.retailerId || visit.id}`, '_blank')} className="text-left hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline" title="View retailer details">
+                <button onClick={() => setShowRetailerOverview(true)} className="text-left hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline" title="View retailer details">
                   {visit.retailerName}
                 </button>
               </h3>
@@ -2185,6 +2208,16 @@ export const VisitCard = ({
               setHasJointSalesFeedback(false);
               setShowJointSalesFeedbackView(false);
             }}
+          />
+        )}
+        
+        {/* Retailer Overview Modal */}
+        {retailerOverviewData && (
+          <RetailerDetailModal
+            isOpen={showRetailerOverview}
+            onClose={() => setShowRetailerOverview(false)}
+            retailer={retailerOverviewData}
+            onSuccess={() => {}}
           />
         )}
       </CardContent>

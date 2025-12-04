@@ -479,7 +479,85 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           </div>
 
           {/* Accordion Sections */}
-          <Accordion type="multiple" defaultValue={["owner", "outlet", "location", "analytics"]} className="w-full">
+          <Accordion type="multiple" defaultValue={["performance", "owner", "location", "outlet"]} className="w-full">
+            {/* Performance Summary - NEW SECTION */}
+            <AccordionItem value="performance">
+              <AccordionTrigger className="text-lg font-semibold">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Retailer Performance Summary
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-2">
+                  {/* Key Metrics Row */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3 bg-primary/10 rounded-lg text-center">
+                      <p className="text-xl font-bold text-primary">
+                        ₹{(formData.total_lifetime_order_value || 0).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Total Lifetime Value</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg text-center">
+                      <p className="text-xl font-bold text-primary">
+                        ₹{((formData.total_order_value_fy || 0) / 6).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Avg Monthly Sales (6M)</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg text-center">
+                      <p className="text-xl font-bold text-primary">
+                        {(formData.avg_monthly_orders_3m || 0).toFixed(1)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Avg Monthly Orders (3M)</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg text-center">
+                      <p className="text-xl font-bold text-primary">
+                        {(formData.avg_order_per_visit_3m || 0).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Avg Order per Visit</p>
+                    </div>
+                  </div>
+
+                  {/* Last Order Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Last Order Date</p>
+                      <p className="text-base font-semibold">
+                        {formData.last_order_date 
+                          ? new Date(formData.last_order_date).toLocaleDateString() 
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Last Order Value</p>
+                      <p className="text-base font-semibold text-primary">
+                        ₹{(formData.last_order_value || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Visit Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Total Visits (3 Months)</p>
+                      <p className="text-base font-semibold">{formData.total_visits_3m || 0}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Productive Visits (3 Months)</p>
+                      <p className="text-base font-semibold">
+                        {formData.productive_visits_3m || 0}
+                        {formData.total_visits_3m && formData.total_visits_3m > 0 && (
+                          <span className="text-sm text-muted-foreground ml-2">
+                            ({((formData.productive_visits_3m || 0) / formData.total_visits_3m * 100).toFixed(0)}%)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
             {/* Owner Details */}
             <AccordionItem value="owner">
               <AccordionTrigger className="text-lg font-semibold">
@@ -487,6 +565,21 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               </AccordionTrigger>
               <AccordionContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Owner's Name</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm font-medium">{formData.name}</span>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Owner's Number</Label>
                     <div className="flex items-center justify-between group">
@@ -513,41 +606,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Owner's Name</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="h-8 text-sm"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.name}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Last Order Date</Label>
-                    <div className="flex items-center justify-between group">
-                      <span className="text-sm">
-                        {formData.last_visit_date 
-                          ? new Date(formData.last_visit_date).toLocaleDateString() 
-                          : '-'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Last Order Value</Label>
-                    <div className="flex items-center justify-between group">
-                      <span className="text-sm">
-                        {formData.order_value ? `₹${formData.order_value.toFixed(2)}` : '-'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">GST Number</Label>
                     <div className="flex items-center justify-between group">
                       {isEditing ? (
@@ -562,6 +620,109 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       )}
                     </div>
                   </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Location Details */}
+            <AccordionItem value="location">
+              <AccordionTrigger className="text-lg font-semibold">
+                Location Details
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          className="h-8 text-sm"
+                        />
+                      ) : (
+                        <a
+                          href={(getGoogleMapsLink() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address || '')}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline break-words"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Open in Google Maps"
+                        >
+                          {formData.address}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Location Tag</Label>
+                    <div className="flex items-center justify-between group">
+                      {isEditing ? (
+                        <Input
+                          value={formData.location_tag || ''}
+                          onChange={(e) => setFormData({...formData, location_tag: e.target.value})}
+                          className="h-8 text-sm"
+                          placeholder="Enter location tag"
+                        />
+                      ) : (
+                        <span className="text-sm">{formData.location_tag || '-'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Latitude</Label>
+                      <div className="flex items-center justify-between group">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step="any"
+                            value={formData.latitude || ''}
+                            onChange={(e) => setFormData({...formData, latitude: e.target.value ? parseFloat(e.target.value) : null})}
+                            className="h-8 text-sm"
+                            placeholder="Enter latitude"
+                          />
+                        ) : (
+                          <span className="text-sm">{formData.latitude || '-'}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Longitude</Label>
+                      <div className="flex items-center justify-between group">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step="any"
+                            value={formData.longitude || ''}
+                            onChange={(e) => setFormData({...formData, longitude: e.target.value ? parseFloat(e.target.value) : null})}
+                            className="h-8 text-sm"
+                            placeholder="Enter longitude"
+                          />
+                        ) : (
+                          <span className="text-sm">{formData.longitude || '-'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {getGoogleMapsLink() && (
+                    <div className="pt-2">
+                      <a
+                        href={getGoogleMapsLink()!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                      >
+                        <MapPin size={16} />
+                        <span>View on Google Maps</span>
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -708,174 +869,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               </AccordionContent>
             </AccordionItem>
 
-            {/* Location Details */}
-            <AccordionItem value="location">
-              <AccordionTrigger className="text-lg font-semibold">
-                Location Details
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Address</Label>
-                    <div className="flex items-center justify-between group">
-{isEditing ? (
-  <Input
-    value={formData.address}
-    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-    className="h-8 text-sm"
-  />
-) : (
-  <a
-    href={(getGoogleMapsLink() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address || '')}`)}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-sm text-primary hover:underline break-words"
-    onClick={(e) => e.stopPropagation()}
-    title="Open in Google Maps"
-  >
-    {formData.address}
-  </a>
-)}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Location Tag</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.location_tag || ''}
-                          onChange={(e) => setFormData({...formData, location_tag: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter location tag"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.location_tag || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Latitude</Label>
-                      <div className="flex items-center justify-between group">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="any"
-                            value={formData.latitude || ''}
-                            onChange={(e) => setFormData({...formData, latitude: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="h-8 text-sm"
-                            placeholder="Enter latitude"
-                          />
-                        ) : (
-                          <span className="text-sm">{formData.latitude || '-'}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Longitude</Label>
-                      <div className="flex items-center justify-between group">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="any"
-                            value={formData.longitude || ''}
-                            onChange={(e) => setFormData({...formData, longitude: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="h-8 text-sm"
-                            placeholder="Enter longitude"
-                          />
-                        ) : (
-                          <span className="text-sm">{formData.longitude || '-'}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {getGoogleMapsLink() && (
-                    <div className="pt-2">
-                      <a
-                        href={getGoogleMapsLink()!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                      >
-                        <MapPin size={16} />
-                        <span>View on Google Maps</span>
-                        <ExternalLink size={14} />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Analytics Section */}
-            <AccordionItem value="analytics">
-              <AccordionTrigger className="text-lg font-semibold">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Performance Analytics
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4 pt-2">
-                  {/* Last Order Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground mb-1">Last Order Date</p>
-                      <p className="text-lg font-semibold">
-                        {formData.last_order_date 
-                          ? new Date(formData.last_order_date).toLocaleDateString() 
-                          : 'N/A'}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground mb-1">Last Order Value</p>
-                      <p className="text-lg font-semibold text-primary">
-                        ₹{(formData.last_order_value || 0).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 3 Month Analytics */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-2xl font-bold text-primary">
-                        {(formData.avg_monthly_orders_3m || 0).toFixed(1)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Avg Monthly Orders</p>
-                    </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-2xl font-bold text-primary">
-                        {(formData.avg_order_per_visit_3m || 0).toFixed(2)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Avg Order per Visit</p>
-                    </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-2xl font-bold text-primary">
-                        {formData.total_visits_3m || 0}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Total Visits (3M)</p>
-                    </div>
-                  </div>
-
-                  {/* Productive Visits */}
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Productive Visits (3 Months)</p>
-                    <p className="text-lg font-semibold">
-                      {formData.productive_visits_3m || 0}
-                      {formData.total_visits_3m && formData.total_visits_3m > 0 && (
-                        <span className="text-sm text-muted-foreground ml-2">
-                          ({((formData.productive_visits_3m || 0) / formData.total_visits_3m * 100).toFixed(0)}%)
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
 
             {/* All Invoices Section */}
             <AccordionItem value="invoices">
