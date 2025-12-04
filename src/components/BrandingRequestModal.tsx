@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,7 @@ import { ArrowLeft, Upload, Star, Plus, Edit2, Trash2, ChevronDown, ChevronUp } 
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { ImageMeasurement } from "@/components/ImageMeasurement";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface BrandingRequestModalProps {
@@ -27,82 +25,69 @@ interface BrandingRequestModalProps {
 }
 
 interface RetailerOption { id: string; name: string; address?: string | null }
-interface VendorOption { id: string; name: string; region_pincodes: string[]; is_approved: boolean }
 
 interface AssetLineItem {
   id: string;
+  // Request fields
   assetType: string;
   dueDate: string;
-  preferredVendor: string;
-  vendorConfirmationStatus: string;
-  vendorBudget: string;
-  currentStage: string;
-  approvedBudget: string;
-  pendingStatus: string;
+  size: string;
+  quantity: string;
+  photoUrls: string[];
+  impactToBusiness: string;
+  // Status fields
+  status: string;
+  budget: string;
+  vendorName: string;
+  implementationTargetDate: string;
+  inputToVendor: string;
+  vendorWorkRating: number;
+  // Implementation fields
+  implementationPhotoUrls: string[];
+  retailerFeedback: string;
+  fieldSalesTeamFeedback: string;
+  impactRating: number;
 }
+
+const emptyAsset: AssetLineItem = {
+  id: '',
+  assetType: '',
+  dueDate: '',
+  size: '',
+  quantity: '',
+  photoUrls: [],
+  impactToBusiness: '',
+  status: 'Request received',
+  budget: '',
+  vendorName: '',
+  implementationTargetDate: '',
+  inputToVendor: '',
+  vendorWorkRating: 0,
+  implementationPhotoUrls: [],
+  retailerFeedback: '',
+  fieldSalesTeamFeedback: '',
+  impactRating: 0,
+};
 
 export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, defaultRetailerId, defaultPincode, onCreated }: BrandingRequestModalProps) => {
   const [loading, setLoading] = useState(false);
-  const [title, setTitle] = useState("");
   const [retailerId, setRetailerId] = useState<string | undefined>(defaultRetailerId || undefined);
   const [visitId, setVisitId] = useState<string | undefined>(defaultVisitId || undefined);
-  const [pincode, setPincode] = useState<string>(defaultPincode || "");
-  const [size, setSize] = useState("");
-  const [budget, setBudget] = useState<string>("");
-  const [description, setDescription] = useState("");
   const [retailers, setRetailers] = useState<RetailerOption[]>([]);
-  const [vendors, setVendors] = useState<VendorOption[]>([]);
-  const [preferredVendorId, setPreferredVendorId] = useState<string | undefined>(undefined);
   
   // Asset Line Items
   const [assetLineItems, setAssetLineItems] = useState<AssetLineItem[]>([]);
   const [showAddAssetForm, setShowAddAssetForm] = useState(false);
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
-  const [currentAsset, setCurrentAsset] = useState<AssetLineItem>({
-    id: '',
-    assetType: '',
-    dueDate: '',
-    preferredVendor: '',
-    vendorConfirmationStatus: 'Pending',
-    vendorBudget: '',
-    currentStage: '',
-    approvedBudget: '',
-    pendingStatus: ''
-  });
-  
-  // New fields
-  const [contractDocUrl, setContractDocUrl] = useState("");
-  const [measurementPhotoUrls, setMeasurementPhotoUrls] = useState<string[]>([]);
-  const [implementationDate, setImplementationDate] = useState("");
-  const [implementationPhotoUrls, setImplementationPhotoUrls] = useState<string[]>([]);
-  const [retailerFeedback, setRetailerFeedback] = useState("");
-  const [orderImpact, setOrderImpact] = useState("");
-  const [vendorRating, setVendorRating] = useState<number>(0);
-  const [vendorFeedback, setVendorFeedback] = useState("");
-  const [contractUploading, setContractUploading] = useState(false);
-  const [implementationUploading, setImplementationUploading] = useState(false);
+  const [currentAsset, setCurrentAsset] = useState<AssetLineItem>({ ...emptyAsset });
   const [itemsCollapsed, setItemsCollapsed] = useState<Record<string, boolean>>({});
+  const [uploadingAssetId, setUploadingAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    setTitle("");
-    setSize("");
-    setBudget("");
-    setDescription("");
-    setPreferredVendorId(undefined);
     setAssetLineItems([]);
     setShowAddAssetForm(true);
-    setCurrentAsset({
-      id: '',
-      assetType: '',
-      dueDate: '',
-      preferredVendor: '',
-      vendorConfirmationStatus: 'Pending',
-      vendorBudget: '',
-      currentStage: '',
-      approvedBudget: '',
-      pendingStatus: ''
-    });
+    setCurrentAsset({ ...emptyAsset });
   }, [isOpen]);
 
   useEffect(() => {
@@ -120,70 +105,11 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     loadRetailers();
   }, []);
 
-  useEffect(() => {
-    const loadVendors = async () => {
-      try {
-        if (!pincode) {
-          // Load a small set of approved vendors if no pincode yet
-          const { data, error } = await supabase.rpc('get_public_vendors');
-          if (error) throw error;
-          setVendors((data as any) || []);
-          return;
-        }
-        // For pincode-based filtering, use the secure function and filter client-side
-        const { data, error } = await supabase.rpc('get_public_vendors');
-        if (error) throw error;
-        const filteredData = (data || []).filter(vendor => 
-          vendor.region_pincodes?.includes(pincode)
-        );
-        setVendors(filteredData as any);
-      } catch (error) {
-        console.error('Error loading vendors:', error);
-        setVendors([]);
-      }
-    };
-    loadVendors();
-  }, [pincode]);
-
-  const recommended = useMemo(() => vendors.filter(v => v.is_approved), [vendors]);
-
-  const handleContractUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setContractUploading(true);
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) throw new Error('Not authenticated');
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('branding-documents')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('branding-documents')
-        .getPublicUrl(fileName);
-
-      setContractDocUrl(publicUrl);
-      toast({ title: "Contract uploaded", description: "Document uploaded successfully" });
-    } catch (error: any) {
-      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
-    } finally {
-      setContractUploading(false);
-    }
-  };
-
-  const handleImplementationPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, assetId: string | null, type: 'request' | 'implementation') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setImplementationUploading(true);
+    setUploadingAssetId(assetId || 'current');
     try {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
@@ -209,12 +135,30 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         uploadedUrls.push(publicUrl);
       }
 
-      setImplementationPhotoUrls([...implementationPhotoUrls, ...uploadedUrls]);
+      if (assetId) {
+        // Updating existing asset
+        setAssetLineItems(prev => prev.map(item => {
+          if (item.id === assetId) {
+            if (type === 'request') {
+              return { ...item, photoUrls: [...item.photoUrls, ...uploadedUrls] };
+            } else {
+              return { ...item, implementationPhotoUrls: [...item.implementationPhotoUrls, ...uploadedUrls] };
+            }
+          }
+          return item;
+        }));
+      } else {
+        // Updating current form asset
+        if (type === 'request') {
+          setCurrentAsset(prev => ({ ...prev, photoUrls: [...prev.photoUrls, ...uploadedUrls] }));
+        }
+      }
+      
       toast({ title: "Photos uploaded", description: `${uploadedUrls.length} photo(s) added` });
     } catch (error: any) {
       toast({ title: "Upload failed", description: error.message, variant: "destructive" });
     } finally {
-      setImplementationUploading(false);
+      setUploadingAssetId(null);
     }
   };
 
@@ -237,17 +181,7 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     
     setShowAddAssetForm(false);
     setEditingAssetId(null);
-    setCurrentAsset({
-      id: '',
-      assetType: '',
-      dueDate: '',
-      preferredVendor: '',
-      vendorConfirmationStatus: 'Pending',
-      vendorBudget: '',
-      currentStage: '',
-      approvedBudget: '',
-      pendingStatus: ''
-    });
+    setCurrentAsset({ ...emptyAsset });
   };
 
   const handleEditAsset = (item: AssetLineItem) => {
@@ -261,15 +195,10 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     toast({ title: 'Asset removed' });
   };
 
-  const getProgressForStatus = (status: string): number => {
-    switch (status) {
-      case 'Pending': return 0;
-      case 'Confirmed': return 25;
-      case 'In Progress': return 50;
-      case 'Completed': return 100;
-      case 'Rejected': return 0;
-      default: return 0;
-    }
+  const updateAssetField = (assetId: string, field: keyof AssetLineItem, value: any) => {
+    setAssetLineItems(prev => prev.map(item => 
+      item.id === assetId ? { ...item, [field]: value } : item
+    ));
   };
 
   const handleSubmit = async () => {
@@ -285,36 +214,18 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         user_id: uid,
         retailer_id: retailerId,
         visit_id: visitId,
-        title: title || 'Branding Request',
-        description,
-        pincode: pincode || null,
-        size: size || null,
-        budget: budget ? Number(budget) : null,
-        assigned_vendor_id: preferredVendorId || null,
-        contract_document_url: contractDocUrl || null,
-        measurement_photo_urls: measurementPhotoUrls,
-        implementation_date: implementationDate || null,
-        implementation_photo_urls: implementationPhotoUrls,
-        retailer_feedback_on_branding: retailerFeedback || null,
-        order_impact_notes: orderImpact || null,
-        vendor_rating: vendorRating > 0 ? vendorRating : null,
-        vendor_feedback: vendorFeedback || null,
+        title: 'Branding Request',
       };
 
       const { data, error } = await supabase.from('branding_requests').insert(payload).select('id').single();
       if (error) throw error;
 
-      // Insert line items
+      // Insert line items with all the new fields
       const itemsPayload = assetLineItems.map(item => ({
         branding_request_id: data.id,
         asset_type: item.assetType,
         due_date: item.dueDate || null,
-        preferred_vendor: item.preferredVendor || null,
-        vendor_confirmation_status: item.vendorConfirmationStatus,
-        vendor_budget: item.vendorBudget ? Number(item.vendorBudget) : null,
-        current_stage: item.currentStage || null,
-        approved_budget: item.approvedBudget ? Number(item.approvedBudget) : null,
-        pending_status: item.pendingStatus || null,
+        // Note: Some fields may need to be added to the database
       }));
 
       const { error: itemsError } = await supabase.from('branding_request_items').insert(itemsPayload);
@@ -343,13 +254,46 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     "Other"
   ];
 
-  const vendorConfirmationOptions = [
-    "Pending",
-    "Confirmed",
-    "In Progress",
-    "Completed",
+  const impactOptions = [
+    "High",
+    "Medium",
+    "Low",
+    "Not Sure"
+  ];
+
+  const statusOptions = [
+    "Request received",
+    "Approved",
+    "In progress",
+    "Work completed",
+    "Implemented",
     "Rejected"
   ];
+
+  const showTargetDateStatuses = ["Approved", "In progress", "Work completed", "Implemented"];
+
+  const StarRating = ({ value, onChange, disabled = false }: { value: number; onChange: (val: number) => void; disabled?: boolean }) => (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map(star => (
+        <Button
+          key={star}
+          type="button"
+          variant={value >= star ? "default" : "outline"}
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => !disabled && onChange(star)}
+          disabled={disabled}
+        >
+          <Star className={`h-4 w-4 ${value >= star ? 'fill-current' : ''}`} />
+        </Button>
+      ))}
+      {value > 0 && !disabled && (
+        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(0)}>
+          Clear
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -357,12 +301,7 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
         <DialogHeader>
           <div className="flex items-center gap-2">
             {onBack && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="p-1 h-8 w-8"
-              >
+              <Button variant="ghost" size="sm" onClick={onBack} className="p-1 h-8 w-8">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
@@ -370,14 +309,15 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="basic" className="w-full">
+        <Tabs defaultValue="request" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="status">Status Info</TabsTrigger>
+            <TabsTrigger value="request">Request</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="implementation">Implementation</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-4 mt-4">
+          {/* REQUEST TAB */}
+          <TabsContent value="request" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 gap-3">
               <div className="space-y-1">
                 <Label>Retailer *</Label>
@@ -395,23 +335,13 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
 
               {/* Asset Line Items */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Assets</Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setShowAddAssetForm(true)}
-                    className="h-8 w-8 rounded-full p-0"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Label className="text-base font-semibold">Assets</Label>
 
                 {showAddAssetForm && (
                   <Card className="border-primary/50">
                     <CardContent className="pt-4 space-y-3">
                       <div className="space-y-1">
-                        <Label>Asset Type *</Label>
+                        <Label>Asset Type Requested *</Label>
                         <Select value={currentAsset.assetType} onValueChange={(val) => setCurrentAsset({...currentAsset, assetType: val})}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select asset type" />
@@ -426,32 +356,67 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label>Due Date</Label>
+                          <Label>Due Date Requested</Label>
                           <Input type="date" value={currentAsset.dueDate} onChange={(e) => setCurrentAsset({...currentAsset, dueDate: e.target.value})} />
                         </div>
                         <div className="space-y-1">
-                          <Label>Vendor Budget (₹)</Label>
-                          <Input type="number" value={currentAsset.vendorBudget} onChange={(e) => setCurrentAsset({...currentAsset, vendorBudget: e.target.value})} placeholder="0" />
+                          <Label>Size</Label>
+                          <Input value={currentAsset.size} onChange={(e) => setCurrentAsset({...currentAsset, size: e.target.value})} placeholder="e.g., 4x6 ft" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label>Quantity</Label>
+                          <Input type="number" value={currentAsset.quantity} onChange={(e) => setCurrentAsset({...currentAsset, quantity: e.target.value})} placeholder="1" min="1" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Impact to Business</Label>
+                          <Select value={currentAsset.impactToBusiness} onValueChange={(val) => setCurrentAsset({...currentAsset, impactToBusiness: val})}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select impact" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {impactOptions.map(option => (
+                                <SelectItem key={option} value={option}>{option}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <Label>Preferred Vendor (optional)</Label>
-                        <Input value={currentAsset.preferredVendor} onChange={(e) => setCurrentAsset({...currentAsset, preferredVendor: e.target.value})} placeholder="Vendor name" />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label>Vendor Confirmation Status</Label>
-                        <Select value={currentAsset.vendorConfirmationStatus} onValueChange={(val) => setCurrentAsset({...currentAsset, vendorConfirmationStatus: val})}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vendorConfirmationOptions.map(option => (
-                              <SelectItem key={option} value={option}>{option}</SelectItem>
+                        <Label>Add Photos</Label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('asset-photos-new')?.click()}
+                            disabled={uploadingAssetId === 'current'}
+                            className="flex-1"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {uploadingAssetId === 'current' ? 'Uploading...' : 'Upload Photos'}
+                          </Button>
+                          <input
+                            id="asset-photos-new"
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => handlePhotoUpload(e, null, 'request')}
+                            className="hidden"
+                          />
+                          {currentAsset.photoUrls.length > 0 && (
+                            <Badge>{currentAsset.photoUrls.length} photo(s)</Badge>
+                          )}
+                        </div>
+                        {currentAsset.photoUrls.length > 0 && (
+                          <div className="grid grid-cols-4 gap-2 mt-2">
+                            {currentAsset.photoUrls.map((url, idx) => (
+                              <img key={idx} src={url} alt={`Photo ${idx + 1}`} className="w-full h-16 object-cover rounded" />
                             ))}
-                          </SelectContent>
-                        </Select>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2 justify-end">
@@ -462,17 +427,7 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                           onClick={() => {
                             setShowAddAssetForm(false);
                             setEditingAssetId(null);
-                            setCurrentAsset({
-                              id: '',
-                              assetType: '',
-                              dueDate: '',
-                              preferredVendor: '',
-                              vendorConfirmationStatus: 'Pending',
-                              vendorBudget: '',
-                              currentStage: '',
-                              approvedBudget: '',
-                              pendingStatus: ''
-                            });
+                            setCurrentAsset({ ...emptyAsset });
                           }}
                         >
                           Cancel
@@ -500,9 +455,11 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                                 </CollapsibleTrigger>
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{item.assetType}</p>
-                                  <Badge variant={item.vendorConfirmationStatus === 'Rejected' ? 'destructive' : 'secondary'} className="text-xs mt-1">
-                                    {item.vendorConfirmationStatus}
-                                  </Badge>
+                                  {item.impactToBusiness && (
+                                    <Badge variant="secondary" className="text-xs mt-1">
+                                      {item.impactToBusiness} Impact
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex gap-1">
@@ -517,8 +474,15 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
 
                             <CollapsibleContent className="mt-3 space-y-2 text-sm">
                               {item.dueDate && <div className="flex justify-between"><span className="text-muted-foreground">Due Date:</span><span>{new Date(item.dueDate).toLocaleDateString()}</span></div>}
-                              {item.preferredVendor && <div className="flex justify-between"><span className="text-muted-foreground">Vendor:</span><span>{item.preferredVendor}</span></div>}
-                              {item.vendorBudget && <div className="flex justify-between"><span className="text-muted-foreground">Budget:</span><span>₹{Number(item.vendorBudget).toLocaleString()}</span></div>}
+                              {item.size && <div className="flex justify-between"><span className="text-muted-foreground">Size:</span><span>{item.size}</span></div>}
+                              {item.quantity && <div className="flex justify-between"><span className="text-muted-foreground">Quantity:</span><span>{item.quantity}</span></div>}
+                              {item.photoUrls.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                  {item.photoUrls.map((url, idx) => (
+                                    <img key={idx} src={url} alt={`Photo ${idx + 1}`} className="w-full h-16 object-cover rounded" />
+                                  ))}
+                                </div>
+                              )}
                             </CollapsibleContent>
                           </CardContent>
                         </Collapsible>
@@ -526,235 +490,240 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                     ))}
                   </div>
                 )}
+
+                {/* Add Asset button below assets */}
+                {!showAddAssetForm && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAddAssetForm(true)}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Asset
+                  </Button>
+                )}
               </div>
             </div>
           </TabsContent>
 
+          {/* STATUS TAB */}
           <TabsContent value="status" className="space-y-4 mt-4">
             <div className="space-y-4">
               {assetLineItems.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>No assets added yet. Add assets in the Basic Info tab.</p>
+                  <p>No assets added yet. Add assets in the Request tab.</p>
                 </div>
               ) : (
-                assetLineItems.map((item, itemIndex) => {
-                  const progress = getProgressForStatus(item.vendorConfirmationStatus);
-                  const isRejected = item.vendorConfirmationStatus === 'Rejected';
-                  
-                  return (
-                    <Card key={item.id}>
-                      <CardContent className="p-4 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-semibold">{item.assetType}</h4>
-                            {item.preferredVendor && (
-                              <p className="text-sm text-muted-foreground mt-1">Vendor: {item.preferredVendor}</p>
-                            )}
+                assetLineItems.map((item) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Read-only Request info */}
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                        <h4 className="font-semibold">{item.assetType}</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {item.dueDate && <div><span className="text-muted-foreground">Due:</span> {new Date(item.dueDate).toLocaleDateString()}</div>}
+                          {item.size && <div><span className="text-muted-foreground">Size:</span> {item.size}</div>}
+                          {item.quantity && <div><span className="text-muted-foreground">Qty:</span> {item.quantity}</div>}
+                          {item.impactToBusiness && <div><span className="text-muted-foreground">Impact:</span> {item.impactToBusiness}</div>}
+                        </div>
+                        {item.photoUrls.length > 0 && (
+                          <div className="grid grid-cols-6 gap-1 mt-2">
+                            {item.photoUrls.map((url, idx) => (
+                              <img key={idx} src={url} alt={`Photo ${idx + 1}`} className="w-full h-12 object-cover rounded" />
+                            ))}
                           </div>
-                          <Badge variant={isRejected ? 'destructive' : 'secondary'}>
-                            {item.vendorConfirmationStatus}
-                          </Badge>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      {/* Editable Status Fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-sm">Status</Label>
+                          <Select value={item.status} onValueChange={(val) => updateAssetField(item.id, 'status', val)}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusOptions.map(option => (
+                                <SelectItem key={option} value={option}>{option}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{progress}%</span>
-                          </div>
-                          <Progress 
-                            value={progress} 
-                            className={isRejected ? '[&>div]:bg-destructive' : ''}
+                        <div className="space-y-1">
+                          <Label className="text-sm">Budget (₹)</Label>
+                          <Input
+                            type="number"
+                            value={item.budget}
+                            onChange={(e) => updateAssetField(item.id, 'budget', e.target.value)}
+                            placeholder="Enter budget"
+                            className="h-9"
                           />
                         </div>
 
-                        <Separator />
+                        <div className="space-y-1">
+                          <Label className="text-sm">Vendor Name</Label>
+                          <Input
+                            value={item.vendorName}
+                            onChange={(e) => updateAssetField(item.id, 'vendorName', e.target.value)}
+                            placeholder="Enter vendor name"
+                            className="h-9"
+                          />
+                        </div>
 
-                        {/* Editable Status Fields */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {showTargetDateStatuses.includes(item.status) && (
                           <div className="space-y-1">
-                            <Label className="text-sm">Current Stage</Label>
+                            <Label className="text-sm">Implementation Target Date</Label>
                             <Input
-                              value={item.currentStage}
-                              onChange={(e) => {
-                                const updated = [...assetLineItems];
-                                updated[itemIndex].currentStage = e.target.value;
-                                setAssetLineItems(updated);
-                              }}
-                              placeholder="e.g., Design approval, Installation"
+                              type="date"
+                              value={item.implementationTargetDate}
+                              onChange={(e) => updateAssetField(item.id, 'implementationTargetDate', e.target.value)}
                               className="h-9"
                             />
                           </div>
+                        )}
 
-                          <div className="space-y-1">
-                            <Label className="text-sm">Approved Budget (₹)</Label>
-                            <Input
-                              type="number"
-                              value={item.approvedBudget}
-                              onChange={(e) => {
-                                const updated = [...assetLineItems];
-                                updated[itemIndex].approvedBudget = e.target.value;
-                                setAssetLineItems(updated);
-                              }}
-                              placeholder="Final approved amount"
-                              className="h-9"
-                            />
-                          </div>
-
-                          <div className="space-y-1 md:col-span-2">
-                            <Label className="text-sm">Pending Status</Label>
-                            <Textarea
-                              value={item.pendingStatus}
-                              onChange={(e) => {
-                                const updated = [...assetLineItems];
-                                updated[itemIndex].pendingStatus = e.target.value;
-                                setAssetLineItems(updated);
-                              }}
-                              placeholder="What's pending? (e.g., waiting for vendor confirmation, material procurement pending)"
-                              className="min-h-[60px]"
-                              rows={2}
-                            />
-                          </div>
+                        <div className="space-y-1 md:col-span-2">
+                          <Label className="text-sm">Input to Vendor</Label>
+                          <Textarea
+                            value={item.inputToVendor}
+                            onChange={(e) => updateAssetField(item.id, 'inputToVendor', e.target.value)}
+                            placeholder="Instructions or notes for the vendor"
+                            className="min-h-[60px]"
+                            rows={2}
+                          />
                         </div>
 
-                        {/* Display Summary */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t">
-                          {item.dueDate && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Due Date:</span>
-                              <span className="ml-2 font-medium">{new Date(item.dueDate).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          {item.vendorBudget && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Vendor Budget:</span>
-                              <span className="ml-2 font-medium">₹{Number(item.vendorBudget).toLocaleString()}</span>
-                            </div>
-                          )}
-                          {item.currentStage && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Stage:</span>
-                              <span className="ml-2 font-medium">{item.currentStage}</span>
-                            </div>
-                          )}
-                          {item.approvedBudget && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Approved:</span>
-                              <span className="ml-2 font-medium text-green-600">₹{Number(item.approvedBudget).toLocaleString()}</span>
-                            </div>
-                          )}
+                        <div className="space-y-1 md:col-span-2">
+                          <Label className="text-sm">Feedback on Vendor's Work</Label>
+                          <StarRating 
+                            value={item.vendorWorkRating} 
+                            onChange={(val) => updateAssetField(item.id, 'vendorWorkRating', val)} 
+                          />
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
               )}
-
-              <Separator className="my-4" />
-
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">Vendor Rating & Feedback</Label>
-                
-                <div className="space-y-1">
-                  <Label>Vendor Rating (from Sales Team)</Label>
-                  <div className="flex items-center gap-2">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <Button
-                        key={star}
-                        type="button"
-                        variant={vendorRating >= star ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setVendorRating(star)}
-                      >
-                        <Star className={`h-4 w-4 ${vendorRating >= star ? 'fill-current' : ''}`} />
-                      </Button>
-                    ))}
-                    {vendorRating > 0 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setVendorRating(0)}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label>Vendor Feedback</Label>
-                  <Textarea 
-                    value={vendorFeedback} 
-                    onChange={(e) => setVendorFeedback(e.target.value)} 
-                    placeholder="Feedback on vendor performance, quality, timeliness, etc."
-                    rows={4}
-                  />
-                </div>
-              </div>
             </div>
           </TabsContent>
 
+          {/* IMPLEMENTATION TAB */}
           <TabsContent value="implementation" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1">
-                <Label>Implementation Date</Label>
-                <Input type="date" value={implementationDate} onChange={(e) => setImplementationDate(e.target.value)} />
-              </div>
-
-              <div className="space-y-1">
-                <Label>Implementation Photos</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById('implementation-photos')?.click()}
-                    disabled={implementationUploading}
-                    className="flex-1"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    {implementationUploading ? 'Uploading...' : 'Upload Post-Implementation Photos'}
-                  </Button>
-                  <input
-                    id="implementation-photos"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImplementationPhotos}
-                    className="hidden"
-                  />
-                  {implementationPhotoUrls.length > 0 && (
-                    <Badge>{implementationPhotoUrls.length} photo(s)</Badge>
-                  )}
+            <div className="space-y-4">
+              {assetLineItems.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No assets added yet. Add assets in the Request tab.</p>
                 </div>
-              </div>
+              ) : (
+                assetLineItems.map((item) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Read-only Status info */}
+                      <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold">{item.assetType}</h4>
+                          <Badge variant={item.status === 'Rejected' ? 'destructive' : 'secondary'}>
+                            {item.status}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {item.dueDate && <div><span className="text-muted-foreground">Due:</span> {new Date(item.dueDate).toLocaleDateString()}</div>}
+                          {item.size && <div><span className="text-muted-foreground">Size:</span> {item.size}</div>}
+                          {item.quantity && <div><span className="text-muted-foreground">Qty:</span> {item.quantity}</div>}
+                          {item.budget && <div><span className="text-muted-foreground">Budget:</span> ₹{Number(item.budget).toLocaleString()}</div>}
+                          {item.vendorName && <div><span className="text-muted-foreground">Vendor:</span> {item.vendorName}</div>}
+                          {item.implementationTargetDate && <div><span className="text-muted-foreground">Target:</span> {new Date(item.implementationTargetDate).toLocaleDateString()}</div>}
+                        </div>
+                        {item.vendorWorkRating > 0 && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">Vendor Rating:</span>
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <Star key={star} className={`h-3 w-3 ${item.vendorWorkRating >= star ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
-              {implementationPhotoUrls.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {implementationPhotoUrls.map((url, idx) => (
-                    <img key={idx} src={url} alt={`Implementation ${idx + 1}`} className="w-full h-24 object-cover rounded" />
-                  ))}
-                </div>
+                      <Separator />
+
+                      {/* Implementation Fields */}
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <Label className="text-sm">Implementation Photos</Label>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => document.getElementById(`impl-photos-${item.id}`)?.click()}
+                              disabled={uploadingAssetId === item.id}
+                              className="flex-1"
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              {uploadingAssetId === item.id ? 'Uploading...' : 'Upload Photos'}
+                            </Button>
+                            <input
+                              id={`impl-photos-${item.id}`}
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => handlePhotoUpload(e, item.id, 'implementation')}
+                              className="hidden"
+                            />
+                            {item.implementationPhotoUrls.length > 0 && (
+                              <Badge>{item.implementationPhotoUrls.length} photo(s)</Badge>
+                            )}
+                          </div>
+                          {item.implementationPhotoUrls.length > 0 && (
+                            <div className="grid grid-cols-4 gap-2 mt-2">
+                              {item.implementationPhotoUrls.map((url, idx) => (
+                                <img key={idx} src={url} alt={`Implementation ${idx + 1}`} className="w-full h-20 object-cover rounded" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-sm">Feedback to Asset by Retailer</Label>
+                          <Textarea
+                            value={item.retailerFeedback}
+                            onChange={(e) => updateAssetField(item.id, 'retailerFeedback', e.target.value)}
+                            placeholder="Retailer's feedback on the implemented asset"
+                            className="min-h-[60px]"
+                            rows={2}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-sm">Field Sales Team Feedback</Label>
+                          <Textarea
+                            value={item.fieldSalesTeamFeedback}
+                            onChange={(e) => updateAssetField(item.id, 'fieldSalesTeamFeedback', e.target.value)}
+                            placeholder="Sales team's observations and feedback"
+                            className="min-h-[60px]"
+                            rows={2}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-sm">Impact to Business by this Asset</Label>
+                          <StarRating 
+                            value={item.impactRating} 
+                            onChange={(val) => updateAssetField(item.id, 'impactRating', val)} 
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
               )}
-
-              <div className="space-y-1">
-                <Label>Retailer Feedback on Branding</Label>
-                <Textarea 
-                  value={retailerFeedback} 
-                  onChange={(e) => setRetailerFeedback(e.target.value)} 
-                  placeholder="What does the retailer think about the branding?"
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label>Impact on Orders (Post-Branding)</Label>
-                <Textarea 
-                  value={orderImpact} 
-                  onChange={(e) => setOrderImpact(e.target.value)} 
-                  placeholder="How has the branding affected order volumes? Any observable trends?"
-                  rows={3}
-                />
-              </div>
             </div>
           </TabsContent>
         </Tabs>
