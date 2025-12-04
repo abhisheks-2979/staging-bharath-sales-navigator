@@ -378,6 +378,8 @@ export const MyVisits = () => {
           noOrderReason: visit?.no_order_reason,
           distributor: retailer.parent_name,
           priority: retailer.potential,
+          retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
+          retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
         };
       });
 
