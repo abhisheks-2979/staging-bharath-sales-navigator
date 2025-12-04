@@ -248,6 +248,40 @@ export const TodaySummary = () => {
 
       const { data: attendanceData } = await attendanceQuery;
 
+      // Fetch van_stock for distance (start_km and end_km)
+      let vanStockQuery = supabase
+        .from('van_stock')
+        .select('start_km, end_km, total_km, stock_date')
+        .eq('user_id', user.id);
+
+      if (filterType === 'today' || filterType === 'custom') {
+        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
+        vanStockQuery = vanStockQuery.eq('stock_date', targetDate);
+      } else {
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
+        vanStockQuery = vanStockQuery.gte('stock_date', fromDate).lte('stock_date', toDate);
+      }
+
+      const { data: vanStockData } = await vanStockQuery;
+
+      // Fetch retailer_visit_logs for time at retailers (time_spent_seconds)
+      let visitLogsQuery = supabase
+        .from('retailer_visit_logs')
+        .select('time_spent_seconds, retailer_id, visit_date')
+        .eq('user_id', user.id);
+
+      if (filterType === 'today' || filterType === 'custom') {
+        const targetDate = format(dateRange.from, 'yyyy-MM-dd');
+        visitLogsQuery = visitLogsQuery.eq('visit_date', targetDate);
+      } else {
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
+        visitLogsQuery = visitLogsQuery.gte('visit_date', fromDate).lte('visit_date', toDate);
+      }
+
+      const { data: visitLogsData } = await visitLogsQuery;
+
       // Determine date query based on filter type
       let visitsQuery = supabase
         .from('visits')
@@ -525,72 +559,41 @@ export const TodaySummary = () => {
       
       const totalKgSoldFormatted = formatKg(totalKgFromOrders);
 
-      // Calculate distance and time metrics
+      // Calculate distance from van_stock (start_km to end_km)
       let totalDistance = 0;
-      let timeAtRetailers = 0;
+      if (vanStockData && vanStockData.length > 0) {
+        vanStockData.forEach(vs => {
+          if (vs.total_km) {
+            totalDistance += Number(vs.total_km);
+          } else if (vs.start_km && vs.end_km) {
+            totalDistance += Number(vs.end_km) - Number(vs.start_km);
+          }
+        });
+      }
+      
+      // Calculate time at retailers from retailer_visit_logs (sum of time_spent_seconds)
+      let timeAtRetailersSeconds = 0;
+      if (visitLogsData && visitLogsData.length > 0) {
+        visitLogsData.forEach(log => {
+          if (log.time_spent_seconds) {
+            timeAtRetailersSeconds += Number(log.time_spent_seconds);
+          }
+        });
+      }
+      
+      const timeAtRetailersMinutes = timeAtRetailersSeconds / 60;
+      const hours = Math.floor(timeAtRetailersMinutes / 60);
+      const minutes = Math.round(timeAtRetailersMinutes % 60);
+      const timeAtRetailersStr = `${hours}h ${minutes}m`;
       
       console.log('📊 Today\'s Summary Data:', {
         totalVisits: visits?.length || 0,
         completedVisits: completedVisits.length,
         totalOrders: totalOrdersCount,
-        totalOrderValue
+        totalOrderValue,
+        distanceFromVan: totalDistance,
+        timeFromVisitLogs: timeAtRetailersStr
       });
-      
-      if (visits && visits.length > 0) {
-        // Sort visits by check-in time to calculate distance in order
-        const sortedVisits = [...visits].sort((a, b) => {
-          if (!a.check_in_time) return 1;
-          if (!b.check_in_time) return -1;
-          return new Date(a.check_in_time).getTime() - new Date(b.check_in_time).getTime();
-        });
-        
-        // Calculate distance between consecutive visits
-        let distanceCalculated = 0;
-        for (let i = 0; i < sortedVisits.length - 1; i++) {
-          const v1 = sortedVisits[i];
-          const v2 = sortedVisits[i + 1];
-          
-          if (v1.check_in_location && v2.check_in_location && 
-              typeof v1.check_in_location === 'object' && 
-              typeof v2.check_in_location === 'object') {
-            const loc1 = v1.check_in_location as any;
-            const loc2 = v2.check_in_location as any;
-            const lat1 = loc1.latitude;
-            const lon1 = loc1.longitude;
-            const lat2 = loc2.latitude;
-            const lon2 = loc2.longitude;
-            
-            if (lat1 && lon1 && lat2 && lon2) {
-              const R = 6371;
-              const dLat = (lat2 - lat1) * Math.PI / 180;
-              const dLon = (lon2 - lon1) * Math.PI / 180;
-              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                       Math.sin(dLon/2) * Math.sin(dLon/2);
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              const distance = R * c;
-              totalDistance += distance;
-              distanceCalculated++;
-            }
-          }
-        }
-        
-        console.log('🗺️ Distance calculated between', distanceCalculated, 'visit pairs');
-        
-        // Calculate time spent at retailers (check-in to check-out)
-        completedVisits.forEach(visit => {
-          if (visit.check_in_time && visit.check_out_time) {
-            const checkIn = new Date(visit.check_in_time);
-            const checkOut = new Date(visit.check_out_time);
-            const minutesAtRetailer = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
-            timeAtRetailers += minutesAtRetailer;
-          }
-        });
-      }
-      
-      const hours = Math.floor(timeAtRetailers / 60);
-      const minutes = Math.round(timeAtRetailers % 60);
-      const timeAtRetailersStr = `${hours}h ${minutes}m`;
 
       // Update summary data with dynamic title
       const getDateTitle = () => {
@@ -1523,6 +1526,33 @@ export const TodaySummary = () => {
                 </div>
               ))
               )}
+              
+              {/* Additional Metrics in Visit Breakdown */}
+              <div className="border-t pt-3 mt-3 space-y-2">
+                <div className="flex items-center justify-between p-2 bg-success/10 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-success">📊</span>
+                    <span className="text-sm">Order Conversion Rate</span>
+                  </div>
+                  <span className="font-semibold text-success">{summaryData.orderConversionRate}%</span>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={14} className="text-primary" />
+                    <span className="text-sm">Distance Covered</span>
+                  </div>
+                  <span className="font-semibold text-primary">
+                    {summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No data'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-warning/10 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Clock size={14} className="text-warning" />
+                    <span className="text-sm">Time at Retailers</span>
+                  </div>
+                  <span className="font-semibold text-warning">{summaryData.travelTime}</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1703,18 +1733,8 @@ export const TodaySummary = () => {
                 <span className="font-semibold">{summaryData.completedVisits}</span>
               </div>
               <div className="flex justify-between">
-                <span>Order Conversion Rate:</span>
-                <span className="font-semibold text-success">{summaryData.orderConversionRate}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Distance Covered:</span>
-                <span className="font-semibold">
-                  {summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No location data'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Time at Retailers:</span>
-                <span className="font-semibold">{summaryData.travelTime}</span>
+                <span>Visit Efficiency:</span>
+                <span className="font-semibold text-primary">{summaryData.visitEfficiency}%</span>
               </div>
             </div>
           </CardContent>
