@@ -1340,80 +1340,11 @@ export const VisitCard = ({
                 </button>
               </h3>
               
-              {/* Location Status - Show for today's visits */}
-              {isTodaysVisit && (
-                <button 
-                  onClick={() => currentLog ? setShowVisitDetailsModal(true) : null} 
-                  className={`flex items-center gap-1.5 text-xs ${currentLog ? 'hover:text-primary cursor-pointer' : 'cursor-default'} transition-colors`}
-                  title={currentLog ? "Click to view visit details" : "Location status"}
-                >
-                  {(() => {
-                    // Use tracking location status (calculated on mount)
-                    let status = trackingLocationStatus;
-
-                    // If tracking has no location, try to infer from visit location match flags
-                    if (status === 'location_unavailable') {
-                      if (locationMatchOut === true || locationMatchIn === true) {
-                        status = 'at_store';
-                      } else if (locationMatchOut === false || locationMatchIn === false) {
-                        status = 'not_at_store';
-                      }
-                    }
-
-                    if (status === 'at_store') {
-                      return (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <span>🟢</span>
-                          <span className="font-medium">At Store</span>
-                        </span>
-                      );
-                    }
-
-                    if (status === 'within_range') {
-                      return (
-                        <span className="flex items-center gap-1 text-orange-500">
-                          <span>🟠</span>
-                          <span className="font-medium">&lt;50m</span>
-                        </span>
-                      );
-                    }
-
-                    if (status === 'not_at_store') {
-                      return (
-                        <span className="flex items-center gap-1 text-red-600">
-                          <span>🔴</span>
-                          <span className="font-medium">Not at Store</span>
-                        </span>
-                      );
-                    }
-
-                    // Check if retailer has coordinates - if not, show "Set Location"
-                    if (!visit.retailerLat || !visit.retailerLng) {
-                      return (
-                        <span className="flex items-center gap-1 text-blue-600">
-                          <MapPin className="h-3 w-3" />
-                          <span className="font-medium">Detecting...</span>
-                        </span>
-                      );
-                    }
-
-                    // Default when location is unavailable
-                    return (
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        <span className="font-medium">Checking...</span>
-                      </span>
-                    );
-                  })()}
-
-                  {/* Phone Order Badge */}
-                  {currentLog?.is_phone_order && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-blue-600 font-medium">📞 Phone</span>
-                    </>
-                  )}
-                </button>
+              {/* Phone Order Badge - only shown if applicable */}
+              {currentLog?.is_phone_order && (
+                <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                  📞 Phone Order
+                </span>
               )}
             </div>
             {visit.retailerId && (
