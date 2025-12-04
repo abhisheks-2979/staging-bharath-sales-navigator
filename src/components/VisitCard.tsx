@@ -1340,20 +1340,35 @@ export const VisitCard = ({
                 </button>
               </h3>
               
-              {/* Location Status Badge - next to retailer name */}
+              {/* Location Status Badge - clickable to show details */}
               {trackingLocationStatus === 'at_store' && visit.retailerLat && visit.retailerLng && (
-                <Badge variant="default" className="bg-green-500 text-white h-5 px-1.5 text-[9px]">
+                <Badge 
+                  variant="default" 
+                  className="bg-green-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-green-600"
+                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
+                >
                   🟢 At Store {trackingDistance !== null && `(${Math.round(trackingDistance)}m)`}
+                  {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
                 </Badge>
               )}
               {trackingLocationStatus === 'within_range' && visit.retailerLat && visit.retailerLng && (
-                <Badge variant="default" className="bg-yellow-500 text-black h-5 px-1.5 text-[9px]">
+                <Badge 
+                  variant="default" 
+                  className="bg-yellow-500 text-black h-5 px-1.5 text-[9px] cursor-pointer hover:bg-yellow-600"
+                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
+                >
                   🟠 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : '<50m'}
+                  {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
                 </Badge>
               )}
               {trackingLocationStatus === 'not_at_store' && visit.retailerLat && visit.retailerLng && (
-                <Badge variant="default" className="bg-red-500 text-white h-5 px-1.5 text-[9px]">
+                <Badge 
+                  variant="default" 
+                  className="bg-red-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-red-600"
+                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
+                >
                   🔴 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : 'Not at Store'}
+                  {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
                 </Badge>
               )}
               {/* Show checking status when retailer has GPS but location not determined yet */}
@@ -1366,25 +1381,6 @@ export const VisitCard = ({
                 <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
                   📍 No GPS
                 </Badge>
-              )}
-              
-              {/* Time spent at retailer */}
-              {currentLog && formattedTimeSpent && (
-                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
-                  ⏱️ {formattedTimeSpent}
-                </Badge>
-              )}
-              
-              {/* Details button */}
-              {currentLog && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
-                  className="h-5 px-1.5 text-[9px] text-primary hover:text-primary/80"
-                >
-                  Details
-                </Button>
               )}
               
               {/* Phone Order Badge - only shown if applicable */}
