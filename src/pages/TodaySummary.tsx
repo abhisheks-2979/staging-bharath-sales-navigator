@@ -332,16 +332,27 @@ export const TodaySummary = () => {
       }
 
       // Fetch points earned for the date range
-      const fromDate = filterType === 'today' || filterType === 'custom' ? dateRange.from : dateRange.from;
-      const toDate = filterType === 'today' || filterType === 'custom' ? dateRange.to : dateRange.to;
-      const { data: pointsData } = await supabase
-        .from('gamification_points')
-        .select('points')
-        .eq('user_id', user.id)
-        .gte('earned_at', new Date(fromDate).toISOString())
-        .lte('earned_at', new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59, 999).toISOString());
+      const pointsFromDate = new Date(dateRange.from);
+      pointsFromDate.setHours(0, 0, 0, 0);
+      const pointsToDate = new Date(dateRange.to);
+      pointsToDate.setHours(23, 59, 59, 999);
       
+      console.log('Fetching points from', pointsFromDate.toISOString(), 'to', pointsToDate.toISOString());
+      
+      const { data: pointsData, error: pointsError } = await supabase
+        .from('gamification_points')
+        .select('points, earned_at')
+        .eq('user_id', user.id)
+        .gte('earned_at', pointsFromDate.toISOString())
+        .lte('earned_at', pointsToDate.toISOString());
+      
+      if (pointsError) {
+        console.error('Error fetching points:', pointsError);
+      }
+      
+      console.log('Points data fetched:', pointsData);
       const totalPointsEarned = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
+      console.log('Total points earned:', totalPointsEarned);
       setPointsEarnedToday(totalPointsEarned);
 
       // Fetch beat plans for the date range
