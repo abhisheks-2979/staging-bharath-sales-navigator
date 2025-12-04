@@ -1561,13 +1561,6 @@ export const TodaySummary = () => {
               
               {/* Additional Metrics in Visit Breakdown */}
               <div className="border-t pt-3 mt-3 space-y-2">
-                <div className="flex items-center justify-between p-2 bg-success/10 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="text-success">📊</span>
-                    <span className="text-sm">Order Conversion Rate</span>
-                  </div>
-                  <span className="font-semibold text-success">{summaryData.orderConversionRate}%</span>
-                </div>
                 <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
                   <div className="flex items-center gap-2">
                     <MapPin size={14} className="text-primary" />
