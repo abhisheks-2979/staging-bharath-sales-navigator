@@ -2041,43 +2041,72 @@ export const VisitCard = ({
           setFeedbackActiveTab("menu");
         }
       }}>
-          <DialogContent className="max-w-[95vw] sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold">Feedback Options</DialogTitle>
-              <p className="text-sm text-muted-foreground">{visit.retailerName}</p>
-            </DialogHeader>
-            <div className="grid gap-3 py-4">
-              <Button variant="outline" className="h-16 flex flex-col items-center gap-2" onClick={() => setFeedbackActiveTab("retailer-feedback")}>
-                <MessageSquare size={24} />
+          <DialogContent className="max-w-[95vw] sm:max-w-md p-0 overflow-hidden">
+            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6">
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-xl font-bold text-center">Feedback Options</DialogTitle>
                 <div className="text-center">
-                  <div className="font-medium">Retailer Feedback</div>
+                  <p className="text-lg font-semibold text-primary">{visit.retailerName}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{visit.address}</p>
+                </div>
+              </DialogHeader>
+            </div>
+            <div className="p-5 space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group" 
+                onClick={() => setFeedbackActiveTab("retailer-feedback")}
+              >
+                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50 transition-colors">
+                  <MessageSquare size={22} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="text-left flex-1">
+                  <div className="font-semibold text-base">Retailer Feedback</div>
                   <div className="text-xs text-muted-foreground">Share feedback about the retailer</div>
                 </div>
               </Button>
               
-              <Button variant="outline" className="h-16 flex flex-col items-center gap-2" onClick={() => setFeedbackActiveTab("branding")}>
-                <Paintbrush size={24} />
-                <div className="text-center">
-                  <div className="font-medium">Branding Request</div>
+              <Button 
+                variant="outline" 
+                className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group" 
+                onClick={() => setFeedbackActiveTab("branding")}
+              >
+                <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center group-hover:bg-orange-200 dark:group-hover:bg-orange-800/50 transition-colors">
+                  <Paintbrush size={22} className="text-orange-600 dark:text-orange-400" />
+                </div>
+                <div className="text-left flex-1">
+                  <div className="font-semibold text-base">Branding Request</div>
                   <div className="text-xs text-muted-foreground">Request branding materials</div>
                 </div>
               </Button>
               
               {isJointSalesVisit && (
-                <Button variant="outline" className="h-16 flex flex-col items-center gap-2" onClick={() => setFeedbackActiveTab("joint-sales-feedback")}>
-                  <Users size={24} />
-                  <div className="text-center">
-                    <div className="font-medium">Joint Sales Feedback</div>
+                <Button 
+                  variant="outline" 
+                  className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-primary/5 hover:border-primary/50 transition-all group" 
+                  onClick={() => setFeedbackActiveTab("joint-sales-feedback")}
+                >
+                  <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-800/50 transition-colors">
+                    <Users size={22} className="text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <div className="font-semibold text-base">Joint Sales Feedback</div>
                     <div className="text-xs text-muted-foreground">Record joint visit feedback</div>
                   </div>
                 </Button>
               )}
               
               {!isJointSalesVisit && (
-                <Button variant="outline" className="h-16 flex flex-col items-center gap-2 border-purple-300 hover:bg-purple-50 dark:border-purple-700 dark:hover:bg-purple-950" onClick={() => setFeedbackActiveTab("joint-sales-feedback")}>
-                  <UserCheck size={24} className="text-purple-600" />
-                  <div className="text-center">
-                    <div className="font-medium">Joint Visit Feedback</div>
+                <Button 
+                  variant="outline" 
+                  className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 dark:hover:border-purple-700 transition-all group" 
+                  onClick={() => setFeedbackActiveTab("joint-sales-feedback")}
+                >
+                  <div className="h-12 w-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50 transition-colors">
+                    <UserCheck size={22} className="text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <div className="font-semibold text-base">Joint Visit Feedback</div>
                     <div className="text-xs text-muted-foreground">Record feedback from joint visit</div>
                   </div>
                 </Button>
