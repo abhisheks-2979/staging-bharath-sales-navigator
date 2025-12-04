@@ -1484,10 +1484,10 @@ export const TodaySummary = () => {
           </CardContent>
         </Card>
 
-        {/* Visit Breakdown */}
+        {/* Performance Summary */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Visit Breakdown</CardTitle>
+            <CardTitle className="text-lg">Performance Summary</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -1714,29 +1714,6 @@ export const TodaySummary = () => {
                )}
                </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-
-        {/* Performance Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Performance Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span>Planned Visits:</span>
-                <span className="font-semibold">{summaryData.plannedVisits}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Completed Visits:</span>
-                <span className="font-semibold">{summaryData.completedVisits}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Visit Efficiency:</span>
-                <span className="font-semibold text-primary">{summaryData.visitEfficiency}%</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
