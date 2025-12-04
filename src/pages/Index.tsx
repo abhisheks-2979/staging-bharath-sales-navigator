@@ -9,8 +9,7 @@ import { QuickNavGrid } from "@/components/home/QuickNavGrid";
 import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { PerformanceCalendar } from "@/components/PerformanceCalendar";
-import { TomorrowBeatPlan } from "@/components/home/TomorrowBeatPlan";
-import { WeekAISummary } from "@/components/home/WeekAISummary";
+import { AIInsightsSection } from "@/components/home/AIInsightsSection";
 import { PendingPayments } from "@/components/home/PendingPayments";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -184,23 +183,8 @@ const Index = () => {
                 onDateChange={setSelectedDate}
               />
 
-              {/* Tomorrow's Beat Plan - Enhanced */}
-              {userProfile?.id && <TomorrowBeatPlan userId={userProfile.id} />}
-
-              {/* Week AI Summaries - Enhanced prominence */}
-              {userProfile?.id && (
-                <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background rounded-xl p-5 border-2 border-primary/20 shadow-lg">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="h-8 w-1 bg-primary rounded-full" />
-                    <h2 className="text-xl font-bold">AI Weekly Insights</h2>
-                    <Badge variant="secondary" className="ml-auto">Your USP</Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <WeekAISummary userId={userProfile.id} weekType="current" />
-                    <WeekAISummary userId={userProfile.id} weekType="next" />
-                  </div>
-                </div>
-              )}
+              {/* AI Insights Section - Tomorrow + Current Week + Next Week */}
+              {userProfile?.id && <AIInsightsSection userId={userProfile.id} />}
 
               {/* Performance Calendar */}
               {userProfile?.id && <PerformanceCalendar />}
