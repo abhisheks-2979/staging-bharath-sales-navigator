@@ -350,13 +350,12 @@ export const TodaySummary = () => {
       const beatIds = beatPlans?.map(bp => bp.beat_id).filter(Boolean) || [];
       
       if (beatIds.length > 0) {
-        // Fetch ALL active retailers that belong to these beats
+        // Fetch ALL retailers that belong to these beats (no status filter - consistent with My Visits)
         const { data: beatRetailers } = await supabase
           .from('retailers')
           .select('id, name, beat_id')
           .eq('user_id', user.id)
-          .in('beat_id', beatIds)
-          .eq('status', 'active');
+          .in('beat_id', beatIds);
         
         if (beatRetailers && beatRetailers.length > 0) {
           beatPlans?.forEach(bp => {
