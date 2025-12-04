@@ -20,71 +20,92 @@ async function getUserContext(supabase: any, userId: string) {
   const today = new Date().toISOString().split('T')[0];
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Fetch comprehensive user context in parallel
-  const [
-    profileResult, 
-    rolesResult, 
-    todayVisitsResult,
-    todayBeatResult,
-    pendingPaymentsResult,
-    recentOrdersResult,
-    territoryResult
-  ] = await Promise.all([
-    supabase.from('profiles').select('full_name, username').eq('id', userId).single(),
-    supabase.from('user_roles').select('role').eq('user_id', userId),
-    supabase.from('visits').select('id, status, retailers(name)').eq('user_id', userId)
-      .gte('planned_date', today).lte('planned_date', today),
-    supabase.from('beat_plans').select('beat_name, beat_data').eq('user_id', userId)
-      .eq('plan_date', today).single(),
-    supabase.from('retailers').select('id, name, pending_amount')
-      .eq('user_id', userId).gt('pending_amount', 0).limit(5),
-    supabase.from('orders').select('id, total_amount, created_at')
-      .eq('user_id', userId).gte('order_date', weekAgo).order('created_at', { ascending: false }).limit(5),
-    supabase.from('user_territories').select('territory:territories(name)').eq('user_id', userId).limit(1)
-  ]);
+  try {
+    // Fetch comprehensive user context in parallel
+    const [
+      profileResult, 
+      rolesResult, 
+      todayVisitsResult,
+      todayBeatResult,
+      pendingPaymentsResult,
+      recentOrdersResult,
+      territoryResult
+    ] = await Promise.all([
+      supabase.from('profiles').select('full_name, username').eq('id', userId).maybeSingle(),
+      supabase.from('user_roles').select('role').eq('user_id', userId),
+      supabase.from('visits').select('id, status, retailers(name)').eq('user_id', userId)
+        .gte('planned_date', today).lte('planned_date', today),
+      supabase.from('beat_plans').select('beat_name, beat_data').eq('user_id', userId)
+        .eq('plan_date', today).maybeSingle(),
+      supabase.from('orders').select('id, retailer_id, total_amount, payment_status')
+        .eq('user_id', userId).neq('payment_status', 'paid').limit(5),
+      supabase.from('orders').select('id, total_amount, created_at')
+        .eq('user_id', userId).gte('order_date', weekAgo).order('created_at', { ascending: false }).limit(5),
+      supabase.from('user_territories').select('territory:territories(name)').eq('user_id', userId).limit(1)
+    ]);
 
-  const isAdmin = rolesResult.data?.some((r: any) => r.role === 'admin');
-  
-  // Calculate business context
-  const now = new Date();
-  const hour = now.getHours();
-  const dayOfMonth = now.getDate();
-  const isMonthEnd = dayOfMonth >= 25;
-  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-  
-  let timeOfDay = 'morning';
-  if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
-  else if (hour >= 17) timeOfDay = 'evening';
+    const isAdmin = rolesResult.data?.some((r: any) => r.role === 'admin') || false;
+    
+    // Calculate business context
+    const now = new Date();
+    const hour = now.getHours();
+    const dayOfMonth = now.getDate();
+    const isMonthEnd = dayOfMonth >= 25;
+    const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+    
+    let timeOfDay = 'morning';
+    if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+    else if (hour >= 17) timeOfDay = 'evening';
 
-  const totalPending = pendingPaymentsResult.data?.reduce((sum: number, r: any) => sum + (r.pending_amount || 0), 0) || 0;
-  const recentSales = recentOrdersResult.data?.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0) || 0;
+    const totalPending = pendingPaymentsResult.data?.reduce((sum: number, r: any) => sum + (r.total_amount || 0), 0) || 0;
+    const recentSales = recentOrdersResult.data?.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0) || 0;
 
-  const context = {
-    profile: profileResult.data,
-    isAdmin,
-    userRole: isAdmin ? 'Manager/Admin' : 'Field Sales User',
-    todayVisits: todayVisitsResult.data || [],
-    todayBeat: todayBeatResult.data?.beat_name || null,
-    territory: territoryResult.data?.[0]?.territory?.name || null,
-    pendingCollections: {
-      count: pendingPaymentsResult.data?.length || 0,
-      total: totalPending,
-      topRetailers: pendingPaymentsResult.data?.slice(0, 3) || []
-    },
-    recentPerformance: {
-      orderCount: recentOrdersResult.data?.length || 0,
-      totalSales: recentSales
-    },
-    businessContext: {
-      timeOfDay,
-      isMonthEnd,
-      isWeekend,
-      dayOfMonth
-    }
-  };
+    const context = {
+      profile: profileResult.data || { full_name: 'User', username: 'user' },
+      isAdmin,
+      userRole: isAdmin ? 'Manager/Admin' : 'Field Sales User',
+      todayVisits: todayVisitsResult.data || [],
+      todayBeat: todayBeatResult.data?.beat_name || null,
+      territory: territoryResult.data?.[0]?.territory?.name || null,
+      pendingCollections: {
+        count: pendingPaymentsResult.data?.length || 0,
+        total: totalPending,
+        topRetailers: pendingPaymentsResult.data?.slice(0, 3) || []
+      },
+      recentPerformance: {
+        orderCount: recentOrdersResult.data?.length || 0,
+        totalSales: recentSales
+      },
+      businessContext: {
+        timeOfDay,
+        isMonthEnd,
+        isWeekend,
+        dayOfMonth
+      }
+    };
 
-  userContextCache.set(userId, { data: context, timestamp: Date.now() });
-  return context;
+    userContextCache.set(userId, { data: context, timestamp: Date.now() });
+    return context;
+  } catch (error) {
+    console.error('Error fetching user context:', error);
+    // Return default context on error
+    return {
+      profile: { full_name: 'User', username: 'user' },
+      isAdmin: false,
+      userRole: 'Field Sales User',
+      todayVisits: [],
+      todayBeat: null,
+      territory: null,
+      pendingCollections: { count: 0, total: 0, topRetailers: [] },
+      recentPerformance: { orderCount: 0, totalSales: 0 },
+      businessContext: {
+        timeOfDay: 'morning',
+        isMonthEnd: false,
+        isWeekend: false,
+        dayOfMonth: new Date().getDate()
+      }
+    };
+  }
 }
 
 // Query classification for routing
@@ -540,16 +561,17 @@ serve(async (req) => {
     console.log(`Query classification: ${JSON.stringify(classification)}`);
 
     // Build context-aware system prompt
-    const { timeOfDay, isMonthEnd, isWeekend, dayOfMonth } = userContext.businessContext;
-    const pendingVisits = userContext.todayVisits.filter((v: any) => v.status === 'scheduled').length;
-    const completedVisits = userContext.todayVisits.filter((v: any) => v.status === 'completed').length;
+    const { timeOfDay, isMonthEnd, isWeekend, dayOfMonth } = userContext.businessContext || {};
+    const todayVisits = userContext.todayVisits || [];
+    const pendingVisits = todayVisits.filter((v: any) => v.status === 'scheduled').length;
+    const completedVisits = todayVisits.filter((v: any) => v.status === 'completed').length;
     
     // Add contextual tips based on business context
     let contextualTips = '';
     if (isMonthEnd) {
       contextualTips += '\n⚠️ Month-end: Focus on collections and closing pending orders.';
     }
-    if (userContext.pendingCollections.total > 0) {
+    if (userContext.pendingCollections?.total > 0) {
       contextualTips += `\n💰 Pending collections: ₹${userContext.pendingCollections.total.toLocaleString('en-IN')} from ${userContext.pendingCollections.count} retailers.`;
     }
     if (pendingVisits > 0 && timeOfDay === 'afternoon') {
