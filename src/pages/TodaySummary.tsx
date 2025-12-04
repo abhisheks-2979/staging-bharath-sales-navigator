@@ -136,11 +136,15 @@ export const TodaySummary = () => {
 
   // Real-time subscription for points updates
   useEffect(() => {
-    const setupRealtimeSubscription = async () => {
+    if (filterType !== 'today') return;
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setupSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const channel = supabase
+      channel = supabase
         .channel('points-updates')
         .on(
           'postgres_changes',
@@ -152,34 +156,38 @@ export const TodaySummary = () => {
           },
           (payload) => {
             console.log('New points earned:', payload);
-            // Add new points to current total
             setPointsEarnedToday(prev => prev + (payload.new.points || 0));
           }
         )
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     };
 
-    if (filterType === 'today') {
-      setupRealtimeSubscription();
-    }
+    setupSubscription();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [filterType]);
 
-  // Auto-refresh when page becomes visible or when focusing on today's data
+  // Auto-refresh on visibility/focus - separate from data fetch to avoid loops
   useEffect(() => {
+    if (filterType !== 'today') return;
+
+    let refreshInterval: number | null = null;
+    let lastRefresh = Date.now();
+
     const handleVisibilityChange = () => {
-      if (!document.hidden && filterType === 'today') {
-        console.log('Page visible, refreshing today\'s data...');
+      if (!document.hidden && Date.now() - lastRefresh > 10000) {
+        lastRefresh = Date.now();
         fetchTodaysData();
       }
     };
 
     const handleFocus = () => {
-      if (filterType === 'today') {
-        console.log('Window focused, refreshing today\'s data...');
+      if (Date.now() - lastRefresh > 10000) {
+        lastRefresh = Date.now();
         fetchTodaysData();
       }
     };
@@ -187,21 +195,18 @@ export const TodaySummary = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
 
-    // Auto-refresh every 30 seconds when viewing today's data
-    let refreshInterval: number | null = null;
-    if (filterType === 'today') {
-      refreshInterval = window.setInterval(() => {
-        console.log('Auto-refreshing today\'s data...');
-        fetchTodaysData();
-      }, 30000); // 30 seconds
-    }
+    // Auto-refresh every 60 seconds (reduced frequency)
+    refreshInterval = window.setInterval(() => {
+      lastRefresh = Date.now();
+      fetchTodaysData();
+    }, 60000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       if (refreshInterval) clearInterval(refreshInterval);
     };
-  }, [dateRange, filterType]);
+  }, [filterType]);
 
   const handleDateFilterChange = (type: DateFilterType, date?: Date, rangeTo?: Date) => {
     setFilterType(type);
