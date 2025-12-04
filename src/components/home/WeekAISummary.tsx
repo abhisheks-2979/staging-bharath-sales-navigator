@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns";
-import { Sparkles, TrendingUp } from "lucide-react";
+import { Sparkles, TrendingUp, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface WeekAISummaryProps {
   userId: string;
@@ -14,6 +15,9 @@ interface WeekAISummaryProps {
 export const WeekAISummary = ({ userId, weekType }: WeekAISummaryProps) => {
   const [aiSummary, setAiSummary] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const getWeekRange = () => {
     const baseDate = weekType === 'current' ? new Date() : addWeeks(new Date(), 1);
@@ -114,39 +118,147 @@ Focus beats: ${uniqueBeats.slice(0, 3).join(', ')}`;
     }
   };
 
+  const handleFeedback = async (type: 'up' | 'down') => {
+    setFeedback(type);
+    toast.success(type === 'up' ? "Thanks for your feedback!" : "We'll improve our recommendations");
+    
+    try {
+      await supabase.from('ai_feature_feedback').insert({
+        user_id: userId,
+        feature: `week_summary_${weekType}`,
+        feedback_type: type
+      });
+    } catch (error) {
+      console.error('Error storing feedback:', error);
+    }
+  };
+
+  const toggleSpeech = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    if (!aiSummary) {
+      toast.error("No content to read");
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(aiSummary);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.1;
+    
+    // Try to find Indian English female voice
+    const voices = window.speechSynthesis.getVoices();
+    const indianVoice = voices.find(v => 
+      (v.lang === 'en-IN' || v.lang.includes('IN')) && v.name.toLowerCase().includes('female')
+    ) || voices.find(v => 
+      v.lang === 'en-IN' || v.lang.includes('IN')
+    ) || voices.find(v => 
+      v.name.toLowerCase().includes('indian')
+    ) || voices.find(v => 
+      v.lang.startsWith('en') && v.name.toLowerCase().includes('female')
+    );
+    
+    if (indianVoice) {
+      utterance.voice = indianVoice;
+    }
+    
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      toast.error("Speech synthesis failed");
+    };
+    
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+  };
+
   const { start, end } = getWeekRange();
   const title = weekType === 'current' ? 'Current Week Summary' : 'Next Week Outlook';
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
-          <TrendingUp className="h-4 w-4" />
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
-          {format(start, 'MMM dd')} - {format(end, 'MMM dd, yyyy')}
-        </p>
-
-        {aiSummary ? (
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-            <p className="text-sm text-foreground whitespace-pre-line">{aiSummary}</p>
+    <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              {title}
+            </CardTitle>
+            {aiSummary && (
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleSpeech}
+                  className="h-7 w-7 p-0"
+                  title={isSpeaking ? "Stop" : "Listen"}
+                >
+                  {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </Button>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title={isCollapsed ? "Expand" : "Collapse"}>
+                    {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            )}
           </div>
-        ) : (
-          <Button 
-            onClick={generateAISummary}
-            disabled={generating}
-            size="sm"
-            variant="outline"
-            className="w-full"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            {generating ? 'Generating...' : 'Generate AI Summary'}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              {format(start, 'MMM dd')} - {format(end, 'MMM dd, yyyy')}
+            </p>
+
+            {aiSummary ? (
+              <>
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                  <p className="text-sm text-foreground whitespace-pre-line">{aiSummary}</p>
+                </div>
+                
+                {/* Feedback Buttons */}
+                <div className="flex items-center justify-center gap-3 pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">Was this helpful?</span>
+                  <Button
+                    variant={feedback === 'up' ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => handleFeedback('up')}
+                    disabled={feedback !== null}
+                  >
+                    <ThumbsUp className="h-3 w-3 mr-1" />
+                    Yes
+                  </Button>
+                  <Button
+                    variant={feedback === 'down' ? "destructive" : "outline"}
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => handleFeedback('down')}
+                    disabled={feedback !== null}
+                  >
+                    <ThumbsDown className="h-3 w-3 mr-1" />
+                    No
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button 
+                onClick={generateAISummary}
+                disabled={generating}
+                size="sm"
+                variant="outline"
+                className="w-full"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {generating ? 'Generating...' : 'Generate AI Summary'}
+              </Button>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 };

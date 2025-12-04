@@ -7,10 +7,12 @@ import { format, addDays, subMonths } from "date-fns";
 import { 
   MapPin, Sparkles, Users, Volume2, VolumeX, TrendingUp, TrendingDown, 
   Calendar, ShoppingCart, AlertTriangle, Target, Star, Package, 
-  UserPlus, CreditCard, Lightbulb, Loader2
+  UserPlus, CreditCard, Lightbulb, Loader2, ChevronDown, ChevronUp,
+  ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface TomorrowBeatPlanProps {
   userId: string;
@@ -47,6 +49,8 @@ export const TomorrowBeatPlan = ({ userId }: TomorrowBeatPlanProps) => {
   const [loading, setLoading] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
 
   const tomorrow = addDays(new Date(), 1);
   const tomorrowDate = format(tomorrow, 'yyyy-MM-dd');
@@ -327,8 +331,25 @@ Keep it concise and practical.`;
     }
 
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.1;
+    
+    // Try to find Indian English female voice
+    const voices = window.speechSynthesis.getVoices();
+    const indianVoice = voices.find(v => 
+      (v.lang === 'en-IN' || v.lang.includes('IN')) && v.name.toLowerCase().includes('female')
+    ) || voices.find(v => 
+      v.lang === 'en-IN' || v.lang.includes('IN')
+    ) || voices.find(v => 
+      v.name.toLowerCase().includes('indian')
+    ) || voices.find(v => 
+      v.lang.startsWith('en') && v.name.toLowerCase().includes('female')
+    );
+    
+    if (indianVoice) {
+      utterance.voice = indianVoice;
+    }
+    
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => {
       setIsSpeaking(false);
@@ -337,6 +358,22 @@ Keep it concise and practical.`;
     
     window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
+  };
+
+  const handleFeedback = async (type: 'up' | 'down') => {
+    setFeedback(type);
+    toast.success(type === 'up' ? "Thanks for your feedback!" : "We'll improve our recommendations");
+    
+    // Store feedback in database
+    try {
+      await supabase.from('ai_feature_feedback').insert({
+        user_id: userId,
+        feature: 'tomorrow_beat_plan',
+        feedback_type: type
+      });
+    } catch (error) {
+      console.error('Error storing feedback:', error);
+    }
   };
 
   const generateSummaryText = () => {
@@ -390,38 +427,47 @@ Keep it concise and practical.`;
   }
 
   return (
-    <Card className="overflow-hidden border-2 border-primary/20">
-      <CardHeader className="pb-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" />
-            Tomorrow's Beat Plan
-          </CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleSpeech}
-              className="h-7 w-7 p-0"
-              title={isSpeaking ? "Stop" : "Listen"}
-            >
-              {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={generateAIRecommendation}
-              disabled={generatingAI}
-              className="h-7 w-7 p-0"
-              title="Regenerate"
-            >
-              {generatingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            </Button>
+    <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
+      <Card className="overflow-hidden border-2 border-primary/20">
+        <CardHeader className="pb-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Tomorrow's Beat Plan
+            </CardTitle>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleSpeech}
+                className="h-7 w-7 p-0"
+                title={isSpeaking ? "Stop" : "Listen"}
+              >
+                {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateAIRecommendation}
+                disabled={generatingAI}
+                className="h-7 w-7 p-0"
+                title="Regenerate"
+              >
+                {generatingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </Button>
+              {aiRecommendation && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title={isCollapsed ? "Expand" : "Collapse"}>
+                    {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+              )}
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4 pt-3">
+        </CardHeader>
+        
+        <CollapsibleContent>
+          <CardContent className="space-y-4 pt-3">
         {/* Beat Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -578,7 +624,36 @@ Keep it concise and practical.`;
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+
+        {/* Feedback Buttons */}
+        {aiRecommendation && !generatingAI && (
+          <div className="flex items-center justify-center gap-3 pt-2 border-t border-border/50">
+            <span className="text-xs text-muted-foreground">Was this helpful?</span>
+            <Button
+              variant={feedback === 'up' ? "default" : "outline"}
+              size="sm"
+              className="h-7 px-3"
+              onClick={() => handleFeedback('up')}
+              disabled={feedback !== null}
+            >
+              <ThumbsUp className="h-3 w-3 mr-1" />
+              Yes
+            </Button>
+            <Button
+              variant={feedback === 'down' ? "destructive" : "outline"}
+              size="sm"
+              className="h-7 px-3"
+              onClick={() => handleFeedback('down')}
+              disabled={feedback !== null}
+            >
+              <ThumbsDown className="h-3 w-3 mr-1" />
+              No
+            </Button>
+          </div>
+        )}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 };
