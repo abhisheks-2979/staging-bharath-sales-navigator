@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
-import { Download, Share, FileText, Clock, MapPin, CalendarIcon } from "lucide-react";
+import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, par
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ReportGenerator } from "@/components/ReportGenerator";
+import { calculateJointVisitScore } from "@/components/JointSalesFeedbackModal";
+import { JointSalesFeedbackViewModal } from "@/components/JointSalesFeedbackViewModal";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -79,7 +81,8 @@ export const TodaySummary = () => {
     retailersCovered: number;
     memberName: string;
     orderIncrease: number;
-    feedback: Array<{ retailerName: string; impact: string; orderIncrease: number }>;
+    avgScore: number;
+    feedback: Array<{ retailerId: string; retailerName: string; impact: string; orderIncrease: number; score: number; feedbackDate: string }>;
   } | null>(null);
   
   // Retailer-based report data
@@ -99,6 +102,10 @@ export const TodaySummary = () => {
   const [dialogTitle, setDialogTitle] = useState<string>("");
   const [dialogContentType, setDialogContentType] = useState<"orders" | "visits" | "efficiency" | "products" | "kgBreakdown" | "retailerValue">("orders");
   const [dialogFilter, setDialogFilter] = useState<string | null>(null);
+  
+  // Joint Sales Feedback View Modal state
+  const [jointFeedbackViewOpen, setJointFeedbackViewOpen] = useState(false);
+  const [selectedJointFeedback, setSelectedJointFeedback] = useState<{ retailerId: string; retailerName: string; feedbackDate: string } | null>(null);
 
   // Handle URL query parameter for date from Attendance page
   useEffect(() => {
@@ -328,16 +335,27 @@ export const TodaySummary = () => {
           profiles?.forEach(p => managerNameMap.set(p.id, p.full_name || 'Unknown'));
         }
         
+        // Calculate scores for each feedback
+        const feedbackWithScores = jointSalesFeedback.map(f => ({
+          retailerId: f.retailer_id,
+          retailerName: (f.retailers as any)?.name || 'Unknown',
+          impact: f.joint_sales_impact || 'No impact notes',
+          orderIncrease: f.order_increase_amount || 0,
+          score: calculateJointVisitScore(f),
+          feedbackDate: f.feedback_date
+        }));
+        
+        const avgScore = feedbackWithScores.length > 0 
+          ? Math.round((feedbackWithScores.reduce((sum, f) => sum + f.score, 0) / feedbackWithScores.length) * 10) / 10
+          : 0;
+        
         setJointSalesData({
           totalVisits: jointSalesFeedback.length,
           retailersCovered: uniqueRetailers,
           memberName: memberNames.length > 0 ? memberNames.join(', ') : 'Unknown',
           orderIncrease: totalOrderIncrease,
-          feedback: jointSalesFeedback.map(f => ({
-            retailerName: (f.retailers as any)?.name || 'Unknown',
-            impact: f.joint_sales_impact || 'No impact notes',
-            orderIncrease: f.order_increase_amount || 0
-          }))
+          avgScore,
+          feedback: feedbackWithScores
         });
       } else {
         setJointSalesData(null);
@@ -1439,47 +1457,87 @@ export const TodaySummary = () => {
         {/* Joint Sales Highlight Section */}
         {jointSalesData && (
           <Card className="border-purple-200 bg-purple-50/50">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <span className="text-purple-600">🤝</span>
-                Joint Sales Visit Highlight
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span className="text-purple-600">🤝</span>
+                  Joint Sales Visit
+                </CardTitle>
+                {jointSalesData.avgScore > 0 && (
+                  <Badge className={`text-sm px-3 py-1 ${
+                    jointSalesData.avgScore >= 8 ? 'bg-green-100 text-green-700' :
+                    jointSalesData.avgScore >= 6 ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-orange-100 text-orange-700'
+                  }`}>
+                    Score: {jointSalesData.avgScore}/10
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-purple-600 font-medium mt-1">
+                with {jointSalesData.memberName}
+              </p>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-purple-100 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-700">
-                    {jointSalesData.retailersCovered}
-                  </div>
-                  <div className="text-sm text-purple-600">Retailers Covered</div>
-                </div>
+            <CardContent className="space-y-4 pt-0">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="text-center p-3 bg-purple-100 rounded-lg">
                   <div className="text-xl font-bold text-purple-700">
+                    {jointSalesData.retailersCovered}
+                  </div>
+                  <div className="text-xs text-purple-600">Retailers</div>
+                </div>
+                <div className="text-center p-3 bg-green-100 rounded-lg">
+                  <div className="text-lg font-bold text-green-700">
                     ₹{jointSalesData.orderIncrease.toLocaleString()}
                   </div>
-                  <div className="text-sm text-purple-600">Order Increase</div>
+                  <div className="text-xs text-green-600">Order Increase</div>
                 </div>
-              </div>
-              
-              <div className="p-3 bg-white rounded-lg border border-purple-200">
-                <div className="text-sm text-muted-foreground mb-1">Joint Sales Member</div>
-                <div className="font-semibold text-purple-700">{jointSalesData.memberName}</div>
+                <div className="text-center p-3 bg-blue-100 rounded-lg">
+                  <div className="text-xl font-bold text-blue-700">
+                    {jointSalesData.avgScore > 0 ? jointSalesData.avgScore : '-'}
+                  </div>
+                  <div className="text-xs text-blue-600">Avg Score</div>
+                </div>
               </div>
 
               {jointSalesData.feedback.length > 0 && (
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-purple-700">Feedback Summary</div>
                   {jointSalesData.feedback.slice(0, 3).map((feedback, index) => (
-                    <div key={index} className="p-2 bg-white rounded border border-purple-100 text-sm">
-                      <div className="font-medium">{feedback.retailerName}</div>
-                      <div className="text-muted-foreground text-xs line-clamp-1">{feedback.impact}</div>
-                      <div className="text-purple-600 font-semibold text-xs">
-                        +₹{feedback.orderIncrease.toLocaleString()} increase
+                    <div 
+                      key={index} 
+                      className="p-3 bg-white rounded-lg border border-purple-100 text-sm cursor-pointer hover:border-purple-300 transition-colors"
+                      onClick={() => {
+                        setSelectedJointFeedback({
+                          retailerId: feedback.retailerId,
+                          retailerName: feedback.retailerName,
+                          feedbackDate: feedback.feedbackDate
+                        });
+                        setJointFeedbackViewOpen(true);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">{feedback.retailerName}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`text-xs ${
+                            feedback.score >= 8 ? 'border-green-300 text-green-700' :
+                            feedback.score >= 6 ? 'border-yellow-300 text-yellow-700' :
+                            'border-orange-300 text-orange-700'
+                          }`}>
+                            {feedback.score}/10
+                          </Badge>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        </div>
                       </div>
+                      <div className="text-muted-foreground text-xs line-clamp-1">{feedback.impact}</div>
+                      {feedback.orderIncrease > 0 && (
+                        <div className="text-green-600 font-medium text-xs mt-1">
+                          +₹{feedback.orderIncrease.toLocaleString()} increase
+                        </div>
+                      )}
                     </div>
                   ))}
                   {jointSalesData.feedback.length > 3 && (
-                    <div className="text-xs text-center text-muted-foreground">
+                    <div className="text-xs text-center text-purple-600 font-medium">
                       +{jointSalesData.feedback.length - 3} more entries
                     </div>
                   )}
@@ -1771,6 +1829,25 @@ export const TodaySummary = () => {
             </ScrollArea>
           </DialogContent>
         </Dialog>
+
+        {/* Joint Sales Feedback View Modal */}
+        {selectedJointFeedback && (
+          <JointSalesFeedbackViewModal
+            isOpen={jointFeedbackViewOpen}
+            onClose={() => {
+              setJointFeedbackViewOpen(false);
+              setSelectedJointFeedback(null);
+            }}
+            retailerId={selectedJointFeedback.retailerId}
+            retailerName={selectedJointFeedback.retailerName}
+            feedbackDate={selectedJointFeedback.feedbackDate}
+            onEdit={() => {}}
+            onDeleted={() => {
+              setJointFeedbackViewOpen(false);
+              setSelectedJointFeedback(null);
+            }}
+          />
+        )}
 
       </div>
     </div>

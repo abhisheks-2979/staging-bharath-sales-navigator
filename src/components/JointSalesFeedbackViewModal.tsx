@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, UserCheck, Star, Edit, Trash2, Calendar, IndianRupee } from "lucide-react";
+import { Loader2, UserCheck, Star, Edit, Trash2, Calendar, IndianRupee, TrendingUp, Store, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import {
   AlertDialog,
@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { calculateJointVisitScore } from "./JointSalesFeedbackModal";
 
 interface JointSalesFeedbackViewModalProps {
   isOpen: boolean;
@@ -34,10 +35,8 @@ interface FeedbackData {
   feedback_date: string;
   retailing_feedback: string;
   placement_feedback: string;
-  sales_increase_feedback: string;
   new_products_introduced: string;
   competition_knowledge: string;
-  trends_feedback: string;
   product_quality_feedback: string;
   service_feedback: string;
   schemes_feedback: string;
@@ -62,6 +61,8 @@ export const JointSalesFeedbackViewModal = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const score = feedback ? calculateJointVisitScore(feedback) : 0;
+
   useEffect(() => {
     if (isOpen && retailerId && feedbackDate) {
       loadFeedback();
@@ -82,7 +83,6 @@ export const JointSalesFeedbackViewModal = ({
       if (error) throw error;
 
       if (data) {
-        // Fetch manager name
         const { data: managerProfile } = await supabase
           .from('profiles')
           .select('full_name, username')
@@ -145,7 +145,7 @@ export const JointSalesFeedbackViewModal = ({
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            size={16}
+            size={14}
             className={star <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
           />
         ))}
@@ -153,19 +153,18 @@ export const JointSalesFeedbackViewModal = ({
     );
   };
 
-  const renderFeedbackItem = (label: string, value: string | number | undefined, isRating = false) => {
-    if (!value && value !== 0) return null;
-    
-    return (
-      <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        {isRating ? (
-          renderStars(String(value))
-        ) : (
-          <span className="text-sm font-medium text-right max-w-[200px]">{value}</span>
-        )}
-      </div>
-    );
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return "text-green-600 bg-green-100";
+    if (score >= 6) return "text-yellow-600 bg-yellow-100";
+    if (score >= 4) return "text-orange-600 bg-orange-100";
+    return "text-red-600 bg-red-100";
+  };
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 8) return "Excellent";
+    if (score >= 6) return "Good";
+    if (score >= 4) return "Average";
+    return "Needs Improvement";
   };
 
   return (
@@ -173,10 +172,17 @@ export const JointSalesFeedbackViewModal = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-purple-600" />
-              Joint Sales Feedback
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-purple-600" />
+                Joint Sales Feedback
+              </DialogTitle>
+              {score > 0 && (
+                <Badge className={`text-sm px-2 py-1 ${getScoreColor(score)}`}>
+                  {score}/10 • {getScoreLabel(score)}
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">{retailerName}</p>
           </DialogHeader>
 
@@ -195,7 +201,7 @@ export const JointSalesFeedbackViewModal = ({
                 <div className="flex items-center gap-2">
                   <UserCheck className="h-4 w-4 text-purple-600" />
                   <span className="font-medium">{feedback.manager_name}</span>
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
                     Joint Visit Partner
                   </Badge>
                 </div>
@@ -213,26 +219,92 @@ export const JointSalesFeedbackViewModal = ({
                 </div>
               </div>
 
-              {/* Feedback Details */}
-              <div className="space-y-1">
-                {renderFeedbackItem("Retailing Performance", feedback.retailing_feedback, true)}
-                {renderFeedbackItem("Product Placement", feedback.placement_feedback)}
-                {renderFeedbackItem("Sales Strategy", feedback.sales_increase_feedback)}
-                {renderFeedbackItem("New Products", feedback.new_products_introduced)}
-                {renderFeedbackItem("Competition Knowledge", feedback.competition_knowledge, true)}
-                {renderFeedbackItem("Market Trends", feedback.trends_feedback)}
-                {renderFeedbackItem("Product Quality", feedback.product_quality_feedback, true)}
-                {renderFeedbackItem("Service Quality", feedback.service_feedback, true)}
-                {renderFeedbackItem("Schemes Effectiveness", feedback.schemes_feedback)}
-                {renderFeedbackItem("Pricing Feedback", feedback.pricing_feedback)}
-                {renderFeedbackItem("Consumer Satisfaction", feedback.consumer_feedback, true)}
+              {/* Performance Ratings */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+                  <Star className="h-3 w-3" />
+                  Performance Ratings
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                  {feedback.retailing_feedback && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Retailing</span>
+                      {renderStars(feedback.retailing_feedback)}
+                    </div>
+                  )}
+                  {feedback.product_quality_feedback && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Product Quality</span>
+                      {renderStars(feedback.product_quality_feedback)}
+                    </div>
+                  )}
+                  {feedback.service_feedback && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Service</span>
+                      {renderStars(feedback.service_feedback)}
+                    </div>
+                  )}
+                  {feedback.competition_knowledge && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Competition Knowledge</span>
+                      {renderStars(feedback.competition_knowledge)}
+                    </div>
+                  )}
+                  {feedback.consumer_feedback && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Consumer Satisfaction</span>
+                      {renderStars(feedback.consumer_feedback)}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Store Assessment */}
+              {(feedback.placement_feedback || feedback.schemes_feedback || feedback.pricing_feedback || feedback.new_products_introduced) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
+                    <Store className="h-3 w-3" />
+                    Store Assessment
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+                    {feedback.placement_feedback && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Placement</span>
+                        <span className="font-medium">{feedback.placement_feedback.split(' - ')[0]}</span>
+                      </div>
+                    )}
+                    {feedback.schemes_feedback && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Schemes</span>
+                        <span className="font-medium">{feedback.schemes_feedback.split(' - ')[0]}</span>
+                      </div>
+                    )}
+                    {feedback.pricing_feedback && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pricing</span>
+                        <span className="font-medium">{feedback.pricing_feedback}</span>
+                      </div>
+                    )}
+                    {feedback.new_products_introduced && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">New Products</span>
+                        <span className="font-medium">{feedback.new_products_introduced.split(' - ')[0]}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Impact Notes */}
               {feedback.joint_sales_impact && (
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Overall Impact</p>
-                  <p className="text-sm">{feedback.joint_sales_impact}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-orange-700">
+                    <MessageSquare className="h-3 w-3" />
+                    Summary Notes
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    <p className="text-sm">{feedback.joint_sales_impact}</p>
+                  </div>
                 </div>
               )}
             </div>
