@@ -91,7 +91,7 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
     setDescription("");
     setPreferredVendorId(undefined);
     setAssetLineItems([]);
-    setShowAddAssetForm(false);
+    setShowAddAssetForm(true);
     setCurrentAsset({
       id: '',
       assetType: '',
@@ -392,61 +392,6 @@ export const BrandingRequestModal = ({ isOpen, onClose, onBack, defaultVisitId, 
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-1">
-                <Label>Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="E.g., Glow sign board" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Pincode</Label>
-                  <Input value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="560001" />
-                </div>
-                <div className="space-y-1">
-                  <Label>Budget (₹)</Label>
-                  <Input type="number" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="10000" />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Size (editable)</Label>
-                <Input value={size} onChange={(e) => setSize(e.target.value)} placeholder="Will be auto-filled from measurement or enter manually" />
-              </div>
-
-              <Separator />
-
-              <ImageMeasurement 
-                onMeasurementComplete={(measuredSize, urls) => {
-                  setSize(measuredSize);
-                  setMeasurementPhotoUrls(urls);
-                }}
-                existingUrls={measurementPhotoUrls}
-              />
-
-              <Separator />
-
-              <div className="space-y-1">
-                <Label>Contract Document (Retailer Approval)</Label>
-                <div className="flex items-center gap-2">
-                  <Input 
-                    type="file" 
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={handleContractUpload}
-                    disabled={contractUploading}
-                  />
-                  {contractDocUrl && (
-                    <Badge variant="outline" className="whitespace-nowrap">Uploaded</Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Description</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Add details/instructions" />
-              </div>
-
-              <Separator className="my-4" />
 
               {/* Asset Line Items */}
               <div className="space-y-3">
