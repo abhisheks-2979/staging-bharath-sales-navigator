@@ -425,30 +425,47 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       if (stockError) throw stockError;
 
-      // Delete existing items and insert new ones
-      if (todayStock?.id) {
-        await supabase
-          .from('van_stock_items')
-          .delete()
-          .eq('van_stock_id', vanStock.id);
+      // Get existing items from database
+      const existingItems = todayStock?.van_stock_items || [];
+      
+      // Process each stock item - update existing or insert new
+      for (const item of stockItems) {
+        // Check if this product already exists in saved items
+        const existingItem = existingItems.find((e: any) => e.product_id === item.product_id);
+        
+        if (existingItem) {
+          // Update existing item
+          const { error: updateError } = await supabase
+            .from('van_stock_items')
+            .update({
+              product_name: item.product_name,
+              start_qty: item.start_qty,
+              ordered_qty: item.ordered_qty,
+              returned_qty: item.returned_qty,
+              left_qty: item.left_qty,
+              unit: item.unit,
+            })
+            .eq('id', existingItem.id);
+          
+          if (updateError) throw updateError;
+        } else {
+          // Insert new item
+          const { error: insertError } = await supabase
+            .from('van_stock_items')
+            .insert({
+              van_stock_id: vanStock.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              start_qty: item.start_qty,
+              ordered_qty: item.ordered_qty,
+              returned_qty: item.returned_qty,
+              left_qty: item.left_qty,
+              unit: item.unit,
+            });
+          
+          if (insertError) throw insertError;
+        }
       }
-
-      const items = stockItems.map(item => ({
-        van_stock_id: vanStock.id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        start_qty: item.start_qty,
-        ordered_qty: item.ordered_qty,
-        returned_qty: item.returned_qty,
-        left_qty: item.left_qty,
-        unit: item.unit,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('van_stock_items')
-        .insert(items);
-
-      if (itemsError) throw itemsError;
 
       toast.success('Van stock saved successfully');
       // Clear the entry form after save - items are now in Product Stock in Van
