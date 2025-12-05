@@ -19,6 +19,7 @@ import { MassEditBeatsModal } from "@/components/MassEditBeatsModal";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 
 interface Retailer {
   id: string;
@@ -294,16 +295,33 @@ export const MyRetailers = () => {
   };
 
   const deleteRetailer = async (retailer: Retailer) => {
-    if (!window.confirm(`Delete ${retailer.name}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${retailer.name}? This will move it to the recycle bin.`)) return;
+    
+    // Move to recycle bin first
+    const movedToRecycleBin = await moveToRecycleBin({
+      tableName: 'retailers',
+      recordId: retailer.id,
+      recordData: retailer,
+      moduleName: 'Retailers',
+      recordName: retailer.name
+    });
+
+    if (!movedToRecycleBin) {
+      toast({ title: "Failed to delete", description: "Could not move to recycle bin", variant: "destructive" });
+      return;
+    }
+
+    // Now delete from retailers table
     const { error } = await supabase
       .from("retailers")
       .delete()
       .eq("id", retailer.id)
       .eq("user_id", user?.id);
+    
     if (error) {
       toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Deleted", description: `${retailer.name} removed.` });
+      toast({ title: "Moved to Recycle Bin", description: `${retailer.name} can be restored from Recycle Bin.` });
       loadRetailers();
     }
   };
@@ -312,9 +330,25 @@ export const MyRetailers = () => {
     if (selectedRetailerIds.length === 0) return;
     
     const count = selectedRetailerIds.length;
-    if (!window.confirm(`Delete ${count} retailer${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${count} retailer${count > 1 ? 's' : ''}? They will be moved to the recycle bin.`)) return;
     
     setLoading(true);
+    
+    // Get retailer data for recycle bin
+    const retailersToDelete = retailers.filter(r => selectedRetailerIds.includes(r.id));
+    
+    // Move each to recycle bin
+    for (const retailer of retailersToDelete) {
+      await moveToRecycleBin({
+        tableName: 'retailers',
+        recordId: retailer.id,
+        recordData: retailer,
+        moduleName: 'Retailers',
+        recordName: retailer.name
+      });
+    }
+
+    // Now delete from retailers table
     const { error } = await supabase
       .from("retailers")
       .delete()
@@ -324,7 +358,7 @@ export const MyRetailers = () => {
     if (error) {
       toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Deleted", description: `${count} retailer${count > 1 ? 's' : ''} removed.` });
+      toast({ title: "Moved to Recycle Bin", description: `${count} retailer${count > 1 ? 's' : ''} can be restored from Recycle Bin.` });
       setSelectedRetailerIds([]);
       loadRetailers();
     }

@@ -133,7 +133,8 @@ const RecycleBin = () => {
       const success = await restoreFromRecycleBin(
         item.id,
         item.original_table,
-        item.record_data
+        item.record_data,
+        item.original_id
       );
 
       if (success) {

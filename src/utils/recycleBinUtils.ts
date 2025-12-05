@@ -41,18 +41,19 @@ export const moveToRecycleBin = async ({
 export const restoreFromRecycleBin = async (
   recycleBinId: string,
   originalTable: string,
-  recordData: Record<string, any>
+  recordData: Record<string, any>,
+  originalId: string
 ): Promise<boolean> => {
   try {
     // Remove metadata fields that shouldn't be restored
-    const { id, created_at, updated_at, ...dataToRestore } = recordData;
+    const { created_at, updated_at, ...dataToRestore } = recordData;
     
-    // Insert back to original table
+    // Insert back to original table with original ID
     const { error: insertError } = await supabase
       .from(originalTable as any)
       .insert({
-        id: recordData.id || recordData.original_id,
-        ...dataToRestore
+        ...dataToRestore,
+        id: originalId
       });
 
     if (insertError) throw insertError;

@@ -16,6 +16,7 @@ import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, C
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 
 interface RetailerInvoice {
   id: string;
@@ -319,10 +320,24 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const handleDelete = async () => {
     if (!formData || !user) return;
 
-    if (!window.confirm(`Delete ${formData.name}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${formData.name}? This will move it to the recycle bin.`)) return;
 
     setLoading(true);
     try {
+      // Move to recycle bin first
+      const movedToRecycleBin = await moveToRecycleBin({
+        tableName: 'retailers',
+        recordId: formData.id,
+        recordData: formData,
+        moduleName: 'Retailers',
+        recordName: formData.name
+      });
+
+      if (!movedToRecycleBin) {
+        throw new Error("Could not move to recycle bin");
+      }
+
+      // Now delete from retailers table
       const { error } = await supabase
         .from('retailers')
         .delete()
@@ -332,8 +347,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       if (error) throw error;
 
       toast({
-        title: "Retailer deleted",
-        description: `${formData.name} has been removed`,
+        title: "Moved to Recycle Bin",
+        description: `${formData.name} can be restored from Recycle Bin`,
       });
 
       onSuccess();
