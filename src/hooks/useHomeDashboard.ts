@@ -51,6 +51,7 @@ interface HomeDashboardData {
 }
 
 export const useHomeDashboard = (userId: string | undefined, selectedDate: Date = new Date()) => {
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [data, setData] = useState<HomeDashboardData>({
     todayData: {
       beatPlan: null,
@@ -87,7 +88,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
 
-    setData(prev => ({ ...prev, isLoading: true }));
+    // Only show loading skeleton on initial load, not on background refreshes
+    if (!hasInitiallyLoaded) {
+      setData(prev => ({ ...prev, isLoading: true }));
+    }
     let hasLoadedFromCache = false;
 
     try {
@@ -123,6 +127,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           
           hasLoadedFromCache = true;
           setData(prev => ({ ...prev, isLoading: false }));
+          setHasInitiallyLoaded(true);
         }
       }
     } catch (cacheError) {
@@ -340,14 +345,17 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           isLoading: false,
           error: null
         });
+        setHasInitiallyLoaded(true);
       } catch (networkError) {
         console.error('Network error:', networkError);
         if (!hasLoadedFromCache) {
           setData(prev => ({ ...prev, isLoading: false, error: networkError }));
         }
+        setHasInitiallyLoaded(true);
       }
     } else {
       setData(prev => ({ ...prev, isLoading: false }));
+      setHasInitiallyLoaded(true);
     }
   }, [userId, dateStr, isToday]);
 
