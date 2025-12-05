@@ -365,12 +365,12 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
               <Card key={row.id}>
                 <CardContent className="pt-6 space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Competitor</p>
+                    <p className="text-sm text-muted-foreground">Competition Name</p>
                     <p className="font-medium">{competitor?.competitor_name || 'Unknown'}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">SKU</p>
+                      <p className="text-sm text-muted-foreground">Competition SKU</p>
                       <p className="font-medium">{sku?.sku_name || 'Unknown'}</p>
                     </div>
                     <div>
@@ -440,9 +440,9 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                       </Button>
                     </div>
 
-                    {/* Competitor Selection */}
+                    {/* Competition Name Selection */}
                     <div>
-                      <Label className="text-xs">Competitor</Label>
+                      <Label className="text-xs">Competition Name</Label>
                       <Select
                         value={row.competitorId}
                         onValueChange={(value) => updateRow(row.id, 'competitorId', value)}
@@ -460,9 +460,9 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                       </Select>
                     </div>
 
-                    {/* Competition Name with Search */}
+                    {/* Competition SKU with Search */}
                     <div>
-                      <Label className="text-xs">Competition Name</Label>
+                      <Label className="text-xs">Competition SKU</Label>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -476,15 +476,15 @@ export const CompetitionDataForm = ({ retailerId, visitId, onSave }: Competition
                           >
                             {row.skuId
                               ? (skus[row.id] || []).find((sku) => sku.id === row.skuId)?.sku_name
-                              : "Select competition name"}
+                              : "Select competition SKU"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-full p-0" align="start">
                           <Command>
-                            <CommandInput placeholder="Search competition name..." />
+                            <CommandInput placeholder="Search competition SKU..." />
                             <CommandList>
-                              <CommandEmpty>No competition found.</CommandEmpty>
+                              <CommandEmpty>No competition SKU found.</CommandEmpty>
                               <CommandGroup>
                                 {(skus[row.id] || []).map((sku) => (
                                   <CommandItem
