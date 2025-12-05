@@ -90,7 +90,6 @@ interface ProductVariant {
   focused_territories?: string[] | null;
 }
 export const OrderEntry = () => {
-  console.log('🔵 OrderEntry component mounted');
   const {
     t
   } = useTranslation();
