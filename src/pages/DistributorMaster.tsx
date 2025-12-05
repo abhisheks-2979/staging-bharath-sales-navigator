@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Plus, Building2, Phone, Mail, MapPin, Search, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 
 interface Distributor {
   id: string;
@@ -157,9 +158,21 @@ const DistributorMaster = () => {
   };
 
   const handleDeleteDistributor = async (distributorId: string) => {
-    if (!confirm('Are you sure you want to delete this distributor?')) return;
+    if (!confirm('Are you sure you want to move this distributor to recycle bin?')) return;
 
     try {
+      const distributorData = distributors.find(d => d.id === distributorId);
+      if (distributorData) {
+        const moved = await moveToRecycleBin({
+          tableName: 'vendors',
+          recordId: distributorId,
+          recordData: distributorData,
+          moduleName: 'Distributors',
+          recordName: distributorData.name
+        });
+        if (!moved) throw new Error('Failed to move to recycle bin');
+      }
+
       const { error } = await supabase
         .from('vendors')
         .delete()
@@ -169,7 +182,7 @@ const DistributorMaster = () => {
 
       toast({
         title: 'Success',
-        description: 'Distributor deleted successfully'
+        description: 'Distributor moved to recycle bin'
       });
 
       loadData();

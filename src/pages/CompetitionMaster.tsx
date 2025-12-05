@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { CompetitionDataList } from "@/components/competition/CompetitionDataList";
 import { CompetitionAISummary } from "@/components/competition/CompetitionAISummary";
 import { CompetitionRetailerAnalytics } from "@/components/competition/CompetitionRetailerAnalytics";
@@ -284,11 +285,22 @@ export default function CompetitionMaster() {
       toast({ title: "Permission Denied", description: "Only admins can delete competitors", variant: "destructive" });
       return;
     }
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure you want to move this competitor to recycle bin?")) return;
     try {
+      const competitorData = competitors.find(c => c.id === id);
+      if (competitorData) {
+        const moved = await moveToRecycleBin({
+          tableName: 'competition_master',
+          recordId: id,
+          recordData: competitorData,
+          moduleName: 'Competitors',
+          recordName: competitorData.competitor_name
+        });
+        if (!moved) throw new Error('Failed to move to recycle bin');
+      }
       const { error } = await supabase.from('competition_master').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: "Success", description: "Competitor deleted successfully" });
+      toast({ title: "Success", description: "Competitor moved to recycle bin" });
       fetchCompetitors();
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete competitor", variant: "destructive" });
@@ -349,11 +361,22 @@ export default function CompetitionMaster() {
       toast({ title: "Permission Denied", description: "Only admins can delete contacts", variant: "destructive" });
       return;
     }
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure you want to move this contact to recycle bin?")) return;
     try {
+      const contactData = contacts.find(c => c.id === id);
+      if (contactData) {
+        const moved = await moveToRecycleBin({
+          tableName: 'competition_contacts',
+          recordId: id,
+          recordData: contactData,
+          moduleName: 'Competition Contacts',
+          recordName: contactData.contact_name
+        });
+        if (!moved) throw new Error('Failed to move to recycle bin');
+      }
       const { error } = await supabase.from('competition_contacts').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: "Success", description: "Contact deleted successfully" });
+      toast({ title: "Success", description: "Contact moved to recycle bin" });
       if (selectedCompetitor) fetchCompetitorDetails(selectedCompetitor.id);
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete contact", variant: "destructive" });

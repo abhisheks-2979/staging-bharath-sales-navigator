@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { 
   ArrowLeft, Plus, Search, Filter, Phone, Mail, 
   Building2, MapPin, MoreVertical, UserCheck, Trash2
@@ -197,12 +198,23 @@ export default function LeadManagement() {
   };
 
   const handleDelete = async (leadId: string) => {
-    if (!confirm('Are you sure you want to delete this lead?')) return;
+    if (!confirm('Are you sure you want to move this lead to recycle bin?')) return;
 
     try {
+      const leadData = leads.find(l => l.id === leadId);
+      if (leadData) {
+        await moveToRecycleBin({
+          tableName: 'inst_leads',
+          recordId: leadId,
+          recordData: leadData,
+          moduleName: 'Institutional Leads',
+          recordName: leadData.lead_name
+        });
+      }
+      
       const { error } = await supabase.from('inst_leads').delete().eq('id', leadId);
       if (error) throw error;
-      toast.success('Lead deleted');
+      toast.success('Lead moved to recycle bin');
       fetchLeads();
     } catch (error) {
       console.error('Error deleting lead:', error);

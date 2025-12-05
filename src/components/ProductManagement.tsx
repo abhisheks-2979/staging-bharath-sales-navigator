@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -479,13 +480,24 @@ const [productForm, setProductForm] = useState({
 
   const executeDeleteVariant = async (id: string) => {
     try {
+      const variantData = variants.find(v => v.id === id);
+      if (variantData) {
+        await moveToRecycleBin({
+          tableName: 'product_variants',
+          recordId: id,
+          recordData: variantData,
+          moduleName: 'Product Variants',
+          recordName: variantData.variant_name || 'Variant'
+        });
+      }
+      
       const { error } = await supabase
         .from('product_variants')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
-      toast.success('Variant deleted successfully');
+      toast.success('Variant moved to recycle bin');
       fetchVariants();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
@@ -785,13 +797,24 @@ const [productForm, setProductForm] = useState({
 
   const executeDeleteCategory = async (id: string) => {
     try {
+      const categoryData = categories.find(c => c.id === id);
+      if (categoryData) {
+        await moveToRecycleBin({
+          tableName: 'product_categories',
+          recordId: id,
+          recordData: categoryData,
+          moduleName: 'Product Categories',
+          recordName: categoryData.name
+        });
+      }
+      
       const { error } = await supabase
         .from('product_categories')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
-      toast.success('Category deleted successfully');
+      toast.success('Category moved to recycle bin');
       fetchCategories();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
@@ -806,13 +829,24 @@ const [productForm, setProductForm] = useState({
 
   const executeDeleteProduct = async (id: string) => {
     try {
+      const productData = products.find(p => p.id === id);
+      if (productData) {
+        await moveToRecycleBin({
+          tableName: 'products',
+          recordId: id,
+          recordData: productData,
+          moduleName: 'Products',
+          recordName: productData.name
+        });
+      }
+      
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
-      toast.success('Product deleted successfully');
+      toast.success('Product moved to recycle bin');
       fetchProducts();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
@@ -826,15 +860,25 @@ const [productForm, setProductForm] = useState({
   };
 
   const executeDeleteScheme = async (id: string) => {
-    
     try {
+      const schemeData = schemes.find(s => s.id === id);
+      if (schemeData) {
+        await moveToRecycleBin({
+          tableName: 'product_schemes',
+          recordId: id,
+          recordData: schemeData,
+          moduleName: 'Product Schemes',
+          recordName: schemeData.name
+        });
+      }
+      
       const { error } = await supabase
         .from('product_schemes')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
-      toast.success('Scheme deleted successfully');
+      toast.success('Scheme moved to recycle bin');
       fetchSchemes();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {

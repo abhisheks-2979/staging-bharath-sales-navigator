@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -185,7 +186,18 @@ export default function VanSalesManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this van?')) return;
+    if (!confirm('Are you sure you want to move this van to recycle bin?')) return;
+
+    const vanData = vans.find(v => v.id === id);
+    if (vanData) {
+      await moveToRecycleBin({
+        tableName: 'vans',
+        recordId: id,
+        recordData: vanData,
+        moduleName: 'Vans',
+        recordName: vanData.registration_number
+      });
+    }
 
     const { error } = await supabase
       .from('vans')
@@ -195,7 +207,7 @@ export default function VanSalesManagement() {
     if (error) {
       toast.error('Failed to delete van');
     } else {
-      toast.success('Van deleted successfully');
+      toast.success('Van moved to recycle bin');
       loadVans();
     }
   };
