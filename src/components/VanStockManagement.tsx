@@ -687,17 +687,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   <div className="flex items-center justify-between gap-2">
                     <Label className="text-sm sm:text-lg font-semibold">Add Stock Items</Label>
                     <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add Product
                     </Button>
                   </div>
 
-                  {stockItems.length === 0 ? (
-                    <div className="flex items-center justify-start py-2">
-                      <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
-                        <Plus className="h-3 w-3 mr-1" /> Add Product
-                      </Button>
-                    </div>
-                  ) : (
+                  {stockItems.length > 0 && (
                     <div className="space-y-1.5">
                       {stockItems.map((item, index) => {
                         const selectedProduct = products.find(p => p.id === item.product_id);
