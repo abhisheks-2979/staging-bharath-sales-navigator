@@ -462,11 +462,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const calculateTotals = () => {
-    return stockItems.reduce((acc, item) => ({
-      totalStart: acc.totalStart + item.start_qty,
-      totalOrdered: acc.totalOrdered + item.ordered_qty,
-      totalReturned: acc.totalReturned + item.returned_qty,
-      totalLeft: acc.totalLeft + item.left_qty,
+    // Use saved items from database for summary display
+    const savedItems = todayStock?.van_stock_items || [];
+    return savedItems.reduce((acc: any, item: any) => ({
+      totalStart: acc.totalStart + (item.start_qty || 0),
+      totalOrdered: acc.totalOrdered + (item.ordered_qty || 0),
+      totalReturned: acc.totalReturned + (item.returned_qty || 0),
+      totalLeft: acc.totalLeft + ((item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0)),
     }), { totalStart: 0, totalOrdered: 0, totalReturned: 0, totalLeft: 0 });
   };
 
