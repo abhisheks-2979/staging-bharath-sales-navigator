@@ -1556,8 +1556,8 @@ export const OrderEntry = () => {
   };
   return <Layout>
     <div className="min-h-screen bg-background pb-20">
-      {/* Page Header */}
-      <div className="w-full px-2 sm:px-4 py-2 sm:py-3">
+      {/* Page Header - mt-4 ensures proper gap below navbar */}
+      <div className="w-full px-2 sm:px-4 py-2 sm:py-3 mt-4">
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
             {/* Left side - Title */}
