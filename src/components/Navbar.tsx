@@ -134,7 +134,7 @@ export const Navbar = () => {
         </div>
       </nav>
 
-      <div className="h-12" />
+      {/* Spacer removed - now handled by Layout component's padding-top */}
 
       <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
