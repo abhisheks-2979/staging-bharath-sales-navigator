@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { format } from 'date-fns';
@@ -52,7 +52,7 @@ interface HomeDashboardData {
 
 export const useHomeDashboard = (userId: string | undefined, selectedDate: Date = new Date()) => {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const isRefreshingRef = useRef(false);
   const [data, setData] = useState<HomeDashboardData>({
     todayData: {
       beatPlan: null,
@@ -89,9 +89,9 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     
-    // Prevent concurrent refreshes
-    if (isRefreshing) return;
-    setIsRefreshing(true);
+    // Prevent concurrent refreshes using ref (not state to avoid re-renders)
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
 
     // Only show loading skeleton on initial load, not on background refreshes
     if (!hasInitiallyLoaded) {
@@ -351,21 +351,21 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           error: null
         });
         setHasInitiallyLoaded(true);
-        setIsRefreshing(false);
+        isRefreshingRef.current = false;
       } catch (networkError) {
         console.error('Network error:', networkError);
         if (!hasLoadedFromCache) {
           setData(prev => ({ ...prev, isLoading: false, error: networkError }));
         }
         setHasInitiallyLoaded(true);
-        setIsRefreshing(false);
+        isRefreshingRef.current = false;
       }
     } else {
       setData(prev => ({ ...prev, isLoading: false }));
       setHasInitiallyLoaded(true);
-      setIsRefreshing(false);
+      isRefreshingRef.current = false;
     }
-  }, [userId, dateStr, isToday, isRefreshing]);
+  }, [userId, dateStr, isToday]);
 
   const updateDashboardState = ({ todayBeatPlans, todayVisits, todayAttendance, cachedRetailers, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
