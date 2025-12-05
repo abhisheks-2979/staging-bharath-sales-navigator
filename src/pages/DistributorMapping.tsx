@@ -228,12 +228,12 @@ const DistributorMapping = () => {
     try {
       setLoading(true);
       
+      // Load distributors WITHOUT the vendors join - handle separately
       const [distributorsRes, stockistsRes, beatsRes, territoriesRes, categoriesRes] = await Promise.all([
         supabase
           .from('distributors')
           .select(`
             *,
-            parent:vendors!parent_id(name),
             territory:territories(name)
           `)
           .order('created_at', { ascending: false }),
@@ -258,6 +258,9 @@ const DistributorMapping = () => {
 
       if (distributorsRes.error) throw distributorsRes.error;
       
+      // Create a map of vendor names by ID for parent lookup
+      const vendorMap = new Map((stockistsRes.data || []).map((v: any) => [v.id, v.name]));
+      
       const distributorIds = (distributorsRes.data || []).map(d => d.id);
       let beatMappings: any[] = [];
       
@@ -273,7 +276,7 @@ const DistributorMapping = () => {
         const distributorMappings = beatMappings.filter(m => m.distributor_id === d.id);
         return {
           ...d,
-          parent_name: (d.parent as any)?.name,
+          parent_name: d.parent_id ? vendorMap.get(d.parent_id) : undefined,
           territory: (d.territory as any)?.name,
           credit_limit: Number(d.credit_limit || 0),
           outstanding_amount: Number(d.outstanding_amount || 0),
