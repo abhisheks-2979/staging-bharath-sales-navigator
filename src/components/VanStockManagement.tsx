@@ -845,12 +845,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-            {stockItems.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No stock items added yet</p>
-              </div>
-            ) : (
-              stockItems.map((item, index) => {
+            {(() => {
+              // Use saved items from database for the modal display
+              const savedItems = todayStock?.van_stock_items || [];
+              
+              if (savedItems.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No stock items saved yet</p>
+                  </div>
+                );
+              }
+              
+              return savedItems.map((item: any, index: number) => {
                 const product = products.find(p => p.id === item.product_id);
                 const priceWithGST = product?.rate || 0;
                 const priceWithoutGST = priceWithGST / 1.05;
@@ -873,9 +880,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                         <div className="text-right">
                           <p className="text-2xl font-bold">
                             {showDetailModal === 'start' && item.start_qty}
-                            {showDetailModal === 'ordered' && item.ordered_qty}
-                            {showDetailModal === 'returned' && item.returned_qty}
-                            {showDetailModal === 'left' && item.left_qty}
+                            {showDetailModal === 'ordered' && (item.ordered_qty || 0)}
+                            {showDetailModal === 'returned' && (item.returned_qty || 0)}
+                            {showDetailModal === 'left' && (item.start_qty - (item.ordered_qty || 0) + (item.returned_qty || 0))}
                           </p>
                           <p className="text-xs text-muted-foreground">{item.unit}</p>
                         </div>
@@ -887,10 +894,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               className="h-8 w-8 p-0"
                               onClick={() => {
                                 // Load item for editing - add to stock items for modification
-                                const existingIndex = stockItems.findIndex(s => s.product_id === item.product_id);
-                                if (existingIndex === -1) {
-                                  setStockItems([...stockItems, { ...item }]);
-                                }
+                                setStockItems([...stockItems, {
+                                  id: item.id,
+                                  product_id: item.product_id,
+                                  product_name: item.product_name,
+                                  unit: item.unit,
+                                  start_qty: item.start_qty,
+                                  ordered_qty: item.ordered_qty || 0,
+                                  returned_qty: item.returned_qty || 0,
+                                  left_qty: item.start_qty - (item.ordered_qty || 0) + (item.returned_qty || 0),
+                                }]);
                                 setShowDetailModal(null);
                                 toast.info('Item loaded for editing. Modify and click Save Stock.');
                               }}
@@ -903,16 +916,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                               onClick={async () => {
                                 if (!confirm('Delete this item from stock?')) return;
-                                const updated = stockItems.filter((_, i) => i !== index);
-                                setStockItems(updated);
-                                // Also delete from database if it exists
+                                // Delete from database
                                 if (item.id && todayStock?.id) {
                                   await supabase
                                     .from('van_stock_items')
                                     .delete()
                                     .eq('id', item.id);
                                   toast.success('Item deleted');
-                                  await loadTodayStock();
+                                  await loadTodayStock(false);
                                 }
                               }}
                             >
@@ -924,18 +935,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     </div>
                   </Card>
                 );
-              })
-            )}
+              });
+            })()}
             
-            {stockItems.length > 0 && (
+            {(todayStock?.van_stock_items || []).length > 0 && (
               <Card className="p-4 bg-primary/5 border-primary">
                 <div className="flex justify-between items-center">
                   <p className="font-bold text-lg">Total</p>
                   <p className="text-3xl font-bold text-primary">
-                    {showDetailModal === 'start' && totals.totalStart}
-                    {showDetailModal === 'ordered' && totals.totalOrdered}
-                    {showDetailModal === 'returned' && totals.totalReturned}
-                    {showDetailModal === 'left' && totals.totalLeft}
+                    {showDetailModal === 'start' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.start_qty || 0), 0)}
+                    {showDetailModal === 'ordered' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.ordered_qty || 0), 0)}
+                    {showDetailModal === 'returned' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.returned_qty || 0), 0)}
+                    {showDetailModal === 'left' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.start_qty - (i.ordered_qty || 0) + (i.returned_qty || 0)), 0)}
                   </p>
                 </div>
               </Card>
