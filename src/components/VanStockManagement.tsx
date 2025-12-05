@@ -639,8 +639,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       <Label className="text-[10px] font-semibold">Start KM</Label>
                       <Input
                         type="number"
-                        value={startKm}
+                        value={startKm || ''}
                         onChange={(e) => setStartKm(parseFloat(e.target.value) || 0)}
+                        onFocus={(e) => e.target.select()}
                         placeholder="Start"
                         className="mt-0.5 h-8 text-xs"
                       />
@@ -649,8 +650,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       <Label className="text-[10px] font-semibold">End KM</Label>
                       <Input
                         type="number"
-                        value={endKm}
+                        value={endKm || ''}
                         onChange={(e) => setEndKm(parseFloat(e.target.value) || 0)}
+                        onFocus={(e) => e.target.select()}
                         placeholder="End"
                         className="mt-0.5 h-8 text-xs"
                       />
@@ -658,7 +660,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     <div>
                       <Label className="text-[10px] font-semibold">Total KM</Label>
                       <div className="mt-0.5 h-8 px-2 py-1 bg-primary/10 rounded-md border border-primary/20 flex items-center justify-center">
-                        <span className="text-xs font-bold text-primary">{totalKm.toFixed(2)}</span>
+                        <span className="text-xs font-bold text-primary">
+                          {endKm > 0 ? totalKm.toFixed(2) : '-'}
+                        </span>
                       </div>
                     </div>
                   </div>
