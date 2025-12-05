@@ -10,8 +10,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { PermissionRequestModal } from "@/components/auth/PermissionRequestModal";
-import { hasRequestedPermissions } from "@/utils/permissionManager";
+// Permissions are now requested contextually when features are used (Android native dialogs)
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import Index from "./pages/Index";
 
@@ -129,21 +128,9 @@ const queryClient = new QueryClient({
   },
 });
 
-// Master data cache initializer with permission request
+// Master data cache initializer - permissions now handled contextually by Android
 const MasterDataCacheInitializer = () => {
   const { cacheAllMasterData, isOnline } = useMasterDataCache();
-  const [showPermissions, setShowPermissions] = React.useState(false);
-  
-  useEffect(() => {
-    // Check if permissions have been requested
-    if (!hasRequestedPermissions()) {
-      // Wait a bit for the app to settle, then show permission modal
-      const timer = setTimeout(() => {
-        setShowPermissions(true);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
   
   useEffect(() => {
     if (isOnline) {
@@ -151,12 +138,7 @@ const MasterDataCacheInitializer = () => {
     }
   }, [isOnline, cacheAllMasterData]);
   
-  return (
-    <PermissionRequestModal 
-      open={showPermissions} 
-      onComplete={() => setShowPermissions(false)} 
-    />
-  );
+  return null;
 };
 
 const App = () => {

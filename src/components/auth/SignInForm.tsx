@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,8 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PermissionRequestModal } from './PermissionRequestModal';
-import { hasRequestedPermissions } from '@/utils/permissionManager';
+// Permissions are now requested contextually when features are used (Android native dialogs)
 
 const signInSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -23,7 +22,6 @@ interface SignInFormProps {
 export const SignInForm = ({ role }: SignInFormProps) => {
   const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const form = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
@@ -33,31 +31,14 @@ export const SignInForm = ({ role }: SignInFormProps) => {
     },
   });
 
-  // Check permissions after component mounts (non-blocking)
-  useEffect(() => {
-    // Delay permission check to not block initial app load
-    const timer = setTimeout(() => {
-      if (!hasRequestedPermissions()) {
-        setShowPermissionModal(true);
-      }
-    }, 2000); // Show after 2 seconds to not block navigation
-    
-    return () => clearTimeout(timer);
-  }, []);
-
   const onSubmit = async (data: SignInFormData) => {
     setIsLoading(true);
     try {
       await signIn(data.email, data.password, role);
-      // Don't block navigation with permission modal
     } catch (error) {
       // Error is already handled by the signIn function
     }
     setIsLoading(false);
-  };
-
-  const handlePermissionComplete = () => {
-    setShowPermissionModal(false);
   };
 
   return (
@@ -105,11 +86,6 @@ export const SignInForm = ({ role }: SignInFormProps) => {
           </Button>
         </form>
       </Form>
-
-      <PermissionRequestModal
-        open={showPermissionModal}
-        onComplete={handlePermissionComplete}
-      />
     </>
   );
 };
