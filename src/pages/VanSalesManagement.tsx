@@ -68,7 +68,7 @@ export default function VanSalesManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVan, setEditingVan] = useState<Van | null>(null);
-  const [selectedDate] = useState(new Date());
+  // No date filter - show all van stock data for admin
   const [vanStockSummaries, setVanStockSummaries] = useState<VanStockSummary[]>([]);
   const [expandedVans, setExpandedVans] = useState<Set<string>>(new Set());
   
@@ -112,7 +112,7 @@ export default function VanSalesManagement() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedDate]);
+  }, []);
 
   const loadVans = async () => {
     const { data, error } = await supabase
@@ -131,9 +131,7 @@ export default function VanSalesManagement() {
 
   const loadVanStockSummaries = async () => {
     try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      
-      // Get all van_stock records with user info, van info, and beat info
+      // Get ALL van_stock records with user info, van info - no date filter for admin view
       const { data: stockData, error: stockError } = await supabase
         .from('van_stock')
         .select(`
@@ -151,9 +149,11 @@ export default function VanSalesManagement() {
             full_name
           )
         `)
-        .eq('stock_date', dateStr);
+        .order('stock_date', { ascending: false });
 
       if (stockError) throw stockError;
+      
+      console.log('Loaded van_stock records:', stockData?.length);
 
       // Get products for price lookup
       const { data: products } = await supabase
@@ -532,14 +532,14 @@ export default function VanSalesManagement() {
           <CardHeader>
             <CardTitle>Van Inventory & Stock Management</CardTitle>
             <CardDescription>
-              All users' van stock for {selectedDate.toLocaleDateString()} - Real-time updates from My Visits
+              All users' van stock - Real-time updates from My Visits
             </CardDescription>
           </CardHeader>
           <CardContent>
             {vanStockSummaries.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No van stock records for today</p>
+                <p className="text-muted-foreground">No van stock records found</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Users will appear here when they add van stock in My Visits
                 </p>
