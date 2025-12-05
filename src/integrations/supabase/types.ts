@@ -3864,6 +3864,48 @@ export type Database = {
         }
         Relationships: []
       }
+      permanent_deletion_log: {
+        Row: {
+          created_at: string
+          deleted_from_bin_at: string
+          deleted_from_bin_by: string
+          id: string
+          module_name: string
+          original_deleted_at: string
+          original_deleted_by: string
+          original_id: string
+          original_table: string
+          record_data: Json
+          record_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_from_bin_at?: string
+          deleted_from_bin_by: string
+          id?: string
+          module_name: string
+          original_deleted_at: string
+          original_deleted_by: string
+          original_id: string
+          original_table: string
+          record_data: Json
+          record_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_from_bin_at?: string
+          deleted_from_bin_by?: string
+          id?: string
+          module_name?: string
+          original_deleted_at?: string
+          original_deleted_by?: string
+          original_id?: string
+          original_table?: string
+          record_data?: Json
+          record_name?: string | null
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           created_at: string
@@ -4536,6 +4578,72 @@ export type Database = {
           recommendation_data?: Json
           recommendation_type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      recycle_bin: {
+        Row: {
+          created_at: string
+          deleted_at: string
+          deleted_by: string
+          id: string
+          module_name: string
+          original_id: string
+          original_table: string
+          record_data: Json
+          record_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string
+          deleted_by: string
+          id?: string
+          module_name: string
+          original_id: string
+          original_table: string
+          record_data: Json
+          record_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          module_name?: string
+          original_id?: string
+          original_table?: string
+          record_data?: Json
+          record_name?: string | null
+        }
+        Relationships: []
+      }
+      recycle_bin_config: {
+        Row: {
+          auto_delete_days: number | null
+          created_at: string
+          id: string
+          is_enabled: boolean | null
+          require_confirmation: boolean | null
+          show_deletion_log_to_users: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          auto_delete_days?: number | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean | null
+          require_confirmation?: boolean | null
+          show_deletion_log_to_users?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          auto_delete_days?: number | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean | null
+          require_confirmation?: boolean | null
+          show_deletion_log_to_users?: boolean | null
+          updated_at?: string
         }
         Relationships: []
       }
