@@ -32,8 +32,6 @@ import { CreateBeat } from "./pages/CreateBeat";
 import { BeatAnalytics } from "./pages/BeatAnalytics";
 import { TodaySummary } from "./pages/TodaySummary";
 import { AddRetailer } from "./pages/AddRetailer";
-import { AddDistributor } from "./pages/AddDistributor";
-import { AddSuperStockist } from "./pages/AddSuperStockist";
 import { AddBeat } from "./pages/AddBeat";
 import AddRecords from "./pages/AddRecords";
 import Attendance from "./pages/Attendance";
@@ -65,8 +63,6 @@ import Vendors from "./pages/Vendors";
 import { RetailerDetail } from "./pages/RetailerDetail";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import Operations from "./pages/Operations";
-import DistributorMaster from "./pages/DistributorMaster";
-import DistributorMapping from "./pages/DistributorMapping";
 import GPSTrack from "./pages/GPSTrack";
 import GPSTrackManagement from "./pages/GPSTrackManagement";
 import RetailManagement from "./pages/RetailManagement";
@@ -217,8 +213,6 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/territories-and-distributors" element={<ProtectedRoute><TerritoriesAndDistributors /></ProtectedRoute>} />
               <Route path="/admin-expense-management" element={<ProtectedRoute><AdminExpenseManagement /></ProtectedRoute>} />
               <Route path="/operations" element={<ProtectedRoute><Operations /></ProtectedRoute>} />
-              <Route path="/distributor-master" element={<ProtectedRoute><DistributorMaster /></ProtectedRoute>} />
-              <Route path="/distributor-mapping" element={<ProtectedRoute><DistributorMapping /></ProtectedRoute>} />
               <Route path="/visit-planner" element={<ProtectedRoute><VisitPlanner /></ProtectedRoute>} />
               <Route path="/visits" element={<ProtectedRoute><BeatPlanning /></ProtectedRoute>} />
               <Route path="/beat-planning" element={<ProtectedRoute><BeatPlanning /></ProtectedRoute>} />
@@ -233,8 +227,6 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/beat-analytics" element={<ProtectedRoute><BeatAnalytics /></ProtectedRoute>} />
               <Route path="/today-summary" element={<ProtectedRoute><TodaySummary /></ProtectedRoute>} />
               <Route path="/add-retailer" element={<ProtectedRoute><AddRetailer /></ProtectedRoute>} />
-              <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
-              <Route path="/add-super-stockist" element={<ProtectedRoute><AddSuperStockist /></ProtectedRoute>} />
               <Route path="/add-records" element={<ProtectedRoute><AddRecords /></ProtectedRoute>} />
               <Route path="/add-beat" element={<ProtectedRoute><AddBeat /></ProtectedRoute>} />
               <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
