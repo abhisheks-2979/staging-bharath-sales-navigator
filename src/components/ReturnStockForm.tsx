@@ -4,7 +4,7 @@ import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Package, Check, Plus, ChevronsUpDown } from 'lucide-react';
+import { Package, Check, Plus, ChevronsUpDown, FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -361,23 +361,29 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
 
   return (
     <div className="space-y-4">
-      {/* Van Selection */}
+      {/* Van Selection & Add Product Button */}
       <Card>
         <CardContent className="p-4">
-          <div>
-            <Label>Select Van</Label>
-            <Select value={selectedVan} onValueChange={setSelectedVan}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a van" />
-              </SelectTrigger>
-              <SelectContent>
-                {vans.map(van => (
-                  <SelectItem key={van.id} value={van.id}>
-                    {van.registration_number} - {van.make_model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <Label>Select Van</Label>
+              <Select value={selectedVan} onValueChange={setSelectedVan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a van" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vans.map(van => (
+                    <SelectItem key={van.id} value={van.id}>
+                      {van.registration_number} - {van.make_model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleAddReturn} className="h-10">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -480,14 +486,6 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
               </div>
             );
           })()}
-
-          {/* Save Return Button - Bottom of form */}
-          <div className="flex justify-end pt-2">
-            <Button onClick={handleAddReturn} className="h-10">
-              <Check className="h-4 w-4 mr-2" />
-              Save Return
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -547,11 +545,16 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         </>
       )}
 
-      {/* Save Return Button at Bottom */}
+      {/* Bottom Action Buttons */}
       {returnItems.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
           <Button onClick={handleSaveReturns} disabled={saving} size="lg">
+            <Check className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Return'}
+          </Button>
+          <Button variant="outline" size="lg" onClick={() => toast.info('Credit Note generation coming soon')}>
+            <FileText className="h-4 w-4 mr-2" />
+            Generate Credit Note
           </Button>
         </div>
       )}
