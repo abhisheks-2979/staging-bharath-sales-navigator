@@ -49,17 +49,8 @@ const Index = () => {
     }
   }, [user?.id, userProfile]);
 
-  // Pull-to-refresh simulation
-  useEffect(() => {
-    const handleRefresh = () => {
-      if (window.scrollY === 0) {
-        refresh();
-      }
-    };
-    
-    window.addEventListener('scroll', handleRefresh);
-    return () => window.removeEventListener('scroll', handleRefresh);
-  }, [refresh]);
+  // Pull-to-refresh removed - was causing constant refreshes when at top of page
+  // Data now refreshes via useHomeDashboard's event listeners only
 
   const getEmailName = (email?: string | null) => {
     if (!email) return null;
