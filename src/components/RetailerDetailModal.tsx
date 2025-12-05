@@ -155,10 +155,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [avgMonthlyRevenue6M, setAvgMonthlyRevenue6M] = useState(0);
   const [lastVisitDate, setLastVisitDate] = useState<string | null>(null);
   const [lastVisitOrderValue, setLastVisitOrderValue] = useState(0);
-  const [avgOrderPerVisit, setAvgOrderPerVisit] = useState(0);
+  const [avgOrderValuePerVisit, setAvgOrderValuePerVisit] = useState(0);
+  const [avgMonthlyProductiveVisits6M, setAvgMonthlyProductiveVisits6M] = useState(0);
   const [viewingInvoice, setViewingInvoice] = useState<{ id: string; number: string } | null>(null);
   const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
+  const [showSelectedDayDetails, setShowSelectedDayDetails] = useState(false);
 
   // Format number for mobile display
   const formatCompactNumber = (num: number) => {
@@ -262,22 +264,31 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       // Divide by 6 months
       setAvgMonthlyRevenue6M(recentTotal / 6);
 
-      // Calculate avg order per visit (from visits that had orders)
-      const totalVisits = visitsData?.length || 0;
-      const totalOrdersCount = ordersData?.length || 0;
-      setAvgOrderPerVisit(totalVisits > 0 ? totalOrdersCount / totalVisits : 0);
+      // Calculate avg order VALUE per visit (total revenue / productive visits)
+      const productiveVisitsWithOrders = visitsData?.filter(v => 
+        v.status === 'productive' && ordersData?.some(o => o.visit_id === v.id)
+      ) || [];
+      const visitsWithOrdersCount = productiveVisitsWithOrders.length;
+      setAvgOrderValuePerVisit(visitsWithOrdersCount > 0 ? total / visitsWithOrdersCount : 0);
 
-      // Get last completed visit (productive/unproductive) and its order
+      // Calculate avg monthly productive visits (last 6 months)
+      const productiveVisits6M = visitsData?.filter(v => 
+        v.status === 'productive' && new Date(v.planned_date) >= sixMonthsAgo
+      ) || [];
+      setAvgMonthlyProductiveVisits6M(productiveVisits6M.length / 6);
+
+      // Get last completed visit and last order value (from most recent invoice)
       const completedVisits = visitsData?.filter(v => v.status === 'productive' || v.status === 'unproductive') || [];
       if (completedVisits.length > 0) {
-        const lastVisit = completedVisits[0];
-        setLastVisitDate(lastVisit.planned_date);
-        
-        // Get last visit order value
-        const lastVisitOrder = ordersData?.find(o => o.visit_id === lastVisit.id);
-        setLastVisitOrderValue(lastVisitOrder ? Number(lastVisitOrder.total_amount) || 0 : 0);
+        setLastVisitDate(completedVisits[0].planned_date);
       } else {
         setLastVisitDate(null);
+      }
+      
+      // Last order value from most recent invoice
+      if (ordersData && ordersData.length > 0) {
+        setLastVisitOrderValue(Number(ordersData[0].total_amount) || 0);
+      } else {
         setLastVisitOrderValue(0);
       }
 
@@ -331,18 +342,22 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const handleViewInvoice = async (orderId: string, invoiceNumber: string) => {
     setViewingInvoice({ id: orderId, number: invoiceNumber });
     setInvoicePreviewLoading(true);
+    setInvoicePreviewUrl(null);
     try {
-      const { blob } = await fetchAndGenerateInvoice(orderId);
-      const url = URL.createObjectURL(blob);
+      const result = await fetchAndGenerateInvoice(orderId);
+      if (!result || !result.blob) {
+        throw new Error('Failed to generate invoice');
+      }
+      const url = URL.createObjectURL(result.blob);
       setInvoicePreviewUrl(url);
     } catch (error: any) {
       console.error('Error loading invoice:', error);
       toast({
         title: "Failed to load invoice",
-        description: error.message || "Could not load invoice preview",
+        description: error.message || "Could not load invoice preview. Try downloading instead.",
         variant: "destructive",
       });
-      setViewingInvoice(null);
+      // Don't close the dialog - show the fallback UI
     } finally {
       setInvoicePreviewLoading(false);
     }
@@ -780,7 +795,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   </p>
                 </Card>
                 <Card className="p-2 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Last Visit Order Value</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Last Order Value</p>
                   <p className="text-sm sm:text-base font-semibold text-primary truncate" title={`₹${lastVisitOrderValue.toLocaleString()}`}>
                     <span className="sm:hidden">₹{formatCompactNumber(lastVisitOrderValue)}</span>
                     <span className="hidden sm:inline">₹{lastVisitOrderValue.toLocaleString()}</span>
@@ -789,11 +804,21 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               </div>
 
               {/* Visit Stats & Avg Order per Visit */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Card className="p-2 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Avg Order/Visit</p>
-                  <p className="text-sm sm:text-base font-semibold">{avgOrderPerVisit.toFixed(2)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Avg Order Value/Visit</p>
+                  <p className="text-sm sm:text-base font-semibold truncate" title={`₹${avgOrderValuePerVisit.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}>
+                    <span className="sm:hidden">₹{formatCompactNumber(avgOrderValuePerVisit)}</span>
+                    <span className="hidden sm:inline">₹{avgOrderValuePerVisit.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </p>
                 </Card>
+                <Card className="p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Avg Productive Visits/Mo (6M)</p>
+                  <p className="text-sm sm:text-base font-semibold">{avgMonthlyProductiveVisits6M.toFixed(1)}</p>
+                </Card>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Card className="p-2 sm:p-3">
                   <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Total Visits</p>
                   <p className="text-sm sm:text-base font-semibold">{visits.length}</p>
@@ -903,13 +928,18 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   return (
                     <button
                       key={dateKey}
-                      onClick={() => hasVisit && setSelectedDate(dateKey)}
+                      onClick={() => {
+                        if (hasVisit) {
+                          setSelectedDate(dateKey);
+                          setShowSelectedDayDetails(true);
+                        }
+                      }}
                       className={cn(
                         "p-1 rounded text-xs min-h-[50px] flex flex-col items-center transition-colors",
                         !isSameMonth(day, currentMonth) && "text-muted-foreground/50",
                         isToday(day) && "ring-1 ring-primary",
                         hasVisit && "cursor-pointer hover:bg-muted",
-                        selectedDate === dateKey && "bg-muted"
+                        selectedDate === dateKey && "bg-primary/20 ring-2 ring-primary"
                       )}
                     >
                       <span className="font-medium">{format(day, 'd')}</span>
@@ -925,42 +955,50 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 })}
               </div>
 
-              {/* Selected Day Details */}
-              {selectedDate && selectedDayVisits.length > 0 && (
-                <Card className="mt-3">
-                  <CardHeader className="py-2 px-3">
-                    <CardTitle className="text-sm">Visit Details - {format(new Date(selectedDate), 'dd MMM yyyy')}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 space-y-3">
-                    {selectedDayVisits.map(visit => {
-                      const orderData = ordersByVisit.get(visit.id);
-                      return (
-                        <div key={visit.id} className="border rounded p-2 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Badge className={getVisitStatusColor(visit)}>
-                              {visit.status === 'productive' ? 'Productive' : visit.status === 'unproductive' ? 'Unproductive' : visit.planned_date > format(new Date(), 'yyyy-MM-dd') ? 'Planned' : visit.status}
-                            </Badge>
-                            {feedbacks.get(visit.id) && <Badge variant="outline" className="text-xs">Feedback ✓</Badge>}
+              {/* Selected Day Details - Show as prominent modal-like card on mobile */}
+              {selectedDate && selectedDayVisits.length > 0 && showSelectedDayDetails && (
+                <div className="fixed inset-x-0 bottom-0 z-50 sm:relative sm:inset-auto sm:z-auto">
+                  <Card className="mt-3 rounded-t-2xl sm:rounded-lg shadow-2xl sm:shadow border-t-2 border-primary sm:border animate-in slide-in-from-bottom-5 sm:animate-none">
+                    <CardHeader className="py-2 px-3 flex flex-row items-center justify-between">
+                      <CardTitle className="text-sm">Visit Details - {format(new Date(selectedDate), 'dd MMM yyyy')}</CardTitle>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 sm:hidden" onClick={() => setShowSelectedDayDetails(false)}>
+                        ✕
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="p-3 space-y-3 max-h-[50vh] sm:max-h-none overflow-y-auto">
+                      {selectedDayVisits.map(visit => {
+                        const orderData = ordersByVisit.get(visit.id);
+                        return (
+                          <div key={visit.id} className="border rounded p-2 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Badge className={getVisitStatusColor(visit)}>
+                                {visit.status === 'productive' ? 'Productive' : visit.status === 'unproductive' ? 'Unproductive' : visit.planned_date > format(new Date(), 'yyyy-MM-dd') ? 'Planned' : visit.status}
+                              </Badge>
+                              {feedbacks.get(visit.id) && <Badge variant="outline" className="text-xs">Feedback ✓</Badge>}
+                            </div>
+                            {orderData && (
+                              <>
+                                <p className="text-sm font-medium">Order Value: ₹{orderData.total.toLocaleString()}</p>
+                                <div className="text-xs space-y-1">
+                                  <p className="font-medium text-muted-foreground">Products:</p>
+                                  {orderData.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between">
+                                      <span>{item.product_name} x{item.quantity}</span>
+                                      <span>₹{item.total_price.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                            {!orderData && (
+                              <p className="text-xs text-muted-foreground">No order placed during this visit</p>
+                            )}
                           </div>
-                          {orderData && (
-                            <>
-                              <p className="text-sm font-medium">Order Value: ₹{orderData.total.toLocaleString()}</p>
-                              <div className="text-xs space-y-1">
-                                <p className="font-medium text-muted-foreground">Products:</p>
-                                {orderData.items.map((item, i) => (
-                                  <div key={i} className="flex justify-between">
-                                    <span>{item.product_name} x{item.quantity}</span>
-                                    <span>₹{item.total_price.toLocaleString()}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </div>
               )}
             </TabsContent>
 
@@ -1241,14 +1279,46 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : invoicePreviewUrl ? (
-              <iframe
-                src={invoicePreviewUrl}
-                className="w-full h-[70vh] border rounded"
-                title="Invoice Preview"
-              />
+              <>
+                <iframe
+                  src={invoicePreviewUrl}
+                  className="w-full h-[70vh] border rounded hidden sm:block"
+                  title="Invoice Preview"
+                />
+                {/* Mobile fallback - show download prompt */}
+                <div className="sm:hidden flex flex-col items-center justify-center h-[50vh] gap-4">
+                  <FileText className="h-16 w-16 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground text-center px-4">
+                    Invoice preview may not display on mobile. Use the buttons above to download or share.
+                  </p>
+                  <Button
+                    onClick={() => viewingInvoice && handleDownloadInvoice(viewingInvoice.id, viewingInvoice.number)}
+                    disabled={downloadingInvoiceId === viewingInvoice?.id}
+                  >
+                    {downloadingInvoiceId === viewingInvoice?.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    Download Invoice
+                  </Button>
+                </div>
+              </>
             ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                Failed to load invoice
+              <div className="h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
+                <p>Could not load preview</p>
+                <Button
+                  variant="outline"
+                  onClick={() => viewingInvoice && handleDownloadInvoice(viewingInvoice.id, viewingInvoice.number)}
+                  disabled={downloadingInvoiceId === viewingInvoice?.id}
+                >
+                  {downloadingInvoiceId === viewingInvoice?.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Download Instead
+                </Button>
               </div>
             )}
           </div>
