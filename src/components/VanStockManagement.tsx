@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -458,6 +458,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       if (itemsError) throw itemsError;
 
       toast.success('Van stock saved successfully');
+      // Clear the entry form after save - items are now in Product Stock in Van
+      setStockItems([]);
+      setStartKm(0);
+      setEndKm(0);
       await loadTodayStock();
     } catch (error) {
       console.error('Error saving stock:', error);
@@ -671,15 +675,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 {/* Stock Items Management */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <Label className="text-sm sm:text-lg font-semibold">Stock Items</Label>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleExportToExcel} variant="outline" className="h-8 text-xs">
-                        <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Export
-                      </Button>
-                      <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
-                        <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
-                      </Button>
-                    </div>
+                    <Label className="text-sm sm:text-lg font-semibold">Add Stock Items</Label>
+                    <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
+                    </Button>
                   </div>
 
                   {stockItems.length === 0 ? (
@@ -825,8 +824,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       <Dialog open={!!showDetailModal} onOpenChange={() => setShowDetailModal(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {showDetailModal === 'start' && <><Package className="h-5 w-5 text-primary" /> Product Stock in Van</>}
+            <DialogTitle className="flex items-center gap-2 w-full">
+              {showDetailModal === 'start' && (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-5 w-5 text-primary" />
+                    <span>Product Stock in Van</span>
+                  </div>
+                  <Button size="sm" onClick={handleExportToExcel} variant="outline" className="h-8 text-xs">
+                    <Download className="h-3 w-3 mr-1" /> Export
+                  </Button>
+                </div>
+              )}
               {showDetailModal === 'ordered' && (
                 <div className="flex items-center gap-2 w-full">
                   <ShoppingCart className="h-5 w-5 text-amber-500" />
@@ -844,25 +853,81 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 <p className="text-muted-foreground">No stock items added yet</p>
               </div>
             ) : (
-              stockItems.map((item, index) => (
-                <Card key={index} className="p-3 hover:bg-accent transition-colors">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground">{item.unit}</p>
+              stockItems.map((item, index) => {
+                const product = products.find(p => p.id === item.product_id);
+                const priceWithGST = product?.rate || 0;
+                const priceWithoutGST = priceWithGST / 1.05;
+                
+                return (
+                  <Card key={index} className="p-3 hover:bg-accent transition-colors">
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <p className="font-medium">{item.product_name}</p>
+                        {showDetailModal === 'start' && (
+                          <p className="text-xs text-muted-foreground">
+                            ₹{priceWithoutGST.toFixed(2)} (excl. GST) • {item.unit}
+                          </p>
+                        )}
+                        {showDetailModal !== 'start' && (
+                          <p className="text-xs text-muted-foreground">{item.unit}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">
+                            {showDetailModal === 'start' && item.start_qty}
+                            {showDetailModal === 'ordered' && item.ordered_qty}
+                            {showDetailModal === 'returned' && item.returned_qty}
+                            {showDetailModal === 'left' && item.left_qty}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{item.unit}</p>
+                        </div>
+                        {showDetailModal === 'start' && (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                // Load item for editing - add to stock items for modification
+                                const existingIndex = stockItems.findIndex(s => s.product_id === item.product_id);
+                                if (existingIndex === -1) {
+                                  setStockItems([...stockItems, { ...item }]);
+                                }
+                                setShowDetailModal(null);
+                                toast.info('Item loaded for editing. Modify and click Save Stock.');
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              onClick={async () => {
+                                if (!confirm('Delete this item from stock?')) return;
+                                const updated = stockItems.filter((_, i) => i !== index);
+                                setStockItems(updated);
+                                // Also delete from database if it exists
+                                if (item.id && todayStock?.id) {
+                                  await supabase
+                                    .from('van_stock_items')
+                                    .delete()
+                                    .eq('id', item.id);
+                                  toast.success('Item deleted');
+                                  await loadTodayStock();
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold">
-                        {showDetailModal === 'start' && item.start_qty}
-                        {showDetailModal === 'ordered' && item.ordered_qty}
-                        {showDetailModal === 'returned' && item.returned_qty}
-                        {showDetailModal === 'left' && item.left_qty}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{item.unit}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))
+                  </Card>
+                );
+              })
             )}
             
             {stockItems.length > 0 && (
