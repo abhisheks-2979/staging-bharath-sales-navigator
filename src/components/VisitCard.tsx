@@ -1364,43 +1364,6 @@ export const VisitCard = ({
                 </button>
               </h3>
               
-              {/* Location Status Badge - clickable to show details */}
-              {trackingLocationStatus === 'at_store' && visit.retailerLat && visit.retailerLng && (
-                <Badge 
-                  variant="default" 
-                  className="bg-green-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-green-600"
-                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
-                >
-                  🟢 At Store {trackingDistance !== null && `(${Math.round(trackingDistance)}m)`}
-                  {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
-                </Badge>
-              )}
-              {trackingLocationStatus === 'within_range' && visit.retailerLat && visit.retailerLng && (
-                <Badge 
-                  variant="default" 
-                  className="bg-yellow-500 text-black h-5 px-1.5 text-[9px] cursor-pointer hover:bg-yellow-600"
-                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
-                >
-                  🟠 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : '<50m'}
-                  {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
-                </Badge>
-              )}
-              {trackingLocationStatus === 'not_at_store' && visit.retailerLat && visit.retailerLng && (
-                <Badge 
-                  variant="default" 
-                  className="bg-red-500 text-white h-5 px-1.5 text-[9px] cursor-pointer hover:bg-red-600"
-                  onClick={(e) => { e.stopPropagation(); setShowVisitDetailsModal(true); }}
-                >
-                  🔴 {trackingDistance !== null ? `${Math.round(trackingDistance)}m` : 'Not at Store'}
-                  {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
-                </Badge>
-              )}
-              {(!visit.retailerLat || !visit.retailerLng) && (
-                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
-                  📍 No GPS
-                </Badge>
-              )}
-              
               {/* Phone Order Badge - only shown if applicable */}
               {currentLog?.is_phone_order && (
                 <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
