@@ -361,29 +361,23 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
 
   return (
     <div className="space-y-4">
-      {/* Van Selection & Add Product Button */}
+      {/* Van Selection */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <Label>Select Van</Label>
-              <Select value={selectedVan} onValueChange={setSelectedVan}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a van" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vans.map(van => (
-                    <SelectItem key={van.id} value={van.id}>
-                      {van.registration_number} - {van.make_model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleAddReturn} className="h-10">
-              <Plus className="h-4 w-4 mr-2" />
-              + Add Product
-            </Button>
+          <div>
+            <Label>Select Van</Label>
+            <Select value={selectedVan} onValueChange={setSelectedVan}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a van" />
+              </SelectTrigger>
+              <SelectContent>
+                {vans.map(van => (
+                  <SelectItem key={van.id} value={van.id}>
+                    {van.registration_number} - {van.make_model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -486,6 +480,14 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
               </div>
             );
           })()}
+
+          {/* Save Return Button - Bottom of form */}
+          <div className="flex justify-end pt-2">
+            <Button onClick={handleAddReturn} className="h-10">
+              <Check className="h-4 w-4 mr-2" />
+              Save Return
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
