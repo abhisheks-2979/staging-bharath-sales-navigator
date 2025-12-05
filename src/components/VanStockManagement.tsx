@@ -75,7 +75,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
   useEffect(() => {
     if (selectedVan && selectedDate) {
-      loadTodayStock();
+      loadTodayStock(false);
     }
   }, [selectedVan, selectedDate, selectedBeat]);
 
@@ -93,9 +93,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           table: 'orders'
         },
         () => {
-          // Reload stock when orders change
+          // Reload stock when orders change - keep entry form as is
           if (selectedVan) {
-            loadTodayStock();
+            loadTodayStock(false);
           }
         }
       )
@@ -265,7 +265,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
   };
 
-  const loadTodayStock = async () => {
+  const loadTodayStock = async (clearEntryForm = false) => {
     const { data: session } = await supabase.auth.getSession();
     if (!session.session?.user) return;
 
@@ -280,29 +280,29 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     if (error) {
       console.error('Error loading stock:', error);
       setTodayStock(null);
-      setStockItems([]);
+      if (clearEntryForm) {
+        setStockItems([]);
+      }
     } else {
       setTodayStock(data);
       
-      // Calculate ordered quantities from actual orders for the selected beat
-      const orderedQtys = await calculateOrderedQuantities();
-      
-      if (data?.van_stock_items) {
-        setStockItems(data.van_stock_items.map((item: any) => ({
-          id: item.id,
-          product_id: item.product_id,
-          product_name: item.product_name,
-          unit: item.unit,
-          start_qty: item.start_qty,
-          ordered_qty: orderedQtys[item.product_id] || 0, // Auto-calculate from orders
-          returned_qty: item.returned_qty || 0,
-          left_qty: item.start_qty - (orderedQtys[item.product_id] || 0) + (item.returned_qty || 0),
-        })));
-      } else {
+      // Only populate stockItems if there's no existing saved data OR clearEntryForm is false
+      // This keeps the entry form separate from saved stock
+      if (clearEntryForm) {
+        // After save, clear the entry form - saved items are in todayStock.van_stock_items
         setStockItems([]);
+        setStartKm(0);
+        setEndKm(0);
+      } else if (!data?.van_stock_items || data.van_stock_items.length === 0) {
+        // No saved items, keep entry form as is or empty
+        setStockItems([]);
+        setStartKm(data?.start_km || 0);
+        setEndKm(data?.end_km || 0);
+      } else {
+        // Has saved items - just update KM, don't load items into entry form
+        setStartKm(data?.start_km || 0);
+        setEndKm(data?.end_km || 0);
       }
-      setStartKm(data?.start_km || 0);
-      setEndKm(data?.end_km || 0);
     }
   };
 
@@ -459,10 +459,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       toast.success('Van stock saved successfully');
       // Clear the entry form after save - items are now in Product Stock in Van
-      setStockItems([]);
-      setStartKm(0);
-      setEndKm(0);
-      await loadTodayStock();
+      await loadTodayStock(true);
     } catch (error) {
       console.error('Error saving stock:', error);
       toast.error('Failed to save van stock');
