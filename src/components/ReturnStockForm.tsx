@@ -361,106 +361,131 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
 
   return (
     <div className="space-y-4">
-      {/* Van Selection */}
+      {/* Van Selection & Add Return Button */}
       <Card>
         <CardContent className="p-4">
-          <Label>Select Van</Label>
-          <Select value={selectedVan} onValueChange={setSelectedVan}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a van" />
-            </SelectTrigger>
-            <SelectContent>
-              {vans.map(van => (
-                <SelectItem key={van.id} value={van.id}>
-                  {van.registration_number} - {van.make_model}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <Label>Select Van</Label>
+              <Select value={selectedVan} onValueChange={setSelectedVan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a van" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vans.map(van => (
+                    <SelectItem key={van.id} value={van.id}>
+                      {van.registration_number} - {van.make_model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleAddReturn} className="h-10">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Return
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
       {/* Add Return Form */}
       <Card>
         <CardContent className="p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-1">
-              <Label>Product</Label>
-              <Popover open={productDropdownOpen} onOpenChange={setProductDropdownOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={productDropdownOpen}
-                    className="w-full justify-between"
-                  >
-                    {getSelectedProductLabel()}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search products..." />
-                    <CommandList>
-                      <CommandEmpty>No product found.</CommandEmpty>
-                      <CommandGroup>
-                        {getProductOptions().map(option => (
-                          <CommandItem
-                            key={option.value}
-                            value={option.value}
-                            onSelect={(currentValue) => {
-                              setSelectedProduct(currentValue === selectedProduct ? '' : currentValue);
-                              setProductDropdownOpen(false);
-                            }}
-                            className="flex flex-col items-start py-3"
-                          >
-                            <div className="font-medium">{option.label}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {option.sku && `SKU: ${option.sku} | `}₹{option.price}
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="md:col-span-1">
-              <Label>Return Quantity</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={returnQuantity || ''}
-                onChange={(e) => setReturnQuantity(parseInt(e.target.value) || 0)}
-                min="0"
-              />
-            </div>
-
-            <div className="md:col-span-1">
-              <Label>Reason</Label>
-              <Select value={returnReason} onValueChange={setReturnReason}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select reason" />
-                </SelectTrigger>
-                <SelectContent>
-                  {returnReasons.map(reason => (
-                    <SelectItem key={reason} value={reason}>
-                      {reason}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="md:col-span-1 flex items-end">
-              <Button onClick={handleAddReturn} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Return
-              </Button>
-            </div>
+          {/* Product Selection */}
+          <div>
+            <Label>Product</Label>
+            <Popover open={productDropdownOpen} onOpenChange={setProductDropdownOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={productDropdownOpen}
+                  className="w-full justify-between"
+                >
+                  {getSelectedProductLabel()}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search products..." />
+                  <CommandList>
+                    <CommandEmpty>No product found.</CommandEmpty>
+                    <CommandGroup>
+                      {getProductOptions().map(option => (
+                        <CommandItem
+                          key={option.value}
+                          value={option.value}
+                          onSelect={(currentValue) => {
+                            setSelectedProduct(currentValue === selectedProduct ? '' : currentValue);
+                            setProductDropdownOpen(false);
+                          }}
+                          className="flex flex-col items-start py-3"
+                        >
+                          <div className="font-medium">{option.label}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {option.sku && `SKU: ${option.sku} | `}₹{option.price}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
+
+          {/* Product Details Row - Only show when product is selected */}
+          {selectedProduct && (() => {
+            const option = getProductOptions().find(opt => opt.value === selectedProduct);
+            const [productId] = selectedProduct.split('_variant_');
+            const product = products.find(p => p.id === productId);
+            const priceWithGST = option ? option.price * 1.05 : 0;
+            const totalPrice = priceWithGST * returnQuantity;
+            
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Price (incl. GST)</Label>
+                  <p className="font-medium">₹{priceWithGST.toFixed(2)}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Unit</Label>
+                  <p className="font-medium">{product?.unit || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Qty</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={returnQuantity || ''}
+                    onChange={(e) => setReturnQuantity(parseInt(e.target.value) || 0)}
+                    min="0"
+                    className="h-8 mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Reason</Label>
+                  <Select value={returnReason} onValueChange={setReturnReason}>
+                    <SelectTrigger className="h-8 mt-1">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {returnReasons.map(reason => (
+                        <SelectItem key={reason} value={reason}>
+                          {reason}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Total Price</Label>
+                  <p className="font-semibold text-primary">₹{totalPrice.toFixed(2)}</p>
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
