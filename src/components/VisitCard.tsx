@@ -2057,8 +2057,10 @@ export const VisitCard = ({
 
         {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId} managerId={jointSalesMemberId} onFeedbackSubmitted={() => setHasJointSalesFeedback(true)} />}
 
+        {showFeedbackModal && feedbackActiveTab === "competition" && <CompetitionInsightModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
+
          {/* Tab Selector Modal */}
-        <Dialog open={showFeedbackModal && !['retailer-feedback', 'branding', 'joint-sales-feedback'].includes(feedbackActiveTab)} onOpenChange={open => {
+        <Dialog open={showFeedbackModal && !['retailer-feedback', 'branding', 'joint-sales-feedback', 'competition'].includes(feedbackActiveTab)} onOpenChange={open => {
         if (!open) {
           setShowFeedbackModal(false);
           setFeedbackActiveTab("menu");
@@ -2134,6 +2136,20 @@ export const VisitCard = ({
                   </div>
                 </Button>
               )}
+              
+              <Button 
+                variant="outline" 
+                className="w-full h-auto py-4 px-4 flex items-center gap-4 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700 transition-all group" 
+                onClick={() => setFeedbackActiveTab("competition")}
+              >
+                <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center group-hover:bg-red-200 dark:group-hover:bg-red-800/50 transition-colors">
+                  <BarChart3 size={22} className="text-red-600 dark:text-red-400" />
+                </div>
+                <div className="text-left flex-1">
+                  <div className="font-semibold text-base">Competition Insight</div>
+                  <div className="text-xs text-muted-foreground">Record competitor information</div>
+                </div>
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
