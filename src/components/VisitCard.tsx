@@ -1,14 +1,15 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
-import { CompetitionInsightModal } from "./CompetitionInsightModal";
+import { CompetitionDataForm } from "./CompetitionDataForm";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
 import { NoOrderModal } from "./NoOrderModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -2057,7 +2058,35 @@ export const VisitCard = ({
 
         {showFeedbackModal && feedbackActiveTab === "joint-sales-feedback" && <JointSalesFeedbackModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} beatPlanId={beatPlanId} managerId={jointSalesMemberId} onFeedbackSubmitted={() => setHasJointSalesFeedback(true)} />}
 
-        {showFeedbackModal && feedbackActiveTab === "competition" && <CompetitionInsightModal isOpen={true} onClose={() => { setShowFeedbackModal(false); setFeedbackActiveTab("menu"); }} visitId={currentVisitId || visit.id} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />}
+        {showFeedbackModal && feedbackActiveTab === "competition" && (
+          <Dialog open={true} onOpenChange={(open) => {
+            if (!open) {
+              setShowFeedbackModal(false);
+              setFeedbackActiveTab("menu");
+            }
+          }}>
+            <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] p-0 overflow-hidden">
+              <div className="bg-gradient-to-br from-red-500/10 via-red-400/5 to-background p-4 border-b">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-lg">
+                    <Target className="h-5 w-5 text-red-600" />
+                    Competition Data - {visit.retailerName}
+                  </DialogTitle>
+                </DialogHeader>
+              </div>
+              <ScrollArea className="max-h-[calc(90vh-80px)] p-4">
+                <CompetitionDataForm 
+                  retailerId={(visit.retailerId || visit.id) as string} 
+                  visitId={currentVisitId || visit.id} 
+                  onSave={() => { 
+                    setShowFeedbackModal(false); 
+                    setFeedbackActiveTab("menu"); 
+                  }} 
+                />
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
+        )}
 
          {/* Tab Selector Modal */}
         <Dialog open={showFeedbackModal && !['retailer-feedback', 'branding', 'joint-sales-feedback', 'competition'].includes(feedbackActiveTab)} onOpenChange={open => {
