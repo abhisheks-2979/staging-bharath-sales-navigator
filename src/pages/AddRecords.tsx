@@ -1,4 +1,4 @@
-import { Users, Truck, Building2, ArrowLeft } from "lucide-react";
+import { Users, ArrowLeft } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,24 +16,6 @@ const AddRecords = () => {
       color: "from-red-500 to-red-600",
       bgColor: "from-red-500/10 to-red-600/10",
       borderColor: "border-red-200"
-    },
-    {
-      icon: Truck,
-      title: "Add Distributor", 
-      description: "Add new distribution partners",
-      href: "/add-distributor",
-      color: "from-blue-500 to-blue-600",
-      bgColor: "from-blue-500/10 to-blue-600/10",
-      borderColor: "border-blue-200"
-    },
-    {
-      icon: Building2,
-      title: "Add Super Stockist",
-      description: "Add new super stockist partners",
-      href: "/add-super-stockist",
-      color: "from-green-500 to-green-600",
-      bgColor: "from-green-500/10 to-green-600/10",
-      borderColor: "border-green-200"
     }
   ];
 
