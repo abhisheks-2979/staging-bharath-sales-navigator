@@ -10,13 +10,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { moveToRecycleBin } from '@/utils/recycleBinUtils';
-import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ClipboardList, ChevronDown, ChevronRight, ShoppingCart, TrendingDown } from 'lucide-react';
+import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ChevronDown, ChevronRight, ShoppingCart, TrendingDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { VanMorningInventory } from '@/components/VanMorningInventory';
-import { VanReturnStock } from '@/components/VanReturnStock';
-import { VanClosingStock } from '@/components/VanClosingStock';
-import { VanStockView } from '@/components/VanStockView';
 
 interface Van {
   id: string;
@@ -36,11 +32,13 @@ interface Van {
 }
 
 interface VanStockSummary {
+  id: string;
   van_id: string;
   van_registration: string;
   van_model: string;
   user_name: string;
   user_id: string;
+  beat_name: string;
   stock_date: string;
   total_stock: number;
   total_ordered: number;
@@ -48,6 +46,19 @@ interface VanStockSummary {
   closing_stock: number;
   start_km: number;
   end_km: number;
+  items: VanStockItem[];
+}
+
+interface VanStockItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  unit: string;
+  start_qty: number;
+  ordered_qty: number;
+  returned_qty: number;
+  left_qty: number;
+  price_without_gst: number;
 }
 
 export default function VanSalesManagement() {
@@ -57,9 +68,6 @@ export default function VanSalesManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVan, setEditingVan] = useState<Van | null>(null);
-  const [morningInventoryOpen, setMorningInventoryOpen] = useState(false);
-  const [returnStockOpen, setReturnStockOpen] = useState(false);
-  const [closingStockOpen, setClosingStockOpen] = useState(false);
   const [selectedDate] = useState(new Date());
   const [vanStockSummaries, setVanStockSummaries] = useState<VanStockSummary[]>([]);
   const [expandedVans, setExpandedVans] = useState<Set<string>>(new Set());
@@ -85,6 +93,27 @@ export default function VanSalesManagement() {
     loadVanStockSummaries();
   }, [userRole, navigate]);
 
+  // Real-time subscription for van_stock and van_stock_items changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('van-stock-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'van_stock' },
+        () => loadVanStockSummaries()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'van_stock_items' },
+        () => loadVanStockSummaries()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedDate]);
+
   const loadVans = async () => {
     const { data, error } = await supabase
       .from('vans')
@@ -104,7 +133,7 @@ export default function VanSalesManagement() {
     try {
       const dateStr = selectedDate.toISOString().split('T')[0];
       
-      // Get all van_stock records for today with user info
+      // Get all van_stock records with user info, van info, and beat info
       const { data: stockData, error: stockError } = await supabase
         .from('van_stock')
         .select(`
@@ -126,34 +155,71 @@ export default function VanSalesManagement() {
 
       if (stockError) throw stockError;
 
+      // Get products for price lookup
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, rate');
+      
+      const productPriceMap: Record<string, number> = {};
+      products?.forEach(p => {
+        productPriceMap[p.id] = p.rate || 0;
+      });
+
       // Get stock items for each van_stock
       const summaries: VanStockSummary[] = [];
       
       for (const stock of stockData || []) {
-        // Get stock items
+        // Get stock items with full details
         const { data: items } = await supabase
           .from('van_stock_items')
-          .select('start_qty, ordered_qty, returned_qty, left_qty')
+          .select('id, product_id, product_name, unit, start_qty, ordered_qty, returned_qty, left_qty')
           .eq('van_stock_id', stock.id);
 
-        const totalStock = items?.reduce((sum, item) => sum + (item.start_qty || 0), 0) || 0;
-        const totalOrdered = items?.reduce((sum, item) => sum + (item.ordered_qty || 0), 0) || 0;
-        const totalReturned = items?.reduce((sum, item) => sum + (item.returned_qty || 0), 0) || 0;
-        const closingStock = items?.reduce((sum, item) => sum + (item.left_qty || 0), 0) || 0;
+        // Get beat name from beat_plans for this user and date
+        const { data: beatPlan } = await supabase
+          .from('beat_plans')
+          .select('beat_name')
+          .eq('user_id', stock.user_id)
+          .eq('plan_date', stock.stock_date)
+          .maybeSingle();
+
+        const stockItems: VanStockItem[] = (items || []).map((item: any) => {
+          const priceWithGST = productPriceMap[item.product_id] || 0;
+          const priceWithoutGST = priceWithGST / 1.05; // Remove 5% GST
+          return {
+            id: item.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            unit: item.unit,
+            start_qty: item.start_qty || 0,
+            ordered_qty: item.ordered_qty || 0,
+            returned_qty: item.returned_qty || 0,
+            left_qty: (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0),
+            price_without_gst: priceWithoutGST
+          };
+        });
+
+        const totalStock = stockItems.reduce((sum, item) => sum + item.start_qty, 0);
+        const totalOrdered = stockItems.reduce((sum, item) => sum + item.ordered_qty, 0);
+        const totalReturned = stockItems.reduce((sum, item) => sum + item.returned_qty, 0);
+        const closingStock = stockItems.reduce((sum, item) => sum + item.left_qty, 0);
 
         summaries.push({
+          id: stock.id,
           van_id: stock.van_id,
           van_registration: (stock.vans as any)?.registration_number || 'Unknown',
           van_model: (stock.vans as any)?.make_model || '',
           user_name: (stock.profiles as any)?.full_name || 'Unknown User',
           user_id: stock.user_id,
+          beat_name: beatPlan?.beat_name || 'No Beat',
           stock_date: stock.stock_date,
           total_stock: totalStock,
           total_ordered: totalOrdered,
           total_returned: totalReturned,
           closing_stock: closingStock,
           start_km: stock.start_km || 0,
-          end_km: stock.end_km || 0
+          end_km: stock.end_km || 0,
+          items: stockItems
         });
       }
 
@@ -461,12 +527,12 @@ export default function VanSalesManagement() {
           </CardContent>
         </Card>
 
-        {/* Van Inventory & Stock Management - Shows user-selected vans */}
+        {/* Van Inventory & Stock Management - Shows all users' van stock */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Van Inventory & Stock Management</CardTitle>
             <CardDescription>
-              Vans selected by users today ({selectedDate.toLocaleDateString()}) - Click to expand details
+              All users' van stock for {selectedDate.toLocaleDateString()} - Real-time updates from My Visits
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -475,7 +541,7 @@ export default function VanSalesManagement() {
                 <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                 <p className="text-muted-foreground">No van stock records for today</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Users will appear here when they select a van in My Visits
+                  Users will appear here when they add van stock in My Visits
                 </p>
               </div>
             ) : (
@@ -493,8 +559,10 @@ export default function VanSalesManagement() {
                             <div className="flex items-center gap-3">
                               <Truck className="h-5 w-5 text-primary" />
                               <div>
-                                <p className="font-semibold">{summary.van_registration}</p>
-                                <p className="text-sm text-muted-foreground">{summary.van_model} • {summary.user_name}</p>
+                                <p className="font-semibold">{summary.user_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Van: {summary.van_registration} ({summary.van_model}) • Beat: {summary.beat_name}
+                                </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
@@ -514,7 +582,8 @@ export default function VanSalesManagement() {
                     <CollapsibleContent>
                       <Card className="mt-2 border-l-4 border-l-primary">
                         <CardContent className="p-4">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {/* Summary Stats */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                             <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
                               <div className="flex items-center gap-2 mb-1">
                                 <Package className="h-4 w-4 text-blue-600" />
@@ -525,7 +594,7 @@ export default function VanSalesManagement() {
                             <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg">
                               <div className="flex items-center gap-2 mb-1">
                                 <ShoppingCart className="h-4 w-4 text-amber-600" />
-                                <span className="text-xs text-muted-foreground">Retailers Order Qty</span>
+                                <span className="text-xs text-muted-foreground">Ordered Qty</span>
                               </div>
                               <p className="text-2xl font-bold text-amber-600">{summary.total_ordered}</p>
                             </div>
@@ -539,19 +608,49 @@ export default function VanSalesManagement() {
                             <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                               <div className="flex items-center gap-2 mb-1">
                                 <TrendingDown className="h-4 w-4 text-green-600" />
-                                <span className="text-xs text-muted-foreground">Closing GRN (Left in Van)</span>
+                                <span className="text-xs text-muted-foreground">Left in Van</span>
                               </div>
                               <p className="text-2xl font-bold text-green-600">{summary.closing_stock}</p>
                             </div>
                           </div>
-                          <div className="mt-4 pt-4 border-t">
-                            <div className="flex items-center justify-between text-sm">
-                              <div className="flex gap-4">
-                                <span className="text-muted-foreground">Start KM: <span className="font-semibold text-foreground">{summary.start_km}</span></span>
-                                <span className="text-muted-foreground">End KM: <span className="font-semibold text-foreground">{summary.end_km}</span></span>
-                                <span className="text-muted-foreground">Total KM: <span className="font-semibold text-primary">{summary.end_km - summary.start_km}</span></span>
+
+                          {/* KM Tracking */}
+                          <div className="flex items-center gap-4 text-sm mb-4 p-2 bg-muted/50 rounded">
+                            <span className="text-muted-foreground">Start KM: <span className="font-semibold text-foreground">{summary.start_km}</span></span>
+                            <span className="text-muted-foreground">End KM: <span className="font-semibold text-foreground">{summary.end_km || '-'}</span></span>
+                            <span className="text-muted-foreground">Total KM: <span className="font-semibold text-primary">{summary.end_km > 0 ? summary.end_km - summary.start_km : '-'}</span></span>
+                          </div>
+
+                          {/* Product Details */}
+                          <div className="border-t pt-4">
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                              <Package className="h-4 w-4" /> Product Details
+                            </h4>
+                            {summary.items.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No products in this van stock</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {summary.items.map((item) => (
+                                  <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                                    <div className="flex-1">
+                                      <p className="font-medium">{item.product_name}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        ₹{item.price_without_gst.toFixed(2)} (excl. GST) • {item.unit}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                      <div className="text-right">
+                                        <p className="text-lg font-bold">{item.start_qty}</p>
+                                        <p className="text-xs text-muted-foreground">{item.unit}</p>
+                                      </div>
+                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -562,37 +661,6 @@ export default function VanSalesManagement() {
             )}
           </CardContent>
         </Card>
-
-        {/* Stock Management Tools */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Stock Management Tools</CardTitle>
-            <CardDescription>Quick access to inventory operations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Button onClick={() => setMorningInventoryOpen(true)} variant="outline" className="h-24 flex-col gap-2">
-                <Package className="h-8 w-8" />
-                <span>Morning GRN</span>
-              </Button>
-              <Button onClick={() => setReturnStockOpen(true)} variant="outline" className="h-24 flex-col gap-2">
-                <RotateCcw className="h-8 w-8" />
-                <span>Return Stock</span>
-              </Button>
-              <Button onClick={() => setClosingStockOpen(true)} variant="outline" className="h-24 flex-col gap-2">
-                <ClipboardList className="h-8 w-8" />
-                <span>Closing Stock</span>
-              </Button>
-              <Card className="h-24 flex flex-col items-center justify-center bg-muted/50">
-                <VanStockView selectedDate={selectedDate} />
-              </Card>
-            </div>
-          </CardContent>
-        </Card>
-
-        <VanMorningInventory open={morningInventoryOpen} onOpenChange={setMorningInventoryOpen} selectedDate={selectedDate} />
-        <VanReturnStock open={returnStockOpen} onOpenChange={setReturnStockOpen} selectedDate={selectedDate} />
-        <VanClosingStock open={closingStockOpen} onOpenChange={setClosingStockOpen} selectedDate={selectedDate} />
       </div>
     </Layout>
   );
