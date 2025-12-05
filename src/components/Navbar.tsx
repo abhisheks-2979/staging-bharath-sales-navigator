@@ -35,6 +35,7 @@ import {
   MapPin,
   Navigation2,
   Building2,
+  Trash2,
 } from "lucide-react";
 
 export const Navbar = () => {
@@ -64,6 +65,7 @@ export const Navbar = () => {
     { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
     { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
     { icon: Target, label: t('nav.analytics'), href: "/analytics", color: "from-violet-500 to-violet-600" },
+    { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin", color: "from-rose-500 to-rose-600" },
   ];
 
   // Admin-only navigation items

@@ -86,6 +86,8 @@ import RetailerLoyalty from "./pages/RetailerLoyalty";
 import SecurityManagement from "./pages/SecurityManagement";
 import PushContentSetup from "./pages/admin/PushContentSetup";
 import PerformanceModuleAdmin from "./pages/admin/PerformanceModuleAdmin";
+import RecycleBin from "./pages/RecycleBin";
+import RecycleBinAdmin from "./pages/admin/RecycleBinAdmin";
 import MyTargets from "./pages/MyTargets";
 import TeamTargets from "./pages/TeamTargets";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
@@ -305,6 +307,10 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/institutional-sales/invoices" element={<ProtectedRoute><InstitutionalInvoices /></ProtectedRoute>} />
               <Route path="/institutional-sales/price-books" element={<ProtectedRoute><PriceBooks /></ProtectedRoute>} />
               <Route path="/institutional-sales/collections" element={<ProtectedRoute><Collections /></ProtectedRoute>} />
+              
+              {/* Recycle Bin Routes */}
+              <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
+              <Route path="/admin/recycle-bin" element={<ProtectedRoute><RecycleBinAdmin /></ProtectedRoute>} />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
