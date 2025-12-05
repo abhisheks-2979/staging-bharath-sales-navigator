@@ -776,8 +776,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                 <Label className="text-[9px] text-muted-foreground mb-0.5 block">Qty</Label>
                                 <Input
                                   type="number"
-                                  value={item.start_qty}
+                                  value={item.start_qty || ''}
                                   onChange={(e) => handleProductChange(index, 'start_qty', parseInt(e.target.value) || 0)}
+                                  onFocus={(e) => e.target.select()}
                                   placeholder="0"
                                   className="h-8 text-[11px] px-1.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   min="0"
