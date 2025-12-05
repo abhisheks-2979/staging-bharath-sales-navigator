@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { CompetitionDataList } from "@/components/competition/CompetitionDataList";
 import { CompetitionAISummary } from "@/components/competition/CompetitionAISummary";
 import { CompetitionRetailerAnalytics } from "@/components/competition/CompetitionRetailerAnalytics";
@@ -195,11 +196,21 @@ export default function CompetitorDetail() {
       toast({ title: "Permission Denied", description: "Only admins can delete contacts", variant: "destructive" });
       return;
     }
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure you want to move this contact to recycle bin?")) return;
     try {
+      const contactData = contacts.find(c => c.id === id);
+      if (contactData) {
+        await moveToRecycleBin({
+          tableName: 'competition_contacts',
+          recordId: id,
+          recordData: contactData,
+          moduleName: 'Competition Contacts',
+          recordName: contactData.contact_name
+        });
+      }
       const { error } = await supabase.from('competition_contacts').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: "Success", description: "Contact deleted successfully" });
+      toast({ title: "Success", description: "Contact moved to recycle bin" });
       if (competitor) fetchCompetitorDetails(competitor.id);
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete contact", variant: "destructive" });

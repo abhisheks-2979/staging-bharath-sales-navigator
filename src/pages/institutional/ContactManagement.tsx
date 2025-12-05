@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { 
   ArrowLeft, Plus, Search, User, Phone, Mail, 
   Building2, Briefcase, Star, MoreVertical, Trash2
@@ -158,12 +159,23 @@ export default function ContactManagement() {
   };
 
   const handleDelete = async (contactId: string) => {
-    if (!confirm('Are you sure you want to delete this contact?')) return;
+    if (!confirm('Are you sure you want to move this contact to recycle bin?')) return;
 
     try {
+      const contactData = contacts.find(c => c.id === contactId);
+      if (contactData) {
+        await moveToRecycleBin({
+          tableName: 'inst_contacts',
+          recordId: contactId,
+          recordData: contactData,
+          moduleName: 'Institutional Contacts',
+          recordName: `${contactData.first_name} ${contactData.last_name || ''}`
+        });
+      }
+      
       const { error } = await supabase.from('inst_contacts').delete().eq('id', contactId);
       if (error) throw error;
-      toast.success('Contact deleted');
+      toast.success('Contact moved to recycle bin');
       fetchContacts();
     } catch (error) {
       console.error('Error deleting contact:', error);

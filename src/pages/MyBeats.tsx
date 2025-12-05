@@ -14,6 +14,7 @@ import { EditBeatModal } from "@/components/EditBeatModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useRecommendations } from "@/hooks/useRecommendations";
 import { RecommendationCard } from "@/components/RecommendationCard";
@@ -764,13 +765,25 @@ export const MyBeats = () => {
   };
 
   const handleDeleteBeat = async (beatId: string, beatName: string) => {
-    if (!confirm(`Are you sure you want to delete the beat "${beatName}"? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to move the beat "${beatName}" to recycle bin?`)) {
       return;
     }
 
     if (!user) return;
 
     try {
+      // Get beat data for recycle bin
+      const beatData = beats.find(b => b.id === beatId);
+      if (beatData) {
+        await moveToRecycleBin({
+          tableName: 'beats',
+          recordId: beatId,
+          recordData: beatData,
+          moduleName: 'Beats',
+          recordName: beatName
+        });
+      }
+
       // Update retailers to remove beat assignment
       const { error: retailerError } = await supabase
         .from('retailers')
@@ -831,7 +844,7 @@ export const MyBeats = () => {
         });
       }
 
-      toast.success(`Beat "${beatName}" deleted successfully`);
+      toast.success(`Beat "${beatName}" moved to recycle bin`);
       
       // Dispatch event to refresh My Visits page
       window.dispatchEvent(new CustomEvent('visitDataChanged'));

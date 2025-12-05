@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Search, Plus, Edit, Trash2, Building2, Phone, Mail, MapPin, CreditCard, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 
 interface Distributor {
   id: string;
@@ -178,9 +179,21 @@ const DistributorList: React.FC<DistributorListProps> = ({ onDistributorAdded })
   };
 
   const handleDeleteDistributor = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this distributor?')) return;
+    if (!confirm('Are you sure you want to move this distributor to recycle bin?')) return;
 
     try {
+      const distributorData = distributors.find(d => d.id === id);
+      if (distributorData) {
+        const moved = await moveToRecycleBin({
+          tableName: 'distributors',
+          recordId: id,
+          recordData: distributorData,
+          moduleName: 'Distributors',
+          recordName: distributorData.name
+        });
+        if (!moved) throw new Error('Failed to move to recycle bin');
+      }
+
       const { error } = await supabase
         .from('distributors')
         .delete()
@@ -190,7 +203,7 @@ const DistributorList: React.FC<DistributorListProps> = ({ onDistributorAdded })
 
       toast({
         title: 'Success',
-        description: 'Distributor deleted successfully'
+        description: 'Distributor moved to recycle bin'
       });
 
       loadData();

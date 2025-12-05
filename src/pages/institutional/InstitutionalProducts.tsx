@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { 
   ArrowLeft, Plus, Search, Package, IndianRupee, 
   MoreVertical, Pencil, Trash2, Tag
@@ -154,12 +155,23 @@ export default function InstitutionalProducts() {
   };
 
   const handleDelete = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!confirm('Are you sure you want to move this product to recycle bin?')) return;
 
     try {
+      const productData = products.find(p => p.id === productId);
+      if (productData) {
+        await moveToRecycleBin({
+          tableName: 'inst_products',
+          recordId: productId,
+          recordData: productData,
+          moduleName: 'Institutional Products',
+          recordName: productData.product_name
+        });
+      }
+      
       const { error } = await supabase.from('inst_products').delete().eq('id', productId);
       if (error) throw error;
-      toast.success('Product deleted');
+      toast.success('Product moved to recycle bin');
       fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);

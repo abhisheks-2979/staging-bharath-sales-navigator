@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 
 const DISTRIBUTOR_STATUSES = [
   { value: 'prospecting', label: 'Prospecting', color: 'bg-blue-100 text-blue-800' },
@@ -491,12 +492,29 @@ const DistributorMapping = () => {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
+      const tableName = deleteTarget.type === 'distributor' ? 'distributors' : 'vendors';
+      const recordData = deleteTarget.type === 'distributor' 
+        ? distributors.find(d => d.id === deleteTarget.id)
+        : superStockists.find(s => s.id === deleteTarget.id);
+      
+      if (recordData) {
+        const moved = await moveToRecycleBin({
+          tableName,
+          recordId: deleteTarget.id,
+          recordData,
+          moduleName: deleteTarget.type === 'distributor' ? 'Distributors' : 'Super Stockists',
+          recordName: deleteTarget.name
+        });
+        
+        if (!moved) throw new Error('Failed to move to recycle bin');
+      }
+      
       if (deleteTarget.type === 'distributor') {
         await supabase.from('distributors').delete().eq('id', deleteTarget.id);
       } else {
         await supabase.from('vendors').delete().eq('id', deleteTarget.id);
       }
-      toast({ title: 'Success', description: `${deleteTarget.type === 'distributor' ? 'Distributor' : 'Super Stockist'} deleted successfully` });
+      toast({ title: 'Success', description: `${deleteTarget.type === 'distributor' ? 'Distributor' : 'Super Stockist'} moved to recycle bin` });
       setShowDeleteDialog(false);
       setShowViewModal(false);
       setDeleteTarget(null);

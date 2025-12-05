@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Plus, Edit, Trash2, Building2, Phone, Mail, MapPin, Target } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 
 interface SuperStockist {
   id: string;
@@ -161,9 +162,21 @@ const SuperStockistList: React.FC<SuperStockistListProps> = ({ onSuperStockistAd
   };
 
   const handleDeleteSuperStockist = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this super stockist?')) return;
+    if (!confirm('Are you sure you want to move this super stockist to recycle bin?')) return;
 
     try {
+      const stockistData = superStockists.find(s => s.id === id);
+      if (stockistData) {
+        const moved = await moveToRecycleBin({
+          tableName: 'vendors',
+          recordId: id,
+          recordData: stockistData,
+          moduleName: 'Super Stockists',
+          recordName: stockistData.name
+        });
+        if (!moved) throw new Error('Failed to move to recycle bin');
+      }
+
       const { error } = await supabase
         .from('vendors')
         .delete()
@@ -173,7 +186,7 @@ const SuperStockistList: React.FC<SuperStockistListProps> = ({ onSuperStockistAd
 
       toast({
         title: 'Success',
-        description: 'Super Stockist deleted successfully'
+        description: 'Super Stockist moved to recycle bin'
       });
 
       loadData();
