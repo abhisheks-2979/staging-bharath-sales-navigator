@@ -63,7 +63,7 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       devOptions: {
-        enabled: true,
+        enabled: false, // Disabled in dev to prevent HMR conflicts - enable only in production
         type: 'module'
       }
     })
