@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign, User } from 'lucide-react';
+import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign, User, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -95,6 +95,7 @@ const Operations = () => {
   const [orderData, setOrderData] = useState<OrderData[]>([]);
   const [stockData, setStockData] = useState<StockData[]>([]);
   const [competitorData, setCompetitorData] = useState<any[]>([]);
+  const [returnStockData, setReturnStockData] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   
   // Loading states
@@ -102,9 +103,11 @@ const Operations = () => {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingStock, setLoadingStock] = useState(false);
   const [loadingCompetitor, setLoadingCompetitor] = useState(false);
+  const [loadingReturnStock, setLoadingReturnStock] = useState(false);
   
-  // Date filter for competitor
+  // Date filter for competitor and return stock
   const [competitorDateFilter, setCompetitorDateFilter] = useState('today');
+  const [returnStockDateFilter, setReturnStockDateFilter] = useState('today');
   
   // Summary counters
   const [todayStats, setTodayStats] = useState({
@@ -687,6 +690,109 @@ const Operations = () => {
     }
   };
 
+  // Fetch return stock data
+  const fetchReturnStockData = async () => {
+    setLoadingReturnStock(true);
+    try {
+      const returnToday = new Date();
+      const startOfToday = new Date(returnToday.getFullYear(), returnToday.getMonth(), returnToday.getDate());
+      
+      let query = supabase
+        .from('van_return_grn')
+        .select(`
+          id,
+          user_id,
+          retailer_id,
+          van_id,
+          return_date,
+          return_grn_number,
+          notes,
+          created_at,
+          retailers(name),
+          vans(registration_number, make_model)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (userFilter !== 'all') {
+        query = query.eq('user_id', userFilter);
+      }
+
+      // Apply date filter
+      if (returnStockDateFilter === 'today') {
+        query = query.gte('return_date', startOfToday.toISOString().split('T')[0]);
+      } else if (returnStockDateFilter === 'week') {
+        const weekAgo = new Date(startOfToday);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        query = query.gte('return_date', weekAgo.toISOString().split('T')[0]);
+      } else if (returnStockDateFilter === 'month') {
+        const monthAgo = new Date(startOfToday);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        query = query.gte('return_date', monthAgo.toISOString().split('T')[0]);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Get user names
+      const userIds = [...new Set(data?.map(d => d.user_id).filter(Boolean) || [])];
+      let usersData: any[] = [];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds);
+        usersData = profiles || [];
+      }
+
+      // Get return items for each GRN
+      const grnIds = data?.map(d => d.id) || [];
+      let returnItemsData: any[] = [];
+      if (grnIds.length > 0) {
+        const { data: items } = await supabase
+          .from('van_return_grn_items')
+          .select(`
+            id,
+            return_grn_id,
+            product_id,
+            variant_id,
+            return_quantity,
+            return_reason,
+            products(name, rate),
+            product_variants(variant_name, price)
+          `)
+          .in('return_grn_id', grnIds);
+        returnItemsData = items || [];
+      }
+
+      const formattedData = data?.map(item => {
+        const user = usersData.find(u => u.id === item.user_id);
+        const itemDetails = returnItemsData.filter(ri => ri.return_grn_id === item.id);
+        const totalQuantity = itemDetails.reduce((sum, i) => sum + (i.return_quantity || 0), 0);
+        const totalValue = itemDetails.reduce((sum, i) => {
+          const price = i.product_variants?.price || i.products?.rate || 0;
+          return sum + (price * (i.return_quantity || 0) * 1.05);
+        }, 0);
+        
+        return {
+          ...item,
+          user_name: user?.full_name || user?.username || 'Unknown',
+          retailer_name: (item.retailers as any)?.name || 'Unknown',
+          van_name: item.vans ? `${(item.vans as any).registration_number} - ${(item.vans as any).make_model}` : '-',
+          items: itemDetails,
+          total_quantity: totalQuantity,
+          total_value: Math.round(totalValue)
+        };
+      }) || [];
+
+      setReturnStockData(formattedData);
+    } catch (error) {
+      console.error('Error fetching return stock data:', error);
+      toast.error('Failed to fetch return stock data');
+    } finally {
+      setLoadingReturnStock(false);
+    }
+  };
+
   // Filter data based on search term
   const filterData = (data: any[], searchFields: string[]) => {
     if (!searchTerm) return data;
@@ -727,8 +833,9 @@ const Operations = () => {
       await fetchOrderData();
       await fetchStockData();
       await fetchCompetitorData();
+      await fetchReturnStockData();
     })();
-  }, [userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
+  }, [userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, returnStockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   // Auto refresh
   useEffect(() => {
@@ -739,10 +846,11 @@ const Operations = () => {
       if (activeTab === 'orders') fetchOrderData();
       if (activeTab === 'stock') fetchStockData();
       if (activeTab === 'competitor') fetchCompetitorData();
+      if (activeTab === 'returnstock') fetchReturnStockData();
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [activeTab, autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
+  }, [activeTab, autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, competitorDateFilter, returnStockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   // Real-time subscriptions
   useEffect(() => {
@@ -769,12 +877,20 @@ const Operations = () => {
       })
       .subscribe();
 
+    const returnStockChannel = supabase
+      .channel('return-stock-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'van_return_grn' }, () => {
+        fetchReturnStockData();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(visitsChannel);
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(stockChannel);
+      supabase.removeChannel(returnStockChannel);
     };
-  }, [autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
+  }, [autoRefresh, userFilter, checkinDateFilter, orderDateFilter, stockDateFilter, returnStockDateFilter, checkinCustomRange, orderCustomRange, stockCustomRange]);
 
   if (loading) {
     return (
@@ -793,6 +909,7 @@ const Operations = () => {
   const filteredOrderData = filterData(orderData, ['user_name', 'retailer_name']);
   const filteredStockData = filterData(stockData, ['user_name', 'retailer_name', 'product_name']);
   const filteredCompetitorData = filterData(competitorData, ['user_name', 'retailer_name', 'competitor_name']);
+  const filteredReturnStockData = filterData(returnStockData, ['user_name', 'retailer_name', 'van_name']);
 
   return (
     <div className="min-h-screen bg-gradient-subtle p-4">
@@ -842,6 +959,8 @@ const Operations = () => {
                   if (activeTab === 'checkins') fetchCheckInData();
                   if (activeTab === 'orders') fetchOrderData();
                   if (activeTab === 'stock') fetchStockData();
+                  if (activeTab === 'competitor') fetchCompetitorData();
+                  if (activeTab === 'returnstock') fetchReturnStockData();
                 }}
               >
                 <RefreshCw size={16} className="mr-2" />
@@ -851,12 +970,13 @@ const Operations = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="checkins">Check-in/Out</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="stock">Stock</TabsTrigger>
                 <TabsTrigger value="payments">Payments</TabsTrigger>
                 <TabsTrigger value="competitor">Competitor</TabsTrigger>
+                <TabsTrigger value="returnstock">Return Stock</TabsTrigger>
               </TabsList>
 
               {/* Filters */}
@@ -1620,6 +1740,152 @@ const Operations = () => {
                               <Badge variant="secondary">
                                 {format(new Date(item.created_at), 'MMM dd, HH:mm')}
                               </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+
+              {/* Return Stock Tab */}
+              <TabsContent value="returnstock">
+                <div className="flex gap-4 mb-4">
+                  <Select value={returnStockDateFilter} onValueChange={setReturnStockDateFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Date Range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Retailer</TableHead>
+                        <TableHead>Van</TableHead>
+                        <TableHead>GRN No.</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Total Qty</TableHead>
+                        <TableHead>Total Value</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingReturnStock ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredReturnStockData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            No return stock data found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredReturnStockData.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.user_name}</TableCell>
+                            <TableCell>{item.retailer_name}</TableCell>
+                            <TableCell>{item.van_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                                {item.return_grn_number}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{item.items?.length || 0} items</Badge>
+                            </TableCell>
+                            <TableCell>{item.total_quantity}</TableCell>
+                            <TableCell>₹{item.total_value?.toLocaleString() || 0}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {format(new Date(item.return_date), 'MMM dd, yyyy')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye size={16} />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-3xl">
+                                  <DialogHeader>
+                                    <DialogTitle>Return Stock Details - {item.return_grn_number}</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <label className="text-sm font-medium">User</label>
+                                        <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Retailer</label>
+                                        <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Van</label>
+                                        <p className="text-sm text-muted-foreground">{item.van_name}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Return Date</label>
+                                        <p className="text-sm text-muted-foreground">
+                                          {format(new Date(item.return_date), 'PPP')}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Total Quantity</label>
+                                        <p className="text-sm font-medium">{item.total_quantity}</p>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Total Value</label>
+                                        <p className="text-sm font-medium">₹{item.total_value?.toLocaleString() || 0}</p>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium">Return Items</label>
+                                      <div className="mt-2 border rounded-md">
+                                        <Table>
+                                          <TableHeader>
+                                            <TableRow>
+                                              <TableHead>Product</TableHead>
+                                              <TableHead>Quantity</TableHead>
+                                              <TableHead>Reason</TableHead>
+                                            </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                            {item.items?.map((returnItem: any, index: number) => (
+                                              <TableRow key={index}>
+                                                <TableCell>
+                                                  {returnItem.product_variants?.variant_name || returnItem.products?.name || 'Unknown'}
+                                                </TableCell>
+                                                <TableCell>{returnItem.return_quantity}</TableCell>
+                                                <TableCell>{returnItem.return_reason}</TableCell>
+                                              </TableRow>
+                                            ))}
+                                          </TableBody>
+                                        </Table>
+                                      </div>
+                                    </div>
+                                    {item.notes && (
+                                      <div>
+                                        <label className="text-sm font-medium">Notes</label>
+                                        <p className="text-sm text-muted-foreground">{item.notes}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
                             </TableCell>
                           </TableRow>
                         ))

@@ -361,7 +361,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
 
   return (
     <div className="space-y-4">
-      {/* Van Selection & Add Return Button */}
+      {/* Van Selection & Add Product Button */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-end gap-4">
@@ -382,7 +382,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
             </div>
             <Button onClick={handleAddReturn} className="h-10">
               <Plus className="h-4 w-4 mr-2" />
-              Add Return
+              + Add Product
             </Button>
           </div>
         </CardContent>
@@ -481,7 +481,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Total Price</Label>
-                  <p className="font-semibold text-primary">₹{totalPrice.toFixed(2)}</p>
+                  <p className="font-semibold text-primary">₹{Math.round(totalPrice)}</p>
                 </div>
               </div>
             );
@@ -499,9 +499,6 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                   <p className="text-sm font-medium">Total Items: {returnItems.length}</p>
                   <p className="text-sm text-muted-foreground">Total Quantity: {getTotalReturns()}</p>
                 </div>
-                <Button onClick={handleSaveReturns} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Return GRN'}
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -546,6 +543,15 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Save Return Button at Bottom */}
+      {returnItems.length > 0 && (
+        <div className="flex justify-end">
+          <Button onClick={handleSaveReturns} disabled={saving} size="lg">
+            {saving ? 'Saving...' : 'Save Return'}
+          </Button>
+        </div>
       )}
     </div>
   );
