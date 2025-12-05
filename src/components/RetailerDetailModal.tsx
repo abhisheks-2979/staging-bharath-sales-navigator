@@ -1,22 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, Check, ChevronsUpDown, FileText, Download, Send, Loader2 } from "lucide-react";
+import { 
+  Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, 
+  Check, ChevronsUpDown, FileText, Download, Send, Loader2, ChevronLeft, 
+  ChevronRight, Calendar, BarChart3, User, Building
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from "recharts";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, startOfWeek, endOfWeek, startOfQuarter, endOfQuarter, subQuarters, subMonths as subM, startOfDay, subDays, startOfYear } from "date-fns";
 
 interface RetailerInvoice {
   id: string;
@@ -24,6 +32,20 @@ interface RetailerInvoice {
   created_at: string;
   total_amount: number;
   status: string;
+}
+
+interface Visit {
+  id: string;
+  planned_date: string;
+  status: string;
+  check_in_time?: string;
+  check_out_time?: string;
+}
+
+interface OrderItem {
+  product_name: string;
+  quantity: number;
+  total_price: number;
 }
 
 interface Retailer {
@@ -70,6 +92,36 @@ interface RetailerDetailModalProps {
   startInEditMode?: boolean;
 }
 
+type DateFilter = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'this_quarter' | 'last_quarter' | 'this_fy';
+
+const getDateRange = (filter: DateFilter): { start: Date; end: Date } => {
+  const today = new Date();
+  switch (filter) {
+    case 'today':
+      return { start: startOfDay(today), end: today };
+    case 'yesterday':
+      const yesterday = subDays(today, 1);
+      return { start: startOfDay(yesterday), end: endOfMonth(yesterday) };
+    case 'this_week':
+      return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) };
+    case 'this_month':
+      return { start: startOfMonth(today), end: endOfMonth(today) };
+    case 'last_month':
+      const lastMonth = subMonths(today, 1);
+      return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+    case 'this_quarter':
+      return { start: startOfQuarter(today), end: endOfQuarter(today) };
+    case 'last_quarter':
+      const lastQuarter = subQuarters(today, 1);
+      return { start: startOfQuarter(lastQuarter), end: endOfQuarter(lastQuarter) };
+    case 'this_fy':
+      const currentYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+      return { start: new Date(currentYear, 3, 1), end: new Date(currentYear + 1, 2, 31) };
+    default:
+      return { start: startOfMonth(today), end: endOfMonth(today) };
+  }
+};
+
 export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, startInEditMode = false }: RetailerDetailModalProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -84,6 +136,25 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+  const [associatedDistributor, setAssociatedDistributor] = useState<string | null>(null);
+
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Map<string, boolean>>(new Map());
+  const [ordersByVisit, setOrdersByVisit] = useState<Map<string, { total: number; items: OrderItem[] }>>(new Map());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Charts state
+  const [chartFilter, setChartFilter] = useState<DateFilter>('this_month');
+  const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [allOrderItems, setAllOrderItems] = useState<any[]>([]);
+
+  // Calculated metrics
+  const [totalLifetimeValue, setTotalLifetimeValue] = useState(0);
+  const [avgMonthlyRevenue6M, setAvgMonthlyRevenue6M] = useState(0);
+  const [lastVisitDate, setLastVisitDate] = useState<string | null>(null);
+  const [lastVisitOrderValue, setLastVisitOrderValue] = useState(0);
 
   useEffect(() => {
     if (retailer) {
@@ -103,13 +174,141 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   useEffect(() => {
     if (retailer?.id && isOpen) {
       loadInvoices(retailer.id);
+      loadVisitsAndOrders(retailer.id);
+      loadAssociatedDistributor(retailer.id);
     }
   }, [retailer?.id, isOpen]);
+
+  const loadAssociatedDistributor = async (retailerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('distributor_retailer_mappings')
+        .select('distributor_id')
+        .eq('retailer_id', retailerId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data?.distributor_id) {
+        const { data: distData } = await supabase
+          .from('distributors')
+          .select('name')
+          .eq('id', data.distributor_id)
+          .maybeSingle();
+        
+        setAssociatedDistributor(distData?.name || null);
+      } else {
+        setAssociatedDistributor(null);
+      }
+    } catch (error) {
+      console.error('Error loading distributor:', error);
+      setAssociatedDistributor(null);
+    }
+  };
+
+  const loadVisitsAndOrders = async (retailerId: string) => {
+    try {
+      // Load visits
+      const { data: visitsData, error: visitsError } = await supabase
+        .from('visits')
+        .select('id, planned_date, status, check_in_time, check_out_time')
+        .eq('retailer_id', retailerId)
+        .order('planned_date', { ascending: false });
+
+      if (visitsError) throw visitsError;
+      setVisits(visitsData || []);
+
+      // Get last visit
+      if (visitsData && visitsData.length > 0) {
+        const lastVisit = visitsData[0];
+        setLastVisitDate(lastVisit.planned_date);
+        
+        // Get last visit order value
+        const { data: lastOrderData } = await supabase
+          .from('orders')
+          .select('total_amount')
+          .eq('visit_id', lastVisit.id)
+          .eq('status', 'confirmed')
+          .maybeSingle();
+        
+        setLastVisitOrderValue(lastOrderData?.total_amount || 0);
+      }
+
+      // Load feedbacks
+      const { data: feedbacksData } = await supabase
+        .from('retailer_feedback')
+        .select('visit_id')
+        .eq('retailer_id', retailerId);
+
+      const feedbackMap = new Map<string, boolean>();
+      feedbacksData?.forEach((f: any) => feedbackMap.set(f.visit_id, true));
+      setFeedbacks(feedbackMap);
+
+      // Load all orders for this retailer
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, visit_id, total_amount, order_date, created_at, status')
+        .eq('retailer_id', retailerId)
+        .eq('status', 'confirmed');
+
+      if (ordersError) throw ordersError;
+      setAllOrders(ordersData || []);
+
+      // Calculate total lifetime value
+      const total = ordersData?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+      setTotalLifetimeValue(total);
+
+      // Calculate avg monthly revenue (last 6 months)
+      const sixMonthsAgo = subM(new Date(), 6);
+      const recentOrders = ordersData?.filter(o => new Date(o.created_at) >= sixMonthsAgo) || [];
+      const recentTotal = recentOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      setAvgMonthlyRevenue6M(recentTotal / 6);
+
+      // Map orders by visit
+      const orderMap = new Map<string, { total: number; items: OrderItem[] }>();
+      for (const order of ordersData || []) {
+        if (order.visit_id) {
+          const { data: itemsData } = await supabase
+            .from('order_items')
+            .select('product_name, quantity, total')
+            .eq('order_id', order.id);
+          
+          orderMap.set(order.visit_id, {
+            total: order.total_amount || 0,
+            items: (itemsData || []).map((item: any) => ({
+              product_name: item.product_name,
+              quantity: item.quantity,
+              total_price: item.total || 0
+            }))
+          });
+        }
+      }
+      setOrdersByVisit(orderMap);
+
+      // Load all order items for charts
+      const allItems: any[] = [];
+      for (const order of ordersData || []) {
+        const { data: itemsData } = await supabase
+          .from('order_items')
+          .select('product_name, quantity, total')
+          .eq('order_id', order.id);
+        
+        if (itemsData) {
+          itemsData.forEach((item: any) => {
+            allItems.push({ product_name: item.product_name, quantity: item.quantity, total_price: item.total || 0, order_date: order.order_date || order.created_at });
+          });
+        }
+      }
+      setAllOrderItems(allItems);
+
+    } catch (error) {
+      console.error('Error loading visits and orders:', error);
+    }
+  };
 
   const loadInvoices = async (retailerId: string) => {
     setInvoicesLoading(true);
     try {
-      // Fetch orders directly - invoice data is stored in orders table
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('id, invoice_number, created_at, total_amount, status')
@@ -117,7 +316,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
-
       setInvoices(ordersData || []);
     } catch (error: any) {
       console.error('Error loading invoices:', error);
@@ -169,26 +367,19 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
     setSendingInvoiceId(orderId);
     try {
-      // First generate and upload the invoice PDF
       const { blob } = await fetchAndGenerateInvoice(orderId);
       
-      // Upload to Supabase storage
       const fileName = `${invoiceNumber}_${Date.now()}.pdf`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('invoices')
-        .upload(fileName, blob, {
-          contentType: 'application/pdf',
-          upsert: true
-        });
+        .upload(fileName, blob, { contentType: 'application/pdf', upsert: true });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('invoices')
         .getPublicUrl(fileName);
 
-      // Send via WhatsApp/SMS - use correct parameter names expected by edge function
       const { error: sendError } = await supabase.functions.invoke('send-invoice-whatsapp', {
         body: {
           invoiceId: orderId,
@@ -324,7 +515,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
     setLoading(true);
     try {
-      // Move to recycle bin first
       const movedToRecycleBin = await moveToRecycleBin({
         tableName: 'retailers',
         recordId: formData.id,
@@ -337,7 +527,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
         throw new Error("Could not move to recycle bin");
       }
 
-      // Now delete from retailers table
       const { error } = await supabase
         .from('retailers')
         .delete()
@@ -364,6 +553,67 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     }
   };
 
+  // Calendar logic
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    return eachDayOfInterval({ start: monthStart, end: monthEnd });
+  }, [currentMonth]);
+
+  const visitsByDate = useMemo(() => {
+    const map = new Map<string, Visit[]>();
+    visits.forEach(visit => {
+      const dateKey = visit.planned_date;
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(visit);
+    });
+    return map;
+  }, [visits]);
+
+  const getVisitStatusColor = (visit: Visit) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    if (visit.planned_date > today) return 'bg-blue-100 text-blue-800 border-blue-300';
+    if (visit.status === 'productive') return 'bg-green-100 text-green-800 border-green-300';
+    if (visit.status === 'unproductive') return 'bg-red-100 text-red-800 border-red-300';
+    return 'bg-muted text-muted-foreground';
+  };
+
+  const selectedDayVisits = selectedDate ? visitsByDate.get(selectedDate) || [] : [];
+
+  // Charts data
+  const { revenueByDateData, revenueByProductData } = useMemo(() => {
+    const { start, end } = getDateRange(chartFilter);
+    
+    const filteredOrders = allOrders.filter(o => {
+      const orderDate = new Date(o.order_date || o.created_at);
+      return orderDate >= start && orderDate <= end;
+    });
+
+    // Revenue by date
+    const byDate = new Map<string, number>();
+    filteredOrders.forEach(o => {
+      const dateKey = format(new Date(o.order_date || o.created_at), 'dd MMM');
+      byDate.set(dateKey, (byDate.get(dateKey) || 0) + (o.total_amount || 0));
+    });
+    const revenueByDateData = Array.from(byDate.entries()).map(([date, amount]) => ({ date, amount }));
+
+    // Revenue by product
+    const filteredItems = allOrderItems.filter(item => {
+      const orderDate = new Date(item.order_date);
+      return orderDate >= start && orderDate <= end;
+    });
+    const byProduct = new Map<string, number>();
+    filteredItems.forEach(item => {
+      byProduct.set(item.product_name, (byProduct.get(item.product_name) || 0) + (item.total_price || 0));
+    });
+    const revenueByProductData = Array.from(byProduct.entries())
+      .map(([product, amount]) => ({ product, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+
+    return { revenueByDateData, revenueByProductData };
+  }, [allOrders, allOrderItems, chartFilter]);
+
   if (!formData) return null;
 
   const getGoogleMapsLink = () => {
@@ -373,600 +623,171 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     return null;
   };
 
+  const chartColors = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Retailer Overview</DialogTitle>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-xl">Retailer Overview</DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto space-y-4">
-          {/* Photo and Name Section */}
-          <div className="flex items-center gap-4 pb-4 border-b">
-            {formData.photo_url && (
-              <div className="w-24 h-24 rounded-lg overflow-hidden border-2 border-border flex-shrink-0">
-                <img 
-                  src={formData.photo_url} 
-                  alt={formData.name} 
-                  className="w-full h-full object-cover"
-                />
+        {/* Header Section - Name, Beat, Territory, Distributor */}
+        <div className="flex items-start gap-4 pb-3 border-b">
+          {formData.photo_url && (
+            <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-border flex-shrink-0">
+              <img src={formData.photo_url} alt={formData.name} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold truncate">{formData.name}</h3>
+            <div className="grid grid-cols-3 gap-2 mt-1.5 text-xs">
+              <div>
+                <span className="text-muted-foreground">Beat:</span>{' '}
+                <span className="font-medium">{formData.beat_id || 'Unassigned'}</span>
               </div>
-            )}
-            <div className="flex-1">
-              <h3 className="text-xl font-semibold">{formData.name}</h3>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Beat</Label>
-                  {isEditing ? (
-                    <Select 
-                      value={formData.beat_id || ''} 
-                      onValueChange={(v) => setFormData({...formData, beat_id: v})}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="Select beat" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {beats.map((beat) => (
-                          <SelectItem key={beat.beat_id} value={beat.beat_id}>
-                            {beat.beat_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {formData.beat_id || 'Unassigned'}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Territory</Label>
-                  {isEditing ? (
-                    <Popover open={territoryOpen} onOpenChange={setTerritoryOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={territoryOpen}
-                          className="h-8 w-full justify-between text-sm"
-                        >
-                          {formData.territory_id
-                            ? territories.find((t) => t.id === formData.territory_id)?.name
-                            : "Select territory..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search territory..." />
-                          <CommandList>
-                            <CommandEmpty>No territory found.</CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => {
-                                  setFormData({...formData, territory_id: null});
-                                  setTerritoryOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    !formData.territory_id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                None
-                              </CommandItem>
-                              {territories.map((territory) => (
-                                <CommandItem
-                                  key={territory.id}
-                                  onSelect={() => {
-                                    setFormData({...formData, territory_id: territory.id});
-                                    setTerritoryOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      formData.territory_id === territory.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span>{territory.name}</span>
-                                    <span className="text-xs text-muted-foreground">{territory.region}</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {territories.find((t) => t.id === formData.territory_id)?.name || 'Not assigned'}
-                    </p>
-                  )}
-                </div>
+              <div>
+                <span className="text-muted-foreground">Territory:</span>{' '}
+                <span className="font-medium">
+                  {territories.find(t => t.id === formData.territory_id)?.name || 'Not assigned'}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Distributor:</span>{' '}
+                <span className="font-medium">{associatedDistributor || 'Not mapped'}</span>
               </div>
             </div>
           </div>
 
-          {/* Accordion Sections */}
-          <Accordion type="multiple" defaultValue={["performance", "owner", "location", "outlet"]} className="w-full">
-            {/* Performance Summary - NEW SECTION */}
-            <AccordionItem value="performance">
-              <AccordionTrigger className="text-lg font-semibold">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Retailer Performance Summary
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4 pt-2">
-                  {/* Key Metrics Row */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="p-3 bg-primary/10 rounded-lg text-center">
-                      <p className="text-xl font-bold text-primary">
-                        ₹{(formData.total_lifetime_order_value || 0).toLocaleString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Total Lifetime Value</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-xl font-bold text-primary">
-                        ₹{((formData.total_order_value_fy || 0) / 6).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Avg Monthly Sales (6M)</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-xl font-bold text-primary">
-                        {(formData.avg_monthly_orders_3m || 0).toFixed(1)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Avg Monthly Orders (3M)</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg text-center">
-                      <p className="text-xl font-bold text-primary">
-                        {(formData.avg_order_per_visit_3m || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Avg Order per Visit</p>
-                    </div>
-                  </div>
+          {/* Phone Order Button - Prominent */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    navigate(`/order-entry?phoneOrder=true&retailerId=${formData.id}&retailer=${encodeURIComponent(formData.name)}`);
+                    onClose();
+                  }}
+                  className="flex items-center gap-2 bg-primary hover:bg-primary/90"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="hidden sm:inline">Phone Order</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="text-sm">Click here to add phone order. After placing the order - this will be added to today's beat and add to your today's performance</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
-                  {/* Last Order Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Last Order Date</p>
-                      <p className="text-base font-semibold">
-                        {formData.last_order_date 
-                          ? new Date(formData.last_order_date).toLocaleDateString() 
-                          : 'N/A'}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Last Order Value</p>
-                      <p className="text-base font-semibold text-primary">
-                        ₹{(formData.last_order_value || 0).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
+        {/* Tabs */}
+        <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-4 h-9">
+            <TabsTrigger value="overview" className="text-xs">
+              <TrendingUp className="h-3 w-3 mr-1" /> Overview
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="text-xs">
+              <Calendar className="h-3 w-3 mr-1" /> Calendar
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="text-xs">
+              <BarChart3 className="h-3 w-3 mr-1" /> Charts
+            </TabsTrigger>
+            <TabsTrigger value="details" className="text-xs">
+              <User className="h-3 w-3 mr-1" /> Details
+            </TabsTrigger>
+          </TabsList>
 
-                  {/* Visit Stats */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Total Visits (3 Months)</p>
-                      <p className="text-base font-semibold">{formData.total_visits_3m || 0}</p>
-                    </div>
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Productive Visits (3 Months)</p>
-                      <p className="text-base font-semibold">
-                        {formData.productive_visits_3m || 0}
-                        {formData.total_visits_3m && formData.total_visits_3m > 0 && (
-                          <span className="text-sm text-muted-foreground ml-2">
-                            ({((formData.productive_visits_3m || 0) / formData.total_visits_3m * 100).toFixed(0)}%)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
+          <div className="flex-1 overflow-y-auto mt-3">
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="mt-0 space-y-4">
+              {/* Key Metrics */}
+              <div className="grid grid-cols-3 gap-3">
+                <Card className="p-3">
+                  <p className="text-xl font-bold text-primary">₹{totalLifetimeValue.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Lifetime Value</p>
+                </Card>
+                <Card className="p-3">
+                  <p className="text-xl font-bold">₹{avgMonthlyRevenue6M.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-xs text-muted-foreground">Avg Monthly Revenue (6M)</p>
+                </Card>
+                <Card className="p-3">
+                  <p className="text-xl font-bold">{(formData.avg_order_per_visit_3m || 0).toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">Avg Order per Visit</p>
+                </Card>
+              </div>
 
-            {/* Owner Details */}
-            <AccordionItem value="owner">
-              <AccordionTrigger className="text-lg font-semibold">
-                Owner Details
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Owner's Name</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.name}
-                          onChange={(e) => setFormData({...formData, name: e.target.value})}
-                          className="h-8 text-sm"
-                        />
-                      ) : (
-                        <span className="text-sm font-medium">{formData.name}</span>
-                      )}
-                    </div>
-                  </div>
+              {/* Last Visit Info */}
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Last Visit Date</p>
+                  <p className="text-base font-semibold">
+                    {lastVisitDate ? format(new Date(lastVisitDate), 'dd/MM/yyyy') : 'No visits'}
+                  </p>
+                </Card>
+                <Card className="p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Last Visit Order Value</p>
+                  <p className="text-base font-semibold text-primary">₹{lastVisitOrderValue.toLocaleString()}</p>
+                </Card>
+              </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Owner's Number</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.phone || ''}
-                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter phone number"
-                        />
-                      ) : formData.phone ? (
-                        <a 
-                          href={`tel:${formData.phone.replace(/\s+/g, '')}`}
-                          className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Phone size={14} className="text-primary" />
-                          <span>{formData.phone}</span>
-                        </a>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </div>
-                  </div>
+              {/* Visit Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Total Visits (3M)</p>
+                  <p className="text-base font-semibold">{formData.total_visits_3m || 0}</p>
+                </Card>
+                <Card className="p-3">
+                  <p className="text-xs text-muted-foreground mb-1">Productive Visits (3M)</p>
+                  <p className="text-base font-semibold">
+                    {formData.productive_visits_3m || 0}
+                    {formData.total_visits_3m && formData.total_visits_3m > 0 && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({((formData.productive_visits_3m || 0) / formData.total_visits_3m * 100).toFixed(0)}%)
+                      </span>
+                    )}
+                  </p>
+                </Card>
+              </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">GST Number</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.gst_number || ''}
-                          onChange={(e) => setFormData({...formData, gst_number: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter GST number"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.gst_number || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Location Details */}
-            <AccordionItem value="location">
-              <AccordionTrigger className="text-lg font-semibold">
-                Location Details
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Address</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.address}
-                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                          className="h-8 text-sm"
-                        />
-                      ) : (
-                        <a
-                          href={(getGoogleMapsLink() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address || '')}`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline break-words"
-                          onClick={(e) => e.stopPropagation()}
-                          title="Open in Google Maps"
-                        >
-                          {formData.address}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Location Tag</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.location_tag || ''}
-                          onChange={(e) => setFormData({...formData, location_tag: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter location tag"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.location_tag || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Latitude</Label>
-                      <div className="flex items-center justify-between group">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="any"
-                            value={formData.latitude || ''}
-                            onChange={(e) => setFormData({...formData, latitude: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="h-8 text-sm"
-                            placeholder="Enter latitude"
-                          />
-                        ) : (
-                          <span className="text-sm">{formData.latitude || '-'}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Longitude</Label>
-                      <div className="flex items-center justify-between group">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="any"
-                            value={formData.longitude || ''}
-                            onChange={(e) => setFormData({...formData, longitude: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="h-8 text-sm"
-                            placeholder="Enter longitude"
-                          />
-                        ) : (
-                          <span className="text-sm">{formData.longitude || '-'}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {getGoogleMapsLink() && (
-                    <div className="pt-2">
-                      <a
-                        href={getGoogleMapsLink()!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                      >
-                        <MapPin size={16} />
-                        <span>View on Google Maps</span>
-                        <ExternalLink size={14} />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Outlet Details */}
-            <AccordionItem value="outlet">
-              <AccordionTrigger className="text-lg font-semibold">
-                Outlet Details
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Outlet Type</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.retail_type || ''}
-                          onChange={(e) => setFormData({...formData, retail_type: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter outlet type"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.retail_type || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Category</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.category || ''}
-                          onChange={(e) => setFormData({...formData, category: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter category"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.category || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Manual Credit Score - Only show when credit management is enabled and mode is manual */}
-                  {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Credit Score (Manual)</Label>
-                      <div className="flex items-center justify-between group">
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            min="0"
-                            max="10"
-                            step="0.1"
-                            value={formData.manual_credit_score || ''}
-                            onChange={(e) => setFormData({...formData, manual_credit_score: e.target.value ? parseFloat(e.target.value) : null})}
-                            className="h-8 text-sm"
-                            placeholder="Enter score (0-10)"
-                          />
-                        ) : (
-                          <span className="text-sm">{formData.manual_credit_score ? `${formData.manual_credit_score} / 10` : '-'}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Potential</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Select 
-                          value={formData.potential || ''} 
-                          onValueChange={(v) => setFormData({...formData, potential: v})}
-                        >
-                          <SelectTrigger className="h-8 text-sm">
-                            <SelectValue placeholder="Select potential" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="low">Low</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-sm capitalize">{formData.potential || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Status</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Select 
-                          value={formData.status || ''} 
-                          onValueChange={(v) => setFormData({...formData, status: v})}
-                        >
-                          <SelectTrigger className="h-8 text-sm">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-sm capitalize">{formData.status || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Parent Type</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.parent_type || ''}
-                          onChange={(e) => setFormData({...formData, parent_type: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter parent type"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.parent_type || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Parent Name</Label>
-                    <div className="flex items-center justify-between group">
-                      {isEditing ? (
-                        <Input
-                          value={formData.parent_name || ''}
-                          onChange={(e) => setFormData({...formData, parent_name: e.target.value})}
-                          className="h-8 text-sm"
-                          placeholder="Enter parent name"
-                        />
-                      ) : (
-                        <span className="text-sm">{formData.parent_name || '-'}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-
-            {/* All Invoices Section */}
-            <AccordionItem value="invoices">
-              <AccordionTrigger className="text-lg font-semibold">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  All Invoices ({invoices.length})
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4 pt-2">
+              {/* Invoices */}
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> All Invoices ({invoices.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
                   {invoicesLoading ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      Loading invoices...
-                    </div>
+                    <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
                   ) : invoices.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      No invoices found for this retailer
-                    </div>
+                    <div className="text-center py-4 text-muted-foreground text-sm">No invoices found</div>
                   ) : (
-                    <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-40 overflow-y-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Invoice #</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Amount</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
+                            <TableHead className="text-xs h-8">Invoice #</TableHead>
+                            <TableHead className="text-xs h-8">Date</TableHead>
+                            <TableHead className="text-xs h-8">Amount</TableHead>
+                            <TableHead className="text-xs h-8 text-right">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {invoices.map((invoice) => (
+                          {invoices.slice(0, 5).map((invoice) => (
                             <TableRow key={invoice.id}>
-                              <TableCell className="font-medium">
-                                {invoice.invoice_number}
-                              </TableCell>
-                              <TableCell>
-                                {new Date(invoice.created_at).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell>
-                                ₹{(invoice.total_amount || 0).toLocaleString()}
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={invoice.status === 'confirmed' ? 'default' : invoice.status === 'pending' ? 'secondary' : 'outline'}
-                                  className={cn(
-                                    invoice.status === 'confirmed' && 'bg-success text-success-foreground',
-                                    invoice.status === 'pending' && 'bg-amber-100 text-amber-800'
-                                  )}
-                                >
-                                  {invoice.status || 'pending'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-xs py-1">{invoice.invoice_number}</TableCell>
+                              <TableCell className="text-xs py-1">{format(new Date(invoice.created_at), 'dd/MM/yy')}</TableCell>
+                              <TableCell className="text-xs py-1">₹{(invoice.total_amount || 0).toLocaleString()}</TableCell>
+                              <TableCell className="text-right py-1">
                                 <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)}
-                                    disabled={downloadingInvoiceId === invoice.id}
-                                    className="h-7 px-2"
-                                    title="Download Invoice"
-                                  >
-                                    {downloadingInvoiceId === invoice.id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <Download className="h-3 w-3" />
-                                    )}
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)} disabled={downloadingInvoiceId === invoice.id}>
+                                    {downloadingInvoiceId === invoice.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleSendInvoice(invoice.id, invoice.invoice_number)}
-                                    disabled={sendingInvoiceId === invoice.id || !formData?.phone}
-                                    className="h-7 px-2"
-                                    title={formData?.phone ? "Send Invoice via WhatsApp" : "No phone number available"}
-                                  >
-                                    {sendingInvoiceId === invoice.id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <Send className="h-3 w-3" />
-                                    )}
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleSendInvoice(invoice.id, invoice.invoice_number)} disabled={sendingInvoiceId === invoice.id || !formData?.phone}>
+                                    {sendingInvoiceId === invoice.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
                                   </Button>
                                 </div>
                               </TableCell>
@@ -976,69 +797,329 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       </Table>
                     </div>
                   )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-        <div className="flex items-center justify-between gap-2 pt-4 border-t">
-          <div className="flex gap-2">
-            <Button 
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                navigate(`/order-entry?phoneOrder=true&retailerId=${formData.id}&retailer=${encodeURIComponent(formData.name)}`);
-                onClose();
-              }}
-              disabled={loading}
-              className="h-8 w-8 p-0"
-              title="Phone Order"
-            >
-              <ShoppingCart className="h-4 w-4" />
-            </Button>
+            {/* Calendar Tab */}
+            <TabsContent value="calendar" className="mt-0 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h3 className="font-semibold text-sm">{format(currentMonth, 'MMMM yyyy')}</h3>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                  <div key={day} className="text-xs font-medium text-muted-foreground py-1">{day}</div>
+                ))}
+                
+                {calendarDays.map(day => {
+                  const dateKey = format(day, 'yyyy-MM-dd');
+                  const dayVisits = visitsByDate.get(dateKey) || [];
+                  const hasVisit = dayVisits.length > 0;
+                  const todayStr = format(new Date(), 'yyyy-MM-dd');
+                  
+                  return (
+                    <button
+                      key={dateKey}
+                      onClick={() => hasVisit && setSelectedDate(dateKey)}
+                      className={cn(
+                        "p-1 rounded text-xs min-h-[50px] flex flex-col items-center transition-colors",
+                        !isSameMonth(day, currentMonth) && "text-muted-foreground/50",
+                        isToday(day) && "ring-1 ring-primary",
+                        hasVisit && "cursor-pointer hover:bg-muted",
+                        selectedDate === dateKey && "bg-muted"
+                      )}
+                    >
+                      <span className="font-medium">{format(day, 'd')}</span>
+                      {dayVisits.map((visit, i) => (
+                        <div key={i} className={cn("mt-0.5 w-full text-[10px] px-1 rounded truncate", getVisitStatusColor(visit))}>
+                          {visit.status === 'productive' ? 'P' : visit.status === 'unproductive' ? 'U' : visit.planned_date > todayStr ? 'Plan' : '-'}
+                          {ordersByVisit.get(visit.id) && <span> ₹{(ordersByVisit.get(visit.id)!.total / 1000).toFixed(1)}k</span>}
+                          {feedbacks.get(visit.id) && <span> ✓</span>}
+                        </div>
+                      ))}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected Day Details */}
+              {selectedDate && selectedDayVisits.length > 0 && (
+                <Card className="mt-3">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-sm">Visit Details - {format(new Date(selectedDate), 'dd MMM yyyy')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 space-y-3">
+                    {selectedDayVisits.map(visit => {
+                      const orderData = ordersByVisit.get(visit.id);
+                      return (
+                        <div key={visit.id} className="border rounded p-2 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge className={getVisitStatusColor(visit)}>
+                              {visit.status === 'productive' ? 'Productive' : visit.status === 'unproductive' ? 'Unproductive' : visit.planned_date > format(new Date(), 'yyyy-MM-dd') ? 'Planned' : visit.status}
+                            </Badge>
+                            {feedbacks.get(visit.id) && <Badge variant="outline" className="text-xs">Feedback ✓</Badge>}
+                          </div>
+                          {orderData && (
+                            <>
+                              <p className="text-sm font-medium">Order Value: ₹{orderData.total.toLocaleString()}</p>
+                              <div className="text-xs space-y-1">
+                                <p className="font-medium text-muted-foreground">Products:</p>
+                                {orderData.items.map((item, i) => (
+                                  <div key={i} className="flex justify-between">
+                                    <span>{item.product_name} x{item.quantity}</span>
+                                    <span>₹{item.total_price.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Charts Tab */}
+            <TabsContent value="charts" className="mt-0 space-y-4">
+              <div className="flex justify-end">
+                <Select value={chartFilter} onValueChange={(v) => setChartFilter(v as DateFilter)}>
+                  <SelectTrigger className="w-40 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="this_week">This Week</SelectItem>
+                    <SelectItem value="this_month">This Month</SelectItem>
+                    <SelectItem value="last_month">Last Month</SelectItem>
+                    <SelectItem value="this_quarter">This Quarter</SelectItem>
+                    <SelectItem value="last_quarter">Last Quarter</SelectItem>
+                    <SelectItem value="this_fy">This Financial Year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm">Revenue by Date</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 h-48">
+                  {revenueByDateData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={revenueByDateData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                        <RechartsTooltip formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']} />
+                        <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm">Revenue by Product</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 h-48">
+                  {revenueByProductData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={revenueByProductData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                        <YAxis type="category" dataKey="product" tick={{ fontSize: 9 }} width={80} />
+                        <RechartsTooltip formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']} />
+                        <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
+                          {revenueByProductData.map((_, index) => (
+                            <Cell key={index} fill={chartColors[index % chartColors.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">No data for selected period</div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Details Tab - Owner & Location */}
+            <TabsContent value="details" className="mt-0 space-y-4">
+              {/* Owner Details */}
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><User className="h-4 w-4" /> Owner Details</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Owner's Name</Label>
+                    {isEditing ? (
+                      <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="h-8 text-sm mt-1" />
+                    ) : (
+                      <p className="text-sm font-medium">{formData.name}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Owner's Number</Label>
+                    {isEditing ? (
+                      <Input value={formData.phone || ''} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="h-8 text-sm mt-1" />
+                    ) : formData.phone ? (
+                      <a href={`tel:${formData.phone}`} className="flex items-center gap-1 text-sm hover:text-primary">
+                        <Phone size={12} className="text-primary" /> {formData.phone}
+                      </a>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">-</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">GST Number</Label>
+                    {isEditing ? (
+                      <Input value={formData.gst_number || ''} onChange={(e) => setFormData({...formData, gst_number: e.target.value})} className="h-8 text-sm mt-1" />
+                    ) : (
+                      <p className="text-sm">{formData.gst_number || '-'}</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Location Details */}
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><MapPin className="h-4 w-4" /> Location Details</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 space-y-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Address</Label>
+                    {isEditing ? (
+                      <Input value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="h-8 text-sm mt-1" />
+                    ) : (
+                      <a href={getGoogleMapsLink() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address || '')}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                        {formData.address}
+                      </a>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Location Tag</Label>
+                      {isEditing ? (
+                        <Input value={formData.location_tag || ''} onChange={(e) => setFormData({...formData, location_tag: e.target.value})} className="h-8 text-sm mt-1" />
+                      ) : (
+                        <p className="text-sm">{formData.location_tag || '-'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Coordinates</Label>
+                      <p className="text-sm">{formData.latitude && formData.longitude ? `${formData.latitude}, ${formData.longitude}` : '-'}</p>
+                    </div>
+                  </div>
+                  {getGoogleMapsLink() && (
+                    <a href={getGoogleMapsLink()!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      <MapPin size={12} /> View on Google Maps <ExternalLink size={10} />
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Outlet Details */}
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><Building className="h-4 w-4" /> Outlet Details</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Outlet Type</Label>
+                    {isEditing ? (
+                      <Input value={formData.retail_type || ''} onChange={(e) => setFormData({...formData, retail_type: e.target.value})} className="h-8 text-sm mt-1" />
+                    ) : (
+                      <p className="text-sm">{formData.retail_type || '-'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Category</Label>
+                    {isEditing ? (
+                      <Input value={formData.category || ''} onChange={(e) => setFormData({...formData, category: e.target.value})} className="h-8 text-sm mt-1" />
+                    ) : (
+                      <p className="text-sm">{formData.category || '-'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Potential</Label>
+                    {isEditing ? (
+                      <Select value={formData.potential || ''} onValueChange={(v) => setFormData({...formData, potential: v})}>
+                        <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-sm capitalize">{formData.potential || '-'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Status</Label>
+                    {isEditing ? (
+                      <Select value={formData.status || ''} onValueChange={(v) => setFormData({...formData, status: v})}>
+                        <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-sm capitalize">{formData.status || '-'}</p>
+                    )}
+                  </div>
+                  {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Credit Score</Label>
+                      {isEditing ? (
+                        <Input type="number" min="0" max="10" step="0.1" value={formData.manual_credit_score || ''} onChange={(e) => setFormData({...formData, manual_credit_score: e.target.value ? parseFloat(e.target.value) : null})} className="h-8 text-sm mt-1" />
+                      ) : (
+                        <p className="text-sm">{formData.manual_credit_score ? `${formData.manual_credit_score} / 10` : '-'}</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </div>
-          <div className="flex gap-2">
-            {!isEditing ? (
-              <>
-                <Button 
-                  variant="outline"
-                  onClick={() => setIsEditing(true)}
-                  disabled={loading}
-                >
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button 
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={loading}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setFormData({ ...retailer! });
-                    setIsEditing(false);
-                  }}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSave}
-                  disabled={loading}
-                >
-                  {loading ? "Saving..." : "Save Changes"}
-                </Button>
-              </>
-            )}
-          </div>
+        </Tabs>
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-end gap-2 pt-3 border-t">
+          {!isEditing ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} disabled={loading}>
+                <Edit2 className="h-4 w-4 mr-1" /> Edit
+              </Button>
+              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={loading}>
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setFormData({ ...retailer! }); setIsEditing(false); }} disabled={loading}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={loading}>
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
