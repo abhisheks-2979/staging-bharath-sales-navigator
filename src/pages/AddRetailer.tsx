@@ -62,8 +62,9 @@ export const AddRetailer = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [capturedPhotoPreview, setCapturedPhotoPreview] = useState<string | null>(null);
   const [distributors, setDistributors] = useState<{id: string, name: string}[]>([]);
+  const [beatMappedDistributors, setBeatMappedDistributors] = useState<{id: string, name: string}[]>([]);
   const [selectedBeat, setSelectedBeat] = useState<string>('');
-  const [beats, setBeats] = useState<{beat_id: string, beat_name: string}[]>([]);
+  const [beats, setBeats] = useState<{beat_id: string, beat_name: string, id?: string}[]>([]);
   const [isScanningBoard, setIsScanningBoard] = useState(false);
   const [territories, setTerritories] = useState<{id: string, name: string, region: string}[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
@@ -77,10 +78,14 @@ export const AddRetailer = () => {
   const potentials = ["High", "Medium", "Low"];
   const [customRetailType, setCustomRetailType] = useState("");
 
-  // Load distributors from vendors table (Distributor Management)
+  // Load all distributors from distributors table
   const loadDistributors = async () => {
     if (!user) return;
-    const { data, error } = await supabase.rpc('get_public_vendors');
+    const { data, error } = await supabase
+      .from('distributors')
+      .select('id, name')
+      .eq('status', 'active')
+      .order('name');
     
     if (error) {
       console.error('Failed to load distributors:', error);
@@ -89,6 +94,54 @@ export const AddRetailer = () => {
       setDistributors(data || []);
     }
   };
+
+  // Load distributors mapped to the selected beat
+  const loadBeatMappedDistributors = async (beatId: string) => {
+    if (!beatId || beatId === 'unassigned') {
+      setBeatMappedDistributors([]);
+      return;
+    }
+    
+    try {
+      // Find the beat's UUID from beat_id
+      const beat = beats.find(b => b.beat_id === beatId);
+      if (!beat?.id) {
+        setBeatMappedDistributors([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('distributor_beat_mappings')
+        .select('distributor_id, distributors(id, name)')
+        .eq('beat_id', beat.id);
+      
+      if (error) throw error;
+      
+      const mappedDistributors = (data || [])
+        .filter(d => d.distributors)
+        .map(d => ({ id: d.distributors.id, name: d.distributors.name }));
+      
+      setBeatMappedDistributors(mappedDistributors);
+      
+      // Auto-select first distributor if available
+      if (mappedDistributors.length > 0 && !retailerData.selectedDistributors.length) {
+        handleInputChange("selectedDistributors", [mappedDistributors[0].id]);
+        handleInputChange("parentName", mappedDistributors[0].name);
+      }
+    } catch (error) {
+      console.error('Failed to load beat-mapped distributors:', error);
+      setBeatMappedDistributors([]);
+    }
+  };
+
+  // Load beat-mapped distributors when beat selection changes
+  useEffect(() => {
+    if (selectedBeat && selectedBeat !== 'unassigned') {
+      loadBeatMappedDistributors(selectedBeat);
+    } else {
+      setBeatMappedDistributors([]);
+    }
+  }, [selectedBeat, beats]);
 
   // Load beats from the beats table (online) or from cache (offline)
   const loadBeats = async () => {
@@ -1173,7 +1226,8 @@ export const AddRetailer = () => {
                     <Select 
                       value={retailerData.selectedDistributors[0] || ""} 
                       onValueChange={(value) => {
-                        const distributor = distributors.find(d => d.id === value);
+                        const allDistributors = [...beatMappedDistributors, ...distributors];
+                        const distributor = allDistributors.find(d => d.id === value);
                         handleInputChange("selectedDistributors", [value]);
                         handleInputChange("parentName", distributor?.name || "");
                       }}
@@ -1182,6 +1236,21 @@ export const AddRetailer = () => {
                         <SelectValue placeholder="Select distributor" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border z-50">
+                        {beatMappedDistributors.length > 0 && (
+                          <>
+                            <SelectItem value="header-beat" disabled className="font-semibold text-primary">
+                              Distributors for this Beat
+                            </SelectItem>
+                            {beatMappedDistributors.map((distributor) => (
+                              <SelectItem key={distributor.id} value={distributor.id}>
+                                {distributor.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="header-all" disabled className="font-semibold text-muted-foreground border-t mt-1 pt-1">
+                              All Distributors
+                            </SelectItem>
+                          </>
+                        )}
                         {distributors.length > 0 ? (
                           distributors.map((distributor) => (
                             <SelectItem key={distributor.id} value={distributor.id}>

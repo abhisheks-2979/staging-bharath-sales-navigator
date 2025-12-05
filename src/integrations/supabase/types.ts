@@ -1180,6 +1180,45 @@ export type Database = {
         }
         Relationships: []
       }
+      distributor_beat_mappings: {
+        Row: {
+          beat_id: string
+          created_at: string
+          created_by: string | null
+          distributor_id: string
+          id: string
+        }
+        Insert: {
+          beat_id: string
+          created_at?: string
+          created_by?: string | null
+          distributor_id: string
+          id?: string
+        }
+        Update: {
+          beat_id?: string
+          created_at?: string
+          created_by?: string | null
+          distributor_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_beat_mappings_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_beat_mappings_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_item_mappings: {
         Row: {
           category_id: string | null
