@@ -52,6 +52,7 @@ interface HomeDashboardData {
 
 export const useHomeDashboard = (userId: string | undefined, selectedDate: Date = new Date()) => {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [data, setData] = useState<HomeDashboardData>({
     todayData: {
       beatPlan: null,
@@ -87,6 +88,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
+    
+    // Prevent concurrent refreshes
+    if (isRefreshing) return;
+    setIsRefreshing(true);
 
     // Only show loading skeleton on initial load, not on background refreshes
     if (!hasInitiallyLoaded) {
@@ -346,18 +351,21 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           error: null
         });
         setHasInitiallyLoaded(true);
+        setIsRefreshing(false);
       } catch (networkError) {
         console.error('Network error:', networkError);
         if (!hasLoadedFromCache) {
           setData(prev => ({ ...prev, isLoading: false, error: networkError }));
         }
         setHasInitiallyLoaded(true);
+        setIsRefreshing(false);
       }
     } else {
       setData(prev => ({ ...prev, isLoading: false }));
       setHasInitiallyLoaded(true);
+      setIsRefreshing(false);
     }
-  }, [userId, dateStr, isToday]);
+  }, [userId, dateStr, isToday, isRefreshing]);
 
   const updateDashboardState = ({ todayBeatPlans, todayVisits, todayAttendance, cachedRetailers, completed }: any) => {
     const nextVisit = todayVisits.find((v: any) => !v.check_in_time) || null;
@@ -438,40 +446,22 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   useEffect(() => {
     loadDashboardData();
     
-    // Auto-refresh every 30 seconds (only for today) - matches My Visits behavior
+    // Auto-refresh every 60 seconds (only for today) - reduced frequency to prevent UI flicker
     let interval: NodeJS.Timeout | undefined;
     if (isToday) {
-      interval = setInterval(loadDashboardData, 30000);
+      interval = setInterval(loadDashboardData, 60000);
     }
     
-    // Listen for visit data changes
+    // Listen for explicit visit data changes only (not visibility/focus which cause flicker)
     const handleVisitDataChanged = () => {
       loadDashboardData();
     };
     
-    // Listen for visibility changes
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isToday) {
-        loadDashboardData();
-      }
-    };
-    
-    // Listen for window focus
-    const handleFocus = () => {
-      if (isToday) {
-        loadDashboardData();
-      }
-    };
-    
     window.addEventListener('visitDataChanged', handleVisitDataChanged);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     
     return () => {
       if (interval) clearInterval(interval);
       window.removeEventListener('visitDataChanged', handleVisitDataChanged);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
     };
   }, [loadDashboardData, isToday]);
 
