@@ -1395,12 +1395,6 @@ export const VisitCard = ({
                   {currentLog && formattedTimeSpent && ` • ${formattedTimeSpent}`}
                 </Badge>
               )}
-              {/* Show checking status when retailer has GPS but location not determined yet */}
-              {trackingLocationStatus === 'location_unavailable' && visit.retailerLat && visit.retailerLng && (
-                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
-                  📍 Checking...
-                </Badge>
-              )}
               {(!visit.retailerLat || !visit.retailerLng) && (
                 <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-muted-foreground">
                   📍 No GPS
