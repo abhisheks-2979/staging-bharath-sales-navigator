@@ -25,10 +25,11 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-gradient-subtle w-full">
       <Navbar />
-      {/* Main content area - pt-14 for navbar (h-12) + small gap */}
+      {/* Main content area - pt-14 accounts for fixed navbar (h-12 + 4px gap) */}
       <main 
         className="pt-14 pb-20" 
         style={{ 
+          paddingTop: 'calc(3.5rem + env(safe-area-inset-top))',
           paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' 
         }}
       >
