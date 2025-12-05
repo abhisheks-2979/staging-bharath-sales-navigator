@@ -545,19 +545,26 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         </>
       )}
 
-      {/* Bottom Action Buttons */}
-      {returnItems.length > 0 && (
-        <div className="flex justify-end gap-3">
-          <Button onClick={handleSaveReturns} disabled={saving} size="lg">
-            <Check className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Return'}
-          </Button>
-          <Button variant="outline" size="lg" onClick={() => toast.info('Credit Note generation coming soon')}>
-            <FileText className="h-4 w-4 mr-2" />
-            Generate Credit Note
-          </Button>
-        </div>
-      )}
+      {/* Bottom Action Buttons - Always visible */}
+      <div className="flex justify-end gap-3 pt-4">
+        <Button 
+          onClick={handleSaveReturns} 
+          disabled={saving || returnItems.length === 0} 
+          size="lg"
+        >
+          <Check className="h-4 w-4 mr-2" />
+          {saving ? 'Saving...' : 'Save Return'}
+        </Button>
+        <Button 
+          variant="outline" 
+          size="lg" 
+          disabled={returnItems.length === 0}
+          onClick={() => toast.info('Credit Note generation coming soon')}
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Generate Credit Note
+        </Button>
+      </div>
     </div>
   );
 }
