@@ -1180,6 +1180,47 @@ export type Database = {
         }
         Relationships: []
       }
+      distributor_attachments: {
+        Row: {
+          created_at: string | null
+          distributor_id: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          distributor_id?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          distributor_id?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_attachments_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_beat_mappings: {
         Row: {
           beat_id: string
@@ -1215,6 +1256,63 @@ export type Database = {
             columns: ["distributor_id"]
             isOneToOne: false
             referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributor_contacts: {
+        Row: {
+          address: string | null
+          contact_name: string
+          created_at: string | null
+          designation: string | null
+          distributor_id: string | null
+          email: string | null
+          id: string
+          is_primary: boolean | null
+          phone: string | null
+          reports_to: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          contact_name: string
+          created_at?: string | null
+          designation?: string | null
+          distributor_id?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          reports_to?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          contact_name?: string
+          created_at?: string | null
+          designation?: string | null
+          distributor_id?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          reports_to?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_contacts_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_contacts_reports_to_fkey"
+            columns: ["reports_to"]
+            isOneToOne: false
+            referencedRelation: "distributor_contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -1257,6 +1355,56 @@ export type Database = {
           },
         ]
       }
+      distributor_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_phone: string | null
+          created_at: string | null
+          distributor_id: string | null
+          id: string
+          is_head_office: boolean | null
+          location_name: string
+          pincode: string | null
+          state: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          distributor_id?: string | null
+          id?: string
+          is_head_office?: boolean | null
+          location_name: string
+          pincode?: string | null
+          state?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          distributor_id?: string | null
+          id?: string
+          is_head_office?: boolean | null
+          location_name?: string
+          pincode?: string | null
+          state?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_locations_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_retailer_mappings: {
         Row: {
           created_at: string
@@ -1289,52 +1437,88 @@ export type Database = {
       }
       distributors: {
         Row: {
+          about_business: string | null
           address: string | null
+          annual_revenue: number | null
+          assets_trucks: number | null
+          assets_vans: number | null
+          business_hunger: string | null
           contact_person: string
+          coverage_area: string | null
           created_at: string
           credit_limit: number | null
+          distributor_status: string | null
           email: string | null
+          established_year: number | null
           gst_number: string | null
           id: string
           name: string
+          other_products: string[] | null
           outstanding_amount: number | null
           parent_id: string | null
           parent_type: string | null
           phone: string
+          products_distributed: string[] | null
+          profitability: string | null
+          sales_team_size: number | null
           status: string
           territory_id: string | null
           updated_at: string
         }
         Insert: {
+          about_business?: string | null
           address?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          business_hunger?: string | null
           contact_person: string
+          coverage_area?: string | null
           created_at?: string
           credit_limit?: number | null
+          distributor_status?: string | null
           email?: string | null
+          established_year?: number | null
           gst_number?: string | null
           id?: string
           name: string
+          other_products?: string[] | null
           outstanding_amount?: number | null
           parent_id?: string | null
           parent_type?: string | null
           phone: string
+          products_distributed?: string[] | null
+          profitability?: string | null
+          sales_team_size?: number | null
           status?: string
           territory_id?: string | null
           updated_at?: string
         }
         Update: {
+          about_business?: string | null
           address?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          business_hunger?: string | null
           contact_person?: string
+          coverage_area?: string | null
           created_at?: string
           credit_limit?: number | null
+          distributor_status?: string | null
           email?: string | null
+          established_year?: number | null
           gst_number?: string | null
           id?: string
           name?: string
+          other_products?: string[] | null
           outstanding_amount?: number | null
           parent_id?: string | null
           parent_type?: string | null
           phone?: string
+          products_distributed?: string[] | null
+          profitability?: string | null
+          sales_team_size?: number | null
           status?: string
           territory_id?: string | null
           updated_at?: string
@@ -5700,6 +5884,154 @@ export type Database = {
         }
         Relationships: []
       }
+      stockist_attachments: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          stockist_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          stockist_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          stockist_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stockist_attachments_stockist_id_fkey"
+            columns: ["stockist_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stockist_contacts: {
+        Row: {
+          address: string | null
+          contact_name: string
+          created_at: string | null
+          designation: string | null
+          email: string | null
+          id: string
+          is_primary: boolean | null
+          phone: string | null
+          reports_to: string | null
+          stockist_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          contact_name: string
+          created_at?: string | null
+          designation?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          reports_to?: string | null
+          stockist_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          contact_name?: string
+          created_at?: string | null
+          designation?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          reports_to?: string | null
+          stockist_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stockist_contacts_reports_to_fkey"
+            columns: ["reports_to"]
+            isOneToOne: false
+            referencedRelation: "stockist_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stockist_contacts_stockist_id_fkey"
+            columns: ["stockist_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stockist_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_phone: string | null
+          created_at: string | null
+          id: string
+          is_head_office: boolean | null
+          location_name: string
+          pincode: string | null
+          state: string | null
+          stockist_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string
+          is_head_office?: boolean | null
+          location_name: string
+          pincode?: string | null
+          state?: string | null
+          stockist_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string
+          is_head_office?: boolean | null
+          location_name?: string
+          pincode?: string | null
+          state?: string | null
+          stockist_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stockist_locations_stockist_id_fkey"
+            columns: ["stockist_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_requests: {
         Row: {
           created_at: string
@@ -7020,51 +7352,87 @@ export type Database = {
       }
       vendors: {
         Row: {
+          about_business: string | null
+          annual_revenue: number | null
+          assets_trucks: number | null
+          assets_vans: number | null
+          business_hunger: string | null
           city: string | null
           competitors: string[] | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
+          coverage_area: string | null
           created_at: string
           created_by: string
+          established_year: number | null
           id: string
           is_approved: boolean
           name: string
+          other_products: string[] | null
+          products_distributed: string[] | null
+          profitability: string | null
           region_pincodes: string[]
+          sales_team_size: number | null
           skills: string[]
           state: string | null
+          stockist_status: string | null
           updated_at: string
         }
         Insert: {
+          about_business?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          business_hunger?: string | null
           city?: string | null
           competitors?: string[] | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          coverage_area?: string | null
           created_at?: string
           created_by: string
+          established_year?: number | null
           id?: string
           is_approved?: boolean
           name: string
+          other_products?: string[] | null
+          products_distributed?: string[] | null
+          profitability?: string | null
           region_pincodes?: string[]
+          sales_team_size?: number | null
           skills?: string[]
           state?: string | null
+          stockist_status?: string | null
           updated_at?: string
         }
         Update: {
+          about_business?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          business_hunger?: string | null
           city?: string | null
           competitors?: string[] | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          coverage_area?: string | null
           created_at?: string
           created_by?: string
+          established_year?: number | null
           id?: string
           is_approved?: boolean
           name?: string
+          other_products?: string[] | null
+          products_distributed?: string[] | null
+          profitability?: string | null
           region_pincodes?: string[]
+          sales_team_size?: number | null
           skills?: string[]
           state?: string | null
+          stockist_status?: string | null
           updated_at?: string
         }
         Relationships: []
