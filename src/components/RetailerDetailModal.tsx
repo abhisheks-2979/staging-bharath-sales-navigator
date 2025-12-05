@@ -155,6 +155,18 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [avgMonthlyRevenue6M, setAvgMonthlyRevenue6M] = useState(0);
   const [lastVisitDate, setLastVisitDate] = useState<string | null>(null);
   const [lastVisitOrderValue, setLastVisitOrderValue] = useState(0);
+  const [avgOrderPerVisit, setAvgOrderPerVisit] = useState(0);
+  const [viewingInvoice, setViewingInvoice] = useState<{ id: string; number: string } | null>(null);
+  const [invoicePreviewLoading, setInvoicePreviewLoading] = useState(false);
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
+
+  // Format number for mobile display
+  const formatCompactNumber = (num: number) => {
+    if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
+    if (num >= 100000) return `${(num / 100000).toFixed(1)}L`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toFixed(0);
+  };
 
   useEffect(() => {
     if (retailer) {
@@ -218,22 +230,6 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       if (visitsError) throw visitsError;
       setVisits(visitsData || []);
 
-      // Get last visit
-      if (visitsData && visitsData.length > 0) {
-        const lastVisit = visitsData[0];
-        setLastVisitDate(lastVisit.planned_date);
-        
-        // Get last visit order value
-        const { data: lastOrderData } = await supabase
-          .from('orders')
-          .select('total_amount')
-          .eq('visit_id', lastVisit.id)
-          .eq('status', 'confirmed')
-          .maybeSingle();
-        
-        setLastVisitOrderValue(lastOrderData?.total_amount || 0);
-      }
-
       // Load feedbacks
       const { data: feedbacksData } = await supabase
         .from('retailer_feedback')
@@ -244,25 +240,46 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       feedbacksData?.forEach((f: any) => feedbackMap.set(f.visit_id, true));
       setFeedbacks(feedbackMap);
 
-      // Load all orders for this retailer
+      // Load ALL orders for this retailer (both confirmed and delivered)
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('id, visit_id, total_amount, order_date, created_at, status')
         .eq('retailer_id', retailerId)
-        .eq('status', 'confirmed');
+        .in('status', ['confirmed', 'delivered'])
+        .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
       setAllOrders(ordersData || []);
 
-      // Calculate total lifetime value
-      const total = ordersData?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+      // Calculate total lifetime value from ALL confirmed/delivered orders
+      const total = ordersData?.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0) || 0;
       setTotalLifetimeValue(total);
 
-      // Calculate avg monthly revenue (last 6 months)
+      // Calculate avg monthly revenue (last 6 months) - get actual months with orders
       const sixMonthsAgo = subM(new Date(), 6);
       const recentOrders = ordersData?.filter(o => new Date(o.created_at) >= sixMonthsAgo) || [];
-      const recentTotal = recentOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const recentTotal = recentOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+      // Divide by 6 months
       setAvgMonthlyRevenue6M(recentTotal / 6);
+
+      // Calculate avg order per visit (from visits that had orders)
+      const totalVisits = visitsData?.length || 0;
+      const totalOrdersCount = ordersData?.length || 0;
+      setAvgOrderPerVisit(totalVisits > 0 ? totalOrdersCount / totalVisits : 0);
+
+      // Get last completed visit (productive/unproductive) and its order
+      const completedVisits = visitsData?.filter(v => v.status === 'productive' || v.status === 'unproductive') || [];
+      if (completedVisits.length > 0) {
+        const lastVisit = completedVisits[0];
+        setLastVisitDate(lastVisit.planned_date);
+        
+        // Get last visit order value
+        const lastVisitOrder = ordersData?.find(o => o.visit_id === lastVisit.id);
+        setLastVisitOrderValue(lastVisitOrder ? Number(lastVisitOrder.total_amount) || 0 : 0);
+      } else {
+        setLastVisitDate(null);
+        setLastVisitOrderValue(0);
+      }
 
       // Map orders by visit
       const orderMap = new Map<string, { total: number; items: OrderItem[] }>();
@@ -274,11 +291,11 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             .eq('order_id', order.id);
           
           orderMap.set(order.visit_id, {
-            total: order.total_amount || 0,
+            total: Number(order.total_amount) || 0,
             items: (itemsData || []).map((item: any) => ({
               product_name: item.product_name,
               quantity: item.quantity,
-              total_price: item.total || 0
+              total_price: Number(item.total) || 0
             }))
           });
         }
@@ -295,7 +312,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
         
         if (itemsData) {
           itemsData.forEach((item: any) => {
-            allItems.push({ product_name: item.product_name, quantity: item.quantity, total_price: item.total || 0, order_date: order.order_date || order.created_at });
+            allItems.push({ 
+              product_name: item.product_name, 
+              quantity: item.quantity, 
+              total_price: Number(item.total) || 0, 
+              order_date: order.order_date || order.created_at 
+            });
           });
         }
       }
@@ -304,6 +326,34 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     } catch (error) {
       console.error('Error loading visits and orders:', error);
     }
+  };
+
+  const handleViewInvoice = async (orderId: string, invoiceNumber: string) => {
+    setViewingInvoice({ id: orderId, number: invoiceNumber });
+    setInvoicePreviewLoading(true);
+    try {
+      const { blob } = await fetchAndGenerateInvoice(orderId);
+      const url = URL.createObjectURL(blob);
+      setInvoicePreviewUrl(url);
+    } catch (error: any) {
+      console.error('Error loading invoice:', error);
+      toast({
+        title: "Failed to load invoice",
+        description: error.message || "Could not load invoice preview",
+        variant: "destructive",
+      });
+      setViewingInvoice(null);
+    } finally {
+      setInvoicePreviewLoading(false);
+    }
+  };
+
+  const closeInvoicePreview = () => {
+    if (invoicePreviewUrl) {
+      URL.revokeObjectURL(invoicePreviewUrl);
+    }
+    setInvoicePreviewUrl(null);
+    setViewingInvoice(null);
   };
 
   const loadInvoices = async (retailerId: string) => {
@@ -703,52 +753,54 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           <div className="flex-1 overflow-y-auto mt-3">
             {/* Overview Tab */}
             <TabsContent value="overview" className="mt-0 space-y-4">
-              {/* Key Metrics */}
-              <div className="grid grid-cols-3 gap-3">
-                <Card className="p-3">
-                  <p className="text-xl font-bold text-primary">₹{totalLifetimeValue.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Total Lifetime Value</p>
+              {/* Key Metrics - Mobile responsive with truncation */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <Card className="p-2 sm:p-3">
+                  <p className="text-base sm:text-xl font-bold text-primary truncate" title={`₹${totalLifetimeValue.toLocaleString()}`}>
+                    <span className="sm:hidden">₹{formatCompactNumber(totalLifetimeValue)}</span>
+                    <span className="hidden sm:inline">₹{totalLifetimeValue.toLocaleString()}</span>
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Total Lifetime Value</p>
                 </Card>
-                <Card className="p-3">
-                  <p className="text-xl font-bold">₹{avgMonthlyRevenue6M.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  <p className="text-xs text-muted-foreground">Avg Monthly Revenue (6M)</p>
-                </Card>
-                <Card className="p-3">
-                  <p className="text-xl font-bold">{(formData.avg_order_per_visit_3m || 0).toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">Avg Order per Visit</p>
+                <Card className="p-2 sm:p-3">
+                  <p className="text-base sm:text-xl font-bold truncate" title={`₹${avgMonthlyRevenue6M.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}>
+                    <span className="sm:hidden">₹{formatCompactNumber(avgMonthlyRevenue6M)}</span>
+                    <span className="hidden sm:inline">₹{avgMonthlyRevenue6M.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Avg Monthly Revenue (6M)</p>
                 </Card>
               </div>
 
               {/* Last Visit Info */}
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Last Visit Date</p>
-                  <p className="text-base font-semibold">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <Card className="p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Last Visit Date</p>
+                  <p className="text-sm sm:text-base font-semibold">
                     {lastVisitDate ? format(new Date(lastVisitDate), 'dd/MM/yyyy') : 'No visits'}
                   </p>
                 </Card>
-                <Card className="p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Last Visit Order Value</p>
-                  <p className="text-base font-semibold text-primary">₹{lastVisitOrderValue.toLocaleString()}</p>
+                <Card className="p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Last Visit Order Value</p>
+                  <p className="text-sm sm:text-base font-semibold text-primary truncate" title={`₹${lastVisitOrderValue.toLocaleString()}`}>
+                    <span className="sm:hidden">₹{formatCompactNumber(lastVisitOrderValue)}</span>
+                    <span className="hidden sm:inline">₹{lastVisitOrderValue.toLocaleString()}</span>
+                  </p>
                 </Card>
               </div>
 
-              {/* Visit Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Total Visits (3M)</p>
-                  <p className="text-base font-semibold">{formData.total_visits_3m || 0}</p>
+              {/* Visit Stats & Avg Order per Visit */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <Card className="p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Avg Order/Visit</p>
+                  <p className="text-sm sm:text-base font-semibold">{avgOrderPerVisit.toFixed(2)}</p>
                 </Card>
-                <Card className="p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Productive Visits (3M)</p>
-                  <p className="text-base font-semibold">
-                    {formData.productive_visits_3m || 0}
-                    {formData.total_visits_3m && formData.total_visits_3m > 0 && (
-                      <span className="text-sm text-muted-foreground ml-2">
-                        ({((formData.productive_visits_3m || 0) / formData.total_visits_3m * 100).toFixed(0)}%)
-                      </span>
-                    )}
-                  </p>
+                <Card className="p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Total Visits</p>
+                  <p className="text-sm sm:text-base font-semibold">{visits.length}</p>
+                </Card>
+                <Card className="p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Total Orders</p>
+                  <p className="text-sm sm:text-base font-semibold">{allOrders.length}</p>
                 </Card>
               </div>
 
@@ -782,13 +834,37 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                               <TableCell className="text-xs py-1">{format(new Date(invoice.created_at), 'dd/MM/yy')}</TableCell>
                               <TableCell className="text-xs py-1">₹{(invoice.total_amount || 0).toLocaleString()}</TableCell>
                               <TableCell className="text-right py-1">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)} disabled={downloadingInvoiceId === invoice.id}>
-                                    {downloadingInvoiceId === invoice.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
-                                  </Button>
-                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleSendInvoice(invoice.id, invoice.invoice_number)} disabled={sendingInvoiceId === invoice.id || !formData?.phone}>
-                                    {sendingInvoiceId === invoice.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                                  </Button>
+                                <div className="flex items-center justify-end gap-0.5">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleViewInvoice(invoice.id, invoice.invoice_number)}>
+                                          <ExternalLink className="h-3 w-3" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>View Invoice</p></TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownloadInvoice(invoice.id, invoice.invoice_number)} disabled={downloadingInvoiceId === invoice.id}>
+                                          {downloadingInvoiceId === invoice.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>Download</p></TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleSendInvoice(invoice.id, invoice.invoice_number)} disabled={sendingInvoiceId === invoice.id || !formData?.phone}>
+                                          {sendingInvoiceId === invoice.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>Send via WhatsApp</p></TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1122,6 +1198,62 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           )}
         </div>
       </DialogContent>
+
+      {/* Invoice Preview Dialog */}
+      <Dialog open={!!viewingInvoice} onOpenChange={() => closeInvoicePreview()}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="flex items-center justify-between">
+              <span>Invoice {viewingInvoice?.number}</span>
+              <div className="flex items-center gap-2 mr-6">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => viewingInvoice && handleDownloadInvoice(viewingInvoice.id, viewingInvoice.number)}
+                  disabled={downloadingInvoiceId === viewingInvoice?.id}
+                >
+                  {downloadingInvoiceId === viewingInvoice?.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  Download
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => viewingInvoice && handleSendInvoice(viewingInvoice.id, viewingInvoice.number)}
+                  disabled={sendingInvoiceId === viewingInvoice?.id || !formData?.phone}
+                >
+                  {sendingInvoiceId === viewingInvoice?.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-1" />
+                  )}
+                  Share
+                </Button>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {invoicePreviewLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : invoicePreviewUrl ? (
+              <iframe
+                src={invoicePreviewUrl}
+                className="w-full h-[70vh] border rounded"
+                title="Invoice Preview"
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                Failed to load invoice
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
