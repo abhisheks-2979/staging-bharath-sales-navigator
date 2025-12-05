@@ -280,29 +280,22 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     if (error) {
       console.error('Error loading stock:', error);
       setTodayStock(null);
-      if (clearEntryForm) {
-        setStockItems([]);
-      }
+      setStockItems([]);
     } else {
+      // Always set todayStock with database data - this is used by modals
       setTodayStock(data);
       
-      // Only populate stockItems if there's no existing saved data OR clearEntryForm is false
-      // This keeps the entry form separate from saved stock
+      // Set KM values from database
+      setStartKm(data?.start_km || 0);
+      setEndKm(data?.end_km || 0);
+      
+      // Only clear entry form items if requested (after save)
       if (clearEntryForm) {
-        // After save, clear the entry form - saved items are in todayStock.van_stock_items
         setStockItems([]);
-        setStartKm(0);
-        setEndKm(0);
       } else if (!data?.van_stock_items || data.van_stock_items.length === 0) {
-        // No saved items, keep entry form as is or empty
         setStockItems([]);
-        setStartKm(data?.start_km || 0);
-        setEndKm(data?.end_km || 0);
-      } else {
-        // Has saved items - just update KM, don't load items into entry form
-        setStartKm(data?.start_km || 0);
-        setEndKm(data?.end_km || 0);
       }
+      // If not clearEntryForm and there are saved items, don't touch stockItems (keeps entry form as-is)
     }
   };
 
@@ -478,13 +471,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const handleExportToExcel = () => {
-    if (stockItems.length === 0) {
+    const savedItems = todayStock?.van_stock_items || [];
+    if (savedItems.length === 0) {
       toast.error('No stock items to export');
       return;
     }
 
-    // Prepare data for export
-    const exportData = stockItems.map(item => {
+    // Prepare data for export from saved items
+    const exportData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithGST = product?.rate || 0;
       // Calculate price without GST (5% GST = 2.5% CGST + 2.5% SGST)
