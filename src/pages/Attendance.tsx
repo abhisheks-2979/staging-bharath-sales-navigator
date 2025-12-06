@@ -392,10 +392,10 @@ const Attendance = () => {
         const newAttemptCount = faceVerificationAttempts + 1;
         setFaceVerificationAttempts(newAttemptCount);
         
-        if (newAttemptCount < 3) {
-          // First or second attempt failed - ask to retry
+        if (newAttemptCount < 2) {
+          // First attempt failed - ask to retry
           toast({
-            title: `Face Verification Failed (Attempt ${newAttemptCount}/2) ❌`,
+            title: `Face Verification Failed (Attempt ${newAttemptCount}/1) ❌`,
             description: `Match confidence ${Math.round(confidence)}% is below 50%. Please try again with better lighting.`,
             variant: "destructive"
           });
@@ -404,10 +404,10 @@ const Attendance = () => {
           setIsMarkingAttendance(false);
           return; // Do NOT record attendance, user can retry
         } else {
-          // 3rd attempt (after 2 failures) - allow with warning
+          // 2nd attempt - allow with warning
           toast({
             title: "Face Verification Bypassed ⚠️",
-            description: `After 2 failed attempts, attendance is allowed. Please update your profile photo if this persists.`,
+            description: `After 1 failed attempt, attendance is allowed. Please update your profile photo if this persists.`,
             variant: "default"
           });
           setFaceVerificationAttempts(0);
