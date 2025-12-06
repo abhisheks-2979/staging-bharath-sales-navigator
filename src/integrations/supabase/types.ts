@@ -5892,6 +5892,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_config: {
+        Row: {
+          account_sid: string | null
+          auth_token: string | null
+          created_at: string | null
+          from_number: string | null
+          id: string
+          is_active: boolean | null
+          provider: string
+          updated_at: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          account_sid?: string | null
+          auth_token?: string | null
+          created_at?: string | null
+          from_number?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider?: string
+          updated_at?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          account_sid?: string | null
+          auth_token?: string | null
+          created_at?: string | null
+          from_number?: string | null
+          id?: string
+          is_active?: boolean | null
+          provider?: string
+          updated_at?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
       social_comments: {
         Row: {
           content: string

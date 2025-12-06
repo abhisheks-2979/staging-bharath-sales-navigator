@@ -11,6 +11,30 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Initialize Supabase client early for database credential fetch
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  // Get SMS/Twilio config from database
+  const { data: smsConfig, error: configError } = await supabase
+    .from('sms_config')
+    .select('*')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+
+  if (configError) {
+    console.error('Error fetching SMS config:', configError);
+  }
+
+  console.log('SMS Config from database:', smsConfig ? {
+    provider: smsConfig.provider,
+    accountSid: smsConfig.account_sid ? `${smsConfig.account_sid.substring(0, 6)}...` : 'not set',
+    authToken: smsConfig.auth_token ? `${smsConfig.auth_token.substring(0, 4)}...` : 'not set',
+    fromNumber: smsConfig.from_number || 'not set'
+  } : 'No config found');
+
   // Helper to send SMS via Twilio with retry logic
   const sendSmsViaTwilio = async (
     businessName: string,
@@ -23,25 +47,26 @@ serve(async (req) => {
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
-        const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
-        const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER');
+        // Use database config first, fall back to env vars
+        const twilioAccountSid = smsConfig?.account_sid || Deno.env.get('TWILIO_ACCOUNT_SID');
+        const twilioAuthToken = smsConfig?.auth_token || Deno.env.get('TWILIO_AUTH_TOKEN');
+        const twilioFromNumber = smsConfig?.from_number || Deno.env.get('TWILIO_FROM_NUMBER');
 
-        // Debug logging - show partial credentials to verify they're correct
-        console.log('Twilio credentials check:', {
+        console.log('Using Twilio credentials:', {
+          source: smsConfig?.account_sid ? 'DATABASE' : 'ENV_VARS',
           accountSid: twilioAccountSid ? `${twilioAccountSid.substring(0, 6)}...${twilioAccountSid.substring(twilioAccountSid.length - 4)}` : 'none',
           authToken: twilioAuthToken ? `${twilioAuthToken.substring(0, 4)}...${twilioAuthToken.substring(twilioAuthToken.length - 4)}` : 'none',
           fromNumber: twilioFromNumber || 'none'
         });
 
         if (!twilioAccountSid || !twilioAuthToken || !twilioFromNumber) {
-          console.error('Twilio credentials missing');
+          console.error('Twilio credentials missing - please configure in Admin > SMS Config');
           throw new Error('Twilio credentials not configured');
         }
 
         const formatPhoneForSMS = (phone: string) => {
           const cleaned = phone.replace(/\D/g, '');
-          return cleaned.startsWith('91') ? `+${cleaned}` : `+91${cleaned}`; // E.164 with +
+          return cleaned.startsWith('91') ? `+${cleaned}` : `+91${cleaned}`;
         };
 
         const toPhone = formatPhoneForSMS(customerPhone);
@@ -52,7 +77,7 @@ serve(async (req) => {
         const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
         const formBody = new URLSearchParams({ To: toPhone, From: twilioFromNumber, Body: message });
 
-        // Create Base64 auth string using TextEncoder for proper encoding
+        // Create Base64 auth string
         const encoder = new TextEncoder();
         const credentials = `${twilioAccountSid}:${twilioAuthToken}`;
         const base64Auth = btoa(String.fromCharCode(...encoder.encode(credentials)));
@@ -70,10 +95,8 @@ serve(async (req) => {
         console.log(`Twilio SMS attempt ${attempt + 1} response:`, result);
 
         if (!response.ok) {
-          // Check if it's a trial account limitation
           if (result.code === 21608 || result.message?.includes('unverified')) {
             console.error('TWILIO TRIAL ACCOUNT: Number needs verification or account upgrade required');
-            console.error('Solution: Verify number at twilio.com/user/account/phone-numbers/verified OR upgrade to paid account');
           }
           throw new Error(result.message || 'Failed to send SMS via Twilio');
         }
@@ -100,10 +123,9 @@ serve(async (req) => {
     }
     
     console.error('All SMS attempts failed:', lastError);
-    return null; // Return null after all retries exhausted
+    return null;
   };
 
-  // Declare variables outside try-catch so they're accessible in fallback
   let invoiceId: string;
   let customerPhone: string;
   let pdfUrl: string;
@@ -123,11 +145,6 @@ serve(async (req) => {
 
     console.log('Sending invoice via WhatsApp:', { invoiceId, customerPhone, pdfUrl, invoiceNumber });
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
     // Get company config for business name
     const { data: companyConfig } = await supabase
       .from('companies')
@@ -146,17 +163,14 @@ serve(async (req) => {
       throw new Error('WhatChimp credentials not configured');
     }
 
-    // Format phone number - ensure it has country code without +
     const formatPhone = (phone: string) => {
       const cleaned = phone.replace(/\D/g, '');
-      // If doesn't start with country code, assume India (91)
       return cleaned.startsWith('91') ? cleaned : `91${cleaned}`;
     };
 
     const toPhone = formatPhone(customerPhone);
     console.log('Sending to phone:', toPhone);
 
-    // Send via WhatChimp WhatsApp API with template
     const whatchimpUrl = `https://api.whatchimp.com/v1/${whatchimpPhoneNumberId}/messages`;
 
     const whatsappPayload = {
@@ -165,33 +179,20 @@ serve(async (req) => {
       type: 'template',
       template: {
         name: templateName,
-        language: {
-          code: 'en'
-        },
+        language: { code: 'en' },
         components: [
           {
             type: 'body',
             parameters: [
-              {
-                type: 'text',
-                text: businessName
-              },
-              {
-                type: 'text',
-                text: invoiceNumber || 'N/A'
-              }
+              { type: 'text', text: businessName },
+              { type: 'text', text: invoiceNumber || 'N/A' }
             ]
           },
           {
             type: 'button',
             sub_type: 'url',
             index: '0',
-            parameters: [
-              {
-                type: 'text',
-                text: pdfUrl || ''
-              }
-            ]
+            parameters: [{ type: 'text', text: pdfUrl || '' }]
           }
         ]
       }
@@ -199,8 +200,6 @@ serve(async (req) => {
 
     console.log('WhatsApp payload:', JSON.stringify(whatsappPayload, null, 2));
 
-    // Try WhatsApp with retry logic
-    let whatsappSuccess = false;
     let whatsappRetries = 2;
     
     for (let attempt = 0; attempt <= whatsappRetries; attempt++) {
@@ -225,9 +224,7 @@ serve(async (req) => {
         }
 
         console.log('✅ WhatsApp message sent successfully:', result);
-        whatsappSuccess = true;
         
-        // Also send SMS via Twilio (primary path)
         await sendSmsViaTwilio(businessName, customerPhone, pdfUrl, invoiceNumber);
         
         return new Response(
@@ -247,7 +244,6 @@ serve(async (req) => {
           console.log(`Retrying WhatsApp in 1 second...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
-          // All WhatsApp attempts failed, throw to trigger SMS fallback
           throw whatsappError;
         }
       }
@@ -256,7 +252,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ WhatsApp failed after all retries, falling back to SMS only:', error);
 
-    // Fallback to SMS via Twilio if WhatsApp fails
     const smsResponse = await sendSmsViaTwilio(businessName, customerPhone, pdfUrl, invoiceNumber);
 
     if (smsResponse) {
@@ -264,7 +259,6 @@ serve(async (req) => {
       return smsResponse;
     }
 
-    // If SMS also fails, return detailed error
     console.error('❌ Both WhatsApp and SMS failed');
     return new Response(
       JSON.stringify({ 
@@ -272,7 +266,7 @@ serve(async (req) => {
         details: {
           whatsapp_error: (error as any).message,
           sms_status: 'failed',
-          troubleshooting: 'Check Twilio account (trial limitations) and WhatChimp API credentials'
+          troubleshooting: 'Check Twilio config in Admin Panel > SMS Config'
         }
       }),
       { 
