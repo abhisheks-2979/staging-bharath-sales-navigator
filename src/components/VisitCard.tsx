@@ -390,8 +390,10 @@ export const VisitCard = ({
             console.log('📵 No visit in DB, checking local cache...');
             try {
               const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
+              // Check multiple possible IDs for matching
+              const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
               const cachedVisit = (cachedVisits as any[])?.find((v: any) => 
-                v.retailer_id === visitRetailerId && 
+                possibleRetailerIds.includes(v.retailer_id) && 
                 v.user_id === currentUserId && 
                 v.planned_date === targetDate
               );
@@ -403,6 +405,10 @@ export const VisitCard = ({
                   const validStatus = cachedVisit.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
                   setCurrentStatus(validStatus);
                   setStatusLoadedFromDB(true);
+                  if (validStatus === 'unproductive') {
+                    setPhase('completed');
+                    setIsCheckedOut(true);
+                  }
                 }
                 if (cachedVisit.no_order_reason) {
                   setIsNoOrderMarked(true);
@@ -533,7 +539,7 @@ export const VisitCard = ({
     checkStatus();
 
     // Listen for custom events to refresh status - trigger full data reload
-    const handleStatusChange = (event: any) => {
+    const handleStatusChange = async (event: any) => {
       const myRetailerId = visit.retailerId || visit.id;
       console.log('🔔 [VisitCard] Received visitStatusChanged event:', {
         eventDetail: event.detail,
@@ -542,20 +548,34 @@ export const VisitCard = ({
       });
       
       // Match by visitId, retailerId, OR if no detail provided (global refresh)
-      const matchesVisit = event.detail?.visitId === visit.id;
-      const matchesRetailer = event.detail?.retailerId && event.detail.retailerId === myRetailerId;
+      const matchesVisit = event.detail?.visitId === visit.id || event.detail?.visitId === currentVisitId;
+      const matchesRetailer = event.detail?.retailerId && (event.detail.retailerId === myRetailerId || event.detail.retailerId === visit.id || event.detail.retailerId === visit.retailerId);
       const isGlobalRefresh = !event.detail || (!event.detail.visitId && !event.detail.retailerId);
       
       if (matchesVisit || matchesRetailer || isGlobalRefresh) {
         console.log('✅ [VisitCard] Event matches - refreshing status immediately');
-        // Refresh status immediately to show synced offline orders/no-orders
+        
+        // CRITICAL: If event has status, update immediately before DB fetch
+        if (event.detail?.status) {
+          const newStatus = event.detail.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+          console.log('📊 [VisitCard] Setting status directly from event:', newStatus);
+          setCurrentStatus(newStatus);
+          setStatusLoadedFromDB(true);
+          if (newStatus === 'unproductive') {
+            setIsNoOrderMarked(true);
+            setPhase('completed');
+            setIsCheckedOut(true);
+          }
+        }
+        
+        // Refresh status from DB to confirm
         checkStatus();
         
-        // Also refresh again after 1.5s to catch any delayed DB trigger updates
+        // Also refresh again after 1s to catch any delayed DB trigger updates
         setTimeout(() => {
           console.log('🔄 [VisitCard] Second refresh after DB trigger delay');
           checkStatus();
-        }, 1500);
+        }, 1000);
       } else {
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
       }
@@ -566,14 +586,15 @@ export const VisitCard = ({
     const handleDataChange = async () => {
       console.log('🔔 [VisitCard] Received visitDataChanged event - checking cache first');
       
-      const visitRetailerId = visit.retailerId || visit.id;
+      // Check multiple possible IDs for matching (retailerId might differ from id)
+      const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
       const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
       
       // FIRST: Check local cache (it's updated by sync before events are dispatched)
       try {
         const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
         const cachedVisit = cachedVisits.find((v: any) => 
-          v.retailer_id === visitRetailerId && 
+          possibleRetailerIds.includes(v.retailer_id) && 
           v.planned_date === targetDate
         );
         
@@ -585,6 +606,10 @@ export const VisitCard = ({
           if ((cachedVisit as any).no_order_reason) {
             setIsNoOrderMarked(true);
             setNoOrderReason((cachedVisit as any).no_order_reason);
+          }
+          if (validStatus === 'unproductive') {
+            setPhase('completed');
+            setIsCheckedOut(true);
           }
           setStatusLoadedFromDB(true);
           return; // Cache had data, no need for DB call
@@ -598,6 +623,8 @@ export const VisitCard = ({
       const currentUserId = session?.user?.id || userId;
       if (!currentUserId) return;
       
+      // Try with visit.retailerId first, then visit.id
+      const visitRetailerId = visit.retailerId || visit.id;
       const { data: visitData } = await supabase
         .from('visits')
         .select('status, no_order_reason, id')
@@ -615,6 +642,10 @@ export const VisitCard = ({
           setIsNoOrderMarked(true);
           setNoOrderReason(visitData.no_order_reason);
         }
+        if (validStatus === 'unproductive') {
+          setPhase('completed');
+          setIsCheckedOut(true);
+        }
         setStatusLoadedFromDB(true);
       }
     };
@@ -624,14 +655,15 @@ export const VisitCard = ({
       console.log('🔔 [VisitCard] Received syncComplete event - refreshing from cache first, then DB');
       setStatusLoadedFromDB(false);
       
-      const visitRetailerId = visit.retailerId || visit.id;
+      // Check multiple possible IDs for matching
+      const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
       const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
       
       // FIRST: Check local cache immediately (this is always up-to-date after sync caches the visit)
       try {
         const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
         const cachedVisit = cachedVisits.find((v: any) => 
-          v.retailer_id === visitRetailerId && 
+          possibleRetailerIds.includes(v.retailer_id) && 
           v.planned_date === targetDate
         );
         
@@ -643,6 +675,10 @@ export const VisitCard = ({
           if ((cachedVisit as any).no_order_reason) {
             setIsNoOrderMarked(true);
             setNoOrderReason((cachedVisit as any).no_order_reason);
+          }
+          if (validStatus === 'unproductive') {
+            setPhase('completed');
+            setIsCheckedOut(true);
           }
           setStatusLoadedFromDB(true);
         }
@@ -656,6 +692,7 @@ export const VisitCard = ({
         const currentUserId = session?.user?.id || userId;
         if (!currentUserId) return;
         
+        const visitRetailerId = visit.retailerId || visit.id;
         const { data: visitData } = await supabase
           .from('visits')
           .select('status, no_order_reason, id')
@@ -672,6 +709,10 @@ export const VisitCard = ({
           if (visitData.no_order_reason) {
             setIsNoOrderMarked(true);
             setNoOrderReason(visitData.no_order_reason);
+          }
+          if (validStatus === 'unproductive') {
+            setPhase('completed');
+            setIsCheckedOut(true);
           }
           setStatusLoadedFromDB(true);
         }
