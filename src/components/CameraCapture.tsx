@@ -49,7 +49,48 @@ export const CameraCapture = ({
     setPermissionDenied(false);
     
     try {
-      // Check current permission status first
+      // For PWA/Web: Directly try to get camera access which will trigger browser permission dialog
+      if (!Capacitor.isNativePlatform()) {
+        console.log('PWA mode: Requesting camera access directly...');
+        try {
+          const mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+          
+          // Permission granted, set up stream
+          setStream(mediaStream);
+          setPermissionDenied(false);
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+          }
+          
+          console.log('PWA camera permission: granted');
+          setIsCheckingPermission(false);
+          return;
+        } catch (error: any) {
+          console.error('PWA camera access error:', error);
+          
+          if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
+            setPermissionDenied(true);
+            toast.error('Camera access denied. Please enable camera permission in browser settings.');
+          } else if (error?.name === 'NotFoundError') {
+            toast.error('No camera found on this device.');
+            onClose();
+          } else {
+            toast.error('Could not access camera. Please check your device settings.');
+            onClose();
+          }
+          setIsCheckingPermission(false);
+          return;
+        }
+      }
+      
+      // Native app: Check current permission status first
       const currentStatus = await checkCameraPermission();
       
       if (currentStatus.granted) {
