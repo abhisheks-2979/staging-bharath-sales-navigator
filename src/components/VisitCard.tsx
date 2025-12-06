@@ -1403,6 +1403,10 @@ export const VisitCard = ({
             // Update local state to reflect the change immediately
             setPhase('completed');
             setIsCheckedOut(true);
+            setCurrentStatus('unproductive'); // CRITICAL: Update status immediately
+            setIsNoOrderMarked(true);
+            setNoOrderReason(reason);
+            setStatusLoadedFromDB(true); // Prevent prop override
 
             // Trigger a manual refresh of the parent component's data
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
@@ -1432,18 +1436,22 @@ export const VisitCard = ({
         }
 
         async function handleOfflineNoOrder() {
-          console.log('📵 Offline mode - queuing no-order update');
+          console.log('📵 Offline mode - queuing no-order update for retailer:', retailerId);
           
-          // Save to offline sync queue
-          await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', {
+          const syncData = {
             visitId,
             retailerId,
             userId: currentUserId,
             noOrderReason: reason,
             checkOutTime,
-            plannedDate: today
-          });
-
+            plannedDate: today,
+            timestamp: new Date().toISOString() // Add timestamp for sync
+          };
+          console.log('📵 Sync queue data:', JSON.stringify(syncData));
+          
+          // Save to offline sync queue
+          await offlineStorage.addToSyncQueue('UPDATE_VISIT_NO_ORDER', syncData);
+          console.log('✅ Added to sync queue successfully');
           // Update local visit in cache - also create if doesn't exist
           const cachedVisit = await offlineStorage.getById(STORES.VISITS, visitId);
           const visitToSave = cachedVisit ? {
@@ -1469,7 +1477,10 @@ export const VisitCard = ({
           setPhase('completed');
           setIsCheckedOut(true);
           setCurrentStatus('unproductive'); // Set status immediately
+          setIsNoOrderMarked(true);
+          setNoOrderReason(reason);
           setStatusLoadedFromDB(true); // Prevent prop override
+          console.log('✅ Local state updated to unproductive');
 
           // Trigger UI updates
           window.dispatchEvent(new CustomEvent('visitStatusChanged', {

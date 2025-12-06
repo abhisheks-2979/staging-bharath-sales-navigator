@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useConnectivity } from './useConnectivity';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
   
-  // Lock to prevent concurrent sync operations
-  const isSyncingRef = { current: false };
+  // CRITICAL: Use useRef to prevent concurrent sync operations across renders
+  const isSyncingRef = useRef(false);
 
   // Process sync queue when coming back online
   const processSyncQueue = useCallback(async () => {
