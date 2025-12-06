@@ -563,27 +563,67 @@ export const VisitCard = ({
     
     // Also listen for general visitDataChanged event (dispatched after sync completes)
     // This ALWAYS refreshes - used after offline sync to update all cards
-    const handleDataChange = () => {
-      console.log('🔔 [VisitCard] Received visitDataChanged event - refreshing all data');
-      checkStatus();
+    const handleDataChange = async () => {
+      console.log('🔔 [VisitCard] Received visitDataChanged event - directly fetching status from DB');
+      // Directly fetch and update status instead of calling checkStatus
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      if (!currentUserId) return;
       
-      // Also refresh again after 2s to catch DB trigger updates
-      setTimeout(() => {
-        console.log('🔄 [VisitCard] Second refresh after visitDataChanged');
-        checkStatus();
-      }, 2000);
+      const visitRetailerId = visit.retailerId || visit.id;
+      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      
+      const { data: visitData } = await supabase
+        .from('visits')
+        .select('status, no_order_reason, id')
+        .eq('user_id', currentUserId)
+        .eq('retailer_id', visitRetailerId)
+        .eq('planned_date', targetDate)
+        .maybeSingle();
+      
+      if (visitData) {
+        console.log('📊 [VisitCard] visitDataChanged - got status from DB:', visitData.status);
+        const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+        setCurrentStatus(validStatus);
+        setCurrentVisitId(visitData.id);
+        if (visitData.no_order_reason) {
+          setIsNoOrderMarked(true);
+          setNoOrderReason(visitData.no_order_reason);
+        }
+      }
     };
     
     // Listen for sync complete event specifically for offline sync
-    const handleSyncComplete = () => {
-      console.log('🔔 [VisitCard] Received syncComplete event - refreshing data');
-      // Reset statusLoadedFromDB so we force a fresh DB check
+    const handleSyncComplete = async () => {
+      console.log('🔔 [VisitCard] Received syncComplete event - directly fetching status from DB');
       setStatusLoadedFromDB(false);
-      checkStatus();
-      setTimeout(() => {
-        console.log('🔔 [VisitCard] Second refresh after syncComplete');
-        checkStatus();
-      }, 2000);
+      
+      // Directly fetch and update status
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      if (!currentUserId) return;
+      
+      const visitRetailerId = visit.retailerId || visit.id;
+      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      
+      const { data: visitData } = await supabase
+        .from('visits')
+        .select('status, no_order_reason, id')
+        .eq('user_id', currentUserId)
+        .eq('retailer_id', visitRetailerId)
+        .eq('planned_date', targetDate)
+        .maybeSingle();
+      
+      if (visitData) {
+        console.log('📊 [VisitCard] syncComplete - got status from DB:', visitData.status);
+        const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+        setCurrentStatus(validStatus);
+        setCurrentVisitId(visitData.id);
+        if (visitData.no_order_reason) {
+          setIsNoOrderMarked(true);
+          setNoOrderReason(visitData.no_order_reason);
+        }
+      }
     };
     
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
@@ -594,7 +634,7 @@ export const VisitCard = ({
       window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSyncComplete);
     };
-  }, [visit.id, visit.retailerId, selectedDate]);
+  }, [visit.id, visit.retailerId, selectedDate, userId]);
 
   // Set up real-time listener for orders to automatically update visit status
   useEffect(() => {
