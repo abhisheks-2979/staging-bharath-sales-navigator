@@ -681,44 +681,129 @@ export const VisitCard = ({
     });
   });
   const ensureVisit = async (userId: string, retailerId: string, date: string) => {
-    // Get the most recent visit (in case of duplicates, use the latest one)
-    const {
-      data,
-      error
-    } = await supabase.from('visits').select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time').eq('user_id', userId).eq('retailer_id', retailerId).eq('planned_date', date).order('created_at', {
-      ascending: false
-    }).limit(1).maybeSingle();
-    if (error) {
-      console.log('ensureVisit select error', error);
-    }
-    if (data) {
-      setCurrentVisitId(data.id);
-      if (data.check_in_time || (data as any).skip_check_in_time) {
-        setPhase('in-progress');
-        setIsCheckedIn(true);
+    const isOnline = navigator.onLine;
+    
+    // ONLINE MODE: Try to get from database first
+    if (isOnline) {
+      try {
+        // Get the most recent visit (in case of duplicates, use the latest one)
+        const {
+          data,
+          error
+        } = await supabase.from('visits').select('id, status, check_in_time, location_match_in, location_match_out, skip_check_in_reason, skip_check_in_time').eq('user_id', userId).eq('retailer_id', retailerId).eq('planned_date', date).order('created_at', {
+          ascending: false
+        }).limit(1).maybeSingle();
+        
+        if (error) {
+          console.log('ensureVisit select error, falling back to offline:', error);
+          // Fall through to offline mode
+        } else if (data) {
+          setCurrentVisitId(data.id);
+          if (data.check_in_time || (data as any).skip_check_in_time) {
+            setPhase('in-progress');
+            setIsCheckedIn(true);
+          }
+          if (data.location_match_in != null) setLocationMatchIn(data.location_match_in);
+          if (data.location_match_out != null) setLocationMatchOut(data.location_match_out);
+          if ((data as any).skip_check_in_reason || (data as any).skip_check_in_time) {
+            setProceedWithoutCheckIn(true);
+            setSkipCheckInReason((data as any).skip_check_in_reason || 'phone-order');
+            setIsCheckedIn(true);
+          }
+          // Cache the visit for offline use
+          await offlineStorage.save(STORES.VISITS, data);
+          return data.id;
+        } else {
+          // No visit exists, create one
+          const {
+            data: inserted,
+            error: insertError
+          } = await supabase.from('visits').insert({
+            user_id: userId,
+            retailer_id: retailerId,
+            planned_date: date
+          }).select('id').single();
+          
+          if (insertError) {
+            console.log('ensureVisit insert error, falling back to offline:', insertError);
+            // Fall through to offline mode
+          } else {
+            setCurrentVisitId(inserted.id);
+            // Cache the new visit for offline use
+            await offlineStorage.save(STORES.VISITS, { id: inserted.id, user_id: userId, retailer_id: retailerId, planned_date: date, status: 'planned' });
+            return inserted.id;
+          }
+        }
+      } catch (error) {
+        console.log('ensureVisit online error, falling back to offline:', error);
+        // Fall through to offline mode
       }
-      if (data.location_match_in != null) setLocationMatchIn(data.location_match_in);
-      if (data.location_match_out != null) setLocationMatchOut(data.location_match_out);
-      if ((data as any).skip_check_in_reason || (data as any).skip_check_in_time) {
-        setProceedWithoutCheckIn(true);
-        setSkipCheckInReason((data as any).skip_check_in_reason || 'phone-order');
-        setIsCheckedIn(true);
-      }
-      return data.id;
     }
-
-    // Only insert if no visit exists
-    const {
-      data: inserted,
-      error: insertError
-    } = await supabase.from('visits').insert({
-      user_id: userId,
-      retailer_id: retailerId,
-      planned_date: date
-    }).select('id').single();
-    if (insertError) throw insertError;
-    setCurrentVisitId(inserted.id);
-    return inserted.id;
+    
+    // OFFLINE MODE: Check local cache first
+    console.log('📵 ensureVisit - Operating in offline mode');
+    
+    try {
+      // Try to find cached visit
+      const allVisits = await offlineStorage.getAll(STORES.VISITS);
+      const cachedVisit = allVisits.find((v: any) => 
+        v.user_id === userId && 
+        v.retailer_id === retailerId && 
+        v.planned_date === date
+      ) as any;
+      
+      if (cachedVisit) {
+        console.log('📵 Found cached visit:', cachedVisit.id);
+        setCurrentVisitId(cachedVisit.id);
+        if (cachedVisit.check_in_time || cachedVisit.skip_check_in_time) {
+          setPhase('in-progress');
+          setIsCheckedIn(true);
+        }
+        if (cachedVisit.location_match_in != null) setLocationMatchIn(cachedVisit.location_match_in);
+        if (cachedVisit.location_match_out != null) setLocationMatchOut(cachedVisit.location_match_out);
+        if (cachedVisit.skip_check_in_reason || cachedVisit.skip_check_in_time) {
+          setProceedWithoutCheckIn(true);
+          setSkipCheckInReason(cachedVisit.skip_check_in_reason || 'phone-order');
+          setIsCheckedIn(true);
+        }
+        return cachedVisit.id;
+      }
+      
+      // No cached visit, create a temporary one for offline use
+      const tempVisitId = `offline_${userId}_${retailerId}_${date}_${Date.now()}`;
+      console.log('📵 Creating temporary offline visit:', tempVisitId);
+      
+      const tempVisit = {
+        id: tempVisitId,
+        user_id: userId,
+        retailer_id: retailerId,
+        planned_date: date,
+        status: 'planned',
+        created_at: new Date().toISOString(),
+        is_offline_created: true
+      };
+      
+      // Save to local cache
+      await offlineStorage.save(STORES.VISITS, tempVisit);
+      
+      // Queue for sync when back online
+      await offlineStorage.addToSyncQueue('CREATE_VISIT', {
+        user_id: userId,
+        retailer_id: retailerId,
+        planned_date: date,
+        status: 'planned',
+        visit_type: 'Regular Visit'
+      });
+      
+      setCurrentVisitId(tempVisitId);
+      return tempVisitId;
+    } catch (offlineError) {
+      console.error('📵 Offline ensureVisit error:', offlineError);
+      // Last resort: create a temp ID anyway so the flow can continue
+      const fallbackId = `temp_${Date.now()}`;
+      setCurrentVisitId(fallbackId);
+      return fallbackId;
+    }
   };
   const handlePhotoCaptured = async (photoBlob: Blob) => {
     try {
