@@ -52,10 +52,15 @@ serve(async (req) => {
         const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
         const formBody = new URLSearchParams({ To: toPhone, From: twilioFromNumber, Body: message });
 
+        // Create Base64 auth string using TextEncoder for proper encoding
+        const encoder = new TextEncoder();
+        const credentials = `${twilioAccountSid}:${twilioAuthToken}`;
+        const base64Auth = btoa(String.fromCharCode(...encoder.encode(credentials)));
+
         const response = await fetch(twilioUrl, {
           method: 'POST',
           headers: {
-            'Authorization': 'Basic ' + btoa(`${twilioAccountSid}:${twilioAuthToken}`),
+            'Authorization': `Basic ${base64Auth}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: formBody,
