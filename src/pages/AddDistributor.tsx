@@ -43,7 +43,7 @@ export default function AddDistributor() {
     region_coverage: "",
     distribution_level: "distributor",
     parent_id: "",
-    status: "initial_connect",
+    distributor_status: "initial_connect",
     partnership_status: "registered",
     onboarding_date: "",
     years_of_relationship: "",
@@ -99,7 +99,8 @@ export default function AddDistributor() {
         region_coverage: formData.region_coverage.trim() || null,
         distribution_level: formData.distribution_level,
         parent_id: formData.parent_id || null,
-        status: formData.status,
+        status: "active",
+        distributor_status: formData.distributor_status,
         partnership_status: formData.partnership_status,
         onboarding_date: formData.onboarding_date || null,
         years_of_relationship: formData.years_of_relationship ? parseInt(formData.years_of_relationship) : null,
@@ -261,8 +262,8 @@ export default function AddDistributor() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Status</Label>
-                  <Select value={formData.status} onValueChange={(v) => handleChange("status", v)}>
+                  <Label>Onboarding Status</Label>
+                  <Select value={formData.distributor_status} onValueChange={(v) => handleChange("distributor_status", v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
