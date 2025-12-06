@@ -246,12 +246,12 @@ export default function AddDistributor() {
                 </div>
                 <div>
                   <Label>Related To (Parent)</Label>
-                  <Select value={formData.parent_id} onValueChange={(v) => handleChange("parent_id", v)}>
+                  <Select value={formData.parent_id || "none"} onValueChange={(v) => handleChange("parent_id", v === "none" ? "" : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select parent" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {parentDistributors.map(d => (
                         <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
