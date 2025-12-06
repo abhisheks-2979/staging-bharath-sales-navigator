@@ -44,6 +44,17 @@ export const CameraCapture = ({
     };
   }, [isOpen, facingMode]);
 
+  // Connect stream to video element when both are available
+  useEffect(() => {
+    if (stream && videoRef.current && !isCheckingPermission) {
+      console.log('Connecting stream to video element...');
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err);
+      });
+    }
+  }, [stream, isCheckingPermission]);
+
   const checkAndRequestCamera = async () => {
     setIsCheckingPermission(true);
     setPermissionDenied(false);
@@ -61,16 +72,14 @@ export const CameraCapture = ({
             }
           });
           
-          // Permission granted, set up stream
-          setStream(mediaStream);
+          console.log('PWA camera permission: granted, stream obtained');
+          
+          // First clear the checking state so video element renders
+          setIsCheckingPermission(false);
           setPermissionDenied(false);
           
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-          }
-          
-          console.log('PWA camera permission: granted');
-          setIsCheckingPermission(false);
+          // Then set the stream - useEffect will connect it to video
+          setStream(mediaStream);
           return;
         } catch (error: any) {
           console.error('PWA camera access error:', error);
@@ -139,12 +148,14 @@ export const CameraCapture = ({
         }
       });
       
-      setStream(mediaStream);
+      console.log('Camera stream obtained');
+      
+      // Clear checking state first so video element renders
+      setIsCheckingPermission(false);
       setPermissionDenied(false);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
+      // Then set stream - useEffect will connect it to video
+      setStream(mediaStream);
     } catch (error: any) {
       console.error('Error accessing camera:', error);
       
