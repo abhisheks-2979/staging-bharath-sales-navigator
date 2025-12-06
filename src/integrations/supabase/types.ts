@@ -362,6 +362,7 @@ export type Database = {
           category: string | null
           created_at: string
           created_by: string | null
+          distributor_id: string | null
           id: string
           is_active: boolean | null
           territory_id: string | null
@@ -376,6 +377,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           created_by?: string | null
+          distributor_id?: string | null
           id?: string
           is_active?: boolean | null
           territory_id?: string | null
@@ -390,6 +392,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           created_by?: string | null
+          distributor_id?: string | null
           id?: string
           is_active?: boolean | null
           territory_id?: string | null
@@ -397,6 +400,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "beats_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "beats_territory_id_fkey"
             columns: ["territory_id"]
@@ -1260,9 +1270,133 @@ export type Database = {
           },
         ]
       }
+      distributor_business_plan_products: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          product_id: string
+          product_name: string
+          quantity_target: number | null
+          revenue_target: number | null
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          product_name: string
+          quantity_target?: number | null
+          revenue_target?: number | null
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          quantity_target?: number | null
+          revenue_target?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_business_plan_products_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_business_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributor_business_plan_retailers: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          growth_percent: number | null
+          id: string
+          last_year_revenue: number | null
+          retailer_id: string
+          retailer_name: string
+          target_revenue: number | null
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          growth_percent?: number | null
+          id?: string
+          last_year_revenue?: number | null
+          retailer_id: string
+          retailer_name: string
+          target_revenue?: number | null
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          growth_percent?: number | null
+          id?: string
+          last_year_revenue?: number | null
+          retailer_id?: string
+          retailer_name?: string
+          target_revenue?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_business_plan_retailers_business_plan_id_fkey"
+            columns: ["business_plan_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_business_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributor_business_plans: {
+        Row: {
+          coverage_target: string | null
+          created_at: string
+          distributor_id: string
+          id: string
+          notes: string | null
+          revenue_target: number | null
+          territory_target: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          coverage_target?: string | null
+          created_at?: string
+          distributor_id: string
+          id?: string
+          notes?: string | null
+          revenue_target?: number | null
+          territory_target?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          coverage_target?: string | null
+          created_at?: string
+          distributor_id?: string
+          id?: string
+          notes?: string | null
+          revenue_target?: number | null
+          territory_target?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_business_plans_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_contacts: {
         Row: {
           address: string | null
+          birth_date: string | null
           contact_name: string
           created_at: string | null
           designation: string | null
@@ -1272,10 +1406,14 @@ export type Database = {
           is_primary: boolean | null
           phone: string | null
           reports_to: string | null
+          role: string | null
           updated_at: string | null
+          years_of_experience: number | null
+          years_with_distributor: number | null
         }
         Insert: {
           address?: string | null
+          birth_date?: string | null
           contact_name: string
           created_at?: string | null
           designation?: string | null
@@ -1285,10 +1423,14 @@ export type Database = {
           is_primary?: boolean | null
           phone?: string | null
           reports_to?: string | null
+          role?: string | null
           updated_at?: string | null
+          years_of_experience?: number | null
+          years_with_distributor?: number | null
         }
         Update: {
           address?: string | null
+          birth_date?: string | null
           contact_name?: string
           created_at?: string | null
           designation?: string | null
@@ -1298,7 +1440,10 @@ export type Database = {
           is_primary?: boolean | null
           phone?: string | null
           reports_to?: string | null
+          role?: string | null
           updated_at?: string | null
+          years_of_experience?: number | null
+          years_with_distributor?: number | null
         }
         Relationships: [
           {
@@ -1443,27 +1588,41 @@ export type Database = {
           assets_trucks: number | null
           assets_vans: number | null
           business_hunger: string | null
+          competition_products: string[] | null
           contact_person: string
           coverage_area: string | null
           created_at: string
           credit_limit: number | null
+          distribution_experience_years: number | null
+          distribution_level: string | null
           distributor_status: string | null
+          drop_reason: string | null
           email: string | null
           established_year: number | null
+          evaluation_checklist: Json | null
           gst_number: string | null
           id: string
           name: string
+          network_retailers_count: number | null
+          onboarding_date: string | null
+          opportunities: string | null
           other_products: string[] | null
           outstanding_amount: number | null
           parent_id: string | null
           parent_type: string | null
+          partnership_status: string | null
           phone: string
           products_distributed: string[] | null
           profitability: string | null
+          region_coverage: string | null
           sales_team_size: number | null
           status: string
+          strength: string | null
           territory_id: string | null
+          threats: string | null
           updated_at: string
+          weakness: string | null
+          years_of_relationship: number | null
         }
         Insert: {
           about_business?: string | null
@@ -1472,27 +1631,41 @@ export type Database = {
           assets_trucks?: number | null
           assets_vans?: number | null
           business_hunger?: string | null
+          competition_products?: string[] | null
           contact_person: string
           coverage_area?: string | null
           created_at?: string
           credit_limit?: number | null
+          distribution_experience_years?: number | null
+          distribution_level?: string | null
           distributor_status?: string | null
+          drop_reason?: string | null
           email?: string | null
           established_year?: number | null
+          evaluation_checklist?: Json | null
           gst_number?: string | null
           id?: string
           name: string
+          network_retailers_count?: number | null
+          onboarding_date?: string | null
+          opportunities?: string | null
           other_products?: string[] | null
           outstanding_amount?: number | null
           parent_id?: string | null
           parent_type?: string | null
+          partnership_status?: string | null
           phone: string
           products_distributed?: string[] | null
           profitability?: string | null
+          region_coverage?: string | null
           sales_team_size?: number | null
           status?: string
+          strength?: string | null
           territory_id?: string | null
+          threats?: string | null
           updated_at?: string
+          weakness?: string | null
+          years_of_relationship?: number | null
         }
         Update: {
           about_business?: string | null
@@ -1501,27 +1674,41 @@ export type Database = {
           assets_trucks?: number | null
           assets_vans?: number | null
           business_hunger?: string | null
+          competition_products?: string[] | null
           contact_person?: string
           coverage_area?: string | null
           created_at?: string
           credit_limit?: number | null
+          distribution_experience_years?: number | null
+          distribution_level?: string | null
           distributor_status?: string | null
+          drop_reason?: string | null
           email?: string | null
           established_year?: number | null
+          evaluation_checklist?: Json | null
           gst_number?: string | null
           id?: string
           name?: string
+          network_retailers_count?: number | null
+          onboarding_date?: string | null
+          opportunities?: string | null
           other_products?: string[] | null
           outstanding_amount?: number | null
           parent_id?: string | null
           parent_type?: string | null
+          partnership_status?: string | null
           phone?: string
           products_distributed?: string[] | null
           profitability?: string | null
+          region_coverage?: string | null
           sales_team_size?: number | null
           status?: string
+          strength?: string | null
           territory_id?: string | null
+          threats?: string | null
           updated_at?: string
+          weakness?: string | null
+          years_of_relationship?: number | null
         }
         Relationships: [
           {
@@ -5395,6 +5582,7 @@ export type Database = {
           category: string | null
           competitors: string[] | null
           created_at: string
+          distributor_id: string | null
           entity_type: string
           gst_number: string | null
           id: string
@@ -5433,6 +5621,7 @@ export type Database = {
           category?: string | null
           competitors?: string[] | null
           created_at?: string
+          distributor_id?: string | null
           entity_type?: string
           gst_number?: string | null
           id?: string
@@ -5471,6 +5660,7 @@ export type Database = {
           category?: string | null
           competitors?: string[] | null
           created_at?: string
+          distributor_id?: string | null
           entity_type?: string
           gst_number?: string | null
           id?: string
@@ -5501,6 +5691,13 @@ export type Database = {
           verified?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "retailers_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "retailers_territory_id_fkey"
             columns: ["territory_id"]
