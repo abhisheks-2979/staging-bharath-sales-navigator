@@ -108,85 +108,104 @@ export function useOfflineSync() {
     
     switch (action) {
       case 'UPDATE_VISIT_NO_ORDER':
-        console.log('Syncing no-order visit update:', data);
-        const { visitId: noOrderVisitId, retailerId: noOrderRetailerId, userId: noOrderUserId, noOrderReason, checkOutTime, plannedDate } = data;
-        
-        // ALWAYS look up or create visit by retailer_id + user_id + planned_date
-        // This ensures we handle ALL cases: offline IDs, stale cached IDs, or missing visits
-        console.log('Looking for existing visit in database for:', { noOrderRetailerId, noOrderUserId, plannedDate });
-        
-        const { data: existingVisit } = await supabase
-          .from('visits')
-          .select('id')
-          .eq('retailer_id', noOrderRetailerId)
-          .eq('user_id', noOrderUserId)
-          .eq('planned_date', plannedDate)
-          .maybeSingle();
-        
-        let effectiveNoOrderVisitId: string;
-        
-        if (existingVisit) {
-          effectiveNoOrderVisitId = existingVisit.id;
-          console.log('Found existing visit:', effectiveNoOrderVisitId);
+        try {
+          console.log('📝 Syncing no-order visit update:', JSON.stringify(data));
+          const { visitId: noOrderVisitId, retailerId: noOrderRetailerId, userId: noOrderUserId, noOrderReason, checkOutTime, plannedDate, timestamp } = data;
           
-          // Update the existing visit
-          const { data: updatedVisit, error: updateError } = await supabase
-            .from('visits')
-            .update({
-              status: 'unproductive',
-              no_order_reason: noOrderReason,
-              check_out_time: checkOutTime || new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', effectiveNoOrderVisitId)
-            .select()
-            .single();
-          
-          if (updateError) throw updateError;
-          console.log('✅ Visit updated with no-order reason');
-          
-          // Cache the updated visit so loadData picks it up immediately
-          if (updatedVisit) {
-            await offlineStorage.save(STORES.VISITS, updatedVisit);
-            console.log('✅ Updated visit cached for immediate UI refresh');
+          // Validate required fields
+          if (!noOrderRetailerId || !noOrderUserId || !plannedDate) {
+            console.error('❌ Missing required fields for no-order sync:', { noOrderRetailerId, noOrderUserId, plannedDate });
+            throw new Error(`Missing required fields: retailerId=${noOrderRetailerId}, userId=${noOrderUserId}, plannedDate=${plannedDate}`);
           }
-        } else {
-          // Create new visit
-          console.log('Creating new visit for no-order...');
-          const { data: newVisit, error: createError } = await supabase
+          
+          // Use checkOutTime or timestamp as fallback
+          const effectiveCheckOutTime = checkOutTime || timestamp || new Date().toISOString();
+          
+          // ALWAYS look up or create visit by retailer_id + user_id + planned_date
+          // This ensures we handle ALL cases: offline IDs, stale cached IDs, or missing visits
+          console.log('🔍 Looking for existing visit in database for:', { noOrderRetailerId, noOrderUserId, plannedDate });
+          
+          const { data: existingVisit, error: lookupError } = await supabase
             .from('visits')
-            .insert({
-              retailer_id: noOrderRetailerId,
-              user_id: noOrderUserId,
-              planned_date: plannedDate,
-              status: 'unproductive',
-              no_order_reason: noOrderReason,
-              check_out_time: checkOutTime || new Date().toISOString(),
-              visit_type: 'Regular Visit',
-              created_at: new Date().toISOString()
-            })
-            .select()
-            .single();
+            .select('id')
+            .eq('retailer_id', noOrderRetailerId)
+            .eq('user_id', noOrderUserId)
+            .eq('planned_date', plannedDate)
+            .maybeSingle();
           
-          if (createError) throw createError;
+          if (lookupError) {
+            console.error('❌ Error looking up visit:', lookupError);
+            throw lookupError;
+          }
           
-          effectiveNoOrderVisitId = newVisit.id;
-          console.log('✅ No-order visit created successfully:', effectiveNoOrderVisitId);
+          let effectiveNoOrderVisitId: string;
           
-          // Cache the new visit
-          await offlineStorage.save(STORES.VISITS, newVisit);
-        }
-        
-        // Dispatch events to update UI
-        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-          detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive', retailerId: noOrderRetailerId }
-        }));
+          if (existingVisit) {
+            effectiveNoOrderVisitId = existingVisit.id;
+            console.log('✅ Found existing visit:', effectiveNoOrderVisitId);
+            
+            // Update the existing visit
+            const { data: updatedVisit, error: updateError } = await supabase
+              .from('visits')
+              .update({
+                status: 'unproductive',
+                no_order_reason: noOrderReason,
+                check_out_time: effectiveCheckOutTime,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', effectiveNoOrderVisitId)
+              .select()
+              .single();
+            
+            if (updateError) throw updateError;
+            console.log('✅ Visit updated with no-order reason');
+            
+            // Cache the updated visit so loadData picks it up immediately
+            if (updatedVisit) {
+              await offlineStorage.save(STORES.VISITS, updatedVisit);
+              console.log('✅ Updated visit cached for immediate UI refresh');
+            }
+          } else {
+            // Create new visit
+            console.log('📝 Creating new visit for no-order...');
+            const { data: newVisit, error: createError } = await supabase
+              .from('visits')
+              .insert({
+                retailer_id: noOrderRetailerId,
+                user_id: noOrderUserId,
+                planned_date: plannedDate,
+                status: 'unproductive',
+                no_order_reason: noOrderReason,
+                check_out_time: effectiveCheckOutTime,
+                visit_type: 'Regular Visit',
+                created_at: new Date().toISOString()
+              })
+              .select()
+              .single();
+            
+            if (createError) throw createError;
+            
+            effectiveNoOrderVisitId = newVisit.id;
+            console.log('✅ No-order visit created successfully:', effectiveNoOrderVisitId);
+            
+            // Cache the new visit
+            await offlineStorage.save(STORES.VISITS, newVisit);
+          }
+          
+          // Dispatch events to update UI
+          window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+            detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive', retailerId: noOrderRetailerId }
+          }));
         
         setTimeout(() => {
           console.log('✅ Dispatching visitDataChanged for unproductive count update');
           window.dispatchEvent(new Event('visitDataChanged'));
         }, 500);
         
+        } catch (noOrderError) {
+          console.error('❌ Error in UPDATE_VISIT_NO_ORDER:', noOrderError);
+          throw noOrderError;
+        }
         break;
         
         
