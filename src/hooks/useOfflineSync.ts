@@ -75,10 +75,17 @@ export function useOfflineSync() {
         window.dispatchEvent(new Event('syncComplete'));
         
         // Also dispatch visitDataChanged after a short delay to catch all updates
+        // Reduced from 500ms to 200ms for faster UI refresh
         setTimeout(() => {
           console.log('📢 Dispatching visitDataChanged after sync');
           window.dispatchEvent(new Event('visitDataChanged'));
-        }, 500);
+        }, 200);
+        
+        // Show toast notification for successful sync
+        toast({
+          title: "✅ Sync Complete",
+          description: `${successCount} item(s) synced successfully`,
+        });
       }
 
       // Silent sync - no automatic toasts

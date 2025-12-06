@@ -470,13 +470,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Then load new data
     loadData();
 
-    // Listen for manual refresh events with reduced delay for faster updates
+    // Listen for manual refresh events - reduced delay for faster status updates
     const handleRefresh = () => {
       console.log('🔄 visitDataChanged event received! Refreshing data for date:', selectedDate);
-      // Reduced delay for faster status updates (300ms is enough for database consistency)
+      // Reduced delay from 300ms to 100ms for faster status updates
       setTimeout(() => {
         loadData();
-      }, 300);
+      }, 100);
     };
     
     // Listen for online/offline changes to refresh data

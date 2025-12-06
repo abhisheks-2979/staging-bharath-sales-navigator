@@ -577,8 +577,13 @@ export const VisitCard = ({
     // Listen for sync complete event specifically for offline sync
     const handleSyncComplete = () => {
       console.log('🔔 [VisitCard] Received syncComplete event - refreshing data');
+      // Reset statusLoadedFromDB so we force a fresh DB check
+      setStatusLoadedFromDB(false);
       checkStatus();
-      setTimeout(() => checkStatus(), 2000);
+      setTimeout(() => {
+        console.log('🔔 [VisitCard] Second refresh after syncComplete');
+        checkStatus();
+      }, 2000);
     };
     
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
@@ -1243,7 +1248,15 @@ export const VisitCard = ({
     }
   };
   const handleNoOrderReasonSelect = async (reason: string) => {
-    console.log('Marking visit as unproductive with reason:', reason);
+    // CRITICAL: Log the retailer we're marking as unproductive to verify correct ID
+    console.log('🚫 [NoOrder] Marking visit as unproductive:', {
+      reason,
+      visitId: visit.id,
+      visitRetailerId: visit.retailerId,
+      retailerName: visit.retailerName,
+      resolvedRetailerId: visit.retailerId || visit.id
+    });
+    
     try {
       setNoOrderReason(reason);
       setIsNoOrderMarked(true);
@@ -1264,9 +1277,12 @@ export const VisitCard = ({
       // Use selectedDate if available, otherwise use today's date
       const today = selectedDate || new Date().toISOString().split('T')[0];
       const retailerId = (visit.retailerId || visit.id) as string;
+      
+      console.log('🚫 [NoOrder] Using retailerId for ensureVisit:', retailerId, 'date:', today);
+      
       const visitId = await ensureVisit(currentUserId, retailerId, today);
       setCurrentVisitId(visitId);
-        console.log('Updating visit status to unproductive for visitId:', visitId);
+      console.log('🚫 [NoOrder] ensureVisit returned visitId:', visitId);
 
         // Auto check-out when marking as no order
         const checkOutTime = new Date().toISOString();
