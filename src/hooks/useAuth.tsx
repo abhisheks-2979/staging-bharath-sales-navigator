@@ -52,8 +52,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Idle timeout: 1 hour = 3600000 ms
-  const IDLE_TIMEOUT = 3600000;
+  // Idle timeout: 2 hours = 7200000 ms
+  const IDLE_TIMEOUT = 2 * 60 * 60 * 1000;
 
   const fetchUserRole = async (userId: string): Promise<'admin' | 'user' | null> => {
     try {
@@ -127,8 +127,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const resetIdleTimer = () => {
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
-        console.log('User idle for 1 hour, logging out...');
-        toast.info('You have been logged out due to inactivity');
+        console.log('User idle for 2 hours, logging out...');
+        toast.info('You have been logged out due to 2 hours of inactivity');
         signOut();
       }, IDLE_TIMEOUT);
     };
