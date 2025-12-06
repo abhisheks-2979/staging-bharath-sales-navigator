@@ -49,6 +49,7 @@ const Attendance = () => {
   const [showStopReasonDialog, setShowStopReasonDialog] = useState(false);
   const [stopReason, setStopReason] = useState('');
   const [attendanceType, setAttendanceType] = useState<'check-in' | 'check-out' | null>(null);
+  const [faceVerificationAttempts, setFaceVerificationAttempts] = useState(0);
   const { compareImages, getMatchStatusIcon, getMatchStatusText } = useFaceMatching();
 
   // GPS Tracking for today
@@ -378,17 +379,36 @@ const Attendance = () => {
       const confidence = faceMatchResult?.confidence || 0;
       const matchStatus = confidence >= 70 ? 'match' : confidence >= 50 ? 'partial' : 'nomatch';
       
-      // BLOCK attendance if face match is below 50%
+      // BLOCK attendance if face match is below 50% - but allow after 2 failed attempts
       if (confidence < 50) {
-        toast({
-          title: "Face Verification Failed ❌",
-          description: `Match confidence ${Math.round(confidence)}% is below the required 50%. Please try again with better lighting or a clearer photo.`,
-          variant: "destructive"
-        });
-        setShowCamera(false);
-        setAttendanceType(null);
-        setIsMarkingAttendance(false);
-        return; // Do NOT record attendance
+        const newAttemptCount = faceVerificationAttempts + 1;
+        setFaceVerificationAttempts(newAttemptCount);
+        
+        if (newAttemptCount < 2) {
+          // First or second attempt failed - ask to retry
+          toast({
+            title: `Face Verification Failed (Attempt ${newAttemptCount}/2) ❌`,
+            description: `Match confidence ${Math.round(confidence)}% is below 50%. Please try again with better lighting.`,
+            variant: "destructive"
+          });
+          setShowCamera(false);
+          setAttendanceType(null);
+          setIsMarkingAttendance(false);
+          return; // Do NOT record attendance, user can retry
+        } else {
+          // 3rd attempt (after 2 failures) - allow with warning
+          toast({
+            title: "Face Verification Bypassed ⚠️",
+            description: `After 2 failed attempts, attendance allowed with ${Math.round(confidence)}% match. Please update your profile photo if this persists.`,
+            variant: "default"
+          });
+          // Reset attempts counter for next attendance
+          setFaceVerificationAttempts(0);
+          // Continue to record attendance below
+        }
+      } else {
+        // Successful match - reset attempts counter
+        setFaceVerificationAttempts(0);
       }
       
       const statusMessage = confidence >= 70 
