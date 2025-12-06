@@ -6,15 +6,29 @@ import { supabase } from '@/integrations/supabase/client';
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
+  
+  // Lock to prevent concurrent sync operations
+  const isSyncingRef = { current: false };
 
   // Process sync queue when coming back online
   const processSyncQueue = useCallback(async () => {
     if (connectivityStatus !== 'online') return;
+    
+    // Prevent concurrent sync operations
+    if (isSyncingRef.current) {
+      console.log('⏳ Sync already in progress, skipping...');
+      return;
+    }
+    
+    isSyncingRef.current = true;
 
     try {
       const syncQueue = await offlineStorage.getSyncQueue();
       
-      if (syncQueue.length === 0) return;
+      if (syncQueue.length === 0) {
+        isSyncingRef.current = false;
+        return;
+      }
       
       console.log(`🔄 Processing ${syncQueue.length} queued sync items`);
 
@@ -99,6 +113,9 @@ export function useOfflineSync() {
     } catch (error) {
       console.error('❌ Error processing sync queue:', error);
       // Silent error - user can check via sync modal
+    } finally {
+      // Always release the lock
+      isSyncingRef.current = false;
     }
   }, [connectivityStatus]);
 
