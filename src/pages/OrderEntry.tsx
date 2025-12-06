@@ -144,27 +144,33 @@ export const OrderEntry = () => {
   // Fetch and set user ID on component mount
   useEffect(() => {
     const fetchUserId = async () => {
+      // First try to get from localStorage cache (instant, works offline)
+      const cachedUserId = localStorage.getItem('cached_user_id');
+      if (cachedUserId) {
+        setUserId(cachedUserId);
+        console.log('✅ User ID set from cache:', cachedUserId);
+      }
+      
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserId(user.id);
-          console.log('✅ User ID set:', user.id);
-        } else {
-          // Try to get from cached user in localStorage for offline support
-          const cachedUserId = localStorage.getItem('cached_user_id');
-          if (cachedUserId) {
-            setUserId(cachedUserId);
-            console.log('✅ User ID set from cache:', cachedUserId);
+        // Use getSession() instead of getUser() - reads from localStorage cache, works offline
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUserId(session.user.id);
+          console.log('✅ User ID set from session:', session.user.id);
+          // Update cache
+          localStorage.setItem('cached_user_id', session.user.id);
+        } else if (!cachedUserId) {
+          // No session and no cache - try getUser as last resort
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            setUserId(user.id);
+            localStorage.setItem('cached_user_id', user.id);
+            console.log('✅ User ID set from getUser:', user.id);
           }
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
-        // Fallback to cached user ID
-        const cachedUserId = localStorage.getItem('cached_user_id');
-        if (cachedUserId) {
-          setUserId(cachedUserId);
-          console.log('✅ User ID set from cache (fallback):', cachedUserId);
-        }
+        console.log('Error fetching user session (may be offline):', error);
+        // Already set from cache above, so this is fine
       }
     };
     

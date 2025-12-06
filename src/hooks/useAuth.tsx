@@ -189,8 +189,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Cache auth state for offline use
         if (session?.user) {
           localStorage.setItem('cached_user', JSON.stringify(session.user));
+          localStorage.setItem('cached_user_id', session.user.id);
         } else {
           localStorage.removeItem('cached_user');
+          localStorage.removeItem('cached_user_id');
           localStorage.removeItem('cached_role');
           localStorage.removeItem('cached_profile');
         }
@@ -236,6 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (session?.user) {
         localStorage.setItem('cached_user', JSON.stringify(session.user));
+        localStorage.setItem('cached_user_id', session.user.id);
         
         try {
           const role = await fetchUserRole(session.user.id);
