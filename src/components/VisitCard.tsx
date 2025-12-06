@@ -503,18 +503,19 @@ export const VisitCard = ({
 
     // Listen for custom events to refresh status - trigger full data reload
     const handleStatusChange = (event: any) => {
+      const myRetailerId = visit.retailerId || visit.id;
       console.log('🔔 [VisitCard] Received visitStatusChanged event:', {
         eventDetail: event.detail,
         currentVisitId: visit.id,
-        currentRetailerId: visit.retailerId || visit.id,
-        matches: event.detail.visitId === visit.id || event.detail.retailerId === (visit.retailerId || visit.id)
+        currentRetailerId: myRetailerId
       });
       
-      // Match by either visitId or retailerId to catch all sync scenarios
-      const matchesVisit = event.detail.visitId === visit.id;
-      const matchesRetailer = event.detail.retailerId && event.detail.retailerId === (visit.retailerId || visit.id);
+      // Match by visitId, retailerId, OR if no detail provided (global refresh)
+      const matchesVisit = event.detail?.visitId === visit.id;
+      const matchesRetailer = event.detail?.retailerId && event.detail.retailerId === myRetailerId;
+      const isGlobalRefresh = !event.detail || (!event.detail.visitId && !event.detail.retailerId);
       
-      if (matchesVisit || matchesRetailer) {
+      if (matchesVisit || matchesRetailer || isGlobalRefresh) {
         console.log('✅ [VisitCard] Event matches - refreshing status immediately');
         // Refresh status immediately to show synced offline orders/no-orders
         checkStatus();
@@ -530,6 +531,7 @@ export const VisitCard = ({
     };
     
     // Also listen for general visitDataChanged event (dispatched after sync completes)
+    // This ALWAYS refreshes - used after offline sync to update all cards
     const handleDataChange = () => {
       console.log('🔔 [VisitCard] Received visitDataChanged event - refreshing all data');
       checkStatus();
@@ -541,11 +543,20 @@ export const VisitCard = ({
       }, 2000);
     };
     
+    // Listen for sync complete event specifically for offline sync
+    const handleSyncComplete = () => {
+      console.log('🔔 [VisitCard] Received syncComplete event - refreshing data');
+      checkStatus();
+      setTimeout(() => checkStatus(), 2000);
+    };
+    
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
     window.addEventListener('visitDataChanged', handleDataChange);
+    window.addEventListener('syncComplete', handleSyncComplete);
     return () => {
       window.removeEventListener('visitStatusChanged', handleStatusChange as EventListener);
       window.removeEventListener('visitDataChanged', handleDataChange);
+      window.removeEventListener('syncComplete', handleSyncComplete);
     };
   }, [visit.id, visit.retailerId, selectedDate]);
 
