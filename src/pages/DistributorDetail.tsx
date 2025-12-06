@@ -150,13 +150,12 @@ export default function DistributorDetail() {
     if (!distributor) return;
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
       await moveToRecycleBin({
         tableName: 'distributors',
         recordId: distributor.id,
         recordData: distributor,
-        deleted_by: user?.id || ''
+        moduleName: 'Distributors',
+        recordName: distributor.name
       });
 
       const { error } = await supabase
