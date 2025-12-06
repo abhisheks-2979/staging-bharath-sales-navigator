@@ -27,14 +27,10 @@ serve(async (req) => {
         const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
         const twilioFromNumber = Deno.env.get('TWILIO_FROM_NUMBER');
 
-        // Debug logging - show if credentials are present (not their values)
+        // Debug logging - show partial credentials to verify they're correct
         console.log('Twilio credentials check:', {
-          hasAccountSid: !!twilioAccountSid,
-          accountSidLength: twilioAccountSid?.length || 0,
-          accountSidPrefix: twilioAccountSid?.substring(0, 2) || 'none',
-          hasAuthToken: !!twilioAuthToken,
-          authTokenLength: twilioAuthToken?.length || 0,
-          hasFromNumber: !!twilioFromNumber,
+          accountSid: twilioAccountSid ? `${twilioAccountSid.substring(0, 6)}...${twilioAccountSid.substring(twilioAccountSid.length - 4)}` : 'none',
+          authToken: twilioAuthToken ? `${twilioAuthToken.substring(0, 4)}...${twilioAuthToken.substring(twilioAuthToken.length - 4)}` : 'none',
           fromNumber: twilioFromNumber || 'none'
         });
 
