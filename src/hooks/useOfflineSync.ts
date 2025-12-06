@@ -69,6 +69,18 @@ export function useOfflineSync() {
         }
       }
 
+      // Dispatch sync complete event to refresh all VisitCards
+      if (successCount > 0) {
+        console.log('📢 Dispatching syncComplete event to refresh UI');
+        window.dispatchEvent(new Event('syncComplete'));
+        
+        // Also dispatch visitDataChanged after a short delay to catch all updates
+        setTimeout(() => {
+          console.log('📢 Dispatching visitDataChanged after sync');
+          window.dispatchEvent(new Event('visitDataChanged'));
+        }, 500);
+      }
+
       // Silent sync - no automatic toasts
       // Users can check sync progress via the sync icon/modal
       if (successCount > 0 && failCount === 0) {
