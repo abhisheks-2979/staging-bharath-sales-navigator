@@ -130,7 +130,7 @@ export function useOfflineSync() {
           console.log('Found existing visit:', effectiveNoOrderVisitId);
           
           // Update the existing visit
-          const { error: updateError } = await supabase
+          const { data: updatedVisit, error: updateError } = await supabase
             .from('visits')
             .update({
               status: 'unproductive',
@@ -138,10 +138,18 @@ export function useOfflineSync() {
               check_out_time: checkOutTime || new Date().toISOString(),
               updated_at: new Date().toISOString()
             })
-            .eq('id', effectiveNoOrderVisitId);
+            .eq('id', effectiveNoOrderVisitId)
+            .select()
+            .single();
           
           if (updateError) throw updateError;
           console.log('✅ Visit updated with no-order reason');
+          
+          // Cache the updated visit so loadData picks it up immediately
+          if (updatedVisit) {
+            await offlineStorage.save(STORES.VISITS, updatedVisit);
+            console.log('✅ Updated visit cached for immediate UI refresh');
+          }
         } else {
           // Create new visit
           console.log('Creating new visit for no-order...');
