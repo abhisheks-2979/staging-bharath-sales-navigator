@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 
 type Status = 'unknown' | 'online' | 'offline';
 
-export function useConnectivity(pollMs = 30000, startupDelayMs = 5000) {
+export function useConnectivity(pollMs = 10000, startupDelayMs = 1000) {
   // Start with browser's connectivity state for instant feedback
   const [status, setStatus] = useState<Status>(navigator.onLine ? 'online' : 'offline');
   const timer = useRef<number | null>(null);
@@ -19,7 +19,7 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 5000) {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout (faster)
       
       const res = await fetch('/ping.txt', { 
         method: 'HEAD', 
@@ -46,25 +46,24 @@ export function useConnectivity(pollMs = 30000, startupDelayMs = 5000) {
   };
 
   useEffect(() => {
-    // Delay initial probe to let app load from cache first
+    // Shorter delay for faster startup - 1 second instead of 5
     timer.current = window.setTimeout(() => {
       probe();
-      // Start regular polling after first check
+      // Start regular polling after first check - 10 seconds instead of 30
       poller.current = window.setInterval(probe, pollMs);
     }, startupDelayMs);
 
-    // Browser connectivity events
+    // Browser connectivity events - respond IMMEDIATELY
     const onOnline = () => {
-      console.log('Browser online event');
-      // Verify with actual network request
+      console.log('🌐 Browser online event - checking immediately');
+      // Set online immediately, then verify
+      setStatus('online');
       probe();
     };
     
     const onOffline = () => {
-      console.log('Browser offline event');
-      // Don't immediately set offline - browser events can be unreliable
-      // Let the next probe determine actual status
-      probe();
+      console.log('📴 Browser offline event - setting offline');
+      setStatus('offline');
     };
 
     window.addEventListener('online', onOnline);
