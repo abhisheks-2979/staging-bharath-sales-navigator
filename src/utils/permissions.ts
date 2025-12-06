@@ -1,14 +1,100 @@
-import { Camera } from '@capacitor/camera';
+import { Camera, CameraResultType } from '@capacitor/camera';
 import { Geolocation } from '@capacitor/geolocation';
 import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
+export type PermissionResult = {
+  granted: boolean;
+  denied: boolean;
+  canAskAgain: boolean;
+};
+
+/**
+ * Open the app settings page on the device
+ */
+export const openAppSettings = async (): Promise<void> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      // Dynamic import to avoid issues in web
+      const { NativeSettings, AndroidSettings, IOSSettings } = await import('capacitor-native-settings');
+      
+      if (Capacitor.getPlatform() === 'android') {
+        await NativeSettings.openAndroid({
+          option: AndroidSettings.ApplicationDetails,
+        });
+      } else if (Capacitor.getPlatform() === 'ios') {
+        await NativeSettings.openIOS({
+          option: IOSSettings.App,
+        });
+      }
+    } else {
+      // Web: Show a message that user needs to enable in browser settings
+      console.log('Please enable permissions in your browser settings');
+    }
+  } catch (error) {
+    console.error('Error opening app settings:', error);
+  }
+};
+
+/**
+ * Check camera permission status
+ */
+export const checkCameraPermission = async (): Promise<PermissionResult> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const result = await Camera.checkPermissions();
+      const status = result.camera;
+      
+      return {
+        granted: status === 'granted',
+        denied: status === 'denied',
+        canAskAgain: status === 'prompt' || status === 'prompt-with-rationale',
+      };
+    } else {
+      // Web: Check via Permissions API
+      if (navigator.permissions) {
+        try {
+          const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          return {
+            granted: status.state === 'granted',
+            denied: status.state === 'denied',
+            canAskAgain: status.state === 'prompt',
+          };
+        } catch {
+          return { granted: false, denied: false, canAskAgain: true };
+        }
+      }
+      return { granted: false, denied: false, canAskAgain: true };
+    }
+  } catch (error) {
+    console.error('Error checking camera permission:', error);
+    return { granted: false, denied: false, canAskAgain: true };
+  }
+};
+
 /**
  * Request camera permission (works in both web and native)
+ * Returns detailed result about permission status
  */
 export const requestCameraPermission = async (): Promise<boolean> => {
   try {
+    // First check current status
+    const currentStatus = await checkCameraPermission();
+    
+    // If already granted, return true
+    if (currentStatus.granted) {
+      console.log('Camera permission already granted');
+      return true;
+    }
+    
+    // If denied and can't ask again (permanently denied), we need to redirect to settings
+    if (currentStatus.denied && !currentStatus.canAskAgain) {
+      console.log('Camera permission permanently denied - user must enable in settings');
+      return false;
+    }
+    
     if (Capacitor.isNativePlatform()) {
+      // Request permission - this will show native Android/iOS dialog
       const result = await Camera.requestPermissions();
       const granted = result.camera === 'granted';
       console.log('Native camera permission:', granted ? 'granted' : 'denied');
@@ -36,10 +122,112 @@ export const requestCameraPermission = async (): Promise<boolean> => {
 };
 
 /**
+ * Request camera permission with detailed result
+ */
+export const requestCameraPermissionWithDetails = async (): Promise<PermissionResult> => {
+  try {
+    // First check current status
+    const currentStatus = await checkCameraPermission();
+    
+    // If already granted, return immediately
+    if (currentStatus.granted) {
+      return { granted: true, denied: false, canAskAgain: false };
+    }
+    
+    // If permanently denied, return denied
+    if (currentStatus.denied && !currentStatus.canAskAgain) {
+      return { granted: false, denied: true, canAskAgain: false };
+    }
+    
+    if (Capacitor.isNativePlatform()) {
+      const result = await Camera.requestPermissions();
+      const granted = result.camera === 'granted';
+      const denied = result.camera === 'denied';
+      
+      // After requesting, check if we can ask again
+      const newStatus = await checkCameraPermission();
+      
+      return {
+        granted,
+        denied,
+        canAskAgain: newStatus.canAskAgain,
+      };
+    } else {
+      // Web
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user' },
+          audio: false 
+        });
+        stream.getTracks().forEach(track => track.stop());
+        return { granted: true, denied: false, canAskAgain: false };
+      } catch (error: any) {
+        const isDenied = error?.name === 'NotAllowedError';
+        return { 
+          granted: false, 
+          denied: isDenied, 
+          canAskAgain: !isDenied 
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error requesting camera permission:', error);
+    return { granted: false, denied: false, canAskAgain: true };
+  }
+};
+
+/**
+ * Check location permission status
+ */
+export const checkLocationPermission = async (): Promise<PermissionResult> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const result = await Geolocation.checkPermissions();
+      const status = result.location;
+      
+      return {
+        granted: status === 'granted',
+        denied: status === 'denied',
+        canAskAgain: status === 'prompt' || status === 'prompt-with-rationale',
+      };
+    } else {
+      if (navigator.permissions) {
+        try {
+          const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          return {
+            granted: status.state === 'granted',
+            denied: status.state === 'denied',
+            canAskAgain: status.state === 'prompt',
+          };
+        } catch {
+          return { granted: false, denied: false, canAskAgain: true };
+        }
+      }
+      return { granted: false, denied: false, canAskAgain: true };
+    }
+  } catch (error) {
+    console.error('Error checking location permission:', error);
+    return { granted: false, denied: false, canAskAgain: true };
+  }
+};
+
+/**
  * Request location permission (works in both web and native)
  */
 export const requestLocationPermission = async (): Promise<boolean> => {
   try {
+    const currentStatus = await checkLocationPermission();
+    
+    if (currentStatus.granted) {
+      console.log('Location permission already granted');
+      return true;
+    }
+    
+    if (currentStatus.denied && !currentStatus.canAskAgain) {
+      console.log('Location permission permanently denied');
+      return false;
+    }
+    
     if (Capacitor.isNativePlatform()) {
       const result = await Geolocation.requestPermissions();
       const granted = result.location === 'granted';
@@ -74,11 +262,100 @@ export const requestLocationPermission = async (): Promise<boolean> => {
 };
 
 /**
+ * Request location permission with detailed result
+ */
+export const requestLocationPermissionWithDetails = async (): Promise<PermissionResult> => {
+  try {
+    const currentStatus = await checkLocationPermission();
+    
+    if (currentStatus.granted) {
+      return { granted: true, denied: false, canAskAgain: false };
+    }
+    
+    if (currentStatus.denied && !currentStatus.canAskAgain) {
+      return { granted: false, denied: true, canAskAgain: false };
+    }
+    
+    if (Capacitor.isNativePlatform()) {
+      const result = await Geolocation.requestPermissions();
+      const granted = result.location === 'granted';
+      const denied = result.location === 'denied';
+      const newStatus = await checkLocationPermission();
+      
+      return {
+        granted,
+        denied,
+        canAskAgain: newStatus.canAskAgain,
+      };
+    } else {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ granted: false, denied: false, canAskAgain: true });
+          return;
+        }
+        
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            resolve({ granted: true, denied: false, canAskAgain: false });
+          },
+          (error) => {
+            const isDenied = error.code === error.PERMISSION_DENIED;
+            resolve({ 
+              granted: false, 
+              denied: isDenied, 
+              canAskAgain: !isDenied 
+            });
+          },
+          { timeout: 10000 }
+        );
+      });
+    }
+  } catch (error) {
+    console.error('Error requesting location permission:', error);
+    return { granted: false, denied: false, canAskAgain: true };
+  }
+};
+
+/**
+ * Check storage permission status
+ */
+export const checkStoragePermission = async (): Promise<PermissionResult> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const result = await Filesystem.checkPermissions();
+      const status = result.publicStorage;
+      
+      return {
+        granted: status === 'granted',
+        denied: status === 'denied',
+        canAskAgain: status === 'prompt' || status === 'prompt-with-rationale',
+      };
+    } else {
+      // Web always has storage
+      return { granted: true, denied: false, canAskAgain: false };
+    }
+  } catch (error) {
+    console.error('Error checking storage permission:', error);
+    return { granted: true, denied: false, canAskAgain: false };
+  }
+};
+
+/**
  * Request storage permission (native only, web always has storage)
  */
 export const requestStoragePermission = async (): Promise<boolean> => {
   try {
     if (Capacitor.isNativePlatform()) {
+      const currentStatus = await checkStoragePermission();
+      
+      if (currentStatus.granted) {
+        return true;
+      }
+      
+      if (currentStatus.denied && !currentStatus.canAskAgain) {
+        return false;
+      }
+      
       const result = await Filesystem.requestPermissions();
       const granted = result.publicStorage === 'granted';
       console.log('Native storage permission:', granted ? 'granted' : 'denied');

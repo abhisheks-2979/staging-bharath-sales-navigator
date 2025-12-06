@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Camera, X, RotateCw } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Camera, X, RotateCw, Settings, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { requestCameraPermissionWithDetails, openAppSettings, checkCameraPermission } from '@/utils/permissions';
+import { Capacitor } from '@capacitor/core';
 
 interface CameraCaptureProps {
   isOpen: boolean;
@@ -23,14 +26,17 @@ export const CameraCapture = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [isCheckingPermission, setIsCheckingPermission] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      startCamera();
+      checkAndRequestCamera();
     } else {
       stopCamera();
+      setPermissionDenied(false);
     }
 
     return () => {
@@ -38,23 +44,52 @@ export const CameraCapture = ({
     };
   }, [isOpen, facingMode]);
 
-  const startCamera = async () => {
+  const checkAndRequestCamera = async () => {
+    setIsCheckingPermission(true);
+    setPermissionDenied(false);
+    
     try {
-      // Request camera permission before starting
-      try {
-        const { requestCameraPermission } = await import('@/utils/permissions');
-        const granted = await requestCameraPermission();
-        
-        if (!granted) {
-          toast.error('Camera permission is required to take photos');
-          onClose();
-          return;
-        }
-      } catch (permError) {
-        console.error('Permission check error:', permError);
-        // Continue anyway in case permissions are already granted
+      // Check current permission status first
+      const currentStatus = await checkCameraPermission();
+      
+      if (currentStatus.granted) {
+        // Permission already granted, start camera
+        await startCamera();
+        return;
       }
       
+      if (currentStatus.denied && !currentStatus.canAskAgain) {
+        // Permanently denied - show settings redirect
+        setPermissionDenied(true);
+        setIsCheckingPermission(false);
+        return;
+      }
+      
+      // Request permission - this will show native Android/iOS dialog
+      const result = await requestCameraPermissionWithDetails();
+      
+      if (result.granted) {
+        await startCamera();
+      } else if (result.denied && !result.canAskAgain) {
+        // Permission permanently denied
+        setPermissionDenied(true);
+        toast.error('Camera permission denied. Please enable it in app settings.');
+      } else {
+        // Permission denied but can ask again
+        toast.error('Camera permission is required to take photos');
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error checking camera permission:', error);
+      // Try to start camera anyway
+      await startCamera();
+    } finally {
+      setIsCheckingPermission(false);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode,
@@ -64,13 +99,22 @@ export const CameraCapture = ({
       });
       
       setStream(mediaStream);
+      setPermissionDenied(false);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error accessing camera:', error);
-      toast.error('Could not access camera. Please grant camera permission.');
-      onClose();
+      
+      // Check if it's a permission error
+      if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
+        setPermissionDenied(true);
+        toast.error('Camera access denied. Please enable camera permission in settings.');
+      } else {
+        toast.error('Could not access camera. Please check your device.');
+        onClose();
+      }
     }
   };
 
@@ -87,6 +131,16 @@ export const CameraCapture = ({
   const toggleCamera = () => {
     stopCamera();
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const handleOpenSettings = async () => {
+    await openAppSettings();
+    toast.info('Please enable camera permission in settings, then come back to the app.');
+  };
+
+  const handleRetryPermission = async () => {
+    setPermissionDenied(false);
+    await checkAndRequestCamera();
   };
 
   const capturePhoto = () => {
@@ -163,8 +217,70 @@ export const CameraCapture = ({
     }
     setCapturedImage(null);
     setCapturedBlob(null);
+    setPermissionDenied(false);
     onClose();
   };
+
+  // Render permission denied view
+  if (permissionDenied) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Camera Permission Required
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Permission Denied</AlertTitle>
+              <AlertDescription>
+                Camera access has been denied. To use this feature, please enable camera permission in your device settings.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              {Capacitor.isNativePlatform() && (
+                <Button 
+                  onClick={handleOpenSettings}
+                  className="w-full gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Open App Settings
+                </Button>
+              )}
+              
+              <Button 
+                variant="outline"
+                onClick={handleRetryPermission}
+                className="w-full gap-2"
+              >
+                <Camera className="h-4 w-4" />
+                Try Again
+              </Button>
+              
+              <Button 
+                variant="ghost"
+                onClick={handleClose}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground text-center">
+              {Capacitor.isNativePlatform() 
+                ? 'Tap "Open App Settings" to go to settings and enable camera permission for this app.'
+                : 'Please check your browser settings to enable camera access for this website.'}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -175,79 +291,91 @@ export const CameraCapture = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Camera View */}
-          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-            {!capturedImage ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                <canvas ref={canvasRef} className="hidden" />
-                
-                {/* Camera overlay guide */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-64 h-64 border-4 border-primary/50 rounded-full" />
-                </div>
-              </>
-            ) : (
-              <img 
-                src={capturedImage} 
-                alt="Captured" 
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
+          {isCheckingPermission ? (
+            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Checking camera permission...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Camera View */}
+              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+                {!capturedImage ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                    <canvas ref={canvasRef} className="hidden" />
+                    
+                    {/* Camera overlay guide */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-64 h-64 border-4 border-primary/50 rounded-full" />
+                    </div>
+                  </>
+                ) : (
+                  <img 
+                    src={capturedImage} 
+                    alt="Captured" 
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
 
-          {/* Controls */}
-          <div className="flex justify-center gap-2">
-            {!capturedImage ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={toggleCamera}
-                >
-                  <RotateCw className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="gap-2"
-                >
-                  <Camera className="h-4 w-4" />
-                  Capture Photo
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleClose}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={retake}
-                >
-                  Retake
-                </Button>
-                <Button
-                  type="button"
-                  onClick={confirmCapture}
-                >
-                  Use This Photo
-                </Button>
-              </>
-            )}
-          </div>
+              {/* Controls */}
+              <div className="flex justify-center gap-2">
+                {!capturedImage ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={toggleCamera}
+                    >
+                      <RotateCw className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="gap-2"
+                      disabled={!stream}
+                    >
+                      <Camera className="h-4 w-4" />
+                      Capture Photo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleClose}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={retake}
+                    >
+                      Retake
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={confirmCapture}
+                    >
+                      Use This Photo
+                    </Button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
