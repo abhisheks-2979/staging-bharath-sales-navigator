@@ -25,7 +25,7 @@ export const CameraCapture = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [isCheckingPermission, setIsCheckingPermission] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,19 +60,28 @@ export const CameraCapture = ({
     setPermissionDenied(false);
     
     try {
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('MediaDevices API not available');
+        toast.error('Camera not supported on this device/browser.');
+        setIsCheckingPermission(false);
+        onClose();
+        return;
+      }
+
       // For PWA/Web: Directly try to get camera access which will trigger browser permission dialog
       if (!Capacitor.isNativePlatform()) {
-        console.log('PWA mode: Requesting camera access directly...');
+        console.log('PWA mode: Requesting camera access directly with facingMode:', facingMode);
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({
             video: {
-              facingMode,
+              facingMode: { ideal: facingMode },
               width: { ideal: 1280 },
               height: { ideal: 720 }
             }
           });
           
-          console.log('PWA camera permission: granted, stream obtained');
+          console.log('PWA camera permission: granted, stream obtained with tracks:', mediaStream.getVideoTracks().length);
           
           // First clear the checking state so video element renders
           setIsCheckingPermission(false);
@@ -82,14 +91,31 @@ export const CameraCapture = ({
           setStream(mediaStream);
           return;
         } catch (error: any) {
-          console.error('PWA camera access error:', error);
+          console.error('PWA camera access error:', error?.name, error?.message);
           
           if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
             setPermissionDenied(true);
             toast.error('Camera access denied. Please enable camera permission in browser settings.');
-          } else if (error?.name === 'NotFoundError') {
+          } else if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
             toast.error('No camera found on this device.');
             onClose();
+          } else if (error?.name === 'NotReadableError' || error?.name === 'TrackStartError') {
+            toast.error('Camera is in use by another application.');
+            onClose();
+          } else if (error?.name === 'OverconstrainedError') {
+            // Try again with less constraints
+            console.log('Retrying with basic video constraints...');
+            try {
+              const basicStream = await navigator.mediaDevices.getUserMedia({ video: true });
+              setIsCheckingPermission(false);
+              setPermissionDenied(false);
+              setStream(basicStream);
+              return;
+            } catch (retryError) {
+              console.error('Basic camera access also failed:', retryError);
+              toast.error('Could not access camera.');
+              onClose();
+            }
           } else {
             toast.error('Could not access camera. Please check your device settings.');
             onClose();
@@ -140,15 +166,16 @@ export const CameraCapture = ({
 
   const startCamera = async () => {
     try {
+      console.log('Starting camera with facingMode:', facingMode);
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode,
+          facingMode: { ideal: facingMode },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         }
       });
       
-      console.log('Camera stream obtained');
+      console.log('Camera stream obtained with', mediaStream.getVideoTracks().length, 'video tracks');
       
       // Clear checking state first so video element renders
       setIsCheckingPermission(false);
