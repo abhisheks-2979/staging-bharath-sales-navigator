@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Camera, MapPin, HardDrive, Check, X, AlertCircle } from 'lucide-react';
-import { requestAllPermissions, markPermissionsRequested, type PermissionStatus } from '@/utils/permissionManager';
+import { Camera, MapPin, HardDrive, Check, X, AlertCircle, Settings } from 'lucide-react';
+import { requestAllPermissions, openAppSettings } from '@/utils/permissions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Capacitor } from '@capacitor/core';
 
 interface PermissionRequestModalProps {
   open: boolean;
   onComplete: () => void;
+}
+
+interface PermissionStatus {
+  camera: boolean;
+  location: boolean;
+  storage: boolean;
 }
 
 export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestModalProps) => {
@@ -19,10 +26,12 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
     setIsRequesting(true);
     
     try {
+      // This will trigger native Android/iOS permission dialogs
       const status = await requestAllPermissions();
       setPermissionStatus(status);
       setShowResults(true);
-      markPermissionsRequested();
+      // Mark that we've asked for permissions
+      localStorage.setItem('permissions_requested', 'true');
     } catch (error) {
       console.error('Error requesting permissions:', error);
     } finally {
@@ -35,14 +44,24 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
   };
 
   const handleSkip = () => {
-    markPermissionsRequested();
+    localStorage.setItem('permissions_requested', 'true');
     onComplete();
+  };
+
+  const handleOpenSettings = async () => {
+    await openAppSettings();
   };
 
   const allGranted = permissionStatus && 
     permissionStatus.camera && 
     permissionStatus.location && 
     permissionStatus.storage;
+
+  const anyDenied = permissionStatus && (
+    !permissionStatus.camera || 
+    !permissionStatus.location || 
+    !permissionStatus.storage
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleSkip}>
@@ -60,7 +79,7 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
               <PermissionItem
                 icon={Camera}
                 title="Camera"
-                description="Take photos of visits, products, and attendance"
+                description="Take photos for attendance and visit check-ins"
               />
               <PermissionItem
                 icon={MapPin}
@@ -70,8 +89,12 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
               <PermissionItem
                 icon={HardDrive}
                 title="Storage"
-                description="Store data locally for offline access"
+                description="Store data locally for offline access and sync"
               />
+              
+              <div className="text-xs text-muted-foreground text-center pt-2">
+                You'll see native permission dialogs from your device. Tap "Allow" on each to enable all features.
+              </div>
             </>
           ) : (
             <>
@@ -91,12 +114,21 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
                 granted={permissionStatus?.storage || false}
               />
 
-              {!allGranted && (
+              {anyDenied && (
                 <Alert variant="destructive" className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Some permissions were denied. You can still use the app, but some features may not work properly. 
-                    You can change permissions later in your device settings.
+                    Some permissions were denied. You can still use the app, but some features may not work. 
+                    {Capacitor.isNativePlatform() && ' Tap "Open Settings" to enable them manually.'}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {allGranted && (
+                <Alert className="mt-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 dark:text-green-200">
+                    All permissions granted! You're all set to use the app.
                   </AlertDescription>
                 </Alert>
               )}
@@ -122,9 +154,21 @@ export const PermissionRequestModal = ({ open, onComplete }: PermissionRequestMo
               </Button>
             </>
           ) : (
-            <Button onClick={handleContinue} className="w-full">
-              Continue to App
-            </Button>
+            <>
+              {anyDenied && Capacitor.isNativePlatform() && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleOpenSettings}
+                  className="gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Open Settings
+                </Button>
+              )}
+              <Button onClick={handleContinue} className="flex-1">
+                Continue to App
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>
@@ -162,7 +206,7 @@ const PermissionResult = ({
   granted: boolean; 
 }) => (
   <div className="flex items-center gap-3">
-    <div className={`p-2 rounded-lg ${granted ? 'bg-green-100' : 'bg-red-100'}`}>
+    <div className={`p-2 rounded-lg ${granted ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'}`}>
       <Icon className={`h-5 w-5 ${granted ? 'text-green-600' : 'text-red-600'}`} />
     </div>
     <div className="flex-1">
