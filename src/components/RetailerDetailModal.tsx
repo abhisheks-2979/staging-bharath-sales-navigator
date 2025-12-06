@@ -1138,11 +1138,77 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <p className="text-sm">{formData.latitude && formData.longitude ? `${formData.latitude}, ${formData.longitude}` : '-'}</p>
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Beat</Label>
+                      {isEditing ? (
+                        <Select value={formData.beat_id || 'unassigned'} onValueChange={(v) => setFormData({...formData, beat_id: v === 'unassigned' ? '' : v})}>
+                          <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select beat" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {beats.map((beat) => (
+                              <SelectItem key={beat.beat_id} value={beat.beat_id}>{beat.beat_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm">{beats.find(b => b.beat_id === formData.beat_id)?.beat_name || '-'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Territory</Label>
+                      {isEditing ? (
+                        <Select value={formData.territory_id || 'none'} onValueChange={(v) => setFormData({...formData, territory_id: v === 'none' ? null : v})}>
+                          <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select territory" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {territories.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm">{territories.find(t => t.id === formData.territory_id)?.name || '-'}</p>
+                      )}
+                    </div>
+                  </div>
                   {getGoogleMapsLink() && (
                     <a href={getGoogleMapsLink()!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                       <MapPin size={12} /> View on Google Maps <ExternalLink size={10} />
                     </a>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Distributor Mapping */}
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><Building className="h-4 w-4" /> Distributor Mapping</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Parent Type</Label>
+                    {isEditing ? (
+                      <Select value={formData.parent_type || 'Distributor'} onValueChange={(v) => setFormData({...formData, parent_type: v})}>
+                        <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Company">Company</SelectItem>
+                          <SelectItem value="Super Stockist">Super Stockist</SelectItem>
+                          <SelectItem value="Distributor">Distributor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-sm">{formData.parent_type || '-'}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Parent Name / Distributor</Label>
+                    {isEditing ? (
+                      <Input value={formData.parent_name || ''} onChange={(e) => setFormData({...formData, parent_name: e.target.value})} className="h-8 text-sm mt-1" placeholder="Distributor name" />
+                    ) : (
+                      <p className="text-sm">{formData.parent_name || associatedDistributor || '-'}</p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1155,7 +1221,20 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div>
                     <Label className="text-xs text-muted-foreground">Outlet Type</Label>
                     {isEditing ? (
-                      <Input value={formData.retail_type || ''} onChange={(e) => setFormData({...formData, retail_type: e.target.value})} className="h-8 text-sm mt-1" />
+                      <Select value={formData.retail_type || 'none'} onValueChange={(v) => setFormData({...formData, retail_type: v === 'none' ? null : v})}>
+                        <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="Grocery Store">Grocery Store</SelectItem>
+                          <SelectItem value="Supermarket">Supermarket</SelectItem>
+                          <SelectItem value="Convenience Store">Convenience Store</SelectItem>
+                          <SelectItem value="Provision Store">Provision Store</SelectItem>
+                          <SelectItem value="General Store">General Store</SelectItem>
+                          <SelectItem value="Milk Parlour">Milk Parlour</SelectItem>
+                          <SelectItem value="Hotel">Hotel</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     ) : (
                       <p className="text-sm">{formData.retail_type || '-'}</p>
                     )}
@@ -1163,7 +1242,15 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div>
                     <Label className="text-xs text-muted-foreground">Category</Label>
                     {isEditing ? (
-                      <Input value={formData.category || ''} onChange={(e) => setFormData({...formData, category: e.target.value})} className="h-8 text-sm mt-1" />
+                      <Select value={formData.category || 'none'} onValueChange={(v) => setFormData({...formData, category: v === 'none' ? null : v})}>
+                        <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select category" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="Category A">Category A</SelectItem>
+                          <SelectItem value="Category B">Category B</SelectItem>
+                          <SelectItem value="Category C">Category C</SelectItem>
+                        </SelectContent>
+                      </Select>
                     ) : (
                       <p className="text-sm">{formData.category || '-'}</p>
                     )}
@@ -1171,12 +1258,13 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div>
                     <Label className="text-xs text-muted-foreground">Potential</Label>
                     {isEditing ? (
-                      <Select value={formData.potential || ''} onValueChange={(v) => setFormData({...formData, potential: v})}>
+                      <Select value={formData.potential || 'none'} onValueChange={(v) => setFormData({...formData, potential: v === 'none' ? null : v})}>
                         <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="Low">Low</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -1186,7 +1274,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                   <div>
                     <Label className="text-xs text-muted-foreground">Status</Label>
                     {isEditing ? (
-                      <Select value={formData.status || ''} onValueChange={(v) => setFormData({...formData, status: v})}>
+                      <Select value={formData.status || 'active'} onValueChange={(v) => setFormData({...formData, status: v})}>
                         <SelectTrigger className="h-8 text-sm mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="active">Active</SelectItem>
@@ -1206,6 +1294,25 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                         <p className="text-sm">{formData.manual_credit_score ? `${formData.manual_credit_score} / 10` : '-'}</p>
                       )}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Notes */}
+              <Card>
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm flex items-center gap-2"><User className="h-4 w-4" /> Notes</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3">
+                  {isEditing ? (
+                    <textarea 
+                      value={formData.notes || ''} 
+                      onChange={(e) => setFormData({...formData, notes: e.target.value})} 
+                      className="w-full h-20 text-sm p-2 border rounded-md resize-none bg-background" 
+                      placeholder="Add notes about this retailer..."
+                    />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{formData.notes || 'No notes added'}</p>
                   )}
                 </CardContent>
               </Card>
