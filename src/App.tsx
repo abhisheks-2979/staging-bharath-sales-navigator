@@ -87,6 +87,10 @@ import MyTargets from "./pages/MyTargets";
 import TeamTargets from "./pages/TeamTargets";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
 import JointSalesAnalytics from "./pages/JointSalesAnalytics";
+import DistributorMaster from "./pages/DistributorMaster";
+import AddDistributor from "./pages/AddDistributor";
+import DistributorDetail from "./pages/DistributorDetail";
+import EditDistributor from "./pages/EditDistributor";
 
 // Institutional Sales pages
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
@@ -282,6 +286,12 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/institutional-sales/invoices" element={<ProtectedRoute><InstitutionalInvoices /></ProtectedRoute>} />
               <Route path="/institutional-sales/price-books" element={<ProtectedRoute><PriceBooks /></ProtectedRoute>} />
               <Route path="/institutional-sales/collections" element={<ProtectedRoute><Collections /></ProtectedRoute>} />
+              
+              {/* Distributor Routes */}
+              <Route path="/distributor-master" element={<ProtectedRoute><DistributorMaster /></ProtectedRoute>} />
+              <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
+              <Route path="/distributor/:id" element={<ProtectedRoute><DistributorDetail /></ProtectedRoute>} />
+              <Route path="/edit-distributor/:id" element={<ProtectedRoute><EditDistributor /></ProtectedRoute>} />
               
               {/* Recycle Bin Routes */}
               <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
