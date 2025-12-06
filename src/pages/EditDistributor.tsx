@@ -45,7 +45,7 @@ export default function EditDistributor() {
     region_coverage: "",
     distribution_level: "distributor",
     parent_id: "",
-    status: "initial_connect",
+    distributor_status: "initial_connect",
     partnership_status: "registered",
     onboarding_date: "",
     years_of_relationship: "",
@@ -93,7 +93,7 @@ export default function EditDistributor() {
         region_coverage: data.region_coverage || "",
         distribution_level: data.distribution_level || "distributor",
         parent_id: data.parent_id || "",
-        status: data.status || "initial_connect",
+        distributor_status: data.distributor_status || "initial_connect",
         partnership_status: data.partnership_status || "registered",
         onboarding_date: data.onboarding_date || "",
         years_of_relationship: data.years_of_relationship?.toString() || "",
@@ -154,7 +154,7 @@ export default function EditDistributor() {
         region_coverage: formData.region_coverage.trim() || null,
         distribution_level: formData.distribution_level,
         parent_id: formData.parent_id || null,
-        status: formData.status,
+        distributor_status: formData.distributor_status,
         partnership_status: formData.partnership_status,
         onboarding_date: formData.onboarding_date || null,
         years_of_relationship: formData.years_of_relationship ? parseInt(formData.years_of_relationship) : null,
@@ -166,7 +166,7 @@ export default function EditDistributor() {
         opportunities: formData.opportunities.trim() || null,
         threats: formData.threats.trim() || null,
         about_business: formData.about_business.trim() || null,
-        drop_reason: formData.status === 'drop' ? formData.drop_reason.trim() : null,
+        drop_reason: formData.distributor_status === 'drop' ? formData.drop_reason.trim() : null,
       };
 
       const { error } = await supabase
@@ -327,8 +327,8 @@ export default function EditDistributor() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Status</Label>
-                  <Select value={formData.status} onValueChange={(v) => handleChange("status", v)}>
+                  <Label>Onboarding Status</Label>
+                  <Select value={formData.distributor_status} onValueChange={(v) => handleChange("distributor_status", v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -360,7 +360,7 @@ export default function EditDistributor() {
                 </div>
               </div>
 
-              {formData.status === 'drop' && (
+              {formData.distributor_status === 'drop' && (
                 <div>
                   <Label htmlFor="drop_reason">Reason for Drop</Label>
                   <Textarea
