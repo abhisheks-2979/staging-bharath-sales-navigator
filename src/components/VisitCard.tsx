@@ -385,6 +385,37 @@ export const VisitCard = ({
             } else if (visitData.check_out_time) {
               setPhase('completed');
             }
+          } else {
+            // No visit in database - check local cache for offline-created visits
+            console.log('📵 No visit in DB, checking local cache...');
+            try {
+              const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
+              const cachedVisit = (cachedVisits as any[])?.find((v: any) => 
+                v.retailer_id === visitRetailerId && 
+                v.user_id === currentUserId && 
+                v.planned_date === targetDate
+              );
+              
+              if (cachedVisit) {
+                console.log('📦 Found cached visit:', cachedVisit);
+                setCurrentVisitId(cachedVisit.id);
+                if (cachedVisit.status) {
+                  const validStatus = cachedVisit.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+                  setCurrentStatus(validStatus);
+                  setStatusLoadedFromDB(true);
+                }
+                if (cachedVisit.no_order_reason) {
+                  setIsNoOrderMarked(true);
+                  setNoOrderReason(cachedVisit.no_order_reason);
+                }
+                if (cachedVisit.check_out_time) {
+                  setPhase('completed');
+                  setIsCheckedOut(true);
+                }
+              }
+            } catch (cacheError) {
+              console.log('Cache check error:', cacheError);
+            }
           }
 
             // Check stock records - @ts-ignore to bypass TypeScript deep type inference issue
@@ -1305,21 +1336,32 @@ export const VisitCard = ({
             plannedDate: today
           });
 
-          // Update local visit in cache
+          // Update local visit in cache - also create if doesn't exist
           const cachedVisit = await offlineStorage.getById(STORES.VISITS, visitId);
-          if (cachedVisit) {
-            await offlineStorage.save(STORES.VISITS, {
-              ...(cachedVisit as any),
-              status: 'unproductive',
-              no_order_reason: reason,
-              check_out_time: checkOutTime,
-              updated_at: new Date().toISOString()
-            });
-          }
+          const visitToSave = cachedVisit ? {
+            ...(cachedVisit as any),
+            status: 'unproductive',
+            no_order_reason: reason,
+            check_out_time: checkOutTime,
+            updated_at: new Date().toISOString()
+          } : {
+            id: visitId,
+            retailer_id: retailerId,
+            user_id: currentUserId,
+            planned_date: today,
+            status: 'unproductive',
+            no_order_reason: reason,
+            check_out_time: checkOutTime,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          await offlineStorage.save(STORES.VISITS, visitToSave);
 
-          // Update local state
+          // CRITICAL: Update local state IMMEDIATELY for UI to reflect change
           setPhase('completed');
           setIsCheckedOut(true);
+          setCurrentStatus('unproductive'); // Set status immediately
+          setStatusLoadedFromDB(true); // Prevent prop override
 
           // Trigger UI updates
           window.dispatchEvent(new CustomEvent('visitStatusChanged', {
