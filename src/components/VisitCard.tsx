@@ -564,14 +564,39 @@ export const VisitCard = ({
     // Also listen for general visitDataChanged event (dispatched after sync completes)
     // This ALWAYS refreshes - used after offline sync to update all cards
     const handleDataChange = async () => {
-      console.log('🔔 [VisitCard] Received visitDataChanged event - directly fetching status from DB');
-      // Directly fetch and update status instead of calling checkStatus
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
-      if (!currentUserId) return;
+      console.log('🔔 [VisitCard] Received visitDataChanged event - checking cache first');
       
       const visitRetailerId = visit.retailerId || visit.id;
       const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      
+      // FIRST: Check local cache (it's updated by sync before events are dispatched)
+      try {
+        const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
+        const cachedVisit = cachedVisits.find((v: any) => 
+          v.retailer_id === visitRetailerId && 
+          v.planned_date === targetDate
+        );
+        
+        if (cachedVisit && (cachedVisit as any).status) {
+          console.log('📊 [VisitCard] visitDataChanged - got status from CACHE:', (cachedVisit as any).status);
+          const validStatus = (cachedVisit as any).status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+          setCurrentStatus(validStatus);
+          setCurrentVisitId((cachedVisit as any).id);
+          if ((cachedVisit as any).no_order_reason) {
+            setIsNoOrderMarked(true);
+            setNoOrderReason((cachedVisit as any).no_order_reason);
+          }
+          setStatusLoadedFromDB(true);
+          return; // Cache had data, no need for DB call
+        }
+      } catch (cacheError) {
+        console.log('⚠️ [VisitCard] Cache read failed, falling back to DB:', cacheError);
+      }
+      
+      // FALLBACK: Fetch from DB if cache didn't have the visit
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      if (!currentUserId) return;
       
       const { data: visitData } = await supabase
         .from('visits')
@@ -590,40 +615,67 @@ export const VisitCard = ({
           setIsNoOrderMarked(true);
           setNoOrderReason(visitData.no_order_reason);
         }
+        setStatusLoadedFromDB(true);
       }
     };
     
     // Listen for sync complete event specifically for offline sync
     const handleSyncComplete = async () => {
-      console.log('🔔 [VisitCard] Received syncComplete event - directly fetching status from DB');
+      console.log('🔔 [VisitCard] Received syncComplete event - refreshing from cache first, then DB');
       setStatusLoadedFromDB(false);
-      
-      // Directly fetch and update status
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
-      if (!currentUserId) return;
       
       const visitRetailerId = visit.retailerId || visit.id;
       const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
       
-      const { data: visitData } = await supabase
-        .from('visits')
-        .select('status, no_order_reason, id')
-        .eq('user_id', currentUserId)
-        .eq('retailer_id', visitRetailerId)
-        .eq('planned_date', targetDate)
-        .maybeSingle();
-      
-      if (visitData) {
-        console.log('📊 [VisitCard] syncComplete - got status from DB:', visitData.status);
-        const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
-        setCurrentStatus(validStatus);
-        setCurrentVisitId(visitData.id);
-        if (visitData.no_order_reason) {
-          setIsNoOrderMarked(true);
-          setNoOrderReason(visitData.no_order_reason);
+      // FIRST: Check local cache immediately (this is always up-to-date after sync caches the visit)
+      try {
+        const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
+        const cachedVisit = cachedVisits.find((v: any) => 
+          v.retailer_id === visitRetailerId && 
+          v.planned_date === targetDate
+        );
+        
+        if (cachedVisit && (cachedVisit as any).status) {
+          console.log('📊 [VisitCard] syncComplete - got status from CACHE:', (cachedVisit as any).status);
+          const validStatus = (cachedVisit as any).status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+          setCurrentStatus(validStatus);
+          setCurrentVisitId((cachedVisit as any).id);
+          if ((cachedVisit as any).no_order_reason) {
+            setIsNoOrderMarked(true);
+            setNoOrderReason((cachedVisit as any).no_order_reason);
+          }
+          setStatusLoadedFromDB(true);
         }
+      } catch (cacheError) {
+        console.log('⚠️ [VisitCard] Cache read failed, falling back to DB:', cacheError);
       }
+      
+      // THEN: Also fetch from DB (for consistency and to catch any additional updates)
+      setTimeout(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id || userId;
+        if (!currentUserId) return;
+        
+        const { data: visitData } = await supabase
+          .from('visits')
+          .select('status, no_order_reason, id')
+          .eq('user_id', currentUserId)
+          .eq('retailer_id', visitRetailerId)
+          .eq('planned_date', targetDate)
+          .maybeSingle();
+        
+        if (visitData) {
+          console.log('📊 [VisitCard] syncComplete - got status from DB:', visitData.status);
+          const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+          setCurrentStatus(validStatus);
+          setCurrentVisitId(visitData.id);
+          if (visitData.no_order_reason) {
+            setIsNoOrderMarked(true);
+            setNoOrderReason(visitData.no_order_reason);
+          }
+          setStatusLoadedFromDB(true);
+        }
+      }, 300);
     };
     
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
