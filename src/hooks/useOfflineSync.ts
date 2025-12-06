@@ -94,9 +94,13 @@ export function useOfflineSync() {
         
         let effectiveNoOrderVisitId = noOrderVisitId;
         
-        // If no visit ID was stored, try to find or create the visit
-        if (!effectiveNoOrderVisitId) {
-          console.log('No visit ID in queue, looking for existing visit...');
+        // Check if visit ID is an offline-created temp ID (not a real database ID)
+        const isOfflineCreatedVisit = !effectiveNoOrderVisitId || 
+          effectiveNoOrderVisitId.startsWith('offline_') || 
+          effectiveNoOrderVisitId.startsWith('temp_');
+        
+        if (isOfflineCreatedVisit) {
+          console.log('Offline-created or missing visit ID, looking for existing visit in database...');
           const { data: existingVisit } = await supabase
             .from('visits')
             .select('id')
@@ -119,6 +123,7 @@ export function useOfflineSync() {
                 planned_date: plannedDate,
                 status: 'unproductive',
                 no_order_reason: noOrderReason,
+                check_out_time: checkOutTime || new Date().toISOString(),
                 visit_type: 'Regular Visit',
                 created_at: new Date().toISOString()
               })
@@ -132,6 +137,20 @@ export function useOfflineSync() {
             
             // Cache the new visit
             await offlineStorage.save(STORES.VISITS, newVisit);
+            
+            // No need to update, we just created it with the right status
+            // Dispatch events and exit early
+            window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+              detail: { visitId: effectiveNoOrderVisitId, status: 'unproductive', retailerId: noOrderRetailerId }
+            }));
+            
+            setTimeout(() => {
+              console.log('✅ Dispatching visitDataChanged for unproductive count update');
+              window.dispatchEvent(new Event('visitDataChanged'));
+            }, 1000);
+            
+            console.log('✅ No-order visit created successfully');
+            break;
           }
         }
         
@@ -159,7 +178,7 @@ export function useOfflineSync() {
         setTimeout(() => {
           console.log('✅ Dispatching visitDataChanged for unproductive count update');
           window.dispatchEvent(new Event('visitDataChanged'));
-        }, 1000); // Increased delay to ensure database update completes
+        }, 1000);
         
         break;
         
