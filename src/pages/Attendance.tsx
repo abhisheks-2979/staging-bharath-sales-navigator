@@ -366,7 +366,11 @@ const Attendance = () => {
         }
       );
 
-      // Handle face match error OR low confidence the same way (count as failed attempt)
+      // Handle face match error - check if it's a credit/payment error
+      const isCreditError = faceMatchError?.message?.includes('402') || 
+                            faceMatchError?.message?.includes('credit') ||
+                            faceMatchError?.message?.includes('payment');
+      
       const confidence = faceMatchError ? 0 : (faceMatchResult?.confidence || 0);
       const matchStatus = confidence >= 70 ? 'match' : confidence >= 50 ? 'partial' : 'nomatch';
       
@@ -374,20 +378,25 @@ const Attendance = () => {
         console.error('Face verification error:', faceMatchError);
       }
       
-      // BLOCK attendance if face match is below 50% - but allow after 2 failed attempts
-      if (confidence < 50) {
+      // If credit/service error, bypass verification completely and proceed with attendance
+      if (isCreditError || faceMatchError) {
+        console.log('Face verification service unavailable, bypassing verification...');
+        toast({
+          title: "Face Verification Unavailable ⚠️",
+          description: "Face photo captured. Verification service unavailable, proceeding with attendance.",
+          variant: "default"
+        });
+        setFaceVerificationAttempts(0);
+        // Continue to record attendance below without blocking
+      } else if (confidence < 50) {
         const newAttemptCount = faceVerificationAttempts + 1;
         setFaceVerificationAttempts(newAttemptCount);
         
         if (newAttemptCount < 3) {
           // First or second attempt failed - ask to retry
-          const errorMessage = faceMatchError 
-            ? "Face verification service error. Please try again." 
-            : `Match confidence ${Math.round(confidence)}% is below 50%. Please try again with better lighting.`;
-          
           toast({
             title: `Face Verification Failed (Attempt ${newAttemptCount}/2) ❌`,
-            description: errorMessage,
+            description: `Match confidence ${Math.round(confidence)}% is below 50%. Please try again with better lighting.`,
             variant: "destructive"
           });
           setShowCamera(false);
@@ -401,26 +410,23 @@ const Attendance = () => {
             description: `After 2 failed attempts, attendance is allowed. Please update your profile photo if this persists.`,
             variant: "default"
           });
-          // Reset attempts counter for next attendance
           setFaceVerificationAttempts(0);
           // Continue to record attendance below
         }
       } else {
         // Successful match - reset attempts counter
         setFaceVerificationAttempts(0);
+        
+        const statusMessage = confidence >= 70 
+          ? 'Face Match Verified ✅' 
+          : 'Partial Face Match ⚠️ (Above 50% threshold)';
+        
+        toast({
+          title: statusMessage,
+          description: `Match Confidence: ${Math.round(confidence)}%`,
+          variant: 'default',
+        });
       }
-      
-      const statusMessage = confidence >= 70 
-        ? 'Face Match Verified ✅' 
-        : 'Partial Face Match ⚠️ (Above 50% threshold)';
-      
-      const statusVariant = confidence >= 70 ? 'default' : 'default';
-      
-      toast({
-        title: statusMessage,
-        description: `Match Confidence: ${Math.round(confidence)}%`,
-        variant: statusVariant,
-      });
 
       if (attendanceType === 'check-in') {
         console.log('Starting check-in process...');
