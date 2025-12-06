@@ -384,7 +384,7 @@ const Attendance = () => {
         const newAttemptCount = faceVerificationAttempts + 1;
         setFaceVerificationAttempts(newAttemptCount);
         
-        if (newAttemptCount < 2) {
+        if (newAttemptCount < 3) {
           // First or second attempt failed - ask to retry
           toast({
             title: `Face Verification Failed (Attempt ${newAttemptCount}/2) ❌`,
