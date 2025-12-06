@@ -366,18 +366,13 @@ const Attendance = () => {
         }
       );
 
+      // Handle face match error OR low confidence the same way (count as failed attempt)
+      const confidence = faceMatchError ? 0 : (faceMatchResult?.confidence || 0);
+      const matchStatus = confidence >= 70 ? 'match' : confidence >= 50 ? 'partial' : 'nomatch';
+      
       if (faceMatchError) {
         console.error('Face verification error:', faceMatchError);
-        toast({
-          title: "Face Verification Failed",
-          description: "Unable to verify your identity. Please try again.",
-          variant: "destructive"
-        });
-        return;
       }
-
-      const confidence = faceMatchResult?.confidence || 0;
-      const matchStatus = confidence >= 70 ? 'match' : confidence >= 50 ? 'partial' : 'nomatch';
       
       // BLOCK attendance if face match is below 50% - but allow after 2 failed attempts
       if (confidence < 50) {
@@ -386,9 +381,13 @@ const Attendance = () => {
         
         if (newAttemptCount < 3) {
           // First or second attempt failed - ask to retry
+          const errorMessage = faceMatchError 
+            ? "Face verification service error. Please try again." 
+            : `Match confidence ${Math.round(confidence)}% is below 50%. Please try again with better lighting.`;
+          
           toast({
             title: `Face Verification Failed (Attempt ${newAttemptCount}/2) ❌`,
-            description: `Match confidence ${Math.round(confidence)}% is below 50%. Please try again with better lighting.`,
+            description: errorMessage,
             variant: "destructive"
           });
           setShowCamera(false);
@@ -399,7 +398,7 @@ const Attendance = () => {
           // 3rd attempt (after 2 failures) - allow with warning
           toast({
             title: "Face Verification Bypassed ⚠️",
-            description: `After 2 failed attempts, attendance allowed with ${Math.round(confidence)}% match. Please update your profile photo if this persists.`,
+            description: `After 2 failed attempts, attendance is allowed. Please update your profile photo if this persists.`,
             variant: "default"
           });
           // Reset attempts counter for next attendance
