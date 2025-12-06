@@ -1273,48 +1273,104 @@ export const AddRetailer = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Retail Type</Label>
-                <Select 
-                  value={retailerData.retailType === "Other" ? "Other" : retailerData.retailType} 
-                  onValueChange={(value) => {
-                    handleInputChange("retailType", value);
-                    if (value !== "Other") {
-                      setCustomRetailType("");
-                    }
-                  }}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    {retailTypes.map((type) => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {retailerData.retailType === "Other" && (
-                  <Input
-                    placeholder="Enter custom retail type"
-                    value={customRetailType}
-                    onChange={(e) => {
-                      setCustomRetailType(e.target.value);
-                      handleInputChange("retailType", e.target.value);
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Retail Type</Label>
+                  <Select 
+                    value={retailerData.retailType === "Other" ? "Other" : retailerData.retailType} 
+                    onValueChange={(value) => {
+                      handleInputChange("retailType", value);
+                      if (value !== "Other") {
+                        setCustomRetailType("");
+                      }
                     }}
-                    className="bg-background mt-2"
-                  />
-                )}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {retailTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {retailerData.retailType === "Other" && (
+                    <Input
+                      placeholder="Enter custom retail type"
+                      value={customRetailType}
+                      onChange={(e) => {
+                        setCustomRetailType(e.target.value);
+                        handleInputChange("retailType", e.target.value);
+                      }}
+                      className="bg-background mt-2"
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('retailer.category')}</Label>
+                  <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder={t('retailer.selectCategory')} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Potential</Label>
+                  <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select potential" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {potentials.map((potential) => (
+                        <SelectItem key={potential} value={potential}>{potential}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Location Tag</Label>
+                  <Input
+                    placeholder="e.g., Near Temple"
+                    value={retailerData.locationTag}
+                    onChange={(e) => handleInputChange("locationTag", e.target.value)}
+                    className="bg-background"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* IMPORTANT: Beat, Distributor & Location Assignment - Highlighted Section */}
+          <Card className="border-2 border-primary/30 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                Beat & Distributor Assignment
+                <Badge variant="destructive" className="ml-2 text-xs">Required</Badge>
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Assign this retailer to a beat and distributor for proper routing</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Beat Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="beat">Assign to Beat *</Label>
-                  <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'default'} className="text-xs">
-                    {connectivityStatus === 'offline' ? '📴 Offline' : connectivityStatus === 'unknown' ? '❓ Unknown' : '🌐 Online'} • {beats.length} beats
+                  <Label htmlFor="beat" className="font-semibold">Assign to Beat *</Label>
+                  <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'secondary'} className="text-xs">
+                    {connectivityStatus === 'offline' ? '📴 Offline' : '🌐 Online'} • {beats.length} beats
                   </Badge>
                 </div>
                 <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
-                  <SelectTrigger className="bg-background">
+                  <SelectTrigger className="bg-background border-primary/30">
                     <SelectValue placeholder="Select a beat" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border z-50">
@@ -1330,98 +1386,89 @@ export const AddRetailer = () => {
                     )}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
+                <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to for visit planning</p>
               </div>
 
-              <div className="space-y-2 hidden">
-                <Label>Top 3 Competitors</Label>
+              {/* Distributor Selection */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Input
-                    placeholder="Competitor 1"
-                    value={retailerData.competitor1}
-                    onChange={(e) => handleInputChange("competitor1", e.target.value)}
-                    className="bg-background"
-                  />
-                  <Input
-                    placeholder="Competitor 2"
-                    value={retailerData.competitor2}
-                    onChange={(e) => handleInputChange("competitor2", e.target.value)}
-                    className="bg-background"
-                  />
-                  <Input
-                    placeholder="Competitor 3"
-                    value={retailerData.competitor3}
-                    onChange={(e) => handleInputChange("competitor3", e.target.value)}
-                    className="bg-background"
-                  />
+                  <Label className="font-semibold">Parent Type</Label>
+                  <Select value={retailerData.parentType} onValueChange={(value) => handleInputChange("parentType", value)}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select parent" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {parentTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">Select Distributor *</Label>
+                  {retailerData.parentType === "Distributor" ? (
+                    <Select 
+                      value={retailerData.selectedDistributors[0] || ""} 
+                      onValueChange={(value) => {
+                        const allDistributors = [...beatMappedDistributors, ...distributors];
+                        const distributor = allDistributors.find(d => d.id === value);
+                        handleInputChange("selectedDistributors", [value]);
+                        handleInputChange("parentName", distributor?.name || "");
+                      }}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select distributor" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border z-50">
+                        {beatMappedDistributors.length > 0 && (
+                          <>
+                            <SelectItem value="header-beat" disabled className="font-semibold text-primary">
+                              Distributors for this Beat
+                            </SelectItem>
+                            {beatMappedDistributors.map((distributor) => (
+                              <SelectItem key={distributor.id} value={distributor.id}>
+                                {distributor.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="header-all" disabled className="font-semibold text-muted-foreground border-t mt-1 pt-1">
+                              All Distributors
+                            </SelectItem>
+                          </>
+                        )}
+                        {distributors.length > 0 ? (
+                          distributors.map((distributor) => (
+                            <SelectItem key={distributor.id} value={distributor.id}>
+                              {distributor.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No distributors available</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Enter parent name"
+                      value={retailerData.parentName}
+                      onChange={(e) => handleInputChange("parentName", e.target.value)}
+                      className="bg-background"
+                    />
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Advanced Options Collapsible */}
+          {/* Additional Details Collapsible */}
           <Collapsible open={advancedOptionsOpen} onOpenChange={setAdvancedOptionsOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="outline" className="w-full justify-between">
-                <span className="font-medium">Advanced Options</span>
+                <span className="font-medium">Additional Details</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${advancedOptionsOpen ? 'rotate-180' : ''}`} />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg bg-muted/20">
-              {/* Category */}
-              <div className="space-y-2">
-                <Label>{t('retailer.category')}</Label>
-                <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder={t('retailer.selectCategory')} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Potential */}
-              <div className="space-y-2">
-                <Label>Potential</Label>
-                <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select potential" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    {potentials.map((potential) => (
-                      <SelectItem key={potential} value={potential}>{potential}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Assign to Beat */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="advancedBeat">Assign to Beat</Label>
-                  <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'default'} className="text-xs">
-                    {connectivityStatus === 'offline' ? '📴 Offline' : connectivityStatus === 'unknown' ? '❓ Unknown' : '🌐 Online'} • {beats.length} beats
-                  </Badge>
-                </div>
-                <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select a beat" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    <SelectItem value="unassigned">Unassigned (No Beat)</SelectItem>
-                    {beats.map((beat) => (
-                      <SelectItem key={beat.beat_id} value={beat.beat_id}>
-                        {beat.beat_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Assign this retailer to a beat for visit planning</p>
-              </div>
-
               {/* Assign Territory */}
               <div className="space-y-2">
                 <Label>Assign to Territory</Label>
@@ -1485,6 +1532,18 @@ export const AddRetailer = () => {
                   </PopoverContent>
                 </Popover>
                 <p className="text-xs text-muted-foreground">Optionally assign this retailer to a sales territory</p>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Any additional notes about the retailer"
+                  value={retailerData.notes}
+                  onChange={(e) => handleInputChange("notes", e.target.value)}
+                  className="bg-background min-h-[60px]"
+                />
               </div>
 
               {/* Quick Info */}
