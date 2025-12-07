@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Calendar, Edit2, BarChart, Trash2, MapPin, Package, Sparkles, CalendarDays, UserPlus } from 'lucide-react';
 import { useBeatMetrics } from '@/hooks/useBeatMetrics';
+import { useNavigate } from 'react-router-dom';
 
 interface BeatCardProps {
   beat: {
@@ -23,6 +24,11 @@ interface BeatCardProps {
 
 export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsights }: BeatCardProps) {
   const { metrics, loading } = useBeatMetrics(beat.id, userId);
+  const navigate = useNavigate();
+
+  const handleBeatNameClick = () => {
+    navigate(`/beat/${beat.id}`);
+  };
 
   return (
     <Card className="hover:shadow-lg transition-all duration-200 hover:scale-105">
@@ -46,7 +52,12 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
                  beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
               </Badge>
             </div>
-            <CardTitle className="text-lg leading-tight">{beat.name}</CardTitle>
+            <CardTitle 
+              className="text-lg leading-tight cursor-pointer hover:text-primary transition-colors"
+              onClick={handleBeatNameClick}
+            >
+              {beat.name}
+            </CardTitle>
           </div>
         </div>
       </CardHeader>
