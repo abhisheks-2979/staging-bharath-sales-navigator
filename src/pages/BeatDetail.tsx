@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-
+import { BeatVisitCalendar } from "@/components/BeatVisitCalendar";
 interface BeatDetailData {
   beat_id: string;
   beat_name: string;
@@ -184,6 +184,19 @@ export const BeatDetail = () => {
                 <p className="font-semibold">{new Date(beatData.created_at).toLocaleDateString()}</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Beat Visit History Calendar */}
+        <Card className="shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CalendarDays size={20} className="text-primary" />
+              Visit History Calendar
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BeatVisitCalendar beatId={beatData.beat_id} beatName={beatData.beat_name} />
           </CardContent>
         </Card>
 
