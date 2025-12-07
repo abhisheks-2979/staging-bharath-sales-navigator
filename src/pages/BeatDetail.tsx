@@ -14,6 +14,7 @@ import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { EditBeatModal } from "@/components/EditBeatModal";
 import { BeatAnalyticsModal } from "@/components/BeatAnalyticsModal";
 import { useRecommendations } from "@/hooks/useRecommendations";
+import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 
 interface BeatDetailData {
   beat_id: string;
@@ -54,6 +55,8 @@ export const BeatDetail = () => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [swot, setSwot] = useState<BeatSWOT>({ strengths: [], weaknesses: [], opportunities: [], threats: [] });
   const [retailerSearch, setRetailerSearch] = useState("");
+  const [selectedRetailer, setSelectedRetailer] = useState<any>(null);
+  const [showRetailerModal, setShowRetailerModal] = useState(false);
 
   const filteredRetailers = useMemo(() => {
     if (!beatData?.retailers) return [];
@@ -655,7 +658,22 @@ export const BeatDetail = () => {
                           <div>
                             <h4 
                               className="font-semibold text-primary cursor-pointer hover:underline"
-                              onClick={() => navigate(`/retailer/${retailer.id}`)}
+                              onClick={() => {
+                                setSelectedRetailer({
+                                  id: retailer.id,
+                                  name: retailer.name,
+                                  address: retailer.address,
+                                  phone: retailer.phone || null,
+                                  category: retailer.category || null,
+                                  priority: retailer.priority || null,
+                                  beat_id: beatData?.beat_id || '',
+                                  status: null,
+                                  created_at: '',
+                                  last_visit_date: retailer.last_visit_date || null,
+                                  order_value: retailer.order_value || null
+                                });
+                                setShowRetailerModal(true);
+                              }}
                             >
                               {retailer.name}
                             </h4>
@@ -747,6 +765,21 @@ export const BeatDetail = () => {
           userId={user.id}
         />
       )}
+
+      {/* Retailer Detail Modal */}
+      <RetailerDetailModal
+        isOpen={showRetailerModal}
+        onClose={() => {
+          setShowRetailerModal(false);
+          setSelectedRetailer(null);
+        }}
+        retailer={selectedRetailer}
+        onSuccess={() => {
+          setShowRetailerModal(false);
+          setSelectedRetailer(null);
+          window.location.reload();
+        }}
+      />
     </Layout>
   );
 };
