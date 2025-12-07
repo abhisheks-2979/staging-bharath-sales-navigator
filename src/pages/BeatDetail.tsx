@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays, Edit2, BarChart, Trash2, Sparkles, Target, Shield, AlertTriangle, Lightbulb, Users, Package, DollarSign, Clock, Zap } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Store, Calendar, TrendingUp, CalendarDays, Edit2, BarChart, Trash2, Sparkles, Target, Shield, AlertTriangle, Lightbulb, Users, Package, DollarSign, Clock, Zap, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,18 @@ export const BeatDetail = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [swot, setSwot] = useState<BeatSWOT>({ strengths: [], weaknesses: [], opportunities: [], threats: [] });
+  const [retailerSearch, setRetailerSearch] = useState("");
+
+  const filteredRetailers = useMemo(() => {
+    if (!beatData?.retailers) return [];
+    if (!retailerSearch.trim()) return beatData.retailers;
+    const searchLower = retailerSearch.toLowerCase();
+    return beatData.retailers.filter(retailer => 
+      retailer.name.toLowerCase().includes(searchLower) ||
+      retailer.address?.toLowerCase().includes(searchLower) ||
+      retailer.category?.toLowerCase().includes(searchLower)
+    );
+  }, [beatData?.retailers, retailerSearch]);
   const [performanceStats, setPerformanceStats] = useState({
     totalRevenue: 0,
     avgOrderValue: 0,
@@ -598,10 +610,24 @@ export const BeatDetail = () => {
         {/* Retailers List */}
         <Card className="shadow-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Store size={20} className="text-primary" />
-              Retailers in this Beat ({beatData.retailers.length})
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Store size={20} className="text-primary" />
+                Retailers in this Beat ({beatData.retailers.length})
+              </CardTitle>
+              {beatData.retailers.length > 0 && (
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Search retailers..."
+                    value={retailerSearch}
+                    onChange={(e) => setRetailerSearch(e.target.value)}
+                    className="w-full h-9 pl-9 pr-3 bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 rounded-md text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                  />
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {beatData.retailers.length === 0 ? (
@@ -615,15 +641,24 @@ export const BeatDetail = () => {
                   Add Retailers
                 </Button>
               </div>
+            ) : filteredRetailers.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No retailers match your search</p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {beatData.retailers.map((retailer) => (
+                {filteredRetailers.map((retailer) => (
                   <Card key={retailer.id} className="border-l-4 border-l-primary">
                     <CardContent className="p-4">
                       <div className="space-y-2">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-semibold">{retailer.name}</h4>
+                            <h4 
+                              className="font-semibold text-primary cursor-pointer hover:underline"
+                              onClick={() => navigate(`/retailer/${retailer.id}`)}
+                            >
+                              {retailer.name}
+                            </h4>
                             <div className="flex items-center gap-2 mt-1">
                               {retailer.category && (
                                 <Badge variant="outline">{retailer.category}</Badge>
@@ -662,18 +697,6 @@ export const BeatDetail = () => {
                               <span>Last visit: {new Date(retailer.last_visit_date).toLocaleDateString()}</span>
                             </div>
                           )}
-                        </div>
-
-                        <div className="flex justify-end pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/retailer/${retailer.id}`)}
-                            className="text-xs"
-                          >
-                            <TrendingUp size={12} className="mr-1" />
-                            View Details
-                          </Button>
                         </div>
                       </div>
                     </CardContent>
