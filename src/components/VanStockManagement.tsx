@@ -837,9 +837,39 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     <Package className="h-5 w-5 text-primary" />
                     <span>Product Stock in Van</span>
                   </div>
-                  <Button size="sm" onClick={handleExportToExcel} variant="outline" className="h-8 text-xs">
-                    <Download className="h-3 w-3 mr-1" /> Export
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => {
+                        // Load ALL saved items for editing
+                        const savedItems = todayStock?.van_stock_items || [];
+                        if (savedItems.length === 0) {
+                          toast.info('No stock items to edit');
+                          return;
+                        }
+                        const itemsToEdit = savedItems.map((item: any) => ({
+                          id: item.id,
+                          product_id: item.product_id,
+                          product_name: item.product_name,
+                          unit: item.unit,
+                          start_qty: item.start_qty,
+                          ordered_qty: item.ordered_qty || 0,
+                          returned_qty: item.returned_qty || 0,
+                          left_qty: item.start_qty - (item.ordered_qty || 0) + (item.returned_qty || 0),
+                        }));
+                        setStockItems(itemsToEdit);
+                        setShowDetailModal(null);
+                        toast.info('All items loaded for editing. Modify and click Save Stock.');
+                      }}
+                      variant="outline" 
+                      className="h-8 text-xs"
+                    >
+                      <Edit className="h-3 w-3 mr-1" /> Edit All
+                    </Button>
+                    <Button size="sm" onClick={handleExportToExcel} variant="outline" className="h-8 text-xs">
+                      <Download className="h-3 w-3 mr-1" /> Export
+                    </Button>
+                  </div>
                 </div>
               )}
               {showDetailModal === 'ordered' && (
@@ -896,49 +926,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                           <p className="text-xs text-muted-foreground">{item.unit}</p>
                         </div>
                         {showDetailModal === 'start' && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0"
-                              onClick={() => {
-                                // Load item for editing - add to stock items for modification
-                                setStockItems([...stockItems, {
-                                  id: item.id,
-                                  product_id: item.product_id,
-                                  product_name: item.product_name,
-                                  unit: item.unit,
-                                  start_qty: item.start_qty,
-                                  ordered_qty: item.ordered_qty || 0,
-                                  returned_qty: item.returned_qty || 0,
-                                  left_qty: item.start_qty - (item.ordered_qty || 0) + (item.returned_qty || 0),
-                                }]);
-                                setShowDetailModal(null);
-                                toast.info('Item loaded for editing. Modify and click Save Stock.');
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onClick={async () => {
-                                if (!confirm('Delete this item from stock?')) return;
-                                // Delete from database
-                                if (item.id && todayStock?.id) {
-                                  await supabase
-                                    .from('van_stock_items')
-                                    .delete()
-                                    .eq('id', item.id);
-                                  toast.success('Item deleted');
-                                  await loadTodayStock(false);
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={async () => {
+                              if (!confirm('Delete this item from stock?')) return;
+                              // Delete from database
+                              if (item.id && todayStock?.id) {
+                                await supabase
+                                  .from('van_stock_items')
+                                  .delete()
+                                  .eq('id', item.id);
+                                toast.success('Item deleted');
+                                await loadTodayStock(false);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </div>
