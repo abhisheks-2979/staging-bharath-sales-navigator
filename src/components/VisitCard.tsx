@@ -278,21 +278,28 @@ export const VisitCard = ({
       
       if (cachedStatus) {
         // Apply cached status immediately - no network needed
-        console.log('⚡ [VisitCard] Using CACHED status:', cachedStatus.status, cachedStatus.isFinal ? '(FINAL)' : '');
-        setCurrentStatus(cachedStatus.status);
-        setCurrentVisitId(cachedStatus.visitId);
-        setStatusLoadedFromDB(true);
+        // Only update state if values are different to prevent re-renders
+        if (currentStatus !== cachedStatus.status) {
+          console.log('⚡ [VisitCard] Using CACHED status:', cachedStatus.status, cachedStatus.isFinal ? '(FINAL)' : '');
+          setCurrentStatus(cachedStatus.status);
+        }
+        if (currentVisitId !== cachedStatus.visitId) {
+          setCurrentVisitId(cachedStatus.visitId);
+        }
+        if (!statusLoadedFromDB) {
+          setStatusLoadedFromDB(true);
+        }
         lastFetchedStatusRef.current = cachedStatus.status;
         
-        if (cachedStatus.orderValue) {
+        if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
           setActualOrderValue(cachedStatus.orderValue);
           setHasOrderToday(true);
         }
-        if (cachedStatus.noOrderReason) {
+        if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
           setIsNoOrderMarked(true);
           setNoOrderReason(cachedStatus.noOrderReason);
         }
-        if (cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') {
+        if ((cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') && phase !== 'completed') {
           setPhase('completed');
           setIsCheckedOut(true);
         }
@@ -646,24 +653,30 @@ export const VisitCard = ({
         // CRITICAL: If event has status, update immediately and cache it
         if (event.detail?.status) {
           const newStatus = event.detail.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
-          console.log('📊 [VisitCard] Setting status directly from event:', newStatus);
-          setCurrentStatus(newStatus);
-          setStatusLoadedFromDB(true);
+          
+          // Only update if status actually changed to prevent flicker
+          if (currentStatus !== newStatus) {
+            console.log('📊 [VisitCard] Setting status directly from event:', newStatus);
+            setCurrentStatus(newStatus);
+          }
+          if (!statusLoadedFromDB) {
+            setStatusLoadedFromDB(true);
+          }
           lastFetchedStatusRef.current = newStatus;
           
-          if (newStatus === 'unproductive') {
+          if (newStatus === 'unproductive' && phase !== 'completed') {
             setIsNoOrderMarked(true);
             setPhase('completed');
             setIsCheckedOut(true);
           }
           
-          // Update cache with new status
+          // Update cache with new status (background - don't block)
           const { data: { session } } = await supabase.auth.getSession();
           const currentUserId = session?.user?.id || userId;
           const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
           
           if (currentUserId) {
-            await visitStatusCache.set(
+            visitStatusCache.set(
               event.detail.visitId || currentVisitId || visit.id,
               myRetailerId,
               currentUserId,
@@ -705,20 +718,28 @@ export const VisitCard = ({
       const cachedStatus = await visitStatusCache.get(myRetailerId, currentUserId, targetDate);
       if (cachedStatus) {
         console.log('⚡ [VisitCard] visitDataChanged - using CACHED status:', cachedStatus.status);
-        setCurrentStatus(cachedStatus.status);
-        setCurrentVisitId(cachedStatus.visitId);
-        setStatusLoadedFromDB(true);
+        
+        // Only update if values actually changed to prevent flicker
+        if (currentStatus !== cachedStatus.status) {
+          setCurrentStatus(cachedStatus.status);
+        }
+        if (currentVisitId !== cachedStatus.visitId) {
+          setCurrentVisitId(cachedStatus.visitId);
+        }
+        if (!statusLoadedFromDB) {
+          setStatusLoadedFromDB(true);
+        }
         lastFetchedStatusRef.current = cachedStatus.status;
         
-        if (cachedStatus.orderValue) {
+        if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
           setActualOrderValue(cachedStatus.orderValue);
           setHasOrderToday(true);
         }
-        if (cachedStatus.noOrderReason) {
+        if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
           setIsNoOrderMarked(true);
           setNoOrderReason(cachedStatus.noOrderReason);
         }
-        if (cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') {
+        if ((cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') && phase !== 'completed') {
           setPhase('completed');
           setIsCheckedOut(true);
         }
