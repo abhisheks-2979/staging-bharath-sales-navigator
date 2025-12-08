@@ -213,6 +213,11 @@ export const VisitCard = ({
   const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled">(visit.status);
   const [statusLoadedFromDB, setStatusLoadedFromDB] = useState(false);
   
+  // Track last fetched status to prevent redundant updates causing flicker
+  const lastFetchedStatusRef = useRef<string | null>(null);
+  const isRefreshingRef = useRef(false);
+  const lastRefreshTimeRef = useRef<number>(0);
+  
   // Update currentStatus when visit prop changes (important for parent re-renders with fresh data)
   // BUT only if we haven't loaded from database yet, to avoid overriding DB status with stale prop
   useEffect(() => {
@@ -259,6 +264,22 @@ export const VisitCard = ({
   // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
     const checkStatus = async () => {
+      // Debounce: prevent rapid consecutive refreshes (minimum 500ms between refreshes)
+      const now = Date.now();
+      if (now - lastRefreshTimeRef.current < 500) {
+        console.log('⏳ [VisitCard] Debouncing checkStatus - too soon after last refresh');
+        return;
+      }
+      
+      // Prevent concurrent refreshes
+      if (isRefreshingRef.current) {
+        console.log('⏳ [VisitCard] Skipping checkStatus - already refreshing');
+        return;
+      }
+      
+      isRefreshingRef.current = true;
+      lastRefreshTimeRef.current = now;
+      
       try {
         console.log('🔍 Checking status for visit:', visit.id, 'retailerId:', visit.retailerId);
         // Use getSession() instead of getUser() for offline support - reads from localStorage
@@ -365,15 +386,22 @@ export const VisitCard = ({
             setLocationMatchOut(visitData.location_match_out || null);
             
             // Update current status from database with proper type assertion
+            // ONLY update if status actually changed to prevent UI flicker
             const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
-            console.log('📊 [VisitCard] Setting currentStatus from DB:', {
-              visitId: visitData.id,
-              oldStatus: currentStatus,
-              newStatus: validStatus,
-              hasCheckIn: !!visitData.check_in_time,
-              hasCheckOut: !!visitData.check_out_time
-            });
-            setCurrentStatus(validStatus);
+            
+            if (lastFetchedStatusRef.current !== validStatus) {
+              console.log('📊 [VisitCard] Setting currentStatus from DB:', {
+                visitId: visitData.id,
+                oldStatus: currentStatus,
+                newStatus: validStatus,
+                hasCheckIn: !!visitData.check_in_time,
+                hasCheckOut: !!visitData.check_out_time
+              });
+              setCurrentStatus(validStatus);
+              lastFetchedStatusRef.current = validStatus;
+            } else {
+              console.log('📊 [VisitCard] Status unchanged, skipping update:', validStatus);
+            }
             setStatusLoadedFromDB(true); // Mark that we've loaded from DB
             
             if (visitData.no_order_reason) {
@@ -393,13 +421,15 @@ export const VisitCard = ({
             console.log('📵 No visit in DB, checking local cache...');
             try {
               const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
-              // Check multiple possible IDs for matching
+              // Check multiple possible IDs for matching - sort by created_at DESC for duplicates
               const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
-              const cachedVisit = (cachedVisits as any[])?.find((v: any) => 
+              const matchingVisits = (cachedVisits as any[])?.filter((v: any) => 
                 possibleRetailerIds.includes(v.retailer_id) && 
                 v.user_id === currentUserId && 
                 v.planned_date === targetDate
-              );
+              ).sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+              
+              const cachedVisit = matchingVisits?.[0];
               
               if (cachedVisit) {
                 console.log('📦 Found cached visit:', cachedVisit);
@@ -537,6 +567,8 @@ export const VisitCard = ({
         }
       } catch (error) {
         console.log('❌ Status check error:', error);
+      } finally {
+        isRefreshingRef.current = false;
       }
     };
     checkStatus();
@@ -571,14 +603,8 @@ export const VisitCard = ({
           }
         }
         
-        // Refresh status from DB to confirm
+        // Refresh status from DB to confirm - debouncing will prevent excessive calls
         checkStatus();
-        
-        // Also refresh again after 1s to catch any delayed DB trigger updates
-        setTimeout(() => {
-          console.log('🔄 [VisitCard] Second refresh after DB trigger delay');
-          checkStatus();
-        }, 1000);
       } else {
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
       }
@@ -594,12 +620,15 @@ export const VisitCard = ({
       const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
       
       // FIRST: Check local cache (it's updated by sync before events are dispatched)
+      // Sort by created_at to get the most recent visit in case of duplicates
       try {
         const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
-        const cachedVisit = cachedVisits.find((v: any) => 
+        const matchingVisits = cachedVisits.filter((v: any) => 
           possibleRetailerIds.includes(v.retailer_id) && 
           v.planned_date === targetDate
-        );
+        ).sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        
+        const cachedVisit = matchingVisits[0];
         
         if (cachedVisit && (cachedVisit as any).status) {
           console.log('📊 [VisitCard] visitDataChanged - got status from CACHE:', (cachedVisit as any).status);
@@ -621,20 +650,23 @@ export const VisitCard = ({
         console.log('⚠️ [VisitCard] Cache read failed, falling back to DB:', cacheError);
       }
       
-      // FALLBACK: Fetch from DB if cache didn't have the visit
+      // FALLBACK: Fetch from DB if cache didn't have the visit - use proper ordering
       const { data: { session } } = await supabase.auth.getSession();
       const currentUserId = session?.user?.id || userId;
       if (!currentUserId) return;
       
-      // Try with visit.retailerId first, then visit.id
+      // Try with visit.retailerId first, then visit.id - ORDER BY created_at DESC to get latest
       const visitRetailerId = visit.retailerId || visit.id;
-      const { data: visitData } = await supabase
+      const { data: visitDataArr } = await supabase
         .from('visits')
-        .select('status, no_order_reason, id')
+        .select('status, no_order_reason, id, created_at')
         .eq('user_id', currentUserId)
         .eq('retailer_id', visitRetailerId)
         .eq('planned_date', targetDate)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      const visitData = visitDataArr?.[0] || null;
       
       if (visitData) {
         console.log('📊 [VisitCard] visitDataChanged - got status from DB:', visitData.status);
@@ -655,71 +687,10 @@ export const VisitCard = ({
     
     // Listen for sync complete event specifically for offline sync
     const handleSyncComplete = async () => {
-      console.log('🔔 [VisitCard] Received syncComplete event - refreshing from cache first, then DB');
-      setStatusLoadedFromDB(false);
-      
-      // Check multiple possible IDs for matching
-      const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
-      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
-      
-      // FIRST: Check local cache immediately (this is always up-to-date after sync caches the visit)
-      try {
-        const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
-        const cachedVisit = cachedVisits.find((v: any) => 
-          possibleRetailerIds.includes(v.retailer_id) && 
-          v.planned_date === targetDate
-        );
-        
-        if (cachedVisit && (cachedVisit as any).status) {
-          console.log('📊 [VisitCard] syncComplete - got status from CACHE:', (cachedVisit as any).status);
-          const validStatus = (cachedVisit as any).status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
-          setCurrentStatus(validStatus);
-          setCurrentVisitId((cachedVisit as any).id);
-          if ((cachedVisit as any).no_order_reason) {
-            setIsNoOrderMarked(true);
-            setNoOrderReason((cachedVisit as any).no_order_reason);
-          }
-          if (validStatus === 'unproductive') {
-            setPhase('completed');
-            setIsCheckedOut(true);
-          }
-          setStatusLoadedFromDB(true);
-        }
-      } catch (cacheError) {
-        console.log('⚠️ [VisitCard] Cache read failed, falling back to DB:', cacheError);
-      }
-      
-      // THEN: Also fetch from DB (for consistency and to catch any additional updates)
-      setTimeout(async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUserId = session?.user?.id || userId;
-        if (!currentUserId) return;
-        
-        const visitRetailerId = visit.retailerId || visit.id;
-        const { data: visitData } = await supabase
-          .from('visits')
-          .select('status, no_order_reason, id')
-          .eq('user_id', currentUserId)
-          .eq('retailer_id', visitRetailerId)
-          .eq('planned_date', targetDate)
-          .maybeSingle();
-        
-        if (visitData) {
-          console.log('📊 [VisitCard] syncComplete - got status from DB:', visitData.status);
-          const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
-          setCurrentStatus(validStatus);
-          setCurrentVisitId(visitData.id);
-          if (visitData.no_order_reason) {
-            setIsNoOrderMarked(true);
-            setNoOrderReason(visitData.no_order_reason);
-          }
-          if (validStatus === 'unproductive') {
-            setPhase('completed');
-            setIsCheckedOut(true);
-          }
-          setStatusLoadedFromDB(true);
-        }
-      }, 300);
+      console.log('🔔 [VisitCard] Received syncComplete event - refreshing using checkStatus');
+      // Use the debounced checkStatus instead of manual DB fetching
+      // This ensures consistent behavior and proper debouncing
+      checkStatus();
     };
     
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
@@ -753,13 +724,12 @@ export const VisitCard = ({
         if (createdDate !== targetDate) {
           return;
         }
-        // Use getSession() for offline support
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         const activeUserId = currentSession?.user?.id || userId;
         if (activeUserId) {
-          const {
-            data: visitData
-          } = await supabase.from('visits').select('id, status, check_in_time').eq('user_id', activeUserId).eq('retailer_id', retailerId).eq('planned_date', targetDate).maybeSingle();
+          // Get the most recent visit using proper ordering
+          const { data: visitDataArr } = await supabase.from('visits').select('id, status, check_in_time, created_at').eq('user_id', activeUserId).eq('retailer_id', retailerId).eq('planned_date', targetDate).order('created_at', { ascending: false }).limit(1);
+          const visitData = visitDataArr?.[0] || null;
           if (visitData?.check_in_time && (visitData.status === 'in-progress' || visitData.status === 'unproductive')) {
             // Get order time for auto check-out
             const orderTime = createdAt || new Date().toISOString();
