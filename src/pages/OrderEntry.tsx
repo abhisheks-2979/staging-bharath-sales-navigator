@@ -1561,8 +1561,8 @@ export const OrderEntry = () => {
     setShowSchemeModal(true);
   };
   return <Layout>
-    <div className="min-h-screen bg-background pb-20">
-      {/* Page Header */}
+    <div className="min-h-screen bg-background pb-20 pt-2">
+      {/* Page Header - Fixed layout with stable positioning */}
       <div className="w-full px-2 sm:px-4 py-2 sm:py-3">
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between pb-2 px-2 sm:px-3 py-2 sm:py-3 gap-2">
