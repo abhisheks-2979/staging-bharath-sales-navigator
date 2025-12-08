@@ -1051,6 +1051,9 @@ export const Cart = () => {
             if (uploadData) {
               console.log('✅ PDF uploaded successfully');
 
+              // TEMPORARILY DISABLED: SMS/WhatsApp invoice sending
+              // Uncomment the code below to re-enable invoice SMS delivery
+              /*
               const { data: { publicUrl } } = await supabase.storage
                 .from('invoices')
                 .getPublicUrl(uploadData.path);
@@ -1094,6 +1097,8 @@ export const Cart = () => {
                 description: 'Invoice delivered via SMS/WhatsApp successfully',
                 duration: 3000,
               });
+              */
+              console.log('ℹ️ Invoice SMS/WhatsApp sending is temporarily disabled');
             }
           } else {
             console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
