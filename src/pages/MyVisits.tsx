@@ -272,43 +272,9 @@ export const MyVisits = () => {
     invalidateDataRef.current = invalidateData;
   }, [invalidateData]);
 
-  // Auto-refresh Today's Progress every 30 seconds (only for today's date)
-  useEffect(() => {
-    const isToday = selectedDate === new Date().toISOString().split('T')[0];
-    if (!isToday) return;
-
-    console.log('⏰ Setting up auto-refresh for Today\'s Progress');
-
-    // 30-second interval for auto-refresh - uses ref to avoid stale closure
-    const intervalId = setInterval(() => {
-      console.log('🔄 Auto-refreshing Today\'s Progress (30s interval)');
-      invalidateDataRef.current?.();
-    }, 30000);
-
-    // Refresh when tab becomes visible
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('👀 Tab became visible, refreshing data');
-        invalidateDataRef.current?.();
-      }
-    };
-
-    // Refresh when window gains focus
-    const handleFocus = () => {
-      console.log('🎯 Window focused, refreshing data');
-      invalidateDataRef.current?.();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      console.log('🧹 Cleaned up auto-refresh listeners');
-    };
-  }, [selectedDate]);
+  // REMOVED: Auto-refresh disabled to prevent UI flickering
+  // Data is loaded once on mount and updated only when explicit actions occur
+  // (order placed, no-order submitted, etc.)
 
   // Update points from optimized hook
   useEffect(() => {
@@ -433,35 +399,8 @@ export const MyVisits = () => {
     setWeekDays(getWeekDays(selectedWeek));
   }, [selectedWeek]);
 
-  // Lightweight real-time updates - just refresh data when changes occur
-  useEffect(() => {
-    if (!user || !selectedDate || !navigator.onLine) return;
-
-    const channel = supabase.channel('visit-updates-lightweight')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'visits',
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        // Trigger background refresh in optimized hook
-        window.dispatchEvent(new Event('visitDataChanged'));
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'beat_plans',
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        // Trigger background refresh when beat plans change
-        window.dispatchEvent(new Event('visitDataChanged'));
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, selectedDate]);
+  // REMOVED: Real-time subscriptions disabled to prevent UI flickering
+  // Data updates happen when user navigates back to this page or explicitly refreshes
 
   // Points are now loaded in useVisitsDataOptimized hook - no separate fetch needed!
 
