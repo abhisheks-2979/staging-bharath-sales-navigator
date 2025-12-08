@@ -1647,6 +1647,28 @@ export const VisitCard = ({
       } = await supabase.from('orders').select('id, created_at, total_amount, is_credit_order, credit_paid_amount').eq('user_id', user.id).eq('retailer_id', retailerId).eq('status', 'confirmed').gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString());
       setOrdersTodayList((orders || []) as any);
       if ((orders || []).length > 0) {
+        // CRITICAL FIX: Also calculate and set order totals when loading order details
+        const totalOrderValue = (orders || []).reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+        const creditOrders = (orders || []).filter((o: any) => !!o.is_credit_order);
+        const cashOrders = (orders || []).filter((o: any) => !o.is_credit_order);
+        const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+        const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
+        const totalPaidToday = paidFromCash + totalPaidFromCredit;
+        const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+        const updatedPending = Math.max(0, creditOrdersTotal - totalPaidFromCredit);
+        
+        // Update the order value and payment states
+        if (totalOrderValue > 0) {
+          setActualOrderValue(totalOrderValue);
+          setPaidTodayAmount(totalPaidToday);
+          setCreditPendingAmount(updatedPending);
+          setIsCreditOrder(creditOrders.length > 0);
+          setHasOrderToday(true);
+        }
+        
+        // Store the most recent order ID for invoice generation
+        setLastOrderId(orders[0].id);
+        
         const orderIds = (orders || []).map(o => o.id);
         const {
           data: items
