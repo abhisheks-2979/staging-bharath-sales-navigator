@@ -243,25 +243,29 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     const { data: session } = await supabase.auth.getSession();
     if (!session.session?.user) return;
 
-    // selectedDate is a string, use it directly
+    // Fetch all beat plans for the date (user may have multiple beats)
     const { data, error } = await supabase
       .from('beat_plans')
       .select('beat_id, beat_name')
       .eq('user_id', session.session.user.id)
-      .eq('plan_date', selectedDate)
-      .single();
+      .eq('plan_date', selectedDate);
 
     if (error) {
-      console.log('No beat plan found for this date - van stock can still be managed');
-      // Don't show error toast, just clear beat selection
+      console.log('Error loading beat plans:', error);
       setBeats([]);
       setSelectedBeat('');
       return;
     }
     
-    if (data) {
-      setBeats([{ id: data.beat_id, beat_name: data.beat_name }]);
-      setSelectedBeat(data.beat_id);
+    if (data && data.length > 0) {
+      // Map all beats and auto-select the first one
+      const beatsList = data.map(b => ({ id: b.beat_id, beat_name: b.beat_name }));
+      setBeats(beatsList);
+      setSelectedBeat(beatsList[0].id);
+    } else {
+      console.log('No beat plan found for this date - van stock can still be managed');
+      setBeats([]);
+      setSelectedBeat('');
     }
   };
 
