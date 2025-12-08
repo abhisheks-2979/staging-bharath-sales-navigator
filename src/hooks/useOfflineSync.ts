@@ -407,10 +407,24 @@ export function useOfflineSync() {
       case 'CREATE_VISIT':
       case 'CHECK_IN':
         console.log('Syncing visit/check-in:', data);
-        const { id: visitId, ...visitData } = data;
+        // Only include valid columns - explicitly exclude invalid fields like visit_type
+        const visitInsertData: any = {};
+        if (data.user_id) visitInsertData.user_id = data.user_id;
+        if (data.retailer_id) visitInsertData.retailer_id = data.retailer_id;
+        if (data.planned_date) visitInsertData.planned_date = data.planned_date;
+        if (data.status) visitInsertData.status = data.status;
+        if (data.check_in_time) visitInsertData.check_in_time = data.check_in_time;
+        if (data.check_in_location) visitInsertData.check_in_location = data.check_in_location;
+        if (data.check_in_photo_url) visitInsertData.check_in_photo_url = data.check_in_photo_url;
+        if (data.check_in_address) visitInsertData.check_in_address = data.check_in_address;
+        if (data.location_match_in !== undefined) visitInsertData.location_match_in = data.location_match_in;
+        if (data.skip_check_in_reason) visitInsertData.skip_check_in_reason = data.skip_check_in_reason;
+        if (data.skip_check_in_time) visitInsertData.skip_check_in_time = data.skip_check_in_time;
+        if (data.no_order_reason) visitInsertData.no_order_reason = data.no_order_reason;
+        
         const { error: visitError } = await supabase
           .from('visits')
-          .insert(visitData);
+          .insert(visitInsertData);
         if (visitError) throw visitError;
         break;
         

@@ -119,9 +119,8 @@ export async function seedLoyaltyData() {
         .from("visits")
         .insert({
           retailer_id: retailer.id,
-          visit_date: new Date().toISOString().split("T")[0],
+          planned_date: new Date().toISOString().split("T")[0],
           status: "completed",
-          visit_type: "Planned",
           check_in_time: new Date().toISOString(),
           check_out_time: new Date().toISOString(),
         } as any)
