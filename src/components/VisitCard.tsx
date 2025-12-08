@@ -34,6 +34,7 @@ import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { visitStatusCache } from "@/lib/visitStatusCache";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
@@ -264,6 +265,45 @@ export const VisitCard = ({
   // Check if user has viewed analytics for this visit, check-in status, and load distributor info
   useEffect(() => {
     const checkStatus = async () => {
+      // Get user and date info first
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      const visitRetailerId = visit.retailerId || visit.id;
+      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      
+      if (!currentUserId) return;
+      
+      // CACHE-FIRST: Check if we have cached status
+      const cachedStatus = await visitStatusCache.get(visitRetailerId, currentUserId, targetDate);
+      
+      if (cachedStatus) {
+        // Apply cached status immediately - no network needed
+        console.log('⚡ [VisitCard] Using CACHED status:', cachedStatus.status, cachedStatus.isFinal ? '(FINAL)' : '');
+        setCurrentStatus(cachedStatus.status);
+        setCurrentVisitId(cachedStatus.visitId);
+        setStatusLoadedFromDB(true);
+        lastFetchedStatusRef.current = cachedStatus.status;
+        
+        if (cachedStatus.orderValue) {
+          setActualOrderValue(cachedStatus.orderValue);
+          setHasOrderToday(true);
+        }
+        if (cachedStatus.noOrderReason) {
+          setIsNoOrderMarked(true);
+          setNoOrderReason(cachedStatus.noOrderReason);
+        }
+        if (cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') {
+          setPhase('completed');
+          setIsCheckedOut(true);
+        }
+        
+        // If status is final (productive/unproductive), skip network refresh entirely
+        if (cachedStatus.isFinal) {
+          isRefreshingRef.current = false;
+          return;
+        }
+      }
+      
       // Debounce: prevent rapid consecutive refreshes (minimum 500ms between refreshes)
       const now = Date.now();
       if (now - lastRefreshTimeRef.current < 500) {
@@ -281,13 +321,7 @@ export const VisitCard = ({
       lastRefreshTimeRef.current = now;
       
       try {
-        console.log('🔍 Checking status for visit:', visit.id, 'retailerId:', visit.retailerId);
-        // Use getSession() instead of getUser() for offline support - reads from localStorage
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUserId = session?.user?.id || userId;
-        if (currentUserId) {
-          const visitRetailerId = visit.retailerId || visit.id;
-          const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+        console.log('🔍 [VisitCard] Checking status from network for visit:', visit.id);
 
           // Load distributor information - First try to get from distributor mapping
           const {
@@ -399,6 +433,17 @@ export const VisitCard = ({
               });
               setCurrentStatus(validStatus);
               lastFetchedStatusRef.current = validStatus;
+              
+              // Update cache with this status from DB
+              await visitStatusCache.set(
+                visitData.id,
+                visitRetailerId,
+                currentUserId,
+                targetDate,
+                validStatus,
+                undefined, // orderValue will be set later if orders exist
+                visitData.no_order_reason || undefined
+              );
             } else {
               console.log('📊 [VisitCard] Status unchanged, skipping update:', validStatus);
             }
@@ -526,6 +571,17 @@ export const VisitCard = ({
             console.log('✅ [VisitCard] Orders exist - setting status to productive immediately');
             setCurrentStatus('productive');
             setStatusLoadedFromDB(true); // Mark that we've loaded from DB
+            
+            // Update cache with productive status and order value
+            await visitStatusCache.set(
+              visitData?.id || currentVisitId || visit.id,
+              visitRetailerId,
+              currentUserId,
+              targetDate,
+              'productive',
+              totalOrderValue,
+              undefined
+            );
 
             // ALSO update database if needed
             // This handles cases where visit was cancelled/planned but has orders
@@ -546,9 +602,6 @@ export const VisitCard = ({
                 console.error('❌ [VisitCard] Error updating visit status:', updateError);
               } else {
                 console.log('✅ [VisitCard] Visit status updated to productive');
-                // Update local status state immediately
-                setCurrentStatus('productive');
-                setStatusLoadedFromDB(true); // Mark that we've loaded from DB
               }
             }
             
@@ -564,7 +617,6 @@ export const VisitCard = ({
             setOrdersTodayList([]);
             setPreviousPendingCleared(0);
           }
-        }
       } catch (error) {
         console.log('❌ Status check error:', error);
       } finally {
@@ -588,22 +640,47 @@ export const VisitCard = ({
       const isGlobalRefresh = !event.detail || (!event.detail.visitId && !event.detail.retailerId);
       
       if (matchesVisit || matchesRetailer || isGlobalRefresh) {
-        console.log('✅ [VisitCard] Event matches - refreshing status immediately');
+        console.log('✅ [VisitCard] Event matches - updating status');
         
-        // CRITICAL: If event has status, update immediately before DB fetch
+        // CRITICAL: If event has status, update immediately and cache it
         if (event.detail?.status) {
           const newStatus = event.detail.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
           console.log('📊 [VisitCard] Setting status directly from event:', newStatus);
           setCurrentStatus(newStatus);
           setStatusLoadedFromDB(true);
+          lastFetchedStatusRef.current = newStatus;
+          
           if (newStatus === 'unproductive') {
             setIsNoOrderMarked(true);
             setPhase('completed');
             setIsCheckedOut(true);
           }
+          
+          // Update cache with new status
+          const { data: { session } } = await supabase.auth.getSession();
+          const currentUserId = session?.user?.id || userId;
+          const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+          
+          if (currentUserId) {
+            await visitStatusCache.set(
+              event.detail.visitId || currentVisitId || visit.id,
+              myRetailerId,
+              currentUserId,
+              targetDate,
+              newStatus,
+              event.detail.orderValue,
+              event.detail.noOrderReason
+            );
+          }
+          
+          // For final statuses (productive/unproductive), don't fetch from network
+          if (newStatus === 'productive' || newStatus === 'unproductive') {
+            console.log('🛑 [VisitCard] Status is final, skipping network refresh');
+            return;
+          }
         }
         
-        // Refresh status from DB to confirm - debouncing will prevent excessive calls
+        // Only refresh from network if status is not final
         checkStatus();
       } else {
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
@@ -611,16 +688,48 @@ export const VisitCard = ({
     };
     
     // Also listen for general visitDataChanged event (dispatched after sync completes)
-    // This ALWAYS refreshes - used after offline sync to update all cards
+    // Uses visit status cache first, then offline storage cache, then network
     const handleDataChange = async () => {
-      console.log('🔔 [VisitCard] Received visitDataChanged event - checking cache first');
+      console.log('🔔 [VisitCard] Received visitDataChanged event - checking visit status cache first');
       
-      // Check multiple possible IDs for matching (retailerId might differ from id)
-      const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
       const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      if (!currentUserId) return;
       
-      // FIRST: Check local cache (it's updated by sync before events are dispatched)
-      // Sort by created_at to get the most recent visit in case of duplicates
+      const myRetailerId = visit.retailerId || visit.id;
+      
+      // FIRST: Check visit status cache (fastest - in-memory)
+      const cachedStatus = await visitStatusCache.get(myRetailerId, currentUserId, targetDate);
+      if (cachedStatus) {
+        console.log('⚡ [VisitCard] visitDataChanged - using CACHED status:', cachedStatus.status);
+        setCurrentStatus(cachedStatus.status);
+        setCurrentVisitId(cachedStatus.visitId);
+        setStatusLoadedFromDB(true);
+        lastFetchedStatusRef.current = cachedStatus.status;
+        
+        if (cachedStatus.orderValue) {
+          setActualOrderValue(cachedStatus.orderValue);
+          setHasOrderToday(true);
+        }
+        if (cachedStatus.noOrderReason) {
+          setIsNoOrderMarked(true);
+          setNoOrderReason(cachedStatus.noOrderReason);
+        }
+        if (cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') {
+          setPhase('completed');
+          setIsCheckedOut(true);
+        }
+        
+        // If status is final, skip all network refresh
+        if (cachedStatus.isFinal) {
+          console.log('🛑 [VisitCard] Status is FINAL, skipping network refresh');
+          return;
+        }
+      }
+      
+      // SECOND: Check offline storage cache
+      const possibleRetailerIds = [visit.retailerId, visit.id].filter(Boolean);
       try {
         const cachedVisits = await offlineStorage.getAll(STORES.VISITS);
         const matchingVisits = cachedVisits.filter((v: any) => 
@@ -631,65 +740,64 @@ export const VisitCard = ({
         const cachedVisit = matchingVisits[0];
         
         if (cachedVisit && (cachedVisit as any).status) {
-          console.log('📊 [VisitCard] visitDataChanged - got status from CACHE:', (cachedVisit as any).status);
           const validStatus = (cachedVisit as any).status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+          console.log('📦 [VisitCard] visitDataChanged - got status from offline storage:', validStatus);
           setCurrentStatus(validStatus);
           setCurrentVisitId((cachedVisit as any).id);
+          setStatusLoadedFromDB(true);
+          lastFetchedStatusRef.current = validStatus;
+          
           if ((cachedVisit as any).no_order_reason) {
             setIsNoOrderMarked(true);
             setNoOrderReason((cachedVisit as any).no_order_reason);
           }
-          if (validStatus === 'unproductive') {
+          if (validStatus === 'unproductive' || validStatus === 'productive') {
             setPhase('completed');
             setIsCheckedOut(true);
+            
+            // Update visit status cache with this final status
+            await visitStatusCache.set(
+              (cachedVisit as any).id,
+              myRetailerId,
+              currentUserId,
+              targetDate,
+              validStatus,
+              undefined,
+              (cachedVisit as any).no_order_reason
+            );
+            
+            console.log('🛑 [VisitCard] Status is final from offline storage, skipping network');
+            return;
           }
-          setStatusLoadedFromDB(true);
-          return; // Cache had data, no need for DB call
         }
       } catch (cacheError) {
-        console.log('⚠️ [VisitCard] Cache read failed, falling back to DB:', cacheError);
+        console.log('⚠️ [VisitCard] Offline storage read failed:', cacheError);
       }
       
-      // FALLBACK: Fetch from DB if cache didn't have the visit - use proper ordering
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
-      if (!currentUserId) return;
-      
-      // Try with visit.retailerId first, then visit.id - ORDER BY created_at DESC to get latest
-      const visitRetailerId = visit.retailerId || visit.id;
-      const { data: visitDataArr } = await supabase
-        .from('visits')
-        .select('status, no_order_reason, id, created_at')
-        .eq('user_id', currentUserId)
-        .eq('retailer_id', visitRetailerId)
-        .eq('planned_date', targetDate)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      
-      const visitData = visitDataArr?.[0] || null;
-      
-      if (visitData) {
-        console.log('📊 [VisitCard] visitDataChanged - got status from DB:', visitData.status);
-        const validStatus = visitData.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
-        setCurrentStatus(validStatus);
-        setCurrentVisitId(visitData.id);
-        if (visitData.no_order_reason) {
-          setIsNoOrderMarked(true);
-          setNoOrderReason(visitData.no_order_reason);
-        }
-        if (validStatus === 'unproductive') {
-          setPhase('completed');
-          setIsCheckedOut(true);
-        }
-        setStatusLoadedFromDB(true);
-      }
+      // THIRD: Only if no cached status, check network (with debouncing handled by checkStatus)
+      console.log('🌐 [VisitCard] No final status in cache, checking network...');
+      checkStatus();
     };
     
     // Listen for sync complete event specifically for offline sync
     const handleSyncComplete = async () => {
-      console.log('🔔 [VisitCard] Received syncComplete event - refreshing using checkStatus');
-      // Use the debounced checkStatus instead of manual DB fetching
-      // This ensures consistent behavior and proper debouncing
+      console.log('🔔 [VisitCard] Received syncComplete event - checking cache first');
+      
+      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserId = session?.user?.id || userId;
+      const myRetailerId = visit.retailerId || visit.id;
+      
+      // Check if we have a final status cached - skip refresh if so
+      if (currentUserId) {
+        const cachedStatus = await visitStatusCache.get(myRetailerId, currentUserId, targetDate);
+        if (cachedStatus?.isFinal) {
+          console.log('🛑 [VisitCard] syncComplete - status is FINAL, skipping refresh');
+          return;
+        }
+      }
+      
+      // Not final - use checkStatus to refresh
       checkStatus();
     };
     
@@ -1420,6 +1528,11 @@ export const VisitCard = ({
             setIsNoOrderMarked(true);
             setNoOrderReason(reason);
             setStatusLoadedFromDB(true); // Prevent prop override
+            lastFetchedStatusRef.current = 'unproductive';
+            
+            // Update visit status cache - this is a FINAL status
+            const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+            await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
 
             // Trigger a manual refresh of the parent component's data
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
@@ -1493,7 +1606,12 @@ export const VisitCard = ({
           setIsNoOrderMarked(true);
           setNoOrderReason(reason);
           setStatusLoadedFromDB(true); // Prevent prop override
-          console.log('✅ Local state updated to unproductive');
+          lastFetchedStatusRef.current = 'unproductive';
+          
+          // Update visit status cache - this is a FINAL status (offline)
+          const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+          await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
+          console.log('✅ Local state and cache updated to unproductive');
 
           // Trigger UI updates
           window.dispatchEvent(new CustomEvent('visitStatusChanged', {
