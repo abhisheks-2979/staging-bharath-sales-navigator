@@ -297,8 +297,9 @@ export const VisitCard = ({
           setIsCheckedOut(true);
         }
         
-        // If status is final (productive/unproductive), skip network refresh entirely
-        if (cachedStatus.isFinal) {
+        // Only 'productive' is truly final - skip network refresh
+        // 'unproductive' can be overridden by orders placed later
+        if (cachedStatus.status === 'productive') {
           isRefreshingRef.current = false;
           return;
         }
@@ -673,9 +674,10 @@ export const VisitCard = ({
             );
           }
           
-          // For final statuses (productive/unproductive), don't fetch from network
-          if (newStatus === 'productive' || newStatus === 'unproductive') {
-            console.log('🛑 [VisitCard] Status is final, skipping network refresh');
+          // Only 'productive' is truly final - don't fetch from network
+          // 'unproductive' can be overridden by orders placed later
+          if (newStatus === 'productive') {
+            console.log('🛑 [VisitCard] Status is PRODUCTIVE (truly final), skipping network refresh');
             return;
           }
         }
@@ -721,9 +723,10 @@ export const VisitCard = ({
           setIsCheckedOut(true);
         }
         
-        // If status is final, skip all network refresh
-        if (cachedStatus.isFinal) {
-          console.log('🛑 [VisitCard] Status is FINAL, skipping network refresh');
+        // Only 'productive' is truly final - skip network refresh
+        // 'unproductive' can be overridden by orders placed later
+        if (cachedStatus.status === 'productive') {
+          console.log('🛑 [VisitCard] Status is PRODUCTIVE (truly final), skipping network refresh');
           return;
         }
       }
@@ -755,7 +758,7 @@ export const VisitCard = ({
             setPhase('completed');
             setIsCheckedOut(true);
             
-            // Update visit status cache with this final status
+            // Update visit status cache with this status
             await visitStatusCache.set(
               (cachedVisit as any).id,
               myRetailerId,
@@ -766,8 +769,11 @@ export const VisitCard = ({
               (cachedVisit as any).no_order_reason
             );
             
-            console.log('🛑 [VisitCard] Status is final from offline storage, skipping network');
-            return;
+            // Only 'productive' is truly final - skip network for productive only
+            if (validStatus === 'productive') {
+              console.log('🛑 [VisitCard] Status is PRODUCTIVE from offline storage, skipping network');
+              return;
+            }
           }
         }
       } catch (cacheError) {
@@ -788,11 +794,11 @@ export const VisitCard = ({
       const currentUserId = session?.user?.id || userId;
       const myRetailerId = visit.retailerId || visit.id;
       
-      // Check if we have a final status cached - skip refresh if so
+      // Only 'productive' is truly final - skip refresh only for productive
       if (currentUserId) {
         const cachedStatus = await visitStatusCache.get(myRetailerId, currentUserId, targetDate);
-        if (cachedStatus?.isFinal) {
-          console.log('🛑 [VisitCard] syncComplete - status is FINAL, skipping refresh');
+        if (cachedStatus?.status === 'productive') {
+          console.log('🛑 [VisitCard] syncComplete - status is PRODUCTIVE (truly final), skipping refresh');
           return;
         }
       }
