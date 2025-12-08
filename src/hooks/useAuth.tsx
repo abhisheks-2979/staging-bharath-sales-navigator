@@ -52,8 +52,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Idle timeout: 2 hours = 7200000 ms
-  const IDLE_TIMEOUT = 2 * 60 * 60 * 1000;
+  // Idle timeout: 1 hour = 3600000 ms
+  const IDLE_TIMEOUT = 1 * 60 * 60 * 1000;
+  const LAST_ACTIVITY_KEY = 'last_activity_timestamp';
 
   const fetchUserRole = async (userId: string): Promise<'admin' | 'user' | null> => {
     try {
@@ -118,35 +119,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Auto-logout on idle (1 hour of inactivity)
+  // Auto-logout on idle (1 hour of inactivity) - persists across page refreshes
   useEffect(() => {
     if (!user) return;
 
-    let idleTimer: NodeJS.Timeout;
+    let idleCheckInterval: NodeJS.Timeout;
 
-    const resetIdleTimer = () => {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        console.log('User idle for 2 hours, logging out...');
-        toast.info('You have been logged out due to 2 hours of inactivity');
-        signOut();
-      }, IDLE_TIMEOUT);
+    const updateLastActivity = () => {
+      localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
     };
 
-    // Activity events to reset the timer
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    const checkIdleTimeout = () => {
+      const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+      if (lastActivity) {
+        const timeSinceActivity = Date.now() - parseInt(lastActivity, 10);
+        if (timeSinceActivity >= IDLE_TIMEOUT) {
+          console.log('User idle for 1 hour, logging out...');
+          toast.info('You have been logged out due to 1 hour of inactivity');
+          signOut();
+          return;
+        }
+      }
+    };
+
+    // Activity events to track user interaction
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'mousemove'];
     
+    const handleActivity = () => {
+      updateLastActivity();
+    };
+
     events.forEach(event => {
-      window.addEventListener(event, resetIdleTimer);
+      window.addEventListener(event, handleActivity, { passive: true });
     });
 
-    // Start the timer
-    resetIdleTimer();
+    // Initialize last activity on mount
+    updateLastActivity();
+
+    // Check idle timeout every 30 seconds
+    idleCheckInterval = setInterval(checkIdleTimeout, 30000);
+
+    // Also check immediately on mount (handles page refresh scenario)
+    checkIdleTimeout();
 
     return () => {
-      clearTimeout(idleTimer);
+      clearInterval(idleCheckInterval);
       events.forEach(event => {
-        window.removeEventListener(event, resetIdleTimer);
+        window.removeEventListener(event, handleActivity);
       });
     };
   }, [user]);
