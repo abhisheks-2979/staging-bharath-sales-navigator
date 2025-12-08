@@ -30,6 +30,7 @@ interface Retailer {
   priority: string | null;
   status: string | null;
   beat_id: string;
+  beat_name?: string | null;
   territory_id?: string | null;
   created_at: string;
   last_visit_date?: string | null;
@@ -597,7 +598,7 @@ export const MyRetailers = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">Beat:</span>
-                        <span>{r.beat_id}</span>
+                        <span>{r.beat_name || r.beat_id}</span>
                       </div>
                       {r.category && (
                         <div className="flex items-center gap-2">
@@ -639,7 +640,8 @@ export const MyRetailers = () => {
                     const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
                     const isAddressExpanded = expandedAddress === r.id;
                     
-                    const shortBeat = r.beat_id && r.beat_id.length > 15 ? r.beat_id.substring(0, 15) + '...' : r.beat_id;
+                    const beatDisplay = r.beat_name || r.beat_id;
+                    const shortBeat = beatDisplay && beatDisplay.length > 15 ? beatDisplay.substring(0, 15) + '...' : beatDisplay;
                     const isBeatExpanded = expandedBeat === r.id;
                     
                     return (
@@ -689,7 +691,7 @@ export const MyRetailers = () => {
                           onClick={() => setExpandedBeat(isBeatExpanded ? null : r.id)}
                           title="Click to expand/collapse beat"
                         >
-                          {isBeatExpanded ? r.beat_id : shortBeat}
+                          {isBeatExpanded ? beatDisplay : shortBeat}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
