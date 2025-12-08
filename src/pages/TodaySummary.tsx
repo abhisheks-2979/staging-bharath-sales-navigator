@@ -346,10 +346,11 @@ export const TodaySummary = () => {
       const beatPlanRetailersByDate: Array<{ retailerId: string; planDate: string; beatName: string }> = [];
       
       // STEP 1: First check beat_data.retailer_ids (same as My Visits)
+      // Only consider retailer_ids defined if the array has actual items
       let hasBeatDataWithRetailerIdsDefined = false;
       beatPlans?.forEach(bp => {
         const beatData = bp.beat_data as any;
-        if (beatData && Array.isArray(beatData.retailer_ids)) {
+        if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
           hasBeatDataWithRetailerIdsDefined = true;
           beatData.retailer_ids.forEach((retailerId: string) => {
             if (!beatPlanRetailerIds.includes(retailerId)) {
