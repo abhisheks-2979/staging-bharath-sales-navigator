@@ -79,6 +79,7 @@ class VisitStatusCache {
   }
 
   // Update cache - call when status changes
+  // IMPORTANT: 'productive' always overrides any previous status
   async set(
     visitId: string,
     retailerId: string,
@@ -91,7 +92,17 @@ class VisitStatusCache {
     if (!this.initialized) await this.init();
     
     const key = this.getCacheKey(retailerId, userId, date);
-    const isFinal = status === 'productive' || status === 'unproductive';
+    const existing = this.memoryCache.get(key);
+    
+    // CRITICAL: 'productive' always wins over any other status (including 'unproductive')
+    // This handles the case where user marks "No Order" first, then places an order later
+    if (existing?.status === 'productive' && status !== 'productive') {
+      console.log(`[VisitStatusCache] Ignoring status change to ${status} - already productive (final)`);
+      return;
+    }
+    
+    // Only 'productive' is truly final - 'unproductive' can be overridden by orders
+    const isFinal = status === 'productive';
     
     const entry: CachedVisitStatus = {
       visitId,
@@ -113,7 +124,7 @@ class VisitStatusCache {
   }
 
   // Check if we need to refresh from network
-  // Returns false if status is final (productive/unproductive) - no need to refresh
+  // Returns false only if status is 'productive' (truly final) - 'unproductive' can be overridden by orders
   shouldRefreshFromNetwork(retailerId: string, userId: string, date: string): boolean {
     const key = this.getCacheKey(retailerId, userId, date);
     const cached = this.memoryCache.get(key);
@@ -123,13 +134,14 @@ class VisitStatusCache {
       return true;
     }
     
-    if (cached.isFinal) {
-      // Status is final (productive/unproductive) - no need to refresh
-      console.log(`[VisitStatusCache] Status is FINAL (${cached.status}), skipping network refresh`);
+    // Only 'productive' is truly final - orders placed override everything
+    if (cached.status === 'productive') {
+      console.log(`[VisitStatusCache] Status is PRODUCTIVE (truly final), skipping network refresh`);
       return false;
     }
     
-    // For non-final statuses (planned, in-progress), allow refresh
+    // For all other statuses (including 'unproductive'), allow refresh
+    // This ensures orders placed after "No Order" will update the status
     return true;
   }
 
