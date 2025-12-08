@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import { CompetitionDataForm } from "./CompetitionDataForm";
 import { RetailerFeedbackModal } from "./RetailerFeedbackModal";
@@ -35,6 +35,7 @@ import { RetailerVisitDetailsModal } from "./RetailerVisitDetailsModal";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { visitStatusCache } from "@/lib/visitStatusCache";
+import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { RetailerDetailModal } from "./RetailerDetailModal";
@@ -261,83 +262,102 @@ export const VisitCard = ({
     loadRetailerData();
   }, [showRetailerOverview, visit.retailerId, visit.id]);
 
+  // Memoized retailer ID for this card
+  const myRetailerId = visit.retailerId || visit.id;
 
-  // Check if user has viewed analytics for this visit, check-in status, and load distributor info
-  useEffect(() => {
-    const checkStatus = async () => {
-      // Get user and date info first
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
-      const visitRetailerId = visit.retailerId || visit.id;
-      const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+  // SMART STATUS CHECK: Only runs once initially OR when explicitly marked for refresh
+  const checkStatus = useCallback(async (forceRefresh = false) => {
+    // Get user and date info first
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id || userId;
+    const visitRetailerId = visit.retailerId || visit.id;
+    const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+    
+    if (!currentUserId) return;
+    
+    // Skip if initial check is done and NOT a forced refresh (from registry notification)
+    const hasInitialCheck = retailerStatusRegistry.hasInitialCheckDone(visitRetailerId);
+    const needsRefresh = retailerStatusRegistry.needsRefresh(visitRetailerId);
+    
+    if (hasInitialCheck && !forceRefresh && !needsRefresh) {
+      console.log('⏭️ [VisitCard] Skipping status check - already done, no changes for:', visitRetailerId);
+      return;
+    }
+    
+    // CACHE-FIRST: Check if we have cached status
+    const cachedStatus = await visitStatusCache.get(visitRetailerId, currentUserId, targetDate);
+    
+    if (cachedStatus) {
+      // Apply cached status immediately - no network needed
+      // Only update state if values are different to prevent re-renders
+      if (currentStatus !== cachedStatus.status) {
+        console.log('⚡ [VisitCard] Using CACHED status:', cachedStatus.status, cachedStatus.isFinal ? '(FINAL)' : '');
+        setCurrentStatus(cachedStatus.status);
+      }
+      if (currentVisitId !== cachedStatus.visitId) {
+        setCurrentVisitId(cachedStatus.visitId);
+      }
+      if (!statusLoadedFromDB) {
+        setStatusLoadedFromDB(true);
+      }
+      lastFetchedStatusRef.current = cachedStatus.status;
       
-      if (!currentUserId) return;
-      
-      // CACHE-FIRST: Check if we have cached status
-      const cachedStatus = await visitStatusCache.get(visitRetailerId, currentUserId, targetDate);
-      
-      if (cachedStatus) {
-        // Apply cached status immediately - no network needed
-        // Only update state if values are different to prevent re-renders
-        if (currentStatus !== cachedStatus.status) {
-          console.log('⚡ [VisitCard] Using CACHED status:', cachedStatus.status, cachedStatus.isFinal ? '(FINAL)' : '');
-          setCurrentStatus(cachedStatus.status);
-        }
-        if (currentVisitId !== cachedStatus.visitId) {
-          setCurrentVisitId(cachedStatus.visitId);
-        }
-        if (!statusLoadedFromDB) {
-          setStatusLoadedFromDB(true);
-        }
-        lastFetchedStatusRef.current = cachedStatus.status;
-        
-        if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
-          setActualOrderValue(cachedStatus.orderValue);
-          setHasOrderToday(true);
-        }
-        if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
-          setIsNoOrderMarked(true);
-          setNoOrderReason(cachedStatus.noOrderReason);
-        }
-        if ((cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') && phase !== 'completed') {
-          setPhase('completed');
-          setIsCheckedOut(true);
-        }
-        
-        // Only 'productive' is truly final - skip network refresh
-        // 'unproductive' can be overridden by orders placed later
-        if (cachedStatus.status === 'productive') {
-          isRefreshingRef.current = false;
-          return;
-        }
+      if (cachedStatus.orderValue && actualOrderValue !== cachedStatus.orderValue) {
+        setActualOrderValue(cachedStatus.orderValue);
+        setHasOrderToday(true);
+      }
+      if (cachedStatus.noOrderReason && noOrderReason !== cachedStatus.noOrderReason) {
+        setIsNoOrderMarked(true);
+        setNoOrderReason(cachedStatus.noOrderReason);
+      }
+      if ((cachedStatus.status === 'productive' || cachedStatus.status === 'unproductive') && phase !== 'completed') {
+        setPhase('completed');
+        setIsCheckedOut(true);
       }
       
-      // Debounce: prevent rapid consecutive refreshes (minimum 500ms between refreshes)
-      const now = Date.now();
-      if (now - lastRefreshTimeRef.current < 500) {
-        console.log('⏳ [VisitCard] Debouncing checkStatus - too soon after last refresh');
+      // Mark initial check done, clear refresh flag
+      retailerStatusRegistry.markInitialCheckDone(visitRetailerId);
+      retailerStatusRegistry.clearRefreshFlag(visitRetailerId);
+      
+      // Only 'productive' is truly final - skip network refresh
+      if (cachedStatus.status === 'productive') {
+        isRefreshingRef.current = false;
         return;
       }
       
-      // Prevent concurrent refreshes
-      if (isRefreshingRef.current) {
-        console.log('⏳ [VisitCard] Skipping checkStatus - already refreshing');
+      // If not force refresh and no registry flag, use cache and skip network
+      if (!forceRefresh && !needsRefresh) {
+        isRefreshingRef.current = false;
         return;
       }
-      
-      isRefreshingRef.current = true;
-      lastRefreshTimeRef.current = now;
-      
-      try {
-        console.log('🔍 [VisitCard] Checking status from network for visit:', visit.id);
+    }
+    
+    // Debounce: prevent rapid consecutive refreshes (minimum 500ms between refreshes)
+    const now = Date.now();
+    if (now - lastRefreshTimeRef.current < 500) {
+      console.log('⏳ [VisitCard] Debouncing checkStatus - too soon after last refresh');
+      return;
+    }
+    
+    // Prevent concurrent refreshes
+    if (isRefreshingRef.current) {
+      console.log('⏳ [VisitCard] Skipping checkStatus - already refreshing');
+      return;
+    }
+    
+    isRefreshingRef.current = true;
+    lastRefreshTimeRef.current = now;
+    
+    try {
+      console.log('🔍 [VisitCard] Checking status from network for visit:', visit.id);
 
-          // Load distributor information - First try to get from distributor mapping
-          const {
-            data: distributorMapping,
-            error: mappingError
-          } = await supabase.from('distributor_retailer_mappings').select('distributor_id').eq('retailer_id', visitRetailerId).eq('user_id', currentUserId).maybeSingle();
-          if (!mappingError && distributorMapping?.distributor_id) {
-            // Try to get distributor from retailers table (distributors are stored as retailers with entity_type = 'distributor')
+      // Load distributor information - First try to get from distributor mapping
+      const {
+        data: distributorMapping,
+        error: mappingError
+      } = await supabase.from('distributor_retailer_mappings').select('distributor_id').eq('retailer_id', visitRetailerId).eq('user_id', currentUserId).maybeSingle();
+      if (!mappingError && distributorMapping?.distributor_id) {
+        // Try to get distributor from retailers table (distributors are stored as retailers with entity_type = 'distributor')
             const {
               data: distributorData,
               error: distributorError
@@ -625,17 +645,35 @@ export const VisitCard = ({
             setOrdersTodayList([]);
             setPreviousPendingCleared(0);
           }
-      } catch (error) {
-        console.log('❌ Status check error:', error);
-      } finally {
-        isRefreshingRef.current = false;
-      }
-    };
-    checkStatus();
+    } catch (error) {
+      console.log('❌ Status check error:', error);
+    } finally {
+      isRefreshingRef.current = false;
+      // Mark initial check done after first successful network check
+      retailerStatusRegistry.markInitialCheckDone(visitRetailerId);
+      retailerStatusRegistry.clearRefreshFlag(visitRetailerId);
+    }
+  }, [visit.id, visit.retailerId, selectedDate, userId, currentStatus, currentVisitId, statusLoadedFromDB, actualOrderValue, noOrderReason, phase, pendingAmount]);
 
-    // Listen for custom events to refresh status - trigger full data reload
+  // Run initial status check and register for targeted refresh
+  useEffect(() => {
+    // Register this card to receive targeted refresh notifications
+    const unregister = retailerStatusRegistry.register(myRetailerId, () => {
+      console.log('🎯 [VisitCard] Received targeted refresh notification for:', myRetailerId);
+      checkStatus(true); // Force refresh only for this retailer
+    });
+    
+    // Run initial check
+    checkStatus(false);
+    
+    return () => {
+      unregister();
+    };
+  }, [myRetailerId, checkStatus]);
+
+  // Listen for custom events to refresh status - trigger full data reload
+  useEffect(() => {
     const handleStatusChange = async (event: any) => {
-      const myRetailerId = visit.retailerId || visit.id;
       console.log('🔔 [VisitCard] Received visitStatusChanged event:', {
         eventDetail: event.detail,
         currentVisitId: visit.id,
@@ -645,7 +683,8 @@ export const VisitCard = ({
       // Match by visitId, retailerId, OR if no detail provided (global refresh)
       const matchesVisit = event.detail?.visitId === visit.id || event.detail?.visitId === currentVisitId;
       const matchesRetailer = event.detail?.retailerId && (event.detail.retailerId === myRetailerId || event.detail.retailerId === visit.id || event.detail.retailerId === visit.retailerId);
-      const isGlobalRefresh = !event.detail || (!event.detail.visitId && !event.detail.retailerId);
+      // Disable global refresh - only refresh if specifically targeted
+      const isGlobalRefresh = false;
       
       if (matchesVisit || matchesRetailer || isGlobalRefresh) {
         console.log('✅ [VisitCard] Event matches - updating status');
@@ -695,8 +734,10 @@ export const VisitCard = ({
           }
         }
         
-        // Only refresh from network if status is not final
-        checkStatus();
+        // Only refresh if this specific retailer is marked
+        if (retailerStatusRegistry.needsRefresh(myRetailerId)) {
+          checkStatus(true);
+        }
       } else {
         console.log('ℹ️ [VisitCard] Event is for different visit, ignoring');
       }
@@ -801,9 +842,11 @@ export const VisitCard = ({
         console.log('⚠️ [VisitCard] Offline storage read failed:', cacheError);
       }
       
-      // THIRD: Only if no cached status, check network (with debouncing handled by checkStatus)
-      console.log('🌐 [VisitCard] No final status in cache, checking network...');
-      checkStatus();
+      // THIRD: Only refresh if this specific retailer is marked for refresh
+      if (retailerStatusRegistry.needsRefresh(myRetailerId)) {
+        console.log('🌐 [VisitCard] Retailer marked for refresh, checking network...');
+        checkStatus(true);
+      }
     };
     
     // Listen for sync complete event specifically for offline sync
@@ -824,8 +867,10 @@ export const VisitCard = ({
         }
       }
       
-      // Not final - use checkStatus to refresh
-      checkStatus();
+      // Not final - only refresh if this retailer is marked
+      if (retailerStatusRegistry.needsRefresh(myRetailerId)) {
+        checkStatus(true);
+      }
     };
     
     window.addEventListener('visitStatusChanged', handleStatusChange as EventListener);
@@ -836,7 +881,7 @@ export const VisitCard = ({
       window.removeEventListener('visitDataChanged', handleDataChange);
       window.removeEventListener('syncComplete', handleSyncComplete);
     };
-  }, [visit.id, visit.retailerId, selectedDate, userId]);
+  }, [visit.id, visit.retailerId, selectedDate, userId, myRetailerId, checkStatus]);
 
   // Set up real-time listener for orders to automatically update visit status
   useEffect(() => {
@@ -1561,7 +1606,8 @@ export const VisitCard = ({
             const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
             await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
 
-            // Trigger a manual refresh of the parent component's data
+            // Mark this specific retailer for targeted refresh
+            retailerStatusRegistry.markForRefresh(retailerId);
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
               detail: {
                 visitId,
@@ -1569,9 +1615,6 @@ export const VisitCard = ({
                 retailerId
               }
             }));
-            
-            // Also trigger data refresh for progress updates
-            window.dispatchEvent(new Event('visitDataChanged'));
             
             setShowNoOrderModal(false);
             toast({
@@ -1640,7 +1683,8 @@ export const VisitCard = ({
           await visitStatusCache.set(visitId, retailerId, currentUserId, targetDate, 'unproductive', undefined, reason);
           console.log('✅ Local state and cache updated to unproductive');
 
-          // Trigger UI updates
+          // Mark this specific retailer for targeted refresh
+          retailerStatusRegistry.markForRefresh(retailerId);
           window.dispatchEvent(new CustomEvent('visitStatusChanged', {
             detail: {
               visitId,
@@ -1648,7 +1692,6 @@ export const VisitCard = ({
               retailerId
             }
           }));
-          window.dispatchEvent(new Event('visitDataChanged'));
 
           setShowNoOrderModal(false);
           toast({

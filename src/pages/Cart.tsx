@@ -21,6 +21,7 @@ import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
 interface CartItem {
   id: string;
   name: string;
@@ -881,9 +882,10 @@ export const Cart = () => {
         duration: 3000,
       });
 
-      // Dispatch events for UI updates
+      // Dispatch events for UI updates - TARGETED refresh only for this retailer
       if (actualVisitId) {
-        console.log('📡 Dispatching visitStatusChanged event');
+        console.log('📡 Marking retailer for targeted refresh:', validRetailerId);
+        retailerStatusRegistry.markForRefresh(validRetailerId);
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { 
             visitId: actualVisitId, 
@@ -891,7 +893,6 @@ export const Cart = () => {
             retailerId: validRetailerId 
           }
         }));
-        window.dispatchEvent(new CustomEvent('visitDataChanged'));
       }
 
       // Navigate to My Visits page immediately
