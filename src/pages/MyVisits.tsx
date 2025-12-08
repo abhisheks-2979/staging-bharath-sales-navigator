@@ -380,6 +380,18 @@ export const MyVisits = () => {
         const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
         const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
         const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+        const hasOrder = orders.length > 0;
+        
+        // CRITICAL: Use the ACTUAL status from database
+        // Order of priority: hasOrder (productive) > actual visit.status > planned (only if no visit)
+        let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
+        if (hasOrder) {
+          status = 'productive';
+        } else if (visit?.status) {
+          status = visit.status as typeof status;
+        } else {
+          status = 'planned';
+        }
         
         return {
           id: retailer.id,
@@ -388,10 +400,10 @@ export const MyVisits = () => {
           address: retailer.address || '',
           phone: retailer.phone || '',
           retailerCategory: retailer.category || '',
-          status: visit?.status || 'planned',
+          status,
           visitType: 'Regular Visit',
           visitId: visit?.id,
-          hasOrder: orders.length > 0,
+          hasOrder,
           orderValue: totalOrderValue,
           visitStatus: visit?.status,
           noOrderReason: visit?.no_order_reason,
@@ -873,7 +885,19 @@ export const MyVisits = () => {
 
         // Only show retailers that either have a visit or are in planned beats
         if (!visit && !isPlanned) return null;
-        const status = hasOrder ? 'productive' as const : visit?.status === 'unproductive' ? 'unproductive' as const : hasCheckIn ? 'in-progress' as const : 'planned' as const;
+        
+        // CRITICAL: Use the ACTUAL status from database/visit record
+        // Order of priority: hasOrder (productive) > actual visit.status > planned (only if no visit exists)
+        let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
+        if (hasOrder) {
+          status = 'productive';
+        } else if (visit?.status) {
+          // Use the actual status from database - DO NOT override with 'planned'
+          status = visit.status as typeof status;
+        } else {
+          // Only default to 'planned' if there's no visit record at all
+          status = 'planned';
+        }
         return {
           id: visit?.id || retailerId,
           retailerId: retailer.id,
