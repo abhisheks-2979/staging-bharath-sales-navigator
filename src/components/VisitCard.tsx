@@ -355,8 +355,10 @@ export const VisitCard = ({
       retailerStatusRegistry.markInitialCheckDone(visitRetailerId);
       retailerStatusRegistry.clearRefreshFlag(visitRetailerId);
       
-      // Only 'productive' is truly final - skip network refresh
-      if (cachedStatus.status === 'productive') {
+      // Only 'productive' WITH order value is truly final - skip network refresh
+      // If productive but no order value, we need to fetch it from network
+      if (cachedStatus.status === 'productive' && cachedStatus.orderValue && cachedStatus.orderValue > 0) {
+        console.log('⚡ [VisitCard] Cache has productive + orderValue, skipping network');
         isRefreshingRef.current = false;
         return;
       }
@@ -699,22 +701,11 @@ export const VisitCard = ({
       checkStatus(true); // Force refresh only for this retailer
     });
     
-    // OPTIMIZATION: Skip initial check if prop already has final status (from parent)
-    // This prevents unnecessary network calls for already-known statuses
-    const propStatus = visit.status;
-    const isFinalStatus = propStatus === 'productive' || propStatus === 'unproductive';
-    
-    if (isFinalStatus) {
-      // Prop already has final status - trust it and cache it
-      console.log('⚡ [VisitCard] Prop has final status, skipping initial check:', propStatus);
-      if (currentStatus !== propStatus) {
-        setCurrentStatus(propStatus);
-        setStatusLoadedFromDB(true);
-      }
-    } else {
-      // Only run initial check for non-final statuses
-      checkStatus(false);
-    }
+    // ALWAYS run checkStatus to load order data, status, and other visit details
+    // The checkStatus function has internal optimizations to skip redundant network calls
+    // But we need it to load order values, pending amounts, etc.
+    console.log('🔍 [VisitCard] Running initial checkStatus for:', myRetailerId);
+    checkStatus(false);
     
     return () => {
       unregister();
