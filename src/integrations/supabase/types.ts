@@ -7882,6 +7882,14 @@ export type Database = {
           username: string
         }[]
       }
+      get_employee_basic_info: {
+        Args: { employee_user_id: string }
+        Returns: {
+          full_name: string
+          hq: string
+          user_id: string
+        }[]
+      }
       get_limited_profiles_for_admin: {
         Args: never
         Returns: {
@@ -7990,6 +7998,17 @@ export type Database = {
       }
       hash_hint_answer: { Args: { answer: string }; Returns: string }
       is_account_locked: { Args: { user_email: string }; Returns: boolean }
+      list_team_members: {
+        Args: never
+        Returns: {
+          full_name: string
+          hq: string
+          manager_id: string
+          profile_picture_url: string
+          user_id: string
+          username: string
+        }[]
+      }
       log_sensitive_access: {
         Args: { p_action: string; p_record_id: string; p_table_name: string }
         Returns: undefined
