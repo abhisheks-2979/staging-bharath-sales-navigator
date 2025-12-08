@@ -81,7 +81,7 @@ export function DistributorBeats({ distributorId }: Props) {
                   <div>
                     <p className="font-medium text-sm">{beat.beat_name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-muted-foreground">{beat.beat_id}</span>
+                      {beat.category && <span className="text-xs text-muted-foreground">{beat.category}</span>}
                       {beat.category && (
                         <Badge variant="outline" className="text-xs">
                           {beat.category}

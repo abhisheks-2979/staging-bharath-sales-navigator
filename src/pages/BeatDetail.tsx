@@ -465,8 +465,8 @@ export const BeatDetail = () => {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-xs text-muted-foreground">Beat ID</p>
-                <p className="font-semibold">{beatData.beat_id}</p>
+                <p className="text-xs text-muted-foreground">Beat Name</p>
+                <p className="font-semibold">{beatData.beat_name}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Category</p>

@@ -15,6 +15,7 @@ interface Retailer {
   id: string;
   name: string;
   beat_id: string;
+  beat_name?: string | null;
 }
 
 interface MassEditBeatsModalProps {
@@ -233,7 +234,7 @@ export const MassEditBeatsModal = ({ isOpen, onClose, retailers, beats, onSucces
                     onCheckedChange={() => handleRetailerToggle(retailer.id)}
                   />
                   <Label htmlFor={retailer.id} className="flex-1 text-sm">
-                    {retailer.name} <span className="text-muted-foreground">(Current: {retailer.beat_id})</span>
+                    {retailer.name} <span className="text-muted-foreground">(Current: {retailer.beat_name || retailer.beat_id})</span>
                   </Label>
                 </div>
               ))}

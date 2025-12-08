@@ -19,6 +19,7 @@ interface Retailer {
   address: string;
   phone: string | null;
   beat_id: string;
+  beat_name?: string | null;
 }
 
 interface AddRetailerToVisitModalProps {
@@ -98,7 +99,7 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
           .insert({
             user_id: user.id,
             beat_id: retailer.beat_id,
-            beat_name: retailer.beat_id,
+            beat_name: retailer.beat_name || retailer.beat_id,
             plan_date: plannedDate,
             beat_data: {},
             joint_sales_manager_id: jointSalesMember
@@ -169,7 +170,7 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
             <div className="bg-muted/50 p-3 rounded-lg">
               <p className="font-medium">{retailer.name}</p>
               <p className="text-sm text-muted-foreground">{retailer.address}</p>
-              <p className="text-sm text-muted-foreground">Beat: {retailer.beat_id}</p>
+              <p className="text-sm text-muted-foreground">Beat: {retailer.beat_name || retailer.beat_id}</p>
             </div>
 
             <div className="space-y-2">
