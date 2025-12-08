@@ -12,7 +12,11 @@ import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
 // Permissions are now requested contextually when features are used (Android native dialogs)
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
+import { visitStatusCache } from "@/lib/visitStatusCache";
 import Index from "./pages/Index";
+
+// Initialize visit status cache early to avoid flicker
+visitStatusCache.init();
 
 // Lazy load feature pages
 const BeatPlanningFeature = lazy(() => import("./pages/features/BeatPlanningFeature").then(module => ({ default: module.BeatPlanningFeature })));

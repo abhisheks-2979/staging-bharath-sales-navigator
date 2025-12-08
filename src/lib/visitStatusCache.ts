@@ -62,6 +62,17 @@ class VisitStatusCache {
     }
   }
 
+  // SYNCHRONOUS get - returns immediately from memory cache (may return null if not initialized)
+  // Use this for initial render to avoid flicker
+  getSync(retailerId: string, userId: string, date: string): CachedVisitStatus | null {
+    if (!this.initialized) {
+      return null; // Cache not ready yet
+    }
+    
+    const key = this.getCacheKey(retailerId, userId, date);
+    return this.memoryCache.get(key) || null;
+  }
+
   // Get cached status - returns immediately from memory
   async get(retailerId: string, userId: string, date: string): Promise<CachedVisitStatus | null> {
     if (!this.initialized) await this.init();
@@ -76,6 +87,11 @@ class VisitStatusCache {
     
     console.log(`[VisitStatusCache] Cache MISS for ${retailerId}`);
     return null;
+  }
+  
+  // Check if cache is initialized
+  isReady(): boolean {
+    return this.initialized;
   }
 
   // Update cache - call when status changes
