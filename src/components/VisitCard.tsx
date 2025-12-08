@@ -255,6 +255,20 @@ export const VisitCard = ({
   // Only fall back to prop if currentStatus is somehow null (shouldn't happen)
   const displayStatus = currentStatus || visit.status;
 
+  // CRITICAL: Sync currentStatus when parent prop changes (e.g., after orders are loaded)
+  // This ensures instant display when parent has fresh data
+  useEffect(() => {
+    const propStatus = visit.status;
+    const isFinalStatus = propStatus === 'productive' || propStatus === 'unproductive';
+    
+    // Only update if prop has a final status AND current status is different
+    if (isFinalStatus && currentStatus !== propStatus) {
+      console.log('⚡ [VisitCard] Syncing status from prop:', propStatus, '(was:', currentStatus, ')');
+      setCurrentStatus(propStatus);
+      setStatusLoadedFromDB(true);
+    }
+  }, [visit.status]);
+
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
 
