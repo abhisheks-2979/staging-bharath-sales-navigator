@@ -194,7 +194,6 @@ export function useOfflineSync() {
                 status: 'unproductive',
                 no_order_reason: noOrderReason,
                 check_out_time: effectiveCheckOutTime,
-                visit_type: 'Regular Visit',
                 created_at: new Date().toISOString()
               })
               .select()

@@ -971,8 +971,7 @@ export const VisitCard = ({
         user_id: userId,
         retailer_id: retailerId,
         planned_date: date,
-        status: 'planned',
-        visit_type: 'Regular Visit'
+        status: 'planned'
       });
       
       setCurrentVisitId(tempVisitId);
