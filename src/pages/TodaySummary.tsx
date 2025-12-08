@@ -93,6 +93,10 @@ export const TodaySummary = () => {
     visitStatus: string;
     orderPerKG: number;
     totalValue: number;
+    invoiceDate?: string;
+    invoiceNumber?: string;
+    productName?: string;
+    paymentMode?: string;
   }>>([]);
 
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
@@ -895,7 +899,7 @@ export const TodaySummary = () => {
 
       setVisitsByStatus(visitsByStatusData);
 
-      // Prepare retailer-based report data - fetch additional retailer details if needed
+      // Prepare retailer-based report data - now includes invoice details
       const retailerReportDataArray: Array<{
         retailerName: string;
         address: string;
@@ -903,55 +907,105 @@ export const TodaySummary = () => {
         visitStatus: string;
         orderPerKG: number;
         totalValue: number;
+        invoiceDate?: string;
+        invoiceNumber?: string;
+        productName?: string;
+        paymentMode?: string;
       }> = [];
       
-      // Process each visit to build comprehensive report data
-      for (const visit of (visits || [])) {
-        const retailer = retailerMap.get(visit.retailer_id);
-        const retailerOrders = todayOrders?.filter(o => o.retailer_id === visit.retailer_id) || [];
-        
-        let totalKgForRetailer = 0;
-        let totalValueForRetailer = 0;
-        
-        retailerOrders.forEach(order => {
-          order.order_items?.forEach((item: any) => {
-            totalKgForRetailer += convertToKg(item.quantity, item.unit || 'piece');
-          });
-          totalValueForRetailer += Number(order.total_amount || 0);
-        });
+      // Process each order to build comprehensive report data with invoice details
+      // This creates one row per order item for detailed product-level reporting
+      for (const order of (todayOrders || [])) {
+        const retailer = retailerMap.get(order.retailer_id);
+        const visit = visits?.find(v => v.retailer_id === order.retailer_id);
         
         // Determine visit status
-        let visitStatus = 'Pending';
-        if (visit.status === 'productive') visitStatus = 'Productive';
-        else if (visit.status === 'unproductive') visitStatus = 'Non-Productive';
-        else if (visit.status === 'store_closed') visitStatus = 'Store Closed';
-        else if (visit.status === 'canceled') visitStatus = 'Canceled';
-        else if (visit.status === 'planned') visitStatus = 'Planned';
+        let visitStatus = 'Productive';
+        if (visit) {
+          if (visit.status === 'productive') visitStatus = 'Productive';
+          else if (visit.status === 'unproductive') visitStatus = 'Non-Productive';
+          else if (visit.status === 'store_closed') visitStatus = 'Store Closed';
+          else if (visit.status === 'canceled') visitStatus = 'Canceled';
+          else if (visit.status === 'planned') visitStatus = 'Planned';
+        }
         
-        // Use retailer data from the map, with fallbacks
-        const retailerName = retailer?.name || 'Unknown Retailer';
-        const retailerAddress = retailer?.address || 'Address not available';
-        const retailerPhone = retailer?.phone || 'Phone not available';
+        // Format invoice date
+        const invoiceDate = order.created_at 
+          ? new Date(order.created_at).toLocaleDateString('en-IN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
+            })
+          : '-';
         
-        console.log('Report row data:', {
-          visitId: visit.id,
-          retailerId: visit.retailer_id,
-          retailerName,
-          retailerAddress,
-          retailerPhone,
-          visitStatus,
-          totalKgForRetailer,
-          totalValueForRetailer
-        });
+        // Determine payment mode
+        let paymentMode = 'Cash';
+        if (order.is_credit_order) {
+          paymentMode = order.credit_paid_amount > 0 ? 'Partial Credit' : 'Full Credit';
+        }
+        if (order.payment_method) {
+          paymentMode = order.payment_method;
+        }
         
-        retailerReportDataArray.push({
-          retailerName,
-          address: retailerAddress,
-          phoneNumber: retailerPhone,
-          visitStatus,
-          orderPerKG: totalKgForRetailer,
-          totalValue: totalValueForRetailer
-        });
+        // If order has items, create a row for each product
+        if (order.order_items && order.order_items.length > 0) {
+          for (const item of order.order_items) {
+            const itemKg = convertToKg(item.quantity, item.unit || 'piece');
+            
+            retailerReportDataArray.push({
+              retailerName: retailer?.name || order.retailer_name || 'Unknown Retailer',
+              address: retailer?.address || 'Address not available',
+              phoneNumber: retailer?.phone || 'Phone not available',
+              visitStatus,
+              orderPerKG: itemKg,
+              totalValue: Number(item.total || 0),
+              invoiceDate,
+              invoiceNumber: order.invoice_number || '-',
+              productName: item.product_name || '-',
+              paymentMode
+            });
+          }
+        } else {
+          // No items, create a single row for the order
+          retailerReportDataArray.push({
+            retailerName: retailer?.name || order.retailer_name || 'Unknown Retailer',
+            address: retailer?.address || 'Address not available',
+            phoneNumber: retailer?.phone || 'Phone not available',
+            visitStatus,
+            orderPerKG: 0,
+            totalValue: Number(order.total_amount || 0),
+            invoiceDate,
+            invoiceNumber: order.invoice_number || '-',
+            productName: '-',
+            paymentMode
+          });
+        }
+      }
+      
+      // Also add visits without orders (non-productive visits)
+      for (const visit of (visits || [])) {
+        const hasOrder = todayOrders?.some(o => o.retailer_id === visit.retailer_id);
+        if (!hasOrder && visit.status !== 'planned') {
+          const retailer = retailerMap.get(visit.retailer_id);
+          
+          let visitStatus = 'Pending';
+          if (visit.status === 'unproductive') visitStatus = 'Non-Productive';
+          else if (visit.status === 'store_closed') visitStatus = 'Store Closed';
+          else if (visit.status === 'canceled') visitStatus = 'Canceled';
+          
+          retailerReportDataArray.push({
+            retailerName: retailer?.name || 'Unknown Retailer',
+            address: retailer?.address || 'Address not available',
+            phoneNumber: retailer?.phone || 'Phone not available',
+            visitStatus,
+            orderPerKG: 0,
+            totalValue: 0,
+            invoiceDate: '-',
+            invoiceNumber: '-',
+            productName: '-',
+            paymentMode: '-'
+          });
+        }
       }
       
       console.log('Final report data:', retailerReportDataArray);
