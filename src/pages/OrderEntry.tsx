@@ -2041,7 +2041,6 @@ export const OrderEntry = () => {
                             planned_date: today,
                             status: 'unproductive',
                             no_order_reason: finalReason,
-                            visit_type: 'Regular Visit',
                             created_at: new Date().toISOString()
                           })
                           .select()
