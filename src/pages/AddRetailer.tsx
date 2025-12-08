@@ -474,12 +474,24 @@ export const AddRetailer = () => {
 
               if (error) {
                 console.error('Scan error:', error);
+                toast({ 
+                  title: 'Scan Failed', 
+                  description: error.message || 'Failed to scan board. Please try again.',
+                  variant: 'destructive',
+                  duration: 4000
+                });
                 setIsScanningBoard(false);
                 return;
               }
 
               if (data?.error) {
                 console.error('Scan data error:', data.error);
+                toast({ 
+                  title: 'Scan Failed', 
+                  description: data.error,
+                  variant: 'destructive',
+                  duration: 4000
+                });
                 setIsScanningBoard(false);
                 return;
               }
