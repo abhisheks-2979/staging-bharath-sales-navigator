@@ -811,60 +811,8 @@ export const VisitCard = ({
     };
   }, [visit.id, visit.retailerId, selectedDate, userId, myRetailerId, checkStatus]);
 
-  // Set up real-time listener for orders to automatically update visit status
-  useEffect(() => {
-    const setupListener = async () => {
-      // Use getSession() for offline support
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserId = session?.user?.id || userId;
-      if (!currentUserId) return;
-      const retailerId = visit.retailerId || visit.id;
-      const channel = supabase.channel('order-updates').on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'orders',
-        filter: `retailer_id=eq.${retailerId}`
-      }, async payload => {
-        // When an order is placed, automatically mark visit as productive if checked in
-        const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
-        const createdAt: any = (payload as any)?.new?.created_at || (payload as any)?.created_at;
-        const createdDate = createdAt ? new Date(createdAt).toISOString().split('T')[0] : null;
-        if (createdDate !== targetDate) {
-          return;
-        }
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        const activeUserId = currentSession?.user?.id || userId;
-        if (activeUserId) {
-          // Get the most recent visit using proper ordering
-          const { data: visitDataArr } = await supabase.from('visits').select('id, status, check_in_time, created_at').eq('user_id', activeUserId).eq('retailer_id', retailerId).eq('planned_date', targetDate).order('created_at', { ascending: false }).limit(1);
-          const visitData = visitDataArr?.[0] || null;
-          if (visitData?.check_in_time && (visitData.status === 'in-progress' || visitData.status === 'unproductive')) {
-            // Get order time for auto check-out
-            const orderTime = createdAt || new Date().toISOString();
-
-            // Auto check-out the visit when order is placed
-            await supabase.from('visits').update({
-              status: 'productive',
-              no_order_reason: null,
-              check_out_time: orderTime
-            }).eq('id', visitData.id);
-            
-            // Update local state to reflect productive status
-            setCurrentStatus('productive');
-          }
-          setHasOrderToday(true);
-          setIsNoOrderMarked(false);
-          setNoOrderReason('');
-          setIsCheckedOut(true);
-          setPhase('completed');
-        }
-      }).subscribe();
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    };
-    setupListener();
-  }, [visit.retailerId, visit.id, selectedDate, userId]);
+  // REMOVED: Real-time order listener disabled to prevent UI flickering
+  // Status updates now happen through explicit navigation/actions only
   const getStatusColor = (status: string) => {
     switch (status) {
       case "productive":

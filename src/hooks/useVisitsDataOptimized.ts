@@ -539,28 +539,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Load new data
     loadData();
 
-    // Listen for manual refresh events - background refresh without clearing
-    const handleRefresh = () => {
-      console.log('🔄 visitDataChanged event received! Background refresh for date:', selectedDate);
-      // Background refresh - don't clear existing data
-      setTimeout(() => {
-        loadData(true); // Force refresh flag
-      }, 100);
-    };
+    // REMOVED: visitDataChanged event listener disabled to prevent UI flickering
+    // Data is loaded once on mount/date change, updated only when user navigates back
     
     // Listen for online/offline changes to refresh data
     const handleOnline = () => {
       console.log('🌐 Connection restored! Refreshing data to pick up synced changes...');
       setTimeout(() => {
         loadData();
-      }, 1000); // Give sync a moment to complete
+      }, 2000); // Give sync a moment to complete
     };
     
-    window.addEventListener('visitDataChanged', handleRefresh);
     window.addEventListener('online', handleOnline);
     
     return () => {
-      window.removeEventListener('visitDataChanged', handleRefresh);
       window.removeEventListener('online', handleOnline);
     };
   }, [loadData, selectedDate]);
