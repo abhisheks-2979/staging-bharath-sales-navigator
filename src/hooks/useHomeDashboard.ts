@@ -378,17 +378,25 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       beatName = beatNames.length > 0 ? beatNames.join(', ') : null;
     }
     
-    // Unified beat progress logic for cache path - includes cached orders
+    // Unified beat progress logic for cache path - same as network path
     let notYetVisited = 0;
     let productive = 0;
     let unproductive = 0;
     const visitRetailerIdsSet = new Set(todayVisits.map((v: any) => v.retailer_id));
-
-    // Build order map from cached orders to detect productive visits
-    const cachedOrdersForDate = cachedRetailers || [];
-    const ordersMap = new Map<string, boolean>();
-    // Note: We'd need cached orders passed in, but for simplicity, we'll check visit status
     
+    // Extract planned retailer IDs from beat_data first
+    const plannedRetailerIds: string[] = [];
+    for (const bp of beatPlansArray) {
+      const beatData = (bp as any).beat_data as any;
+      if (beatData && Array.isArray(beatData.retailer_ids)) {
+        plannedRetailerIds.push(...beatData.retailer_ids);
+      }
+    }
+
+    // Total planned retailers (from beat plans)
+    const totalPlannedRetailers = plannedRetailerIds.length;
+    
+    // Process visits - count status from visit records
     todayVisits.forEach((v: any) => {
       if (v.status === 'unproductive') {
         unproductive++;
@@ -399,27 +407,12 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       }
     });
 
-    // Extract planned retailer IDs
-    const plannedRetailerIds: string[] = [];
-    for (const bp of beatPlansArray) {
-      const beatData = (bp as any).beat_data as any;
-      if (beatData && Array.isArray(beatData.retailer_ids)) {
-        plannedRetailerIds.push(...beatData.retailer_ids);
-      }
-    }
-
-    // Total planned retailers
-    const totalPlannedRetailers = plannedRetailerIds.length;
-
     // Count retailers from beat plans without visit records as not yet visited
     plannedRetailerIds.forEach((retailerId: string) => {
       if (!visitRetailerIdsSet.has(retailerId)) {
         notYetVisited++;
       }
     });
-
-    const totalVisits = todayVisits.length;
-    const remaining = notYetVisited;
 
     setData(prev => ({
       ...prev,
@@ -431,10 +424,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         nextVisit,
         attendance: todayAttendance,
         beatProgress: {
-          total: totalVisits,
+          total: totalPlannedRetailers, // Total planned retailers from beat plans (consistent with network path)
           completed: productive + unproductive,
-          remaining,
-          planned: notYetVisited, // Unified logic: visits with status='planned' + retailers from beat plans without visits
+          remaining: notYetVisited,
+          planned: totalPlannedRetailers, // Total planned retailers from beat plans (consistent with network path)
           productive,
           unproductive,
         }
