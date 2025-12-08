@@ -533,23 +533,66 @@ export const TodaySummary = () => {
       const allClosedVisits = visits?.filter(v => v.status === 'store_closed') || [];
       const allUnproductiveVisits = visits?.filter(v => v.status === 'unproductive') || [];
       
-      // Only count visits that match beat plan retailers for accurate metrics
-      const productiveVisits = allProductiveVisits.filter(v => {
+      // Count UNIQUE RETAILERS per status category, ensuring no double-counting
+      // Priority: productive > unproductive > store_closed > planned
+      // A retailer can only be in ONE category based on their best/final status
+      const productiveRetailerKeys = new Set<string>();
+      const unproductiveRetailerKeys = new Set<string>();
+      const closedRetailerKeys = new Set<string>();
+      
+      // First pass: collect productive retailers (highest priority)
+      allProductiveVisits.forEach(v => {
         const key = `${v.retailer_id}_${v.planned_date}`;
-        return plannedRetailerDateSet.has(key);
+        if (plannedRetailerDateSet.has(key)) {
+          productiveRetailerKeys.add(key);
+        }
       });
       
-      const closedVisits = allClosedVisits.filter(v => {
+      // Second pass: collect unproductive retailers (excluding productive ones)
+      allUnproductiveVisits.forEach(v => {
         const key = `${v.retailer_id}_${v.planned_date}`;
-        return plannedRetailerDateSet.has(key);
+        if (plannedRetailerDateSet.has(key) && !productiveRetailerKeys.has(key)) {
+          unproductiveRetailerKeys.add(key);
+        }
+      });
+      
+      // Third pass: collect store_closed retailers (excluding productive and unproductive)
+      allClosedVisits.forEach(v => {
+        const key = `${v.retailer_id}_${v.planned_date}`;
+        if (plannedRetailerDateSet.has(key) && !productiveRetailerKeys.has(key) && !unproductiveRetailerKeys.has(key)) {
+          closedRetailerKeys.add(key);
+        }
+      });
+      
+      // Get actual visit objects for display purposes (one per unique retailer)
+      const productiveVisits = allProductiveVisits.filter(v => {
+        const key = `${v.retailer_id}_${v.planned_date}`;
+        if (productiveRetailerKeys.has(key)) {
+          productiveRetailerKeys.delete(key); // Only take first match
+          return true;
+        }
+        return false;
       });
       
       const unproductiveVisits = allUnproductiveVisits.filter(v => {
         const key = `${v.retailer_id}_${v.planned_date}`;
-        return plannedRetailerDateSet.has(key);
+        if (unproductiveRetailerKeys.has(key)) {
+          unproductiveRetailerKeys.delete(key);
+          return true;
+        }
+        return false;
       });
       
-      // Completed visits = productive + unproductive + store_closed (only for planned retailers)
+      const closedVisits = allClosedVisits.filter(v => {
+        const key = `${v.retailer_id}_${v.planned_date}`;
+        if (closedRetailerKeys.has(key)) {
+          closedRetailerKeys.delete(key);
+          return true;
+        }
+        return false;
+      });
+      
+      // Completed retailers = unique productive + unproductive + store_closed (no double-counting)
       const completedVisits = [...productiveVisits, ...unproductiveVisits, ...closedVisits];
       
       // Find retailers from beat plans that don't have a visit record OR have 'planned' status
@@ -562,11 +605,16 @@ export const TodaySummary = () => {
       // Total planned = all unique retailers from beat plans for the date range
       const totalPlannedFromBeatPlans = beatPlanRetailersByDate.length;
       
-      // Completed visits count (for accurate calculation)
-      const totalCompletedVisits = completedVisits.length;
+      // Count visits that are in beat plan for accurate metrics
+      // Productive = visits with status 'productive' that match beat plan retailers
+      const productiveCount = productiveVisits.length;
       
-      // Pending = Planned - Completed (ensures: Planned = Productive + Unproductive + Store Closed + Pending)
-      const totalPendingCount = Math.max(0, totalPlannedFromBeatPlans - totalCompletedVisits);
+      // Unproductive = visits with status 'unproductive' OR 'store_closed' that match beat plan retailers
+      const unproductiveCount = unproductiveVisits.length + closedVisits.length;
+      
+      // Pending = Planned - Productive - Unproductive
+      // This ensures: Planned = Productive + Unproductive + Pending
+      const totalPendingCount = Math.max(0, totalPlannedFromBeatPlans - productiveCount - unproductiveCount);
       const totalPlanned = totalPlannedFromBeatPlans;
 
       // Get attendance start/end times from attendance table
