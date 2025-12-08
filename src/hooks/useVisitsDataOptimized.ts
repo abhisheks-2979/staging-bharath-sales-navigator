@@ -152,7 +152,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Create a set of retailer IDs that have visits
         const visitRetailerIdsSet = new Set(filteredVisits.map((v: any) => v.retailer_id));
 
+        // Group visits by retailer and get the most recent one (handles duplicates)
+        const latestVisitsByRetailer = new Map<string, any>();
         filteredVisits.forEach((visit: any) => {
+          const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+          if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
+            latestVisitsByRetailer.set(visit.retailer_id, visit);
+          }
+        });
+
+        // Count based on the latest visit per retailer only
+        latestVisitsByRetailer.forEach((visit: any) => {
           const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
           const hasOrder = orderValue > 0;
           
@@ -210,7 +220,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .eq('plan_date', selectedDate),
           supabase
             .from('visits')
-            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, check_out_time')
+            .select('id, retailer_id, status, no_order_reason, planned_date, user_id, check_in_time, check_out_time, created_at')
             .eq('user_id', userId)
             .eq('planned_date', selectedDate),
           supabase
@@ -370,8 +380,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Create a set of retailer IDs that have visits
         const visitRetailerIdsSet = new Set(visitsData.map((v: any) => v.retailer_id));
 
-        // Process visits directly to ensure all visits are counted
+        // Group visits by retailer and get the most recent one (handles duplicates)
+        const latestVisitsByRetailer = new Map<string, any>();
         visitsData.forEach((visit: any) => {
+          const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+          if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
+            latestVisitsByRetailer.set(visit.retailer_id, visit);
+          }
+        });
+
+        // Count based on the latest visit per retailer only
+        latestVisitsByRetailer.forEach((visit: any) => {
           const hasOrder = ordersMap.has(visit.retailer_id);
           
           // SIMPLIFIED LOGIC: Count visits based on their actual status only
