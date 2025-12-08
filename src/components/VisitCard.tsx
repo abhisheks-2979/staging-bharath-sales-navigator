@@ -348,10 +348,13 @@ export const VisitCard = ({
           }
 
           // Fetch visit data from database to get latest check-in/out status
+          // Order by created_at DESC to get the most recent visit (handles duplicate visits)
           const {
-            data: visitData,
+            data: visitDataArr,
             error: visitError
-          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', currentUserId).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).maybeSingle();
+          } = await supabase.from('visits').select('check_in_time, check_out_time, status, no_order_reason, location_match_in, location_match_out, id').eq('user_id', currentUserId).eq('retailer_id', visitRetailerId).eq('planned_date', targetDate).order('created_at', { ascending: false }).limit(1);
+          
+          const visitData = visitDataArr?.[0] || null;
           
           if (!visitError && visitData) {
             console.log('📊 Visit data from DB:', visitData);
