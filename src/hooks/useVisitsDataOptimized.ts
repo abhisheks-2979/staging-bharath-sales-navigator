@@ -76,11 +76,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
 
       // Extract retailer IDs from beat_data.retailer_ids if specified
+      // Only consider retailer_ids defined if the array has actual items
       let plannedRetailerIds: string[] = [];
       let hasBeatDataWithRetailerIdsDefined = false;
       for (const beatPlan of filteredBeatPlans) {
         const beatData = (beatPlan as any).beat_data as any;
-        if (beatData && Array.isArray(beatData.retailer_ids)) {
+        if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
           hasBeatDataWithRetailerIdsDefined = true;
           plannedRetailerIds.push(...beatData.retailer_ids);
         }
@@ -239,11 +240,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
         
         // Extract retailer IDs from beat_data.retailer_ids if specified
+        // Only consider retailer_ids defined if the array has actual items
         let plannedRetailerIds: string[] = [];
         let hasBeatDataWithRetailerIdsDefined = false;
         for (const beatPlan of beatPlansData) {
           const beatData = beatPlan.beat_data as any;
-          if (beatData && Array.isArray(beatData.retailer_ids)) {
+          if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
             hasBeatDataWithRetailerIdsDefined = true;
             plannedRetailerIds.push(...beatData.retailer_ids);
           }

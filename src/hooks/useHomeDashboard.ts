@@ -191,11 +191,12 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         });
 
         // Extract planned retailer IDs from beat plans (beat_data.retailer_ids or fallback by beat_id)
+        // Only consider retailer_ids defined if the array has actual items
         let plannedRetailerIds: string[] = [];
         let hasBeatDataWithRetailerIdsDefined = false;
         for (const bp of beatPlans) {
           const beatData = (bp as any).beat_data as any;
-          if (beatData && Array.isArray(beatData.retailer_ids)) {
+          if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
             hasBeatDataWithRetailerIdsDefined = true;
             plannedRetailerIds.push(...beatData.retailer_ids);
           }
