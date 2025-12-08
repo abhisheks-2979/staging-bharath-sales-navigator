@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 
@@ -20,6 +20,35 @@ interface ProgressStats {
   totalOrderValue: number;
 }
 
+// Helper to check if two arrays have the same content (by ID)
+const arraysEqual = (a: any[], b: any[], key = 'id'): boolean => {
+  if (a.length !== b.length) return false;
+  const aIds = new Set(a.map(item => item[key]));
+  const bIds = new Set(b.map(item => item[key]));
+  if (aIds.size !== bIds.size) return false;
+  for (const id of aIds) {
+    if (!bIds.has(id)) return false;
+  }
+  // Also check for value changes in key fields
+  const aMap = new Map(a.map(item => [item[key], item]));
+  for (const bItem of b) {
+    const aItem = aMap.get(bItem[key]);
+    if (!aItem) return false;
+    // Check status and total_amount for visits/orders
+    if (aItem.status !== bItem.status) return false;
+    if (aItem.total_amount !== bItem.total_amount) return false;
+  }
+  return true;
+};
+
+const progressStatsEqual = (a: ProgressStats, b: ProgressStats): boolean => {
+  return a.planned === b.planned &&
+    a.productive === b.productive &&
+    a.unproductive === b.unproductive &&
+    a.totalOrders === b.totalOrders &&
+    a.totalOrderValue === b.totalOrderValue;
+};
+
 export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOptimizedProps) => {
   const [beatPlans, setBeatPlans] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
@@ -35,12 +64,29 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<any>(null);
+  
+  // Track last loaded date to avoid clearing data unnecessarily
+  const lastLoadedDateRef = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
 
   // CACHE-FIRST LOADING: Load from cache immediately, sync in background
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     if (!userId || !selectedDate) return;
-
-    setIsLoading(true);
+    
+    // Prevent concurrent loads
+    if (isLoadingRef.current && !forceRefresh) {
+      console.log('⏳ [VisitsData] Skipping load - already loading');
+      return;
+    }
+    
+    isLoadingRef.current = true;
+    
+    // Only show loading spinner if this is a fresh date (not a background refresh)
+    const isSameDate = lastLoadedDateRef.current === selectedDate;
+    if (!isSameDate) {
+      setIsLoading(true);
+    }
+    
     let hasLoadedFromCache = false;
 
     try {
@@ -106,19 +152,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         allRetailerIds.includes(r.id) || (r.beat_id && plannedBeatIds.includes(r.beat_id))
       );
 
-      // Display cached data immediately
+      // Display cached data immediately - only update if data changed
       if (
         filteredBeatPlans.length > 0 ||
         filteredVisits.length > 0 ||
         filteredRetailers.length > 0
       ) {
-        // Set state immediately with cached data
-        setBeatPlans(filteredBeatPlans);
-        setVisits(filteredVisits);
-        setRetailers(filteredRetailers);
-        setOrders(filteredOrders);
+        // SMART UPDATE: Only set state if data actually changed to prevent flickering
+        setBeatPlans(prev => arraysEqual(prev, filteredBeatPlans) ? prev : filteredBeatPlans);
+        setVisits(prev => arraysEqual(prev, filteredVisits) ? prev : filteredVisits);
+        setRetailers(prev => arraysEqual(prev, filteredRetailers) ? prev : filteredRetailers);
+        setOrders(prev => arraysEqual(prev, filteredOrders) ? prev : filteredOrders);
         hasLoadedFromCache = true;
         setIsLoading(false);
+        lastLoadedDateRef.current = selectedDate;
         
         console.log('📦 [CACHE] Loaded from cache:', {
           beatPlans: filteredBeatPlans.length,
@@ -184,7 +231,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
+        const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
+        // SMART UPDATE: Only update progress stats if they actually changed
+        setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
         console.log('📊 [CACHE] Progress stats calculated from cache:', { 
           planned, 
           productive, 
@@ -410,7 +459,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        setProgressStats({ planned, productive, unproductive, totalOrders, totalOrderValue });
+        const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
+        // SMART UPDATE: Only update progress stats if they actually changed
+        setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
         console.log('📊 [NETWORK] Progress stats calculated from network:', { 
           planned, 
           productive, 
@@ -423,31 +474,30 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           timestamp: new Date().toISOString()
         });
 
-        // Cache current date data for offline access
-        // Beat plans, visits, retailers, and orders are cached for immediate display
-        await Promise.all([
+        // Cache current date data for offline access (background - don't block)
+        Promise.all([
           ...beatPlansData.map(plan => offlineStorage.save(STORES.BEAT_PLANS, plan)),
           ...visitsData.map(visit => offlineStorage.save(STORES.VISITS, visit)),
           ...retailersData.map(retailer => offlineStorage.save(STORES.RETAILERS, retailer)),
           ...ordersData.map(order => offlineStorage.save(STORES.ORDERS, order))
-        ]);
-        
-        console.log('💾 [CACHE] Saved to offline storage:', {
-          beatPlans: beatPlansData.length,
-          visits: visitsData.length,
-          retailers: retailersData.length,
-          orders: ordersData.length
-        });
-        
-        console.log('[VisitsData] ✅ Cached beat plans and visits for current date');
+        ]).then(() => {
+          console.log('💾 [CACHE] Saved to offline storage:', {
+            beatPlans: beatPlansData.length,
+            visits: visitsData.length,
+            retailers: retailersData.length,
+            orders: ordersData.length
+          });
+        }).catch(console.error);
 
-        // Update state with fresh data
-      setBeatPlans(beatPlansData);
-      setVisits(visitsData);
-      setRetailers(retailersData);
-      setOrders(ordersData);
+        // SMART UPDATE: Only update state if data actually changed to prevent flickering
+        setBeatPlans(prev => arraysEqual(prev, beatPlansData) ? prev : beatPlansData);
+        setVisits(prev => arraysEqual(prev, visitsData) ? prev : visitsData);
+        setRetailers(prev => arraysEqual(prev, retailersData) ? prev : retailersData);
+        setOrders(prev => arraysEqual(prev, ordersData) ? prev : ordersData);
         
-        console.log('🔄 [NETWORK] State updated with fresh data:', {
+        lastLoadedDateRef.current = selectedDate;
+        
+        console.log('🔄 [NETWORK] State updated with fresh data (if changed):', {
           beatPlans: beatPlansData.length,
           visits: visitsData.length,
           retailers: retailersData.length,
@@ -475,28 +525,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         setIsLoading(false);
       }
     }
+    
+    isLoadingRef.current = false;
   }, [userId, selectedDate]);
 
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up data loading for date:', selectedDate);
     
-    // Clear existing data immediately when date changes for instant UI feedback
-    setBeatPlans([]);
-    setVisits([]);
-    setRetailers([]);
-    setOrders([]);
-    setPointsData({ total: 0, byRetailer: new Map() });
-    setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+    // DON'T clear data when date changes - let smart update handle it
+    // This prevents the flash/flicker when navigating between dates
+    // The loadData function will update only if data is different
     
-    // Then load new data
+    // Load new data
     loadData();
 
-    // Listen for manual refresh events - reduced delay for faster status updates
+    // Listen for manual refresh events - background refresh without clearing
     const handleRefresh = () => {
-      console.log('🔄 visitDataChanged event received! Refreshing data for date:', selectedDate);
-      // Reduced delay from 300ms to 100ms for faster status updates
+      console.log('🔄 visitDataChanged event received! Background refresh for date:', selectedDate);
+      // Background refresh - don't clear existing data
       setTimeout(() => {
-        loadData();
+        loadData(true); // Force refresh flag
       }, 100);
     };
     
@@ -518,7 +566,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   }, [loadData, selectedDate]);
 
   const invalidateData = useCallback(() => {
-    loadData();
+    // Background refresh - don't show loading spinner
+    loadData(true);
   }, [loadData]);
 
   return {
