@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
-import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink } from "lucide-react";
+import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 import jsPDF from "jspdf";
@@ -19,8 +21,15 @@ import autoTable from "jspdf-autotable";
 import { ReportGenerator } from "@/components/ReportGenerator";
 import { calculateJointVisitScore } from "@/components/JointSalesFeedbackModal";
 import { JointSalesFeedbackViewModal } from "@/components/JointSalesFeedbackViewModal";
+import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
+
+interface UserOption {
+  id: string;
+  name: string;
+}
 
 export const TodaySummary = () => {
   const navigate = useNavigate();
@@ -111,6 +120,44 @@ export const TodaySummary = () => {
   const [jointFeedbackViewOpen, setJointFeedbackViewOpen] = useState(false);
   const [selectedJointFeedback, setSelectedJointFeedback] = useState<{ retailerId: string; retailerName: string; feedbackDate: string } | null>(null);
 
+  // Admin user selection state
+  const { userRole } = useAuth();
+  const isAdmin = userRole === 'admin';
+  const [allUsers, setAllUsers] = useState<UserOption[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [userSelectorOpen, setUserSelectorOpen] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Fetch all users for admin
+  useEffect(() => {
+    if (!isAdmin) return;
+    
+    const fetchAllUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .order('full_name');
+        
+        if (error) throw error;
+        
+        const users: UserOption[] = (profiles || []).map(p => ({
+          id: p.id,
+          name: p.full_name || p.username || 'Unknown User'
+        }));
+        
+        setAllUsers(users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    
+    fetchAllUsers();
+  }, [isAdmin]);
+
   // Handle URL query parameter for date - default to Today if no date or if date is today
   useEffect(() => {
     const dateParam = searchParams.get('date');
@@ -136,10 +183,11 @@ export const TodaySummary = () => {
 
   // Use primitive values for dependencies to avoid infinite loops
   const dateRangeKey = `${dateRange.from.toISOString()}-${dateRange.to.toISOString()}`;
+  const selectedUsersKey = selectedUserIds.join(',');
   
   useEffect(() => {
     fetchTodaysData();
-  }, [dateRangeKey, filterType]);
+  }, [dateRangeKey, filterType, selectedUsersKey]);
 
   // Real-time subscription for points updates
   useEffect(() => {
@@ -235,11 +283,25 @@ export const TodaySummary = () => {
       
       if (!user) return;
 
+      // Determine which user IDs to fetch data for
+      // If admin and has selected users, use those; otherwise use current user
+      const targetUserIds = isAdmin && selectedUserIds.length > 0 
+        ? selectedUserIds 
+        : [user.id];
+
+      // Helper function to apply user filter (single or multiple)
+      const applyUserFilter = (query: any) => {
+        if (targetUserIds.length === 1) {
+          return query.eq('user_id', targetUserIds[0]);
+        }
+        return query.in('user_id', targetUserIds);
+      };
+
       // Fetch attendance data for the selected period
       let attendanceQuery = supabase
         .from('attendance')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('*');
+      attendanceQuery = applyUserFilter(attendanceQuery);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -255,8 +317,8 @@ export const TodaySummary = () => {
       // Fetch van_stock for distance (start_km and end_km)
       let vanStockQuery = supabase
         .from('van_stock')
-        .select('start_km, end_km, total_km, stock_date')
-        .eq('user_id', user.id);
+        .select('start_km, end_km, total_km, stock_date');
+      vanStockQuery = applyUserFilter(vanStockQuery);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -272,8 +334,8 @@ export const TodaySummary = () => {
       // Fetch retailer_visit_logs for time at retailers (time_spent_seconds)
       let visitLogsQuery = supabase
         .from('retailer_visit_logs')
-        .select('time_spent_seconds, retailer_id, visit_date')
-        .eq('user_id', user.id);
+        .select('time_spent_seconds, retailer_id, visit_date');
+      visitLogsQuery = applyUserFilter(visitLogsQuery);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -289,8 +351,8 @@ export const TodaySummary = () => {
       // Determine date query based on filter type
       let visitsQuery = supabase
         .from('visits')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('*');
+      visitsQuery = applyUserFilter(visitsQuery);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -314,24 +376,25 @@ export const TodaySummary = () => {
       const orderToDate = new Date(dateRange.to);
       orderToDate.setHours(23, 59, 59, 999);
       
-      const { data: fetchedOrders } = await supabase
+      let ordersQuery = supabase
         .from('orders')
         .select(`
           *,
           order_items(*)
         `)
-        .eq('user_id', user.id)
         .eq('status', 'confirmed')
         .gte('created_at', orderFromDate.toISOString())
         .lte('created_at', orderToDate.toISOString());
+      ordersQuery = applyUserFilter(ordersQuery);
       
+      const { data: fetchedOrders } = await ordersQuery;
       todayOrders = fetchedOrders || [];
 
       // Fetch beat plans for the date range (moved earlier to get retailer IDs)
       let beatPlansQuery = supabase
         .from('beat_plans')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('*');
+      beatPlansQuery = applyUserFilter(beatPlansQuery);
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -375,11 +438,13 @@ export const TodaySummary = () => {
         
         if (beatIds.length > 0) {
           // Fetch ALL retailers that belong to these beats (no status filter - consistent with My Visits)
-          const { data: beatRetailers } = await supabase
+          let beatRetailersQuery = supabase
             .from('retailers')
             .select('id, name, beat_id')
-            .eq('user_id', user.id)
             .in('beat_id', beatIds);
+          beatRetailersQuery = applyUserFilter(beatRetailersQuery);
+          
+          const { data: beatRetailers } = await beatRetailersQuery;
           
           if (beatRetailers && beatRetailers.length > 0) {
             beatPlans?.forEach(bp => {
@@ -420,12 +485,14 @@ export const TodaySummary = () => {
       
       console.log('Fetching points from', pointsFromDate.toISOString(), 'to', pointsToDate.toISOString());
       
-      const { data: pointsData, error: pointsError } = await supabase
+      let pointsQuery = supabase
         .from('gamification_points')
         .select('points, earned_at')
-        .eq('user_id', user.id)
         .gte('earned_at', pointsFromDate.toISOString())
         .lte('earned_at', pointsToDate.toISOString());
+      pointsQuery = applyUserFilter(pointsQuery);
+      
+      const { data: pointsData, error: pointsError } = await pointsQuery;
       
       if (pointsError) {
         console.error('Error fetching points:', pointsError);
@@ -441,12 +508,20 @@ export const TodaySummary = () => {
       const jointFromDate = format(dateRange.from, 'yyyy-MM-dd');
       const jointToDate = format(dateRange.to, 'yyyy-MM-dd');
       
-      const { data: jointSalesFeedback } = await supabase
+      let jointSalesQuery = supabase
         .from('joint_sales_feedback')
         .select('*, retailers(name)')
-        .eq('fse_user_id', user.id)
         .gte('feedback_date', jointFromDate)
         .lte('feedback_date', jointToDate);
+      
+      // Apply user filter to fse_user_id for joint sales
+      if (targetUserIds.length === 1) {
+        jointSalesQuery = jointSalesQuery.eq('fse_user_id', targetUserIds[0]);
+      } else {
+        jointSalesQuery = jointSalesQuery.in('fse_user_id', targetUserIds);
+      }
+      
+      const { data: jointSalesFeedback } = await jointSalesQuery;
       
       if (jointSalesFeedback && jointSalesFeedback.length > 0) {
         // Get unique manager IDs and fetch their names
@@ -1523,6 +1598,102 @@ export const TodaySummary = () => {
                 </Button>
               </div>
             </div>
+            
+            {/* Admin User Selection */}
+            {isAdmin && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Filter by Users</span>
+                  {selectedUserIds.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">
+                      {selectedUserIds.length} selected
+                    </Badge>
+                  )}
+                </div>
+                
+                <Popover open={userSelectorOpen} onOpenChange={setUserSelectorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={userSelectorOpen}
+                      className="w-full justify-between text-left font-normal"
+                    >
+                      {selectedUserIds.length === 0 
+                        ? "Select users to view their data..."
+                        : `${selectedUserIds.length} user(s) selected`
+                      }
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search users..." />
+                      <CommandList>
+                        <CommandEmpty>No users found.</CommandEmpty>
+                        <CommandGroup className="max-h-64 overflow-auto">
+                          {allUsers.map((user) => (
+                            <CommandItem
+                              key={user.id}
+                              value={user.name}
+                              onSelect={() => {
+                                setSelectedUserIds(prev => 
+                                  prev.includes(user.id)
+                                    ? prev.filter(id => id !== user.id)
+                                    : [...prev, user.id]
+                                );
+                              }}
+                            >
+                              <Checkbox 
+                                checked={selectedUserIds.includes(user.id)}
+                                className="mr-2"
+                              />
+                              {user.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                    {selectedUserIds.length > 0 && (
+                      <div className="border-t p-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => setSelectedUserIds([])}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Clear selection
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                
+                {/* Selected Users Tags */}
+                {selectedUserIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedUserIds.map(userId => {
+                      const user = allUsers.find(u => u.id === userId);
+                      return (
+                        <Badge 
+                          key={userId} 
+                          variant="secondary"
+                          className="flex items-center gap-1"
+                        >
+                          {user?.name || 'Unknown'}
+                          <X 
+                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => setSelectedUserIds(prev => prev.filter(id => id !== userId))}
+                          />
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
