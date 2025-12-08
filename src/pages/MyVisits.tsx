@@ -1059,8 +1059,9 @@ export const MyVisits = () => {
   }, [allVisits, searchTerm, statusFilter, filters, retailerStats, sortOrder]);
   const visitsForSelectedDate = retailers;
 
-  // Planned visits count should match retailers list status
-  const plannedVisitsCount = retailers.filter((r: any) => r.status === 'planned').length;
+  // Use progressStats from the optimized hook for accurate counts
+  // These are calculated directly from the database/cache with proper status logic
+  const plannedVisitsCount = progressStats.planned;
   const productiveVisits = progressStats.productive;
   const unproductiveVisits = progressStats.unproductive;
   const totalOrdersToday = progressStats.totalOrders;
