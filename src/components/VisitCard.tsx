@@ -212,7 +212,8 @@ export const VisitCard = ({
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   
   // Track current visit status (separate from prop to allow dynamic updates)
-  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled">(visit.status);
+  // Initialize as null to prevent showing wrong status before cache is checked
+  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null>(null);
   const [statusLoadedFromDB, setStatusLoadedFromDB] = useState(false);
   
   // Track last fetched status to prevent redundant updates causing flicker
@@ -220,18 +221,11 @@ export const VisitCard = ({
   const isRefreshingRef = useRef(false);
   const lastRefreshTimeRef = useRef<number>(0);
   
-  // Update currentStatus when visit prop changes (important for parent re-renders with fresh data)
-  // BUT only if we haven't loaded from database yet, to avoid overriding DB status with stale prop
-  useEffect(() => {
-    if (visit.status !== currentStatus && !statusLoadedFromDB) {
-      console.log('🔄 [VisitCard] Visit prop status changed (pre-DB load), updating currentStatus:', {
-        visitId: visit.id,
-        oldStatus: currentStatus,
-        newStatus: visit.status
-      });
-      setCurrentStatus(visit.status);
-    }
-  }, [visit.status, statusLoadedFromDB]);
+  // Display status - use currentStatus if loaded, otherwise fall back to prop
+  const displayStatus = currentStatus ?? visit.status;
+  
+  // REMOVED: The useEffect that updated currentStatus from visit.status prop
+  // This was causing the flicker - the prop is often "planned" which overrides cached status
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
@@ -1837,8 +1831,8 @@ export const VisitCard = ({
           </div>
           <div className="flex sm:flex-col items-start sm:items-end gap-2 sm:gap-1">
             <div className="flex flex-wrap gap-1">
-              <Badge className={`${getStatusColor(currentStatus)} text-xs px-2 py-1`}>
-                {getStatusText(currentStatus)}
+              <Badge className={`${getStatusColor(displayStatus)} text-xs px-2 py-1`}>
+                {getStatusText(displayStatus)}
               </Badge>
               {skipCheckInReason === 'phone-order' && <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1">
                   <Phone size={12} className="mr-1" />
