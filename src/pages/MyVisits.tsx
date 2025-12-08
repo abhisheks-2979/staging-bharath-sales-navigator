@@ -262,14 +262,9 @@ export const MyVisits = () => {
     selectedDate,
   });
 
-  // Clear local retailers and beat info immediately when date changes
-  useEffect(() => {
-    if (!selectedDate) return;
-    console.log('🔄 MyVisits: date changed, clearing local retailers and beats for instant UI update', selectedDate);
-    setRetailers([]);
-    setPlannedBeats([]);
-    setCurrentBeatName('No beats planned');
-  }, [selectedDate]);
+  // REMOVED: Don't clear retailers/beats on date change - causes flickering
+  // The smart update in useVisitsDataOptimized handles this now
+  // Data will update only when there's actual new data
  
   // Ref to always have the latest invalidateData function (prevents stale closures)
   const invalidateDataRef = useRef(invalidateData);
@@ -332,14 +327,22 @@ export const MyVisits = () => {
     }
   }, [pointsData]);
 
-  // Update local state when optimized data loads
+  // Update local state when optimized data loads - smart update to prevent flicker
   useEffect(() => {
     if (optimizedBeatPlans.length > 0) {
-      setPlannedBeats(optimizedBeatPlans);
+      // Only update if data actually changed
+      setPlannedBeats(prev => {
+        const prevIds = new Set(prev.map(p => p.id));
+        const newIds = new Set(optimizedBeatPlans.map(p => p.id));
+        if (prevIds.size === newIds.size && [...prevIds].every(id => newIds.has(id))) {
+          return prev; // No change
+        }
+        return optimizedBeatPlans;
+      });
       const beatNames = optimizedBeatPlans.map(plan => plan.beat_name).join(', ');
-      setCurrentBeatName(beatNames);
-    } else {
-      // Reset when no beats planned for selected date
+      setCurrentBeatName(prev => prev === beatNames ? prev : beatNames);
+    } else if (plannedBeats.length > 0) {
+      // Only reset if we had beats before and now don't
       setPlannedBeats([]);
       setCurrentBeatName("No beats planned");
     }
@@ -353,9 +356,25 @@ export const MyVisits = () => {
     }
   }, [dataLoading, optimizedRetailers.length]);
 
+  // Track last processed data to prevent redundant updates
+  const lastProcessedRetailersRef = useRef<string>('');
+  
   useEffect(() => {
     // Process retailers with visit and order data
     if (optimizedRetailers.length > 0) {
+      // Create a fingerprint of current data to detect changes
+      const fingerprint = optimizedRetailers.map(r => r.id).sort().join(',') + 
+        '|' + optimizedVisits.map(v => `${v.retailer_id}:${v.status}`).join(',') +
+        '|' + optimizedOrders.map(o => `${o.retailer_id}:${o.total_amount}`).join(',');
+      
+      // Skip if data hasn't changed
+      if (lastProcessedRetailersRef.current === fingerprint) {
+        console.log('📊 [MyVisits] Retailers data unchanged, skipping update');
+        return;
+      }
+      
+      lastProcessedRetailersRef.current = fingerprint;
+      
       // Process own retailers
       const processedRetailers = optimizedRetailers.map(retailer => {
         const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
@@ -384,6 +403,7 @@ export const MyVisits = () => {
       });
 
       setRetailers(processedRetailers);
+      console.log('📊 [MyVisits] Retailers processed and updated:', processedRetailers.length);
     }
   }, [optimizedRetailers, optimizedVisits, optimizedOrders]);
 
