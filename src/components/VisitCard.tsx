@@ -211,9 +211,25 @@ export const VisitCard = ({
   }, [endAllActiveLogs]);
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   
-  // Track current visit status (separate from prop to allow dynamic updates)
-  // Initialize as null to prevent showing wrong status before cache is checked
-  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null>(null);
+  // SYNC CACHE READ: Try to get status from cache SYNCHRONOUSLY during initial render
+  // This prevents the flicker where status shows "planned" before cache is loaded
+  const getInitialStatus = (): "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null => {
+    const retailerId = visit.retailerId || visit.id;
+    const cachedUserId = typeof window !== 'undefined' ? localStorage.getItem('cached_user_id') : null;
+    const targetDate = selectedDate && selectedDate.length > 0 ? selectedDate : new Date().toISOString().split('T')[0];
+    
+    if (cachedUserId && visitStatusCache.isReady()) {
+      const cached = visitStatusCache.getSync(retailerId, cachedUserId, targetDate);
+      if (cached) {
+        console.log('⚡ [VisitCard] Initial status from SYNC cache:', cached.status);
+        return cached.status;
+      }
+    }
+    return null; // Will fall back to visit.status prop
+  };
+  
+  // Track current visit status - initialize from SYNC cache read
+  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null>(getInitialStatus);
   const [statusLoadedFromDB, setStatusLoadedFromDB] = useState(false);
   
   // Track last fetched status to prevent redundant updates causing flicker
@@ -223,9 +239,6 @@ export const VisitCard = ({
   
   // Display status - use currentStatus if loaded, otherwise fall back to prop
   const displayStatus = currentStatus ?? visit.status;
-  
-  // REMOVED: The useEffect that updated currentStatus from visit.status prop
-  // This was causing the flicker - the prop is often "planned" which overrides cached status
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
