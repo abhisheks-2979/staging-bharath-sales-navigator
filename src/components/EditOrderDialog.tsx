@@ -211,7 +211,7 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
         product_name: item.product_name,
         quantity: item.quantity,
         rate: item.rate,
-        unit: item.unit,
+        unit: item.unit || "Piece",
         total: item.total,
         category: defaultCategory,
       }));
