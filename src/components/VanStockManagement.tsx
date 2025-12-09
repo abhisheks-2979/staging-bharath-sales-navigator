@@ -1241,8 +1241,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             {(todayStock?.van_stock_items || []).length > 0 && (
               <Card className="p-4 bg-primary/5 border-primary">
                 <div className="flex justify-between items-center">
-                  <p className="font-bold text-lg">Total</p>
-                  <p className="text-3xl font-bold text-primary">
+                  <p className="font-bold text-sm md:text-lg">Total</p>
+                  <p className="text-base md:text-2xl font-bold text-primary">
                     {(() => {
                       const items = todayStock?.van_stock_items || [];
                       let totalGrams = 0;
