@@ -4,7 +4,7 @@ import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Package, Check, Plus, ChevronsUpDown, FileText } from 'lucide-react';
+import { Package, Check, Plus, ChevronsUpDown, FileText, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -37,6 +37,7 @@ interface ReturnItem {
   unit: string;
   returnQuantity: number;
   returnReason: string;
+  price: number;
 }
 
 interface ReturnStockFormProps {
@@ -154,6 +155,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     if (!product) return;
 
     const variant = variantId ? product.variants?.find(v => v.id === variantId) : undefined;
+    const itemPrice = variant ? variant.price : product.rate;
 
     const newItem: ReturnItem = {
       productId,
@@ -162,7 +164,8 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       variantName: variant?.variant_name,
       unit: product.unit,
       returnQuantity,
-      returnReason
+      returnReason,
+      price: itemPrice
     };
 
     setReturnItems(prev => [...prev, newItem]);
@@ -508,36 +511,42 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="w-[100px]">Action</TableHead>
+                    <TableHead className="w-[35%]">Product</TableHead>
+                    <TableHead className="w-[18%]">Qty</TableHead>
+                    <TableHead className="w-[22%]">Reason</TableHead>
+                    <TableHead className="w-[18%]">Price</TableHead>
+                    <TableHead className="w-[7%]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {returnItems.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{item.productName}</p>
-                          {item.variantName && (
-                            <p className="text-sm text-muted-foreground">{item.variantName}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{item.returnQuantity} {item.unit}</TableCell>
-                      <TableCell>{item.returnReason}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleRemoveItem(index)}
-                        >
-                          Remove
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {returnItems.map((item, index) => {
+                    const itemTotal = Math.round(item.price * 1.05 * item.returnQuantity);
+                    return (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-sm">{item.productName}</p>
+                            {item.variantName && (
+                              <p className="text-xs text-muted-foreground">{item.variantName}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{item.returnQuantity} {item.unit}</TableCell>
+                        <TableCell className="text-sm">{item.returnReason}</TableCell>
+                        <TableCell className="text-sm font-medium">₹{itemTotal}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRemoveItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -545,26 +554,29 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         </>
       )}
 
-      {/* Bottom Action Buttons - Always visible */}
-      <div className="flex justify-end gap-3 pt-4">
+      {/* Bottom Action Buttons - Fixed at bottom with proper styling */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-3 flex gap-2 z-40">
         <Button 
           onClick={handleSaveReturns} 
           disabled={saving || returnItems.length === 0} 
-          size="lg"
+          className="flex-1"
         >
           <Check className="h-4 w-4 mr-2" />
           {saving ? 'Saving...' : 'Save Return'}
         </Button>
         <Button 
           variant="outline" 
-          size="lg" 
+          className="flex-1"
           disabled={returnItems.length === 0}
           onClick={() => toast.info('Credit Note generation coming soon')}
         >
           <FileText className="h-4 w-4 mr-2" />
-          Generate Credit Note
+          Generate Credits
         </Button>
       </div>
+      
+      {/* Bottom spacer for fixed buttons */}
+      <div className="h-16" />
     </div>
   );
 }
