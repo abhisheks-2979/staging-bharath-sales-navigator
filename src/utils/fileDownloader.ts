@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { toast } from 'sonner';
 
 /**
@@ -38,7 +38,7 @@ export const downloadFile = async (options: DownloadOptions): Promise<boolean> =
 };
 
 /**
- * Native download using Capacitor Filesystem
+ * Native download using Capacitor Filesystem - saves to Downloads folder
  */
 const downloadNative = async (
   filename: string,
@@ -48,16 +48,6 @@ const downloadNative = async (
   showToast = true
 ): Promise<boolean> => {
   try {
-    // Request storage permission first
-    const permResult = await Filesystem.checkPermissions();
-    if (permResult.publicStorage !== 'granted') {
-      const reqResult = await Filesystem.requestPermissions();
-      if (reqResult.publicStorage !== 'granted') {
-        toast.error('Storage permission required to save files');
-        return false;
-      }
-    }
-
     // Convert blob to base64 if needed
     let data = base64Data;
     if (blob && !data) {
@@ -73,53 +63,64 @@ const downloadNative = async (
       data = data.split(',')[1];
     }
 
-    // Save to Downloads directory
-    const result = await Filesystem.writeFile({
-      path: filename,
-      data: data,
-      directory: Directory.Documents, // Use Documents as it's more universally accessible
-      recursive: true,
-    });
-
-    console.log('File saved to:', result.uri);
+    // Try saving to Downloads directory first (most visible to users)
+    const downloadPath = `Download/${filename}`;
     
-    if (showToast) {
-      toast.success(`File saved: ${filename}`);
-    }
-    
-    return true;
-  } catch (error: any) {
-    console.error('Native download error:', error);
-    
-    // Try alternative directory if Documents fails
     try {
-      let data = base64Data;
-      if (blob && !data) {
-        data = await blobToBase64(blob);
-      }
-      if (data?.includes(',')) {
-        data = data.split(',')[1];
-      }
-      
+      // Try ExternalStorage/Download first - this is visible in file managers
       const result = await Filesystem.writeFile({
-        path: filename,
-        data: data!,
-        directory: Directory.External, // Try External as fallback
+        path: downloadPath,
+        data: data,
+        directory: Directory.ExternalStorage,
         recursive: true,
       });
       
-      console.log('File saved to external:', result.uri);
+      console.log('File saved to Downloads:', result.uri);
       if (showToast) {
-        toast.success(`File saved: ${filename}`);
+        toast.success(`Saved to Downloads: ${filename}`);
       }
       return true;
-    } catch (fallbackError) {
-      console.error('Fallback download also failed:', fallbackError);
-      if (showToast) {
-        toast.error('Failed to save file. Check storage permissions.');
+    } catch (extError) {
+      console.log('ExternalStorage failed, trying Documents:', extError);
+      
+      // Fallback to Documents directory
+      try {
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: data,
+          directory: Directory.Documents,
+          recursive: true,
+        });
+        
+        console.log('File saved to Documents:', result.uri);
+        if (showToast) {
+          toast.success(`Saved to Documents: ${filename}`);
+        }
+        return true;
+      } catch (docError) {
+        console.log('Documents failed, trying Cache:', docError);
+        
+        // Final fallback to Cache directory
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: data,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        
+        console.log('File saved to Cache:', result.uri);
+        if (showToast) {
+          toast.success(`File saved: ${filename}`);
+        }
+        return true;
       }
-      return false;
     }
+  } catch (error: any) {
+    console.error('Native download error:', error);
+    if (showToast) {
+      toast.error(`Failed to save: ${error.message || 'Unknown error'}`);
+    }
+    return false;
   }
 };
 
