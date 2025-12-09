@@ -7,12 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History, RefreshCw } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -72,6 +73,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [endKm, setEndKm] = useState(0);
   const [showLoadPreviousConfirm, setShowLoadPreviousConfirm] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  
+  // Morning/Closing GRN states
+  const [showClosingGRNModal, setShowClosingGRNModal] = useState(false);
+  const [closingEndKm, setClosingEndKm] = useState(0);
+  const [closingStockVerified, setClosingStockVerified] = useState(false);
+  const [savingClosingGRN, setSavingClosingGRN] = useState(false);
+  
+  // Check if Morning GRN is saved (status contains 'morning_saved' or items exist)
+  const isMorningGRNSaved = todayStock?.status === 'morning_saved' || todayStock?.status === 'closing_verified' || (todayStock?.van_stock_items && todayStock.van_stock_items.length > 0);
+  
+  // Check if Closing GRN is verified
+  const isClosingGRNVerified = todayStock?.status === 'closing_verified';
 
   useEffect(() => {
     if (open) {
@@ -583,7 +596,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     if (!session.session?.user) return;
 
     try {
-      // Upsert van_stock
+      // Upsert van_stock - set status to 'morning_saved' when saving morning GRN
       const { data: vanStock, error: stockError } = await supabase
         .from('van_stock')
         .upsert({
@@ -591,7 +604,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           van_id: selectedVan,
           user_id: session.session.user.id,
           stock_date: selectedDate,
-          status: 'open',
+          status: 'morning_saved',
           start_km: startKm,
           end_km: endKm,
         }, {
@@ -644,14 +657,63 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         }
       }
 
-      toast.success('Van stock saved successfully');
+      toast.success('Morning GRN saved successfully');
       // Clear the entry form after save - items are now in Product Stock in Van
       await loadTodayStock(true);
     } catch (error) {
       console.error('Error saving stock:', error);
-      toast.error('Failed to save van stock');
+      toast.error('Failed to save Morning GRN');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle Save Closing GRN
+  const handleSaveClosingGRN = async () => {
+    if (!closingEndKm || closingEndKm <= 0) {
+      toast.error('Please enter the End KM');
+      return;
+    }
+
+    if (closingEndKm <= startKm) {
+      toast.error('End KM must be greater than Start KM');
+      return;
+    }
+
+    if (!closingStockVerified) {
+      toast.error('Please verify the Left in Van stock by checking the checkbox');
+      return;
+    }
+
+    setSavingClosingGRN(true);
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session?.user) return;
+
+    try {
+      // Update van_stock with end_km and status = 'closing_verified'
+      const { error: updateError } = await supabase
+        .from('van_stock')
+        .update({
+          end_km: closingEndKm,
+          total_km: closingEndKm - startKm,
+          status: 'closing_verified',
+        })
+        .eq('id', todayStock.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Closing GRN saved successfully');
+      setShowClosingGRNModal(false);
+      setClosingStockVerified(false);
+      await loadTodayStock(false);
+      
+      // Dispatch event for End Day functionality
+      window.dispatchEvent(new CustomEvent('closingGRNVerified', { detail: { date: selectedDate } }));
+    } catch (error) {
+      console.error('Error saving closing GRN:', error);
+      toast.error('Failed to save Closing GRN');
+    } finally {
+      setSavingClosingGRN(false);
     }
   };
 
@@ -1345,14 +1407,46 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-3 border-t">
-                  <Button onClick={handleSaveStock} disabled={loading} className="flex-1 h-9 text-sm">
-                    {loading ? 'Saving...' : 'Save Stock'}
-                  </Button>
-                  <Button variant="outline" onClick={() => onOpenChange(false)} className="h-9 text-sm">
-                    Close
-                  </Button>
+                {/* Action Buttons - Morning GRN / Closing GRN */}
+                <div className="space-y-2 pt-3 border-t">
+                  <div className="flex gap-2">
+                    {/* Save Morning GRN */}
+                    <Button 
+                      onClick={handleSaveStock} 
+                      disabled={loading || isClosingGRNVerified} 
+                      className="flex-1 h-9 text-sm bg-amber-600 hover:bg-amber-700"
+                    >
+                      {loading ? 'Saving...' : isMorningGRNSaved ? '✓ Morning GRN Saved' : 'Save Morning GRN'}
+                    </Button>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    {/* Save Closing GRN - only enabled after Morning GRN is saved */}
+                    <Button 
+                      onClick={() => {
+                        setClosingEndKm(endKm || 0);
+                        setShowClosingGRNModal(true);
+                      }}
+                      disabled={!isMorningGRNSaved || isClosingGRNVerified}
+                      variant={isClosingGRNVerified ? "default" : "outline"}
+                      className={cn(
+                        "flex-1 h-9 text-sm",
+                        !isMorningGRNSaved && "opacity-50 cursor-not-allowed",
+                        isClosingGRNVerified && "bg-green-600 hover:bg-green-700"
+                      )}
+                    >
+                      {isClosingGRNVerified ? '✓ Closing GRN Verified' : 'Save Closing GRN'}
+                    </Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} className="h-9 text-sm">
+                      Close
+                    </Button>
+                  </div>
+                  
+                  {!isMorningGRNSaved && (
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      Save Morning GRN first to enable Closing GRN option
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -1616,6 +1710,103 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Closing GRN Modal */}
+      <Dialog open={showClosingGRNModal} onOpenChange={setShowClosingGRNModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-green-600" />
+              Save Closing GRN
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Summary of Left in Van */}
+            <Card className="p-3 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">Left in Van</span>
+                </div>
+                <span className="text-lg font-bold text-green-700 dark:text-green-300">{totals.totalLeft}</span>
+              </div>
+            </Card>
+            
+            {/* KM Input Section */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold">Start KM</Label>
+                  <Input
+                    type="number"
+                    value={startKm || ''}
+                    disabled
+                    className="mt-1 h-9 text-sm bg-muted"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold">End KM *</Label>
+                  <Input
+                    type="number"
+                    value={closingEndKm || ''}
+                    onChange={(e) => setClosingEndKm(parseFloat(e.target.value) || 0)}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="Enter End KM"
+                    className="mt-1 h-9 text-sm"
+                  />
+                </div>
+              </div>
+              
+              {closingEndKm > startKm && (
+                <div className="flex items-center justify-center p-2 bg-primary/10 rounded-md">
+                  <span className="text-sm font-medium">Total Distance: <strong className="text-primary">{(closingEndKm - startKm).toFixed(1)} KM</strong></span>
+                </div>
+              )}
+            </div>
+            
+            {/* Stock Verification Checkbox */}
+            <Card className="p-3 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="verify-stock"
+                  checked={closingStockVerified}
+                  onCheckedChange={(checked) => setClosingStockVerified(checked === true)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <Label htmlFor="verify-stock" className="text-sm font-medium cursor-pointer">
+                    I verify that the Left in Van stock quantity is correct
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Please verify the physical stock matches the displayed quantity before saving.
+                  </p>
+                </div>
+              </div>
+            </Card>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-2">
+              <Button 
+                onClick={handleSaveClosingGRN}
+                disabled={savingClosingGRN || !closingStockVerified || !closingEndKm || closingEndKm <= startKm}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {savingClosingGRN ? 'Saving...' : 'Confirm & Save Closing GRN'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowClosingGRNModal(false);
+                  setClosingStockVerified(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
