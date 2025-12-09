@@ -370,40 +370,44 @@ export default function GPSTrack() {
             </Card>
 
             {/* Map Display */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-semibold">Journey Heatmap</h2>
-                  {retailers.length > 0 && (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      ({retailers.length} retailer{retailers.length > 1 ? 's' : ''})
-                    </span>
-                  )}
+            <div className="space-y-4">
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Journey Heatmap</h2>
+                    {retailers.length > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        ({retailers.length} retailer{retailers.length > 1 ? 's' : ''})
+                      </span>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      loadGPSData();
+                      loadRetailerLocations();
+                    }}
+                  >
+                    Refresh Map
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    loadGPSData();
-                    loadRetailerLocations();
-                  }}
-                >
-                  Refresh Map
-                </Button>
-              </div>
+              </Card>
 
               {loading ? (
-                <div className="flex items-center justify-center h-96">
+                <Card className="flex items-center justify-center h-96">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
+                </Card>
               ) : (
-                <JourneyMap positions={gpsData} retailers={retailers} height="600px" />
+                <Card className="overflow-hidden">
+                  <JourneyMap positions={gpsData} retailers={retailers} height="500px" />
+                </Card>
               )}
 
               {/* Stats */}
               {(gpsData.length > 0 || retailers.length > 0) && (
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {retailers.length > 0 && (
                     <>
                       <Card className="p-4">
@@ -456,7 +460,7 @@ export default function GPSTrack() {
                   )}
                 </div>
               )}
-            </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

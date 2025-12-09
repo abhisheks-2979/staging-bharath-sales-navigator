@@ -235,42 +235,10 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
   }
 
   return (
-    <div className="flex flex-col" style={{ height }}>
-      {/* Fixed Route Info Card - Above the map */}
-      {retailers.length > 0 && (
-        <Card className="bg-background border shadow-md mb-3 flex-shrink-0">
-          <div className="p-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Route className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="font-medium text-sm">Route Summary</span>
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-muted-foreground">{retailers.length} stops</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                  <span className="text-green-600">{completedCount} done</span>
-                </div>
-                {totalDistance > 0 && (
-                  <div className="font-semibold text-primary">
-                    {totalDistance.toFixed(2)} km
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Map Container */}
-      <div
-        ref={containerRef}
-        className="rounded-lg overflow-hidden border flex-1 min-h-0"
-        style={{ minHeight: '300px' }}
-      />
-    </div>
+    <div
+      ref={containerRef}
+      style={{ height, width: '100%' }}
+      className="rounded-lg"
+    />
   );
 };
