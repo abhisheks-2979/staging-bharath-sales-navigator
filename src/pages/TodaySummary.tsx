@@ -713,8 +713,14 @@ export const TodaySummary = () => {
           const firstLog = validLogs[0];
           const firstStartTime = new Date(firstLog.start_time);
           
-          // Get the last end_time (latest visit completion)
-          const lastLog = validLogs.reduce((latest, log) => {
+          // Get the last retailer by latest start_time (actual last visit, not end_time which may be batch updated by End Day)
+          const lastLogByStartTime = validLogs.reduce((latest, log) => {
+            const startTime = new Date(log.start_time);
+            return (!latest || startTime > new Date(latest.start_time)) ? log : latest;
+          }, null as typeof validLogs[0] | null);
+          
+          // For time calculation, still use end_time if available
+          const lastLogByEndTime = validLogs.reduce((latest, log) => {
             if (!log.end_time) return latest;
             const endTime = new Date(log.end_time);
             return (!latest || endTime > new Date(latest.end_time)) ? log : latest;
@@ -722,8 +728,8 @@ export const TodaySummary = () => {
           
           // Fetch retailer names for first and last visits
           const retailerIdsToFetch = [firstLog.retailer_id];
-          if (lastLog && lastLog.retailer_id !== firstLog.retailer_id) {
-            retailerIdsToFetch.push(lastLog.retailer_id);
+          if (lastLogByStartTime && lastLogByStartTime.retailer_id !== firstLog.retailer_id) {
+            retailerIdsToFetch.push(lastLogByStartTime.retailer_id);
           }
           
           const { data: visitRetailersData } = await supabase
@@ -740,18 +746,22 @@ export const TodaySummary = () => {
             time: format(firstStartTime, 'hh:mm a')
           };
           
-          if (lastLog?.end_time) {
-            const lastEndTime = new Date(lastLog.end_time);
+          // Calculate total time from first start to last end
+          if (lastLogByEndTime?.end_time) {
+            const lastEndTime = new Date(lastLogByEndTime.end_time);
             const diffMs = lastEndTime.getTime() - firstStartTime.getTime();
             const diffMinutes = Math.max(0, diffMs / (1000 * 60));
             const hours = Math.floor(diffMinutes / 60);
             const minutes = Math.round(diffMinutes % 60);
             timeAtRetailersStr = `${hours}h ${minutes}m`;
-            
-            // Set last retailer visit data
+          }
+          
+          // Set last retailer visit data based on latest start_time (actual last retailer visited)
+          if (lastLogByStartTime) {
+            const lastVisitStartTime = new Date(lastLogByStartTime.start_time);
             lastRetailerVisitData = {
-              retailerName: retailerNameMap.get(lastLog.retailer_id) || 'Unknown Retailer',
-              time: format(lastEndTime, 'hh:mm a')
+              retailerName: retailerNameMap.get(lastLogByStartTime.retailer_id) || 'Unknown Retailer',
+              time: format(lastVisitStartTime, 'hh:mm a')
             };
           }
         }
