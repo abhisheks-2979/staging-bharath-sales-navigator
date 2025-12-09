@@ -485,15 +485,61 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
   };
 
+  // Convert quantity to KG based on unit
+  const convertToKg = (quantity: number, unit: string): number => {
+    const lowerUnit = (unit || '').toLowerCase();
+    if (lowerUnit === 'kg' || lowerUnit === 'kilogram' || lowerUnit === 'kilograms') {
+      return quantity;
+    } else if (lowerUnit === 'g' || lowerUnit === 'gram' || lowerUnit === 'grams') {
+      return quantity / 1000;
+    } else if (lowerUnit === 'l' || lowerUnit === 'liter' || lowerUnit === 'liters' || lowerUnit === 'litre' || lowerUnit === 'litres') {
+      return quantity; // Treat liters as KG for beverages
+    } else if (lowerUnit === 'ml' || lowerUnit === 'milliliter' || lowerUnit === 'milliliters') {
+      return quantity / 1000;
+    }
+    return quantity; // Default: treat as is for pieces etc.
+  };
+
+  // Format KG value to "X KG Y g" format
+  const formatKgDisplay = (totalKg: number): string => {
+    const kg = Math.floor(totalKg);
+    const grams = Math.round((totalKg - kg) * 1000);
+    if (kg === 0 && grams === 0) {
+      return '0 KG';
+    }
+    if (grams === 0) {
+      return `${kg} KG`;
+    }
+    if (kg === 0) {
+      return `${grams} g`;
+    }
+    return `${kg} KG ${grams} g`;
+  };
+
   const calculateTotals = () => {
     // Use saved items from database for summary display
     const savedItems = todayStock?.van_stock_items || [];
-    return savedItems.reduce((acc: any, item: any) => ({
-      totalStart: acc.totalStart + (item.start_qty || 0),
-      totalOrdered: acc.totalOrdered + (item.ordered_qty || 0),
-      totalReturned: acc.totalReturned + (item.returned_qty || 0),
-      totalLeft: acc.totalLeft + ((item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0)),
-    }), { totalStart: 0, totalOrdered: 0, totalReturned: 0, totalLeft: 0 });
+    
+    let totalStartKg = 0;
+    let totalOrderedKg = 0;
+    let totalReturnedKg = 0;
+    let totalLeftKg = 0;
+    
+    savedItems.forEach((item: any) => {
+      const unit = item.unit || 'piece';
+      totalStartKg += convertToKg(item.start_qty || 0, unit);
+      totalOrderedKg += convertToKg(item.ordered_qty || 0, unit);
+      totalReturnedKg += convertToKg(item.returned_qty || 0, unit);
+      const leftQty = (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0);
+      totalLeftKg += convertToKg(leftQty, unit);
+    });
+    
+    return {
+      totalStart: formatKgDisplay(totalStartKg),
+      totalOrdered: formatKgDisplay(totalOrderedKg),
+      totalReturned: formatKgDisplay(totalReturnedKg),
+      totalLeft: formatKgDisplay(totalLeftKg),
+    };
   };
 
   const handleExportToExcel = () => {
@@ -879,7 +925,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-[10px] text-muted-foreground mb-0.5">Product Stock in Van</p>
-                    <p className="text-xl font-bold">{totals.totalStart}</p>
+                    <p className="text-base sm:text-lg font-bold leading-tight">{totals.totalStart}</p>
                   </Card>
 
                   <Card 
@@ -891,7 +937,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-[10px] text-muted-foreground mb-0.5">Retailer Ordered Qty</p>
-                    <p className="text-xl font-bold">{totals.totalOrdered}</p>
+                    <p className="text-base sm:text-lg font-bold leading-tight">{totals.totalOrdered}</p>
                     <Badge variant="secondary" className="mt-1 text-[9px] px-1 py-0">Auto-calculated</Badge>
                   </Card>
 
@@ -904,19 +950,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <p className="text-[10px] text-muted-foreground mb-0.5">Returned Qty</p>
-                    <p className="text-xl font-bold">{totals.totalReturned}</p>
+                    <p className="text-base sm:text-lg font-bold leading-tight">{totals.totalReturned}</p>
                   </Card>
 
                   <Card 
-                    className="p-2.5 cursor-pointer hover:bg-accent transition-colors"
+                    className="p-2.5 cursor-pointer hover:bg-accent transition-colors bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
                     onClick={() => setShowDetailModal('left')}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <TrendingDown className="h-4 w-4 text-green-600" />
                       <Eye className="h-3 w-3 text-muted-foreground" />
                     </div>
-                    <p className="text-[10px] text-muted-foreground mb-0.5">Left in the Van</p>
-                    <p className="text-xl font-bold">{totals.totalLeft}</p>
+                    <p className="text-[10px] text-green-700 dark:text-green-300 font-medium mb-0.5">Left in the Van</p>
+                    <p className="text-base sm:text-lg font-bold leading-tight text-green-700 dark:text-green-300">{totals.totalLeft}</p>
                   </Card>
                 </div>
 
