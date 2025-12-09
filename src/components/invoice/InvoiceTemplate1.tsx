@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { downloadPDF } from "@/utils/fileDownloader";
 
 interface InvoiceTemplate1Props {
   company: any;
@@ -171,9 +172,9 @@ export default function InvoiceTemplate1({
         }
       }
 
-      // Save PDF
-      doc.save(`Invoice_${orderId?.slice(0, 8) || Date.now()}.pdf`);
-      toast.success("Invoice downloaded successfully");
+      // Save PDF using cross-platform downloader
+      const pdfBlob = doc.output('blob');
+      await downloadPDF(pdfBlob, `Invoice_${orderId?.slice(0, 8) || Date.now()}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to generate invoice");

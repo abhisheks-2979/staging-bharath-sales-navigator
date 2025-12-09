@@ -13,6 +13,7 @@ import { UserCheck, TrendingUp, Store, IndianRupee, CalendarIcon, Download } fro
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadPDF } from "@/utils/fileDownloader";
 
 export default function JointSalesAnalytics() {
   const { user } = useAuth();
@@ -115,7 +116,7 @@ export default function JointSalesAnalytics() {
     }
   };
 
-  const downloadReport = () => {
+  const downloadReport = async () => {
     const doc = new jsPDF();
     
     doc.setFontSize(18);
@@ -142,7 +143,8 @@ export default function JointSalesAnalytics() {
       body: tableData
     });
 
-    doc.save(`joint-sales-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    const pdfBlob = doc.output('blob');
+    await downloadPDF(pdfBlob, `joint-sales-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   };
 
   return (

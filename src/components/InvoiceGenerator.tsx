@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadPDF } from "@/utils/fileDownloader";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -425,11 +426,10 @@ export const InvoiceGenerator = ({ orderId, className }: InvoiceGeneratorProps) 
       doc.setFont(undefined, "italic");
       doc.text("Thank you for your business!", pageWidth / 2, finalFooterY, { align: "center" });
 
-      // Save PDF
+      // Save PDF using cross-platform downloader
       const fileName = `Invoice_${order.id.substring(0, 8)}_${invoiceDate.replace(/\s/g, "_")}.pdf`;
-      doc.save(fileName);
-
-      toast.success("Invoice downloaded successfully!");
+      const pdfBlob = doc.output('blob');
+      await downloadPDF(pdfBlob, fileName);
     } catch (error) {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice");
