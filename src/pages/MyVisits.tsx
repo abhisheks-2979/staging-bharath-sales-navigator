@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown } from "lucide-react";
+import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
@@ -1356,56 +1357,13 @@ export const MyVisits = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Points Dialog */}
-        <Dialog open={isPointsDialogOpen} onOpenChange={setIsPointsDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-amber-600" />
-                Points Earned - {selectedDate ? format(new Date(selectedDate), 'MMM dd, yyyy') : 'Today'}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="mt-4">
-              {pointsDetailsList.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No points earned on this date</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
-                    <span className="font-medium">Total Points</span>
-                    <span className="text-2xl font-bold text-amber-600">{pointsEarnedToday}</span>
-                  </div>
-                  
-                  {pointsDetailsList.map((item, index) => (
-                    <Card key={index} className="border-l-4 border-l-amber-500">
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            {item.visitId ? (
-                              <a
-                                href={`/visit-detail/${item.visitId}`}
-                                className="font-medium text-primary hover:underline"
-                              >
-                                {item.retailerName}
-                              </a>
-                            ) : (
-                              <span className="font-medium">{item.retailerName}</span>
-                            )}
-                          </div>
-                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                            +{item.points} pts
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Points Details Modal - Task-wise breakdown */}
+        <PointsDetailsModal 
+          open={isPointsDialogOpen} 
+          onOpenChange={setIsPointsDialogOpen} 
+          userId={user?.id || ''} 
+          timeFilter="today"
+        />
 
         {/* Timeline View Dialog */}
         <Dialog open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
