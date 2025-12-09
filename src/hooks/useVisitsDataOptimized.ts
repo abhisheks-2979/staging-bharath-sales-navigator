@@ -85,6 +85,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     const isSameDate = lastLoadedDateRef.current === selectedDate;
     if (!isSameDate) {
       setIsLoading(true);
+      // CRITICAL: Clear previous date's data immediately when switching dates
+      // This prevents showing stale retailers from previous date
+      setBeatPlans([]);
+      setVisits([]);
+      setRetailers([]);
+      setOrders([]);
+      setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
     }
     
     let hasLoadedFromCache = false;
@@ -152,20 +159,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         allRetailerIds.includes(r.id) || (r.beat_id && plannedBeatIds.includes(r.beat_id))
       );
 
+      // CRITICAL: Always update state for the new date, even if empty
+      // This ensures the UI shows "No beats planned" instead of stale data
+      setBeatPlans(prev => arraysEqual(prev, filteredBeatPlans) ? prev : filteredBeatPlans);
+      setVisits(prev => arraysEqual(prev, filteredVisits) ? prev : filteredVisits);
+      setRetailers(prev => arraysEqual(prev, filteredRetailers) ? prev : filteredRetailers);
+      setOrders(prev => arraysEqual(prev, filteredOrders) ? prev : filteredOrders);
+      hasLoadedFromCache = true;
+      setIsLoading(false);
+      lastLoadedDateRef.current = selectedDate;
+
       // Display cached data immediately - only update if data changed
       if (
         filteredBeatPlans.length > 0 ||
         filteredVisits.length > 0 ||
         filteredRetailers.length > 0
       ) {
-        // SMART UPDATE: Only set state if data actually changed to prevent flickering
-        setBeatPlans(prev => arraysEqual(prev, filteredBeatPlans) ? prev : filteredBeatPlans);
-        setVisits(prev => arraysEqual(prev, filteredVisits) ? prev : filteredVisits);
-        setRetailers(prev => arraysEqual(prev, filteredRetailers) ? prev : filteredRetailers);
-        setOrders(prev => arraysEqual(prev, filteredOrders) ? prev : filteredOrders);
-        hasLoadedFromCache = true;
-        setIsLoading(false);
-        lastLoadedDateRef.current = selectedDate;
         
         console.log('📦 [CACHE] Loaded from cache:', {
           beatPlans: filteredBeatPlans.length,
