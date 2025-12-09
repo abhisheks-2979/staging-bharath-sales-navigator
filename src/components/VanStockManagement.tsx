@@ -1243,10 +1243,42 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 <div className="flex justify-between items-center">
                   <p className="font-bold text-lg">Total</p>
                   <p className="text-3xl font-bold text-primary">
-                    {showDetailModal === 'start' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.start_qty || 0), 0)}
-                    {showDetailModal === 'ordered' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.ordered_qty || 0), 0)}
-                    {showDetailModal === 'returned' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.returned_qty || 0), 0)}
-                    {showDetailModal === 'left' && (todayStock?.van_stock_items || []).reduce((acc: number, i: any) => acc + (i.start_qty - (i.ordered_qty || 0) + (i.returned_qty || 0)), 0)}
+                    {(() => {
+                      const items = todayStock?.van_stock_items || [];
+                      let totalGrams = 0;
+                      
+                      items.forEach((item: any) => {
+                        const unit = (item.unit || '').toLowerCase();
+                        let qty = 0;
+                        
+                        if (showDetailModal === 'start') qty = item.start_qty || 0;
+                        else if (showDetailModal === 'ordered') qty = item.ordered_qty || 0;
+                        else if (showDetailModal === 'returned') qty = item.returned_qty || 0;
+                        else if (showDetailModal === 'left') qty = (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0);
+                        
+                        // Convert everything to grams for accurate calculation
+                        if (unit === 'kg' || unit === 'kgs') {
+                          totalGrams += qty * 1000;
+                        } else if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+                          totalGrams += qty;
+                        } else {
+                          // Default treat as KG
+                          totalGrams += qty * 1000;
+                        }
+                      });
+                      
+                      // Convert to KG and Grams display
+                      const fullKg = Math.floor(totalGrams / 1000);
+                      const remainingGrams = Math.round(totalGrams % 1000);
+                      
+                      if (remainingGrams === 0) {
+                        return `${fullKg} KG`;
+                      } else if (fullKg === 0) {
+                        return `${remainingGrams} Grams`;
+                      } else {
+                        return `${fullKg} KG ${remainingGrams} Grams`;
+                      }
+                    })()}
                   </p>
                 </div>
               </Card>
