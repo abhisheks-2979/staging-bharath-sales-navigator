@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadPDF, downloadExcel } from "@/utils/fileDownloader";
 
 interface RetailerReportData {
   retailerName: string;
@@ -141,7 +142,7 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
       const selectedData = getSelectedData();
       
@@ -186,7 +187,8 @@ export const ReportGenerator = ({ data, dateRange }: ReportGeneratorProps) => {
         tableWidth: 'auto'
       });
 
-      doc.save(`Retailer_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      const pdfBlob = doc.output('blob');
+      await downloadPDF(pdfBlob, `Retailer_Report_${dateRange.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
       
       toast({
         title: "PDF Export Successful",

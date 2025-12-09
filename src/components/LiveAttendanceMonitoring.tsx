@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Search, Download, Users, Clock, MapPin, UserCheck, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { downloadCSV } from '@/utils/fileDownloader';
 
 interface User {
   id: string;
@@ -379,7 +380,7 @@ const LiveAttendanceMonitoring = () => {
     return `${placeName} (${lat}, ${lng})`;
   };
 
-  const exportData = () => {
+  const exportData = async () => {
     // Create CSV content
     const headers = ['Employee', 'Date', 'First Check In', 'Last Check Out', 'Active Market Hours', 'Check In Location', 'Check Out Location'];
     const csvContent = [
@@ -395,16 +396,8 @@ const LiveAttendanceMonitoring = () => {
       ].join(','))
     ].join('\n');
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `attendance-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-    
-    toast.success('Attendance data exported successfully!');
+    // Download using cross-platform utility
+    await downloadCSV(csvContent, `attendance-report-${format(new Date(), 'yyyy-MM-dd')}`);
   };
 
   const filteredUsers = users.filter(user =>

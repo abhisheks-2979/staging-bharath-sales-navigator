@@ -15,6 +15,7 @@ import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, Do
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditOrderDialog from '@/components/EditOrderDialog';
@@ -819,7 +820,7 @@ const Operations = () => {
   };
 
   // Export to CSV
-  const exportToCSV = (data: any[], filename: string) => {
+  const exportToCSV = async (data: any[], filename: string) => {
     if (data.length === 0) {
       toast.error('No data to export');
       return;
@@ -831,13 +832,7 @@ const Operations = () => {
       ...data.map(row => Object.values(row).map(val => `"${val}"`).join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    await downloadCSV(csvContent, `${filename}-${format(new Date(), 'yyyy-MM-dd')}`);
   };
 
   // Initial data fetch (ensure users are loaded before building check-ins)

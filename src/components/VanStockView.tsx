@@ -9,6 +9,7 @@ import { Edit, Package, Search, Check, X, Download } from 'lucide-react';
 import { VanMorningInventory } from './VanMorningInventory';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/utils/fileDownloader';
 
 interface VanStockItem {
   id: string;
@@ -214,7 +215,7 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
     );
   });
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (filteredItems.length === 0) {
       toast.error('No data to export');
       return;
@@ -280,8 +281,8 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
       }
     });
 
-    doc.save(`van-stock-${selectedDate.toISOString().split('T')[0]}.pdf`);
-    toast.success('PDF downloaded successfully');
+    const pdfBlob = doc.output('blob');
+    await downloadPDF(pdfBlob, `van-stock-${selectedDate.toISOString().split('T')[0]}.pdf`);
   };
 
   return (
