@@ -82,7 +82,8 @@ export const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 bg-gradient-primary text-white shadow-lg z-50">
+      {/* Navbar - positioned below safe area top */}
+      <nav className="fixed left-0 right-0 bg-gradient-primary text-white shadow-lg z-50" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -133,7 +134,8 @@ export const Navbar = () => {
         </div>
       </nav>
 
-      <div className="h-12" />
+      {/* Spacer for navbar height + safe area top */}
+      <div style={{ height: 'calc(3rem + env(safe-area-inset-top, 0px))' }} />
 
       <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">

@@ -23,9 +23,15 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
 
   return (
-    <div className="min-h-screen bg-gradient-subtle w-full">
+    <div className="min-h-screen bg-gradient-subtle w-full flex flex-col">
       <Navbar />
-      <main className="pb-20" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}>
+      <main 
+        className="flex-1 pb-20" 
+        style={{ 
+          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+          minHeight: 0 // Needed for flex child scrolling
+        }}
+      >
         {children}
       </main>
       <ChatWidget />
