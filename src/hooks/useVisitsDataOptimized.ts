@@ -125,9 +125,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         return o.user_id === userId && o.status === 'confirmed' && orderDate >= dateStart && orderDate <= dateEnd;
       });
 
-      // CRITICAL: If no beat plans, no visits, and no orders - show empty state
-      if (filteredBeatPlans.length === 0 && filteredVisits.length === 0 && filteredOrders.length === 0) {
-        console.log('📦 [CACHE] No beat plans, visits, or orders for this date - showing empty state');
+      // CRITICAL: If no beat plans for this date - show empty state immediately
+      // User must have planned beats to see any retailers
+      if (filteredBeatPlans.length === 0) {
+        console.log('📦 [CACHE] No beat plans for this date - showing empty state');
         setBeatPlans([]);
         setVisits([]);
         setRetailers([]);
@@ -136,6 +137,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         hasLoadedFromCache = true;
         setIsLoading(false);
         lastLoadedDateRef.current = selectedDate;
+        // Don't process anything else - no beats = no retailers to show
       } else {
         // Get retailer IDs from visits and orders ONLY
         const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
@@ -311,29 +313,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const pointsRawData = pointsResult.data || [];
 
         // CRITICAL: If no beat plans exist for this date, show NO retailers
-        // Only show retailers when there are planned beats, visits, or orders for the day
-        if (beatPlansData.length === 0 && visitsData.length === 0) {
-          console.log('📋 No beat plans or visits for this date - showing no retailers');
-          // Check if there are any orders for this date
-          const { data: ordersForDay } = await supabase
-            .from('orders')
-            .select('retailer_id')
-            .eq('user_id', userId)
-            .eq('status', 'confirmed')
-            .gte('created_at', `${selectedDate}T00:00:00.000Z`)
-            .lte('created_at', `${selectedDate}T23:59:59.999Z`);
-          
-          if (!ordersForDay || ordersForDay.length === 0) {
-            // No beat plans, no visits, no orders - show empty state
-            setBeatPlans([]);
-            setVisits([]);
-            setRetailers([]);
-            setOrders([]);
-            setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
-            setIsLoading(false);
-            isLoadingRef.current = false;
-            return;
-          }
+        // We only show retailers when there are explicit beat plans for the day
+        // Orders/visits from previous days don't count - user must plan beats first
+        if (beatPlansData.length === 0) {
+          console.log('📋 No beat plans for this date - showing empty state');
+          setBeatPlans([]);
+          setVisits([]);
+          setRetailers([]);
+          setOrders([]);
+          setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+          setIsLoading(false);
+          isLoadingRef.current = false;
+          lastLoadedDateRef.current = selectedDate;
+          return;
         }
 
         // Get all retailer IDs we need
