@@ -38,7 +38,7 @@ interface RetailerLocation {
 }
 
 export default function GPSTrack() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [selectedMember, setSelectedMember] = useState<string>('');
   const [currentLocationUser, setCurrentLocationUser] = useState<string>('');
@@ -46,10 +46,18 @@ export default function GPSTrack() {
   const [gpsData, setGpsData] = useState<GPSData[]>([]);
   const [retailers, setRetailers] = useState<RetailerLocation[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  const isAdmin = userRole === 'admin';
 
   useEffect(() => {
-    loadTeamMembers();
-  }, []);
+    if (isAdmin) {
+      loadTeamMembers();
+    } else if (user?.id) {
+      // Non-admin users only see their own location
+      setCurrentLocationUser(user.id);
+      setSelectedMember(user.id);
+    }
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     if (selectedMember) {
@@ -76,7 +84,6 @@ export default function GPSTrack() {
         },
         (payload) => {
           console.log('Visit update received:', payload);
-          // Reload retailer locations when visits are updated
           loadRetailerLocations();
         }
       )
@@ -149,7 +156,6 @@ export default function GPSTrack() {
     const dateStr = date.toISOString().split('T')[0];
     console.log('Loading retailer locations for date:', dateStr, 'user:', selectedMember);
 
-    // Fetch visits for the selected date and user
     const { data: visitsData, error: visitsError } = await supabase
       .from('visits')
       .select('id, check_in_time, check_out_time, status, retailer_id, check_in_location, check_in_address')
@@ -167,22 +173,18 @@ export default function GPSTrack() {
     if (!visitsData || visitsData.length === 0) {
       console.log('No visits found for this date');
       setRetailers([]);
-      toast.info('No retailers scheduled for this day');
       return;
     }
 
     console.log('Found visits:', visitsData);
 
-    // Get unique retailer IDs
     const retailerIds = [...new Set(visitsData.map(v => v.retailer_id).filter(Boolean))];
     
     if (retailerIds.length === 0) {
       setRetailers([]);
-      toast.info('No retailers found in visits');
       return;
     }
 
-    // Fetch retailer details
     const { data: retailersData, error: retailersError } = await supabase
       .from('retailers')
       .select('id, name, address, latitude, longitude')
@@ -197,10 +199,8 @@ export default function GPSTrack() {
     console.log('Found retailers:', retailersData);
 
     if (retailersData) {
-      // Check which retailers are missing location data
       const retailersWithoutLocation = retailersData.filter(r => !r.latitude || !r.longitude);
       
-      // Helper: parse "lat, lng" from check_in_address
       const parseLatLngFromAddress = (addr?: string | null) => {
         if (!addr) return null;
         const match = addr.match(/(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
@@ -211,7 +211,6 @@ export default function GPSTrack() {
         return { latitude: lat, longitude: lng };
       };
 
-      // Map retailers to visits with fallbacks (retailer -> visit.check_in_location -> parsed address)
       const retailerLocations: RetailerLocation[] = visitsData
         .map((visit: any) => {
           const retailer = retailersData.find(r => r.id === visit.retailer_id);
@@ -262,17 +261,11 @@ export default function GPSTrack() {
           `${retailersWithoutLocation.length} retailer${retailersWithoutLocation.length > 1 ? 's' : ''} missing location data. Using visit locations when available. Missing: ${missingNames}`,
           { duration: 8000 }
         );
-      } else if (retailerLocations.length === 0) {
-        toast.info('No retailers with location data found');
-      } else {
-        const completedCount = retailerLocations.filter(r => r.checkInTime).length;
-        toast.success(
-          `Loaded ${retailerLocations.length} retailer${retailerLocations.length > 1 ? 's' : ''} (${completedCount} completed)`,
-          { duration: 4000 }
-        );
       }
     }
   };
+
+  const isViewingOtherUser = currentLocationUser !== user?.id;
 
   return (
     <Layout>
@@ -292,32 +285,39 @@ export default function GPSTrack() {
 
           {/* Current Location Tab */}
           <TabsContent value="current" className="space-y-6 mt-6">
-            {/* User Selector */}
-            <Card className="p-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Team Member</label>
-                <Select value={currentLocationUser} onValueChange={setCurrentLocationUser}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a team member">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        {teamMembers.find((m) => m.id === currentLocationUser)?.full_name || 'Select member'}
-                      </div>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </Card>
+            {/* User Selector - Only for Admin */}
+            {isAdmin && (
+              <Card className="p-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Select Team Member</label>
+                  <Select value={currentLocationUser} onValueChange={setCurrentLocationUser}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a team member">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {teamMembers.find((m) => m.id === currentLocationUser)?.full_name || 'Select member'}
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.full_name}
+                          {member.id === user?.id && ' (You)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </Card>
+            )}
 
             <Card className="p-6">
-              <CurrentLocationMap height="600px" userId={currentLocationUser} />
+              <CurrentLocationMap 
+                height="600px" 
+                userId={currentLocationUser} 
+                isViewingOther={isViewingOtherUser}
+              />
             </Card>
           </TabsContent>
 
@@ -342,27 +342,30 @@ export default function GPSTrack() {
                   </Popover>
                 </div>
 
-                {/* Team Member Selector */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Team Member</label>
-                  <Select value={selectedMember} onValueChange={setSelectedMember}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a team member">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {teamMembers.find((m) => m.id === selectedMember)?.full_name || 'Select member'}
-                        </div>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Team Member Selector - Only for Admin */}
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select Team Member</label>
+                    <Select value={selectedMember} onValueChange={setSelectedMember}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a team member">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            {teamMembers.find((m) => m.id === selectedMember)?.full_name || 'Select member'}
+                          </div>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.full_name}
+                            {member.id === user?.id && ' (You)'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </Card>
 
