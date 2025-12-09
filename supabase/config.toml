@@ -13,7 +13,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.scan-board]
-verify_jwt = false
+verify_jwt = true
 
 [functions.scan-competition-photo]
 verify_jwt = true
