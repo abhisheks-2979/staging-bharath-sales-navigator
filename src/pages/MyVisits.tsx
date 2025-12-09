@@ -298,64 +298,72 @@ export const MyVisits = () => {
   const lastProcessedRetailersRef = useRef<string>('');
   
   useEffect(() => {
-    // Process retailers with visit and order data
-    if (optimizedRetailers.length > 0) {
-      // Create a fingerprint of current data to detect changes
-      const fingerprint = optimizedRetailers.map(r => r.id).sort().join(',') + 
-        '|' + optimizedVisits.map(v => `${v.retailer_id}:${v.status}`).join(',') +
-        '|' + optimizedOrders.map(o => `${o.retailer_id}:${o.total_amount}`).join(',');
+    // CRITICAL: When optimized retailers is empty, clear local state immediately
+    // This prevents showing stale retailers when switching to dates with no plans
+    if (optimizedRetailers.length === 0) {
+      if (retailers.length > 0) {
+        console.log('📊 [MyVisits] No retailers from hook, clearing local state');
+        setRetailers([]);
+        lastProcessedRetailersRef.current = '';
+      }
+      return;
+    }
+    
+    // Create a fingerprint of current data to detect changes
+    const fingerprint = optimizedRetailers.map(r => r.id).sort().join(',') + 
+      '|' + optimizedVisits.map(v => `${v.retailer_id}:${v.status}`).join(',') +
+      '|' + optimizedOrders.map(o => `${o.retailer_id}:${o.total_amount}`).join(',');
+    
+    // Skip if data hasn't changed
+    if (lastProcessedRetailersRef.current === fingerprint) {
+      console.log('📊 [MyVisits] Retailers data unchanged, skipping update');
+      return;
+    }
+    
+    lastProcessedRetailersRef.current = fingerprint;
+    
+    // Process own retailers
+    const processedRetailers = optimizedRetailers.map(retailer => {
+      const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
+      const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
+      const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const hasOrder = orders.length > 0;
       
-      // Skip if data hasn't changed
-      if (lastProcessedRetailersRef.current === fingerprint) {
-        console.log('📊 [MyVisits] Retailers data unchanged, skipping update');
-        return;
+      // CRITICAL: Use the ACTUAL status from database
+      // Order of priority: hasOrder (productive) > actual visit.status > planned (only if no visit)
+      let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
+      if (hasOrder) {
+        status = 'productive';
+      } else if (visit?.status) {
+        status = visit.status as typeof status;
+      } else {
+        status = 'planned';
       }
       
-      lastProcessedRetailersRef.current = fingerprint;
-      
-      // Process own retailers
-      const processedRetailers = optimizedRetailers.map(retailer => {
-        const visit = optimizedVisits.find(v => v.retailer_id === retailer.id);
-        const orders = optimizedOrders.filter(o => o.retailer_id === retailer.id);
-        const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-        const hasOrder = orders.length > 0;
-        
-        // CRITICAL: Use the ACTUAL status from database
-        // Order of priority: hasOrder (productive) > actual visit.status > planned (only if no visit)
-        let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
-        if (hasOrder) {
-          status = 'productive';
-        } else if (visit?.status) {
-          status = visit.status as typeof status;
-        } else {
-          status = 'planned';
-        }
-        
-        return {
-          id: retailer.id,
-          retailerId: retailer.id,
-          retailerName: retailer.name || '',
-          address: retailer.address || '',
-          phone: retailer.phone || '',
-          retailerCategory: retailer.category || '',
-          status,
-          visitType: 'Regular Visit',
-          visitId: visit?.id,
-          hasOrder,
-          orderValue: totalOrderValue,
-          visitStatus: visit?.status,
-          noOrderReason: visit?.no_order_reason,
-          distributor: retailer.parent_name,
-          priority: retailer.potential,
-          retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
-          retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
-        };
-      });
+      return {
+        id: retailer.id,
+        retailerId: retailer.id,
+        retailerName: retailer.name || '',
+        address: retailer.address || '',
+        phone: retailer.phone || '',
+        retailerCategory: retailer.category || '',
+        status,
+        visitType: 'Regular Visit',
+        visitId: visit?.id,
+        hasOrder,
+        orderValue: totalOrderValue,
+        visitStatus: visit?.status,
+        noOrderReason: visit?.no_order_reason,
+        distributor: retailer.parent_name,
+        priority: retailer.potential,
+        retailerLat: retailer.latitude != null ? Number(retailer.latitude) : undefined,
+        retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
+      };
+    });
 
-      setRetailers(processedRetailers);
-      console.log('📊 [MyVisits] Retailers processed and updated:', processedRetailers.length);
-    }
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders]);
+    setRetailers(processedRetailers);
+    console.log('📊 [MyVisits] Retailers processed and updated:', processedRetailers.length);
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, retailers.length]);
 
   // Initialize selected day to today
   useEffect(() => {
