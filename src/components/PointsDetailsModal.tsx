@@ -245,22 +245,22 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-2 sm:p-6">
         <DialogHeader className="pb-2">
-          <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              <span className="text-base sm:text-lg">Points Details Breakdown</span>
+          <DialogTitle className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <TrendingUp className="h-4 w-4 shrink-0" />
+              <span className="text-sm sm:text-lg truncate">Points Breakdown</span>
             </div>
             <Button 
               onClick={handleExportExcel} 
               size="sm"
               variant="outline"
               disabled={filteredPoints.length === 0}
-              className="w-full sm:w-auto"
+              className="h-7 px-2 text-xs shrink-0"
             >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Export
+              <FileSpreadsheet className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">Export</span>
             </Button>
           </DialogTitle>
         </DialogHeader>
@@ -272,11 +272,11 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
         ) : (
           <>
             {/* Time Period and Date Range Selection */}
-            <div className="space-y-3 mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="space-y-2 mb-3 p-2 bg-muted/50 rounded-lg">
               <div className="w-full">
-                <Label htmlFor="timeFilter" className="text-xs mb-1.5 block">Time Period</Label>
+                <Label htmlFor="timeFilter" className="text-[10px] mb-1 block">Time Period</Label>
                 <Select value={timeFilter} onValueChange={(value: any) => setTimeFilter(value)}>
-                  <SelectTrigger id="timeFilter" className="w-full h-9 text-sm">
+                  <SelectTrigger id="timeFilter" className="w-full h-8 text-xs">
                     <SelectValue placeholder="Select period" />
                   </SelectTrigger>
                   <SelectContent>
@@ -355,14 +355,14 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
               <TabsTrigger value="chart" className="text-xs sm:text-sm">Chart View</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="table" className="space-y-3 mt-3">
+            <TabsContent value="table" className="space-y-2 mt-2">
               {/* Mobile: Stack filter and total vertically */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="gameFilter" className="text-xs whitespace-nowrap">Game:</Label>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <Label htmlFor="gameFilter" className="text-[10px] shrink-0">Game:</Label>
                   <Select value={selectedGame} onValueChange={setSelectedGame}>
-                    <SelectTrigger id="gameFilter" className="w-full sm:w-[180px] h-8 text-xs">
-                      <SelectValue placeholder="Select game" />
+                    <SelectTrigger id="gameFilter" className="h-7 text-[11px] flex-1 min-w-0">
+                      <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Games</SelectItem>
@@ -374,35 +374,35 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="text-xs font-semibold bg-primary/10 px-3 py-1.5 rounded-full">
-                  Total: <span className="text-primary text-sm">{totalPoints} pts</span>
+                <div className="text-[10px] font-semibold bg-primary/10 px-2 py-1 rounded-full shrink-0">
+                  Total: <span className="text-primary text-xs">{totalPoints}</span>
                 </div>
               </div>
 
               {/* Mobile-friendly card list view */}
-              <div className="block sm:hidden space-y-2 max-h-[50vh] overflow-y-auto">
+              <div className="block sm:hidden space-y-1.5 max-h-[45vh] overflow-y-auto">
                 {filteredPoints.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8 text-sm">
+                  <div className="text-center text-muted-foreground py-6 text-xs">
                     No points earned in this period
                   </div>
                 ) : (
                   filteredPoints.map((point) => (
-                    <div key={point.id} className="p-3 bg-muted/30 rounded-lg border">
-                      <div className="flex items-start justify-between">
+                    <div key={point.id} className="p-2 bg-muted/30 rounded-lg border">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[10px] text-muted-foreground">
                             {format(new Date(point.earned_at), "dd MMM, HH:mm")}
                           </div>
-                          <div className="font-medium text-sm mt-0.5 truncate">
+                          <div className="font-medium text-xs truncate">
                             {point.game_name}
                           </div>
                           {point.retailer_name && (
-                            <div className="text-xs text-primary mt-0.5 truncate">
+                            <div className="text-[10px] text-primary truncate">
                               {point.retailer_name}
                             </div>
                           )}
                         </div>
-                        <div className="text-lg font-bold text-primary ml-2">
+                        <div className="text-sm font-bold text-primary shrink-0">
                           +{point.points}
                         </div>
                       </div>
