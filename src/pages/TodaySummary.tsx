@@ -699,7 +699,8 @@ export const TodaySummary = () => {
         });
       }
       
-      // Calculate time at retailers from first visit start_time to last visit end_time
+      // Calculate total market hours from first visit start_time to last visit start_time
+      // Using start_time for both because end_time gets batch-updated when user clicks "End Day"
       let timeAtRetailersStr = '0h 0m';
       let firstRetailerVisitData: { retailerName: string; time: string } | null = null;
       let lastRetailerVisitData: { retailerName: string; time: string } | null = null;
@@ -717,13 +718,6 @@ export const TodaySummary = () => {
           const lastLogByStartTime = validLogs.reduce((latest, log) => {
             const startTime = new Date(log.start_time);
             return (!latest || startTime > new Date(latest.start_time)) ? log : latest;
-          }, null as typeof validLogs[0] | null);
-          
-          // For time calculation, still use end_time if available
-          const lastLogByEndTime = validLogs.reduce((latest, log) => {
-            if (!log.end_time) return latest;
-            const endTime = new Date(log.end_time);
-            return (!latest || endTime > new Date(latest.end_time)) ? log : latest;
           }, null as typeof validLogs[0] | null);
           
           // Fetch retailer names for first and last visits
@@ -746,19 +740,16 @@ export const TodaySummary = () => {
             time: format(firstStartTime, 'hh:mm a')
           };
           
-          // Calculate total time from first start to last end
-          if (lastLogByEndTime?.end_time) {
-            const lastEndTime = new Date(lastLogByEndTime.end_time);
-            const diffMs = lastEndTime.getTime() - firstStartTime.getTime();
+          // Calculate total market hours from first visit start_time to last visit start_time
+          if (lastLogByStartTime) {
+            const lastVisitStartTime = new Date(lastLogByStartTime.start_time);
+            const diffMs = lastVisitStartTime.getTime() - firstStartTime.getTime();
             const diffMinutes = Math.max(0, diffMs / (1000 * 60));
             const hours = Math.floor(diffMinutes / 60);
             const minutes = Math.round(diffMinutes % 60);
             timeAtRetailersStr = `${hours}h ${minutes}m`;
-          }
-          
-          // Set last retailer visit data based on latest start_time (actual last retailer visited)
-          if (lastLogByStartTime) {
-            const lastVisitStartTime = new Date(lastLogByStartTime.start_time);
+            
+            // Set last retailer visit data
             lastRetailerVisitData = {
               retailerName: retailerNameMap.get(lastLogByStartTime.retailer_id) || 'Unknown Retailer',
               time: format(lastVisitStartTime, 'hh:mm a')
