@@ -852,130 +852,142 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const handleExportToPDF = async () => {
-    const savedItems = todayStock?.van_stock_items || [];
-    if (savedItems.length === 0) {
-      toast.error('No stock items to export');
-      return;
-    }
-
-    const doc = new jsPDF();
-    const dateStr = new Date(selectedDate).toLocaleDateString('en-IN', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
-    });
-
-    // Title
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Product Stock in Van', 14, 20);
-    
-    // Date and Van info
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    const selectedVanData = vans.find(v => v.id === selectedVan);
-    doc.text(`Date: ${dateStr}`, 14, 28);
-    if (selectedVanData) {
-      doc.text(`Van: ${selectedVanData.registration_number} - ${selectedVanData.make_model}`, 14, 35);
-    }
-
-    // Calculate totals with proper gram to KG conversion
-    // Price is per KG, so we need to convert grams to KG for value calculation
-    let totalKGs = 0;
-    const totalValue = savedItems.reduce((sum: number, item: any) => {
-      const product = products.find(p => p.id === item.product_id);
-      const priceWithoutGST = (product?.rate || 0) / 1.05; // Price per KG
-      const unit = (item.unit || '').toLowerCase();
-      const qty = item.start_qty || 0;
+    try {
+      toast.info('Generating PDF...');
       
-      // Convert grams to KG for both weight and value calculation
-      let qtyInKG = qty;
-      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        qtyInKG = qty / 1000;
-        totalKGs += qtyInKG;
-      } else if (unit === 'kg' || unit === 'kgs') {
-        totalKGs += qty;
+      const savedItems = todayStock?.van_stock_items || [];
+      if (savedItems.length === 0) {
+        toast.error('No stock items to export');
+        return;
       }
-      
-      // Calculate value using quantity in KG since price is per KG
-      return sum + (priceWithoutGST * qtyInKG);
-    }, 0);
-    
-    // Summary with Total KGs and Total Value
-    doc.setFontSize(10);
-    doc.text(`Total Items: ${savedItems.length}`, 14, 42);
-    doc.text(`Total KGs in Van: ${totalKGs.toFixed(2)} KG`, 14, 48);
-    doc.text(`Total Value (Excl. GST): Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, 54);
 
-    // Table with proper formatting
-    const tableData = savedItems.map((item: any) => {
-      const product = products.find(p => p.id === item.product_id);
-      const priceWithGST = product?.rate || 0;
-      const priceWithoutGST = priceWithGST / 1.05;
-      const qty = item.start_qty || 0;
-      const unit = (item.unit || '').toLowerCase();
+      const doc = new jsPDF();
+      const dateStr = new Date(selectedDate).toLocaleDateString('en-IN', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Product Stock in Van', 14, 20);
       
-      // Calculate quantity in KGs for display
-      let qtyDisplay = qty.toString();
-      let unitDisplay = item.unit || '';
-      
-      // For grams, show both grams and KG equivalent
-      let qtyInKG = qty;
-      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        qtyInKG = qty / 1000;
-        qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
+      // Date and Van info
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      const selectedVanData = vans.find(v => v.id === selectedVan);
+      doc.text(`Date: ${dateStr}`, 14, 28);
+      if (selectedVanData) {
+        doc.text(`Van: ${selectedVanData.registration_number} - ${selectedVanData.make_model}`, 14, 35);
       }
+
+      // Calculate totals with proper gram to KG conversion
+      // Price is per KG, so we need to convert grams to KG for value calculation
+      let totalKGs = 0;
+      const totalValue = savedItems.reduce((sum: number, item: any) => {
+        const product = products.find(p => p.id === item.product_id);
+        const priceWithoutGST = (product?.rate || 0) / 1.05; // Price per KG
+        const unit = (item.unit || '').toLowerCase();
+        const qty = item.start_qty || 0;
+        
+        // Convert grams to KG for both weight and value calculation
+        let qtyInKG = qty;
+        if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+          qtyInKG = qty / 1000;
+          totalKGs += qtyInKG;
+        } else if (unit === 'kg' || unit === 'kgs') {
+          totalKGs += qty;
+        }
+        
+        // Calculate value using quantity in KG since price is per KG
+        return sum + (priceWithoutGST * qtyInKG);
+      }, 0);
       
-      // Price is per KG, so calculate total using quantity in KG
-      const totalVal = priceWithoutGST * qtyInKG;
+      // Summary with Total KGs and Total Value
+      doc.setFontSize(10);
+      doc.text(`Total Items: ${savedItems.length}`, 14, 42);
+      doc.text(`Total KGs in Van: ${totalKGs.toFixed(2)} KG`, 14, 48);
+      doc.text(`Total Value (Excl. GST): Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, 54);
+
+      // Table with proper formatting
+      const tableData = savedItems.map((item: any) => {
+        const product = products.find(p => p.id === item.product_id);
+        const priceWithGST = product?.rate || 0;
+        const priceWithoutGST = priceWithGST / 1.05;
+        const qty = item.start_qty || 0;
+        const unit = (item.unit || '').toLowerCase();
+        
+        // Calculate quantity in KGs for display
+        let qtyDisplay = qty.toString();
+        let unitDisplay = item.unit || '';
+        
+        // For grams, show both grams and KG equivalent
+        let qtyInKG = qty;
+        if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+          qtyInKG = qty / 1000;
+          qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
+        }
+        
+        // Price is per KG, so calculate total using quantity in KG
+        const totalVal = priceWithoutGST * qtyInKG;
+        
+        return [
+          item.product_name,
+          `Rs. ${priceWithoutGST.toFixed(2)}`,
+          unitDisplay,
+          qtyDisplay,
+          `Rs. ${totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 60,
+        head: [['Product', 'Price (Excl. GST)', 'Unit', 'Quantity', 'Total Value']],
+        body: tableData,
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 4,
+          lineColor: [200, 200, 200],
+          lineWidth: 0.5
+        },
+        headStyles: { 
+          fillColor: [59, 130, 246], 
+          textColor: 255, 
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        columnStyles: {
+          0: { cellWidth: 45 },
+          1: { cellWidth: 35, halign: 'right' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 45, halign: 'center' },
+          4: { cellWidth: 40, halign: 'right' }
+        },
+        tableLineColor: [100, 100, 100],
+        tableLineWidth: 0.1
+      });
+
+      // Add footer with total
+      const finalY = (doc as any).lastAutoTable.finalY || 60;
+      doc.setFillColor(240, 240, 240);
+      doc.rect(14, finalY + 2, 181, 10, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(`Grand Total: Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${totalKGs.toFixed(2)} KG)`, 14, finalY + 9);
+
+      toast.info('Saving PDF...');
+      const pdfBlob = doc.output('blob');
+      const success = await downloadPDF(pdfBlob, `Product_Stock_Van_${selectedDate}.pdf`);
       
-      return [
-        item.product_name,
-        `Rs. ${priceWithoutGST.toFixed(2)}`,
-        unitDisplay,
-        qtyDisplay,
-        `Rs. ${totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      ];
-    });
-
-    autoTable(doc, {
-      startY: 60,
-      head: [['Product', 'Price (Excl. GST)', 'Unit', 'Quantity', 'Total Value']],
-      body: tableData,
-      styles: { 
-        fontSize: 9, 
-        cellPadding: 4,
-        lineColor: [200, 200, 200],
-        lineWidth: 0.5
-      },
-      headStyles: { 
-        fillColor: [59, 130, 246], 
-        textColor: 255, 
-        fontStyle: 'bold',
-        halign: 'center'
-      },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      columnStyles: {
-        0: { cellWidth: 45 },
-        1: { cellWidth: 35, halign: 'right' },
-        2: { cellWidth: 20, halign: 'center' },
-        3: { cellWidth: 45, halign: 'center' },
-        4: { cellWidth: 40, halign: 'right' }
-      },
-      tableLineColor: [100, 100, 100],
-      tableLineWidth: 0.1
-    });
-
-    // Add footer with total
-    const finalY = (doc as any).lastAutoTable.finalY || 60;
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, finalY + 2, 181, 10, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(`Grand Total: Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${totalKGs.toFixed(2)} KG)`, 14, finalY + 9);
-
-    const pdfBlob = doc.output('blob');
-    await downloadPDF(pdfBlob, `Product_Stock_Van_${selectedDate}.pdf`);
+      if (!success) {
+        toast.error('PDF save failed - check app permissions');
+      }
+    } catch (error: any) {
+      console.error('PDF export error:', error);
+      toast.error(`PDF Error: ${error.message || 'Unknown error'}`);
+    }
   };
 
   const handlePrint = () => {
