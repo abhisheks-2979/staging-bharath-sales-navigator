@@ -24,6 +24,8 @@ interface OrderItem {
   rate: number;
   unit: string;
   total: number;
+  originalUnit?: string;
+  originalRate?: number;
 }
 
 export default function EditOrderDialog({ orderId, retailerName, open, onOpenChange, onSaved }: EditOrderDialogProps) {
@@ -69,6 +71,8 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
           rate: item.rate,
           unit: item.unit || "Piece",
           total: item.total || item.quantity * item.rate,
+          originalUnit: item.unit || "Piece",
+          originalRate: item.rate,
         }))
       );
     } catch (error: any) {
@@ -77,6 +81,30 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
     } finally {
       setLoading(false);
     }
+  };
+
+  // Unit conversion factors (relative to base unit)
+  const getUnitConversionFactor = (fromUnit: string, toUnit: string): number => {
+    // Define conversions to a base unit (grams for weight, ml for volume, pieces for count)
+    const weightToGrams: Record<string, number> = {
+      "Gram": 1,
+      "KG": 1000,
+    };
+    const volumeToML: Record<string, number> = {
+      "ML": 1,
+      "Liter": 1000,
+    };
+    
+    // Check if both units are in the same category
+    if (weightToGrams[fromUnit] !== undefined && weightToGrams[toUnit] !== undefined) {
+      return weightToGrams[fromUnit] / weightToGrams[toUnit];
+    }
+    if (volumeToML[fromUnit] !== undefined && volumeToML[toUnit] !== undefined) {
+      return volumeToML[fromUnit] / volumeToML[toUnit];
+    }
+    
+    // No conversion available
+    return 1;
   };
 
   const updateItemTotal = (item: OrderItem): OrderItem => {
@@ -88,7 +116,22 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
 
   const handleItemChange = (index: number, field: keyof OrderItem, value: any) => {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    const currentItem = newItems[index];
+    
+    if (field === "unit" && currentItem.originalRate !== undefined) {
+      // Convert rate based on unit change
+      const conversionFactor = getUnitConversionFactor(currentItem.originalUnit || "Piece", value);
+      const newRate = currentItem.originalRate * conversionFactor;
+      
+      newItems[index] = { 
+        ...currentItem, 
+        unit: value,
+        rate: parseFloat(newRate.toFixed(4)),
+      };
+    } else {
+      newItems[index] = { ...currentItem, [field]: value };
+    }
+    
     newItems[index] = updateItemTotal(newItems[index]);
     setItems(newItems);
   };
