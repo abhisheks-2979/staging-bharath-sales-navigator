@@ -83,24 +83,26 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
     }
   };
 
-  // Unit conversion factors (relative to base unit)
+  // Unit conversion factors - rate per unit conversion
+  // If original is ₹209.52/KG, converting to Gram means ₹209.52/1000 = ₹0.21/gram
   const getUnitConversionFactor = (fromUnit: string, toUnit: string): number => {
-    // Define conversions to a base unit (grams for weight, ml for volume, pieces for count)
-    const weightToGrams: Record<string, number> = {
+    // Define unit sizes (how many base units)
+    const weightInGrams: Record<string, number> = {
       "Gram": 1,
       "KG": 1000,
     };
-    const volumeToML: Record<string, number> = {
+    const volumeInML: Record<string, number> = {
       "ML": 1,
       "Liter": 1000,
     };
     
     // Check if both units are in the same category
-    if (weightToGrams[fromUnit] !== undefined && weightToGrams[toUnit] !== undefined) {
-      return weightToGrams[fromUnit] / weightToGrams[toUnit];
+    // Rate conversion: if from KG to Gram, divide by (KG/Gram) = 1000
+    if (weightInGrams[fromUnit] !== undefined && weightInGrams[toUnit] !== undefined) {
+      return weightInGrams[toUnit] / weightInGrams[fromUnit];
     }
-    if (volumeToML[fromUnit] !== undefined && volumeToML[toUnit] !== undefined) {
-      return volumeToML[fromUnit] / volumeToML[toUnit];
+    if (volumeInML[fromUnit] !== undefined && volumeInML[toUnit] !== undefined) {
+      return volumeInML[toUnit] / volumeInML[fromUnit];
     }
     
     // No conversion available
