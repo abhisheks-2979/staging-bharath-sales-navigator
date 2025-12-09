@@ -392,18 +392,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           ordersData = ordersResult.data || [];
         }
 
-        // NEW OFFLINE FEATURE: Merge offline retailers for planned beats ONLY if there are beat plans
+        // OFFLINE FEATURE: Only add cached retailers when we're truly offline
+        // When online and database returns empty, trust the database (no retailers for this beat)
+        // Only merge offline retailers if we couldn't reach the database at all
         const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
-        const hasPlannedBeatsForDate = beatPlansData && beatPlansData.length > 0;
         
-        if (hasPlannedBeatsForDate) {
-          const cachedRetailersAll = await offlineStorage.getAll<any>(STORES.RETAILERS);
-          const offlineRetailersForBeats = cachedRetailersAll.filter((r: any) => 
-            r.beat_id && plannedBeatIds.includes(r.beat_id) && 
-            !retailersData.some((onlineR: any) => onlineR.id === r.id)
-          );
-          retailersData = [...retailersData, ...offlineRetailersForBeats];
-        }
+        // Don't merge cached retailers here since we successfully fetched from database
+        // The database is the source of truth when online
+        console.log('📋 Using database-fetched retailers only (online mode), count:', retailersData.length);
 
         // Process points data into efficient structure
         const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
