@@ -205,14 +205,16 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       const dateStr = new Date().toISOString().split('T')[0];
       const grnNumber = `RET-${Date.now()}`;
 
-      // Create Return GRN
+      // Create Return GRN - handle empty visit_id
+      const validVisitId = visitId && visitId.trim() !== '' ? visitId : null;
+      
       const { data: returnGRN, error: grnError } = await supabase
         .from('van_return_grn')
         .insert({
           van_id: selectedVan,
           user_id: user.id,
           retailer_id: retailerId,
-          visit_id: visitId,
+          visit_id: validVisitId,
           return_date: dateStr,
           return_grn_number: grnNumber,
           notes: `Returns from ${retailerName}`
