@@ -553,7 +553,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     // Title
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Van Stock Report', 14, 20);
+    doc.text('Product Stock in Van', 14, 20);
     
     // Date and Van info
     doc.setFontSize(11);
@@ -564,49 +564,96 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.text(`Van: ${selectedVanData.registration_number} - ${selectedVanData.make_model}`, 14, 35);
     }
 
-    // Summary
-    const totalQty = savedItems.reduce((sum: number, item: any) => sum + (item.start_qty || 0), 0);
+    // Calculate totals with proper gram to KG conversion
+    let totalKGs = 0;
     const totalValue = savedItems.reduce((sum: number, item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithoutGST = (product?.rate || 0) / 1.05;
-      return sum + (priceWithoutGST * item.start_qty);
+      const unit = (item.unit || '').toLowerCase();
+      const qty = item.start_qty || 0;
+      
+      // Convert grams to KG for total calculation
+      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+        totalKGs += qty / 1000;
+      } else if (unit === 'kg' || unit === 'kgs') {
+        totalKGs += qty;
+      }
+      
+      return sum + (priceWithoutGST * qty);
     }, 0);
     
-    doc.text(`Total Items: ${savedItems.length} | Total Qty: ${totalQty} | Total Value: ₹${totalValue.toFixed(2)}`, 14, 42);
+    // Summary with Total KGs and Total Value
+    doc.setFontSize(10);
+    doc.text(`Total Items: ${savedItems.length}`, 14, 42);
+    doc.text(`Total KGs in Van: ${totalKGs.toFixed(2)} KG`, 14, 48);
+    doc.text(`Total Value (Excl. GST): Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, 54);
 
-    // Table
+    // Table with proper formatting
     const tableData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithGST = product?.rate || 0;
       const priceWithoutGST = priceWithGST / 1.05;
-      const totalVal = priceWithoutGST * item.start_qty;
+      const qty = item.start_qty || 0;
+      const unit = (item.unit || '').toLowerCase();
+      
+      // Calculate quantity in KGs for display
+      let qtyDisplay = qty.toString();
+      let unitDisplay = item.unit || '';
+      
+      // For grams, show both grams and KG equivalent
+      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+        const kgEquivalent = qty / 1000;
+        qtyDisplay = `${qty} (${kgEquivalent.toFixed(3)} KG)`;
+      }
+      
+      const totalVal = priceWithoutGST * qty;
       
       return [
         item.product_name,
-        `₹${priceWithoutGST.toFixed(2)}`,
-        item.unit,
-        item.start_qty.toString(),
-        `₹${totalVal.toFixed(2)}`
+        `Rs. ${priceWithoutGST.toFixed(2)}`,
+        unitDisplay,
+        qtyDisplay,
+        `Rs. ${totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       ];
     });
 
     autoTable(doc, {
-      startY: 48,
-      head: [['Product', 'Price (excl. GST)', 'Unit', 'Quantity', 'Total Value']],
+      startY: 60,
+      head: [['Product', 'Price (Excl. GST)', 'Unit', 'Quantity', 'Total Value']],
       body: tableData,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      styles: { 
+        fontSize: 9, 
+        cellPadding: 4,
+        lineColor: [200, 200, 200],
+        lineWidth: 0.5
+      },
+      headStyles: { 
+        fillColor: [59, 130, 246], 
+        textColor: 255, 
+        fontStyle: 'bold',
+        halign: 'center'
+      },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: {
-        0: { cellWidth: 60 },
+        0: { cellWidth: 45 },
         1: { cellWidth: 35, halign: 'right' },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 25, halign: 'right' },
-        4: { cellWidth: 35, halign: 'right' }
-      }
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 45, halign: 'center' },
+        4: { cellWidth: 40, halign: 'right' }
+      },
+      tableLineColor: [100, 100, 100],
+      tableLineWidth: 0.1
     });
 
-    doc.save(`Van_Stock_${selectedDate}.pdf`);
+    // Add footer with total
+    const finalY = (doc as any).lastAutoTable.finalY || 60;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, finalY + 2, 181, 10, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(`Grand Total: Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${totalKGs.toFixed(2)} KG)`, 14, finalY + 9);
+
+    doc.save(`Product_Stock_Van_${selectedDate}.pdf`);
     toast.success('PDF downloaded successfully');
   };
 
@@ -636,45 +683,89 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.text(`Van: ${selectedVanData.registration_number} - ${selectedVanData.make_model}`, 14, 35);
     }
 
-    const totalQty = savedItems.reduce((sum: number, item: any) => sum + (item.start_qty || 0), 0);
+    // Calculate totals with proper gram to KG conversion
+    let totalKGs = 0;
     const totalValue = savedItems.reduce((sum: number, item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithoutGST = (product?.rate || 0) / 1.05;
-      return sum + (priceWithoutGST * item.start_qty);
+      const unit = (item.unit || '').toLowerCase();
+      const qty = item.start_qty || 0;
+      
+      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+        totalKGs += qty / 1000;
+      } else if (unit === 'kg' || unit === 'kgs') {
+        totalKGs += qty;
+      }
+      
+      return sum + (priceWithoutGST * qty);
     }, 0);
     
-    doc.text(`Total Items: ${savedItems.length} | Total Qty: ${totalQty} | Total Value: ₹${totalValue.toFixed(2)}`, 14, 42);
+    doc.setFontSize(10);
+    doc.text(`Total Items: ${savedItems.length}`, 14, 42);
+    doc.text(`Total KGs in Van: ${totalKGs.toFixed(2)} KG`, 14, 48);
+    doc.text(`Total Value (Excl. GST): Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, 54);
 
     const tableData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithGST = product?.rate || 0;
       const priceWithoutGST = priceWithGST / 1.05;
-      const totalVal = priceWithoutGST * item.start_qty;
+      const qty = item.start_qty || 0;
+      const unit = (item.unit || '').toLowerCase();
+      
+      let qtyDisplay = qty.toString();
+      let unitDisplay = item.unit || '';
+      
+      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+        const kgEquivalent = qty / 1000;
+        qtyDisplay = `${qty} (${kgEquivalent.toFixed(3)} KG)`;
+      }
+      
+      const totalVal = priceWithoutGST * qty;
       
       return [
         item.product_name,
-        `₹${priceWithoutGST.toFixed(2)}`,
-        item.unit,
-        item.start_qty.toString(),
-        `₹${totalVal.toFixed(2)}`
+        `Rs. ${priceWithoutGST.toFixed(2)}`,
+        unitDisplay,
+        qtyDisplay,
+        `Rs. ${totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       ];
     });
 
     autoTable(doc, {
-      startY: 48,
-      head: [['Product', 'Price (excl. GST)', 'Unit', 'Quantity', 'Total Value']],
+      startY: 60,
+      head: [['Product', 'Price (Excl. GST)', 'Unit', 'Quantity', 'Total Value']],
       body: tableData,
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      styles: { 
+        fontSize: 9, 
+        cellPadding: 4,
+        lineColor: [200, 200, 200],
+        lineWidth: 0.5
+      },
+      headStyles: { 
+        fillColor: [59, 130, 246], 
+        textColor: 255, 
+        fontStyle: 'bold',
+        halign: 'center'
+      },
       alternateRowStyles: { fillColor: [245, 247, 250] },
       columnStyles: {
-        0: { cellWidth: 60 },
+        0: { cellWidth: 45 },
         1: { cellWidth: 35, halign: 'right' },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 25, halign: 'right' },
-        4: { cellWidth: 35, halign: 'right' }
-      }
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 45, halign: 'center' },
+        4: { cellWidth: 40, halign: 'right' }
+      },
+      tableLineColor: [100, 100, 100],
+      tableLineWidth: 0.1
     });
+
+    // Add footer with total
+    const finalY = (doc as any).lastAutoTable.finalY || 60;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, finalY + 2, 181, 10, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(`Grand Total: Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${totalKGs.toFixed(2)} KG)`, 14, finalY + 9);
 
     // Open print dialog
     const pdfBlob = doc.output('blob');
