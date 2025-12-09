@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -63,6 +63,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [todayStock, setTodayStock] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingPreviousStock, setLoadingPreviousStock] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState<'start' | 'ordered' | 'returned' | 'left' | 'inventory' | null>(null);
   const [isMorning, setIsMorning] = useState(true);
   const [startKm, setStartKm] = useState(0);
@@ -370,6 +371,66 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     } catch (error) {
       console.error('Error calculating ordered quantities:', error);
       return {};
+    }
+  };
+
+  const handleLoadPreviousStock = async () => {
+    if (!selectedVan) {
+      toast.error('Please select a van first');
+      return;
+    }
+
+    setLoadingPreviousStock(true);
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session?.user) {
+      setLoadingPreviousStock(false);
+      return;
+    }
+
+    try {
+      // Fetch the most recent van stock before the selected date for this van
+      const { data: previousStock, error } = await supabase
+        .from('van_stock')
+        .select('*, van_stock_items(*)')
+        .eq('van_id', selectedVan)
+        .eq('user_id', session.session.user.id)
+        .lt('stock_date', selectedDate)
+        .order('stock_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!previousStock || !previousStock.van_stock_items || previousStock.van_stock_items.length === 0) {
+        toast.info('No previous van stock found');
+        setLoadingPreviousStock(false);
+        return;
+      }
+
+      // Convert previous "left_qty" to current "start_qty"
+      const newStockItems: StockItem[] = previousStock.van_stock_items.map((item: any) => ({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        unit: item.unit || '',
+        start_qty: item.left_qty || 0, // Previous left becomes current start
+        ordered_qty: 0,
+        returned_qty: 0,
+        left_qty: item.left_qty || 0, // Initially same as start
+      }));
+
+      setStockItems(newStockItems);
+      
+      // Also load end_km from previous stock as reference for start_km
+      if (previousStock.end_km) {
+        setStartKm(previousStock.end_km);
+      }
+
+      toast.success(`Loaded ${newStockItems.length} items from previous stock (${new Date(previousStock.stock_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})`);
+    } catch (error) {
+      console.error('Error loading previous stock:', error);
+      toast.error('Failed to load previous van stock');
+    } finally {
+      setLoadingPreviousStock(false);
     }
   };
 
@@ -903,7 +964,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 </Select>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <Label>Beat (Auto-selected from plan)</Label>
                 <Select value={selectedBeat} disabled>
                   <SelectTrigger>
@@ -921,6 +982,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     )}
                   </SelectContent>
                 </Select>
+                
+                {/* Load Previous Van Stock Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoadPreviousStock}
+                  disabled={!selectedVan || loadingPreviousStock}
+                  className="w-full gap-2 text-xs border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900 text-amber-700 dark:text-amber-300"
+                >
+                  <History className="h-3.5 w-3.5" />
+                  {loadingPreviousStock ? 'Loading...' : 'Load Previous Van Stock'}
+                </Button>
               </div>
             </div>
 
