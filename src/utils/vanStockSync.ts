@@ -58,6 +58,43 @@ function convertQuantity(quantity: number, fromUnit: string, toUnit: string): nu
 }
 
 /**
+ * Fix corrupted van stock items where unit is 'kg' but ordered_qty contains gram values
+ * This is a one-time fix for records corrupted by the previous sync bug
+ */
+async function fixCorruptedStockUnits(stockItems: any[]): Promise<void> {
+  for (const item of stockItems) {
+    const unit = (item.unit || '').toLowerCase().trim();
+    const orderedQty = item.ordered_qty || 0;
+    const startQty = item.start_qty || 0;
+    
+    // Detect corruption: unit is 'kg' but ordered_qty is suspiciously large (> 100 times start_qty)
+    // This indicates ordered_qty was stored in grams but unit says kg
+    if ((unit === 'kg' || unit === 'kgs') && orderedQty > 100 && startQty > 0 && orderedQty > startQty * 100) {
+      console.log(`🔧 Fixing corrupted record: ${item.product_name} - unit:${unit}, ordered:${orderedQty}, start:${startQty}`);
+      
+      // Convert unit to grams and adjust start_qty accordingly
+      const newStartQty = startQty * 1000; // Convert kg to grams
+      const newLeftQty = Math.max(0, newStartQty - orderedQty + (item.returned_qty || 0));
+      
+      const { error } = await supabase
+        .from('van_stock_items')
+        .update({
+          unit: 'grams',
+          start_qty: newStartQty,
+          left_qty: newLeftQty
+        })
+        .eq('id', item.id);
+      
+      if (error) {
+        console.error(`Failed to fix corrupted record ${item.id}:`, error);
+      } else {
+        console.log(`✅ Fixed: ${item.product_name} - now unit:grams, start:${newStartQty}, left:${newLeftQty}`);
+      }
+    }
+  }
+}
+
+/**
  * Calculate and update van stock ordered quantities based on orders placed
  * This syncs order quantities to van_stock_items for the given date
  * IMPORTANT: Quantities are stored in the van stock item's native unit, not always in grams
@@ -146,6 +183,9 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
       if (!vanStock.van_stock_items || vanStock.van_stock_items.length === 0) {
         continue;
       }
+
+      // First, fix any corrupted records from previous sync bug
+      await fixCorruptedStockUnits(vanStock.van_stock_items as any[]);
 
       // Update each van stock item with calculated ordered quantity
       // CRITICAL: Convert the order quantity to match the van stock item's unit
