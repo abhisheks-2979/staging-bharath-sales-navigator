@@ -134,18 +134,22 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   };
 
   const handleAddReturn = () => {
+    // Collect all validation errors
+    const errors: string[] = [];
+    
     if (!selectedProduct) {
-      toast.error('Please select a product');
-      return;
+      errors.push('select a product');
     }
-
     if (returnQuantity <= 0) {
-      toast.error('Please enter a valid quantity');
-      return;
+      errors.push('enter a valid quantity');
     }
-
     if (!returnReason) {
-      toast.error('Please select a return reason');
+      errors.push('select a return reason');
+    }
+    
+    // Show single error message if any validation fails
+    if (errors.length > 0) {
+      toast.error(`Please ${errors.join(', ')}`);
       return;
     }
 
@@ -292,6 +296,50 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
 
           if (insertError) {
             console.error('Error inserting inventory:', insertError);
+          }
+        }
+      }
+
+      // Update van_stock_items with returned_qty and recalculate left_qty
+      const { data: vanStockData } = await supabase
+        .from('van_stock')
+        .select('id')
+        .eq('van_id', selectedVan)
+        .eq('stock_date', dateStr)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (vanStockData) {
+        for (const item of returnItems) {
+          // Find matching van_stock_item
+          const { data: stockItem, error: stockItemError } = await supabase
+            .from('van_stock_items')
+            .select('*')
+            .eq('van_stock_id', vanStockData.id)
+            .eq('product_id', item.productId)
+            .maybeSingle();
+
+          if (stockItemError) {
+            console.error('Error fetching van_stock_item:', stockItemError);
+            continue;
+          }
+
+          if (stockItem) {
+            // Update returned_qty and recalculate left_qty
+            const newReturnedQty = (stockItem.returned_qty || 0) + item.returnQuantity;
+            const newLeftQty = stockItem.start_qty - stockItem.ordered_qty + newReturnedQty;
+
+            const { error: updateStockError } = await supabase
+              .from('van_stock_items')
+              .update({
+                returned_qty: newReturnedQty,
+                left_qty: newLeftQty
+              })
+              .eq('id', stockItem.id);
+
+            if (updateStockError) {
+              console.error('Error updating van_stock_item:', updateStockError);
+            }
           }
         }
       }
