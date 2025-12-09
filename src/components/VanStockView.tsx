@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Input } from './ui/input';
 import { toast } from 'sonner';
-import { Edit, Package, Search, Check, X } from 'lucide-react';
+import { Edit, Package, Search, Check, X, Download } from 'lucide-react';
 import { VanMorningInventory } from './VanMorningInventory';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface VanStockItem {
   id: string;
@@ -212,6 +214,76 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
     );
   });
 
+  const handleDownloadPDF = () => {
+    if (filteredItems.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const dateStr = selectedDate.toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Van Stock Report', 14, 20);
+    
+    // Date
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${dateStr}`, 14, 28);
+
+    // Summary
+    const totalQuantity = filteredItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalSold = filteredItems.reduce((sum, item) => sum + item.sold_quantity, 0);
+    const totalReturned = filteredItems.reduce((sum, item) => sum + item.returned_quantity, 0);
+    const totalLeft = filteredItems.reduce((sum, item) => sum + item.current_stock, 0);
+    
+    doc.text(`Total Items: ${filteredItems.length} | Morning Stock: ${totalQuantity} | Sold: ${totalSold} | Returned: ${totalReturned} | Left: ${totalLeft}`, 14, 36);
+
+    // Table
+    const tableData = filteredItems.map(item => [
+      item.product_name,
+      item.variant_name || '-',
+      item.sku,
+      item.quantity.toString(),
+      item.available_inventory.toString(),
+      item.sold_quantity.toString(),
+      item.returned_quantity.toString(),
+      item.current_stock.toString(),
+      item.van_registration,
+      item.grn_number
+    ]);
+
+    autoTable(doc, {
+      startY: 42,
+      head: [['Product', 'Variant', 'SKU', 'Morning', 'Available', 'Sold', 'Returned', 'Left', 'Van', 'GRN']],
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 15, halign: 'right' },
+        4: { cellWidth: 15, halign: 'right' },
+        5: { cellWidth: 12, halign: 'right' },
+        6: { cellWidth: 15, halign: 'right' },
+        7: { cellWidth: 12, halign: 'right' },
+        8: { cellWidth: 22 },
+        9: { cellWidth: 22 }
+      }
+    });
+
+    doc.save(`van-stock-${selectedDate.toISOString().split('T')[0]}.pdf`);
+    toast.success('PDF downloaded successfully');
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -226,10 +298,16 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
                 View all saved inventory items for {selectedDate.toLocaleDateString()}
               </CardDescription>
             </div>
-            <Button onClick={() => setEditMode(true)} variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit / Add Stock
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleDownloadPDF} variant="outline" disabled={filteredItems.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+              <Button onClick={() => setEditMode(true)} variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit / Add Stock
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
