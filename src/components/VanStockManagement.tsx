@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { syncOrdersToVanStock } from '@/utils/vanStockSync';
 
 interface Van {
   id: string;
@@ -73,6 +74,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       loadProducts();
       loadBeatForDate();
       checkTime();
+      
+      // Sync order quantities to van stock when dialog opens
+      syncOrdersToVanStock(selectedDate).catch(err => {
+        console.error('Error syncing van stock on open:', err);
+      });
     }
   }, [open, selectedDate]);
 
@@ -104,8 +110,20 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       )
       .subscribe();
 
+    // Listen for vanStockUpdated events (triggered after order sync)
+    const handleVanStockUpdated = (event: CustomEvent) => {
+      const { stockDate } = event.detail || {};
+      if (stockDate === selectedDate && selectedVan) {
+        console.log('🔄 Van stock updated event received, reloading...');
+        loadTodayStock(false);
+      }
+    };
+    
+    window.addEventListener('vanStockUpdated', handleVanStockUpdated as EventListener);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('vanStockUpdated', handleVanStockUpdated as EventListener);
     };
   }, [selectedVan, selectedBeat, selectedDate]);
 
