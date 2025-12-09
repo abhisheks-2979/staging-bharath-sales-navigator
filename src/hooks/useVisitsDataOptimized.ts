@@ -81,17 +81,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     
     isLoadingRef.current = true;
     
-    // Only show loading spinner if this is a fresh date (not a background refresh)
+    // Check if this is a different date - if so, we need to force refresh state
     const isSameDate = lastLoadedDateRef.current === selectedDate;
-    if (!isSameDate) {
+    const isDateChange = !isSameDate;
+    
+    if (isDateChange) {
       setIsLoading(true);
       // CRITICAL: Clear previous date's data immediately when switching dates
       // This prevents showing stale retailers from previous date
+      console.log('📅 [VisitsData] Date changed from', lastLoadedDateRef.current, 'to', selectedDate, '- clearing all data');
       setBeatPlans([]);
       setVisits([]);
       setRetailers([]);
       setOrders([]);
       setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+      // Update the ref immediately so we know we're loading for this date
+      lastLoadedDateRef.current = selectedDate;
     }
     
     let hasLoadedFromCache = false;
@@ -166,15 +171,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           return allRetailerIds.includes(r.id);
         });
 
-        // CRITICAL: Always update state for the new date, even if empty
-        // This ensures the UI shows "No beats planned" instead of stale data
-        setBeatPlans(prev => arraysEqual(prev, filteredBeatPlans) ? prev : filteredBeatPlans);
-        setVisits(prev => arraysEqual(prev, filteredVisits) ? prev : filteredVisits);
-        setRetailers(prev => arraysEqual(prev, filteredRetailers) ? prev : filteredRetailers);
-        setOrders(prev => arraysEqual(prev, filteredOrders) ? prev : filteredOrders);
+        // DIRECT UPDATE: Always set state directly, don't use smart comparison
+        // This ensures date changes always show fresh data
+        console.log('📦 [CACHE] Setting retailers from cache:', filteredRetailers.length, 'for date:', selectedDate);
+        setBeatPlans(filteredBeatPlans);
+        setVisits(filteredVisits);
+        setRetailers(filteredRetailers);
+        setOrders(filteredOrders);
         hasLoadedFromCache = true;
         setIsLoading(false);
-        lastLoadedDateRef.current = selectedDate;
 
       // Display cached data immediately - only update if data changed
       if (
@@ -522,13 +527,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           });
         }).catch(console.error);
 
-        // SMART UPDATE: Only update state if data actually changed to prevent flickering
-        setBeatPlans(prev => arraysEqual(prev, beatPlansData) ? prev : beatPlansData);
-        setVisits(prev => arraysEqual(prev, visitsData) ? prev : visitsData);
-        setRetailers(prev => arraysEqual(prev, retailersData) ? prev : retailersData);
-        setOrders(prev => arraysEqual(prev, ordersData) ? prev : ordersData);
-        
-        lastLoadedDateRef.current = selectedDate;
+        // DIRECT UPDATE: Always set state directly for network data
+        // This ensures fresh data always replaces cached data
+        console.log('📡 [NETWORK] Setting retailers from network:', retailersData.length, 'for date:', selectedDate);
+        setBeatPlans(beatPlansData);
+        setVisits(visitsData);
+        setRetailers(retailersData);
+        setOrders(ordersData);
         
         console.log('🔄 [NETWORK] State updated with fresh data (if changed):', {
           beatPlans: beatPlansData.length,
