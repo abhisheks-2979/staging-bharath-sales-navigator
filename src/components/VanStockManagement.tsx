@@ -1448,12 +1448,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-base md:text-2xl font-bold">
-                            {showDetailModal === 'start' && item.start_qty}
-                            {showDetailModal === 'ordered' && (item.ordered_qty || 0)}
-                            {showDetailModal === 'returned' && (item.returned_qty || 0)}
-                            {showDetailModal === 'left' && ((item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0))}
+                            {(() => {
+                              let qty = 0;
+                              if (showDetailModal === 'start') qty = item.start_qty || 0;
+                              else if (showDetailModal === 'ordered') qty = item.ordered_qty || 0;
+                              else if (showDetailModal === 'returned') qty = item.returned_qty || 0;
+                              else if (showDetailModal === 'left') qty = (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0);
+                              
+                              // Convert to KG and format as "X KG Y g"
+                              const qtyInKg = convertToKg(qty, item.unit || 'kg');
+                              return formatKgDisplay(qtyInKg);
+                            })()}
                           </p>
-                          <p className="text-xs text-muted-foreground">{item.unit}</p>
                         </div>
                         {showDetailModal === 'start' && item.isSaved && (
                           <Button
