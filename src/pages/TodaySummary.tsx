@@ -680,9 +680,12 @@ export const TodaySummary = () => {
       let totalDistance = 0;
       if (vanStockData && vanStockData.length > 0) {
         vanStockData.forEach(vs => {
-          if (vs.total_km) {
+          // Use total_km if it's a valid positive number
+          if (vs.total_km && Number(vs.total_km) > 0) {
             totalDistance += Number(vs.total_km);
-          } else if (vs.start_km && vs.end_km) {
+          } 
+          // Otherwise calculate from start_km and end_km if both are valid numbers and end_km > start_km
+          else if (vs.start_km != null && vs.end_km != null && Number(vs.end_km) > Number(vs.start_km)) {
             totalDistance += Number(vs.end_km) - Number(vs.start_km);
           }
         });
