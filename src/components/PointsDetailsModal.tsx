@@ -245,21 +245,22 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Points Details Breakdown
+              <span className="text-base sm:text-lg">Points Details Breakdown</span>
             </div>
             <Button 
               onClick={handleExportExcel} 
               size="sm"
               variant="outline"
               disabled={filteredPoints.length === 0}
+              className="w-full sm:w-auto"
             >
               <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Export to Excel
+              Export
             </Button>
           </DialogTitle>
         </DialogHeader>
@@ -271,11 +272,11 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
         ) : (
           <>
             {/* Time Period and Date Range Selection */}
-            <div className="flex flex-wrap items-end gap-4 mb-4 p-4 bg-muted/50 rounded-lg">
-              <div className="flex-1 min-w-[200px]">
-                <Label htmlFor="timeFilter" className="text-sm mb-2 block">Time Period</Label>
+            <div className="space-y-3 mb-4 p-3 bg-muted/50 rounded-lg">
+              <div className="w-full">
+                <Label htmlFor="timeFilter" className="text-xs mb-1.5 block">Time Period</Label>
                 <Select value={timeFilter} onValueChange={(value: any) => setTimeFilter(value)}>
-                  <SelectTrigger id="timeFilter" className="w-full">
+                  <SelectTrigger id="timeFilter" className="w-full h-9 text-sm">
                     <SelectValue placeholder="Select period" />
                   </SelectTrigger>
                   <SelectContent>
@@ -291,23 +292,23 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
               </div>
 
               {timeFilter === "custom" && (
-                <>
-                  <div className="flex-1 min-w-[200px]">
-                    <Label className="text-sm mb-2 block">Start Date</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs mb-1.5 block">Start Date</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full h-9 justify-start text-left text-xs font-normal",
                             !customStartDate && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {customStartDate ? format(customStartDate, "PPP") : "Pick a date"}
+                          <CalendarIcon className="mr-1 h-3 w-3" />
+                          {customStartDate ? format(customStartDate, "dd/MM/yy") : "Pick"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
+                      <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
                           selected={customStartDate}
@@ -318,22 +319,22 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                     </Popover>
                   </div>
 
-                  <div className="flex-1 min-w-[200px]">
-                    <Label className="text-sm mb-2 block">End Date</Label>
+                  <div>
+                    <Label className="text-xs mb-1.5 block">End Date</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full h-9 justify-start text-left text-xs font-normal",
                             !customEndDate && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {customEndDate ? format(customEndDate, "PPP") : "Pick a date"}
+                          <CalendarIcon className="mr-1 h-3 w-3" />
+                          {customEndDate ? format(customEndDate, "dd/MM/yy") : "Pick"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
+                      <PopoverContent className="w-auto p-0" align="end">
                         <Calendar
                           mode="single"
                           selected={customEndDate}
@@ -344,22 +345,23 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                       </PopoverContent>
                     </Popover>
                   </div>
-                </>
+                </div>
               )}
             </div>
 
             <Tabs defaultValue="table" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="table">Detailed Table</TabsTrigger>
-              <TabsTrigger value="chart">Chart View</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 h-9">
+              <TabsTrigger value="table" className="text-xs sm:text-sm">Detailed Table</TabsTrigger>
+              <TabsTrigger value="chart" className="text-xs sm:text-sm">Chart View</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="table" className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1">
-                  <Label htmlFor="gameFilter" className="text-sm whitespace-nowrap">Filter by Game:</Label>
+            <TabsContent value="table" className="space-y-3 mt-3">
+              {/* Mobile: Stack filter and total vertically */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="gameFilter" className="text-xs whitespace-nowrap">Game:</Label>
                   <Select value={selectedGame} onValueChange={setSelectedGame}>
-                    <SelectTrigger id="gameFilter" className="w-[250px]">
+                    <SelectTrigger id="gameFilter" className="w-full sm:w-[180px] h-8 text-xs">
                       <SelectValue placeholder="Select game" />
                     </SelectTrigger>
                     <SelectContent>
@@ -372,22 +374,55 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="text-sm font-semibold whitespace-nowrap">
-                  Total Points: <span className="text-primary text-lg">{totalPoints}</span>
+                <div className="text-xs font-semibold bg-primary/10 px-3 py-1.5 rounded-full">
+                  Total: <span className="text-primary text-sm">{totalPoints} pts</span>
                 </div>
               </div>
 
-              <Card>
+              {/* Mobile-friendly card list view */}
+              <div className="block sm:hidden space-y-2 max-h-[50vh] overflow-y-auto">
+                {filteredPoints.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8 text-sm">
+                    No points earned in this period
+                  </div>
+                ) : (
+                  filteredPoints.map((point) => (
+                    <div key={point.id} className="p-3 bg-muted/30 rounded-lg border">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(point.earned_at), "dd MMM, HH:mm")}
+                          </div>
+                          <div className="font-medium text-sm mt-0.5 truncate">
+                            {point.game_name}
+                          </div>
+                          {point.retailer_name && (
+                            <div className="text-xs text-primary mt-0.5 truncate">
+                              {point.retailer_name}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-lg font-bold text-primary ml-2">
+                          +{point.points}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop table view */}
+              <Card className="hidden sm:block">
                 <CardContent className="p-0">
                   <div className="max-h-[400px] overflow-auto">
                     <Table>
                       <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
-                          <TableHead>Date & Time</TableHead>
-                          <TableHead>Game Name</TableHead>
-                          <TableHead>Retailer Name</TableHead>
-                          <TableHead>Reference</TableHead>
-                          <TableHead className="text-right">Points</TableHead>
+                          <TableHead className="text-xs">Date & Time</TableHead>
+                          <TableHead className="text-xs">Game Name</TableHead>
+                          <TableHead className="text-xs">Retailer Name</TableHead>
+                          <TableHead className="text-xs">Reference</TableHead>
+                          <TableHead className="text-right text-xs">Points</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -400,11 +435,11 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                         ) : (
                           filteredPoints.map((point) => (
                             <TableRow key={point.id}>
-                              <TableCell className="font-medium whitespace-nowrap">
+                              <TableCell className="font-medium whitespace-nowrap text-xs">
                                 {format(new Date(point.earned_at), "dd MMM yyyy, HH:mm")}
                               </TableCell>
-                              <TableCell>{point.game_name}</TableCell>
-                              <TableCell>
+                              <TableCell className="text-xs">{point.game_name}</TableCell>
+                              <TableCell className="text-xs">
                                 {point.retailer_name && point.retailer_id ? (
                                   <a
                                     href={`/retailer/${point.retailer_id}`}
@@ -418,19 +453,19 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                                   <span className="text-muted-foreground">-</span>
                                 )}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="text-xs">
                                 {point.visit_id ? (
                                   <a
                                     href={`/visit-detail/${point.visit_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-primary hover:underline text-xs font-mono"
+                                    className="text-primary hover:underline font-mono"
                                     title={`Visit: ${point.visit_id}`}
                                   >
                                     #{point.visit_id.slice(0, 8)}...
                                   </a>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
+                                  <span className="text-muted-foreground">-</span>
                                 )}
                               </TableCell>
                               <TableCell className="text-right font-bold text-primary">
@@ -446,14 +481,14 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
               </Card>
             </TabsContent>
 
-            <TabsContent value="chart" className="space-y-4">
+            <TabsContent value="chart" className="space-y-3 mt-3">
               <Card>
-                <CardHeader>
-                  <CardTitle>Points by Game Category</CardTitle>
+                <CardHeader className="p-3 sm:p-6">
+                  <CardTitle className="text-sm sm:text-base">Points by Game Category</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-2 sm:p-6">
                   {gameChartData.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-12">
+                    <div className="text-center text-muted-foreground py-8 text-sm">
                       No data available
                     </div>
                   ) : (
@@ -464,7 +499,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                           color: "hsl(var(--primary))",
                         },
                       }}
-                      className="h-[300px]"
+                      className="h-[200px] sm:h-[300px]"
                     >
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={gameChartData}>
@@ -473,12 +508,14 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                             dataKey="name" 
                             angle={-45}
                             textAnchor="end"
-                            height={100}
-                            fontSize={12}
+                            height={80}
+                            fontSize={10}
+                            tick={{ fontSize: 9 }}
+                            interval={0}
                           />
-                          <YAxis />
+                          <YAxis tick={{ fontSize: 10 }} width={30} />
                           <ChartTooltip content={<ChartTooltipContent />} />
-                          <Bar dataKey="points" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                          <Bar dataKey="points" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </ChartContainer>
@@ -486,7 +523,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                 </CardContent>
               </Card>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
                 {uniqueGames.map(gameName => {
                   const gamePoints = pointDetails
                     .filter(p => p.game_name === gameName)
@@ -494,19 +531,19 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                   const gameCount = pointDetails.filter(p => p.game_name === gameName).length;
 
                   return (
-                    <Card key={gameName}>
-                      <CardHeader>
-                        <CardTitle className="text-base">{gameName}</CardTitle>
+                    <Card key={gameName} className="p-2 sm:p-0">
+                      <CardHeader className="p-2 sm:p-4 pb-1 sm:pb-2">
+                        <CardTitle className="text-xs sm:text-sm truncate">{gameName}</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Total Points:</span>
-                            <span className="font-bold text-primary">{gamePoints}</span>
+                      <CardContent className="p-2 sm:p-4 pt-0">
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] sm:text-xs text-muted-foreground">Points:</span>
+                            <span className="font-bold text-primary text-sm sm:text-base">{gamePoints}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Activities:</span>
-                            <span className="font-semibold">{gameCount}</span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] sm:text-xs text-muted-foreground">Activities:</span>
+                            <span className="font-semibold text-xs sm:text-sm">{gameCount}</span>
                           </div>
                         </div>
                       </CardContent>
