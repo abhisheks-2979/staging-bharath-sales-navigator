@@ -226,7 +226,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       const returnGRNItems = returnItems.map(item => ({
         return_grn_id: returnGRN.id,
         product_id: item.productId,
-        variant_id: item.variantId || null,
+        variant_id: item.variantId && item.variantId.trim() !== '' ? item.variantId : null,
         return_quantity: item.returnQuantity,
         return_reason: item.returnReason
       }));
@@ -247,8 +247,9 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           .eq('product_id', item.productId)
           .eq('date', dateStr);
 
-        // Add variant condition
-        if (item.variantId) {
+        // Add variant condition - check for valid non-empty variantId
+        const hasValidVariant = item.variantId && item.variantId.trim() !== '';
+        if (hasValidVariant) {
           query = query.eq('variant_id', item.variantId);
         } else {
           query = query.is('variant_id', null);
@@ -285,7 +286,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
             .insert({
               van_id: selectedVan,
               product_id: item.productId,
-              variant_id: item.variantId || null,
+              variant_id: hasValidVariant ? item.variantId : null,
               date: dateStr,
               morning_stock: 0,
               sold_quantity: 0,
