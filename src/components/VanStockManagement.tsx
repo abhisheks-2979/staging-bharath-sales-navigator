@@ -413,8 +413,62 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       const vanInfo = vans.find(v => v.id === selectedVan);
       console.log('🔄 Loading previous closing stock for van:', vanInfo?.registration_number, 'before date:', selectedDate);
       
-      // PRIORITY 1: Try to load from van_live_inventory (actual closing stock / current_stock)
-      // This is the most accurate source of "left in van" data
+      // PRIORITY 1: Load from van_stock_items (left_qty) - this is the primary source
+      // Query van_stock for the selected van, most recent date before selectedDate
+      const { data: previousStocks, error: stockError } = await supabase
+        .from('van_stock')
+        .select('*, van_stock_items(*)')
+        .eq('van_id', selectedVan)
+        .lt('stock_date', selectedDate)
+        .order('stock_date', { ascending: false });
+
+      if (stockError) throw stockError;
+
+      // Find the most recent stock with items that have left_qty > 0
+      let loadedFromStock = false;
+      if (previousStocks && previousStocks.length > 0) {
+        for (const stock of previousStocks) {
+          const itemsWithStock = (stock.van_stock_items || []).filter((item: any) => (item.left_qty || 0) > 0);
+          
+          if (itemsWithStock.length > 0) {
+            console.log('📦 Found van_stock from date:', stock.stock_date, 'items with left_qty:', itemsWithStock.length);
+            
+            const newStockItems: StockItem[] = itemsWithStock.map((item: any) => ({
+              product_id: item.product_id,
+              product_name: item.product_name,
+              unit: item.unit || '',
+              start_qty: item.left_qty || 0, // Previous left becomes current start
+              ordered_qty: 0,
+              returned_qty: 0,
+              left_qty: item.left_qty || 0, // Initially same as start
+            }));
+
+            console.log('✅ Loaded from van_stock_items:', newStockItems.length, 'items from:', stock.stock_date);
+            setStockItems(newStockItems);
+            
+            // Also load end_km or start_km as reference for current start_km
+            if (stock.end_km && stock.end_km > 0) {
+              setStartKm(stock.end_km);
+            } else if (stock.start_km && stock.start_km > 0) {
+              // If end_km not filled, use start_km + some estimate
+              setStartKm(stock.start_km);
+            }
+            
+            toast.success(`Loaded ${newStockItems.length} items from ${new Date(stock.stock_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} (Left in Van)`);
+            loadedFromStock = true;
+            break; // Found valid stock, stop searching
+          }
+        }
+      }
+
+      if (loadedFromStock) {
+        setLoadingPreviousStock(false);
+        return;
+      }
+
+      // PRIORITY 2: Fallback to van_live_inventory (if no van_stock found)
+      console.log('📋 No van_stock found, checking van_live_inventory...');
+      
       const { data: liveInventory, error: liveError } = await supabase
         .from('van_live_inventory')
         .select(`
@@ -423,85 +477,37 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         `)
         .eq('van_id', selectedVan)
         .lt('date', selectedDate)
-        .gt('current_stock', 0) // Only get items with remaining stock
+        .gt('current_stock', 0)
         .order('date', { ascending: false });
 
       if (liveError) throw liveError;
 
-      // Group by most recent date
       if (liveInventory && liveInventory.length > 0) {
-        // Get the most recent date from the results
         const mostRecentDate = liveInventory[0].date;
         const latestInventory = liveInventory.filter(item => item.date === mostRecentDate);
         
-        console.log('📦 Found live inventory from date:', mostRecentDate, 'items:', latestInventory.length);
-
         const newStockItems: StockItem[] = latestInventory
           .filter((item: any) => (item.current_stock || 0) > 0)
           .map((item: any) => ({
             product_id: item.product_id,
             product_name: (item.products as any)?.name || 'Unknown Product',
             unit: (item.products as any)?.unit || '',
-            start_qty: item.current_stock || 0, // Previous closing becomes current start
+            start_qty: item.current_stock || 0,
             ordered_qty: 0,
             returned_qty: 0,
-            left_qty: item.current_stock || 0, // Initially same as start
+            left_qty: item.current_stock || 0,
           }));
 
         if (newStockItems.length > 0) {
           console.log('✅ Loaded from live inventory:', newStockItems.length, 'items from:', mostRecentDate);
           setStockItems(newStockItems);
-          toast.success(`Loaded ${newStockItems.length} items from closing stock (${new Date(mostRecentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})`);
+          toast.success(`Loaded ${newStockItems.length} items from ${new Date(mostRecentDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`);
           setLoadingPreviousStock(false);
           return;
         }
       }
 
-      // PRIORITY 2: Fallback to van_stock table (legacy data)
-      console.log('📋 No live inventory found, checking van_stock table...');
-      const { data: session } = await supabase.auth.getSession();
-      
-      const { data: previousStock, error } = await supabase
-        .from('van_stock')
-        .select('*, van_stock_items(*)')
-        .eq('van_id', selectedVan)
-        .lt('stock_date', selectedDate)
-        .gt('end_km', 0) // Only get completed day's stock
-        .order('stock_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (!previousStock || !previousStock.van_stock_items || previousStock.van_stock_items.length === 0) {
-        toast.info('No previous closing stock found for this van');
-        setLoadingPreviousStock(false);
-        return;
-      }
-
-      // Convert previous "left_qty" to current "start_qty"
-      const newStockItems: StockItem[] = previousStock.van_stock_items
-        .filter((item: any) => (item.left_qty || 0) > 0)
-        .map((item: any) => ({
-          product_id: item.product_id,
-          product_name: item.product_name,
-          unit: item.unit || '',
-          start_qty: item.left_qty || 0,
-          ordered_qty: 0,
-          returned_qty: 0,
-          left_qty: item.left_qty || 0,
-        }));
-
-      console.log('✅ Loaded from van_stock:', newStockItems.length, 'items from:', previousStock.stock_date);
-
-      setStockItems(newStockItems);
-      
-      // Also load end_km from previous stock as reference for start_km
-      if (previousStock.end_km) {
-        setStartKm(previousStock.end_km);
-      }
-
-      toast.success(`Loaded ${newStockItems.length} items from previous stock (${new Date(previousStock.stock_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})`);
+      toast.info('No previous closing stock found for this van');
     } catch (error) {
       console.error('Error loading previous stock:', error);
       toast.error('Failed to load previous van stock');
