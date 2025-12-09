@@ -125,46 +125,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         return o.user_id === userId && o.status === 'confirmed' && orderDate >= dateStart && orderDate <= dateEnd;
       });
 
-      // Get retailer IDs from visits, planned beats, AND orders
+      // Get retailer IDs from visits and orders ONLY
       const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
+      const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
 
-      // Extract retailer IDs from beat_data.retailer_ids if specified
-      // Only consider retailer_ids defined if the array has actual items
+      // Extract retailer IDs from beat_data.retailer_ids if explicitly specified
       let plannedRetailerIds: string[] = [];
-      let hasBeatDataWithRetailerIdsDefined = false;
       for (const beatPlan of filteredBeatPlans) {
         const beatData = (beatPlan as any).beat_data as any;
         if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-          hasBeatDataWithRetailerIdsDefined = true;
           plannedRetailerIds.push(...beatData.retailer_ids);
         }
       }
 
-      // If no specific retailer IDs are defined in beat_data for any plan, fall back to beat_id mapping
-      if (!hasBeatDataWithRetailerIdsDefined) {
-        const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-        plannedRetailerIds = cachedRetailers
-          .filter((r: any) => r.user_id === userId && plannedBeatIds.includes(r.beat_id))
-          .map((r: any) => r.id);
-      }
-
-      const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
+      // CRITICAL: Do NOT fall back to beat_id mapping from cache
+      // The database is the source of truth for which retailers belong to a beat
+      // If beat_data.retailer_ids is not defined, the network fetch will get the correct list
+      // For cache-only mode, only show retailers with visits or orders
       
-      // Combine all retailer IDs: from visits, planned beats, AND orders
+      // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids, AND orders
       const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
       
-      // CRITICAL FIX: Only include beat-based retailers if there are beat plans for this date
-      // This prevents showing all retailers when no beats are planned
-      const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-      const hasPlannedBeats = filteredBeatPlans.length > 0;
-      
-      // Only filter retailers if we have actual data to show
+      // STRICT FILTERING: Only include retailers that are explicitly in our list
+      // Do NOT include retailers just because they match beat_id - database is source of truth
       const filteredRetailers = cachedRetailers.filter((r: any) => {
-        // Always include if retailer has a visit, order, or is in planned list
-        if (allRetailerIds.includes(r.id)) return true;
-        // Only include beat-based retailers if there ARE beat plans for today
-        if (hasPlannedBeats && r.beat_id && plannedBeatIds.includes(r.beat_id)) return true;
-        return false;
+        return allRetailerIds.includes(r.id);
       });
 
       // CRITICAL: Always update state for the new date, even if empty
