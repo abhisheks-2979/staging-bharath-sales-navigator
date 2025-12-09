@@ -96,6 +96,12 @@ export function useOfflineSync() {
           window.dispatchEvent(new Event('visitDataChanged'));
         }, 200);
         
+        // Sync van stock after all orders are synced - run once after all items processed
+        console.log('🚚 Running final van stock sync after sync complete...');
+        syncOrdersToVanStock(getTodayDateString()).catch(err => {
+          console.error('Error in final van stock sync:', err);
+        });
+        
         // Show toast notification for successful sync
         toast({
           title: "✅ Sync Complete",
