@@ -11,12 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign, User, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Download, Search, Eye, RefreshCw, MapPin, Clock, Package, DollarSign, User, RotateCcw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
+import EditOrderDialog from '@/components/EditOrderDialog';
 
 interface CheckInOutData {
   id: string;
@@ -56,9 +57,11 @@ interface OrderData {
   user_name: string;
   retailer_name: string;
   created_at: string;
+  updated_at: string;
   total_amount: number;
   status: string;
   items: any[];
+  is_edited: boolean;
 }
 
 interface StockData {
@@ -115,6 +118,10 @@ const Operations = () => {
     orders: 0,
     stockUpdates: 0
   });
+  
+  // Edit order dialog state
+  const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
+  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<{ id: string; retailer_name: string } | null>(null);
 
   // Fetch users for filter (via Edge Function to bypass RLS logging issue)
   const fetchUsers = async () => {
@@ -453,6 +460,7 @@ const Operations = () => {
           id,
           user_id,
           created_at,
+          updated_at,
           total_amount,
           status,
           retailer_name,
@@ -501,14 +509,21 @@ const Operations = () => {
       const formattedData = ordersData?.map(order => {
         const user = usersData?.find(u => u.id === order.user_id);
         
+        // Check if order was edited (updated_at differs from created_at by more than 5 seconds)
+        const createdTime = new Date(order.created_at).getTime();
+        const updatedTime = order.updated_at ? new Date(order.updated_at).getTime() : createdTime;
+        const isEdited = Math.abs(updatedTime - createdTime) > 5000; // 5 second threshold
+        
         return {
           id: order.id,
           user_name: user?.full_name || user?.username || 'Unknown',
           retailer_name: order.retailer_name || 'Unknown',
           created_at: order.created_at,
+          updated_at: order.updated_at || order.created_at,
           total_amount: order.total_amount,
           status: order.status,
-          items: order.order_items || []
+          items: order.order_items || [],
+          is_edited: isEdited
         };
       }) || [];
 
@@ -1508,7 +1523,16 @@ const Operations = () => {
                         filteredOrderData.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.user_name}</TableCell>
-                            <TableCell>{item.retailer_name}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {item.retailer_name}
+                                {item.is_edited && (
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
+                                    Edited
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                                 {format(new Date(item.created_at), 'MMM dd, HH:mm')}
@@ -1521,65 +1545,93 @@ const Operations = () => {
                               <Badge variant="secondary">{item.items.length} items</Badge>
                             </TableCell>
                             <TableCell>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <Eye size={16} />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-3xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Order Details</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div>
-                                        <label className="text-sm font-medium">User</label>
-                                        <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                              <div className="flex items-center gap-1">
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" title="View">
+                                      <Eye size={16} />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-3xl">
+                                    <DialogHeader>
+                                      <DialogTitle className="flex items-center gap-2">
+                                        Order Details
+                                        {item.is_edited && (
+                                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                                            Edited
+                                          </Badge>
+                                        )}
+                                      </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <label className="text-sm font-medium">User</label>
+                                          <p className="text-sm text-muted-foreground">{item.user_name}</p>
+                                        </div>
+                                        <div>
+                                          <label className="text-sm font-medium">Retailer</label>
+                                          <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
+                                        </div>
+                                        <div>
+                                          <label className="text-sm font-medium">Order Date & Time</label>
+                                          <p className="text-sm text-muted-foreground">
+                                            {format(new Date(item.created_at), 'PPpp')}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <label className="text-sm font-medium">Total Amount</label>
+                                          <p className="text-sm font-medium">₹{item.total_amount.toLocaleString()}</p>
+                                        </div>
+                                        {item.is_edited && (
+                                          <div className="col-span-2">
+                                            <label className="text-sm font-medium">Last Modified</label>
+                                            <p className="text-sm text-muted-foreground">
+                                              {format(new Date(item.updated_at), 'PPpp')}
+                                            </p>
+                                          </div>
+                                        )}
                                       </div>
                                       <div>
-                                        <label className="text-sm font-medium">Retailer</label>
-                                        <p className="text-sm text-muted-foreground">{item.retailer_name}</p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Order Date & Time</label>
-                                        <p className="text-sm text-muted-foreground">
-                                          {format(new Date(item.created_at), 'PPpp')}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <label className="text-sm font-medium">Total Amount</label>
-                                        <p className="text-sm font-medium">₹{item.total_amount.toLocaleString()}</p>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <label className="text-sm font-medium">Order Items</label>
-                                      <div className="mt-2 border rounded-md">
-                                        <Table>
-                                          <TableHeader>
-                                            <TableRow>
-                                              <TableHead>Product</TableHead>
-                                              <TableHead>Quantity</TableHead>
-                                              <TableHead>Rate</TableHead>
-                                              <TableHead>Total</TableHead>
-                                            </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                            {item.items.map((orderItem, index) => (
-                                              <TableRow key={index}>
-                                                <TableCell>{orderItem.product_name}</TableCell>
-                                                <TableCell>{orderItem.quantity}</TableCell>
-                                                <TableCell>₹{orderItem.rate}</TableCell>
-                                                <TableCell>₹{orderItem.total}</TableCell>
+                                        <label className="text-sm font-medium">Order Items</label>
+                                        <div className="mt-2 border rounded-md">
+                                          <Table>
+                                            <TableHeader>
+                                              <TableRow>
+                                                <TableHead>Product</TableHead>
+                                                <TableHead>Quantity</TableHead>
+                                                <TableHead>Rate</TableHead>
+                                                <TableHead>Total</TableHead>
                                               </TableRow>
-                                            ))}
-                                          </TableBody>
-                                        </Table>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {item.items.map((orderItem, index) => (
+                                                <TableRow key={index}>
+                                                  <TableCell>{orderItem.product_name}</TableCell>
+                                                  <TableCell>{orderItem.quantity}</TableCell>
+                                                  <TableCell>₹{orderItem.rate}</TableCell>
+                                                  <TableCell>₹{orderItem.total}</TableCell>
+                                                </TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
+                                  </DialogContent>
+                                </Dialog>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  title="Edit Order"
+                                  onClick={() => {
+                                    setSelectedOrderForEdit({ id: item.id, retailer_name: item.retailer_name });
+                                    setEditOrderDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil size={16} />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -1898,6 +1950,20 @@ const Operations = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Order Dialog */}
+      {selectedOrderForEdit && (
+        <EditOrderDialog
+          orderId={selectedOrderForEdit.id}
+          retailerName={selectedOrderForEdit.retailer_name}
+          open={editOrderDialogOpen}
+          onOpenChange={setEditOrderDialogOpen}
+          onSaved={() => {
+            fetchOrderData();
+            toast.success("Order updated - changes will reflect across the system");
+          }}
+        />
+      )}
     </div>
   );
 };
