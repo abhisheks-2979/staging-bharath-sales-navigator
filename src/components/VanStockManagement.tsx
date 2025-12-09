@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -68,6 +69,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [isMorning, setIsMorning] = useState(true);
   const [startKm, setStartKm] = useState(0);
   const [endKm, setEndKm] = useState(0);
+  const [showLoadPreviousConfirm, setShowLoadPreviousConfirm] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -374,7 +376,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
   };
 
-  const handleLoadPreviousStock = async () => {
+  const handleLoadPreviousStockConfirm = async () => {
+    setShowLoadPreviousConfirm(false);
+    
     if (!selectedVan) {
       toast.error('Please select a van first');
       return;
@@ -432,6 +436,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     } finally {
       setLoadingPreviousStock(false);
     }
+  };
+  
+  const handleLoadPreviousStock = () => {
+    if (!selectedVan) {
+      toast.error('Please select a van first');
+      return;
+    }
+    setShowLoadPreviousConfirm(true);
   };
 
   const handleAddProduct = () => {
@@ -1335,10 +1347,28 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           </DialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
             {(() => {
-              // Use saved items from database for the modal display
+              // Combine saved items from database AND unsaved loaded items from stockItems
               const savedItems = todayStock?.van_stock_items || [];
               
-              if (savedItems.length === 0) {
+              // Create a map of all items to display (prioritize saved, add unsaved)
+              const displayItems: any[] = [];
+              const seenProductIds = new Set<string>();
+              
+              // First add all saved items
+              savedItems.forEach((item: any) => {
+                displayItems.push({ ...item, isSaved: true });
+                seenProductIds.add(item.product_id);
+              });
+              
+              // Then add unsaved items that aren't in saved (loaded from previous stock)
+              stockItems.forEach((item) => {
+                if (item.product_id && !seenProductIds.has(item.product_id)) {
+                  displayItems.push({ ...item, isSaved: false });
+                  seenProductIds.add(item.product_id);
+                }
+              });
+              
+              if (displayItems.length === 0) {
                 return (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">No stock items saved yet</p>
@@ -1346,16 +1376,21 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 );
               }
               
-              return savedItems.map((item: any, index: number) => {
+              return displayItems.map((item: any, index: number) => {
                 const product = products.find(p => p.id === item.product_id);
                 const priceWithGST = product?.rate || 0;
                 const priceWithoutGST = priceWithGST / 1.05;
                 
                 return (
-                  <Card key={index} className="p-3 hover:bg-accent transition-colors">
+                  <Card key={index} className={cn("p-3 hover:bg-accent transition-colors", !item.isSaved && "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20")}>
                     <div className="flex justify-between items-center">
                       <div className="flex-1">
-                        <p className="font-medium">{item.product_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{item.product_name}</p>
+                          {!item.isSaved && (
+                            <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-400">Unsaved</Badge>
+                          )}
+                        </div>
                         {showDetailModal === 'start' && (
                           <p className="text-xs text-muted-foreground">
                             ₹{priceWithoutGST.toFixed(2)} (excl. GST) • {item.unit}
@@ -1371,11 +1406,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                             {showDetailModal === 'start' && item.start_qty}
                             {showDetailModal === 'ordered' && (item.ordered_qty || 0)}
                             {showDetailModal === 'returned' && (item.returned_qty || 0)}
-                            {showDetailModal === 'left' && (item.start_qty - (item.ordered_qty || 0) + (item.returned_qty || 0))}
+                            {showDetailModal === 'left' && ((item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0))}
                           </p>
                           <p className="text-xs text-muted-foreground">{item.unit}</p>
                         </div>
-                        {showDetailModal === 'start' && (
+                        {showDetailModal === 'start' && item.isSaved && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1403,54 +1438,91 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               });
             })()}
             
-            {(todayStock?.van_stock_items || []).length > 0 && (
-              <Card className="p-4 bg-primary/5 border-primary">
-                <div className="flex justify-between items-center">
-                  <p className="font-bold text-sm md:text-lg">Total</p>
-                  <p className="text-base md:text-2xl font-bold text-primary">
-                    {(() => {
-                      const items = todayStock?.van_stock_items || [];
-                      let totalGrams = 0;
-                      
-                      items.forEach((item: any) => {
-                        const unit = (item.unit || '').toLowerCase();
-                        let qty = 0;
-                        
-                        if (showDetailModal === 'start') qty = item.start_qty || 0;
-                        else if (showDetailModal === 'ordered') qty = item.ordered_qty || 0;
-                        else if (showDetailModal === 'returned') qty = item.returned_qty || 0;
-                        else if (showDetailModal === 'left') qty = (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0);
-                        
-                        // Convert everything to grams for accurate calculation
-                        if (unit === 'kg' || unit === 'kgs') {
-                          totalGrams += qty * 1000;
-                        } else if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-                          totalGrams += qty;
-                        } else {
-                          // Default treat as KG
-                          totalGrams += qty * 1000;
-                        }
-                      });
-                      
-                      // Convert to KG and Grams display
-                      const fullKg = Math.floor(totalGrams / 1000);
-                      const remainingGrams = Math.round(totalGrams % 1000);
-                      
-                      if (remainingGrams === 0) {
-                        return `${fullKg} KG`;
-                      } else if (fullKg === 0) {
-                        return `${remainingGrams} Grams`;
-                      } else {
-                        return `${fullKg} KG ${remainingGrams} Grams`;
-                      }
-                    })()}
-                  </p>
-                </div>
-              </Card>
-            )}
+            {(() => {
+              // Calculate totals from both saved and unsaved items
+              const savedItems = todayStock?.van_stock_items || [];
+              const seenProductIds = new Set<string>();
+              const allItems: any[] = [];
+              
+              savedItems.forEach((item: any) => {
+                allItems.push(item);
+                seenProductIds.add(item.product_id);
+              });
+              
+              stockItems.forEach((item) => {
+                if (item.product_id && !seenProductIds.has(item.product_id)) {
+                  allItems.push(item);
+                  seenProductIds.add(item.product_id);
+                }
+              });
+              
+              if (allItems.length === 0) return null;
+              
+              let totalGrams = 0;
+              
+              allItems.forEach((item: any) => {
+                const unit = (item.unit || '').toLowerCase();
+                let qty = 0;
+                
+                if (showDetailModal === 'start') qty = item.start_qty || 0;
+                else if (showDetailModal === 'ordered') qty = item.ordered_qty || 0;
+                else if (showDetailModal === 'returned') qty = item.returned_qty || 0;
+                else if (showDetailModal === 'left') qty = (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0);
+                
+                // Convert everything to grams for accurate calculation
+                if (unit === 'kg' || unit === 'kgs') {
+                  totalGrams += qty * 1000;
+                } else if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+                  totalGrams += qty;
+                } else {
+                  // Default treat as KG
+                  totalGrams += qty * 1000;
+                }
+              });
+              
+              // Convert to KG and Grams display
+              const fullKg = Math.floor(totalGrams / 1000);
+              const remainingGrams = Math.round(totalGrams % 1000);
+              
+              let displayTotal = '';
+              if (remainingGrams === 0) {
+                displayTotal = `${fullKg} KG`;
+              } else if (fullKg === 0) {
+                displayTotal = `${remainingGrams} Grams`;
+              } else {
+                displayTotal = `${fullKg} KG ${remainingGrams} Grams`;
+              }
+              
+              return (
+                <Card className="p-4 bg-primary/5 border-primary">
+                  <div className="flex justify-between items-center">
+                    <p className="font-bold text-sm md:text-lg">Total</p>
+                    <p className="text-base md:text-2xl font-bold text-primary">{displayTotal}</p>
+                  </div>
+                </Card>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Confirmation Dialog for Loading Previous Stock */}
+      <AlertDialog open={showLoadPreviousConfirm} onOpenChange={setShowLoadPreviousConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Load Previous Van Stock?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to load the data from Previous Left Stock in Van to Product Stock in Van? This will replace your current unsaved stock entries.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLoadPreviousStockConfirm}>
+              Yes, Load Previous Stock
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
