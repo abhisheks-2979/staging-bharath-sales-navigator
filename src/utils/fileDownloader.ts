@@ -15,15 +15,15 @@ export interface DownloadOptions {
   base64Data?: string;
   showToast?: boolean;
 }
-
-// Store saved file URIs for notification actions
-const savedFileMap = new Map<number, string>();
-
 /**
  * Show download notification in Android notification bar
+ * This is wrapped in try-catch to never break the download flow
  */
 const showDownloadNotification = async (filename: string, fileUri: string, success: boolean) => {
+  // Always wrap in try-catch - notification should never break download
   try {
+    if (!Capacitor.isNativePlatform()) return;
+    
     // Request permission first
     const permResult = await LocalNotifications.checkPermissions();
     if (permResult.display !== 'granted') {
@@ -34,23 +34,16 @@ const showDownloadNotification = async (filename: string, fileUri: string, succe
       }
     }
 
-    const notificationId = Date.now();
-    savedFileMap.set(notificationId, fileUri);
+    const notificationId = Date.now() % 2147483647; // Ensure valid int32
 
     if (success) {
       await LocalNotifications.schedule({
         notifications: [
           {
             id: notificationId,
-            title: '✅ Download Complete',
-            body: `${filename} saved. Tap to open file manager.`,
-            smallIcon: 'ic_stat_icon_config_sample',
-            largeIcon: 'ic_launcher',
+            title: 'Download Complete',
+            body: `${filename} saved successfully`,
             channelId: 'downloads',
-            extra: {
-              fileUri: fileUri,
-              filename: filename
-            }
           }
         ]
       });
@@ -59,17 +52,16 @@ const showDownloadNotification = async (filename: string, fileUri: string, succe
         notifications: [
           {
             id: notificationId,
-            title: '❌ Download Failed',
+            title: 'Download Failed',
             body: `Failed to save ${filename}`,
-            smallIcon: 'ic_stat_icon_config_sample',
-            largeIcon: 'ic_launcher',
             channelId: 'downloads'
           }
         ]
       });
     }
   } catch (error) {
-    console.log('Notification error:', error);
+    // Silently log - never let notification break download flow
+    console.log('Notification skipped:', error);
   }
 };
 
@@ -303,12 +295,25 @@ export const base64ToBlob = (base64: string, mimeType: string): Blob => {
  * Download PDF file
  */
 export const downloadPDF = async (blob: Blob, filename: string): Promise<boolean> => {
-  console.log('📄 downloadPDF called:', filename, 'Blob size:', blob.size);
-  return downloadFile({
-    filename: filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
-    mimeType: 'application/pdf',
-    blob,
-  });
+  console.log('📄 downloadPDF called:', filename, 'Blob size:', blob?.size);
+  
+  if (!blob || blob.size === 0) {
+    console.error('PDF blob is empty or undefined');
+    toast.error('PDF generation failed - no data');
+    return false;
+  }
+  
+  try {
+    return await downloadFile({
+      filename: filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
+      mimeType: 'application/pdf',
+      blob,
+    });
+  } catch (error: any) {
+    console.error('downloadPDF error:', error);
+    toast.error(`PDF download error: ${error.message || 'Unknown'}`);
+    return false;
+  }
 };
 
 /**
