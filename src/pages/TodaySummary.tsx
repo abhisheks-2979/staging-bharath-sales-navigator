@@ -270,11 +270,12 @@ export const TodaySummary = () => {
 
       const { data: vanStockData } = await vanStockQuery;
 
-      // Fetch retailer_visit_logs for time at retailers (time_spent_seconds)
+      // Fetch retailer_visit_logs for time at retailers (first to last visit time)
       let visitLogsQuery = supabase
         .from('retailer_visit_logs')
-        .select('time_spent_seconds, retailer_id, visit_date')
-        .eq('user_id', user.id);
+        .select('time_spent_seconds, retailer_id, visit_date, start_time, end_time')
+        .eq('user_id', user.id)
+        .order('start_time', { ascending: true });
 
       if (filterType === 'today' || filterType === 'custom') {
         const targetDate = format(dateRange.from, 'yyyy-MM-dd');
@@ -691,20 +692,33 @@ export const TodaySummary = () => {
         });
       }
       
-      // Calculate time at retailers from retailer_visit_logs (sum of time_spent_seconds)
-      let timeAtRetailersSeconds = 0;
+      // Calculate time at retailers from first visit start_time to last visit end_time
+      let timeAtRetailersStr = '0h 0m';
       if (visitLogsData && visitLogsData.length > 0) {
-        visitLogsData.forEach(log => {
-          if (log.time_spent_seconds) {
-            timeAtRetailersSeconds += Number(log.time_spent_seconds);
+        // Filter logs with valid start_time
+        const validLogs = visitLogsData.filter(log => log.start_time);
+        
+        if (validLogs.length > 0) {
+          // Get the first start_time (earliest visit)
+          const firstStartTime = new Date(validLogs[0].start_time);
+          
+          // Get the last end_time (latest visit completion)
+          const lastLog = validLogs.reduce((latest, log) => {
+            if (!log.end_time) return latest;
+            const endTime = new Date(log.end_time);
+            return (!latest || endTime > new Date(latest.end_time)) ? log : latest;
+          }, null as typeof validLogs[0] | null);
+          
+          if (lastLog?.end_time) {
+            const lastEndTime = new Date(lastLog.end_time);
+            const diffMs = lastEndTime.getTime() - firstStartTime.getTime();
+            const diffMinutes = Math.max(0, diffMs / (1000 * 60));
+            const hours = Math.floor(diffMinutes / 60);
+            const minutes = Math.round(diffMinutes % 60);
+            timeAtRetailersStr = `${hours}h ${minutes}m`;
           }
-        });
+        }
       }
-      
-      const timeAtRetailersMinutes = timeAtRetailersSeconds / 60;
-      const hours = Math.floor(timeAtRetailersMinutes / 60);
-      const minutes = Math.round(timeAtRetailersMinutes % 60);
-      const timeAtRetailersStr = `${hours}h ${minutes}m`;
       
       console.log('📊 Today\'s Summary Data:', {
         totalVisits: visits?.length || 0,
