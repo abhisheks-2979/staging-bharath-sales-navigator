@@ -986,16 +986,15 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 w-full">
               {showDetailModal === 'start' && (
-                <div className="flex items-center justify-between w-full">
+                <div className="flex flex-col gap-2 w-full">
                   <div className="flex items-center gap-2">
                     <Package className="h-5 w-5 text-primary" />
                     <span>Product Stock in Van</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button 
                       size="sm" 
                       onClick={() => {
-                        // Load ALL saved items for editing
                         const savedItems = todayStock?.van_stock_items || [];
                         if (savedItems.length === 0) {
                           toast.info('No stock items to edit');
@@ -1016,27 +1015,28 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                         toast.info('All items loaded for editing. Modify and click Save Stock.');
                       }}
                       variant="outline" 
-                      className="h-7 text-[10px] px-2"
+                      className="h-6 w-6 p-0"
+                      title="Edit All"
                     >
-                      <Edit className="h-3 w-3 mr-1" /> Edit
+                      <Edit className="h-3 w-3" />
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline" className="h-7 text-[10px] px-2">
-                          <Download className="h-3 w-3 mr-1" /> Download <ChevronDown className="h-3 w-3 ml-1" />
+                        <Button size="sm" variant="outline" className="h-6 w-6 p-0" title="Download">
+                          <Download className="h-3 w-3" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-background border shadow-lg z-50">
-                        <DropdownMenuItem onClick={handleExportToPDF} className="cursor-pointer">
-                          <FileText className="h-4 w-4 mr-2 text-red-500" /> PDF
+                        <DropdownMenuItem onClick={handleExportToPDF} className="cursor-pointer text-xs">
+                          <FileText className="h-3 w-3 mr-2 text-red-500" /> PDF
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleExportToExcel} className="cursor-pointer">
-                          <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" /> Excel
+                        <DropdownMenuItem onClick={handleExportToExcel} className="cursor-pointer text-xs">
+                          <FileSpreadsheet className="h-3 w-3 mr-2 text-green-600" /> Excel
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button size="sm" onClick={handlePrint} variant="outline" className="h-7 text-[10px] px-2">
-                      <Printer className="h-3 w-3 mr-1" /> Print
+                    <Button size="sm" onClick={handlePrint} variant="outline" className="h-6 w-6 p-0" title="Print">
+                      <Printer className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
