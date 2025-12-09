@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
+import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
 
 interface Van {
   id: string;
@@ -739,7 +740,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     };
   };
 
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
     const savedItems = todayStock?.van_stock_items || [];
     if (savedItems.length === 0) {
       toast.error('No stock items to export');
@@ -784,13 +785,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     // Generate filename with date
     const fileName = `Van_Stock_${selectedDate}.xlsx`;
     
-    // Save file
-    XLSX.writeFile(wb, fileName);
-    
-    toast.success('Stock items exported successfully');
+    // Save file using cross-platform downloader
+    await downloadExcel(wb, fileName, XLSX);
   };
 
-  const handleExportToPDF = () => {
+  const handleExportToPDF = async () => {
     const savedItems = todayStock?.van_stock_items || [];
     if (savedItems.length === 0) {
       toast.error('No stock items to export');
@@ -913,8 +912,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     doc.setFontSize(10);
     doc.text(`Grand Total: Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${totalKGs.toFixed(2)} KG)`, 14, finalY + 9);
 
-    doc.save(`Product_Stock_Van_${selectedDate}.pdf`);
-    toast.success('PDF downloaded successfully');
+    const pdfBlob = doc.output('blob');
+    await downloadPDF(pdfBlob, `Product_Stock_Van_${selectedDate}.pdf`);
   };
 
   const handlePrint = () => {
