@@ -22,6 +22,7 @@ import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
+import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 interface CartItem {
   id: string;
   name: string;
@@ -984,6 +985,10 @@ export const Cart = () => {
 
               await supabase.from('invoice_items').insert(invoiceItems);
             }
+
+            // Sync order quantities to van stock for auto-updating van inventory
+            console.log('🚚 Syncing order to van stock...');
+            await syncOrdersToVanStock(getTodayDateString(), currentUserId);
 
             console.log('✅ Background post-order processing completed');
           }

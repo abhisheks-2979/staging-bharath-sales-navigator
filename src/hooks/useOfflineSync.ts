@@ -3,6 +3,7 @@ import { useConnectivity } from './useConnectivity';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { syncOrdersToVanStock, getTodayDateString } from '@/utils/vanStockSync';
 
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
@@ -317,6 +318,13 @@ export function useOfflineSync() {
               console.log('✅ Dispatching visitDataChanged for full page reload');
               window.dispatchEvent(new Event('visitDataChanged'));
             }, 1000);
+            
+            // Sync order quantities to van stock
+            console.log('🚚 Syncing order to van stock...');
+            const orderDate = data.order?.created_at?.split('T')[0] || getTodayDateString();
+            syncOrdersToVanStock(orderDate, data.order?.user_id).catch(err => {
+              console.error('Error syncing van stock after order:', err);
+            });
           }
         } else {
           // Old format - just the order data
@@ -391,6 +399,13 @@ export function useOfflineSync() {
               console.log('✅ Dispatching visitDataChanged for full page reload');
               window.dispatchEvent(new Event('visitDataChanged'));
             }, 1000);
+            
+            // Sync order quantities to van stock (old format)
+            console.log('🚚 Syncing order to van stock (old format)...');
+            const oldOrderDate = data.created_at?.split('T')[0] || getTodayDateString();
+            syncOrdersToVanStock(oldOrderDate, data.user_id).catch(err => {
+              console.error('Error syncing van stock after order:', err);
+            });
           }
         }
         break;
