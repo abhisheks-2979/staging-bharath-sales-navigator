@@ -16,8 +16,51 @@ function extractBaseProductId(productId: string): string {
 }
 
 /**
+ * Convert quantity from one unit to a target unit
+ * Returns quantity in the target unit
+ */
+function convertQuantity(quantity: number, fromUnit: string, toUnit: string): number {
+  const from = (fromUnit || '').toLowerCase().trim();
+  const to = (toUnit || '').toLowerCase().trim();
+  
+  // Same unit, no conversion needed
+  if (from === to) return quantity;
+  
+  // Convert to grams first (base unit for weight)
+  let inGrams = quantity;
+  
+  if (from === 'kg' || from === 'kilogram' || from === 'kilograms') {
+    inGrams = quantity * 1000;
+  } else if (from === 'g' || from === 'gram' || from === 'grams') {
+    inGrams = quantity;
+  } else if (from === 'l' || from === 'liter' || from === 'liters' || from === 'litre' || from === 'litres') {
+    inGrams = quantity * 1000; // Treat liters as equivalent to KG for beverages
+  } else if (from === 'ml' || from === 'milliliter' || from === 'milliliters') {
+    inGrams = quantity;
+  } else {
+    // pieces or unknown - no conversion
+    return quantity;
+  }
+  
+  // Now convert from grams to target unit
+  if (to === 'kg' || to === 'kilogram' || to === 'kilograms') {
+    return inGrams / 1000;
+  } else if (to === 'g' || to === 'gram' || to === 'grams') {
+    return inGrams;
+  } else if (to === 'l' || to === 'liter' || to === 'liters' || to === 'litre' || to === 'litres') {
+    return inGrams / 1000;
+  } else if (to === 'ml' || to === 'milliliter' || to === 'milliliters') {
+    return inGrams;
+  }
+  
+  // Default - return as is
+  return quantity;
+}
+
+/**
  * Calculate and update van stock ordered quantities based on orders placed
  * This syncs order quantities to van_stock_items for the given date
+ * IMPORTANT: Quantities are stored in the van stock item's native unit, not always in grams
  */
 export async function syncOrdersToVanStock(stockDate: string, userId?: string): Promise<boolean> {
   try {
@@ -69,8 +112,8 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
 
     const orderIds = orders?.map(o => o.id) || [];
     
-    // Get all order items for these orders
-    let orderQuantities: { [productId: string]: number } = {};
+    // Get all order items for these orders with their units
+    let orderQuantitiesInGrams: { [productId: string]: number } = {};
     
     if (orderIds.length > 0) {
       const { data: orderItems, error: itemsError } = await supabase
@@ -83,32 +126,47 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
         return false;
       }
 
-      // Sum quantities by BASE product ID, converting to common unit (grams)
+      // Sum quantities by BASE product ID, converting everything to grams first
       orderItems?.forEach(item => {
         // Extract base product ID (handles variant IDs like "baseId_variant_variantId")
         const baseProductId = extractBaseProductId(item.product_id);
-        const qtyInGrams = convertToGrams(item.quantity, item.unit || 'piece');
-        orderQuantities[baseProductId] = (orderQuantities[baseProductId] || 0) + qtyInGrams;
+        const orderUnit = item.unit || 'piece';
+        
+        // Convert to grams as intermediate unit for consistency
+        const qtyInGrams = convertQuantity(item.quantity, orderUnit, 'g');
+        orderQuantitiesInGrams[baseProductId] = (orderQuantitiesInGrams[baseProductId] || 0) + qtyInGrams;
       });
     }
 
-    console.log('📦 Order quantities by base product (in grams):', orderQuantities);
+    console.log('📦 Order quantities by base product (in grams):', orderQuantitiesInGrams);
 
     // Update each van stock item with calculated ordered quantity
+    // CRITICAL: Convert the order quantity to match the van stock item's unit
     let updateCount = 0;
     for (const stockItem of vanStock.van_stock_items as any[]) {
-      // Van stock stores quantities in the product's unit, typically grams for weight-based products
-      const orderedQtyGrams = orderQuantities[stockItem.product_id] || 0;
+      const stockItemUnit = stockItem.unit || 'g'; // Van stock item's unit
+      const orderedGrams = orderQuantitiesInGrams[stockItem.product_id] || 0;
       
-      // Calculate left quantity: start - ordered + returned (all in grams)
-      const leftQty = Math.max(0, (stockItem.start_qty || 0) - orderedQtyGrams + (stockItem.returned_qty || 0));
+      // Convert ordered quantity from grams to the van stock item's native unit
+      const orderedQtyInStockUnit = convertQuantity(orderedGrams, 'g', stockItemUnit);
+      
+      // Calculate left quantity in the stock item's native unit
+      // Formula: left = start - ordered + returned (all in same unit)
+      const startQty = stockItem.start_qty || 0;
+      const returnedQty = stockItem.returned_qty || 0;
+      const leftQty = Math.max(0, startQty - orderedQtyInStockUnit + returnedQty);
 
-      // Only update if values changed
-      if (stockItem.ordered_qty !== orderedQtyGrams || stockItem.left_qty !== leftQty) {
+      console.log(`📊 Product ${stockItem.product_name}: unit=${stockItemUnit}, orderedGrams=${orderedGrams}, orderedInUnit=${orderedQtyInStockUnit}, start=${startQty}, returned=${returnedQty}, left=${leftQty}`);
+
+      // Only update if values changed (with small tolerance for floating point)
+      const orderedChanged = Math.abs((stockItem.ordered_qty || 0) - orderedQtyInStockUnit) > 0.001;
+      const leftChanged = Math.abs((stockItem.left_qty || 0) - leftQty) > 0.001;
+      
+      if (orderedChanged || leftChanged) {
         const { error: updateError } = await supabase
           .from('van_stock_items')
           .update({
-            ordered_qty: orderedQtyGrams,
+            ordered_qty: orderedQtyInStockUnit,
             left_qty: leftQty
           })
           .eq('id', stockItem.id);
@@ -117,7 +175,7 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
           console.error('Error updating van stock item:', updateError);
         } else {
           updateCount++;
-          console.log(`✅ Updated stock item ${stockItem.product_id}: ordered=${orderedQtyGrams}g, left=${leftQty}g`);
+          console.log(`✅ Updated stock item ${stockItem.product_name}: ordered=${orderedQtyInStockUnit} ${stockItemUnit}, left=${leftQty} ${stockItemUnit}`);
         }
       }
     }
@@ -134,34 +192,6 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
     console.error('Error syncing orders to van stock:', error);
     return false;
   }
-}
-
-/**
- * Convert quantity to grams for consistent calculation
- * Van stock typically stores everything in grams for weight-based products
- */
-function convertToGrams(quantity: number, unit: string): number {
-  const lowerUnit = (unit || '').toLowerCase();
-  
-  // KG to Grams
-  if (lowerUnit === 'kg' || lowerUnit === 'kilogram' || lowerUnit === 'kilograms') {
-    return quantity * 1000;
-  }
-  
-  // Liters to ML (treat as grams equivalent)
-  if (lowerUnit === 'l' || lowerUnit === 'liter' || lowerUnit === 'liters' || lowerUnit === 'litre' || lowerUnit === 'litres') {
-    return quantity * 1000;
-  }
-  
-  // Already in grams/ml or piece
-  // Grams, ML, piece stay as-is
-  if (lowerUnit === 'g' || lowerUnit === 'gram' || lowerUnit === 'grams' || 
-      lowerUnit === 'ml' || lowerUnit === 'milliliter' || lowerUnit === 'milliliters') {
-    return quantity;
-  }
-  
-  // Default: treat as base unit (grams or pieces)
-  return quantity;
 }
 
 /**
