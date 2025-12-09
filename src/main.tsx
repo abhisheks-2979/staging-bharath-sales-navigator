@@ -61,4 +61,13 @@ console.log('✅ App rendered successfully');
   } catch (error) {
     console.warn('⚠️ i18n failed to load:', error);
   }
+
+  try {
+    // Initialize download notifications channel for native apps
+    const { initDownloadNotifications } = await import('./utils/fileDownloader');
+    await initDownloadNotifications();
+    console.log('✅ Download notifications initialized');
+  } catch (error) {
+    console.warn('⚠️ Download notifications init failed:', error);
+  }
 })();

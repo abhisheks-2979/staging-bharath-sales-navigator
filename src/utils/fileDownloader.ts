@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { toast } from 'sonner';
 
 /**
@@ -14,6 +15,100 @@ export interface DownloadOptions {
   base64Data?: string;
   showToast?: boolean;
 }
+
+// Store saved file URIs for notification actions
+const savedFileMap = new Map<number, string>();
+
+/**
+ * Show download notification in Android notification bar
+ */
+const showDownloadNotification = async (filename: string, fileUri: string, success: boolean) => {
+  try {
+    // Request permission first
+    const permResult = await LocalNotifications.checkPermissions();
+    if (permResult.display !== 'granted') {
+      const reqResult = await LocalNotifications.requestPermissions();
+      if (reqResult.display !== 'granted') {
+        console.log('Notification permission not granted');
+        return;
+      }
+    }
+
+    const notificationId = Date.now();
+    savedFileMap.set(notificationId, fileUri);
+
+    if (success) {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: notificationId,
+            title: 'Download Complete',
+            body: `${filename} saved to Downloads`,
+            smallIcon: 'ic_stat_icon_config_sample',
+            largeIcon: 'ic_launcher',
+            channelId: 'downloads',
+            actionTypeId: 'OPEN_FILE',
+            extra: {
+              fileUri: fileUri,
+              filename: filename
+            }
+          }
+        ]
+      });
+    } else {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: notificationId,
+            title: 'Download Failed',
+            body: `Failed to save ${filename}`,
+            smallIcon: 'ic_stat_icon_config_sample',
+            largeIcon: 'ic_launcher',
+            channelId: 'downloads'
+          }
+        ]
+      });
+    }
+  } catch (error) {
+    console.log('Notification error:', error);
+  }
+};
+
+/**
+ * Initialize notification channel for downloads (call once on app start)
+ */
+export const initDownloadNotifications = async () => {
+  if (!Capacitor.isNativePlatform()) return;
+  
+  try {
+    await LocalNotifications.createChannel({
+      id: 'downloads',
+      name: 'Downloads',
+      description: 'File download notifications',
+      importance: 4, // High importance
+      visibility: 1, // Public
+      sound: 'default',
+      vibration: true
+    });
+
+    // Listen for notification actions to open files
+    LocalNotifications.addListener('localNotificationActionPerformed', async (notification) => {
+      const fileUri = notification.notification.extra?.fileUri;
+      if (fileUri) {
+        try {
+          // Try to open the file using system intent
+          const { App } = await import('@capacitor/app');
+          // Note: Opening files requires additional native configuration
+          console.log('File URI to open:', fileUri);
+        } catch (e) {
+          console.log('Could not open file:', e);
+        }
+      }
+    });
+  } catch (error) {
+    console.log('Failed to create notification channel:', error);
+  }
+};
 
 /**
  * Downloads a file - uses native filesystem on Android/iOS, browser download on web
@@ -65,6 +160,8 @@ const downloadNative = async (
 
     // Try saving to Downloads directory first (most visible to users)
     const downloadPath = `Download/${filename}`;
+    let savedUri = '';
+    let success = false;
     
     try {
       // Try ExternalStorage/Download first - this is visible in file managers
@@ -76,10 +173,12 @@ const downloadNative = async (
       });
       
       console.log('File saved to Downloads:', result.uri);
+      savedUri = result.uri;
+      success = true;
+      
       if (showToast) {
         toast.success(`Saved to Downloads: ${filename}`);
       }
-      return true;
     } catch (extError) {
       console.log('ExternalStorage failed, trying Documents:', extError);
       
@@ -93,10 +192,12 @@ const downloadNative = async (
         });
         
         console.log('File saved to Documents:', result.uri);
+        savedUri = result.uri;
+        success = true;
+        
         if (showToast) {
           toast.success(`Saved to Documents: ${filename}`);
         }
-        return true;
       } catch (docError) {
         console.log('Documents failed, trying Cache:', docError);
         
@@ -109,17 +210,30 @@ const downloadNative = async (
         });
         
         console.log('File saved to Cache:', result.uri);
+        savedUri = result.uri;
+        success = true;
+        
         if (showToast) {
           toast.success(`File saved: ${filename}`);
         }
-        return true;
       }
     }
+
+    // Show notification in notification bar
+    if (success && savedUri) {
+      await showDownloadNotification(filename, savedUri, true);
+    }
+    
+    return success;
   } catch (error: any) {
     console.error('Native download error:', error);
     if (showToast) {
       toast.error(`Failed to save: ${error.message || 'Unknown error'}`);
     }
+    
+    // Show failure notification
+    await showDownloadNotification(filename, '', false);
+    
     return false;
   }
 };
