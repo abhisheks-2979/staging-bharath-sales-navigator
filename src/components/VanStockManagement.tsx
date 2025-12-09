@@ -596,21 +596,49 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const calculateTotals = () => {
-    // Use saved items from database for summary display
+    // Combine saved items from database AND unsaved items from entry form
     const savedItems = todayStock?.van_stock_items || [];
     
+    // Create a map to avoid double-counting products that exist in both
+    const productTotals: { [productId: string]: { start: number; ordered: number; returned: number; left: number; unit: string } } = {};
+    
+    // First, add saved items
+    savedItems.forEach((item: any) => {
+      const unit = item.unit || 'piece';
+      productTotals[item.product_id] = {
+        start: item.start_qty || 0,
+        ordered: item.ordered_qty || 0,
+        returned: item.returned_qty || 0,
+        left: (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0),
+        unit
+      };
+    });
+    
+    // Then, add/override with unsaved entry form items (stockItems)
+    stockItems.forEach((item) => {
+      if (item.product_id) {
+        const unit = item.unit || 'piece';
+        productTotals[item.product_id] = {
+          start: item.start_qty || 0,
+          ordered: item.ordered_qty || 0,
+          returned: item.returned_qty || 0,
+          left: item.left_qty || 0,
+          unit
+        };
+      }
+    });
+    
+    // Calculate totals in KG
     let totalStartKg = 0;
     let totalOrderedKg = 0;
     let totalReturnedKg = 0;
     let totalLeftKg = 0;
     
-    savedItems.forEach((item: any) => {
-      const unit = item.unit || 'piece';
-      totalStartKg += convertToKg(item.start_qty || 0, unit);
-      totalOrderedKg += convertToKg(item.ordered_qty || 0, unit);
-      totalReturnedKg += convertToKg(item.returned_qty || 0, unit);
-      const leftQty = (item.start_qty || 0) - (item.ordered_qty || 0) + (item.returned_qty || 0);
-      totalLeftKg += convertToKg(leftQty, unit);
+    Object.values(productTotals).forEach((item) => {
+      totalStartKg += convertToKg(item.start, item.unit);
+      totalOrderedKg += convertToKg(item.ordered, item.unit);
+      totalReturnedKg += convertToKg(item.returned, item.unit);
+      totalLeftKg += convertToKg(item.left, item.unit);
     });
     
     return {
