@@ -312,7 +312,7 @@ export default function GPSTrack() {
               </Card>
             )}
 
-            <Card className="p-6">
+            <Card className="p-6 relative z-0">
               <CurrentLocationMap 
                 height="600px" 
                 userId={currentLocationUser} 
@@ -400,7 +400,7 @@ export default function GPSTrack() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </Card>
               ) : (
-                <Card className="overflow-hidden">
+              <Card className="overflow-hidden relative z-0">
                   <JourneyMap positions={gpsData} retailers={retailers} height="500px" />
                 </Card>
               )}
