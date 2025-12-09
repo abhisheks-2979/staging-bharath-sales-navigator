@@ -125,42 +125,54 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         return o.user_id === userId && o.status === 'confirmed' && orderDate >= dateStart && orderDate <= dateEnd;
       });
 
-      // Get retailer IDs from visits and orders ONLY
-      const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
-      const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
+      // CRITICAL: If no beat plans, no visits, and no orders - show empty state
+      if (filteredBeatPlans.length === 0 && filteredVisits.length === 0 && filteredOrders.length === 0) {
+        console.log('📦 [CACHE] No beat plans, visits, or orders for this date - showing empty state');
+        setBeatPlans([]);
+        setVisits([]);
+        setRetailers([]);
+        setOrders([]);
+        setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+        hasLoadedFromCache = true;
+        setIsLoading(false);
+        lastLoadedDateRef.current = selectedDate;
+      } else {
+        // Get retailer IDs from visits and orders ONLY
+        const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
+        const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
 
-      // Extract retailer IDs from beat_data.retailer_ids if explicitly specified
-      let plannedRetailerIds: string[] = [];
-      for (const beatPlan of filteredBeatPlans) {
-        const beatData = (beatPlan as any).beat_data as any;
-        if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-          plannedRetailerIds.push(...beatData.retailer_ids);
+        // Extract retailer IDs from beat_data.retailer_ids if explicitly specified
+        let plannedRetailerIds: string[] = [];
+        for (const beatPlan of filteredBeatPlans) {
+          const beatData = (beatPlan as any).beat_data as any;
+          if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
+            plannedRetailerIds.push(...beatData.retailer_ids);
+          }
         }
-      }
 
-      // CRITICAL: Do NOT fall back to beat_id mapping from cache
-      // The database is the source of truth for which retailers belong to a beat
-      // If beat_data.retailer_ids is not defined, the network fetch will get the correct list
-      // For cache-only mode, only show retailers with visits or orders
-      
-      // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids, AND orders
-      const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
-      
-      // STRICT FILTERING: Only include retailers that are explicitly in our list
-      // Do NOT include retailers just because they match beat_id - database is source of truth
-      const filteredRetailers = cachedRetailers.filter((r: any) => {
-        return allRetailerIds.includes(r.id);
-      });
+        // CRITICAL: Do NOT fall back to beat_id mapping from cache
+        // The database is the source of truth for which retailers belong to a beat
+        // If beat_data.retailer_ids is not defined, the network fetch will get the correct list
+        // For cache-only mode, only show retailers with visits or orders
+        
+        // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids, AND orders
+        const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
+        
+        // STRICT FILTERING: Only include retailers that are explicitly in our list
+        // Do NOT include retailers just because they match beat_id - database is source of truth
+        const filteredRetailers = cachedRetailers.filter((r: any) => {
+          return allRetailerIds.includes(r.id);
+        });
 
-      // CRITICAL: Always update state for the new date, even if empty
-      // This ensures the UI shows "No beats planned" instead of stale data
-      setBeatPlans(prev => arraysEqual(prev, filteredBeatPlans) ? prev : filteredBeatPlans);
-      setVisits(prev => arraysEqual(prev, filteredVisits) ? prev : filteredVisits);
-      setRetailers(prev => arraysEqual(prev, filteredRetailers) ? prev : filteredRetailers);
-      setOrders(prev => arraysEqual(prev, filteredOrders) ? prev : filteredOrders);
-      hasLoadedFromCache = true;
-      setIsLoading(false);
-      lastLoadedDateRef.current = selectedDate;
+        // CRITICAL: Always update state for the new date, even if empty
+        // This ensures the UI shows "No beats planned" instead of stale data
+        setBeatPlans(prev => arraysEqual(prev, filteredBeatPlans) ? prev : filteredBeatPlans);
+        setVisits(prev => arraysEqual(prev, filteredVisits) ? prev : filteredVisits);
+        setRetailers(prev => arraysEqual(prev, filteredRetailers) ? prev : filteredRetailers);
+        setOrders(prev => arraysEqual(prev, filteredOrders) ? prev : filteredOrders);
+        hasLoadedFromCache = true;
+        setIsLoading(false);
+        lastLoadedDateRef.current = selectedDate;
 
       // Display cached data immediately - only update if data changed
       if (
@@ -247,6 +259,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           ordersCount: filteredOrders.length,
           timestamp: new Date().toISOString()
         });
+        }
       }
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
@@ -297,6 +310,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const visitsData = visitsResult.data || [];
         const pointsRawData = pointsResult.data || [];
 
+        // CRITICAL: If no beat plans exist for this date, show NO retailers
+        // Only show retailers when there are planned beats, visits, or orders for the day
+        if (beatPlansData.length === 0 && visitsData.length === 0) {
+          console.log('📋 No beat plans or visits for this date - showing no retailers');
+          // Check if there are any orders for this date
+          const { data: ordersForDay } = await supabase
+            .from('orders')
+            .select('retailer_id')
+            .eq('user_id', userId)
+            .eq('status', 'confirmed')
+            .gte('created_at', `${selectedDate}T00:00:00.000Z`)
+            .lte('created_at', `${selectedDate}T23:59:59.999Z`);
+          
+          if (!ordersForDay || ordersForDay.length === 0) {
+            // No beat plans, no visits, no orders - show empty state
+            setBeatPlans([]);
+            setVisits([]);
+            setRetailers([]);
+            setOrders([]);
+            setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+            setIsLoading(false);
+            isLoadingRef.current = false;
+            return;
+          }
+        }
+
         // Get all retailer IDs we need
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
         
@@ -315,7 +354,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds);
         
         // If no specific retailer IDs are defined in beat_data for any plan, fall back to fetching by beat_id
-        if (!hasBeatDataWithRetailerIdsDefined) {
+        if (!hasBeatDataWithRetailerIdsDefined && beatPlansData.length > 0) {
           const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
           if (plannedBeatIds.length > 0) {
             const { data: plannedRetailers, error: retailersError } = await supabase
@@ -331,7 +370,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
               console.log('📋 Found', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'planned beats (fallback by beat_id)');
             }
           }
-        } else {
+        } else if (hasBeatDataWithRetailerIdsDefined) {
           console.log('📋 Using', plannedRetailerIds.length, 'specific retailers from beat plan data');
         }
 
