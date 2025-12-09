@@ -392,18 +392,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
 
     try {
+      console.log('🔄 Loading previous van stock for van:', selectedVan, 'before date:', selectedDate);
+      
       // Fetch the most recent van stock before the selected date for this van
+      // Filter by end_km > 0 to get completed day's stock (has closing data)
       const { data: previousStock, error } = await supabase
         .from('van_stock')
         .select('*, van_stock_items(*)')
         .eq('van_id', selectedVan)
         .eq('user_id', session.session.user.id)
         .lt('stock_date', selectedDate)
+        .gt('end_km', 0) // Only get records where closing stock was recorded
         .order('stock_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (error) throw error;
+
+      console.log('📦 Previous stock found:', previousStock?.stock_date, 'items:', previousStock?.van_stock_items?.length);
+      console.log('📊 Previous stock items:', previousStock?.van_stock_items?.map((i: any) => ({ name: i.product_name, left: i.left_qty })));
 
       if (!previousStock || !previousStock.van_stock_items || previousStock.van_stock_items.length === 0) {
         toast.info('No previous van stock found');
@@ -412,15 +419,20 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
 
       // Convert previous "left_qty" to current "start_qty"
-      const newStockItems: StockItem[] = previousStock.van_stock_items.map((item: any) => ({
-        product_id: item.product_id,
-        product_name: item.product_name,
-        unit: item.unit || '',
-        start_qty: item.left_qty || 0, // Previous left becomes current start
-        ordered_qty: 0,
-        returned_qty: 0,
-        left_qty: item.left_qty || 0, // Initially same as start
-      }));
+      // Filter out items with 0 left quantity to avoid clutter
+      const newStockItems: StockItem[] = previousStock.van_stock_items
+        .filter((item: any) => (item.left_qty || 0) > 0)
+        .map((item: any) => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          unit: item.unit || '',
+          start_qty: item.left_qty || 0, // Previous left becomes current start
+          ordered_qty: 0,
+          returned_qty: 0,
+          left_qty: item.left_qty || 0, // Initially same as start
+        }));
+
+      console.log('✅ Loaded stock items:', newStockItems.length, 'from date:', previousStock.stock_date);
 
       setStockItems(newStockItems);
       
