@@ -508,14 +508,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       const product = products.find(p => p.id === item.product_id);
       const priceWithGST = product?.rate || 0;
       // Calculate price without GST (5% GST = 2.5% CGST + 2.5% SGST)
-      const priceWithoutGST = priceWithGST / 1.05;
-      const totalValue = priceWithoutGST * item.start_qty;
+      const priceWithoutGST = priceWithGST / 1.05; // Price per KG
+      const unit = (item.unit || '').toLowerCase();
+      const qty = item.start_qty || 0;
+      
+      // Convert grams to KG for value calculation since price is per KG
+      let qtyInKG = qty;
+      let qtyDisplay = qty.toString();
+      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+        qtyInKG = qty / 1000;
+        qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
+      }
+      
+      const totalValue = priceWithoutGST * qtyInKG;
       
       return {
         'Product': item.product_name,
         'Price (without GST)': `₹${priceWithoutGST.toFixed(2)}`,
         'Unit': item.unit,
-        'Quantity': item.start_qty,
+        'Quantity': qtyDisplay,
         'Total Value': `₹${totalValue.toFixed(2)}`
       };
     });
@@ -565,21 +576,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
 
     // Calculate totals with proper gram to KG conversion
+    // Price is per KG, so we need to convert grams to KG for value calculation
     let totalKGs = 0;
     const totalValue = savedItems.reduce((sum: number, item: any) => {
       const product = products.find(p => p.id === item.product_id);
-      const priceWithoutGST = (product?.rate || 0) / 1.05;
+      const priceWithoutGST = (product?.rate || 0) / 1.05; // Price per KG
       const unit = (item.unit || '').toLowerCase();
       const qty = item.start_qty || 0;
       
-      // Convert grams to KG for total calculation
+      // Convert grams to KG for both weight and value calculation
+      let qtyInKG = qty;
       if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        totalKGs += qty / 1000;
+        qtyInKG = qty / 1000;
+        totalKGs += qtyInKG;
       } else if (unit === 'kg' || unit === 'kgs') {
         totalKGs += qty;
       }
       
-      return sum + (priceWithoutGST * qty);
+      // Calculate value using quantity in KG since price is per KG
+      return sum + (priceWithoutGST * qtyInKG);
     }, 0);
     
     // Summary with Total KGs and Total Value
@@ -601,12 +616,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       let unitDisplay = item.unit || '';
       
       // For grams, show both grams and KG equivalent
+      let qtyInKG = qty;
       if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        const kgEquivalent = qty / 1000;
-        qtyDisplay = `${qty} (${kgEquivalent.toFixed(3)} KG)`;
+        qtyInKG = qty / 1000;
+        qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
       }
       
-      const totalVal = priceWithoutGST * qty;
+      // Price is per KG, so calculate total using quantity in KG
+      const totalVal = priceWithoutGST * qtyInKG;
       
       return [
         item.product_name,
@@ -684,20 +701,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
 
     // Calculate totals with proper gram to KG conversion
+    // Price is per KG, so we need to convert grams to KG for value calculation
     let totalKGs = 0;
     const totalValue = savedItems.reduce((sum: number, item: any) => {
       const product = products.find(p => p.id === item.product_id);
-      const priceWithoutGST = (product?.rate || 0) / 1.05;
+      const priceWithoutGST = (product?.rate || 0) / 1.05; // Price per KG
       const unit = (item.unit || '').toLowerCase();
       const qty = item.start_qty || 0;
       
+      // Convert grams to KG for both weight and value calculation
+      let qtyInKG = qty;
       if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        totalKGs += qty / 1000;
+        qtyInKG = qty / 1000;
+        totalKGs += qtyInKG;
       } else if (unit === 'kg' || unit === 'kgs') {
         totalKGs += qty;
       }
       
-      return sum + (priceWithoutGST * qty);
+      // Calculate value using quantity in KG since price is per KG
+      return sum + (priceWithoutGST * qtyInKG);
     }, 0);
     
     doc.setFontSize(10);
@@ -715,12 +737,15 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       let qtyDisplay = qty.toString();
       let unitDisplay = item.unit || '';
       
+      // For grams, show both grams and KG equivalent
+      let qtyInKG = qty;
       if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        const kgEquivalent = qty / 1000;
-        qtyDisplay = `${qty} (${kgEquivalent.toFixed(3)} KG)`;
+        qtyInKG = qty / 1000;
+        qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
       }
       
-      const totalVal = priceWithoutGST * qty;
+      // Price is per KG, so calculate total using quantity in KG
+      const totalVal = priceWithoutGST * qtyInKG;
       
       return [
         item.product_name,
