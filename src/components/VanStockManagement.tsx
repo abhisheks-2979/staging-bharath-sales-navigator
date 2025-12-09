@@ -691,11 +691,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
     try {
       // Update van_stock with end_km and status = 'closing_verified'
+      // Note: total_km is a generated column, so we only update end_km
       const { error: updateError } = await supabase
         .from('van_stock')
         .update({
           end_km: closingEndKm,
-          total_km: closingEndKm - startKm,
           status: 'closing_verified',
         })
         .eq('id', todayStock.id);
