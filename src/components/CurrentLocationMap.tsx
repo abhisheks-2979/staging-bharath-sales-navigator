@@ -326,120 +326,120 @@ export const CurrentLocationMap: React.FC<CurrentLocationMapProps> = ({
   };
 
   return (
-    <div className="relative rounded-lg overflow-hidden border shadow-sm" style={{ height }}>
-      {/* Map Container */}
-      <div
-        ref={mapContainerRef}
-        className="absolute inset-0"
-      />
-
-      {/* Floating Info Card - Top - Fixed position */}
+    <div className="flex flex-col" style={{ height }}>
+      {/* Fixed Location Info Card - Outside map container */}
       {location && (
-        <div className="absolute top-0 left-0 right-0 z-[1000] p-3 pointer-events-none">
-          <Card className="bg-background/95 backdrop-blur-sm shadow-lg pointer-events-auto">
-            <div className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Navigation className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span className="font-medium text-sm truncate">
-                      {isCurrentUser && !isViewingOther ? 'Your Live Location' : 'Current Location'}
-                    </span>
-                    <Badge 
-                      variant={location.timestamp && isLocationFresh(location.timestamp) ? "default" : "secondary"}
-                      className={`text-xs ${location.timestamp && isLocationFresh(location.timestamp) ? 'bg-green-500' : 'bg-yellow-500'}`}
-                    >
-                      {location.timestamp && isLocationFresh(location.timestamp) ? 'Live' : 'Stale'}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p className="font-mono">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
-                    {location.timestamp && (
-                      <p className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {getTimeDifference(location.timestamp)} • {format(location.timestamp, 'hh:mm a')}
-                      </p>
-                    )}
-                    {location.accuracy && (
-                      <p className="text-muted-foreground/70">±{Math.round(location.accuracy)}m accuracy</p>
-                    )}
-                  </div>
+        <Card className="bg-background border shadow-md mb-3 flex-shrink-0">
+          <div className="p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Navigation className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="font-medium text-sm truncate">
+                    {isCurrentUser && !isViewingOther ? 'Your Live Location' : 'Current Location'}
+                  </span>
+                  <Badge 
+                    variant={location.timestamp && isLocationFresh(location.timestamp) ? "default" : "secondary"}
+                    className={`text-xs ${location.timestamp && isLocationFresh(location.timestamp) ? 'bg-green-500' : 'bg-yellow-500'}`}
+                  >
+                    {location.timestamp && isLocationFresh(location.timestamp) ? 'Live' : 'Stale'}
+                  </Badge>
                 </div>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-8 w-8 flex-shrink-0"
-                  onClick={handleManualRefresh}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p className="font-mono">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
+                  {location.timestamp && (
+                    <p className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {getTimeDifference(location.timestamp)} • {format(location.timestamp, 'hh:mm a')}
+                    </p>
                   )}
-                </Button>
+                  {location.accuracy && (
+                    <p className="text-muted-foreground/70">±{Math.round(location.accuracy)}m accuracy</p>
+                  )}
+                </div>
               </div>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={handleManualRefresh}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Map Container */}
+      <div className="relative rounded-lg overflow-hidden border shadow-sm flex-1 min-h-0">
+        <div
+          ref={mapContainerRef}
+          className="absolute inset-0"
+        />
+
+        {/* Floating Controls - Bottom Left */}
+        <div className="absolute bottom-3 left-3 z-[1000]">
+          <Card className="bg-background border shadow-md">
+            <div className="p-2 flex items-center gap-2">
+              <Switch
+                checked={autoRefresh}
+                onCheckedChange={setAutoRefresh}
+                className="scale-75"
+              />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {isCurrentUser && !isViewingOther ? 'Live Tracking' : 'Auto (15s)'}
+              </span>
             </div>
           </Card>
         </div>
-      )}
 
-      {/* Floating Controls - Bottom Left - Fixed position */}
-      <div className="absolute bottom-0 left-0 z-[1000] p-3 pointer-events-none">
-        <Card className="bg-background/95 backdrop-blur-sm shadow-lg pointer-events-auto">
-          <div className="p-2 flex items-center gap-2">
-            <Switch
-              checked={autoRefresh}
-              onCheckedChange={setAutoRefresh}
-              className="scale-75"
-            />
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {isCurrentUser && !isViewingOther ? 'Live Tracking' : 'Auto (15s)'}
-            </span>
+        {/* No Location State */}
+        {!location && !loading && userId && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+            <div className="text-center p-6">
+              <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">No location data available</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={handleManualRefresh}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {isCurrentUser && !isViewingOther ? 'Get My Location' : 'Try Again'}
+              </Button>
+            </div>
           </div>
-        </Card>
+        )}
+
+        {/* No User Selected State */}
+        {!userId && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+            <div className="text-center p-6">
+              <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">Select a team member to view location</p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && !location && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
+            <div className="text-center p-6">
+              <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">
+                {isCurrentUser && !isViewingOther ? 'Getting your location...' : 'Fetching location...'}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* No Location State */}
-      {!location && !loading && userId && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
-          <div className="text-center p-6">
-            <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">No location data available</p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-3"
-              onClick={handleManualRefresh}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {isCurrentUser && !isViewingOther ? 'Get My Location' : 'Try Again'}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* No User Selected State */}
-      {!userId && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
-          <div className="text-center p-6">
-            <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">Select a team member to view location</p>
-          </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && !location && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-[1000]">
-          <div className="text-center p-6">
-            <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              {isCurrentUser && !isViewingOther ? 'Getting your location...' : 'Fetching location...'}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
