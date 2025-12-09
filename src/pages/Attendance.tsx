@@ -522,6 +522,49 @@ const Attendance = () => {
           startTracking();
         }, 500);
 
+      } else if (attendanceType === 'check-out') {
+        console.log('Starting check-out process...');
+        
+        // Update attendance record with check-out time
+        const { error: checkoutError } = await supabase
+          .from('attendance')
+          .update({
+            check_out_time: timestamp,
+            check_out_location: freshLocation,
+            check_out_address: `${freshLocation.latitude}, ${freshLocation.longitude}`,
+            check_out_photo_url: photoPath,
+            face_verification_status_out: matchStatus,
+            face_match_confidence_out: confidence
+          })
+          .eq('user_id', user.id)
+          .eq('date', today);
+
+        if (checkoutError) {
+          console.error('Check-out update error:', checkoutError);
+          throw checkoutError;
+        }
+        
+        console.log('Check-out recorded successfully');
+
+        // Mark all remaining planned visits as cancelled
+        const { error: cancelError } = await supabase
+          .from('visits')
+          .update({ 
+            status: 'cancelled',
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('planned_date', today)
+          .eq('status', 'planned');
+        
+        if (cancelError) {
+          console.error('Error cancelling planned visits:', cancelError);
+        } else {
+          console.log('Remaining planned visits cancelled');
+        }
+
+        // Close camera modal
+        setShowCamera(false);
         setAttendanceType(null);
         setIsMarkingAttendance(false);
 
