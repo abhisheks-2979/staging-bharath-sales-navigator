@@ -2055,16 +2055,14 @@ export const VisitCard = ({
                   </div>
                   
                   {/* Order Items (Aggregated from all orders today) */}
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 space-y-1 overflow-hidden">
                     {loadingOrder && <div className="text-xs text-muted-foreground">Loading...</div>}
                     {!loadingOrder && lastOrderItems.length === 0 && <div className="text-xs text-muted-foreground">No items found.</div>}
-                    {!loadingOrder && lastOrderItems.map((it, idx) => <div key={idx} className="flex justify-between items-center text-xs">
-                        <span className="truncate pr-2">{it.product_name}</span>
-                        <div className="whitespace-nowrap text-right">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{it.quantity} x ₹{it.actualRate.toFixed(2)}</span>
-                            {it.actualRate !== it.rate && <span className="text-xs text-muted-foreground line-through">₹{it.rate.toFixed(2)}</span>}
-                          </div>
+                    {!loadingOrder && lastOrderItems.map((it, idx) => <div key={idx} className="flex justify-between items-start gap-2 text-xs py-1">
+                        <span className="flex-1 min-w-0 break-words">{it.product_name}</span>
+                        <div className="flex-shrink-0 text-right">
+                          <span className="font-medium">{it.quantity} x ₹{it.actualRate.toFixed(0)}</span>
+                          {it.actualRate !== it.rate && <div className="text-[10px] text-muted-foreground line-through">₹{it.rate.toFixed(0)}</div>}
                         </div>
                       </div>)}
                   </div>
