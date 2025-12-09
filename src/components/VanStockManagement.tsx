@@ -1202,7 +1202,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
-                          <p className="text-2xl font-bold">
+                          <p className="text-base md:text-2xl font-bold">
                             {showDetailModal === 'start' && item.start_qty}
                             {showDetailModal === 'ordered' && (item.ordered_qty || 0)}
                             {showDetailModal === 'returned' && (item.returned_qty || 0)}
