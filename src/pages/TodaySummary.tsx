@@ -101,6 +101,13 @@ export const TodaySummary = () => {
   }>>([]);
 
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
+  
+  // First and last retailer visit data for Time at Retailers modal
+  const [firstLastRetailerVisit, setFirstLastRetailerVisit] = useState<{
+    first: { retailerName: string; time: string } | null;
+    last: { retailerName: string; time: string } | null;
+  }>({ first: null, last: null });
+  const [timeAtRetailersModalOpen, setTimeAtRetailersModalOpen] = useState(false);
 
   // Dialog state and data sources for details
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -694,13 +701,17 @@ export const TodaySummary = () => {
       
       // Calculate time at retailers from first visit start_time to last visit end_time
       let timeAtRetailersStr = '0h 0m';
+      let firstRetailerVisitData: { retailerName: string; time: string } | null = null;
+      let lastRetailerVisitData: { retailerName: string; time: string } | null = null;
+      
       if (visitLogsData && visitLogsData.length > 0) {
         // Filter logs with valid start_time
         const validLogs = visitLogsData.filter(log => log.start_time);
         
         if (validLogs.length > 0) {
-          // Get the first start_time (earliest visit)
-          const firstStartTime = new Date(validLogs[0].start_time);
+          // Get the first log (earliest visit - already sorted by start_time ascending)
+          const firstLog = validLogs[0];
+          const firstStartTime = new Date(firstLog.start_time);
           
           // Get the last end_time (latest visit completion)
           const lastLog = validLogs.reduce((latest, log) => {
@@ -709,6 +720,26 @@ export const TodaySummary = () => {
             return (!latest || endTime > new Date(latest.end_time)) ? log : latest;
           }, null as typeof validLogs[0] | null);
           
+          // Fetch retailer names for first and last visits
+          const retailerIdsToFetch = [firstLog.retailer_id];
+          if (lastLog && lastLog.retailer_id !== firstLog.retailer_id) {
+            retailerIdsToFetch.push(lastLog.retailer_id);
+          }
+          
+          const { data: visitRetailersData } = await supabase
+            .from('retailers')
+            .select('id, name')
+            .in('id', retailerIdsToFetch);
+          
+          const retailerNameMap = new Map<string, string>();
+          visitRetailersData?.forEach(r => retailerNameMap.set(r.id, r.name));
+          
+          // Set first retailer visit data
+          firstRetailerVisitData = {
+            retailerName: retailerNameMap.get(firstLog.retailer_id) || 'Unknown Retailer',
+            time: format(firstStartTime, 'hh:mm a')
+          };
+          
           if (lastLog?.end_time) {
             const lastEndTime = new Date(lastLog.end_time);
             const diffMs = lastEndTime.getTime() - firstStartTime.getTime();
@@ -716,9 +747,21 @@ export const TodaySummary = () => {
             const hours = Math.floor(diffMinutes / 60);
             const minutes = Math.round(diffMinutes % 60);
             timeAtRetailersStr = `${hours}h ${minutes}m`;
+            
+            // Set last retailer visit data
+            lastRetailerVisitData = {
+              retailerName: retailerNameMap.get(lastLog.retailer_id) || 'Unknown Retailer',
+              time: format(lastEndTime, 'hh:mm a')
+            };
           }
         }
       }
+      
+      // Update first/last retailer visit state
+      setFirstLastRetailerVisit({
+        first: firstRetailerVisitData,
+        last: lastRetailerVisitData
+      });
       
       console.log('📊 Today\'s Summary Data:', {
         totalVisits: visits?.length || 0,
@@ -1710,10 +1753,14 @@ export const TodaySummary = () => {
                     {summaryData.distanceCovered > 0 ? `${summaryData.distanceCovered} km` : 'No data'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-2 bg-warning/10 rounded-lg">
+                <div 
+                  className="flex items-center justify-between p-2 bg-warning/10 rounded-lg cursor-pointer hover:bg-warning/20 transition-colors"
+                  onClick={() => setTimeAtRetailersModalOpen(true)}
+                >
                   <div className="flex items-center gap-2">
                     <Clock size={14} className="text-warning" />
                     <span className="text-sm">Time at Retailers</span>
+                    <ExternalLink size={12} className="text-warning/60" />
                   </div>
                   <span className="font-semibold text-warning">{summaryData.travelTime}</span>
                 </div>
@@ -2201,6 +2248,51 @@ export const TodaySummary = () => {
             }}
           />
         )}
+
+        {/* Time at Retailers Modal */}
+        <Dialog open={timeAtRetailersModalOpen} onOpenChange={setTimeAtRetailersModalOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Clock size={18} className="text-warning" />
+                Time at Retailers
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="text-center text-2xl font-bold text-warning mb-4">
+                {summaryData.travelTime}
+              </div>
+              
+              {firstLastRetailerVisit.first ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-success/10 rounded-lg border border-success/20">
+                    <div className="text-xs text-muted-foreground mb-1">First Visit</div>
+                    <div className="font-semibold">{firstLastRetailerVisit.first.retailerName}</div>
+                    <div className="text-sm text-success flex items-center gap-1 mt-1">
+                      <Clock size={12} />
+                      {firstLastRetailerVisit.first.time}
+                    </div>
+                  </div>
+                  
+                  {firstLastRetailerVisit.last && (
+                    <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                      <div className="text-xs text-muted-foreground mb-1">Last Visit</div>
+                      <div className="font-semibold">{firstLastRetailerVisit.last.retailerName}</div>
+                      <div className="text-sm text-destructive flex items-center gap-1 mt-1">
+                        <Clock size={12} />
+                        {firstLastRetailerVisit.last.time}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-4">
+                  No retailer visits recorded for this period
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
     </div>
