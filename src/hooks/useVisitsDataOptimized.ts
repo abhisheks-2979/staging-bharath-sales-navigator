@@ -153,11 +153,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Combine all retailer IDs: from visits, planned beats, AND orders
       const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
       
-      // NEW OFFLINE FEATURE: Include offline retailers for planned beats
+      // CRITICAL FIX: Only include beat-based retailers if there are beat plans for this date
+      // This prevents showing all retailers when no beats are planned
       const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-      const filteredRetailers = cachedRetailers.filter((r: any) => 
-        allRetailerIds.includes(r.id) || (r.beat_id && plannedBeatIds.includes(r.beat_id))
-      );
+      const hasPlannedBeats = filteredBeatPlans.length > 0;
+      
+      // Only filter retailers if we have actual data to show
+      const filteredRetailers = cachedRetailers.filter((r: any) => {
+        // Always include if retailer has a visit, order, or is in planned list
+        if (allRetailerIds.includes(r.id)) return true;
+        // Only include beat-based retailers if there ARE beat plans for today
+        if (hasPlannedBeats && r.beat_id && plannedBeatIds.includes(r.beat_id)) return true;
+        return false;
+      });
 
       // CRITICAL: Always update state for the new date, even if empty
       // This ensures the UI shows "No beats planned" instead of stale data
@@ -384,14 +392,18 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           ordersData = ordersResult.data || [];
         }
 
-        // NEW OFFLINE FEATURE: Merge offline retailers for planned beats
+        // NEW OFFLINE FEATURE: Merge offline retailers for planned beats ONLY if there are beat plans
         const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
-        const cachedRetailersAll = await offlineStorage.getAll<any>(STORES.RETAILERS);
-        const offlineRetailersForBeats = cachedRetailersAll.filter((r: any) => 
-          r.beat_id && plannedBeatIds.includes(r.beat_id) && 
-          !retailersData.some((onlineR: any) => onlineR.id === r.id)
-        );
-        retailersData = [...retailersData, ...offlineRetailersForBeats];
+        const hasPlannedBeatsForDate = beatPlansData && beatPlansData.length > 0;
+        
+        if (hasPlannedBeatsForDate) {
+          const cachedRetailersAll = await offlineStorage.getAll<any>(STORES.RETAILERS);
+          const offlineRetailersForBeats = cachedRetailersAll.filter((r: any) => 
+            r.beat_id && plannedBeatIds.includes(r.beat_id) && 
+            !retailersData.some((onlineR: any) => onlineR.id === r.id)
+          );
+          retailersData = [...retailersData, ...offlineRetailersForBeats];
+        }
 
         // Process points data into efficient structure
         const totalPoints = pointsRawData.reduce((sum, item) => sum + item.points, 0);
