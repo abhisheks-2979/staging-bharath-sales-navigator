@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
+import { downloadPDF } from "@/utils/fileDownloader";
 
 interface VisitInvoicePDFGeneratorProps {
   orderId: string;
@@ -27,15 +28,8 @@ export const VisitInvoicePDFGenerator = ({ orderId, customerPhone, className }: 
       // Generate Template 4 invoice using unified generator
       const { blob, invoiceNumber } = await fetchAndGenerateInvoice(orderId);
       
-      // Download the PDF
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `invoice-${invoiceNumber}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Download the PDF using cross-platform downloader
+      await downloadPDF(blob, `invoice-${invoiceNumber}.pdf`);
       
       toast.success("Invoice downloaded successfully!");
     } catch (error: any) {

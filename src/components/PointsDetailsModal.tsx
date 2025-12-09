@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from 'xlsx';
 import { format } from "date-fns";
+import { downloadExcel } from "@/utils/fileDownloader";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
@@ -203,7 +204,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
       .reduce((sum, p) => sum + p.points, 0)
   }));
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     try {
       const exportData = filteredPoints.map(point => ({
         "Date & Time": format(new Date(point.earned_at), "dd MMM yyyy, HH:mm"),
@@ -231,7 +232,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
       worksheet['!cols'] = colWidths;
 
       const fileName = `Points_Details_${timeFilter}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
+      await downloadExcel(workbook, fileName, XLSX);
       
       toast.success("Excel file exported successfully!");
     } catch (error) {

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, Eye, Volume2, Filter, X } from "lucide-react";
 import * as XLSX from "xlsx";
+import { downloadExcel } from "@/utils/fileDownloader";
 
 interface CompetitionDataListProps {
   data: any[];
@@ -39,7 +40,7 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
     return true;
   });
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const exportData = filteredData.map(item => ({
       "SKU Name": skus.find(s => s.id === item.sku_id)?.sku_name || 'Unknown',
       "Retailer": item.retailers?.name || 'N/A',
@@ -57,7 +58,7 @@ export function CompetitionDataList({ data, skus }: CompetitionDataListProps) {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Competition Data");
-    XLSX.writeFile(wb, `competition_data_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await downloadExcel(wb, `competition_data_${new Date().toISOString().split('T')[0]}.xlsx`, XLSX);
   };
 
   const clearFilters = () => {

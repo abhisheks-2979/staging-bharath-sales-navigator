@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, parse } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { downloadPDF } from "@/utils/fileDownloader";
 import { ReportGenerator } from "@/components/ReportGenerator";
 import { calculateJointVisitScore } from "@/components/JointSalesFeedbackModal";
 import { JointSalesFeedbackViewModal } from "@/components/JointSalesFeedbackViewModal";
@@ -1121,7 +1122,7 @@ export const TodaySummary = () => {
       .trim();
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -1348,14 +1349,10 @@ export const TodaySummary = () => {
         });
       }
       
-      // Save the PDF
+      // Save the PDF using cross-platform downloader
       const fileName = `Summary_${format(selectedDate, 'yyyy-MM-dd')}.pdf`;
-      doc.save(fileName);
-      
-      toast({
-        title: "PDF Downloaded",
-        description: `${fileName} has been downloaded successfully`,
-      });
+      const pdfBlob = doc.output('blob');
+      await downloadPDF(pdfBlob, fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
       toast({

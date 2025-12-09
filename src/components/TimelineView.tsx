@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
+import { downloadPDF } from '@/utils/fileDownloader';
 
 interface Visit {
   id: string;
@@ -59,7 +60,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     return reason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
 
-  const downloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPosition = 20;
@@ -169,7 +170,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       doc.text(`DAY END: ${format(new Date(sortedVisits[sortedVisits.length - 1].check_out_time!), 'hh:mm a')}`, 20, yPosition);
     }
 
-    doc.save(`timeline-${new Date().toISOString().split('T')[0]}.pdf`);
+    const pdfBlob = doc.output('blob');
+    await downloadPDF(pdfBlob, `timeline-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -230,7 +232,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
           {/* Download Button */}
           <Button
-            onClick={downloadPDF}
+            onClick={handleDownloadPDF}
             variant="outline"
             size="sm"
           >
