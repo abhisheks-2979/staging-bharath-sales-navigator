@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History, RefreshCw } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { syncOrdersToVanStock } from '@/utils/vanStockSync';
+import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
 
 interface Van {
   id: string;
@@ -70,6 +70,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [startKm, setStartKm] = useState(0);
   const [endKm, setEndKm] = useState(0);
   const [showLoadPreviousConfirm, setShowLoadPreviousConfirm] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -78,12 +79,34 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       loadBeatForDate();
       checkTime();
       
-      // Sync order quantities to van stock when dialog opens
-      syncOrdersToVanStock(selectedDate).catch(err => {
-        console.error('Error syncing van stock on open:', err);
+      // Auto-recalculate van stock when dialog opens to fix any corrupted data
+      recalculateVanStock(selectedDate).catch(err => {
+        console.error('Error recalculating van stock on open:', err);
       });
     }
   }, [open, selectedDate]);
+
+  // Manual recalculate function
+  const handleRecalculateStock = async () => {
+    setIsRecalculating(true);
+    try {
+      const success = await recalculateVanStock(selectedDate);
+      if (success) {
+        toast.success('Stock quantities recalculated successfully');
+        // Reload the stock data to show updated values
+        if (selectedVan) {
+          loadTodayStock(false);
+        }
+      } else {
+        toast.info('No stock data to recalculate');
+      }
+    } catch (error) {
+      console.error('Error recalculating stock:', error);
+      toast.error('Failed to recalculate stock');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedVan && selectedDate) {
@@ -1051,11 +1074,21 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
             {selectedVan && selectedBeat && (
               <>
-                {/* Summary Cards */}
-                <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded-lg border border-blue-200 dark:border-blue-800 mb-3">
+                {/* Summary Cards with Recalculate Button */}
+                <div className="bg-blue-50 dark:bg-blue-950 p-2 rounded-lg border border-blue-200 dark:border-blue-800 mb-3 flex items-center justify-between">
                   <p className="text-xs text-blue-800 dark:text-blue-200">
                     <strong>Note:</strong> Orders from today's beat are auto-counted here.
                   </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRecalculateStock}
+                    disabled={isRecalculating}
+                    className="text-xs h-7 gap-1 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", isRecalculating && "animate-spin")} />
+                    {isRecalculating ? 'Recalculating...' : 'Recalculate'}
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

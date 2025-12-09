@@ -78,20 +78,19 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
 
     console.log(`🔄 Syncing orders to van stock for date: ${stockDate}, user: ${currentUserId}`);
 
-    // Get van stock for the date
-    const { data: vanStock, error: stockError } = await supabase
+    // Get ALL van stocks for the date (user may have multiple vans)
+    const { data: vanStocks, error: stockError } = await supabase
       .from('van_stock')
       .select('id, van_id, van_stock_items(*)')
       .eq('stock_date', stockDate)
-      .eq('user_id', currentUserId)
-      .maybeSingle();
+      .eq('user_id', currentUserId);
 
     if (stockError) {
       console.error('Error fetching van stock:', stockError);
       return false;
     }
 
-    if (!vanStock || !vanStock.van_stock_items || vanStock.van_stock_items.length === 0) {
+    if (!vanStocks || vanStocks.length === 0) {
       console.log('No van stock found for this date');
       return false;
     }
@@ -140,51 +139,59 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
 
     console.log('📦 Order quantities by base product (in grams):', orderQuantitiesInGrams);
 
-    // Update each van stock item with calculated ordered quantity
-    // CRITICAL: Convert the order quantity to match the van stock item's unit
-    let updateCount = 0;
-    for (const stockItem of vanStock.van_stock_items as any[]) {
-      const stockItemUnit = stockItem.unit || 'g'; // Van stock item's unit
-      const orderedGrams = orderQuantitiesInGrams[stockItem.product_id] || 0;
-      
-      // Convert ordered quantity from grams to the van stock item's native unit
-      const orderedQtyInStockUnit = convertQuantity(orderedGrams, 'g', stockItemUnit);
-      
-      // Calculate left quantity in the stock item's native unit
-      // Formula: left = start - ordered + returned (all in same unit)
-      const startQty = stockItem.start_qty || 0;
-      const returnedQty = stockItem.returned_qty || 0;
-      const leftQty = Math.max(0, startQty - orderedQtyInStockUnit + returnedQty);
+    // Process ALL van stocks for the user on this date
+    let totalUpdateCount = 0;
+    
+    for (const vanStock of vanStocks) {
+      if (!vanStock.van_stock_items || vanStock.van_stock_items.length === 0) {
+        continue;
+      }
 
-      console.log(`📊 Product ${stockItem.product_name}: unit=${stockItemUnit}, orderedGrams=${orderedGrams}, orderedInUnit=${orderedQtyInStockUnit}, start=${startQty}, returned=${returnedQty}, left=${leftQty}`);
+      // Update each van stock item with calculated ordered quantity
+      // CRITICAL: Convert the order quantity to match the van stock item's unit
+      for (const stockItem of vanStock.van_stock_items as any[]) {
+        const stockItemUnit = (stockItem.unit || 'g').toLowerCase().trim();
+        const orderedGrams = orderQuantitiesInGrams[stockItem.product_id] || 0;
+        
+        // Convert ordered quantity from grams to the van stock item's native unit
+        const orderedQtyInStockUnit = convertQuantity(orderedGrams, 'g', stockItemUnit);
+        
+        // Calculate left quantity in the stock item's native unit
+        // Formula: left = start - ordered + returned (all in same unit)
+        const startQty = stockItem.start_qty || 0;
+        const returnedQty = stockItem.returned_qty || 0;
+        const leftQty = Math.max(0, startQty - orderedQtyInStockUnit + returnedQty);
 
-      // Only update if values changed (with small tolerance for floating point)
-      const orderedChanged = Math.abs((stockItem.ordered_qty || 0) - orderedQtyInStockUnit) > 0.001;
-      const leftChanged = Math.abs((stockItem.left_qty || 0) - leftQty) > 0.001;
-      
-      if (orderedChanged || leftChanged) {
-        const { error: updateError } = await supabase
-          .from('van_stock_items')
-          .update({
-            ordered_qty: orderedQtyInStockUnit,
-            left_qty: leftQty
-          })
-          .eq('id', stockItem.id);
+        console.log(`📊 Product ${stockItem.product_name}: unit=${stockItemUnit}, orderedGrams=${orderedGrams}, orderedInUnit=${orderedQtyInStockUnit.toFixed(3)}, start=${startQty}, returned=${returnedQty}, left=${leftQty.toFixed(3)}`);
 
-        if (updateError) {
-          console.error('Error updating van stock item:', updateError);
-        } else {
-          updateCount++;
-          console.log(`✅ Updated stock item ${stockItem.product_name}: ordered=${orderedQtyInStockUnit} ${stockItemUnit}, left=${leftQty} ${stockItemUnit}`);
+        // Only update if values changed (with small tolerance for floating point)
+        const orderedChanged = Math.abs((stockItem.ordered_qty || 0) - orderedQtyInStockUnit) > 0.001;
+        const leftChanged = Math.abs((stockItem.left_qty || 0) - leftQty) > 0.001;
+        
+        if (orderedChanged || leftChanged) {
+          const { error: updateError } = await supabase
+            .from('van_stock_items')
+            .update({
+              ordered_qty: orderedQtyInStockUnit,
+              left_qty: leftQty
+            })
+            .eq('id', stockItem.id);
+
+          if (updateError) {
+            console.error('Error updating van stock item:', updateError);
+          } else {
+            totalUpdateCount++;
+            console.log(`✅ Updated stock item ${stockItem.product_name}: ordered=${orderedQtyInStockUnit.toFixed(3)} ${stockItemUnit}, left=${leftQty.toFixed(3)} ${stockItemUnit}`);
+          }
         }
       }
     }
 
-    console.log(`✅ Updated ${updateCount} van stock items with order quantities`);
+    console.log(`✅ Updated ${totalUpdateCount} van stock items with order quantities`);
     
     // Dispatch event to notify UI components
     window.dispatchEvent(new CustomEvent('vanStockUpdated', { 
-      detail: { stockDate, updateCount } 
+      detail: { stockDate, updateCount: totalUpdateCount } 
     }));
     
     return true;
@@ -192,6 +199,18 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
     console.error('Error syncing orders to van stock:', error);
     return false;
   }
+}
+
+/**
+ * Force recalculate ALL van stock items for a given date
+ * This fixes any corrupted data from previous sync issues
+ */
+export async function recalculateVanStock(stockDate: string): Promise<boolean> {
+  console.log(`🔧 Force recalculating van stock for date: ${stockDate}`);
+  
+  // The syncOrdersToVanStock now properly recalculates everything
+  // Force it to run by calling it directly
+  return await syncOrdersToVanStock(stockDate);
 }
 
 /**
