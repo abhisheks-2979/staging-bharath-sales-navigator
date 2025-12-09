@@ -23,6 +23,7 @@ import { useFaceMatching } from '@/hooks/useFaceMatching';
 import { CameraCapture } from '@/components/CameraCapture';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { shouldSuppressError } from '@/utils/offlineErrorHandler';
+import { useVanSales } from '@/hooks/useVanSales';
 
 const Attendance = () => {
   const { toast } = useToast();
@@ -51,6 +52,7 @@ const Attendance = () => {
   const [attendanceType, setAttendanceType] = useState<'check-in' | 'check-out' | null>(null);
   const [faceVerificationAttempts, setFaceVerificationAttempts] = useState(0);
   const { compareImages, getMatchStatusIcon, getMatchStatusText } = useFaceMatching();
+  const { isVanSalesEnabled } = useVanSales();
 
   // GPS Tracking for today
   const today = new Date();
@@ -598,6 +600,49 @@ const Attendance = () => {
   };
 
   const markAttendance = async (type: 'check-in' | 'check-out') => {
+    // For check-out (End My Day), validate closing GRN if van sales is enabled
+    if (type === 'check-out' && isVanSalesEnabled) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const todayDate = new Date().toISOString().split('T')[0];
+          
+          // Check if closing GRN is verified for today
+          const { data: vanStock } = await supabase
+            .from('van_stock')
+            .select('id, status')
+            .eq('user_id', user.id)
+            .eq('stock_date', todayDate)
+            .maybeSingle();
+          
+          // If van stock exists for today but closing GRN is not verified
+          if (vanStock && vanStock.status !== 'closing_verified') {
+            toast({
+              title: "Closing GRN Required",
+              description: "Please save your Closing GRN in Van Stock before ending your day.",
+              variant: "destructive"
+            });
+            setIsMarkingAttendance(false);
+            return;
+          }
+          
+          // If morning GRN was saved but no closing GRN
+          if (vanStock && vanStock.status === 'morning_saved') {
+            toast({
+              title: "Closing GRN Required",
+              description: "You have saved Morning GRN. Please save Closing GRN before ending your day.",
+              variant: "destructive"
+            });
+            setIsMarkingAttendance(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking closing GRN status:', error);
+        // Don't block if there's an error checking - allow checkout to proceed
+      }
+    }
+    
     setIsMarkingAttendance(true);
     setAttendanceType(type);
     setShowCamera(true);
