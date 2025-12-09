@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Card } from './ui/card';
+import { Route, MapPin, CheckCircle, Clock } from 'lucide-react';
 
 interface Position {
   latitude: number;
@@ -37,6 +39,7 @@ L.Icon.Default.mergeOptions({
 export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [], height = '500px' }) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [totalDistance, setTotalDistance] = useState<number>(0);
 
   // Calculate distance between two points using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -102,7 +105,7 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
       ]);
 
       // Draw route connecting all retailers
-      const retailerRoute = L.polyline(retailerCoordinates, {
+      L.polyline(retailerCoordinates, {
         color: '#8b5cf6',
         weight: 4,
         opacity: 0.8,
@@ -110,22 +113,23 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
       }).addTo(mapRef.current);
 
       // Calculate total distance
-      let totalDistance = 0;
+      let distance = 0;
       for (let i = 0; i < retailers.length - 1; i++) {
-        totalDistance += calculateDistance(
+        distance += calculateDistance(
           retailers[i].latitude,
           retailers[i].longitude,
           retailers[i + 1].latitude,
           retailers[i + 1].longitude
         );
       }
+      setTotalDistance(distance);
 
       // Add retailer markers
       retailers.forEach((retailer, index) => {
         const isCompleted = retailer.status === 'completed' || retailer.status === 'productive' || retailer.checkInTime !== null;
         const icon = createRetailerIcon(isCompleted);
         
-        const marker = L.marker([retailer.latitude, retailer.longitude], { icon })
+        L.marker([retailer.latitude, retailer.longitude], { icon })
           .addTo(mapRef.current!)
           .bindPopup(`
             <div style="min-width: 200px;">
@@ -141,23 +145,6 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
             </div>
           `);
       });
-
-      // Add distance info to the map
-      if (totalDistance > 0) {
-        const bounds = L.latLngBounds(retailerCoordinates as L.LatLngTuple[]);
-        const center = bounds.getCenter();
-        
-        L.marker([center.lat, center.lng], {
-          icon: L.divIcon({
-            className: 'distance-label',
-            html: `<div style="background: white; padding: 8px 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-weight: bold; color: #8b5cf6;">
-              Total Route: ${totalDistance.toFixed(2)} km
-            </div>`,
-            iconSize: [150, 30],
-            iconAnchor: [75, 15]
-          })
-        }).addTo(mapRef.current!);
-      }
     }
 
     // Add GPS tracking path (if available)
@@ -232,6 +219,10 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
     };
   }, [positions, retailers]);
 
+  const completedCount = retailers.filter(r => 
+    r.status === 'completed' || r.status === 'productive' || r.checkInTime !== null
+  ).length;
+
   if (positions.length === 0 && retailers.length === 0) {
     return (
       <div className="flex items-center justify-center h-full bg-muted rounded-lg" style={{ height }}>
@@ -244,10 +235,42 @@ export const JourneyMap: React.FC<JourneyMapProps> = ({ positions, retailers = [
   }
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height, width: '100%' }}
-      className="rounded-lg overflow-hidden border"
-    />
+    <div className="flex flex-col" style={{ height }}>
+      {/* Fixed Route Info Card - Above the map */}
+      {retailers.length > 0 && (
+        <Card className="bg-background border shadow-md mb-3 flex-shrink-0">
+          <div className="p-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Route className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="font-medium text-sm">Route Summary</span>
+              </div>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">{retailers.length} stops</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-green-600">{completedCount} done</span>
+                </div>
+                {totalDistance > 0 && (
+                  <div className="font-semibold text-primary">
+                    {totalDistance.toFixed(2)} km
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Map Container */}
+      <div
+        ref={containerRef}
+        className="rounded-lg overflow-hidden border flex-1 min-h-0"
+        style={{ minHeight: '300px' }}
+      />
+    </div>
   );
 };
