@@ -181,6 +181,8 @@ export const CreateBeat = () => {
   const [selectedAnalyticsRetailer, setSelectedAnalyticsRetailer] = useState<Retailer | null>(null);
   const [selectedRetailers, setSelectedRetailers] = useState<string[]>([]);
   const [beatName, setBeatName] = useState("");
+  const [beatNameError, setBeatNameError] = useState<string | null>(null);
+  const [isCheckingBeatName, setIsCheckingBeatName] = useState(false);
   const [retailers, setRetailers] = useState<any[]>([]);
   const [isAddRetailerModalOpen, setIsAddRetailerModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -243,6 +245,52 @@ export const CreateBeat = () => {
     }
   };
 
+  // Check for duplicate beat name
+  const checkDuplicateBeatName = async (name: string) => {
+    if (!name.trim() || !user) {
+      setBeatNameError(null);
+      return false;
+    }
+    
+    setIsCheckingBeatName(true);
+    try {
+      const { data, error } = await supabase
+        .from('beats')
+        .select('id, beat_name')
+        .ilike('beat_name', name.trim())
+        .eq('is_active', true)
+        .limit(1);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setBeatNameError("A beat with this name already exists");
+        return true;
+      } else {
+        setBeatNameError(null);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking beat name:', error);
+      return false;
+    } finally {
+      setIsCheckingBeatName(false);
+    }
+  };
+
+  // Handle beat name change with debounced duplicate check
+  const handleBeatNameChange = (value: string) => {
+    setBeatName(value);
+    setBeatNameError(null);
+    
+    // Debounce the duplicate check
+    const timeoutId = setTimeout(() => {
+      checkDuplicateBeatName(value);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  };
+
   const filteredRetailers = retailers.filter(retailer =>
     retailer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (retailer.category && retailer.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -264,6 +312,27 @@ export const CreateBeat = () => {
       toast({
         title: "Beat Name Required",
         description: "Please enter a name for the beat",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check for duplicate before saving
+    if (beatNameError) {
+      toast({
+        title: "Duplicate Beat Name",
+        description: "A beat with this name already exists. Please use a different name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Final duplicate check before creating
+    const isDuplicate = await checkDuplicateBeatName(beatName);
+    if (isDuplicate) {
+      toast({
+        title: "Duplicate Beat Name",
+        description: "A beat with this name already exists. Please use a different name.",
         variant: "destructive"
       });
       return;
@@ -718,12 +787,27 @@ export const CreateBeat = () => {
               {/* Beat Name */}
               <div className="space-y-2">
                 <Label htmlFor="beatName">Beat Name</Label>
-                <Input
-                  id="beatName"
-                  placeholder="Enter beat name (e.g., North Zone Beat)"
-                  value={beatName}
-                  onChange={(e) => setBeatName(e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="beatName"
+                    placeholder="Enter beat name (e.g., North Zone Beat)"
+                    value={beatName}
+                    onChange={(e) => handleBeatNameChange(e.target.value)}
+                    className={cn(
+                      beatNameError && "border-destructive focus-visible:ring-destructive"
+                    )}
+                  />
+                  {isCheckingBeatName && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  )}
+                </div>
+                {beatNameError && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <span className="text-destructive">⚠️</span> {beatNameError}
+                  </p>
+                )}
               </div>
               
               {/* Schedule Recurring Visits */}
