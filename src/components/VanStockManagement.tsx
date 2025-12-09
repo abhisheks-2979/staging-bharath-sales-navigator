@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Van {
   id: string;
@@ -533,6 +535,80 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     toast.success('Stock items exported successfully');
   };
 
+  const handleExportToPDF = () => {
+    const savedItems = todayStock?.van_stock_items || [];
+    if (savedItems.length === 0) {
+      toast.error('No stock items to export');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const dateStr = new Date(selectedDate).toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Van Stock Report', 14, 20);
+    
+    // Date and Van info
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    const selectedVanData = vans.find(v => v.id === selectedVan);
+    doc.text(`Date: ${dateStr}`, 14, 28);
+    if (selectedVanData) {
+      doc.text(`Van: ${selectedVanData.registration_number} - ${selectedVanData.make_model}`, 14, 35);
+    }
+
+    // Summary
+    const totalQty = savedItems.reduce((sum: number, item: any) => sum + (item.start_qty || 0), 0);
+    const totalValue = savedItems.reduce((sum: number, item: any) => {
+      const product = products.find(p => p.id === item.product_id);
+      const priceWithoutGST = (product?.rate || 0) / 1.05;
+      return sum + (priceWithoutGST * item.start_qty);
+    }, 0);
+    
+    doc.text(`Total Items: ${savedItems.length} | Total Qty: ${totalQty} | Total Value: ₹${totalValue.toFixed(2)}`, 14, 42);
+
+    // Table
+    const tableData = savedItems.map((item: any) => {
+      const product = products.find(p => p.id === item.product_id);
+      const priceWithGST = product?.rate || 0;
+      const priceWithoutGST = priceWithGST / 1.05;
+      const totalVal = priceWithoutGST * item.start_qty;
+      
+      return [
+        item.product_name,
+        `₹${priceWithoutGST.toFixed(2)}`,
+        item.unit,
+        item.start_qty.toString(),
+        `₹${totalVal.toFixed(2)}`
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 48,
+      head: [['Product', 'Price (excl. GST)', 'Unit', 'Quantity', 'Total Value']],
+      body: tableData,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 35, halign: 'right' },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 35, halign: 'right' }
+      }
+    });
+
+    doc.save(`Van_Stock_${selectedDate}.pdf`);
+    toast.success('PDF downloaded successfully');
+  };
+
   const totals = calculateTotals();
   const totalKm = endKm - startKm;
 
@@ -866,8 +942,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                     >
                       <Edit className="h-3 w-3 mr-1" /> Edit All
                     </Button>
+                    <Button size="sm" onClick={handleExportToPDF} variant="outline" className="h-8 text-xs">
+                      <FileText className="h-3 w-3 mr-1" /> PDF
+                    </Button>
                     <Button size="sm" onClick={handleExportToExcel} variant="outline" className="h-8 text-xs">
-                      <Download className="h-3 w-3 mr-1" /> Export
+                      <Download className="h-3 w-3 mr-1" /> Excel
                     </Button>
                   </div>
                 </div>
