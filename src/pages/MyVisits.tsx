@@ -1325,25 +1325,25 @@ export const MyVisits = () => {
                           </Badge>
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="px-3 sm:px-6">
                         {order.order_items && order.order_items.length > 0 && <div className="space-y-2">
                             <p className="text-xs sm:text-sm font-medium text-muted-foreground">{t('visits.items')}</p>
-                            <div className="overflow-x-auto">
-                              <Table>
+                            <div className="w-full">
+                              <Table className="w-full table-fixed">
                                 <TableHeader>
                                   <TableRow>
-                                    <TableHead className="text-xs sm:text-sm">{t('visits.product')}</TableHead>
-                                    <TableHead className="text-xs sm:text-sm">{t('visits.quantity')}</TableHead>
-                                    <TableHead className="text-xs sm:text-sm">{t('visits.rate')}</TableHead>
-                                    <TableHead className="text-xs sm:text-sm">{t('visits.total')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm w-[35%]">{t('visits.product')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm w-[22%]">{t('visits.quantity')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm w-[20%]">{t('visits.rate')}</TableHead>
+                                    <TableHead className="text-xs sm:text-sm w-[23%] text-right">{t('visits.total')}</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {order.order_items.map((item: any) => <TableRow key={item.id}>
-                                      <TableCell className="text-xs sm:text-sm">{item.product_name}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm break-words">{item.product_name}</TableCell>
                                       <TableCell className="text-xs sm:text-sm">{item.quantity} {item.unit}</TableCell>
-                                      <TableCell className="text-xs sm:text-sm">₹{Number(item.rate).toLocaleString()}</TableCell>
-                                      <TableCell className="text-xs sm:text-sm">₹{Number(item.total).toLocaleString()}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm">₹{Number(item.rate).toFixed(2)}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-right">₹{Number(item.total).toFixed(0)}</TableCell>
                                     </TableRow>)}
                                 </TableBody>
                               </Table>
