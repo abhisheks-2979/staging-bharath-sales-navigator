@@ -133,72 +133,42 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
       return;
     }
 
-    // Fetch visit and retailer info for points with order/visit references
-    const orderIds = (data || [])
-      .filter(item => item.reference_type === "order")
-      .map(item => item.reference_id)
-      .filter(Boolean);
-
-    const visitIds = (data || [])
-      .filter(item => item.reference_type === "visit")
-      .map(item => item.reference_id)
-      .filter(Boolean);
-
-    let orderToVisitMap = new Map<string, string>();
-    let visitToRetailerMap = new Map<string, { id: string; name: string }>();
-
-    // Fetch orders with visit_id and retailer info
-    if (orderIds.length > 0) {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("id, visit_id, retailer_id, retailers(id, name)")
-        .in("id", orderIds);
-
-      if (orders) {
-        orders.forEach((order: any) => {
-          if (order.visit_id) {
-            orderToVisitMap.set(order.id, order.visit_id);
-          }
-          if (order.retailers) {
-            visitToRetailerMap.set(order.visit_id || order.id, {
-              id: order.retailers.id,
-              name: order.retailers.name
-            });
-          }
-        });
+    // Collect all retailer IDs from multiple sources
+    const retailerIds = new Set<string>();
+    
+    (data || []).forEach(item => {
+      // Check metadata for retailer_id (most reliable source)
+      const metadata = item.metadata as Record<string, any> | null;
+      if (metadata?.retailer_id) {
+        retailerIds.add(metadata.retailer_id);
       }
-    }
+      // reference_id might be retailer_id directly
+      if (item.reference_id) {
+        retailerIds.add(item.reference_id);
+      }
+    });
 
-    // Fetch visits with retailer info
-    if (visitIds.length > 0) {
-      const { data: visits } = await supabase
-        .from("visits")
-        .select("id, retailer_id, retailers(id, name)")
-        .in("id", visitIds);
+    // Fetch retailer names for all collected IDs
+    let retailerMap = new Map<string, string>();
+    
+    if (retailerIds.size > 0) {
+      const { data: retailers } = await supabase
+        .from("retailers")
+        .select("id, name")
+        .in("id", Array.from(retailerIds));
 
-      if (visits) {
-        visits.forEach((visit: any) => {
-          if (visit.retailers) {
-            visitToRetailerMap.set(visit.id, {
-              id: visit.retailers.id,
-              name: visit.retailers.name
-            });
-          }
+      if (retailers) {
+        retailers.forEach((retailer: any) => {
+          retailerMap.set(retailer.id, retailer.name);
         });
       }
     }
 
     const formattedData: PointDetail[] = (data || []).map((item: any) => {
-      let visitId: string | null = null;
-      let retailerInfo: { id: string; name: string } | null = null;
-
-      if (item.reference_type === "order" && item.reference_id) {
-        visitId = orderToVisitMap.get(item.reference_id) || null;
-        retailerInfo = visitToRetailerMap.get(visitId || item.reference_id) || null;
-      } else if (item.reference_type === "visit" && item.reference_id) {
-        visitId = item.reference_id;
-        retailerInfo = visitToRetailerMap.get(visitId) || null;
-      }
+      // Get retailer ID from metadata first (most reliable), then reference_id
+      const metadata = item.metadata as Record<string, any> | null;
+      const retailerId = metadata?.retailer_id || item.reference_id || null;
+      const retailerName = retailerId ? retailerMap.get(retailerId) || null : null;
 
       return {
         id: item.id,
@@ -209,9 +179,9 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
         action_type: item.gamification_actions?.action_type || "",
         reference_type: item.reference_type,
         reference_id: item.reference_id,
-        visit_id: visitId,
-        retailer_id: retailerInfo?.id || null,
-        retailer_name: retailerInfo?.name || null,
+        visit_id: null,
+        retailer_id: retailerId,
+        retailer_name: retailerName,
         metadata: item.metadata
       };
     });
