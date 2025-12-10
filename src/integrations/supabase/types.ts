@@ -1462,6 +1462,106 @@ export type Database = {
           },
         ]
       }
+      distributor_inventory: {
+        Row: {
+          available_quantity: number | null
+          batch_number: string | null
+          created_at: string
+          distributor_id: string
+          expiry_date: string | null
+          id: string
+          last_issued_date: string | null
+          last_received_date: string | null
+          location: string | null
+          manufacturing_date: string | null
+          max_stock_level: number | null
+          product_id: string
+          product_name: string
+          quantity: number
+          reorder_level: number | null
+          reserved_quantity: number
+          sku: string | null
+          total_value: number | null
+          unit: string
+          unit_cost: number | null
+          updated_at: string
+          variant_id: string | null
+          variant_name: string | null
+        }
+        Insert: {
+          available_quantity?: number | null
+          batch_number?: string | null
+          created_at?: string
+          distributor_id: string
+          expiry_date?: string | null
+          id?: string
+          last_issued_date?: string | null
+          last_received_date?: string | null
+          location?: string | null
+          manufacturing_date?: string | null
+          max_stock_level?: number | null
+          product_id: string
+          product_name: string
+          quantity?: number
+          reorder_level?: number | null
+          reserved_quantity?: number
+          sku?: string | null
+          total_value?: number | null
+          unit?: string
+          unit_cost?: number | null
+          updated_at?: string
+          variant_id?: string | null
+          variant_name?: string | null
+        }
+        Update: {
+          available_quantity?: number | null
+          batch_number?: string | null
+          created_at?: string
+          distributor_id?: string
+          expiry_date?: string | null
+          id?: string
+          last_issued_date?: string | null
+          last_received_date?: string | null
+          location?: string | null
+          manufacturing_date?: string | null
+          max_stock_level?: number | null
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          reorder_level?: number | null
+          reserved_quantity?: number
+          sku?: string | null
+          total_value?: number | null
+          unit?: string
+          unit_cost?: number | null
+          updated_at?: string
+          variant_id?: string | null
+          variant_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_inventory_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_inventory_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_inventory_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_item_mappings: {
         Row: {
           category_id: string | null
@@ -1579,6 +1679,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      distributor_users: {
+        Row: {
+          created_at: string
+          distributor_id: string
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          phone: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          distributor_id: string
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          phone?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          distributor_id?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          phone?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_users_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       distributors: {
         Row: {
@@ -4276,6 +4423,180 @@ export type Database = {
           record_name?: string | null
         }
         Relationships: []
+      }
+      primary_order_items: {
+        Row: {
+          batch_number: string | null
+          created_at: string
+          damaged_quantity: number | null
+          discount_percent: number | null
+          expiry_date: string | null
+          id: string
+          line_total: number
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          received_quantity: number | null
+          sku: string | null
+          tax_percent: number | null
+          unit: string
+          unit_price: number
+          variant_id: string | null
+          variant_name: string | null
+        }
+        Insert: {
+          batch_number?: string | null
+          created_at?: string
+          damaged_quantity?: number | null
+          discount_percent?: number | null
+          expiry_date?: string | null
+          id?: string
+          line_total?: number
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity?: number
+          received_quantity?: number | null
+          sku?: string | null
+          tax_percent?: number | null
+          unit?: string
+          unit_price?: number
+          variant_id?: string | null
+          variant_name?: string | null
+        }
+        Update: {
+          batch_number?: string | null
+          created_at?: string
+          damaged_quantity?: number | null
+          discount_percent?: number | null
+          expiry_date?: string | null
+          id?: string
+          line_total?: number
+          order_id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          received_quantity?: number | null
+          sku?: string | null
+          tax_percent?: number | null
+          unit?: string
+          unit_price?: number
+          variant_id?: string | null
+          variant_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "primary_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "primary_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_order_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      primary_orders: {
+        Row: {
+          actual_delivery_date: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by_user_id: string | null
+          discount_amount: number
+          dispatch_reference: string | null
+          dispatched_at: string | null
+          distributor_id: string
+          expected_delivery_date: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_number: string
+          payment_status: string
+          payment_terms: string | null
+          shipping_address: string | null
+          status: string
+          subtotal: number
+          tax_amount: number
+          total_amount: number
+          transporter_name: string | null
+          updated_at: string
+          vehicle_number: string | null
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          discount_amount?: number
+          dispatch_reference?: string | null
+          dispatched_at?: string | null
+          distributor_id: string
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number: string
+          payment_status?: string
+          payment_terms?: string | null
+          shipping_address?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          transporter_name?: string | null
+          updated_at?: string
+          vehicle_number?: string | null
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          discount_amount?: number
+          dispatch_reference?: string | null
+          dispatched_at?: string | null
+          distributor_id?: string
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string
+          payment_status?: string
+          payment_terms?: string | null
+          shipping_address?: string | null
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total_amount?: number
+          transporter_name?: string | null
+          updated_at?: string
+          vehicle_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "primary_orders_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_categories: {
         Row: {
