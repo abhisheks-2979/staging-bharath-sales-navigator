@@ -64,6 +64,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<any>(null);
+  // Track data version to trigger single recalculation when all state is ready
+  const [dataVersion, setDataVersion] = useState(0);
   
   // Track last loaded date to avoid clearing data unnecessarily
   const lastLoadedDateRef = useRef<string | null>(null);
@@ -296,6 +298,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           setRetailers(filteredRetailers);
           setOrders(filteredOrders);
           setProgressStats(cacheStats); // Set progressStats in same batch!
+          // Trigger recalculation via dataVersion
+          setDataVersion(v => v + 1);
           
           hasLoadedFromCache = true;
           setIsLoading(false);
@@ -684,6 +688,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // CRITICAL: Also update progressStats directly here to ensure it's in sync with network data
         // The useEffect may not trigger if data hasn't changed shape
         setProgressStats(newStats);
+        // Trigger recalculation via dataVersion
+        setDataVersion(v => v + 1);
         
         setIsLoading(false);
         setError(null);
@@ -805,14 +811,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
   }, [userId, selectedDate, isOldDate, retailers]);
 
-  // Auto-recalculate progress stats when orders/visits/retailers change
-  // This ensures UI always reflects current state data
+  // Recalculate progress stats when dataVersion changes
+  // This is triggered ONLY after ALL state has been updated (via setDataVersion call)
+  // NOT triggered by individual state changes to avoid race conditions
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || dataVersion === 0) return;
     
-    // CRITICAL FIX: Always recalculate when we have data loaded
-    // The previous check was too restrictive and skipped recalculation
-    console.log('📊 [ProgressStats] Recalculating from state:', {
+    console.log('📊 [ProgressStats] Recalculating for dataVersion:', dataVersion, {
       orders: orders.length,
       visits: visits.length,
       retailers: retailers.length,
@@ -871,11 +876,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     });
 
     const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
-    console.log('📊 [ProgressStats] Calculated:', newStats);
+    console.log('📊 [ProgressStats] Calculated (dataVersion triggered):', newStats);
     
-    // CRITICAL: Always update if values differ - remove equality check that may cause stale data
     setProgressStats(newStats);
-  }, [userId, orders, visits, retailers, beatPlans]);
+  }, [userId, dataVersion, orders, visits, retailers, beatPlans]);
 
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up for date:', selectedDate);
