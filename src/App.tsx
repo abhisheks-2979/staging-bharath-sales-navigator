@@ -98,6 +98,14 @@ import AddDistributor from "./pages/AddDistributor";
 import DistributorDetail from "./pages/DistributorDetail";
 import EditDistributor from "./pages/EditDistributor";
 
+// Distributor Portal Pages
+import DistributorLogin from "./pages/distributor-portal/DistributorLogin";
+import DistributorDashboard from "./pages/distributor-portal/DistributorDashboard";
+import PrimaryOrdersList from "./pages/distributor-portal/PrimaryOrdersList";
+import CreatePrimaryOrder from "./pages/distributor-portal/CreatePrimaryOrder";
+import PrimaryOrderDetail from "./pages/distributor-portal/PrimaryOrderDetail";
+import DistributorInventory from "./pages/distributor-portal/DistributorInventory";
+
 // Institutional Sales pages
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
 import LeadManagement from "./pages/institutional/LeadManagement";
@@ -300,6 +308,14 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
               <Route path="/distributor/:id" element={<ProtectedRoute><DistributorDetail /></ProtectedRoute>} />
               <Route path="/edit-distributor/:id" element={<ProtectedRoute><EditDistributor /></ProtectedRoute>} />
+              
+              {/* Distributor Portal Routes */}
+              <Route path="/distributor-portal/login" element={<DistributorLogin />} />
+              <Route path="/distributor-portal/dashboard" element={<DistributorDashboard />} />
+              <Route path="/distributor-portal/orders" element={<PrimaryOrdersList />} />
+              <Route path="/distributor-portal/orders/new" element={<CreatePrimaryOrder />} />
+              <Route path="/distributor-portal/orders/:orderId" element={<PrimaryOrderDetail />} />
+              <Route path="/distributor-portal/inventory" element={<DistributorInventory />} />
               
               {/* Recycle Bin Routes */}
               <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
