@@ -1682,7 +1682,10 @@ export type Database = {
       }
       distributor_users: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
+          designation: string | null
           distributor_id: string
           email: string
           full_name: string
@@ -1690,11 +1693,16 @@ export type Database = {
           is_active: boolean
           last_login_at: string | null
           phone: string | null
+          requested_at: string | null
           role: string
           updated_at: string
+          user_level: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
+          designation?: string | null
           distributor_id: string
           email: string
           full_name: string
@@ -1702,11 +1710,16 @@ export type Database = {
           is_active?: boolean
           last_login_at?: string | null
           phone?: string | null
+          requested_at?: string | null
           role?: string
           updated_at?: string
+          user_level?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
+          designation?: string | null
           distributor_id?: string
           email?: string
           full_name?: string
@@ -1714,8 +1727,10 @@ export type Database = {
           is_active?: boolean
           last_login_at?: string | null
           phone?: string | null
+          requested_at?: string | null
           role?: string
           updated_at?: string
+          user_level?: string | null
         }
         Relationships: [
           {
