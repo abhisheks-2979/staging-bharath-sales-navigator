@@ -144,29 +144,36 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         lastLoadedDateRef.current = selectedDate;
         // Don't process anything else - no beats = no retailers to show
       } else {
-        // Get retailer IDs from visits and orders ONLY
+        // Get retailer IDs from visits and orders
         const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
         const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
 
         // Extract retailer IDs from beat_data.retailer_ids if explicitly specified
         let plannedRetailerIds: string[] = [];
+        let hasBeatDataWithRetailerIds = false;
         for (const beatPlan of filteredBeatPlans) {
           const beatData = (beatPlan as any).beat_data as any;
           if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
+            hasBeatDataWithRetailerIds = true;
             plannedRetailerIds.push(...beatData.retailer_ids);
           }
         }
 
-        // CRITICAL: Do NOT fall back to beat_id mapping from cache
-        // The database is the source of truth for which retailers belong to a beat
-        // If beat_data.retailer_ids is not defined, the network fetch will get the correct list
-        // For cache-only mode, only show retailers with visits or orders
+        // CACHE FALLBACK: If no explicit retailer_ids in beat_data, fall back to beat_id matching
+        // This ensures we show retailers even when offline/slow network and beat_data doesn't have retailer_ids
+        const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+        if (!hasBeatDataWithRetailerIds && plannedBeatIds.length > 0) {
+          const beatRetailers = cachedRetailers.filter((r: any) => 
+            r.user_id === userId && plannedBeatIds.includes(r.beat_id)
+          );
+          plannedRetailerIds = beatRetailers.map((r: any) => r.id);
+          console.log('📦 [CACHE] Fallback to beat_id matching:', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'beats');
+        }
         
-        // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids, AND orders
+        // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids/beat_id fallback, AND orders
         const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
         
-        // STRICT FILTERING: Only include retailers that are explicitly in our list
-        // Do NOT include retailers just because they match beat_id - database is source of truth
+        // Filter retailers that are in our combined list
         const filteredRetailers = cachedRetailers.filter((r: any) => {
           return allRetailerIds.includes(r.id);
         });
@@ -176,6 +183,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           visits: filteredVisits.length,
           retailers: filteredRetailers.length,
           orders: filteredOrders.length,
+          allRetailerIds: allRetailerIds.length,
           selectedDate
         });
 
@@ -192,15 +200,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         filteredOrders.forEach((o: any) => {
           ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
         });
-
-        // Use the same plannedRetailerIds logic as network to ensure consistency
-        const progressPlannedRetailerIds: string[] = [];
-        for (const beatPlan of filteredBeatPlans) {
-          const beatData = beatPlan.beat_data as any;
-          if (beatData && Array.isArray(beatData.retailer_ids)) {
-            progressPlannedRetailerIds.push(...beatData.retailer_ids);
-          }
-        }
 
         let planned = 0;
         let productive = 0;
@@ -225,7 +224,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
           const hasOrder = orderValue > 0;
           
-          // SIMPLIFIED LOGIC: Count visits based on their actual status only
           if (visit.status === 'unproductive') {
             unproductive++;
           } else if (visit.status === 'productive' || hasOrder) {
@@ -235,9 +233,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        // Count retailers from beat_data.retailer_ids that don't have visit records yet as planned
-        // This matches the network calculation logic for consistency
-        progressPlannedRetailerIds.forEach((retailerId: string) => {
+        // Count retailers from plannedRetailerIds (already calculated above with fallback) 
+        // that don't have visit records yet as planned
+        plannedRetailerIds.forEach((retailerId: string) => {
           if (!visitRetailerIdsSet.has(retailerId) && !ordersByRetailer.has(retailerId)) {
             planned++;
           }
@@ -254,6 +252,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           selectedDate
         });
       }
+      
+      // Update lastLoadedDateRef after cache loading
+      lastLoadedDateRef.current = selectedDate;
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
     }
