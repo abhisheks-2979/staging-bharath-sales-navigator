@@ -228,24 +228,38 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             }
           });
 
+          // CRITICAL: Track retailers with orders - always productive
+          const retailersWithOrders = new Set(filteredOrders.map((o: any) => o.retailer_id));
+          const countedRetailers = new Set<string>();
+
           // Count based on the latest visit per retailer only
           latestVisitsByRetailer.forEach((visit: any) => {
-            const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
-            const hasOrder = orderValue > 0;
+            const hasOrder = retailersWithOrders.has(visit.retailer_id);
+            countedRetailers.add(visit.retailer_id);
             
-            if (visit.status === 'unproductive') {
+            // CRITICAL: If retailer has an order, they are PRODUCTIVE regardless of visit status
+            if (hasOrder) {
+              productive++;
+            } else if (visit.status === 'unproductive') {
               unproductive++;
-            } else if (visit.status === 'productive' || hasOrder) {
+            } else if (visit.status === 'productive') {
               productive++;
             } else if (visit.status === 'planned') {
               planned++;
             }
           });
 
-          // Count retailers from plannedRetailerIds (already calculated above with fallback) 
-          // that don't have visit records yet as planned
+          // Count retailers with orders but NO visit record as productive
+          retailersWithOrders.forEach((retailerId: string) => {
+            if (!countedRetailers.has(retailerId)) {
+              productive++;
+              countedRetailers.add(retailerId);
+            }
+          });
+
+          // Count retailers from plannedRetailerIds that don't have visits AND no orders yet as planned
           plannedRetailerIds.forEach((retailerId: string) => {
-            if (!visitRetailerIdsSet.has(retailerId) && !ordersByRetailer.has(retailerId)) {
+            if (!countedRetailers.has(retailerId)) {
               planned++;
             }
           });
@@ -371,9 +385,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // IMPORTANT: Also fetch orders for today to get retailer IDs from orders
         // This ensures retailers with orders show up even if not in planned beats or visits
         // Use order_date field for accurate date filtering (more reliable than created_at)
+        // Fetch full order data including id for proper tracking
         const { data: ordersForToday, error: ordersPreError } = await supabase
           .from('orders')
-          .select('retailer_id, total_amount')
+          .select('id, retailer_id, total_amount, status, order_date, user_id, created_at')
           .eq('user_id', userId)
           .eq('status', 'confirmed')
           .eq('order_date', selectedDate);
@@ -382,7 +397,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           console.error('Error fetching orders for today:', ordersPreError);
         }
         
-        console.log('📋 [NETWORK] Orders found for date', selectedDate, ':', ordersForToday?.length || 0);
+        console.log('📋 [NETWORK] Orders found for date', selectedDate, ':', ordersForToday?.length || 0, 'total value:', (ordersForToday || []).reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0));
 
         const orderRetailerIds = (ordersForToday || []).map((o: any) => o.retailer_id);
 
@@ -470,23 +485,39 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
+        // CRITICAL: Track retailers that have orders - these are ALWAYS productive
+        const retailersWithOrders = new Set(ordersData.map((o: any) => o.retailer_id));
+        const countedRetailers = new Set<string>();
+
         // Count based on the latest visit per retailer only
         latestVisitsByRetailer.forEach((visit: any) => {
-          const hasOrder = ordersMap.has(visit.retailer_id);
+          const hasOrder = retailersWithOrders.has(visit.retailer_id);
+          countedRetailers.add(visit.retailer_id);
           
-          // SIMPLIFIED LOGIC: Count visits based on their actual status only
-          if (visit.status === 'unproductive') {
+          // CRITICAL: If retailer has an order, they are PRODUCTIVE regardless of visit status
+          if (hasOrder) {
+            productive++;
+          } else if (visit.status === 'unproductive') {
             unproductive++;
-          } else if (visit.status === 'productive' || hasOrder) {
+          } else if (visit.status === 'productive') {
             productive++;
           } else if (visit.status === 'planned') {
             planned++;
           }
         });
 
-        // Count retailers from beat plans that don't have visit records yet as planned
+        // CRITICAL: Count retailers with orders but NO visit record as productive
+        // This ensures orders placed directly (without visit) are still counted
+        retailersWithOrders.forEach((retailerId: string) => {
+          if (!countedRetailers.has(retailerId)) {
+            productive++;
+            countedRetailers.add(retailerId);
+          }
+        });
+
+        // Count retailers from beat plans that don't have visit records AND no orders yet as planned
         plannedRetailerIds.forEach((retailerId: string) => {
-          if (!visitRetailerIdsSet.has(retailerId) && !ordersMap.has(retailerId)) {
+          if (!countedRetailers.has(retailerId)) {
             planned++;
           }
         });
@@ -545,15 +576,95 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         console.log('🔄 Updated with fresh data from network');
       } catch (networkError) {
         console.log('Network sync failed, using cached data:', networkError);
+        // CRITICAL: If network fails and we haven't loaded from cache, 
+        // try to use cached data now as fallback
         if (!hasLoadedFromCache) {
+          try {
+            const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+            const cachedBeatPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
+            const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+            const cachedVisits = await offlineStorage.getAll<any>(STORES.VISITS);
+            
+            const filteredBeatPlans = cachedBeatPlans.filter(
+              (plan: any) => plan.user_id === userId && plan.plan_date === selectedDate
+            );
+            
+            if (filteredBeatPlans.length > 0) {
+              const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
+              const filteredRetailers = cachedRetailers.filter((r: any) => 
+                r.user_id === userId && plannedBeatIds.includes(r.beat_id)
+              );
+              const filteredOrders = cachedOrders.filter((o: any) => 
+                o.user_id === userId && o.status === 'confirmed' && o.order_date === selectedDate
+              );
+              const filteredVisits = cachedVisits.filter((v: any) => 
+                v.user_id === userId && v.planned_date === selectedDate
+              );
+              
+              console.log('📴 [OFFLINE FALLBACK] Using cached data after network failure:', {
+                beatPlans: filteredBeatPlans.length,
+                retailers: filteredRetailers.length,
+                orders: filteredOrders.length,
+                visits: filteredVisits.length
+              });
+              
+              setBeatPlans(filteredBeatPlans);
+              setRetailers(filteredRetailers);
+              setOrders(filteredOrders);
+              setVisits(filteredVisits);
+              
+              // Calculate progress stats
+              const retailersWithOrders = new Set(filteredOrders.map((o: any) => o.retailer_id));
+              let planned = 0, productive = 0, unproductive = 0;
+              const countedRetailers = new Set<string>();
+              
+              filteredVisits.forEach((visit: any) => {
+                const hasOrder = retailersWithOrders.has(visit.retailer_id);
+                countedRetailers.add(visit.retailer_id);
+                if (hasOrder) {
+                  productive++;
+                } else if (visit.status === 'unproductive') {
+                  unproductive++;
+                } else if (visit.status === 'productive') {
+                  productive++;
+                } else {
+                  planned++;
+                }
+              });
+              
+              retailersWithOrders.forEach((rid: string) => {
+                if (!countedRetailers.has(rid)) {
+                  productive++;
+                  countedRetailers.add(rid);
+                }
+              });
+              
+              filteredRetailers.forEach((r: any) => {
+                if (!countedRetailers.has(r.id)) {
+                  planned++;
+                }
+              });
+              
+              setProgressStats({
+                planned,
+                productive,
+                unproductive,
+                totalOrders: filteredOrders.length,
+                totalOrderValue: filteredOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0)
+              });
+            }
+          } catch (cacheErr) {
+            console.error('Cache fallback failed:', cacheErr);
+          }
           setError(networkError);
           setIsLoading(false);
         }
       }
     } else {
-      // Offline mode - keep cached data as-is (no beat plans = no retailers)
+      // Offline mode - use cached data
+      console.log('📴 [OFFLINE] Device is offline, using cached data');
+      // Data was already loaded from cache in Step 1, just ensure loading is done
       if (!hasLoadedFromCache) {
-        console.log('📴 Offline and no cache available');
         setIsLoading(false);
       }
     }
