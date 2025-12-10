@@ -69,6 +69,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const lastLoadedDateRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
   const pendingDateRef = useRef<string | null>(null);
+  // Cache for date-based data to enable instant switching
+  const dateDataCacheRef = useRef<Map<string, { beatPlans: any[], visits: any[], retailers: any[], orders: any[], progressStats: ProgressStats, timestamp: number }>>(new Map());
+
+  // Helper to check if date is in the past (before today)
+  const isOldDate = useCallback((dateStr: string): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate < today;
+  }, []);
+
+  // Helper to check if date is today
+  const isToday = useCallback((dateStr: string): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(dateStr);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate.getTime() === today.getTime();
+  }, []);
 
   // CACHE-FIRST LOADING: Load from cache immediately, sync in background
   const loadData = useCallback(async (forceRefresh = false) => {
@@ -88,9 +108,38 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     const isSameDate = lastLoadedDateRef.current === selectedDate;
     const isDateChange = !isSameDate;
     
-    // DON'T clear data on date change - load new data first, then update atomically
-    // This prevents flash of empty state
-    if (isDateChange) {
+    // FAST PATH: Check in-memory cache first for instant date switching
+    const cachedDateData = dateDataCacheRef.current.get(selectedDate);
+    if (cachedDateData && !forceRefresh) {
+      console.log('⚡ [FAST] Loading from in-memory cache for date:', selectedDate);
+      setBeatPlans(cachedDateData.beatPlans);
+      setVisits(cachedDateData.visits);
+      setRetailers(cachedDateData.retailers);
+      setOrders(cachedDateData.orders);
+      setProgressStats(cachedDateData.progressStats);
+      setIsLoading(false);
+      lastLoadedDateRef.current = selectedDate;
+      
+      // For old dates, skip network entirely - data won't change
+      if (isOldDate(selectedDate)) {
+        console.log('📅 [OLD DATE] Skipping network fetch - using cached data only');
+        isLoadingRef.current = false;
+        return;
+      }
+      
+      // For today, continue to network check in background (non-blocking)
+      if (isToday(selectedDate) && navigator.onLine) {
+        console.log('📅 [TODAY] Will check network for updates in background');
+        // Continue to network fetch below, but UI is already showing cached data
+      } else if (!navigator.onLine) {
+        console.log('📴 [OFFLINE] Using cached data only');
+        isLoadingRef.current = false;
+        return;
+      } else {
+        // Future date - check network for updates
+        console.log('📅 [FUTURE] Will check network for updates');
+      }
+    } else if (isDateChange) {
       setIsLoading(true);
       console.log('📅 [VisitsData] Date changed from', lastLoadedDateRef.current, 'to', selectedDate);
       lastLoadedDateRef.current = selectedDate;
@@ -257,6 +306,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
           const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
           setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
+          
+          // SAVE TO IN-MEMORY CACHE for instant date switching
+          dateDataCacheRef.current.set(selectedDate, {
+            beatPlans: filteredBeatPlans,
+            visits: filteredVisits,
+            retailers: filteredRetailers,
+            orders: filteredOrders,
+            progressStats: newStats,
+            timestamp: Date.now()
+          });
+          
           console.log('📊 [CACHE] Progress stats calculated from cache:', { 
             planned, 
             productive, 
@@ -275,6 +335,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       lastLoadedDateRef.current = selectedDate;
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
+    }
+
+    // SMART NETWORK STRATEGY:
+    // - Old dates (before today): Skip network fetch entirely - data won't change
+    // - Today: Always fetch fresh data when online
+    // - Future dates: Fetch to check for beat plan updates
+    const shouldSkipNetwork = isOldDate(selectedDate) && hasLoadedFromCache;
+    
+    if (shouldSkipNetwork) {
+      console.log('📅 [OLD DATE] Skipping network fetch - historical data is immutable');
+      setIsLoading(false);
+      isLoadingRef.current = false;
+      return;
     }
 
   // STEP 2: Background sync from network if online
@@ -579,6 +652,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           });
         }).catch(console.error);
 
+        // SAVE TO IN-MEMORY CACHE for instant date switching
+        dateDataCacheRef.current.set(selectedDate, {
+          beatPlans: beatPlansData,
+          visits: visitsData,
+          retailers: retailersData.length > 0 ? retailersData : retailers, // Keep existing if empty
+          orders: ordersData,
+          progressStats: newStats,
+          timestamp: Date.now()
+        });
+        console.log('⚡ [FAST CACHE] Saved to in-memory cache for date:', selectedDate);
+
         // DIRECT UPDATE: Set state from network data
         // Only update retailers if we got data from network, otherwise keep cache data
         console.log('📡 [NETWORK] Setting data from network:', {
@@ -603,10 +687,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         }
         // If network returns 0 but cache had retailers, keep cache data
         
-        if (!hasLoadedFromCache) {
-          setIsLoading(false);
-        }
-        
+        setIsLoading(false);
         setError(null);
         console.log('🔄 Updated with fresh data from network');
       } catch (networkError) {
@@ -724,7 +805,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Use setTimeout to allow current call stack to complete
       setTimeout(() => loadData(true), 0);
     }
-  }, [userId, selectedDate]);
+  }, [userId, selectedDate, isOldDate, isToday, retailers]);
 
   // Recalculate progress stats when visits/orders change
   const recalculateProgressStats = useCallback(() => {
