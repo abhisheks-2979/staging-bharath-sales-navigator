@@ -708,6 +708,78 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     isLoadingRef.current = false;
   }, [userId, selectedDate]);
 
+  // Recalculate progress stats when visits/orders change
+  const recalculateProgressStats = useCallback(() => {
+    if (!userId) return;
+    
+    console.log('📊 [ProgressStats] Recalculating from current state data...');
+    
+    const ordersMap = new Map<string, boolean>();
+    const ordersByRetailer = new Map<string, number>();
+    orders.forEach(o => {
+      ordersMap.set(o.retailer_id, true);
+      ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
+    });
+
+    let planned = 0;
+    let productive = 0;
+    let unproductive = 0;
+    const totalOrders = orders.length;
+    const totalOrderValue = orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+
+    // Group visits by retailer and get the most recent one (handles duplicates)
+    const latestVisitsByRetailer = new Map<string, any>();
+    visits.forEach((visit: any) => {
+      const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+      if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
+        latestVisitsByRetailer.set(visit.retailer_id, visit);
+      }
+    });
+
+    // Track retailers that have orders - these are ALWAYS productive
+    const retailersWithOrders = new Set(orders.map((o: any) => o.retailer_id));
+    const countedRetailers = new Set<string>();
+
+    // Count based on the latest visit per retailer only
+    latestVisitsByRetailer.forEach((visit: any) => {
+      const hasOrder = retailersWithOrders.has(visit.retailer_id);
+      countedRetailers.add(visit.retailer_id);
+      
+      // If retailer has an order, they are PRODUCTIVE regardless of visit status
+      if (hasOrder) {
+        productive++;
+      } else if (visit.status === 'unproductive') {
+        unproductive++;
+      } else if (visit.status === 'productive') {
+        productive++;
+      } else if (visit.status === 'planned') {
+        planned++;
+      }
+    });
+
+    // Count retailers with orders but NO visit record as productive
+    retailersWithOrders.forEach((retailerId: string) => {
+      if (!countedRetailers.has(retailerId)) {
+        productive++;
+        countedRetailers.add(retailerId);
+      }
+    });
+
+    // Count retailers from beat plans that don't have visit records AND no orders yet as planned
+    retailers.forEach((retailer: any) => {
+      if (!countedRetailers.has(retailer.id)) {
+        planned++;
+      }
+    });
+
+    const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
+    setProgressStats(prev => {
+      if (progressStatsEqual(prev, newStats)) return prev;
+      console.log('📊 [ProgressStats] Stats updated:', newStats);
+      return newStats;
+    });
+  }, [userId, visits, orders, retailers]);
+
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up data loading for date:', selectedDate);
     
@@ -718,8 +790,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // Load new data
     loadData();
 
-    // REMOVED: visitDataChanged event listener disabled to prevent UI flickering
-    // Data is loaded once on mount/date change, updated only when user navigates back
+    // Listen for visitStatusChanged events to recalculate progress stats
+    const handleStatusChange = (event: any) => {
+      console.log('🔔 [useVisitsDataOptimized] visitStatusChanged event received:', event.detail);
+      // Trigger a recalculation and data refresh
+      setTimeout(() => {
+        loadData(true);
+      }, 500); // Small delay to allow database updates to complete
+    };
+
+    // Listen for visitDataChanged events (e.g., new beat plans added)
+    const handleDataChange = () => {
+      console.log('🔔 [useVisitsDataOptimized] visitDataChanged event received');
+      loadData(true);
+    };
     
     // Listen for online/offline changes to refresh data
     const handleOnline = () => {
@@ -730,9 +814,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     };
     
     window.addEventListener('online', handleOnline);
+    window.addEventListener('visitStatusChanged', handleStatusChange);
+    window.addEventListener('visitDataChanged', handleDataChange);
     
     return () => {
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('visitStatusChanged', handleStatusChange);
+      window.removeEventListener('visitDataChanged', handleDataChange);
     };
   }, [loadData, selectedDate]);
 
