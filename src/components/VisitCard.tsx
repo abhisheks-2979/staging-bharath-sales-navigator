@@ -585,12 +585,13 @@ export const VisitCard = ({
             setStockRecordCount(stockRecords.length);
           }
 
-          // Fetch orders for today - @ts-ignore to bypass TypeScript deep type inference issue
-          // @ts-ignore
+          // Fetch orders for today - CRITICAL: Filter by user_id for proper data visibility
+          // @ts-ignore to bypass TypeScript deep type inference issue
           const ordersResponse = await supabase
             .from('orders')
             .select('*, order_items(*)')
             .eq('retailer_id', visitRetailerId)
+            .eq('user_id', currentUserId)
             .eq('order_date', targetDate)
             .eq('status', 'confirmed');
           
