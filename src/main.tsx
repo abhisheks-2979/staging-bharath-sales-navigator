@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+// Import i18n BEFORE app renders to ensure translations are available
+import './i18n/config';
 
 console.log('🚀 App starting...');
 
@@ -53,14 +55,7 @@ console.log('✅ App rendered successfully');
     console.warn('⚠️ Offline storage init failed:', error);
   }
 
-  try {
-    // Load i18n in background
-    console.log('📦 Loading i18n...');
-    await import('./i18n/config');
-    console.log('✅ i18n loaded');
-  } catch (error) {
-    console.warn('⚠️ i18n failed to load:', error);
-  }
+  // i18n is already loaded synchronously at startup
 
   try {
     // Initialize download notifications channel for native apps
