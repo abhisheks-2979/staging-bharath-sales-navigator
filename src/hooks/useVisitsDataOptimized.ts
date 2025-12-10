@@ -206,19 +206,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         // Calculate progress stats from cached data only if we loaded data from cache
         if (hasLoadedFromCache) {
-          const ordersByRetailer = new Map<string, number>();
-          filteredOrders.forEach((o: any) => {
-            ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
-          });
-
           let planned = 0;
           let productive = 0;
           let unproductive = 0;
           let totalOrders = filteredOrders.length;
           let totalOrderValue = filteredOrders.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0);
 
-          // Create a set of retailer IDs that have visits
-          const visitRetailerIdsSet = new Set(filteredVisits.map((v: any) => v.retailer_id));
+          // CRITICAL: Track retailers with orders - always productive
+          const retailersWithOrders = new Set(filteredOrders.map((o: any) => o.retailer_id));
+          const countedRetailers = new Set<string>();
 
           // Group visits by retailer and get the most recent one (handles duplicates)
           const latestVisitsByRetailer = new Map<string, any>();
@@ -228,10 +224,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
               latestVisitsByRetailer.set(visit.retailer_id, visit);
             }
           });
-
-          // CRITICAL: Track retailers with orders - always productive
-          const retailersWithOrders = new Set(filteredOrders.map((o: any) => o.retailer_id));
-          const countedRetailers = new Set<string>();
 
           // Count based on the latest visit per retailer only
           latestVisitsByRetailer.forEach((visit: any) => {
@@ -258,10 +250,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             }
           });
 
-          // Count retailers from plannedRetailerIds that don't have visits AND no orders yet as planned
-          plannedRetailerIds.forEach((retailerId: string) => {
-            if (!countedRetailers.has(retailerId)) {
+          // Count retailers from filteredRetailers that don't have visits AND no orders yet as planned
+          filteredRetailers.forEach((retailer: any) => {
+            if (!countedRetailers.has(retailer.id)) {
               planned++;
+              countedRetailers.add(retailer.id);
             }
           });
 
@@ -273,7 +266,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             unproductive, 
             totalOrders, 
             totalOrderValue,
-            selectedDate
+            selectedDate,
+            visitsCount: filteredVisits.length,
+            latestVisitsCount: latestVisitsByRetailer.size,
+            retailersCount: filteredRetailers.length
           });
         }
       }
@@ -501,8 +497,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let totalOrders = ordersData.length;
         let totalOrderValue = ordersData.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
 
-        // Create a set of retailer IDs that have visits
-        const visitRetailerIdsSet = new Set(visitsData.map((v: any) => v.retailer_id));
+        // CRITICAL: Track retailers that have orders - these are ALWAYS productive
+        const retailersWithOrders = new Set(ordersData.map((o: any) => o.retailer_id));
+        const countedRetailers = new Set<string>();
 
         // Group visits by retailer and get the most recent one (handles duplicates)
         const latestVisitsByRetailer = new Map<string, any>();
@@ -512,10 +509,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             latestVisitsByRetailer.set(visit.retailer_id, visit);
           }
         });
-
-        // CRITICAL: Track retailers that have orders - these are ALWAYS productive
-        const retailersWithOrders = new Set(ordersData.map((o: any) => o.retailer_id));
-        const countedRetailers = new Set<string>();
 
         // Count based on the latest visit per retailer only
         latestVisitsByRetailer.forEach((visit: any) => {
@@ -534,8 +527,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        // CRITICAL: Count retailers with orders but NO visit record as productive
-        // This ensures orders placed directly (without visit) are still counted
+        // Count retailers with orders but NO visit record as productive
         retailersWithOrders.forEach((retailerId: string) => {
           if (!countedRetailers.has(retailerId)) {
             productive++;
@@ -543,11 +535,21 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           }
         });
 
-        // Count retailers from beat plans that don't have visit records AND no orders yet as planned
-        plannedRetailerIds.forEach((retailerId: string) => {
-          if (!countedRetailers.has(retailerId)) {
+        // Count retailers from beat plans/retailersData that don't have visit records AND no orders yet as planned
+        // Use retailersData instead of plannedRetailerIds to ensure we count all displayed retailers
+        retailersData.forEach((retailer: any) => {
+          if (!countedRetailers.has(retailer.id)) {
             planned++;
+            countedRetailers.add(retailer.id);
           }
+        });
+        
+        console.log('📊 [NETWORK] Progress calculation details:', {
+          visitsCount: visitsData.length,
+          latestVisitsCount: latestVisitsByRetailer.size,
+          retailersWithOrdersCount: retailersWithOrders.size,
+          retailersDataCount: retailersData.length,
+          countedRetailersCount: countedRetailers.size
         });
 
         const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
@@ -654,7 +656,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
               let planned = 0, productive = 0, unproductive = 0;
               const countedRetailers = new Set<string>();
               
+              // Group visits by retailer and get the most recent one (handles duplicates)
+              const latestVisitsByRetailer = new Map<string, any>();
               filteredVisits.forEach((visit: any) => {
+                const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+                if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
+                  latestVisitsByRetailer.set(visit.retailer_id, visit);
+                }
+              });
+              
+              // Count based on latest visit per retailer
+              latestVisitsByRetailer.forEach((visit: any) => {
                 const hasOrder = retailersWithOrders.has(visit.retailer_id);
                 countedRetailers.add(visit.retailer_id);
                 if (hasOrder) {
