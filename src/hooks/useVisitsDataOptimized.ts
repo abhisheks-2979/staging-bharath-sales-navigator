@@ -412,9 +412,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         
         if (allRetailerIds.length > 0) {
           // Fetch retailers only - we already have orders from ordersForToday
+          // CRITICAL: Filter by user_id to ensure user-wise data visibility
           const retailersResult = await supabase
             .from('retailers')
             .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude')
+            .eq('user_id', userId)
             .in('id', allRetailerIds);
 
           if (retailersResult.error) throw retailersResult.error;

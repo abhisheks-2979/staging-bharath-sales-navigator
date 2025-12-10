@@ -157,7 +157,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           .gte('earned_at', dateStart.toISOString()).lte('earned_at', dateEnd.toISOString());
         // Fetch retailers for this user only (consistent with My Visits)
         const retailersRes = await supabase.from('retailers').select('*').eq('user_id', userId);
-        const newRetailersRes: any = await supabase.from('retailers').select('id')
+        const newRetailersRes: any = await supabase.from('retailers').select('id').eq('user_id', userId)
           .gte('created_at', `${dateStr}T00:00:00.000Z`).lte('created_at', `${dateStr}T23:59:59.999Z`);
         const leaveRes: any = await supabase.from('leave_applications').select('*').eq('user_id', userId).eq('status', 'approved')
           .lte('start_date', dateStr).gte('end_date', dateStr).maybeSingle();
