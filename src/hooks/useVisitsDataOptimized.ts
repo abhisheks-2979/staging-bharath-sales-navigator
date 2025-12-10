@@ -171,23 +171,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           return allRetailerIds.includes(r.id);
         });
 
-        // DIRECT UPDATE: Always set state directly, don't use smart comparison
-        // This ensures date changes always show fresh data
-        console.log('📦 [CACHE] Setting retailers from cache:', filteredRetailers.length, 'for date:', selectedDate);
-        setBeatPlans(filteredBeatPlans);
-        setVisits(filteredVisits);
-        setRetailers(filteredRetailers);
-        setOrders(filteredOrders);
-        hasLoadedFromCache = true;
-        setIsLoading(false);
-
-      // Display cached data immediately - only update if data changed
-      if (
-        filteredBeatPlans.length > 0 ||
-        filteredVisits.length > 0 ||
-        filteredRetailers.length > 0
-      ) {
-        
         console.log('📦 [CACHE] Loaded from cache:', {
           beatPlans: filteredBeatPlans.length,
           visits: filteredVisits.length,
@@ -195,6 +178,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           orders: filteredOrders.length,
           selectedDate
         });
+
+        // Set state from cache
+        setBeatPlans(filteredBeatPlans);
+        setVisits(filteredVisits);
+        setRetailers(filteredRetailers);
+        setOrders(filteredOrders);
+        hasLoadedFromCache = true;
+        setIsLoading(false);
 
         // Calculate progress stats from cached data immediately
         const ordersByRetailer = new Map<string, number>();
@@ -253,7 +244,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         });
 
         const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
-        // SMART UPDATE: Only update progress stats if they actually changed
         setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
         console.log('📊 [CACHE] Progress stats calculated from cache:', { 
           planned, 
@@ -261,12 +251,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           unproductive, 
           totalOrders, 
           totalOrderValue,
-          selectedDate,
-          visitsCount: filteredVisits.length,
-          ordersCount: filteredOrders.length,
-          timestamp: new Date().toISOString()
+          selectedDate
         });
-        }
       }
     } catch (cacheError) {
       console.log('Cache read error (non-critical):', cacheError);
