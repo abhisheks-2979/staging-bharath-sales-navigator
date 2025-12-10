@@ -171,9 +171,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids/beat_id fallback, AND orders
         const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
         
-        // Filter retailers that are in our combined list
+        // CRITICAL: Filter retailers that are in our combined list AND belong to this user
+        // This prevents showing retailers from other users' cached data
         const filteredRetailers = cachedRetailers.filter((r: any) => {
-          return allRetailerIds.includes(r.id);
+          return r.user_id === userId && allRetailerIds.includes(r.id);
         });
 
         console.log('📦 [CACHE] Loaded from cache:', {
