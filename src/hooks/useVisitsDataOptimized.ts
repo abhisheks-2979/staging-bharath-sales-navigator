@@ -233,30 +233,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // CRITICAL: Only consider cache "loaded" if we have retailers or no beats planned
         // If we have beats but no retailers in cache, let network fetch handle it
         if (filteredRetailers.length > 0 || filteredBeatPlans.length === 0) {
-          // Set state from cache
-          setBeatPlans(filteredBeatPlans);
-          setVisits(filteredVisits);
-          setRetailers(filteredRetailers);
-          setOrders(filteredOrders);
-          hasLoadedFromCache = true;
-          setIsLoading(false);
-        } else {
-          // Have beat plans but no retailers in cache - wait for network
-          // But still set beat plans so UI shows beat name
-          console.log('📦 [CACHE] Beats found but no retailers in cache, waiting for network...');
-          setBeatPlans(filteredBeatPlans);
-          // Don't set hasLoadedFromCache or isLoading(false) - let network handle it
-        }
-
-        // Calculate progress stats from cached data only if we loaded data from cache
-        if (hasLoadedFromCache) {
+          // CRITICAL FIX: Calculate progress stats BEFORE setting state
+          // This ensures progressStats is calculated synchronously and set together with other data
           let planned = 0;
           let productive = 0;
           let unproductive = 0;
           let totalOrders = filteredOrders.length;
           let totalOrderValue = filteredOrders.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0);
 
-          // CRITICAL: Track retailers with orders - always productive
+          // Track retailers with orders - always productive
           const retailersWithOrders = new Set(filteredOrders.map((o: any) => o.retailer_id));
           const countedRetailers = new Set<string>();
 
@@ -274,7 +259,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             const hasOrder = retailersWithOrders.has(visit.retailer_id);
             countedRetailers.add(visit.retailer_id);
             
-            // CRITICAL: If retailer has an order, they are PRODUCTIVE regardless of visit status
             if (hasOrder) {
               productive++;
             } else if (visit.status === 'unproductive') {
@@ -294,7 +278,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             }
           });
 
-          // Count retailers from filteredRetailers that don't have visits AND no orders yet as planned
+          // Count retailers without visits AND without orders as planned
           filteredRetailers.forEach((retailer: any) => {
             if (!countedRetailers.has(retailer.id)) {
               planned++;
@@ -302,8 +286,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             }
           });
 
-          const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
-          setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
+          const cacheStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
+          
+          console.log('📊 [CACHE] Progress stats calculated BEFORE state update:', cacheStats);
+
+          // CRITICAL: Set ALL state together in one batch to avoid partial renders
+          setBeatPlans(filteredBeatPlans);
+          setVisits(filteredVisits);
+          setRetailers(filteredRetailers);
+          setOrders(filteredOrders);
+          setProgressStats(cacheStats); // Set progressStats in same batch!
+          
+          hasLoadedFromCache = true;
+          setIsLoading(false);
           
           // SAVE TO IN-MEMORY CACHE for instant date switching
           dateDataCacheRef.current.set(selectedDate, {
@@ -311,11 +306,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             visits: filteredVisits,
             retailers: filteredRetailers,
             orders: filteredOrders,
-            progressStats: newStats,
+            progressStats: cacheStats,
             timestamp: Date.now()
           });
           
-          console.log('📊 [CACHE] Progress stats calculated from cache:', { 
+          console.log('📊 [CACHE] Cache loaded with stats:', { 
             planned, 
             productive, 
             unproductive, 
@@ -323,9 +318,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             totalOrderValue,
             selectedDate,
             visitsCount: filteredVisits.length,
-            latestVisitsCount: latestVisitsByRetailer.size,
             retailersCount: filteredRetailers.length
           });
+        } else {
+          // Have beat plans but no retailers in cache - wait for network
+          // But still set beat plans so UI shows beat name
+          console.log('📦 [CACHE] Beats found but no retailers in cache, waiting for network...');
+          setBeatPlans(filteredBeatPlans);
+          // Don't set hasLoadedFromCache or isLoading(false) - let network handle it
         }
       }
       
@@ -621,9 +621,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         });
 
         const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
-        // SMART UPDATE: Only update progress stats if they actually changed
-        setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
-        console.log('📊 [NETWORK] Progress stats calculated from network:', { 
+        // CRITICAL: Don't set progressStats here - will be set together with other state below
+        // This prevents React batching issues where progressStats is set separately
+        console.log('📊 [NETWORK] Progress stats calculated (will set with state batch):', { 
           planned, 
           productive, 
           unproductive, 
