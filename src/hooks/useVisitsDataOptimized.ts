@@ -96,15 +96,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const loadData = useCallback(async (forceRefresh = false) => {
     if (!userId || !selectedDate) return;
     
-    // Prevent concurrent loads - but track pending date
-    if (isLoadingRef.current && !forceRefresh) {
-      console.log('⏳ [VisitsData] Queueing load for date:', selectedDate);
-      pendingDateRef.current = selectedDate;
+    // CRITICAL FIX: Always allow date changes to proceed
+    // Only block concurrent loads for the SAME date
+    if (isLoadingRef.current && !forceRefresh && pendingDateRef.current === selectedDate) {
+      console.log('⏳ [VisitsData] Already loading this date:', selectedDate);
       return;
     }
     
+    // If a different date is requested while loading, queue it and continue
+    if (isLoadingRef.current && pendingDateRef.current !== selectedDate) {
+      console.log('⏳ [VisitsData] Queueing new date while loading:', selectedDate);
+      pendingDateRef.current = selectedDate;
+      // Don't return - let it proceed to handle date change
+    }
+    
     isLoadingRef.current = true;
-    pendingDateRef.current = null;
+    pendingDateRef.current = selectedDate;
     
     // Check if this is a different date
     const isSameDate = lastLoadedDateRef.current === selectedDate;
@@ -796,16 +803,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
     
     isLoadingRef.current = false;
+    pendingDateRef.current = null;
     
-    // Check if there's a pending date to load (user changed dates while loading)
-    if (pendingDateRef.current && pendingDateRef.current !== selectedDate) {
-      console.log('📅 [VisitsData] Loading pending date:', pendingDateRef.current);
-      const pendingDate = pendingDateRef.current;
-      pendingDateRef.current = null;
-      // Use setTimeout to allow current call stack to complete
-      setTimeout(() => loadData(true), 0);
-    }
-  }, [userId, selectedDate, isOldDate, retailers]);
+    // No need to check pending dates here - the useEffect will re-trigger loadData for new dates
+  }, [userId, selectedDate, isOldDate, isToday]);
 
   // Recalculate progress stats when dataVersion changes
   // This is triggered ONLY after ALL state has been updated (via setDataVersion call)
