@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { setCachedUser, clearCachedAuth } from '@/utils/cachedAuthIntegrity';
+import { devLog, devError } from '@/utils/devLog';
 
 interface AuthContextType {
   user: User | null;
@@ -65,13 +67,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching user role:', error);
+        devError('Error fetching user role:', error);
         return null;
       }
 
       return data?.role || null;
     } catch (error) {
-      console.error('Error in fetchUserRole:', error);
+      devError('Error in fetchUserRole:', error);
       return null;
     }
   };
@@ -97,13 +99,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             profile_picture_url: user?.user_metadata?.profile_picture_url
           };
         }
-        console.error('Error fetching user profile:', error);
+        devError('Error fetching user profile:', error);
         return null;
       }
 
       return data;
     } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
+      devError('Error in fetchUserProfile:', error);
       // Return basic profile from user metadata as fallback
       if (user) {
         return {
@@ -134,7 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (lastActivity) {
         const timeSinceActivity = Date.now() - parseInt(lastActivity, 10);
         if (timeSinceActivity >= IDLE_TIMEOUT) {
-          console.log('User idle for 1 hour, logging out...');
+          devLog('User idle for 1 hour, logging out...');
           toast.info('You have been logged out due to 1 hour of inactivity');
           signOut();
           return;
@@ -184,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUserProfile(cachedProfile ? JSON.parse(cachedProfile) : null);
         }
       } catch (error) {
-        console.error('Error loading cached auth:', error);
+        devError('Error loading cached auth:', error);
       }
     };
 
@@ -193,7 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Safety timeout: ensure loading is false after 5 seconds max
     const loadingTimeout = setTimeout(() => {
-      console.log('Auth loading timeout reached, setting loading to false');
+      devLog('Auth loading timeout reached, setting loading to false');
       setLoading(false);
     }, 5000);
 
@@ -205,15 +207,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         
-        // Cache auth state for offline use
+        // Cache auth state for offline use with integrity
         if (session?.user) {
-          localStorage.setItem('cached_user', JSON.stringify(session.user));
+          setCachedUser(session.user);
           localStorage.setItem('cached_user_id', session.user.id);
         } else {
-          localStorage.removeItem('cached_user');
-          localStorage.removeItem('cached_user_id');
-          localStorage.removeItem('cached_role');
-          localStorage.removeItem('cached_profile');
+          clearCachedAuth();
         }
         
         // Defer Supabase calls with setTimeout
@@ -228,7 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUserProfile(profile);
               if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
             } catch (err) {
-              console.error('Error loading user data in auth change:', err);
+              devError('Error loading user data in auth change:', err);
               // Set basic profile from user metadata as fallback
               const basicProfile: UserProfile = {
                 id: session.user.id,
@@ -256,7 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(currentUser);
       
       if (session?.user) {
-        localStorage.setItem('cached_user', JSON.stringify(session.user));
+        setCachedUser(session.user);
         localStorage.setItem('cached_user_id', session.user.id);
         
         try {
@@ -268,7 +267,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUserProfile(profile);
           if (profile) localStorage.setItem('cached_profile', JSON.stringify(profile));
         } catch (err) {
-          console.error('Error loading user data:', err);
+          devError('Error loading user data:', err);
           // Set basic profile from user metadata
           const basicProfile: UserProfile = {
             id: session.user.id,
@@ -283,7 +282,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearTimeout(loadingTimeout);
       setLoading(false);
     }).catch((error) => {
-      console.error('Error getting session:', error);
+      devError('Error getting session:', error);
       clearTimeout(loadingTimeout);
       setLoading(false);
     });
@@ -361,7 +360,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await requestStoragePermission();
           
         } catch (error) {
-          console.error('Error requesting permissions:', error);
+          devError('Error requesting permissions:', error);
         }
       }, 1000); // Small delay to let the success toast show first
 
@@ -379,10 +378,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Sign out from Supabase (no longer auto-cancels visits)
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) {
-        console.error('Supabase signOut error:', error);
+        devError('Supabase signOut error:', error);
       }
     } catch (error) {
-      console.error('Error signing out:', error);
+      devError('Error signing out:', error);
     }
     
     // Clear local session state
@@ -391,8 +390,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUserRole(null);
     setUserProfile(null);
     
-    // Clear all auth-related storage
-    localStorage.clear();
+    // Clear all auth-related storage with integrity cleanup
+    clearCachedAuth();
     sessionStorage.clear();
     
     // Clear any Supabase-specific storage keys
@@ -471,7 +470,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
       return { error: resetError };
     } catch (error) {
-      console.error('Reset password error:', error);
+      devError('Reset password error:', error);
       return { error: error as any };
     }
   };
