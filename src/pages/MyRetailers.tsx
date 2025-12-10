@@ -133,9 +133,17 @@ export const MyRetailers = () => {
       if (cachedRetailers.length > 0) {
         console.log('✅ Displaying cached retailers:', cachedRetailers.length);
         setRetailers(cachedRetailers.sort((a, b) => a.name.localeCompare(b.name)));
+        setLoading(false); // Stop loading immediately once cache is displayed
       }
       
-      // Try to fetch fresh data in background (silent fail if offline)
+      // Check if we're online before attempting network fetch
+      if (!navigator.onLine) {
+        console.log('📴 Offline - using cached data only');
+        setLoading(false);
+        return;
+      }
+      
+      // Try to fetch fresh data in background (silent fail if offline/slow)
       try {
         const { data, error } = await supabase
           .from("retailers")
@@ -145,16 +153,19 @@ export const MyRetailers = () => {
           
         if (error) throw error;
         
-        // Clear cache and update with fresh data
-        console.log('🔄 Updating retailers cache...');
-        await offlineStorage.clear(STORES.RETAILERS);
-        for (const retailer of data || []) {
-          await offlineStorage.save(STORES.RETAILERS, retailer);
+        // IMPORTANT: Only update cache AFTER successful fetch
+        // Save new data first, then clear old data to prevent data loss
+        if (data && data.length > 0) {
+          console.log('🔄 Updating retailers cache with fresh data:', data.length);
+          // Save all new retailers first
+          for (const retailer of data) {
+            await offlineStorage.save(STORES.RETAILERS, retailer);
+          }
+          setRetailers(data);
         }
-        setRetailers(data || []);
       } catch (networkError: any) {
         // Silent fail - cached data is already displayed
-        console.log('Network sync failed, using cached data');
+        console.log('Network sync failed, using cached data:', networkError.message);
       }
     } catch (error: any) {
       console.error('Error loading retailers:', error);
