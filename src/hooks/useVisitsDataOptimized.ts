@@ -119,16 +119,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         (v: any) => v.user_id === userId && v.planned_date === selectedDate
       );
 
-      // Filter orders by date first
-      const dateStart = new Date(selectedDate);
-      dateStart.setHours(0, 0, 0, 0);
-      const dateEnd = new Date(selectedDate);
-      dateEnd.setHours(23, 59, 59, 999);
-
+      // Filter orders by order_date (more reliable than created_at)
       const filteredOrders = cachedOrders.filter((o: any) => {
-        const orderDate = new Date(o.created_at);
-        return o.user_id === userId && o.status === 'confirmed' && orderDate >= dateStart && orderDate <= dateEnd;
+        // Use order_date if available, fallback to created_at
+        const orderDateStr = o.order_date || (o.created_at ? o.created_at.split('T')[0] : null);
+        return o.user_id === userId && o.status === 'confirmed' && orderDateStr === selectedDate;
       });
+      
+      console.log('📦 [CACHE] Filtered orders for date:', selectedDate, 'count:', filteredOrders.length);
 
       // CRITICAL: If no beat plans for this date - show empty state immediately
       // User must have planned beats to see any retailers
@@ -372,13 +370,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         // IMPORTANT: Also fetch orders for today to get retailer IDs from orders
         // This ensures retailers with orders show up even if not in planned beats or visits
-        const { data: ordersForToday } = await supabase
+        // Use order_date field for accurate date filtering (more reliable than created_at)
+        const { data: ordersForToday, error: ordersPreError } = await supabase
           .from('orders')
-          .select('retailer_id')
+          .select('retailer_id, total_amount')
           .eq('user_id', userId)
           .eq('status', 'confirmed')
-          .gte('created_at', `${selectedDate}T00:00:00.000Z`)
-          .lte('created_at', `${selectedDate}T23:59:59.999Z`);
+          .eq('order_date', selectedDate);
+        
+        if (ordersPreError) {
+          console.error('Error fetching orders for today:', ordersPreError);
+        }
+        
+        console.log('📋 [NETWORK] Orders found for date', selectedDate, ':', ordersForToday?.length || 0);
 
         const orderRetailerIds = (ordersForToday || []).map((o: any) => o.retailer_id);
 
@@ -397,12 +401,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
               .in('id', allRetailerIds),
             supabase
               .from('orders')
-              .select('id, retailer_id, total_amount, status, created_at, user_id')
+              .select('id, retailer_id, total_amount, status, created_at, user_id, order_date')
               .eq('user_id', userId)
               .eq('status', 'confirmed')
-              .in('retailer_id', allRetailerIds)
-              .gte('created_at', `${selectedDate}T00:00:00.000Z`)
-              .lte('created_at', `${selectedDate}T23:59:59.999Z`)
+              .eq('order_date', selectedDate)
           ]);
 
           if (retailersResult.error) throw retailersResult.error;
@@ -410,6 +412,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
           retailersData = retailersResult.data || [];
           ordersData = ordersResult.data || [];
+          
+          console.log('📋 [NETWORK] Final orders fetched:', ordersData.length, 'with total value:', ordersData.reduce((sum, o) => sum + Number(o.total_amount || 0), 0));
         }
 
         // OFFLINE FEATURE: Only add cached retailers when we're truly offline
