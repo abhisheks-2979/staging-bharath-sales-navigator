@@ -138,12 +138,16 @@ const CreatePrimaryOrder = () => {
 
     setLoading(true);
     const { subtotal, tax, total } = calculateTotals();
+    
+    // Generate order number
+    const orderNumber = `PO-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
     try {
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('primary_orders')
         .insert([{
+          order_number: orderNumber,
           distributor_id: distributorId,
           expected_delivery_date: expectedDeliveryDate || null,
           notes,
