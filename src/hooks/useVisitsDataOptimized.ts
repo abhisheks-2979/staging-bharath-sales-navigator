@@ -116,6 +116,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setVisits(cachedDateData.visits);
       setRetailers(cachedDateData.retailers);
       setOrders(cachedDateData.orders);
+      // CRITICAL: Always set progressStats from cache for immediate display
       setProgressStats(cachedDateData.progressStats);
       setIsLoading(false);
       lastLoadedDateRef.current = selectedDate;
@@ -127,17 +128,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         return;
       }
       
-      // For today, continue to network check in background (non-blocking)
-      if (isToday(selectedDate) && navigator.onLine) {
-        console.log('📅 [TODAY] Will check network for updates in background');
+      // For today OR future dates, ALWAYS check network for updates when online
+      if (navigator.onLine) {
+        console.log('📅 [TODAY/FUTURE] Will check network for real-time updates');
         // Continue to network fetch below, but UI is already showing cached data
-      } else if (!navigator.onLine) {
+      } else {
         console.log('📴 [OFFLINE] Using cached data only');
         isLoadingRef.current = false;
         return;
-      } else {
-        // Future date - check network for updates
-        console.log('📅 [FUTURE] Will check network for updates');
       }
     } else if (isDateChange) {
       setIsLoading(true);
@@ -673,23 +671,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           selectedDate
         });
         
+        // CRITICAL: Update all state together to ensure useEffect recalculates with consistent data
         setBeatPlans(beatPlansData);
         setVisits(visitsData);
         setOrders(ordersData);
         
         // CRITICAL FIX: Only overwrite retailers if network returned data
         // Otherwise keep the cached retailers to prevent blank display
-        if (retailersData.length > 0) {
-          setRetailers(retailersData);
-        } else if (!hasLoadedFromCache) {
-          // Only clear retailers if we never had cache data either
-          setRetailers([]);
-        }
-        // If network returns 0 but cache had retailers, keep cache data
+        const finalRetailers = retailersData.length > 0 ? retailersData : (hasLoadedFromCache ? retailers : []);
+        setRetailers(finalRetailers);
+        
+        // CRITICAL: Also update progressStats directly here to ensure it's in sync with network data
+        // The useEffect may not trigger if data hasn't changed shape
+        setProgressStats(newStats);
         
         setIsLoading(false);
         setError(null);
-        console.log('🔄 Updated with fresh data from network');
+        console.log('🔄 Updated with fresh data from network, progressStats:', newStats);
       } catch (networkError) {
         console.log('Network sync failed, using cached data:', networkError);
         // CRITICAL: If network fails and we haven't loaded from cache, 
@@ -805,7 +803,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       // Use setTimeout to allow current call stack to complete
       setTimeout(() => loadData(true), 0);
     }
-  }, [userId, selectedDate, isOldDate, isToday, retailers]);
+  }, [userId, selectedDate, isOldDate, retailers]);
 
   // Auto-recalculate progress stats when orders/visits/retailers change
   // This is a standalone effect that doesn't use useCallback to avoid circular deps
