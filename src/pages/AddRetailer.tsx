@@ -630,8 +630,16 @@ export const AddRetailer = () => {
   };
 
   const handleSaveWithBeat = async () => {
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
-      toast({ title: 'Missing Information', description: 'Please fill in all required fields', variant: 'destructive' });
+    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.locationTag) {
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address, Location Tag)', variant: 'destructive' });
+      return;
+    }
+    if (!selectedBeat || selectedBeat === 'unassigned') {
+      toast({ title: 'Beat Required', description: 'Please select a beat for this retailer', variant: 'destructive' });
+      return;
+    }
+    if (retailerData.parentType === "Distributor" && (!retailerData.selectedDistributors || retailerData.selectedDistributors.length === 0)) {
+      toast({ title: 'Distributor Required', description: 'Please select a distributor for this retailer', variant: 'destructive' });
       return;
     }
     await loadExistingBeats();
@@ -652,16 +660,32 @@ export const AddRetailer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.locationTag) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (Name, Phone, Address, Location Tag)",
         variant: "destructive"
       });
       return;
     }
-    // Save with selected beat or default to unassigned
-    await performInsert(selectedBeat || 'unassigned');
+    if (!selectedBeat || selectedBeat === 'unassigned') {
+      toast({
+        title: "Beat Required",
+        description: "Please select a beat for this retailer",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (retailerData.parentType === "Distributor" && (!retailerData.selectedDistributors || retailerData.selectedDistributors.length === 0)) {
+      toast({
+        title: "Distributor Required",
+        description: "Please select a distributor for this retailer",
+        variant: "destructive"
+      });
+      return;
+    }
+    // Save with selected beat
+    await performInsert(selectedBeat);
   };
 
   return (
@@ -1305,32 +1329,99 @@ export const AddRetailer = () => {
               <p className="text-sm text-muted-foreground">Assign this retailer to a beat and distributor for proper routing</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Beat Selection */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="beat" className="font-semibold">Assign to Beat *</Label>
-                  <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'secondary'} className="text-xs">
-                    {connectivityStatus === 'offline' ? '📴 Offline' : '🌐 Online'} • {beats.length} beats
-                  </Badge>
+              {/* Beat and Territory Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Beat Selection */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="beat" className="font-semibold">Assign to Beat *</Label>
+                    <Badge variant={connectivityStatus === 'offline' ? 'destructive' : 'secondary'} className="text-xs">
+                      {connectivityStatus === 'offline' ? '📴 Offline' : '🌐 Online'} • {beats.length} beats
+                    </Badge>
+                  </div>
+                  <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
+                    <SelectTrigger className="bg-background border-primary/30">
+                      <SelectValue placeholder="Select a beat" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {beats.length > 0 ? (
+                        beats.map((beat) => (
+                          <SelectItem key={beat.beat_id} value={beat.beat_id}>
+                            {beat.beat_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>No beats available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
                 </div>
-                <Select value={selectedBeat} onValueChange={(value) => setSelectedBeat(value)}>
-                  <SelectTrigger className="bg-background border-primary/30">
-                    <SelectValue placeholder="Select a beat" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {beats.length > 0 ? (
-                      beats.map((beat) => (
-                        <SelectItem key={beat.beat_id} value={beat.beat_id}>
-                          {beat.beat_name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>No beats available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to for visit planning</p>
+
+                {/* Territory Selection */}
+                <div className="space-y-2">
+                  <Label className="font-semibold">Assign to Territory</Label>
+                  <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={territoryComboOpen}
+                        className="w-full justify-between bg-background"
+                      >
+                        {selectedTerritoryId
+                          ? territories.find((t) => t.id === selectedTerritoryId)?.name
+                          : "Select territory..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search territory..." />
+                        <CommandList>
+                          <CommandEmpty>No territory found.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => {
+                                setSelectedTerritoryId(null);
+                                setTerritoryComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  !selectedTerritoryId ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              None
+                            </CommandItem>
+                            {territories.map((territory) => (
+                              <CommandItem
+                                key={territory.id}
+                                onSelect={() => {
+                                  setSelectedTerritoryId(territory.id);
+                                  setTerritoryComboOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{territory.name}</span>
+                                  <span className="text-xs text-muted-foreground">{territory.region}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground">Optionally assign to a sales territory</p>
+                </div>
               </div>
 
               {/* Distributor Selection */}
@@ -1413,71 +1504,6 @@ export const AddRetailer = () => {
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg bg-muted/20">
-              {/* Assign Territory */}
-              <div className="space-y-2">
-                <Label>Assign to Territory</Label>
-                <Popover open={territoryComboOpen} onOpenChange={setTerritoryComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={territoryComboOpen}
-                      className="w-full justify-between bg-background"
-                    >
-                      {selectedTerritoryId
-                        ? territories.find((t) => t.id === selectedTerritoryId)?.name
-                        : "Select territory..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Search territory..." />
-                      <CommandList>
-                        <CommandEmpty>No territory found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            onSelect={() => {
-                              setSelectedTerritoryId(null);
-                              setTerritoryComboOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                !selectedTerritoryId ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            None
-                          </CommandItem>
-                          {territories.map((territory) => (
-                            <CommandItem
-                              key={territory.id}
-                              onSelect={() => {
-                                setSelectedTerritoryId(territory.id);
-                                setTerritoryComboOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedTerritoryId === territory.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <div className="flex flex-col">
-                                <span>{territory.name}</span>
-                                <span className="text-xs text-muted-foreground">{territory.region}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <p className="text-xs text-muted-foreground">Optionally assign this retailer to a sales territory</p>
-              </div>
-
               {/* Notes */}
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
