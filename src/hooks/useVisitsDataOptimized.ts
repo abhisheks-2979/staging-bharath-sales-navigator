@@ -192,26 +192,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
         const orderRetailerIds = filteredOrders.map((o: any) => o.retailer_id);
 
-        // Extract retailer IDs from beat_data.retailer_ids if explicitly specified
+        // Extract retailer IDs from beat_data.retailer_ids if explicitly specified AND has actual items
         let plannedRetailerIds: string[] = [];
-        let hasBeatDataWithRetailerIds = false;
         for (const beatPlan of filteredBeatPlans) {
           const beatData = (beatPlan as any).beat_data as any;
           if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-            hasBeatDataWithRetailerIds = true;
             plannedRetailerIds.push(...beatData.retailer_ids);
           }
         }
 
-        // CACHE FALLBACK: If no explicit retailer_ids in beat_data, fall back to beat_id matching
-        // This ensures we show retailers even when offline/slow network and beat_data doesn't have retailer_ids
+        // ALWAYS fall back to beat_id matching if we found no retailer_ids from beat_data
+        // This ensures retailers are shown even when beat_data.retailer_ids is empty [] or undefined
         const plannedBeatIds = filteredBeatPlans.map((bp: any) => bp.beat_id);
-        if (!hasBeatDataWithRetailerIds && plannedBeatIds.length > 0) {
+        if (plannedRetailerIds.length === 0 && plannedBeatIds.length > 0) {
           const beatRetailers = cachedRetailers.filter((r: any) => 
             r.user_id === userId && plannedBeatIds.includes(r.beat_id)
           );
           plannedRetailerIds = beatRetailers.map((r: any) => r.id);
           console.log('📦 [CACHE] Fallback to beat_id matching:', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'beats');
+        } else if (plannedRetailerIds.length > 0) {
+          console.log('📦 [CACHE] Using explicit retailer_ids from beat_data:', plannedRetailerIds.length, 'retailers');
         }
         
         // Combine all retailer IDs: from visits, explicit beat_data.retailer_ids/beat_id fallback, AND orders
@@ -416,49 +416,45 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // Get all retailer IDs we need
         const visitRetailerIds = (visitsData || []).map((v: any) => v.retailer_id);
         
-        // Extract retailer IDs from beat_data.retailer_ids if specified
-        // Only consider retailer_ids defined if the array has actual items
+        // Extract retailer IDs from beat_data.retailer_ids if specified AND has actual items
         let plannedRetailerIds: string[] = [];
-        let hasBeatDataWithRetailerIdsDefined = false;
         for (const beatPlan of beatPlansData) {
           const beatData = beatPlan.beat_data as any;
           if (beatData && Array.isArray(beatData.retailer_ids) && beatData.retailer_ids.length > 0) {
-            hasBeatDataWithRetailerIdsDefined = true;
             plannedRetailerIds.push(...beatData.retailer_ids);
           }
         }
         
-        console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds);
+        console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds.length);
         
-        // If no specific retailer IDs are defined in beat_data for any plan, fall back to fetching by beat_id
-        console.log('🔍 [DEBUG] hasBeatDataWithRetailerIdsDefined:', hasBeatDataWithRetailerIdsDefined, 'beatPlansData.length:', beatPlansData.length);
+        // ALWAYS fall back to fetching by beat_id if no retailer_ids found from beat_data
+        // This ensures retailers are shown even when beat_data.retailer_ids is empty [] or undefined
+        const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
+        console.log('🔍 [DEBUG] plannedBeatIds:', plannedBeatIds.length, 'plannedRetailerIds from beat_data:', plannedRetailerIds.length);
         
-        if (!hasBeatDataWithRetailerIdsDefined && beatPlansData.length > 0) {
-          const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
-          console.log('🔍 [DEBUG] Fallback - plannedBeatIds:', plannedBeatIds);
+        if (plannedRetailerIds.length === 0 && plannedBeatIds.length > 0) {
+          console.log('🔍 [DEBUG] Fallback - fetching retailers by beat_id:', plannedBeatIds);
           
-          if (plannedBeatIds.length > 0) {
-            const { data: plannedRetailers, error: retailersError } = await supabase
-              .from('retailers')
-              .select('id')
-              .eq('user_id', userId)
-              .in('beat_id', plannedBeatIds);
+          const { data: plannedRetailers, error: retailersError } = await supabase
+            .from('retailers')
+            .select('id')
+            .eq('user_id', userId)
+            .in('beat_id', plannedBeatIds);
 
-            console.log('🔍 [DEBUG] Fallback query result:', { 
-              error: retailersError, 
-              count: plannedRetailers?.length,
-              userId,
-              plannedBeatIds 
-            });
+          console.log('🔍 [DEBUG] Fallback query result:', { 
+            error: retailersError, 
+            count: plannedRetailers?.length,
+            userId,
+            plannedBeatIds 
+          });
 
-            if (retailersError) {
-              console.error('Error fetching planned retailers:', retailersError);
-            } else {
-              plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
-              console.log('📋 Found', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'planned beats (fallback by beat_id)');
-            }
+          if (retailersError) {
+            console.error('Error fetching planned retailers:', retailersError);
+          } else {
+            plannedRetailerIds = (plannedRetailers || []).map((r: any) => r.id);
+            console.log('📋 Found', plannedRetailerIds.length, 'retailers for', plannedBeatIds.length, 'planned beats (fallback by beat_id)');
           }
-        } else if (hasBeatDataWithRetailerIdsDefined) {
+        } else if (plannedRetailerIds.length > 0) {
           console.log('📋 Using', plannedRetailerIds.length, 'specific retailers from beat plan data');
         }
 
@@ -521,7 +517,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         // OFFLINE FEATURE: Only add cached retailers when we're truly offline
         // When online and database returns empty, trust the database (no retailers for this beat)
         // Only merge offline retailers if we couldn't reach the database at all
-        const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
+        // Note: plannedBeatIds already defined above
         
         // Don't merge cached retailers here since we successfully fetched from database
         // The database is the source of truth when online
