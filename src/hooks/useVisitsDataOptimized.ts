@@ -187,70 +187,82 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           selectedDate
         });
 
-        // Set state from cache
-        setBeatPlans(filteredBeatPlans);
-        setVisits(filteredVisits);
-        setRetailers(filteredRetailers);
-        setOrders(filteredOrders);
-        hasLoadedFromCache = true;
-        setIsLoading(false);
+        // CRITICAL: Only consider cache "loaded" if we have retailers or no beats planned
+        // If we have beats but no retailers in cache, let network fetch handle it
+        if (filteredRetailers.length > 0 || filteredBeatPlans.length === 0) {
+          // Set state from cache
+          setBeatPlans(filteredBeatPlans);
+          setVisits(filteredVisits);
+          setRetailers(filteredRetailers);
+          setOrders(filteredOrders);
+          hasLoadedFromCache = true;
+          setIsLoading(false);
+        } else {
+          // Have beat plans but no retailers in cache - wait for network
+          // But still set beat plans so UI shows beat name
+          console.log('📦 [CACHE] Beats found but no retailers in cache, waiting for network...');
+          setBeatPlans(filteredBeatPlans);
+          // Don't set hasLoadedFromCache or isLoading(false) - let network handle it
+        }
 
-        // Calculate progress stats from cached data immediately
-        const ordersByRetailer = new Map<string, number>();
-        filteredOrders.forEach((o: any) => {
-          ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
-        });
+        // Calculate progress stats from cached data only if we loaded data from cache
+        if (hasLoadedFromCache) {
+          const ordersByRetailer = new Map<string, number>();
+          filteredOrders.forEach((o: any) => {
+            ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
+          });
 
-        let planned = 0;
-        let productive = 0;
-        let unproductive = 0;
-        let totalOrders = filteredOrders.length;
-        let totalOrderValue = filteredOrders.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0);
+          let planned = 0;
+          let productive = 0;
+          let unproductive = 0;
+          let totalOrders = filteredOrders.length;
+          let totalOrderValue = filteredOrders.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0);
 
-        // Create a set of retailer IDs that have visits
-        const visitRetailerIdsSet = new Set(filteredVisits.map((v: any) => v.retailer_id));
+          // Create a set of retailer IDs that have visits
+          const visitRetailerIdsSet = new Set(filteredVisits.map((v: any) => v.retailer_id));
 
-        // Group visits by retailer and get the most recent one (handles duplicates)
-        const latestVisitsByRetailer = new Map<string, any>();
-        filteredVisits.forEach((visit: any) => {
-          const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
-          if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
-            latestVisitsByRetailer.set(visit.retailer_id, visit);
-          }
-        });
+          // Group visits by retailer and get the most recent one (handles duplicates)
+          const latestVisitsByRetailer = new Map<string, any>();
+          filteredVisits.forEach((visit: any) => {
+            const existingVisit = latestVisitsByRetailer.get(visit.retailer_id);
+            if (!existingVisit || new Date(visit.created_at) > new Date(existingVisit.created_at)) {
+              latestVisitsByRetailer.set(visit.retailer_id, visit);
+            }
+          });
 
-        // Count based on the latest visit per retailer only
-        latestVisitsByRetailer.forEach((visit: any) => {
-          const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
-          const hasOrder = orderValue > 0;
-          
-          if (visit.status === 'unproductive') {
-            unproductive++;
-          } else if (visit.status === 'productive' || hasOrder) {
-            productive++;
-          } else if (visit.status === 'planned') {
-            planned++;
-          }
-        });
+          // Count based on the latest visit per retailer only
+          latestVisitsByRetailer.forEach((visit: any) => {
+            const orderValue = ordersByRetailer.get(visit.retailer_id) || 0;
+            const hasOrder = orderValue > 0;
+            
+            if (visit.status === 'unproductive') {
+              unproductive++;
+            } else if (visit.status === 'productive' || hasOrder) {
+              productive++;
+            } else if (visit.status === 'planned') {
+              planned++;
+            }
+          });
 
-        // Count retailers from plannedRetailerIds (already calculated above with fallback) 
-        // that don't have visit records yet as planned
-        plannedRetailerIds.forEach((retailerId: string) => {
-          if (!visitRetailerIdsSet.has(retailerId) && !ordersByRetailer.has(retailerId)) {
-            planned++;
-          }
-        });
+          // Count retailers from plannedRetailerIds (already calculated above with fallback) 
+          // that don't have visit records yet as planned
+          plannedRetailerIds.forEach((retailerId: string) => {
+            if (!visitRetailerIdsSet.has(retailerId) && !ordersByRetailer.has(retailerId)) {
+              planned++;
+            }
+          });
 
-        const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
-        setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
-        console.log('📊 [CACHE] Progress stats calculated from cache:', { 
-          planned, 
-          productive, 
-          unproductive, 
-          totalOrders, 
-          totalOrderValue,
-          selectedDate
-        });
+          const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
+          setProgressStats(prev => progressStatsEqual(prev, newStats) ? prev : newStats);
+          console.log('📊 [CACHE] Progress stats calculated from cache:', { 
+            planned, 
+            productive, 
+            unproductive, 
+            totalOrders, 
+            totalOrderValue,
+            selectedDate
+          });
+        }
       }
       
       // Update lastLoadedDateRef after cache loading
