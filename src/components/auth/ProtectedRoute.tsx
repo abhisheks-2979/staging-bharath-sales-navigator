@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { getValidatedCachedUser, clearCachedAuth } from '@/utils/cachedAuthIntegrity';
+import { devLog } from '@/utils/devLog';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -17,22 +19,17 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // When offline, allow access if user data exists in local storage or cache
-  // This prevents blocking authenticated users when offline
+  // When offline, allow access if validated cached user data exists
+  // Uses integrity checking to prevent tampered data from granting access
   if (!user) {
-    const cachedUser = localStorage.getItem('cached_user');
-    if (cachedUser) {
-      try {
-        JSON.parse(cachedUser); // Validate it's valid JSON
-        console.log('✅ Allowing offline access with cached user');
-        return <>{children}</>;
-      } catch (e) {
-        console.error('Invalid cached user data');
-        localStorage.removeItem('cached_user');
-        localStorage.removeItem('cached_user_id');
-      }
+    const validatedUser = getValidatedCachedUser();
+    if (validatedUser) {
+      devLog('✅ Allowing offline access with validated cached user');
+      return <>{children}</>;
     }
     
+    // Clear any invalid cached data
+    clearCachedAuth();
     return <Navigate to="/auth" replace />;
   }
 
