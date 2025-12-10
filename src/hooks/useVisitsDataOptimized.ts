@@ -390,31 +390,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
 
         let retailersData: any[] = [];
-        let ordersData: any[] = [];
-
+        // CRITICAL: Use ordersForToday directly as ordersData
+        // This ensures orders are always counted for progress stats regardless of retailer IDs
+        const ordersData: any[] = ordersForToday || [];
+        
         if (allRetailerIds.length > 0) {
-          // Fetch retailers and full order details in parallel
-          const [retailersResult, ordersResult] = await Promise.all([
-            supabase
-              .from('retailers')
-              .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude')
-              .in('id', allRetailerIds),
-            supabase
-              .from('orders')
-              .select('id, retailer_id, total_amount, status, created_at, user_id, order_date')
-              .eq('user_id', userId)
-              .eq('status', 'confirmed')
-              .eq('order_date', selectedDate)
-          ]);
+          // Fetch retailers only - we already have orders from ordersForToday
+          const retailersResult = await supabase
+            .from('retailers')
+            .select('id, name, address, phone, category, parent_name, potential, user_id, beat_id, pending_amount, latitude, longitude')
+            .in('id', allRetailerIds);
 
           if (retailersResult.error) throw retailersResult.error;
-          if (ordersResult.error) throw ordersResult.error;
-
           retailersData = retailersResult.data || [];
-          ordersData = ordersResult.data || [];
-          
-          console.log('📋 [NETWORK] Final orders fetched:', ordersData.length, 'with total value:', ordersData.reduce((sum, o) => sum + Number(o.total_amount || 0), 0));
         }
+          
+        console.log('📋 [NETWORK] Final orders for progress:', ordersData.length, 'with total value:', ordersData.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0));
 
         // OFFLINE FEATURE: Only add cached retailers when we're truly offline
         // When online and database returns empty, trust the database (no retailers for this beat)
