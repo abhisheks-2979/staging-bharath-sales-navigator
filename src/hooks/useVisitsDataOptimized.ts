@@ -807,11 +807,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
   }, [userId, selectedDate, isOldDate, isToday, retailers]);
 
-  // Recalculate progress stats when visits/orders change
-  const recalculateProgressStats = useCallback(() => {
+  // Auto-recalculate progress stats when orders/visits/retailers change
+  // This is a standalone effect that doesn't use useCallback to avoid circular deps
+  useEffect(() => {
     if (!userId) return;
     
-    // Don't recalculate if we have no data at all (initial load)
+    // Don't recalculate if we have no beat plans/retailers (no plans for this date)
+    // But DO recalculate if we have orders (productive cases)
     if (retailers.length === 0 && orders.length === 0 && visits.length === 0) {
       console.log('📊 [ProgressStats] Skipping - no data loaded yet');
       return;
@@ -821,13 +823,6 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       orders: orders.length,
       visits: visits.length,
       retailers: retailers.length
-    });
-    
-    const ordersMap = new Map<string, boolean>();
-    const ordersByRetailer = new Map<string, number>();
-    orders.forEach(o => {
-      ordersMap.set(o.retailer_id, true);
-      ordersByRetailer.set(o.retailer_id, (ordersByRetailer.get(o.retailer_id) || 0) + Number(o.total_amount || 0));
     });
 
     let planned = 0;
@@ -882,18 +877,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     });
 
     const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
+    console.log('📊 [ProgressStats] Calculated:', newStats);
+    
     setProgressStats(prev => {
       if (progressStatsEqual(prev, newStats)) return prev;
       console.log('📊 [ProgressStats] Stats updated:', newStats);
       return newStats;
     });
-  }, [userId, visits, orders, retailers]);
-
-  // Auto-recalculate progress stats when orders/visits/retailers change
-  useEffect(() => {
-    // Always recalculate when any data changes to ensure accuracy
-    recalculateProgressStats();
-  }, [orders, visits, retailers, recalculateProgressStats]);
+  }, [userId, orders, visits, retailers]);
 
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up for date:', selectedDate);
