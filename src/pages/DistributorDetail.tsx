@@ -42,6 +42,7 @@ import { DistributorBeats } from "@/components/distributor/DistributorBeats";
 import { DistributorRetailers } from "@/components/distributor/DistributorRetailers";
 import { DistributorTerritories } from "@/components/distributor/DistributorTerritories";
 import { DistributorBusinessPlan } from "@/components/distributor/DistributorBusinessPlan";
+import { DistributorPortalUsers } from "@/components/distributor/DistributorPortalUsers";
 import { EvaluationChecklist } from "@/components/distributor/EvaluationChecklist";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 
@@ -314,10 +315,11 @@ export default function DistributorDetail() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
             <TabsTrigger value="network" className="text-xs">Network</TabsTrigger>
             <TabsTrigger value="contacts" className="text-xs">Contacts</TabsTrigger>
+            <TabsTrigger value="portal" className="text-xs">Portal</TabsTrigger>
             <TabsTrigger value="business" className="text-xs">Business</TabsTrigger>
           </TabsList>
 
@@ -462,6 +464,13 @@ export default function DistributorDetail() {
 
           <TabsContent value="contacts" className="mt-4">
             <DistributorContacts distributorId={distributor.id} />
+          </TabsContent>
+
+          <TabsContent value="portal" className="mt-4">
+            <DistributorPortalUsers 
+              distributorId={distributor.id} 
+              distributorName={distributor.name} 
+            />
           </TabsContent>
 
           <TabsContent value="business" className="mt-4">
