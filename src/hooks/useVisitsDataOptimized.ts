@@ -792,6 +792,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     });
   }, [userId, visits, orders, retailers]);
 
+  // Auto-recalculate progress stats when orders/visits/retailers change
+  useEffect(() => {
+    if (orders.length > 0 || visits.length > 0 || retailers.length > 0) {
+      recalculateProgressStats();
+    }
+  }, [orders, visits, retailers, recalculateProgressStats]);
+
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up data loading for date:', selectedDate);
     
@@ -800,7 +807,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     // The loadData function will update only if data is different
     
     // Load new data
-    loadData();
+    if (selectedDate) {
+      loadData();
+    }
 
     // Listen for visitStatusChanged events to recalculate progress stats
     const handleStatusChange = (event: any) => {
@@ -821,7 +830,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     const handleOnline = () => {
       console.log('🌐 Connection restored! Refreshing data to pick up synced changes...');
       setTimeout(() => {
-        loadData();
+        loadData(true);
       }, 2000); // Give sync a moment to complete
     };
     
