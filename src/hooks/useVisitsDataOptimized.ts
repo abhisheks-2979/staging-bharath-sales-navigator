@@ -557,11 +557,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         }
       }
     } else {
-      // Offline mode
+      // Offline mode - ensure we always show cached data
+      console.log('📴 Offline mode - showing cached data');
       if (!hasLoadedFromCache) {
-        console.log('📴 Offline and no cache available');
-        setIsLoading(false);
+        // Try to load from cache one more time if nothing was loaded
+        console.log('📴 Attempting to load from cache in offline mode...');
+        try {
+          const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+          const filteredRetailers = cachedRetailers.filter((r: any) => r.user_id === userId);
+          if (filteredRetailers.length > 0) {
+            console.log('📴 [OFFLINE] Found', filteredRetailers.length, 'retailers in cache');
+            setRetailers(filteredRetailers);
+          }
+        } catch (e) {
+          console.error('Error loading cached retailers in offline mode:', e);
+        }
       }
+      setIsLoading(false);
     }
     
     isLoadingRef.current = false;
