@@ -363,14 +363,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         console.log('📋 Planned retailer IDs from beat_data:', plannedRetailerIds);
         
         // If no specific retailer IDs are defined in beat_data for any plan, fall back to fetching by beat_id
+        console.log('🔍 [DEBUG] hasBeatDataWithRetailerIdsDefined:', hasBeatDataWithRetailerIdsDefined, 'beatPlansData.length:', beatPlansData.length);
+        
         if (!hasBeatDataWithRetailerIdsDefined && beatPlansData.length > 0) {
           const plannedBeatIds = (beatPlansData || []).map((bp: any) => bp.beat_id);
+          console.log('🔍 [DEBUG] Fallback - plannedBeatIds:', plannedBeatIds);
+          
           if (plannedBeatIds.length > 0) {
             const { data: plannedRetailers, error: retailersError } = await supabase
               .from('retailers')
               .select('id')
               .eq('user_id', userId)
               .in('beat_id', plannedBeatIds);
+
+            console.log('🔍 [DEBUG] Fallback query result:', { 
+              error: retailersError, 
+              count: plannedRetailers?.length,
+              userId,
+              plannedBeatIds 
+            });
 
             if (retailersError) {
               console.error('Error fetching planned retailers:', retailersError);
@@ -404,6 +415,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
         // Combine all retailer IDs: from visits, planned beats, AND orders
         const allRetailerIds = Array.from(new Set([...visitRetailerIds, ...plannedRetailerIds, ...orderRetailerIds]));
+        console.log('🔍 [DEBUG] allRetailerIds:', {
+          fromVisits: visitRetailerIds.length,
+          fromPlannedBeats: plannedRetailerIds.length,
+          fromOrders: orderRetailerIds.length,
+          total: allRetailerIds.length
+        });
 
         let retailersData: any[] = [];
         // CRITICAL: Use ordersForToday directly as ordersData
@@ -419,8 +436,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             .eq('user_id', userId)
             .in('id', allRetailerIds);
 
+          console.log('🔍 [DEBUG] Retailers query result:', {
+            error: retailersResult.error,
+            count: retailersResult.data?.length,
+            allRetailerIdsCount: allRetailerIds.length
+          });
+
           if (retailersResult.error) throw retailersResult.error;
           retailersData = retailersResult.data || [];
+        } else {
+          console.log('⚠️ [DEBUG] No retailer IDs to fetch!');
         }
           
         console.log('📋 [NETWORK] Final orders for progress:', ordersData.length, 'with total value:', ordersData.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0));
@@ -555,21 +580,29 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           });
         }).catch(console.error);
 
-        // DIRECT UPDATE: Always set state directly for network data
-        // This ensures fresh data always replaces cached data
-        console.log('📡 [NETWORK] Setting retailers from network:', retailersData.length, 'for date:', selectedDate);
-        setBeatPlans(beatPlansData);
-        setVisits(visitsData);
-        setRetailers(retailersData);
-        setOrders(ordersData);
-        
-        console.log('🔄 [NETWORK] State updated with fresh data (if changed):', {
+        // DIRECT UPDATE: Set state from network data
+        // Only update retailers if we got data from network, otherwise keep cache data
+        console.log('📡 [NETWORK] Setting data from network:', {
           beatPlans: beatPlansData.length,
-          visits: visitsData.length,
           retailers: retailersData.length,
+          visits: visitsData.length,
           orders: ordersData.length,
           selectedDate
         });
+        
+        setBeatPlans(beatPlansData);
+        setVisits(visitsData);
+        setOrders(ordersData);
+        
+        // CRITICAL FIX: Only overwrite retailers if network returned data
+        // Otherwise keep the cached retailers to prevent blank display
+        if (retailersData.length > 0) {
+          setRetailers(retailersData);
+        } else if (!hasLoadedFromCache) {
+          // Only clear retailers if we never had cache data either
+          setRetailers([]);
+        }
+        // If network returns 0 but cache had retailers, keep cache data
         
         if (!hasLoadedFromCache) {
           setIsLoading(false);
