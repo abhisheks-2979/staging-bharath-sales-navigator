@@ -1290,31 +1290,6 @@ export const AddRetailer = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Potential</Label>
-                  <Select value={retailerData.potential} onValueChange={(value) => handleInputChange("potential", value)}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select potential" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border z-50">
-                      {potentials.map((potential) => (
-                        <SelectItem key={potential} value={potential}>{potential}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Location Tag</Label>
-                  <Input
-                    placeholder="e.g., Near Temple"
-                    value={retailerData.locationTag}
-                    onChange={(e) => handleInputChange("locationTag", e.target.value)}
-                    className="bg-background"
-                  />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
