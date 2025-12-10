@@ -806,21 +806,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   }, [userId, selectedDate, isOldDate, retailers]);
 
   // Auto-recalculate progress stats when orders/visits/retailers change
-  // This is a standalone effect that doesn't use useCallback to avoid circular deps
+  // This ensures UI always reflects current state data
   useEffect(() => {
     if (!userId) return;
     
-    // Don't recalculate if we have no beat plans/retailers (no plans for this date)
-    // But DO recalculate if we have orders (productive cases)
-    if (retailers.length === 0 && orders.length === 0 && visits.length === 0) {
-      console.log('📊 [ProgressStats] Skipping - no data loaded yet');
-      return;
-    }
-    
+    // CRITICAL FIX: Always recalculate when we have data loaded
+    // The previous check was too restrictive and skipped recalculation
     console.log('📊 [ProgressStats] Recalculating from state:', {
       orders: orders.length,
       visits: visits.length,
-      retailers: retailers.length
+      retailers: retailers.length,
+      beatPlans: beatPlans.length
     });
 
     let planned = 0;
@@ -839,7 +835,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     });
 
     // Track retailers that have orders - these are ALWAYS productive
-    const retailersWithOrders = new Set(orders.map((o: any) => o.retailer_id));
+    const retailersWithOrders = new Set(orders.map((o: any) => o.retailer_id).filter(Boolean));
     const countedRetailers = new Set<string>();
 
     // Count based on the latest visit per retailer only
@@ -877,12 +873,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     const newStats = { planned, productive, unproductive, totalOrders, totalOrderValue };
     console.log('📊 [ProgressStats] Calculated:', newStats);
     
-    setProgressStats(prev => {
-      if (progressStatsEqual(prev, newStats)) return prev;
-      console.log('📊 [ProgressStats] Stats updated:', newStats);
-      return newStats;
-    });
-  }, [userId, orders, visits, retailers]);
+    // CRITICAL: Always update if values differ - remove equality check that may cause stale data
+    setProgressStats(newStats);
+  }, [userId, orders, visits, retailers, beatPlans]);
 
   useEffect(() => {
     console.log('🔄 useVisitsDataOptimized: Setting up for date:', selectedDate);
