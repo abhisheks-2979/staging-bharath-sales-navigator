@@ -1,6 +1,6 @@
 import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTranslation } from 'react-i18next';
+import { useActivePerformanceModule } from "@/hooks/useActivePerformanceModule";
 import bharathLogo from '@/assets/bharath-logo.png';
 import {
   Sheet,
@@ -44,28 +45,46 @@ export const Navbar = () => {
   const connectivityStatus = useConnectivity();
   const { t } = useTranslation('common');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { activeModule, isGamificationActive, isTargetActualActive } = useActivePerformanceModule();
   
   // Hide back button on home/dashboard
   const showBackButton = location.pathname !== '/dashboard' && location.pathname !== '/';
 
-  const navigationItems = [
-    { icon: UserCheck, label: t('nav.attendance'), href: "/attendance", color: "from-blue-500 to-blue-600" },
-    { icon: Car, label: t('nav.myVisit'), href: "/visits/retailers", color: "from-green-500 to-green-600" },
-    { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
-    { icon: Building2, label: "Institutional Sales", href: "/institutional-sales", color: "from-indigo-500 to-indigo-600" },
-    { icon: Factory, label: "Distributor Master", href: "/distributor-master", color: "from-cyan-500 to-cyan-600" },
-    { icon: MapPin, label: t('nav.territories'), href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
-    { icon: Navigation2, label: t('nav.gpsTrack'), href: "/gps-track", color: "from-purple-500 to-purple-600" },
-    { icon: Users, label: t('nav.myBeats'), href: "/my-beats", color: "from-orange-500 to-orange-600" },
-    { icon: Trophy, label: "Competition Master", href: "/competition-master", color: "from-slate-500 to-slate-600" },
-    { icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
-    { icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
-    { icon: Target, label: "Performance", href: "/my-targets", color: "from-cyan-500 to-cyan-600" },
-    { icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" },
-    { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
-    { icon: Target, label: t('nav.analytics'), href: "/analytics", color: "from-violet-500 to-violet-600" },
-    { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin", color: "from-rose-500 to-rose-600" },
-  ];
+  // Build navigation items dynamically based on active module
+  const navigationItems = useMemo(() => {
+    const baseItems = [
+      { icon: UserCheck, label: t('nav.attendance'), href: "/attendance", color: "from-blue-500 to-blue-600" },
+      { icon: Car, label: t('nav.myVisit'), href: "/visits/retailers", color: "from-green-500 to-green-600" },
+      { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
+      { icon: Building2, label: "Institutional Sales", href: "/institutional-sales", color: "from-indigo-500 to-indigo-600" },
+      { icon: Factory, label: "Distributor Master", href: "/distributor-master", color: "from-cyan-500 to-cyan-600" },
+      { icon: MapPin, label: t('nav.territories'), href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
+      { icon: Navigation2, label: t('nav.gpsTrack'), href: "/gps-track", color: "from-purple-500 to-purple-600" },
+      { icon: Users, label: t('nav.myBeats'), href: "/my-beats", color: "from-orange-500 to-orange-600" },
+      { icon: Trophy, label: "Competition Master", href: "/competition-master", color: "from-slate-500 to-slate-600" },
+      { icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
+      { icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
+    ];
+
+    // Only add Performance if module is not 'none'
+    if (activeModule !== 'none') {
+      baseItems.push({ icon: Target, label: "Performance", href: "/performance", color: "from-cyan-500 to-cyan-600" });
+    }
+
+    // Add Leaderboard only if gamification is active
+    if (isGamificationActive) {
+      baseItems.push({ icon: Trophy, label: "Leader board", href: "/leaderboard", color: "from-yellow-500 to-yellow-600" });
+    }
+
+    // Add remaining items
+    baseItems.push(
+      { icon: BookOpen, label: "Sales Coach", href: "/sales-coach", color: "from-teal-500 to-teal-600" },
+      { icon: Target, label: t('nav.analytics'), href: "/analytics", color: "from-violet-500 to-violet-600" },
+      { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin", color: "from-rose-500 to-rose-600" },
+    );
+
+    return baseItems;
+  }, [t, activeModule, isGamificationActive]);
 
   // Admin-only navigation items
   const adminNavigationItems = [

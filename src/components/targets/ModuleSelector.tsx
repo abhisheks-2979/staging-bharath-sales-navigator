@@ -60,7 +60,7 @@ export const ModuleSelector = ({ currentModule }: ModuleSelectorProps) => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Choose one or both modules. Switching modules will not delete historical data.
+            Choose a module. Switching modules will not delete historical data.
           </AlertDescription>
         </Alert>
 
@@ -94,28 +94,13 @@ export const ModuleSelector = ({ currentModule }: ModuleSelectorProps) => {
           </div>
 
           <div className="flex items-start space-x-3 space-y-0 rounded-lg border p-4 hover:bg-accent/50 transition-colors">
-            <RadioGroupItem value="both" id="both" />
-            <div className="flex-1">
-              <Label htmlFor="both" className="flex items-center gap-2 cursor-pointer">
-                <Trophy className="h-4 w-4 text-primary" />
-                <Target className="h-4 w-4 text-primary" />
-                <span className="font-semibold">Both Modules</span>
-              </Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                Enable both Gamification and Target vs. Actual modules simultaneously. 
-                Get comprehensive performance tracking with points, badges, and KPI targets.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start space-x-3 space-y-0 rounded-lg border p-4 hover:bg-accent/50 transition-colors">
             <RadioGroupItem value="none" id="none" />
             <div className="flex-1">
               <Label htmlFor="none" className="cursor-pointer">
                 <span className="font-semibold">Disabled</span>
               </Label>
               <p className="text-sm text-muted-foreground mt-1">
-                Turn off performance tracking modules entirely
+                Turn off performance tracking modules entirely. Performance will be hidden from navigation.
               </p>
             </div>
           </div>
