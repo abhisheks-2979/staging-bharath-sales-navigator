@@ -24,13 +24,23 @@ i18n
     },
     fallbackLng: 'en',
     defaultNS: 'common',
+    ns: ['common'],
+    // Initialize synchronously to ensure translations are ready before render
+    initImmediate: false,
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
     },
     interpolation: {
       escapeValue: false
-    }
+    },
+    // Return keys if translation fails to help debug
+    returnEmptyString: false,
+    // Ensure we always have a valid language
+    load: 'languageOnly',
+    // Support language codes like en-US falling back to en
+    supportedLngs: ['en', 'hi', 'kn', 'ta', 'te', 'gu'],
+    nonExplicitSupportedLngs: true,
   });
 
 export default i18n;
