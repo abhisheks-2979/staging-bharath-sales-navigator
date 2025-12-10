@@ -68,34 +68,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   // Track last loaded date to avoid clearing data unnecessarily
   const lastLoadedDateRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
+  const pendingDateRef = useRef<string | null>(null);
 
   // CACHE-FIRST LOADING: Load from cache immediately, sync in background
   const loadData = useCallback(async (forceRefresh = false) => {
     if (!userId || !selectedDate) return;
     
-    // Prevent concurrent loads
+    // Prevent concurrent loads - but track pending date
     if (isLoadingRef.current && !forceRefresh) {
-      console.log('⏳ [VisitsData] Skipping load - already loading');
+      console.log('⏳ [VisitsData] Queueing load for date:', selectedDate);
+      pendingDateRef.current = selectedDate;
       return;
     }
     
     isLoadingRef.current = true;
+    pendingDateRef.current = null;
     
-    // Check if this is a different date - if so, we need to force refresh state
+    // Check if this is a different date
     const isSameDate = lastLoadedDateRef.current === selectedDate;
     const isDateChange = !isSameDate;
     
+    // DON'T clear data on date change - load new data first, then update atomically
+    // This prevents flash of empty state
     if (isDateChange) {
       setIsLoading(true);
-      // CRITICAL: Clear previous date's data immediately when switching dates
-      // This prevents showing stale retailers from previous date
-      console.log('📅 [VisitsData] Date changed from', lastLoadedDateRef.current, 'to', selectedDate, '- clearing all data');
-      setBeatPlans([]);
-      setVisits([]);
-      setRetailers([]);
-      setOrders([]);
-      setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
-      // Update the ref immediately so we know we're loading for this date
+      console.log('📅 [VisitsData] Date changed from', lastLoadedDateRef.current, 'to', selectedDate);
       lastLoadedDateRef.current = selectedDate;
     }
     
@@ -718,13 +715,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
     
     isLoadingRef.current = false;
+    
+    // Check if there's a pending date to load (user changed dates while loading)
+    if (pendingDateRef.current && pendingDateRef.current !== selectedDate) {
+      console.log('📅 [VisitsData] Loading pending date:', pendingDateRef.current);
+      const pendingDate = pendingDateRef.current;
+      pendingDateRef.current = null;
+      // Use setTimeout to allow current call stack to complete
+      setTimeout(() => loadData(true), 0);
+    }
   }, [userId, selectedDate]);
 
   // Recalculate progress stats when visits/orders change
   const recalculateProgressStats = useCallback(() => {
     if (!userId) return;
     
-    console.log('📊 [ProgressStats] Recalculating from current state data...');
+    // Don't recalculate if we have no data at all (initial load)
+    if (retailers.length === 0 && orders.length === 0 && visits.length === 0) {
+      console.log('📊 [ProgressStats] Skipping - no data loaded yet');
+      return;
+    }
+    
+    console.log('📊 [ProgressStats] Recalculating from state:', {
+      orders: orders.length,
+      visits: visits.length,
+      retailers: retailers.length
+    });
     
     const ordersMap = new Map<string, boolean>();
     const ordersByRetailer = new Map<string, number>();
@@ -794,13 +810,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
   // Auto-recalculate progress stats when orders/visits/retailers change
   useEffect(() => {
-    if (orders.length > 0 || visits.length > 0 || retailers.length > 0) {
-      recalculateProgressStats();
-    }
+    // Always recalculate when any data changes to ensure accuracy
+    recalculateProgressStats();
   }, [orders, visits, retailers, recalculateProgressStats]);
 
   useEffect(() => {
-    console.log('🔄 useVisitsDataOptimized: Setting up data loading for date:', selectedDate);
+    console.log('🔄 useVisitsDataOptimized: Setting up for date:', selectedDate);
     
     // DON'T clear data when date changes - let smart update handle it
     // This prevents the flash/flicker when navigating between dates
