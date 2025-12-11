@@ -246,7 +246,11 @@ const DistributorDashboard = () => {
           </Button>
           <Button variant="outline" onClick={() => navigate('/distributor-portal/orders')}>
             <ClipboardList className="w-4 h-4 mr-2" />
-            View Orders
+            Primary Orders
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/secondary-sales')}>
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            Secondary Sales
           </Button>
           <Button variant="outline" onClick={() => navigate('/distributor-portal/inventory')}>
             <Package className="w-4 h-4 mr-2" />
