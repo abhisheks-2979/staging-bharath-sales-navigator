@@ -525,8 +525,8 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       console.log('[Offline] Retailer saved to IndexedDB:', {
         tempId,
         retailerName: retailerData.name,
-        beatId: selectedBeatId,
-        beatName: selectedBeatName
+        beatId: payload.beat_id,
+        beatName: payload.beat_name
       });
       
       toast({ 

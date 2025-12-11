@@ -187,26 +187,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
 
       // CRITICAL: If no beat plans for this date from cache
       // For old dates, we should still try network ONCE to load data that might not be cached
-      // Only show empty state and skip network if we're offline or if we've successfully cached data before
+      // Only show empty state and skip network if we're offline
       if (filteredBeatPlans.length === 0) {
-        console.log('📦 [CACHE] No beat plans in cache for this date');
-        setBeatPlans([]);
-        setVisits([]);
-        setRetailers([]);
-        setOrders([]);
-        setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
+        console.log('📦 [CACHE] No beat plans in cache for this date:', selectedDate);
         
-        // IMPORTANT: Don't set hasLoadedFromCache = true for old dates without data
-        // This allows the network fetch to run and populate the cache
-        // Only mark as loaded from cache if we're offline (can't fetch from network anyway)
+        // IMPORTANT: Don't show empty state yet if we're online - let network fetch try first
+        // Only show empty state if offline
         if (!navigator.onLine) {
+          setBeatPlans([]);
+          setVisits([]);
+          setRetailers([]);
+          setOrders([]);
+          setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
           hasLoadedFromCache = true;
-          console.log('📴 [CACHE] Offline - showing empty state for old date');
+          setIsLoading(false);
+          console.log('📴 [CACHE] Offline with no cached data - showing empty state');
         } else {
-          console.log('📦 [CACHE] Online - will try network fetch for old date');
+          // Online - don't set empty state, let network fetch populate data
+          console.log('📦 [CACHE] Online with no cached data - waiting for network fetch');
+          setIsLoading(true);
         }
         
-        setIsLoading(navigator.onLine); // Show loading if we'll fetch from network
         lastLoadedDateRef.current = selectedDate;
       } else {
         // Get retailer IDs from visits and orders
