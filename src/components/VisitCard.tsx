@@ -213,12 +213,12 @@ export const VisitCard = ({
   
   // SYNC CACHE READ: Try to get status from cache OR use prop if it has final status
   // This prevents the flicker where status shows "planned" before cache is loaded
-  const getInitialStatus = (): "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null => {
+  const getInitialStatusData = (): { status: "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null; isFinal: boolean } => {
     // PRIORITY 1: If prop already has a final status (from parent's database fetch), use it directly
     const propStatus = visit.status;
     if (propStatus === 'productive' || propStatus === 'unproductive') {
       console.log('⚡ [VisitCard] Initial status from PROP (final):', propStatus);
-      return propStatus;
+      return { status: propStatus, isFinal: true };
     }
     
     // PRIORITY 2: Check sync cache
@@ -230,21 +230,21 @@ export const VisitCard = ({
       const cached = visitStatusCache.getSync(retailerId, cachedUserId, targetDate);
       if (cached) {
         console.log('⚡ [VisitCard] Initial status from SYNC cache:', cached.status);
-        return cached.status;
+        const isCacheFinal = cached.status === 'productive' || cached.status === 'unproductive';
+        return { status: cached.status, isFinal: isCacheFinal };
       }
     }
     
     // PRIORITY 3: Use prop status (could be 'planned' or other non-final)
-    return propStatus;
+    return { status: propStatus, isFinal: false };
   };
   
+  // Get initial status data (status + isFinal flag)
+  const initialData = getInitialStatusData();
+  
   // Track current visit status - initialize from prop or cache
-  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null>(getInitialStatus);
-  const [statusLoadedFromDB, setStatusLoadedFromDB] = useState(() => {
-    // Mark as loaded if we got a final status from prop
-    const propStatus = visit.status;
-    return propStatus === 'productive' || propStatus === 'unproductive';
-  });
+  const [currentStatus, setCurrentStatus] = useState<"planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled" | null>(initialData.status);
+  const [statusLoadedFromDB, setStatusLoadedFromDB] = useState(initialData.isFinal);
   
   // Track last fetched status to prevent redundant updates causing flicker
   const lastFetchedStatusRef = useRef<string | null>(null);
@@ -257,17 +257,25 @@ export const VisitCard = ({
 
   // CRITICAL: Sync currentStatus when parent prop changes (e.g., after orders are loaded)
   // This ensures instant display when parent has fresh data
+  // BUT: Do NOT override if we've already set a final status locally (statusLoadedFromDB = true)
   useEffect(() => {
     const propStatus = visit.status;
     const isFinalStatus = propStatus === 'productive' || propStatus === 'unproductive';
+    const currentIsFinal = currentStatus === 'productive' || currentStatus === 'unproductive';
     
-    // Only update if prop has a final status AND current status is different
+    // PRIORITY 1: If we already have a final status locally set (via no order or order), don't override
+    if (currentIsFinal && statusLoadedFromDB) {
+      console.log('⏸️ [VisitCard] Keeping local final status:', currentStatus, '(prop was:', propStatus, ')');
+      return;
+    }
+    
+    // PRIORITY 2: If prop has a final status AND current status is different, update
     if (isFinalStatus && currentStatus !== propStatus) {
       console.log('⚡ [VisitCard] Syncing status from prop:', propStatus, '(was:', currentStatus, ')');
       setCurrentStatus(propStatus);
       setStatusLoadedFromDB(true);
     }
-  }, [visit.status]);
+  }, [visit.status, currentStatus, statusLoadedFromDB]);
 
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
