@@ -199,6 +199,38 @@ const SecondarySales = () => {
     return acc;
   }, {} as Record<string, SecondaryOrder[]>);
 
+  const deductInventory = async (orderItems: OrderItem[]) => {
+    const distributorId = user?.distributor_id;
+    if (!distributorId || !orderItems.length) return;
+
+    for (const item of orderItems) {
+      // Find matching inventory by product name (since we don't have product_id in order_items)
+      const { data: inventoryItems } = await supabase
+        .from('distributor_inventory')
+        .select('*')
+        .eq('distributor_id', distributorId)
+        .ilike('product_name', item.product_name);
+
+      if (inventoryItems && inventoryItems.length > 0) {
+        const inv = inventoryItems[0];
+        const newQty = Math.max(0, inv.quantity - item.quantity);
+        const newAvailable = Math.max(0, (inv.available_quantity || 0) - item.quantity);
+        const newValue = newQty * (inv.unit_cost || 0);
+
+        await supabase
+          .from('distributor_inventory')
+          .update({
+            quantity: newQty,
+            available_quantity: newAvailable,
+            total_value: newValue,
+            last_issued_date: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', inv.id);
+      }
+    }
+  };
+
   const handleUpdateDelivery = async () => {
     if (!selectedOrder || !deliveryStatus) return;
 
@@ -217,6 +249,12 @@ const SecondarySales = () => {
 
       if (error) throw error;
 
+      // Deduct inventory when delivered (not for cancelled)
+      if ((deliveryStatus === 'delivered' || deliveryStatus === 'partial_delivery') && 
+          selectedOrder.status === 'confirmed' && selectedOrder.items) {
+        await deductInventory(selectedOrder.items);
+      }
+
       // Update local state
       setOrders(prev => prev.map(o => 
         o.id === selectedOrder.id 
@@ -224,7 +262,7 @@ const SecondarySales = () => {
           : o
       ));
 
-      toast.success('Delivery status updated');
+      toast.success('Delivery status updated & inventory adjusted');
       setShowDeliveryDialog(false);
       resetDeliveryForm();
     } catch (error) {

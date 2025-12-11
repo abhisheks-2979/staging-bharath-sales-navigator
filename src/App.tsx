@@ -110,6 +110,7 @@ import PrimaryOrderDetail from "./pages/distributor-portal/PrimaryOrderDetail";
 import DistributorInventory from "./pages/distributor-portal/DistributorInventory";
 import SecondarySales from "./pages/distributor-portal/SecondarySales";
 import PackingList from "./pages/distributor-portal/PackingList";
+import GoodsReceipt from "./pages/distributor-portal/GoodsReceipt";
 
 // Institutional Sales pages
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
@@ -327,6 +328,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/distributor-portal/inventory" element={<DistributorInventory />} />
               <Route path="/distributor-portal/secondary-sales" element={<SecondarySales />} />
               <Route path="/distributor-portal/packing-list" element={<PackingList />} />
+              <Route path="/distributor-portal/grn/:orderId" element={<GoodsReceipt />} />
               
               {/* Recycle Bin Routes */}
               <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
