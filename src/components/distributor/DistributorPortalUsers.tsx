@@ -279,27 +279,22 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
   };
 
   const loginAsUser = async (user: DistributorUser) => {
-    if (!user.auth_user_id) {
-      toast.error("User does not have a portal account yet. Send invitation first.");
-      return;
-    }
-
     setImpersonating(user.id);
     try {
-      // Store admin session before impersonation
+      // Verify admin is logged in
       const { data: { session: adminSession } } = await supabase.auth.getSession();
-      if (adminSession) {
-        sessionStorage.setItem('admin_session_backup', JSON.stringify({
-          access_token: adminSession.access_token,
-          refresh_token: adminSession.refresh_token,
-        }));
+      if (!adminSession) {
+        toast.error("Admin session required");
+        return;
       }
 
-      // Open distributor portal in new tab with user context
-      const portalUrl = `/distributor-portal/login?impersonate=${user.auth_user_id}&return=/distributor/${distributorId}`;
+      // Open distributor portal in new tab with impersonation params
+      const portalUrl = `/distributor-portal/login?impersonate=${user.auth_user_id || 'pending'}&distributor_user_id=${user.id}&return=/distributor/${distributorId}`;
       window.open(portalUrl, '_blank');
       
-      toast.info(`Opening portal as ${user.full_name}...`);
+      toast.info(`Opening portal as ${user.full_name}...`, {
+        description: 'Admin impersonation mode',
+      });
     } catch (error: any) {
       console.error('Error impersonating user:', error);
       toast.error("Failed to login as user: " + error.message);

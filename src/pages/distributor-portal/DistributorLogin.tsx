@@ -1,19 +1,97 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Building2, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Building2, LogIn, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 const DistributorLogin = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [impersonating, setImpersonating] = useState(false);
+
+  // Handle admin impersonation
+  useEffect(() => {
+    const impersonateUserId = searchParams.get('impersonate');
+    const distributorUserId = searchParams.get('distributor_user_id');
+    
+    if (impersonateUserId && distributorUserId) {
+      handleImpersonation(impersonateUserId, distributorUserId);
+    }
+  }, [searchParams]);
+
+  const handleImpersonation = async (authUserId: string, distributorUserId: string) => {
+    setImpersonating(true);
+    try {
+      // Verify admin is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Admin session required for impersonation');
+        setImpersonating(false);
+        return;
+      }
+
+      // Verify user is admin
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (userRole?.role !== 'admin') {
+        toast.error('Only admins can impersonate users');
+        setImpersonating(false);
+        return;
+      }
+
+      // Fetch the distributor user data
+      const { data: distributorUser, error } = await supabase
+        .from('distributor_users')
+        .select('*, distributors(name)')
+        .eq('id', distributorUserId)
+        .single();
+
+      if (error || !distributorUser) {
+        toast.error('Failed to load distributor user');
+        setImpersonating(false);
+        return;
+      }
+
+      // Store admin session for return
+      sessionStorage.setItem('admin_impersonation', JSON.stringify({
+        adminUserId: session.user.id,
+        returnUrl: searchParams.get('return') || '/admin',
+        impersonatedUser: distributorUser.full_name,
+      }));
+
+      // Set distributor user context (without actual login)
+      localStorage.setItem('distributor_user', JSON.stringify({
+        ...distributorUser,
+        is_impersonated: true,
+        admin_user_id: session.user.id,
+      }));
+      localStorage.setItem('distributor_id', distributorUser.distributor_id);
+
+      toast.success(`Viewing portal as ${distributorUser.full_name}`, {
+        description: 'Admin impersonation mode active',
+        icon: <ShieldCheck className="w-4 h-4" />,
+      });
+      
+      navigate('/distributor-portal/dashboard');
+    } catch (error: any) {
+      console.error('Impersonation error:', error);
+      toast.error('Failed to impersonate user');
+    } finally {
+      setImpersonating(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +119,13 @@ const DistributorLogin = () => {
         throw new Error('You are not authorized to access the distributor portal');
       }
 
-      // Update last login
+      // Update last login and status
       await supabase
         .from('distributor_users')
-        .update({ last_login_at: new Date().toISOString() })
+        .update({ 
+          last_login_at: new Date().toISOString(),
+          user_status: 'active',
+        })
         .eq('id', distributorUser.id);
 
       // Store distributor context
@@ -60,6 +141,19 @@ const DistributorLogin = () => {
       setLoading(false);
     }
   };
+
+  if (impersonating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 p-4">
+        <Card className="w-full max-w-md shadow-xl border-primary/20">
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading portal as user...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/10 p-4">
