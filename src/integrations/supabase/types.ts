@@ -4510,6 +4510,7 @@ export type Database = {
           min_quantity: number | null
           price_book_id: string
           product_id: string
+          uom: string | null
           updated_at: string
           variant_id: string | null
         }
@@ -4523,6 +4524,7 @@ export type Database = {
           min_quantity?: number | null
           price_book_id: string
           product_id: string
+          uom?: string | null
           updated_at?: string
           variant_id?: string | null
         }
@@ -4536,6 +4538,7 @@ export type Database = {
           min_quantity?: number | null
           price_book_id?: string
           product_id?: string
+          uom?: string | null
           updated_at?: string
           variant_id?: string | null
         }
