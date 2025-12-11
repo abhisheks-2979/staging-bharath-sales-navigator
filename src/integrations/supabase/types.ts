@@ -1684,53 +1684,65 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          auth_user_id: string | null
           created_at: string
           designation: string | null
           distributor_id: string
           email: string
+          email_sent_at: string | null
           full_name: string
           id: string
           is_active: boolean
           last_login_at: string | null
+          password_set_at: string | null
           phone: string | null
           requested_at: string | null
           role: string
           updated_at: string
           user_level: string | null
+          user_status: string
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          auth_user_id?: string | null
           created_at?: string
           designation?: string | null
           distributor_id: string
           email: string
+          email_sent_at?: string | null
           full_name: string
           id?: string
           is_active?: boolean
           last_login_at?: string | null
+          password_set_at?: string | null
           phone?: string | null
           requested_at?: string | null
           role?: string
           updated_at?: string
           user_level?: string | null
+          user_status?: string
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          auth_user_id?: string | null
           created_at?: string
           designation?: string | null
           distributor_id?: string
           email?: string
+          email_sent_at?: string | null
           full_name?: string
           id?: string
           is_active?: boolean
           last_login_at?: string | null
+          password_set_at?: string | null
           phone?: string | null
           requested_at?: string | null
           role?: string
           updated_at?: string
           user_level?: string | null
+          user_status?: string
         }
         Relationships: [
           {

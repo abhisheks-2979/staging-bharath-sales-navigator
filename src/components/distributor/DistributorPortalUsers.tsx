@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -27,7 +28,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, User, Mail, Phone, Shield, CheckCircle, XCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { 
+  Plus, User, Mail, Phone, Shield, CheckCircle, XCircle, 
+  Send, Edit, Trash2, LogIn, Clock, AlertCircle, UserX 
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -46,6 +60,9 @@ interface DistributorUser {
   approved_at: string | null;
   approved_by: string | null;
   last_login_at: string | null;
+  user_status: 'initiated' | 'active' | 'inactive' | 'deactivated';
+  auth_user_id: string | null;
+  email_sent_at: string | null;
 }
 
 interface DistributorPortalUsersProps {
@@ -68,11 +85,23 @@ const USER_LEVELS = [
   { value: 'staff', label: 'Staff' },
 ];
 
+const USER_STATUSES = [
+  { value: 'initiated', label: 'Initiated', icon: Clock, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  { value: 'active', label: 'Active', icon: CheckCircle, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  { value: 'inactive', label: 'Inactive', icon: AlertCircle, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
+  { value: 'deactivated', label: 'Deactivated', icon: UserX, color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+];
+
 export function DistributorPortalUsers({ distributorId, distributorName }: DistributorPortalUsersProps) {
   const [users, setUsers] = useState<DistributorUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingUser, setEditingUser] = useState<DistributorUser | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<DistributorUser | null>(null);
+  const [sendingInvite, setSendingInvite] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -81,6 +110,7 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
     role: 'sales',
     designation: '',
     user_level: 'staff',
+    user_status: 'initiated' as 'initiated' | 'active' | 'inactive' | 'deactivated',
   });
 
   useEffect(() => {
@@ -96,12 +126,25 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      setUsers((data || []) as DistributorUser[]);
     } catch (error: any) {
       toast.error("Failed to load portal users: " + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      full_name: '',
+      email: '',
+      phone: '',
+      role: 'sales',
+      designation: '',
+      user_level: 'staff',
+      user_status: 'initiated',
+    });
+    setEditingUser(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,36 +157,154 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('distributor_users')
-        .insert([{
-          distributor_id: distributorId,
-          email: formData.email,
-          full_name: formData.full_name,
-          phone: formData.phone || null,
-          role: formData.role,
-          designation: formData.designation || null,
-          user_level: formData.user_level,
-          is_active: false, // Requires admin approval
-        }]);
+      if (editingUser) {
+        // Update existing user
+        const { error } = await supabase
+          .from('distributor_users')
+          .update({
+            email: formData.email,
+            full_name: formData.full_name,
+            phone: formData.phone || null,
+            role: formData.role,
+            designation: formData.designation || null,
+            user_level: formData.user_level,
+            user_status: formData.user_status,
+          })
+          .eq('id', editingUser.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("User updated successfully");
+      } else {
+        // Create new user
+        const { error } = await supabase
+          .from('distributor_users')
+          .insert([{
+            distributor_id: distributorId,
+            email: formData.email,
+            full_name: formData.full_name,
+            phone: formData.phone || null,
+            role: formData.role,
+            designation: formData.designation || null,
+            user_level: formData.user_level,
+            user_status: formData.user_status,
+            is_active: false,
+          }]);
 
-      toast.success("Portal user request created. Awaiting admin approval.");
+        if (error) throw error;
+        toast.success("Portal user created successfully");
+      }
+
       setDialogOpen(false);
-      setFormData({
-        full_name: '',
-        email: '',
-        phone: '',
-        role: 'sales',
-        designation: '',
-        user_level: 'staff',
-      });
+      resetForm();
       loadUsers();
     } catch (error: any) {
-      toast.error("Failed to create user: " + error.message);
+      toast.error("Failed to save user: " + error.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEdit = (user: DistributorUser) => {
+    setEditingUser(user);
+    setFormData({
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      designation: user.designation || '',
+      user_level: user.user_level || 'staff',
+      user_status: user.user_status || 'initiated',
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      // If user has auth account, delete it first
+      if (userToDelete.auth_user_id) {
+        // Note: This requires service role, so we'll just mark as deactivated
+        const { error: updateError } = await supabase
+          .from('distributor_users')
+          .update({ user_status: 'deactivated', is_active: false })
+          .eq('id', userToDelete.id);
+        
+        if (updateError) throw updateError;
+        toast.success("User deactivated (auth account preserved)");
+      } else {
+        // No auth account, safe to delete
+        const { error } = await supabase
+          .from('distributor_users')
+          .delete()
+          .eq('id', userToDelete.id);
+
+        if (error) throw error;
+        toast.success("User deleted successfully");
+      }
+      
+      loadUsers();
+    } catch (error: any) {
+      toast.error("Failed to delete user: " + error.message);
+    } finally {
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
+    }
+  };
+
+  const sendInviteEmail = async (user: DistributorUser) => {
+    setSendingInvite(user.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-distributor-portal-invite', {
+        body: {
+          distributorUserId: user.id,
+          distributorName: distributorName,
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success("Invitation email sent successfully!");
+        loadUsers();
+      } else {
+        throw new Error(data?.error || 'Failed to send invitation');
+      }
+    } catch (error: any) {
+      console.error('Error sending invite:', error);
+      toast.error("Failed to send invitation: " + error.message);
+    } finally {
+      setSendingInvite(null);
+    }
+  };
+
+  const loginAsUser = async (user: DistributorUser) => {
+    if (!user.auth_user_id) {
+      toast.error("User does not have a portal account yet. Send invitation first.");
+      return;
+    }
+
+    setImpersonating(user.id);
+    try {
+      // Store admin session before impersonation
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+      if (adminSession) {
+        sessionStorage.setItem('admin_session_backup', JSON.stringify({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        }));
+      }
+
+      // Open distributor portal in new tab with user context
+      const portalUrl = `/distributor-portal/login?impersonate=${user.auth_user_id}&return=/distributor/${distributorId}`;
+      window.open(portalUrl, '_blank');
+      
+      toast.info(`Opening portal as ${user.full_name}...`);
+    } catch (error: any) {
+      console.error('Error impersonating user:', error);
+      toast.error("Failed to login as user: " + error.message);
+    } finally {
+      setImpersonating(null);
     }
   };
 
@@ -155,7 +316,6 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
         is_active: !currentStatus,
       };
 
-      // If activating, record approval
       if (!currentStatus) {
         updateData.approved_at = new Date().toISOString();
         updateData.approved_by = user?.id;
@@ -185,6 +345,17 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    const statusConfig = USER_STATUSES.find(s => s.value === status) || USER_STATUSES[0];
+    const Icon = statusConfig.icon;
+    return (
+      <Badge className={statusConfig.color}>
+        <Icon className="h-3 w-3 mr-1" />
+        {statusConfig.label}
+      </Badge>
+    );
+  };
+
   if (loading) {
     return (
       <Card>
@@ -206,7 +377,10 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
             <Shield className="h-4 w-4" />
             Portal Users
           </CardTitle>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
               <Button size="sm" className="h-8">
                 <Plus className="h-3 w-3 mr-1" />
@@ -215,7 +389,7 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Add Portal User</DialogTitle>
+                <DialogTitle>{editingUser ? 'Edit Portal User' : 'Add Portal User'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -238,7 +412,11 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="Enter email address"
                     required
+                    disabled={!!editingUser?.auth_user_id}
                   />
+                  {editingUser?.auth_user_id && (
+                    <p className="text-xs text-muted-foreground">Email cannot be changed after account creation</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -301,20 +479,43 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                   </div>
                 </div>
 
-                <div className="bg-muted/50 p-3 rounded-lg">
+                <div className="space-y-2">
+                  <Label>User Status</Label>
+                  <Select
+                    value={formData.user_status}
+                    onValueChange={(value: 'initiated' | 'active' | 'inactive' | 'deactivated') => 
+                      setFormData(prev => ({ ...prev, user_status: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {USER_STATUSES.map(status => (
+                        <SelectItem key={status.value} value={status.value}>
+                          <div className="flex items-center gap-2">
+                            <status.icon className="h-4 w-4" />
+                            {status.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground">
-                    <strong>Note:</strong> New users require admin approval before they can access the portal.
+                    Initiated = Email sent, Active = Using portal, Inactive = 1 month no login, Deactivated = 2 months no login
                   </p>
                 </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setDialogOpen(false);
+                    resetForm();
+                  }}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={saving}>
-                    {saving ? 'Creating...' : 'Create User'}
+                    {saving ? 'Saving...' : (editingUser ? 'Update User' : 'Create User')}
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -348,6 +549,12 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                           <Mail className="h-3 w-3" />
                           {user.email}
                         </p>
+                        {user.phone && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {user.phone}
+                          </p>
+                        )}
                         {user.designation && (
                           <p className="text-xs text-muted-foreground mt-0.5">{user.designation}</p>
                         )}
@@ -366,27 +573,76 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        {user.is_active ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
+                      <div className="space-y-1">
+                        {getStatusBadge(user.user_status || 'initiated')}
+                        <div className="flex items-center gap-1 mt-1">
+                          {user.is_active ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                              Enabled
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">
+                              Pending
+                            </Badge>
+                          )}
+                        </div>
+                        {user.email_sent_at && (
+                          <p className="text-xs text-muted-foreground">
+                            Email sent: {format(new Date(user.email_sent_at), 'MMM d, yyyy')}
+                          </p>
+                        )}
+                        {user.last_login_at && (
+                          <p className="text-xs text-muted-foreground">
+                            Last login: {format(new Date(user.last_login_at), 'MMM d, yyyy')}
+                          </p>
                         )}
                       </div>
-                      {user.approved_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Approved: {format(new Date(user.approved_at), 'MMM d, yyyy')}
-                        </p>
-                      )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <TableCell>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => sendInviteEmail(user)}
+                            disabled={sendingInvite === user.id}
+                            title="Send login email"
+                          >
+                            <Send className={`h-3.5 w-3.5 ${sendingInvite === user.id ? 'animate-pulse' : ''}`} />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => loginAsUser(user)}
+                            disabled={impersonating === user.id || !user.auth_user_id}
+                            title="Login as this user"
+                          >
+                            <LogIn className={`h-3.5 w-3.5 ${impersonating === user.id ? 'animate-pulse' : ''}`} />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handleEdit(user)}
+                            title="Edit user"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setDeleteConfirmOpen(true);
+                            }}
+                            title="Delete user"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                         <Switch
                           checked={user.is_active}
                           onCheckedChange={() => toggleUserStatus(user.id, user.is_active)}
@@ -400,6 +656,33 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Portal User</AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToDelete?.auth_user_id ? (
+                <>
+                  This user has an active portal account. They will be <strong>deactivated</strong> instead of deleted.
+                  Their login will be disabled but their data will be preserved.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete <strong>{userToDelete?.full_name}</strong>? 
+                  This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              {userToDelete?.auth_user_id ? 'Deactivate' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
