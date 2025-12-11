@@ -4565,6 +4565,7 @@ export type Database = {
       }
       price_books: {
         Row: {
+          apply_to_all_territories: boolean | null
           cloned_from: string | null
           created_at: string
           created_by: string | null
@@ -4578,10 +4579,12 @@ export type Database = {
           is_standard: boolean | null
           name: string
           price_book_type: string
+          target_type: string | null
           territory_id: string | null
           updated_at: string
         }
         Insert: {
+          apply_to_all_territories?: boolean | null
           cloned_from?: string | null
           created_at?: string
           created_by?: string | null
@@ -4595,10 +4598,12 @@ export type Database = {
           is_standard?: boolean | null
           name: string
           price_book_type?: string
+          target_type?: string | null
           territory_id?: string | null
           updated_at?: string
         }
         Update: {
+          apply_to_all_territories?: boolean | null
           cloned_from?: string | null
           created_at?: string
           created_by?: string | null
@@ -4612,6 +4617,7 @@ export type Database = {
           is_standard?: boolean | null
           name?: string
           price_book_type?: string
+          target_type?: string | null
           territory_id?: string | null
           updated_at?: string
         }
