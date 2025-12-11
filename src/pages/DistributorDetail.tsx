@@ -21,7 +21,8 @@ import {
   FileText,
   Target,
   Store,
-  Map
+  Map,
+  BookOpen
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ import { DistributorRetailers } from "@/components/distributor/DistributorRetail
 import { DistributorTerritories } from "@/components/distributor/DistributorTerritories";
 import { DistributorBusinessPlan } from "@/components/distributor/DistributorBusinessPlan";
 import { DistributorPortalUsers } from "@/components/distributor/DistributorPortalUsers";
+import { DistributorPriceBooks } from "@/components/distributor/DistributorPriceBooks";
 import { EvaluationChecklist } from "@/components/distributor/EvaluationChecklist";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 
@@ -315,11 +317,12 @@ export default function DistributorDetail() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-6 w-full">
             <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
             <TabsTrigger value="network" className="text-xs">Network</TabsTrigger>
             <TabsTrigger value="contacts" className="text-xs">Contacts</TabsTrigger>
             <TabsTrigger value="portal" className="text-xs">Portal</TabsTrigger>
+            <TabsTrigger value="pricing" className="text-xs">Pricing</TabsTrigger>
             <TabsTrigger value="business" className="text-xs">Business</TabsTrigger>
           </TabsList>
 
@@ -471,6 +474,10 @@ export default function DistributorDetail() {
               distributorId={distributor.id} 
               distributorName={distributor.name} 
             />
+          </TabsContent>
+
+          <TabsContent value="pricing" className="mt-4">
+            <DistributorPriceBooks distributorId={distributor.id} />
           </TabsContent>
 
           <TabsContent value="business" className="mt-4">

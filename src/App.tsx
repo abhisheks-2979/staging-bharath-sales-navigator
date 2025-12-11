@@ -87,6 +87,8 @@ import RetailerLoyalty from "./pages/RetailerLoyalty";
 import SecurityManagement from "./pages/SecurityManagement";
 import PushContentSetup from "./pages/admin/PushContentSetup";
 import PerformanceModuleAdmin from "./pages/admin/PerformanceModuleAdmin";
+import PriceBookAdmin from "./pages/admin/PriceBookAdmin";
+import PriceBookDetail from "./pages/admin/PriceBookDetail";
 import RecycleBin from "./pages/RecycleBin";
 import RecycleBinAdmin from "./pages/admin/RecycleBinAdmin";
 import MyTargets from "./pages/MyTargets";
@@ -273,6 +275,8 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/invoice-management" element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
               <Route path="/pending-payments-all" element={<ProtectedRoute><PendingPaymentsAll /></ProtectedRoute>} />
               <Route path="/admin/performance-module" element={<ProtectedRoute><PerformanceModuleAdmin /></ProtectedRoute>} />
+              <Route path="/admin/price-books" element={<ProtectedRoute><PriceBookAdmin /></ProtectedRoute>} />
+              <Route path="/admin/price-books/:id" element={<ProtectedRoute><PriceBookDetail /></ProtectedRoute>} />
               <Route path="/my-targets" element={<ProtectedRoute><MyTargets /></ProtectedRoute>} />
               <Route path="/team-targets" element={<ProtectedRoute><TeamTargets /></ProtectedRoute>} />
               <Route path="/joint-sales-analytics" element={<ProtectedRoute><JointSalesAnalytics /></ProtectedRoute>} />
