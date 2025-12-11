@@ -16,7 +16,10 @@ import {
   Plus,
   Building2,
   ShieldCheck,
-  X
+  X,
+  FileText,
+  Headphones,
+  Lightbulb
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -255,6 +258,18 @@ const DistributorDashboard = () => {
           <Button variant="outline" onClick={() => navigate('/distributor-portal/inventory')}>
             <Package className="w-4 h-4 mr-2" />
             Inventory
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/claims')}>
+            <FileText className="w-4 h-4 mr-2" />
+            Claims
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/support')}>
+            <Headphones className="w-4 h-4 mr-2" />
+            Support
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/ideas')}>
+            <Lightbulb className="w-4 h-4 mr-2" />
+            Ideas
           </Button>
         </div>
 
