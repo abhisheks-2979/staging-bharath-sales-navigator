@@ -52,6 +52,36 @@ const DistributorDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for pending admin impersonation
+    const pendingImpersonation = localStorage.getItem('pending_impersonation');
+    if (pendingImpersonation) {
+      try {
+        const impersonationData = JSON.parse(pendingImpersonation);
+        // Check if impersonation data is recent (within 30 seconds)
+        if (Date.now() - impersonationData.timestamp < 30000) {
+          // Set up impersonation context
+          localStorage.setItem('distributor_user', JSON.stringify(impersonationData.distributorUser));
+          localStorage.setItem('distributor_id', impersonationData.distributorId);
+          sessionStorage.setItem('admin_impersonation', JSON.stringify({
+            adminUserId: impersonationData.adminUserId,
+            returnUrl: impersonationData.returnUrl,
+            impersonatedUser: impersonationData.impersonatedUser,
+          }));
+          localStorage.removeItem('pending_impersonation');
+          
+          setUser(impersonationData.distributorUser);
+          loadDashboardData(impersonationData.distributorId);
+          toast.success(`Viewing portal as ${impersonationData.impersonatedUser}`, {
+            description: 'Admin viewing mode active',
+          });
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to parse impersonation data:', e);
+      }
+      localStorage.removeItem('pending_impersonation');
+    }
+
     const storedUser = localStorage.getItem('distributor_user');
     if (!storedUser) {
       navigate('/distributor-portal/login');
@@ -181,7 +211,7 @@ const DistributorDashboard = () => {
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
+      <header className={`sticky ${isImpersonated ? 'top-[40px]' : 'top-0'} z-50 bg-card border-b shadow-sm`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
