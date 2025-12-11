@@ -1158,8 +1158,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       finalY += boxHeight + 6;
 
-      // Bank Details and QR in single compact row - NO page break needed
-      const bankBoxWidth = 80;
+      // Bank Details and QR in single compact row - QR inside box
+      const bankBoxWidth = 100;
       const bankBoxHeight = 24;
       doc.setFillColor(248, 248, 248);
       doc.setDrawColor(180, 180, 180);
@@ -1168,7 +1168,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       
       doc.setFontSize(7);
       doc.setFont('helvetica', 'bold');
-      doc.text('Bank Details', 16, finalY + 4);
+      doc.text('Payment Details', 16, finalY + 4);
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6);
@@ -1177,7 +1177,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.text('Holder: ' + (company.account_holder_name || '-'), 16, finalY + 17);
       doc.text('UPI: ' + (company.qr_upi || '-'), 16, finalY + 21);
 
-      // QR Code - small, next to bank details
+      // QR Code - inside the payment details box on right side
       if (company.qr_code_url) {
         try {
           const qrResponse = await fetch(company.qr_code_url);
@@ -1187,13 +1187,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             reader.onloadend = () => resolve(reader.result as string);
             reader.readAsDataURL(qrBlob);
           });
-          doc.addImage(qrBase64, 'PNG', 98, finalY, 22, 22);
+          doc.addImage(qrBase64, 'PNG', 92, finalY + 2, 20, 20);
         } catch (e) {
           console.log('Could not load QR code:', e);
         }
       }
 
-      // Terms & Conditions - compact, next to QR
+      // Terms & Conditions - next to payment box
       if (company.terms_conditions) {
         doc.setFontSize(6);
         doc.setFont('helvetica', 'bold');
