@@ -947,13 +947,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Draw page border
+      doc.setDrawColor(34, 139, 34);
+      doc.setLineWidth(1);
+      doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
       
       const printDateTime = new Date().toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true
       });
 
-      let yPos = 10;
+      let yPos = 14;
 
       // Company Logo
       if (company.logo_url) {
@@ -1004,18 +1010,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.line(14, yPos, pageWidth - 14, yPos);
       yPos += 6;
 
-      // DELIVERY CHALLAN heading with border
-      doc.setDrawColor(34, 139, 34);
-      doc.setLineWidth(0.5);
-      const challanText = 'DELIVERY CHALLAN';
-      const challanWidth = doc.getTextWidth(challanText) * 1.5;
-      doc.rect(pageWidth / 2 - challanWidth / 2 - 5, yPos - 5, challanWidth + 10, 10);
+      // DELIVERY CHALLAN heading (no individual border - page has border)
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(34, 139, 34);
-      doc.text(challanText, pageWidth / 2, yPos + 2, { align: 'center' });
+      doc.text('DELIVERY CHALLAN', pageWidth / 2, yPos, { align: 'center' });
       doc.setTextColor(0, 0, 0);
-      yPos += 12;
+      yPos += 8;
 
       // Date/Time and Van info
       const selectedVanData = vans.find(v => v.id === selectedVan);
