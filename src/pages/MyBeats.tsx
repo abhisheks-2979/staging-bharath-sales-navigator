@@ -1535,7 +1535,8 @@ export const MyBeats = () => {
         <AddRetailerInlineToBeat
           open={isAddRetailerModalOpen}
           onClose={() => setIsAddRetailerModalOpen(false)}
-          beatName={beatName}
+          beatName={beatName || createdBeatData?.beatName || ''}
+          beatId={createdBeatData?.beatId}
           onRetailerAdded={handleRetailerAdded}
         />
 
