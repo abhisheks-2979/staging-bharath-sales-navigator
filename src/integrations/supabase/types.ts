@@ -1393,6 +1393,116 @@ export type Database = {
           },
         ]
       }
+      distributor_claims: {
+        Row: {
+          approved_amount: number | null
+          bill_urls: string[] | null
+          claim_amount: number
+          claim_date: string
+          claim_number: string
+          claim_type: string
+          created_at: string
+          created_by_user_id: string | null
+          damage_reason: string | null
+          description: string | null
+          distributor_id: string
+          expense_category: string | null
+          expense_date: string | null
+          id: string
+          km_traveled: number | null
+          paid_at: string | null
+          payment_reference: string | null
+          product_details: Json | null
+          reference_id: string | null
+          reference_number: string | null
+          reference_type: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheme_name: string | null
+          scheme_period: string | null
+          status: string
+          supporting_docs: string[] | null
+          target_achieved: number | null
+          updated_at: string
+          vehicle_number: string | null
+        }
+        Insert: {
+          approved_amount?: number | null
+          bill_urls?: string[] | null
+          claim_amount?: number
+          claim_date?: string
+          claim_number: string
+          claim_type: string
+          created_at?: string
+          created_by_user_id?: string | null
+          damage_reason?: string | null
+          description?: string | null
+          distributor_id: string
+          expense_category?: string | null
+          expense_date?: string | null
+          id?: string
+          km_traveled?: number | null
+          paid_at?: string | null
+          payment_reference?: string | null
+          product_details?: Json | null
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheme_name?: string | null
+          scheme_period?: string | null
+          status?: string
+          supporting_docs?: string[] | null
+          target_achieved?: number | null
+          updated_at?: string
+          vehicle_number?: string | null
+        }
+        Update: {
+          approved_amount?: number | null
+          bill_urls?: string[] | null
+          claim_amount?: number
+          claim_date?: string
+          claim_number?: string
+          claim_type?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          damage_reason?: string | null
+          description?: string | null
+          distributor_id?: string
+          expense_category?: string | null
+          expense_date?: string | null
+          id?: string
+          km_traveled?: number | null
+          paid_at?: string | null
+          payment_reference?: string | null
+          product_details?: Json | null
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheme_name?: string | null
+          scheme_period?: string | null
+          status?: string
+          supporting_docs?: string[] | null
+          target_achieved?: number | null
+          updated_at?: string
+          vehicle_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_claims_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_contacts: {
         Row: {
           address: string | null
@@ -1458,6 +1568,110 @@ export type Database = {
             columns: ["reports_to"]
             isOneToOne: false
             referencedRelation: "distributor_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distributor_ideas: {
+        Row: {
+          attachment_urls: string[] | null
+          category: string
+          competitor_insight: string | null
+          competitor_name: string | null
+          created_at: string
+          created_by_user_id: string | null
+          description: string
+          distributor_id: string
+          estimated_value: number | null
+          expected_impact: string | null
+          id: string
+          idea_number: string
+          implementation_date: string | null
+          implementation_effort: string | null
+          implementation_status: string | null
+          market_segment: string | null
+          points_awarded: number | null
+          recognition_notes: string | null
+          region: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          suggested_packaging: string | null
+          suggested_price_range: string | null
+          suggested_product: string | null
+          target_audience: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_urls?: string[] | null
+          category: string
+          competitor_insight?: string | null
+          competitor_name?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          description: string
+          distributor_id: string
+          estimated_value?: number | null
+          expected_impact?: string | null
+          id?: string
+          idea_number: string
+          implementation_date?: string | null
+          implementation_effort?: string | null
+          implementation_status?: string | null
+          market_segment?: string | null
+          points_awarded?: number | null
+          recognition_notes?: string | null
+          region?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggested_packaging?: string | null
+          suggested_price_range?: string | null
+          suggested_product?: string | null
+          target_audience?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_urls?: string[] | null
+          category?: string
+          competitor_insight?: string | null
+          competitor_name?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string
+          distributor_id?: string
+          estimated_value?: number | null
+          expected_impact?: string | null
+          id?: string
+          idea_number?: string
+          implementation_date?: string | null
+          implementation_effort?: string | null
+          implementation_status?: string | null
+          market_segment?: string | null
+          points_awarded?: number | null
+          recognition_notes?: string | null
+          region?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggested_packaging?: string | null
+          suggested_price_range?: string | null
+          suggested_product?: string | null
+          target_audience?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_ideas_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
             referencedColumns: ["id"]
           },
         ]
@@ -1727,6 +1941,92 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      distributor_support_requests: {
+        Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          attachment_urls: string[] | null
+          category: string
+          created_at: string
+          created_by_user_id: string | null
+          description: string
+          distributor_id: string
+          feedback_comment: string | null
+          id: string
+          priority: string
+          reference_id: string | null
+          reference_number: string | null
+          reference_type: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          satisfaction_rating: number | null
+          screenshot_urls: string[] | null
+          status: string
+          subject: string
+          ticket_number: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          attachment_urls?: string[] | null
+          category: string
+          created_at?: string
+          created_by_user_id?: string | null
+          description: string
+          distributor_id: string
+          feedback_comment?: string | null
+          id?: string
+          priority?: string
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_rating?: number | null
+          screenshot_urls?: string[] | null
+          status?: string
+          subject: string
+          ticket_number: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          attachment_urls?: string[] | null
+          category?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string
+          distributor_id?: string
+          feedback_comment?: string | null
+          id?: string
+          priority?: string
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_rating?: number | null
+          screenshot_urls?: string[] | null
+          status?: string
+          subject?: string
+          ticket_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_support_requests_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       distributor_users: {
         Row: {
