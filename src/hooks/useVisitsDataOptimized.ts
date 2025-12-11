@@ -119,8 +119,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     
     // FAST PATH: Check in-memory cache first for instant date switching
     const cachedDateData = dateDataCacheRef.current.get(selectedDate);
+    const hasCachedRetailers = cachedDateData && cachedDateData.retailers && cachedDateData.retailers.length > 0;
+    
     if (cachedDateData && !forceRefresh) {
-      console.log('⚡ [FAST] Loading from in-memory cache for date:', selectedDate);
+      console.log('⚡ [FAST] Loading from in-memory cache for date:', selectedDate, 'retailers:', cachedDateData.retailers.length);
       setBeatPlans(cachedDateData.beatPlans);
       setVisits(cachedDateData.visits);
       setRetailers(cachedDateData.retailers);
@@ -130,9 +132,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       setIsLoading(false);
       lastLoadedDateRef.current = selectedDate;
       
-      // For old dates, skip network entirely - data won't change
-      if (isOldDate(selectedDate)) {
-        console.log('📅 [OLD DATE] Skipping network fetch - using cached data only');
+      // For old dates with actual data, skip network entirely - data won't change
+      // But if cache has no retailers, still try network once
+      if (isOldDate(selectedDate) && hasCachedRetailers) {
+        console.log('📅 [OLD DATE] Skipping network fetch - using cached data with', cachedDateData.retailers.length, 'retailers');
         isLoadingRef.current = false;
         return;
       }
@@ -153,6 +156,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
     
     let hasLoadedFromCache = false;
+    let loadedRetailersCount = 0; // Track loaded retailers to avoid stale state reference
 
     try {
       // STEP 1: Load from IndexedDB immediately (instant)
@@ -181,19 +185,29 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       
       console.log('📦 [CACHE] Filtered orders for date:', selectedDate, 'count:', filteredOrders.length);
 
-      // CRITICAL: If no beat plans for this date - show empty state immediately
-      // User must have planned beats to see any retailers
+      // CRITICAL: If no beat plans for this date from cache
+      // For old dates, we should still try network ONCE to load data that might not be cached
+      // Only show empty state and skip network if we're offline or if we've successfully cached data before
       if (filteredBeatPlans.length === 0) {
-        console.log('📦 [CACHE] No beat plans for this date - showing empty state');
+        console.log('📦 [CACHE] No beat plans in cache for this date');
         setBeatPlans([]);
         setVisits([]);
         setRetailers([]);
         setOrders([]);
         setProgressStats({ planned: 0, productive: 0, unproductive: 0, totalOrders: 0, totalOrderValue: 0 });
-        hasLoadedFromCache = true;
-        setIsLoading(false);
+        
+        // IMPORTANT: Don't set hasLoadedFromCache = true for old dates without data
+        // This allows the network fetch to run and populate the cache
+        // Only mark as loaded from cache if we're offline (can't fetch from network anyway)
+        if (!navigator.onLine) {
+          hasLoadedFromCache = true;
+          console.log('📴 [CACHE] Offline - showing empty state for old date');
+        } else {
+          console.log('📦 [CACHE] Online - will try network fetch for old date');
+        }
+        
+        setIsLoading(navigator.onLine); // Show loading if we'll fetch from network
         lastLoadedDateRef.current = selectedDate;
-        // Don't process anything else - no beats = no retailers to show
       } else {
         // Get retailer IDs from visits and orders
         const visitRetailerIds = filteredVisits.map((v: any) => v.retailer_id);
@@ -305,6 +319,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           setRetailers(filteredRetailers);
           setOrders(filteredOrders);
           setProgressStats(cacheStats); // Set progressStats in same batch!
+          loadedRetailersCount = filteredRetailers.length; // Track for network skip check
           // Trigger recalculation via dataVersion
           setDataVersion(v => v + 1);
           
@@ -347,13 +362,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     }
 
     // SMART NETWORK STRATEGY:
-    // - Old dates (before today): Skip network fetch entirely - data won't change
+    // - Old dates (before today): Skip network ONLY if we have actual retailers loaded
+    //   Empty cache for old dates should still try network once
     // - Today: Always fetch fresh data when online
     // - Future dates: Fetch to check for beat plan updates
-    const shouldSkipNetwork = isOldDate(selectedDate) && hasLoadedFromCache;
+    const shouldSkipNetwork = isOldDate(selectedDate) && hasLoadedFromCache && loadedRetailersCount > 0;
     
     if (shouldSkipNetwork) {
-      console.log('📅 [OLD DATE] Skipping network fetch - historical data is immutable');
+      console.log('📅 [OLD DATE] Skipping network fetch - have cached data with', loadedRetailersCount, 'retailers');
       setIsLoading(false);
       isLoadingRef.current = false;
       return;

@@ -21,10 +21,11 @@ interface AddRetailerInlineToBeatProps {
   open: boolean;
   onClose: () => void;
   beatName: string;
+  beatId?: string; // Optional - if not provided, will use selected beat in offline mode
   onRetailerAdded: (retailerId: string, retailerName: string) => void;
 }
 
-export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdded }: AddRetailerInlineToBeatProps) => {
+export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRetailerAdded }: AddRetailerInlineToBeatProps) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const connectivityStatus = useConnectivity();
@@ -421,9 +422,13 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
 
     setIsSaving(true);
 
-    // NEW OFFLINE FEATURE: Use selected beat when offline, otherwise use prop
-    const useBeatId = isOffline ? (selectedBeatId || 'temporary') : 'temporary';
-    const useBeatName = isOffline ? (selectedBeatName || beatName) : beatName;
+    // Use prop beatId when available, otherwise use selected beat (offline) or prop beatId
+    const useBeatId = isOffline 
+      ? (selectedBeatId || beatId || 'temporary') 
+      : (beatId || selectedBeatId || 'temporary');
+    const useBeatName = isOffline 
+      ? (selectedBeatName || beatName) 
+      : beatName;
     
     const payload: any = {
       user_id: user.id,
@@ -457,7 +462,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
     }
   };
 
-  // EXISTING ONLINE SAVE (unchanged)
+  // ONLINE SAVE - dispatch refresh event after saving
   const handleOnlineSave = async (payload: any) => {
     const { data, error } = await supabase.from('retailers').insert(payload).select('id, name').maybeSingle();
     setIsSaving(false);
@@ -467,7 +472,25 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, onRetailerAdd
       return;
     }
 
-    toast({ title: 'Retailer Added', description: `${retailerData.name} will be added to ${beatName}` });
+    toast({ title: 'Retailer Added', description: `${retailerData.name} added to ${beatName}` });
+    
+    // Also cache the new retailer for offline access
+    try {
+      await offlineStorage.init();
+      await offlineStorage.save(STORES.RETAILERS, {
+        ...payload,
+        id: data.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      console.log('[Online] Cached new retailer for offline access:', data.id);
+    } catch (cacheError) {
+      console.error('[Online] Failed to cache retailer:', cacheError);
+    }
+    
+    // Dispatch event to refresh My Visits page
+    console.log('[Online] Dispatching visitDataChanged event to refresh My Visits');
+    window.dispatchEvent(new CustomEvent('visitDataChanged'));
     
     // Call parent callback with the new retailer
     onRetailerAdded(data.id, data.name);
