@@ -14,7 +14,9 @@ import {
   ArrowRight,
   LogOut,
   Plus,
-  Building2
+  Building2,
+  ShieldCheck,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -104,12 +106,32 @@ const DistributorDashboard = () => {
   };
 
   const handleLogout = async () => {
+    // Check if this is an impersonation session
+    const impersonationData = sessionStorage.getItem('admin_impersonation');
+    const storedUser = localStorage.getItem('distributor_user');
+    const isImpersonated = storedUser ? JSON.parse(storedUser).is_impersonated : false;
+
+    if (isImpersonated && impersonationData) {
+      // Clear impersonation data
+      localStorage.removeItem('distributor_user');
+      localStorage.removeItem('distributor_id');
+      sessionStorage.removeItem('admin_impersonation');
+      
+      const { returnUrl } = JSON.parse(impersonationData);
+      toast.success('Exited impersonation mode');
+      window.close(); // Close the impersonation tab
+      return;
+    }
+
     await supabase.auth.signOut();
     localStorage.removeItem('distributor_user');
     localStorage.removeItem('distributor_id');
     navigate('/distributor-portal/login');
     toast.success('Logged out successfully');
   };
+
+  // Check if viewing as admin
+  const isImpersonated = user && (user as any).is_impersonated;
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -135,6 +157,29 @@ const DistributorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Admin Impersonation Banner */}
+      {isImpersonated && (
+        <div className="sticky top-0 z-[60] bg-amber-500 text-white px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                Admin Viewing Mode: You are viewing as {user?.full_name}
+              </span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleLogout}
+              className="h-7 text-white hover:bg-amber-600"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Exit View
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -148,13 +193,16 @@ const DistributorDashboard = () => {
               </h1>
               <p className="text-xs text-muted-foreground">
                 {user?.full_name} • {user?.role}
+                {isImpersonated && <span className="ml-1 text-amber-600">(Admin View)</span>}
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+          {!isImpersonated && (
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          )}
         </div>
       </header>
 
