@@ -915,10 +915,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       }, 500); // Small delay to allow database updates to complete
     };
 
-    // Listen for visitDataChanged events (e.g., new beat plans added)
-    const handleDataChange = () => {
+    // Listen for visitDataChanged events (e.g., new beat plans added, new retailers)
+    const handleDataChange = async () => {
       console.log('🔔 [useVisitsDataOptimized] visitDataChanged event received');
-      loadData(true);
+      
+      // Clear in-memory cache for today to force fresh load
+      const today = new Date().toISOString().split('T')[0];
+      dateDataCacheRef.current.delete(today);
+      dateDataCacheRef.current.delete(selectedDate);
+      console.log('🗑️ [CACHE] Cleared in-memory cache for:', today, selectedDate);
+      
+      // Small delay to ensure database write completed (for online save)
+      setTimeout(() => {
+        loadData(true);
+      }, 300);
     };
     
     // Listen for online/offline changes to refresh data

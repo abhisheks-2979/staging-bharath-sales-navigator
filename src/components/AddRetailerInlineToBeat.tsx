@@ -422,13 +422,12 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
 
     setIsSaving(true);
 
-    // Use prop beatId when available, otherwise use selected beat (offline) or prop beatId
-    const useBeatId = isOffline 
-      ? (selectedBeatId || beatId || 'temporary') 
-      : (beatId || selectedBeatId || 'temporary');
-    const useBeatName = isOffline 
-      ? (selectedBeatName || beatName) 
-      : beatName;
+    // Use prop beatId when available, otherwise use selected beat
+    // CRITICAL: Always prefer the prop beatId which comes from the current beat plan
+    const useBeatId = beatId || selectedBeatId || 'temporary';
+    const useBeatName = beatName || selectedBeatName;
+    
+    console.log('[AddRetailer] Saving with beat info:', { useBeatId, useBeatName, propBeatId: beatId, selectedBeatId, isOffline });
     
     const payload: any = {
       user_id: user.id,
