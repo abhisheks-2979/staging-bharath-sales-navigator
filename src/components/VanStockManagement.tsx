@@ -977,9 +977,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.setFont('helvetica', 'bold');
       doc.text(company.name || 'Company Name', company.logo_url ? 50 : 14, yPos + 4);
       
+      // Address split into 2 lines
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text(company.address || '', company.logo_url ? 50 : 14, yPos + 10, { maxWidth: 100 });
+      const fullAddress = company.address || '';
+      const midPoint = Math.floor(fullAddress.length / 2);
+      const breakPoint = fullAddress.indexOf(',', midPoint - 15) + 1 || fullAddress.indexOf(' ', midPoint);
+      const addressLine1 = fullAddress.substring(0, breakPoint).trim();
+      const addressLine2 = fullAddress.substring(breakPoint).trim();
+      doc.text(addressLine1, company.logo_url ? 50 : 14, yPos + 10);
+      doc.text(addressLine2, company.logo_url ? 50 : 14, yPos + 14);
       
       // Right side - GSTIN, Phone, Email, State
       doc.setFontSize(8);
@@ -1045,14 +1052,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         ];
       });
 
-      // Products table with reduced spacing
+      // Products table with reduced spacing - 5 columns only, no empty column
       autoTable(doc, {
         startY: yPos,
         head: [['Product', 'Rate (Rs.)', 'Unit', 'Qty', 'Amount (Rs.)']],
         body: tableData,
         styles: { 
           fontSize: 8, 
-          cellPadding: 2,
+          cellPadding: 1.5,
           lineColor: [34, 139, 34],
           lineWidth: 0.2,
           font: 'helvetica',
@@ -1063,7 +1070,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           textColor: 255, 
           fontStyle: 'bold',
           halign: 'center',
-          cellPadding: 3,
+          cellPadding: 2,
           valign: 'middle'
         },
         bodyStyles: {
@@ -1071,13 +1078,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         },
         alternateRowStyles: { fillColor: [245, 250, 245] },
         columnStyles: {
-          0: { cellWidth: 60, halign: 'left' },
-          1: { cellWidth: 30, halign: 'right' },
-          2: { cellWidth: 22, halign: 'center' },
-          3: { cellWidth: 25, halign: 'center' },
-          4: { cellWidth: 35, halign: 'right' }
+          0: { cellWidth: 70, halign: 'left' },
+          1: { cellWidth: 28, halign: 'right' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 22, halign: 'center' },
+          4: { cellWidth: 32, halign: 'right' }
         },
         margin: { left: 14, right: 14 },
+        tableWidth: pageWidth - 28,
         tableLineColor: [34, 139, 34],
         tableLineWidth: 0.2
       });
@@ -1142,37 +1150,28 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       const wordsWrapped = doc.splitTextToSize('Amount in Words: ' + amountInWords, 95);
       doc.text(wordsWrapped, 14, finalY + 24);
 
-      finalY += boxHeight + 20;
+      finalY += boxHeight + 6;
 
-      // Check if we need new page for bank details
-      if (finalY > 225) {
-        doc.addPage();
-        finalY = 20;
-      }
-
-      // Bank Details section with proper box
-      const bankBoxWidth = 90;
-      const bankBoxHeight = 32;
+      // Bank Details and QR in single compact row - NO page break needed
+      const bankBoxWidth = 80;
+      const bankBoxHeight = 24;
       doc.setFillColor(248, 248, 248);
       doc.setDrawColor(180, 180, 180);
       doc.setLineWidth(0.3);
       doc.rect(14, finalY, bankBoxWidth, bankBoxHeight, 'FD');
       
-      doc.setFontSize(9);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'bold');
-      doc.text('Bank Details', 18, finalY + 6);
+      doc.text('Bank Details', 16, finalY + 4);
       
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text('Bank: ' + (company.bank_name || '-'), 18, finalY + 12);
-      doc.text('A/C No: ' + (company.bank_account || '-'), 18, finalY + 17);
-      doc.text('IFSC: ' + (company.ifsc || '-'), 18, finalY + 22);
-      doc.text('A/C Holder: ' + (company.account_holder_name || '-'), 18, finalY + 27);
+      doc.setFontSize(6);
+      doc.text('Bank: ' + (company.bank_name || '-'), 16, finalY + 9);
+      doc.text('A/C: ' + (company.bank_account || '-') + ' | IFSC: ' + (company.ifsc || '-'), 16, finalY + 13);
+      doc.text('Holder: ' + (company.account_holder_name || '-'), 16, finalY + 17);
+      doc.text('UPI: ' + (company.qr_upi || '-'), 16, finalY + 21);
 
-      // UPI ID below bank details
-      doc.text('UPI ID: ' + (company.qr_upi || '-'), 18, finalY + 32);
-
-      // QR Code - positioned to the right of bank details
+      // QR Code - small, next to bank details
       if (company.qr_code_url) {
         try {
           const qrResponse = await fetch(company.qr_code_url);
@@ -1182,23 +1181,20 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             reader.onloadend = () => resolve(reader.result as string);
             reader.readAsDataURL(qrBlob);
           });
-          doc.addImage(qrBase64, 'PNG', pageWidth - 48, finalY - 2, 34, 34);
+          doc.addImage(qrBase64, 'PNG', 98, finalY, 22, 22);
         } catch (e) {
           console.log('Could not load QR code:', e);
         }
       }
 
-      finalY += bankBoxHeight + 8;
-
-      // Terms & Conditions
+      // Terms & Conditions - compact, next to QR
       if (company.terms_conditions) {
-        doc.setFontSize(8);
+        doc.setFontSize(6);
         doc.setFont('helvetica', 'bold');
-        doc.text('Terms & Conditions:', 14, finalY);
+        doc.text('Terms:', 124, finalY + 4);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        const terms = doc.splitTextToSize(company.terms_conditions, pageWidth - 28);
-        doc.text(terms, 14, finalY + 5);
+        const terms = doc.splitTextToSize(company.terms_conditions, pageWidth - 138);
+        doc.text(terms.slice(0, 4), 124, finalY + 8);
       }
 
       toast.info('Saving PDF...');
