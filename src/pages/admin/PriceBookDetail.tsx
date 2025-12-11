@@ -38,9 +38,9 @@ interface PriceBookEntry {
 interface Product {
   id: string;
   name: string;
-  unit: string | null;
-  mrp: number | null;
-  product_variants: { id: string; variant_name: string; variant_price: number | null }[];
+  unit?: string | null;
+  mrp?: number | null;
+  product_variants: { id: string; variant_name: string; variant_price?: number | null }[];
 }
 
 const PriceBookDetail = () => {
