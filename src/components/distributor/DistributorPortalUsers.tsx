@@ -285,15 +285,57 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
       const { data: { session: adminSession } } = await supabase.auth.getSession();
       if (!adminSession) {
         toast.error("Admin session required");
+        setImpersonating(null);
         return;
       }
 
-      // Open distributor portal in new tab with impersonation params
-      const portalUrl = `/distributor-portal/login?impersonate=${user.auth_user_id || 'pending'}&distributor_user_id=${user.id}&return=/distributor/${distributorId}`;
-      window.open(portalUrl, '_blank');
+      // Verify admin role
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', adminSession.user.id)
+        .single();
+
+      if (userRole?.role !== 'admin') {
+        toast.error("Only admins can login as users");
+        setImpersonating(null);
+        return;
+      }
+
+      // Fetch the distributor user data with distributor info
+      const { data: distributorUser, error } = await supabase
+        .from('distributor_users')
+        .select('*, distributors(name)')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !distributorUser) {
+        toast.error("Failed to load distributor user");
+        setImpersonating(null);
+        return;
+      }
+
+      // Store impersonation data in localStorage before opening new tab
+      const impersonationData = {
+        adminUserId: adminSession.user.id,
+        returnUrl: `/distributor/${distributorId}`,
+        impersonatedUser: distributorUser.full_name,
+        distributorUser: {
+          ...distributorUser,
+          is_impersonated: true,
+          admin_user_id: adminSession.user.id,
+        },
+        distributorId: distributorUser.distributor_id,
+        timestamp: Date.now(),
+      };
       
-      toast.info(`Opening portal as ${user.full_name}...`, {
-        description: 'Admin impersonation mode',
+      localStorage.setItem('pending_impersonation', JSON.stringify(impersonationData));
+
+      // Open distributor portal dashboard directly
+      window.open('/distributor-portal/dashboard?impersonate=true', '_blank');
+      
+      toast.success(`Opening portal as ${user.full_name}`, {
+        description: 'Admin viewing mode',
       });
     } catch (error: any) {
       console.error('Error impersonating user:', error);
@@ -611,8 +653,8 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                             variant="ghost"
                             className="h-7 w-7"
                             onClick={() => loginAsUser(user)}
-                            disabled={impersonating === user.id || !user.auth_user_id}
-                            title="Login as this user"
+                            disabled={impersonating === user.id}
+                            title="Login as this user (Admin view)"
                           >
                             <LogIn className={`h-3.5 w-3.5 ${impersonating === user.id ? 'animate-pulse' : ''}`} />
                           </Button>
