@@ -41,7 +41,7 @@ interface Product {
   name: string;
   unit?: string | null;
   mrp?: number | null;
-  product_variants: { id: string; variant_name: string; variant_price?: number | null }[];
+  product_variants: { id: string; variant_name: string; price?: number | null }[];
 }
 
 const PriceBookDetail = () => {
@@ -84,7 +84,7 @@ const PriceBookDetail = () => {
           .order('created_at', { ascending: false }),
         supabase
           .from('products')
-          .select('id, name, unit, rate, product_variants(id, variant_name, variant_price)')
+          .select('id, name, unit, rate, product_variants(id, variant_name, price)')
           .eq('is_active', true)
           .order('name'),
       ]);
@@ -152,9 +152,9 @@ const PriceBookDetail = () => {
               price_book_id: id,
               product_id: product.id,
               variant_id: variant.id,
-              list_price: variant.variant_price || product.mrp || 0,
+              list_price: variant.price || product.mrp || 0,
               discount_percent: 0,
-              final_price: variant.variant_price || product.mrp || 0,
+              final_price: variant.price || product.mrp || 0,
               min_quantity: 1,
             });
           }
@@ -341,7 +341,7 @@ const PriceBookDetail = () => {
                         setSelectedVariant(val);
                         const variantData = selectedProductData.product_variants.find(v => v.id === val);
                         if (variantData) {
-                          setNewEntry({ ...newEntry, list_price: variantData.variant_price || selectedProductData.mrp || 0 });
+                          setNewEntry({ ...newEntry, list_price: variantData.price || selectedProductData.mrp || 0 });
                         }
                       }}>
                         <SelectTrigger>
