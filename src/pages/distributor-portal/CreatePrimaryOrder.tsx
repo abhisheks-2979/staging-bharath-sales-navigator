@@ -19,12 +19,26 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface PriceBookEntry {
+  product_id: string;
+  variant_id: string | null;
+  final_price: number;
+  list_price: number;
+}
+
 interface Product {
   id: string;
   name: string;
-  category?: string;
+  category_id?: string;
+  category_name?: string;
   unit?: string;
   price?: number;
+  priceBookPrice?: number;
   variants?: any[];
 }
 
@@ -41,14 +55,19 @@ interface OrderItem {
 
 const CreatePrimaryOrder = () => {
   const navigate = useNavigate();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [priceBookEntries, setPriceBookEntries] = useState<PriceBookEntry[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [priceBookName, setPriceBookName] = useState<string>('');
   
   const distributorId = localStorage.getItem('distributor_id');
 
@@ -57,25 +76,100 @@ const CreatePrimaryOrder = () => {
       navigate('/distributor-portal/login');
       return;
     }
-    loadProducts();
+    loadData();
   }, [distributorId, navigate]);
 
-  const loadProducts = async () => {
+  // Filter products when category changes
+  useEffect(() => {
+    if (selectedCategory === 'all') {
+      setFilteredProducts(products);
+    } else {
+      setFilteredProducts(products.filter(p => p.category_id === selectedCategory));
+    }
+    setSelectedProduct(''); // Reset product selection when category changes
+  }, [selectedCategory, products]);
+
+  const loadData = async () => {
     try {
-      const { data, error } = await supabase
+      // Load categories
+      const { data: categoriesData } = await supabase
+        .from('product_categories')
+        .select('id, name')
+        .order('name');
+      
+      setCategories(categoriesData || []);
+
+      // Load distributor's active price book
+      const { data: priceBookData } = await supabase
+        .from('distributor_price_books')
+        .select(`
+          price_book_id,
+          price_books (
+            id,
+            name
+          )
+        `)
+        .eq('distributor_id', distributorId)
+        .eq('is_active', true)
+        .single();
+
+      let priceEntries: PriceBookEntry[] = [];
+      
+      if (priceBookData?.price_book_id) {
+        const priceBook = priceBookData.price_books as any;
+        setPriceBookName(priceBook?.name || '');
+        
+        // Load price book entries
+        const { data: entriesData } = await supabase
+          .from('price_book_entries')
+          .select('product_id, variant_id, final_price, list_price')
+          .eq('price_book_id', priceBookData.price_book_id)
+          .eq('is_active', true);
+        
+        priceEntries = entriesData || [];
+        setPriceBookEntries(priceEntries);
+      }
+
+      // Load products with category info
+      const { data: productsData, error } = await supabase
         .from('products')
-        .select('*, product_variants(*)')
+        .select(`
+          *,
+          product_categories (id, name),
+          product_variants(*)
+        `)
         .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
-      setProducts(data || []);
+
+      // Enrich products with price book prices and category info
+      const enrichedProducts = (productsData || []).map(product => {
+        const priceEntry = priceEntries.find(
+          e => e.product_id === product.id && e.variant_id === null
+        );
+        
+        return {
+          ...product,
+          category_id: product.product_categories?.id,
+          category_name: product.product_categories?.name,
+          priceBookPrice: priceEntry?.final_price,
+        };
+      });
+
+      setProducts(enrichedProducts);
+      setFilteredProducts(enrichedProducts);
     } catch (error) {
-      console.error('Error loading products:', error);
+      console.error('Error loading data:', error);
       toast.error('Failed to load products');
     } finally {
       setProductsLoading(false);
     }
+  };
+
+  const getProductPrice = (product: Product): number => {
+    // First check price book price, then fall back to product price
+    return product.priceBookPrice ?? product.price ?? 0;
   };
 
   const addItem = () => {
@@ -87,6 +181,7 @@ const CreatePrimaryOrder = () => {
     const product = products.find(p => p.id === selectedProduct);
     if (!product) return;
 
+    const unitPrice = getProductPrice(product);
     const existingIndex = orderItems.findIndex(item => item.product_id === selectedProduct);
     
     if (existingIndex >= 0) {
@@ -100,8 +195,8 @@ const CreatePrimaryOrder = () => {
         product_name: product.name,
         quantity,
         unit: product.unit || 'pieces',
-        unit_price: product.price || 0,
-        line_total: quantity * (product.price || 0),
+        unit_price: unitPrice,
+        line_total: quantity * unitPrice,
       };
       setOrderItems([...orderItems, newItem]);
     }
@@ -203,7 +298,10 @@ const CreatePrimaryOrder = () => {
             </Button>
             <div>
               <h1 className="font-semibold text-foreground">New Primary Order</h1>
-              <p className="text-xs text-muted-foreground">{orderItems.length} items added</p>
+              <p className="text-xs text-muted-foreground">
+                {orderItems.length} items added
+                {priceBookName && <span className="ml-2">• Price Book: {priceBookName}</span>}
+              </p>
             </div>
           </div>
         </div>
@@ -216,7 +314,26 @@ const CreatePrimaryOrder = () => {
             <CardTitle className="text-base">Add Products</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Category Filter */}
+              <div>
+                <Label>Category</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Product Selection */}
               <div className="md:col-span-2">
                 <Label>Select Product</Label>
                 <Select value={selectedProduct} onValueChange={setSelectedProduct}>
@@ -226,16 +343,25 @@ const CreatePrimaryOrder = () => {
                   <SelectContent>
                     {productsLoading ? (
                       <SelectItem value="loading" disabled>Loading...</SelectItem>
+                    ) : filteredProducts.length === 0 ? (
+                      <SelectItem value="none" disabled>No products in this category</SelectItem>
                     ) : (
-                      products.map(product => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} - ₹{product.price?.toLocaleString('en-IN') || '0'}/{product.unit || 'pc'}
-                        </SelectItem>
-                      ))
+                      filteredProducts.map(product => {
+                        const price = getProductPrice(product);
+                        const hasPriceBookPrice = product.priceBookPrice !== undefined;
+                        return (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} - ₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}/{product.unit || 'pc'}
+                            {hasPriceBookPrice && <span className="text-primary ml-1">★</span>}
+                          </SelectItem>
+                        );
+                      })
                     )}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Quantity */}
               <div>
                 <Label>Quantity</Label>
                 <div className="flex items-center gap-2">
@@ -293,7 +419,7 @@ const CreatePrimaryOrder = () => {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground truncate">{item.product_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        ₹{item.unit_price.toLocaleString('en-IN')} / {item.unit}
+                        ₹{item.unit_price.toLocaleString('en-IN', { maximumFractionDigits: 2 })} / {item.unit}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -316,7 +442,7 @@ const CreatePrimaryOrder = () => {
                       </Button>
                     </div>
                     <div className="text-right min-w-20">
-                      <p className="font-semibold">₹{item.line_total.toLocaleString('en-IN')}</p>
+                      <p className="font-semibold">₹{item.line_total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                     </div>
                     <Button 
                       variant="ghost" 
@@ -369,15 +495,15 @@ const CreatePrimaryOrder = () => {
               <div className="w-full md:w-auto space-y-1 text-sm">
                 <div className="flex justify-between gap-8">
                   <span className="text-muted-foreground">Subtotal:</span>
-                  <span className="font-medium">₹{subtotal.toLocaleString('en-IN')}</span>
+                  <span className="font-medium">₹{subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between gap-8">
                   <span className="text-muted-foreground">Tax (18%):</span>
-                  <span className="font-medium">₹{tax.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                  <span className="font-medium">₹{tax.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between gap-8 text-lg font-bold border-t pt-1">
                   <span>Total:</span>
-                  <span className="text-primary">₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                  <span className="text-primary">₹{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
               <div className="flex gap-3 w-full md:w-auto">
