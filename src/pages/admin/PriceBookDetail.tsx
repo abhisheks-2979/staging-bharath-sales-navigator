@@ -81,7 +81,7 @@ const PriceBookDetail = () => {
           .order('created_at', { ascending: false }),
         supabase
           .from('products')
-          .select('*, product_variants(*)')
+          .select('id, name, unit, rate, product_variants(id, variant_name, variant_price)')
           .eq('is_active', true)
           .order('name'),
       ]);
@@ -92,7 +92,16 @@ const PriceBookDetail = () => {
 
       setPriceBook(priceBookRes.data);
       setEntries(entriesRes.data || []);
-      setProducts(productsRes.data || []);
+      
+      // Map products to match Product interface
+      const mappedProducts: Product[] = (productsRes.data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        unit: p.unit,
+        mrp: p.rate, // Use rate as mrp
+        product_variants: p.product_variants || []
+      }));
+      setProducts(mappedProducts);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load price book');
