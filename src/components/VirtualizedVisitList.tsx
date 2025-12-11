@@ -1,0 +1,127 @@
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { VisitCard } from './VisitCard';
+
+interface Visit {
+  id: string;
+  retailerId?: string;
+  retailerName: string;
+  address: string;
+  phone: string;
+  retailerCategory: string;
+  status: "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
+  visitType: string;
+  time?: string;
+  day?: string;
+  checkInStatus?: "not-checked-in" | "checked-in-correct" | "checked-in-wrong-location";
+  hasOrder?: boolean;
+  orderValue?: number;
+  noOrderReason?: "over-stocked" | "owner-not-available" | "store-closed" | "permanently-closed";
+  distributor?: string;
+  retailerLat?: number;
+  retailerLng?: number;
+  priority?: "high" | "medium" | "low";
+}
+
+interface VirtualizedVisitListProps {
+  visits: Visit[];
+  onViewDetails: (visitId: string) => void;
+  selectedDate: string;
+}
+
+// Memoized VisitCard wrapper to prevent unnecessary re-renders
+const MemoizedVisitCard = memo(VisitCard, (prevProps, nextProps) => {
+  // Only re-render if key props change
+  return (
+    prevProps.visit.id === nextProps.visit.id &&
+    prevProps.visit.status === nextProps.visit.status &&
+    prevProps.visit.hasOrder === nextProps.visit.hasOrder &&
+    prevProps.visit.orderValue === nextProps.visit.orderValue &&
+    prevProps.visit.noOrderReason === nextProps.visit.noOrderReason &&
+    prevProps.selectedDate === nextProps.selectedDate &&
+    prevProps.skipInitialCheck === nextProps.skipInitialCheck
+  );
+});
+
+MemoizedVisitCard.displayName = 'MemoizedVisitCard';
+
+// Progressive loading constants
+const INITIAL_BATCH_SIZE = 8; // Load first 8 immediately
+const LOAD_MORE_SIZE = 5; // Load 5 more at a time
+const LOAD_MORE_THRESHOLD = 200; // Pixels from bottom to trigger load
+
+export const VirtualizedVisitList = ({ 
+  visits, 
+  onViewDetails, 
+  selectedDate 
+}: VirtualizedVisitListProps) => {
+  const [displayCount, setDisplayCount] = useState(INITIAL_BATCH_SIZE);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
+
+  // Reset display count when visits change significantly
+  useEffect(() => {
+    setDisplayCount(Math.min(INITIAL_BATCH_SIZE, visits.length));
+  }, [visits.length, selectedDate]);
+
+  // Visible visits (progressively loaded)
+  const visibleVisits = useMemo(() => {
+    return visits.slice(0, displayCount);
+  }, [visits, displayCount]);
+
+  const hasMore = displayCount < visits.length;
+
+  // Load more on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loadingRef.current || !hasMore) return;
+
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = document.documentElement.scrollTop;
+      const clientHeight = document.documentElement.clientHeight;
+
+      if (scrollHeight - scrollTop - clientHeight < LOAD_MORE_THRESHOLD) {
+        loadingRef.current = true;
+        
+        // Use requestAnimationFrame to batch DOM updates
+        requestAnimationFrame(() => {
+          setDisplayCount(prev => Math.min(prev + LOAD_MORE_SIZE, visits.length));
+          loadingRef.current = false;
+        });
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMore, visits.length]);
+
+  // Immediate load more for fast scrollers
+  const loadMore = () => {
+    if (!hasMore) return;
+    setDisplayCount(prev => Math.min(prev + LOAD_MORE_SIZE, visits.length));
+  };
+
+  return (
+    <div ref={containerRef} className="space-y-2 sm:space-y-3">
+      {visibleVisits.map((visit) => (
+        <MemoizedVisitCard
+          key={visit.id}
+          visit={visit}
+          onViewDetails={onViewDetails}
+          selectedDate={selectedDate}
+          skipInitialCheck={true}
+        />
+      ))}
+      
+      {hasMore && (
+        <div className="flex justify-center py-3">
+          <button
+            onClick={loadMore}
+            className="px-4 py-2 text-sm text-primary hover:text-primary/80 transition-colors"
+          >
+            Load more ({visits.length - displayCount} remaining)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};

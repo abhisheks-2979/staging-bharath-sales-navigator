@@ -63,11 +63,13 @@ interface VisitCardProps {
   visit: Visit;
   onViewDetails: (visitId: string) => void;
   selectedDate?: string; // Add selectedDate prop
+  skipInitialCheck?: boolean; // Skip initial DB check when data is pre-loaded
 }
 export const VisitCard = ({
   visit,
   onViewDetails,
-  selectedDate
+  selectedDate,
+  skipInitialCheck = false
 }: VisitCardProps) => {
   const navigate = useNavigate();
   const [showNoOrderModal, setShowNoOrderModal] = useState(false);
@@ -710,16 +712,38 @@ export const VisitCard = ({
       checkStatus(true); // Force refresh only for this retailer
     });
     
-    // ALWAYS run checkStatus to load order data, status, and other visit details
-    // The checkStatus function has internal optimizations to skip redundant network calls
-    // But we need it to load order values, pending amounts, etc.
-    console.log('🔍 [VisitCard] Running initial checkStatus for:', myRetailerId);
-    checkStatus(false);
+    // PERFORMANCE OPTIMIZATION: Skip initial checkStatus if data is pre-loaded by parent
+    // The parent component (useVisitsDataOptimized) already loads status, orders, etc.
+    // Only run checkStatus when explicitly triggered (e.g., after order placement)
+    if (!skipInitialCheck) {
+      // ALWAYS run checkStatus to load order data, status, and other visit details
+      // The checkStatus function has internal optimizations to skip redundant network calls
+      // But we need it to load order values, pending amounts, etc.
+      console.log('🔍 [VisitCard] Running initial checkStatus for:', myRetailerId);
+      checkStatus(false);
+    } else {
+      console.log('⚡ [VisitCard] Skipping initial checkStatus (data pre-loaded):', myRetailerId);
+      // Initialize from visit props since they're pre-loaded
+      if (visit.hasOrder) {
+        setHasOrderToday(true);
+        setActualOrderValue(visit.orderValue || 0);
+        setCurrentStatus('productive');
+        setStatusLoadedFromDB(true);
+        setPhase('completed');
+      }
+      if (visit.noOrderReason) {
+        setIsNoOrderMarked(true);
+        setNoOrderReason(visit.noOrderReason);
+        setCurrentStatus('unproductive');
+        setStatusLoadedFromDB(true);
+        setPhase('completed');
+      }
+    }
     
     return () => {
       unregister();
     };
-  }, [myRetailerId]); // Removed checkStatus and visit.status from deps to prevent re-running
+  }, [myRetailerId, skipInitialCheck]); // Removed checkStatus and visit.status from deps to prevent re-running
 
   // Listen for custom events to refresh status - trigger full data reload
   useEffect(() => {
