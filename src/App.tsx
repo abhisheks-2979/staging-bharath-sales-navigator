@@ -108,6 +108,8 @@ import PrimaryOrdersList from "./pages/distributor-portal/PrimaryOrdersList";
 import CreatePrimaryOrder from "./pages/distributor-portal/CreatePrimaryOrder";
 import PrimaryOrderDetail from "./pages/distributor-portal/PrimaryOrderDetail";
 import DistributorInventory from "./pages/distributor-portal/DistributorInventory";
+import SecondarySales from "./pages/distributor-portal/SecondarySales";
+import PackingList from "./pages/distributor-portal/PackingList";
 
 // Institutional Sales pages
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
@@ -318,10 +320,13 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               {/* Distributor Portal Routes */}
               <Route path="/distributor-portal/login" element={<DistributorLogin />} />
               <Route path="/distributor-portal/dashboard" element={<DistributorDashboard />} />
+              <Route path="/distributor-portal" element={<DistributorDashboard />} />
               <Route path="/distributor-portal/orders" element={<PrimaryOrdersList />} />
               <Route path="/distributor-portal/orders/new" element={<CreatePrimaryOrder />} />
               <Route path="/distributor-portal/orders/:orderId" element={<PrimaryOrderDetail />} />
               <Route path="/distributor-portal/inventory" element={<DistributorInventory />} />
+              <Route path="/distributor-portal/secondary-sales" element={<SecondarySales />} />
+              <Route path="/distributor-portal/packing-list" element={<PackingList />} />
               
               {/* Recycle Bin Routes */}
               <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
