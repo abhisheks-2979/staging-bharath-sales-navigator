@@ -42,7 +42,7 @@ import { DistributorAttachments } from "@/components/distributor/DistributorAtta
 import { DistributorBeats } from "@/components/distributor/DistributorBeats";
 import { DistributorRetailers } from "@/components/distributor/DistributorRetailers";
 import { DistributorTerritories } from "@/components/distributor/DistributorTerritories";
-import { DistributorBusinessPlan } from "@/components/distributor/DistributorBusinessPlan";
+import { DistributorFYPlan } from "@/components/distributor/DistributorFYPlan";
 import { DistributorPortalUsers } from "@/components/distributor/DistributorPortalUsers";
 import { DistributorPriceBooks } from "@/components/distributor/DistributorPriceBooks";
 import { DistributorPrimaryOrders } from "@/components/distributor/DistributorPrimaryOrders";
@@ -325,7 +325,7 @@ export default function DistributorDetail() {
             <TabsTrigger value="contacts" className="text-xs">Contacts</TabsTrigger>
             <TabsTrigger value="portal" className="text-xs">Portal</TabsTrigger>
             <TabsTrigger value="pricing" className="text-xs">Pricing</TabsTrigger>
-            <TabsTrigger value="business" className="text-xs">Business</TabsTrigger>
+            <TabsTrigger value="business" className="text-xs">FY Plan</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-4">
@@ -487,7 +487,7 @@ export default function DistributorDetail() {
           </TabsContent>
 
           <TabsContent value="business" className="mt-4">
-            <DistributorBusinessPlan distributorId={distributor.id} />
+            <DistributorFYPlan distributorId={distributor.id} />
           </TabsContent>
         </Tabs>
       </div>
