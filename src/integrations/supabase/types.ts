@@ -1650,6 +1650,54 @@ export type Database = {
           },
         ]
       }
+      distributor_price_books: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          deactivated_at: string | null
+          distributor_id: string
+          id: string
+          is_active: boolean | null
+          price_book_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          distributor_id: string
+          id?: string
+          is_active?: boolean | null
+          price_book_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          distributor_id?: string
+          id?: string
+          is_active?: boolean | null
+          price_book_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_price_books_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_price_books_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "price_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_retailer_mappings: {
         Row: {
           created_at: string
@@ -4450,6 +4498,139 @@ export type Database = {
           record_name?: string | null
         }
         Relationships: []
+      }
+      price_book_entries: {
+        Row: {
+          created_at: string
+          discount_percent: number | null
+          final_price: number
+          id: string
+          is_active: boolean | null
+          list_price: number
+          min_quantity: number | null
+          price_book_id: string
+          product_id: string
+          updated_at: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discount_percent?: number | null
+          final_price?: number
+          id?: string
+          is_active?: boolean | null
+          list_price?: number
+          min_quantity?: number | null
+          price_book_id: string
+          product_id: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discount_percent?: number | null
+          final_price?: number
+          id?: string
+          is_active?: boolean | null
+          list_price?: number
+          min_quantity?: number | null
+          price_book_id?: string
+          product_id?: string
+          updated_at?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_book_entries_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "price_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_book_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_book_entries_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_books: {
+        Row: {
+          cloned_from: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          distributor_category: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_active: boolean | null
+          is_standard: boolean | null
+          name: string
+          price_book_type: string
+          territory_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cloned_from?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          distributor_category?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_standard?: boolean | null
+          name: string
+          price_book_type?: string
+          territory_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cloned_from?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          distributor_category?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_standard?: boolean | null
+          name?: string
+          price_book_type?: string
+          territory_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_books_cloned_from_fkey"
+            columns: ["cloned_from"]
+            isOneToOne: false
+            referencedRelation: "price_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_books_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       primary_order_items: {
         Row: {

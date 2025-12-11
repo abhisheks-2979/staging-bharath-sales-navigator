@@ -25,6 +25,7 @@ const AdminControls = () => {
 
   const adminModules = [
     { title: "Admin Dashboard", description: "View system statistics and manage general administration tasks", icon: Shield, color: "green", path: "/admin" },
+    { title: "Price Book Management", description: "Create and manage price books for distributors and territories", icon: DollarSign, color: "emerald", path: "/admin/price-books" },
     { title: "User Management", description: "Manage user accounts, roles, and permissions", icon: Users, color: "orange", path: "/admin#users" },
     { title: "System Settings", description: "Configure system-wide settings and preferences", icon: Settings, color: "gray", path: "/admin#settings" },
     { title: "Attendance Management", description: "Manage user attendance, holidays, and leave approvals", icon: CalendarDays, color: "purple", path: "/attendance-management" },
