@@ -1004,13 +1004,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.line(14, yPos, pageWidth - 14, yPos);
       yPos += 6;
 
-      // DELIVERY CHALLAN heading
+      // DELIVERY CHALLAN heading with border
+      doc.setDrawColor(34, 139, 34);
+      doc.setLineWidth(0.5);
+      const challanText = 'DELIVERY CHALLAN';
+      const challanWidth = doc.getTextWidth(challanText) * 1.5;
+      doc.rect(pageWidth / 2 - challanWidth / 2 - 5, yPos - 5, challanWidth + 10, 10);
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(34, 139, 34);
-      doc.text('DELIVERY CHALLAN', pageWidth / 2, yPos, { align: 'center' });
+      doc.text(challanText, pageWidth / 2, yPos + 2, { align: 'center' });
       doc.setTextColor(0, 0, 0);
-      yPos += 8;
+      yPos += 12;
 
       // Date/Time and Van info
       const selectedVanData = vans.find(v => v.id === selectedVan);
@@ -1035,7 +1040,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         if (unit === 'grams' || unit === 'gram' || unit === 'g') {
           qtyInKG = qty / 1000;
           totalKGs += qtyInKG;
-          qtyDisplay = `${qty}`;
+          // Show grams with kg conversion in brackets
+          qtyDisplay = `${qty} (${qtyInKG.toFixed(2)} KG)`;
         } else if (unit === 'kg' || unit === 'kgs') {
           totalKGs += qty;
         }
@@ -1078,14 +1084,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         },
         alternateRowStyles: { fillColor: [245, 250, 245] },
         columnStyles: {
-          0: { cellWidth: 70, halign: 'left' },
-          1: { cellWidth: 28, halign: 'right' },
+          0: { cellWidth: 55, halign: 'left' },
+          1: { cellWidth: 25, halign: 'right' },
           2: { cellWidth: 20, halign: 'center' },
-          3: { cellWidth: 22, halign: 'center' },
-          4: { cellWidth: 32, halign: 'right' }
+          3: { cellWidth: 45, halign: 'center' },
+          4: { cellWidth: 'auto', halign: 'right' }
         },
         margin: { left: 14, right: 14 },
-        tableWidth: pageWidth - 28,
         tableLineColor: [34, 139, 34],
         tableLineWidth: 0.2
       });
