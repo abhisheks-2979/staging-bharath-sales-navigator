@@ -21,6 +21,39 @@ import autoTable from 'jspdf-autotable';
 import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
 import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
 
+// Convert number to Indian words
+const numberToWords = (num: number): string => {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  
+  if (num === 0) return 'Zero Rupees Only';
+  
+  const rupees = Math.floor(num);
+  const paise = Math.round((num - rupees) * 100);
+  
+  const convertLessThanThousand = (n: number): string => {
+    if (n === 0) return '';
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '');
+  };
+  
+  const convertToIndianWords = (n: number): string => {
+    if (n === 0) return '';
+    if (n < 1000) return convertLessThanThousand(n);
+    if (n < 100000) return convertLessThanThousand(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convertLessThanThousand(n % 1000) : '');
+    if (n < 10000000) return convertLessThanThousand(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convertToIndianWords(n % 100000) : '');
+    return convertLessThanThousand(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convertToIndianWords(n % 10000000) : '');
+  };
+  
+  let result = convertToIndianWords(rupees) + ' Rupees';
+  if (paise > 0) {
+    result += ' and ' + convertLessThanThousand(paise) + ' Paise';
+  }
+  return result + ' Only';
+};
+
 interface Van {
   id: string;
   registration_number: string;
@@ -878,6 +911,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       ['', '', '', 'SGST (2.5%):', `₹${sgst.toFixed(2)}`],
       ['', '', '', 'Grand Total:', `₹${grandTotal.toFixed(2)}`],
       [''],
+      ['Amount in Words:', numberToWords(grandTotal)],
+      [''],
       ['Bank Details:'],
       ['Bank:', company.bank_name || ''],
       ['Account:', company.bank_account || ''],
@@ -1077,7 +1112,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       doc.text(`Total Weight: ${totalKGs.toFixed(2)} KG`, 14, finalY + 8);
       doc.text(`Total Items: ${savedItems.length}`, 14, finalY + 14);
 
-      finalY += 34;
+      // Amount in Words
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'italic');
+      const amountInWords = numberToWords(grandTotal);
+      doc.text(`Amount in Words: ${amountInWords}`, 14, finalY + 20);
+
+      finalY += 38;
 
       // Check if we need new page for bank details
       if (finalY > 230) {
