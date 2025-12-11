@@ -1038,46 +1038,54 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         
         return [
           item.product_name,
-          `₹${priceWithoutGST.toFixed(2)}`,
+          priceWithoutGST.toFixed(2),
           item.unit || '',
           qtyDisplay,
-          `₹${totalVal.toFixed(2)}`
+          totalVal.toFixed(2)
         ];
       });
 
       // Products table with reduced spacing
       autoTable(doc, {
         startY: yPos,
-        head: [['Product', 'Rate', 'Unit', 'Qty', 'Amount']],
+        head: [['Product', 'Rate (Rs.)', 'Unit', 'Qty', 'Amount (Rs.)']],
         body: tableData,
         styles: { 
           fontSize: 8, 
-          cellPadding: 1.5,
-          lineColor: [200, 200, 200],
-          lineWidth: 0.3
+          cellPadding: 2,
+          lineColor: [34, 139, 34],
+          lineWidth: 0.2,
+          font: 'helvetica',
+          overflow: 'linebreak'
         },
         headStyles: { 
           fillColor: [34, 139, 34], 
           textColor: 255, 
           fontStyle: 'bold',
           halign: 'center',
-          cellPadding: 2
+          cellPadding: 3,
+          valign: 'middle'
+        },
+        bodyStyles: {
+          valign: 'middle'
         },
         alternateRowStyles: { fillColor: [245, 250, 245] },
         columnStyles: {
-          0: { cellWidth: 55 },
-          1: { cellWidth: 28, halign: 'right' },
+          0: { cellWidth: 60, halign: 'left' },
+          1: { cellWidth: 30, halign: 'right' },
           2: { cellWidth: 22, halign: 'center' },
           3: { cellWidth: 25, halign: 'center' },
-          4: { cellWidth: 32, halign: 'right' }
+          4: { cellWidth: 35, halign: 'right' }
         },
-        margin: { left: 14, right: 14 }
+        margin: { left: 14, right: 14 },
+        tableLineColor: [34, 139, 34],
+        tableLineWidth: 0.2
       });
 
-      let finalY = (doc as any).lastAutoTable.finalY + 3;
+      let finalY = (doc as any).lastAutoTable.finalY + 5;
       
       // Check if we need new page for totals
-      if (finalY > 240) {
+      if (finalY > 235) {
         doc.addPage();
         finalY = 20;
       }
@@ -1087,60 +1095,84 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       const sgst = totalTaxable * 0.025;
       const grandTotal = totalTaxable + cgst + sgst;
       
-      const boxX = pageWidth - 80;
-      doc.setFillColor(250, 250, 250);
-      doc.rect(boxX, finalY, 66, 28, 'F');
+      const boxWidth = 75;
+      const boxX = pageWidth - boxWidth - 14;
+      const boxHeight = 32;
+      
+      // Draw box with border
+      doc.setFillColor(255, 255, 255);
       doc.setDrawColor(34, 139, 34);
-      doc.rect(boxX, finalY, 66, 28, 'S');
+      doc.setLineWidth(0.5);
+      doc.rect(boxX, finalY, boxWidth, boxHeight, 'FD');
+      
+      // Tax breakdown content - properly aligned
+      const labelX = boxX + 4;
+      const valueX = boxX + boxWidth - 4;
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('Taxable Amount:', boxX + 3, finalY + 5);
-      doc.text(`₹${totalTaxable.toFixed(2)}`, boxX + 63, finalY + 5, { align: 'right' });
-      doc.text('CGST (2.5%):', boxX + 3, finalY + 10);
-      doc.text(`₹${cgst.toFixed(2)}`, boxX + 63, finalY + 10, { align: 'right' });
-      doc.text('SGST (2.5%):', boxX + 3, finalY + 15);
-      doc.text(`₹${sgst.toFixed(2)}`, boxX + 63, finalY + 15, { align: 'right' });
+      doc.text('Taxable Amount:', labelX, finalY + 6);
+      doc.text('Rs. ' + totalTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valueX, finalY + 6, { align: 'right' });
+      
+      doc.text('CGST (2.5%):', labelX, finalY + 12);
+      doc.text('Rs. ' + cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valueX, finalY + 12, { align: 'right' });
+      
+      doc.text('SGST (2.5%):', labelX, finalY + 18);
+      doc.text('Rs. ' + sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valueX, finalY + 18, { align: 'right' });
+      
+      // Grand total with separator line
+      doc.setDrawColor(34, 139, 34);
+      doc.line(boxX + 2, finalY + 22, boxX + boxWidth - 2, finalY + 22);
+      
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      doc.text('Grand Total:', boxX + 3, finalY + 22);
-      doc.text(`₹${grandTotal.toFixed(2)}`, boxX + 63, finalY + 22, { align: 'right' });
+      doc.text('Grand Total:', labelX, finalY + 28);
+      doc.text('Rs. ' + grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valueX, finalY + 28, { align: 'right' });
 
-      // Total KGs display
+      // Total KGs and Items display - left side
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text(`Total Weight: ${totalKGs.toFixed(2)} KG`, 14, finalY + 8);
-      doc.text(`Total Items: ${savedItems.length}`, 14, finalY + 14);
+      doc.text('Total Weight: ' + totalKGs.toFixed(2) + ' KG', 14, finalY + 8);
+      doc.text('Total Items: ' + savedItems.length, 14, finalY + 15);
 
       // Amount in Words
-      doc.setFontSize(7);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'italic');
       const amountInWords = numberToWords(grandTotal);
-      doc.text(`Amount in Words: ${amountInWords}`, 14, finalY + 20);
+      const wordsWrapped = doc.splitTextToSize('Amount in Words: ' + amountInWords, 95);
+      doc.text(wordsWrapped, 14, finalY + 24);
 
-      finalY += 38;
+      finalY += boxHeight + 20;
 
       // Check if we need new page for bank details
-      if (finalY > 230) {
+      if (finalY > 225) {
         doc.addPage();
         finalY = 20;
       }
 
-      // Bank Details section
-      doc.setFillColor(245, 245, 245);
-      doc.rect(14, finalY, 85, 30, 'F');
+      // Bank Details section with proper box
+      const bankBoxWidth = 90;
+      const bankBoxHeight = 32;
+      doc.setFillColor(248, 248, 248);
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
+      doc.rect(14, finalY, bankBoxWidth, bankBoxHeight, 'FD');
+      
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('Bank Details', 16, finalY + 5);
+      doc.text('Bank Details', 18, finalY + 6);
+      
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.text(`Bank: ${company.bank_name || ''}`, 16, finalY + 10);
-      doc.text(`A/C No: ${company.bank_account || ''}`, 16, finalY + 14);
-      doc.text(`IFSC: ${company.ifsc || ''}`, 16, finalY + 18);
-      doc.text(`A/C Holder: ${company.account_holder_name || ''}`, 16, finalY + 22);
-      doc.text(`UPI ID: ${company.qr_upi || ''}`, 16, finalY + 26);
+      doc.setFontSize(8);
+      doc.text('Bank: ' + (company.bank_name || '-'), 18, finalY + 12);
+      doc.text('A/C No: ' + (company.bank_account || '-'), 18, finalY + 17);
+      doc.text('IFSC: ' + (company.ifsc || '-'), 18, finalY + 22);
+      doc.text('A/C Holder: ' + (company.account_holder_name || '-'), 18, finalY + 27);
 
-      // QR Code
+      // UPI ID below bank details
+      doc.text('UPI ID: ' + (company.qr_upi || '-'), 18, finalY + 32);
+
+      // QR Code - positioned to the right of bank details
       if (company.qr_code_url) {
         try {
           const qrResponse = await fetch(company.qr_code_url);
@@ -1150,13 +1182,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
             reader.onloadend = () => resolve(reader.result as string);
             reader.readAsDataURL(qrBlob);
           });
-          doc.addImage(qrBase64, 'PNG', pageWidth - 50, finalY, 36, 36);
+          doc.addImage(qrBase64, 'PNG', pageWidth - 48, finalY - 2, 34, 34);
         } catch (e) {
           console.log('Could not load QR code:', e);
         }
       }
 
-      finalY += 38;
+      finalY += bankBoxHeight + 8;
 
       // Terms & Conditions
       if (company.terms_conditions) {
@@ -1166,7 +1198,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         const terms = doc.splitTextToSize(company.terms_conditions, pageWidth - 28);
-        doc.text(terms, 14, finalY + 4);
+        doc.text(terms, 14, finalY + 5);
       }
 
       toast.info('Saving PDF...');
