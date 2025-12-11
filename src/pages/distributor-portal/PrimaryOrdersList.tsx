@@ -14,7 +14,8 @@ import {
   Package,
   Calendar,
   Truck,
-  Clock
+  Clock,
+  ClipboardCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -186,16 +187,29 @@ const PrimaryOrdersList = () => {
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right space-y-1">
                       <Badge className={getStatusColor(order.status)}>
                         {order.status.replace('_', ' ')}
                       </Badge>
-                      <p className="text-lg font-semibold text-foreground mt-2">
+                      <p className="text-lg font-semibold text-foreground">
                         ₹{order.total_amount?.toLocaleString('en-IN') || '0'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {order.primary_order_items?.[0]?.count || 0} items
                       </p>
+                      {['dispatched', 'in_transit'].includes(order.status) && (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/distributor-portal/grn/${order.id}`);
+                          }}
+                        >
+                          <ClipboardCheck className="w-3 h-3 mr-1" />
+                          Create GRN
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
