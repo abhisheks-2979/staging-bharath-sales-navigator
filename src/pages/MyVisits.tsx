@@ -6,6 +6,7 @@ import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
 import { VisitCard } from "@/components/VisitCard";
+import { VirtualizedVisitList } from "@/components/VirtualizedVisitList";
 import { CreateNewVisitModal } from "@/components/CreateNewVisitModal";
 import { VisitFilters, FilterOptions } from "@/components/VisitFilters";
 import { Button } from "@/components/ui/button";
@@ -1231,7 +1232,7 @@ export const MyVisits = () => {
                   {t('visits.createNewVisit')}
                 </Button>
               </CardContent>
-            </Card> : filteredVisits.map(visit => <VisitCard key={visit.id} visit={visit} onViewDetails={handleViewDetails} selectedDate={selectedDate} />)}
+            </Card> : <VirtualizedVisitList visits={filteredVisits} onViewDetails={handleViewDetails} selectedDate={selectedDate} />}
         </div>
 
         {/* Create New Visit Modal */}
