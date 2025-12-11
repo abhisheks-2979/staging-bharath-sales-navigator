@@ -99,6 +99,7 @@ import DistributorMaster from "./pages/DistributorMaster";
 import AddDistributor from "./pages/AddDistributor";
 import DistributorDetail from "./pages/DistributorDetail";
 import EditDistributor from "./pages/EditDistributor";
+import PrimaryOrders from "./pages/PrimaryOrders";
 
 // Distributor Portal Pages
 import DistributorLogin from "./pages/distributor-portal/DistributorLogin";
@@ -312,6 +313,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
               <Route path="/distributor/:id" element={<ProtectedRoute><DistributorDetail /></ProtectedRoute>} />
               <Route path="/edit-distributor/:id" element={<ProtectedRoute><EditDistributor /></ProtectedRoute>} />
+              <Route path="/primary-orders" element={<ProtectedRoute><PrimaryOrders /></ProtectedRoute>} />
               
               {/* Distributor Portal Routes */}
               <Route path="/distributor-portal/login" element={<DistributorLogin />} />

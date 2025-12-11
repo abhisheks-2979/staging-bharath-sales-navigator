@@ -36,6 +36,7 @@ import {
   Navigation2,
   Building2,
   Trash2,
+  ShoppingCart,
 } from "lucide-react";
 
 export const Navbar = () => {
@@ -58,6 +59,7 @@ export const Navbar = () => {
       { icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
       { icon: Building2, label: "Institutional Sales", href: "/institutional-sales", color: "from-indigo-500 to-indigo-600" },
       { icon: Factory, label: "Distributor Master", href: "/distributor-master", color: "from-cyan-500 to-cyan-600" },
+      { icon: ShoppingCart, label: "Primary Orders", href: "/primary-orders", color: "from-rose-500 to-rose-600" },
       { icon: MapPin, label: t('nav.territories'), href: "/territories-and-distributors", color: "from-amber-500 to-amber-600" },
       { icon: Navigation2, label: t('nav.gpsTrack'), href: "/gps-track", color: "from-purple-500 to-purple-600" },
       { icon: Users, label: t('nav.myBeats'), href: "/my-beats", color: "from-orange-500 to-orange-600" },
