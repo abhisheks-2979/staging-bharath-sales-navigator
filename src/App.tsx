@@ -111,6 +111,9 @@ import DistributorInventory from "./pages/distributor-portal/DistributorInventor
 import SecondarySales from "./pages/distributor-portal/SecondarySales";
 import PackingList from "./pages/distributor-portal/PackingList";
 import GoodsReceipt from "./pages/distributor-portal/GoodsReceipt";
+import DistributorClaims from "./pages/distributor-portal/DistributorClaims";
+import DistributorSupport from "./pages/distributor-portal/DistributorSupport";
+import DistributorIdeas from "./pages/distributor-portal/DistributorIdeas";
 
 // Institutional Sales pages
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
@@ -329,6 +332,9 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/distributor-portal/secondary-sales" element={<SecondarySales />} />
               <Route path="/distributor-portal/packing-list" element={<PackingList />} />
               <Route path="/distributor-portal/grn/:orderId" element={<GoodsReceipt />} />
+              <Route path="/distributor-portal/claims" element={<DistributorClaims />} />
+              <Route path="/distributor-portal/support" element={<DistributorSupport />} />
+              <Route path="/distributor-portal/ideas" element={<DistributorIdeas />} />
               
               {/* Recycle Bin Routes */}
               <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
