@@ -809,16 +809,24 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       return;
     }
 
-    // Prepare data for export from saved items
-    const exportData = savedItems.map((item: any) => {
+    // Fetch company details
+    const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
+    const company = companyData as any || {};
+    
+    const printDateTime = new Date().toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+
+    // Calculate totals
+    let totalTaxable = 0;
+    const itemsData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithGST = product?.rate || 0;
-      // Calculate price without GST (5% GST = 2.5% CGST + 2.5% SGST)
-      const priceWithoutGST = priceWithGST / 1.05; // Price per KG
+      const priceWithoutGST = priceWithGST / 1.05;
       const unit = (item.unit || '').toLowerCase();
       const qty = item.start_qty || 0;
       
-      // Convert grams to KG for value calculation since price is per KG
       let qtyInKG = qty;
       let qtyDisplay = qty.toString();
       if (unit === 'grams' || unit === 'gram' || unit === 'g') {
@@ -827,27 +835,64 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
       
       const totalValue = priceWithoutGST * qtyInKG;
+      totalTaxable += totalValue;
       
       return {
         'Product': item.product_name,
-        'Price (without GST)': `₹${priceWithoutGST.toFixed(2)}`,
+        'Rate (Excl. GST)': `₹${priceWithoutGST.toFixed(2)}`,
         'Unit': item.unit,
         'Quantity': qtyDisplay,
-        'Total Value': `₹${totalValue.toFixed(2)}`
+        'Amount': `₹${totalValue.toFixed(2)}`
       };
     });
 
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const cgst = totalTaxable * 0.025;
+    const sgst = totalTaxable * 0.025;
+    const grandTotal = totalTaxable + cgst + sgst;
+
+    // Create worksheet with header info
+    const headerData = [
+      ['DELIVERY CHALLAN'],
+      [''],
+      ['Company:', company.name || ''],
+      ['Address:', company.address || ''],
+      ['GSTIN:', company.gstin || ''],
+      ['Phone:', company.contact_phone || ''],
+      ['Email:', company.email || ''],
+      ['State:', company.state || ''],
+      [''],
+      ['Date & Time:', printDateTime],
+      ['Van:', vans.find(v => v.id === selectedVan)?.registration_number || ''],
+      ['']
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(headerData);
+    XLSX.utils.sheet_add_json(ws, itemsData, { origin: 'A13' });
     
-    // Create workbook
+    // Add totals at the end
+    const lastRow = 13 + itemsData.length + 1;
+    XLSX.utils.sheet_add_aoa(ws, [
+      [''],
+      ['', '', '', 'Taxable Amount:', `₹${totalTaxable.toFixed(2)}`],
+      ['', '', '', 'CGST (2.5%):', `₹${cgst.toFixed(2)}`],
+      ['', '', '', 'SGST (2.5%):', `₹${sgst.toFixed(2)}`],
+      ['', '', '', 'Grand Total:', `₹${grandTotal.toFixed(2)}`],
+      [''],
+      ['Bank Details:'],
+      ['Bank:', company.bank_name || ''],
+      ['Account:', company.bank_account || ''],
+      ['IFSC:', company.ifsc || ''],
+      ['A/c Holder:', company.account_holder_name || ''],
+      ['UPI ID:', company.qr_upi || ''],
+      [''],
+      ['Terms & Conditions:'],
+      [company.terms_conditions || '']
+    ], { origin: `A${lastRow}` });
+    
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Van Stock');
+    XLSX.utils.book_append_sheet(wb, ws, 'Delivery Challan');
     
-    // Generate filename with date
-    const fileName = `Van_Stock_${selectedDate}.xlsx`;
-    
-    // Save file using cross-platform downloader
+    const fileName = `Delivery_Challan_${selectedDate}.xlsx`;
     await downloadExcel(wb, fileName, XLSX);
   };
 
@@ -861,56 +906,81 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         return;
       }
 
+      // Fetch company details
+      const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
+      const company = companyData as any || {};
+
       const doc = new jsPDF();
-      const dateStr = new Date(selectedDate).toLocaleDateString('en-IN', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric' 
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      const printDateTime = new Date().toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
       });
 
-      // Title
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Product Stock in Van', 14, 20);
-      
-      // Date and Van info
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      const selectedVanData = vans.find(v => v.id === selectedVan);
-      doc.text(`Date: ${dateStr}`, 14, 28);
-      if (selectedVanData) {
-        doc.text(`Van: ${selectedVanData.registration_number} - ${selectedVanData.make_model}`, 14, 35);
+      let yPos = 10;
+
+      // Company Logo
+      if (company.logo_url) {
+        try {
+          const logoResponse = await fetch(company.logo_url);
+          const logoBlob = await logoResponse.blob();
+          const logoBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(logoBlob);
+          });
+          doc.addImage(logoBase64, 'PNG', 14, yPos, 30, 20);
+          yPos = 12;
+        } catch (e) {
+          console.log('Could not load logo:', e);
+        }
       }
 
-      // Calculate totals with proper gram to KG conversion
-      // Price is per KG, so we need to convert grams to KG for value calculation
-      let totalKGs = 0;
-      const totalValue = savedItems.reduce((sum: number, item: any) => {
-        const product = products.find(p => p.id === item.product_id);
-        const priceWithoutGST = (product?.rate || 0) / 1.05; // Price per KG
-        const unit = (item.unit || '').toLowerCase();
-        const qty = item.start_qty || 0;
-        
-        // Convert grams to KG for both weight and value calculation
-        let qtyInKG = qty;
-        if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-          qtyInKG = qty / 1000;
-          totalKGs += qtyInKG;
-        } else if (unit === 'kg' || unit === 'kgs') {
-          totalKGs += qty;
-        }
-        
-        // Calculate value using quantity in KG since price is per KG
-        return sum + (priceWithoutGST * qtyInKG);
-      }, 0);
+      // Company Name & Header
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(company.name || 'Company Name', company.logo_url ? 50 : 14, yPos + 4);
       
-      // Summary with Total KGs and Total Value
-      doc.setFontSize(10);
-      doc.text(`Total Items: ${savedItems.length}`, 14, 42);
-      doc.text(`Total KGs in Van: ${totalKGs.toFixed(2)} KG`, 14, 48);
-      doc.text(`Total Value (Excl. GST): Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, 54);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(company.address || '', company.logo_url ? 50 : 14, yPos + 10, { maxWidth: 100 });
+      
+      // Right side - GSTIN, Phone, Email, State
+      doc.setFontSize(8);
+      const rightX = pageWidth - 14;
+      doc.text(`GSTIN: ${company.gstin || ''}`, rightX, yPos + 4, { align: 'right' });
+      doc.text(`Phone: ${company.contact_phone || ''}`, rightX, yPos + 9, { align: 'right' });
+      doc.text(`Email: ${company.email || ''}`, rightX, yPos + 14, { align: 'right' });
+      doc.text(`State: ${company.state || ''}`, rightX, yPos + 19, { align: 'right' });
 
-      // Table with proper formatting
+      yPos = 36;
+      
+      // Horizontal line
+      doc.setDrawColor(34, 139, 34);
+      doc.setLineWidth(1);
+      doc.line(14, yPos, pageWidth - 14, yPos);
+      yPos += 6;
+
+      // DELIVERY CHALLAN heading
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(34, 139, 34);
+      doc.text('DELIVERY CHALLAN', pageWidth / 2, yPos, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
+
+      // Date/Time and Van info
+      const selectedVanData = vans.find(v => v.id === selectedVan);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Date & Time: ${printDateTime}`, 14, yPos);
+      doc.text(`Van: ${selectedVanData?.registration_number || ''} - ${selectedVanData?.make_model || ''}`, rightX, yPos, { align: 'right' });
+      yPos += 6;
+
+      // Calculate totals
+      let totalKGs = 0;
+      let totalTaxable = 0;
       const tableData = savedItems.map((item: any) => {
         const product = products.find(p => p.id === item.product_id);
         const priceWithGST = product?.rate || 0;
@@ -918,68 +988,149 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         const qty = item.start_qty || 0;
         const unit = (item.unit || '').toLowerCase();
         
-        // Calculate quantity in KGs for display
         let qtyDisplay = qty.toString();
-        let unitDisplay = item.unit || '';
-        
-        // For grams, show both grams and KG equivalent
         let qtyInKG = qty;
         if (unit === 'grams' || unit === 'gram' || unit === 'g') {
           qtyInKG = qty / 1000;
-          qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
+          totalKGs += qtyInKG;
+          qtyDisplay = `${qty}`;
+        } else if (unit === 'kg' || unit === 'kgs') {
+          totalKGs += qty;
         }
         
-        // Price is per KG, so calculate total using quantity in KG
         const totalVal = priceWithoutGST * qtyInKG;
+        totalTaxable += totalVal;
         
         return [
           item.product_name,
-          `Rs. ${priceWithoutGST.toFixed(2)}`,
-          unitDisplay,
+          `₹${priceWithoutGST.toFixed(2)}`,
+          item.unit || '',
           qtyDisplay,
-          `Rs. ${totalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          `₹${totalVal.toFixed(2)}`
         ];
       });
 
+      // Products table with reduced spacing
       autoTable(doc, {
-        startY: 60,
-        head: [['Product', 'Price (Excl. GST)', 'Unit', 'Quantity', 'Total Value']],
+        startY: yPos,
+        head: [['Product', 'Rate', 'Unit', 'Qty', 'Amount']],
         body: tableData,
         styles: { 
-          fontSize: 9, 
-          cellPadding: 4,
+          fontSize: 8, 
+          cellPadding: 1.5,
           lineColor: [200, 200, 200],
-          lineWidth: 0.5
+          lineWidth: 0.3
         },
         headStyles: { 
-          fillColor: [59, 130, 246], 
+          fillColor: [34, 139, 34], 
           textColor: 255, 
           fontStyle: 'bold',
-          halign: 'center'
+          halign: 'center',
+          cellPadding: 2
         },
-        alternateRowStyles: { fillColor: [245, 247, 250] },
+        alternateRowStyles: { fillColor: [245, 250, 245] },
         columnStyles: {
-          0: { cellWidth: 45 },
-          1: { cellWidth: 35, halign: 'right' },
-          2: { cellWidth: 20, halign: 'center' },
-          3: { cellWidth: 45, halign: 'center' },
-          4: { cellWidth: 40, halign: 'right' }
+          0: { cellWidth: 55 },
+          1: { cellWidth: 28, halign: 'right' },
+          2: { cellWidth: 22, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' },
+          4: { cellWidth: 32, halign: 'right' }
         },
-        tableLineColor: [100, 100, 100],
-        tableLineWidth: 0.1
+        margin: { left: 14, right: 14 }
       });
 
-      // Add footer with total
-      const finalY = (doc as any).lastAutoTable.finalY || 60;
-      doc.setFillColor(240, 240, 240);
-      doc.rect(14, finalY + 2, 181, 10, 'F');
+      let finalY = (doc as any).lastAutoTable.finalY + 3;
+      
+      // Check if we need new page for totals
+      if (finalY > 240) {
+        doc.addPage();
+        finalY = 20;
+      }
+
+      // Tax breakdown box
+      const cgst = totalTaxable * 0.025;
+      const sgst = totalTaxable * 0.025;
+      const grandTotal = totalTaxable + cgst + sgst;
+      
+      const boxX = pageWidth - 80;
+      doc.setFillColor(250, 250, 250);
+      doc.rect(boxX, finalY, 66, 28, 'F');
+      doc.setDrawColor(34, 139, 34);
+      doc.rect(boxX, finalY, 66, 28, 'S');
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Taxable Amount:', boxX + 3, finalY + 5);
+      doc.text(`₹${totalTaxable.toFixed(2)}`, boxX + 63, finalY + 5, { align: 'right' });
+      doc.text('CGST (2.5%):', boxX + 3, finalY + 10);
+      doc.text(`₹${cgst.toFixed(2)}`, boxX + 63, finalY + 10, { align: 'right' });
+      doc.text('SGST (2.5%):', boxX + 3, finalY + 15);
+      doc.text(`₹${sgst.toFixed(2)}`, boxX + 63, finalY + 15, { align: 'right' });
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(`Grand Total: Rs. ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${totalKGs.toFixed(2)} KG)`, 14, finalY + 9);
+      doc.setFontSize(9);
+      doc.text('Grand Total:', boxX + 3, finalY + 22);
+      doc.text(`₹${grandTotal.toFixed(2)}`, boxX + 63, finalY + 22, { align: 'right' });
+
+      // Total KGs display
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total Weight: ${totalKGs.toFixed(2)} KG`, 14, finalY + 8);
+      doc.text(`Total Items: ${savedItems.length}`, 14, finalY + 14);
+
+      finalY += 34;
+
+      // Check if we need new page for bank details
+      if (finalY > 230) {
+        doc.addPage();
+        finalY = 20;
+      }
+
+      // Bank Details section
+      doc.setFillColor(245, 245, 245);
+      doc.rect(14, finalY, 85, 30, 'F');
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bank Details', 16, finalY + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Bank: ${company.bank_name || ''}`, 16, finalY + 10);
+      doc.text(`A/C No: ${company.bank_account || ''}`, 16, finalY + 14);
+      doc.text(`IFSC: ${company.ifsc || ''}`, 16, finalY + 18);
+      doc.text(`A/C Holder: ${company.account_holder_name || ''}`, 16, finalY + 22);
+      doc.text(`UPI ID: ${company.qr_upi || ''}`, 16, finalY + 26);
+
+      // QR Code
+      if (company.qr_code_url) {
+        try {
+          const qrResponse = await fetch(company.qr_code_url);
+          const qrBlob = await qrResponse.blob();
+          const qrBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(qrBlob);
+          });
+          doc.addImage(qrBase64, 'PNG', pageWidth - 50, finalY, 36, 36);
+        } catch (e) {
+          console.log('Could not load QR code:', e);
+        }
+      }
+
+      finalY += 38;
+
+      // Terms & Conditions
+      if (company.terms_conditions) {
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Terms & Conditions:', 14, finalY);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        const terms = doc.splitTextToSize(company.terms_conditions, pageWidth - 28);
+        doc.text(terms, 14, finalY + 4);
+      }
 
       toast.info('Saving PDF...');
       const pdfBlob = doc.output('blob');
-      const success = await downloadPDF(pdfBlob, `Product_Stock_Van_${selectedDate}.pdf`);
+      const success = await downloadPDF(pdfBlob, `Delivery_Challan_${selectedDate}.pdf`);
       
       if (!success) {
         toast.error('PDF save failed - check app permissions');
