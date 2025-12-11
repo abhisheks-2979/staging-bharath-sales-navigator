@@ -849,10 +849,10 @@ export const AddRetailer = () => {
                       });
                       
                       try {
-                        // Multi-strategy GPS capture for maximum speed and reliability
+                        // Multi-strategy GPS capture with extended timeouts for slow networks
                         let position: GeolocationPosition | null = null;
                         
-                        // Strategy 1: Try cached location first (fastest - 1 second)
+                        // Strategy 1: Try cached location first (fastest - 2 seconds)
                         try {
                           position = await new Promise<GeolocationPosition>((resolve, reject) => {
                             navigator.geolocation.getCurrentPosition(
@@ -860,15 +860,15 @@ export const AddRetailer = () => {
                               reject,
                               { 
                                 enableHighAccuracy: false,
-                                timeout: 1000, // Very short timeout for cached location
-                                maximumAge: 300000 // Accept location cached within last 5 minutes
+                                timeout: 2000, // Short timeout for cached location
+                                maximumAge: 600000 // Accept location cached within last 10 minutes
                               }
                             );
                           });
                         } catch (cacheError) {
                           console.log('Cached location not available, trying network location...');
                           
-                          // Strategy 2: Try network-based location (fast - 3 seconds)
+                          // Strategy 2: Try network-based location (medium - 8 seconds for slow networks)
                           try {
                             position = await new Promise<GeolocationPosition>((resolve, reject) => {
                               navigator.geolocation.getCurrentPosition(
@@ -876,7 +876,7 @@ export const AddRetailer = () => {
                                 reject,
                                 { 
                                   enableHighAccuracy: false,
-                                  timeout: 3000, // Short timeout for network location
+                                  timeout: 8000, // Increased for slow networks
                                   maximumAge: 0 // Force fresh location
                                 }
                               );
@@ -884,14 +884,14 @@ export const AddRetailer = () => {
                           } catch (networkError) {
                             console.log('Network location failed, trying high accuracy GPS...');
                             
-                            // Strategy 3: Fall back to high accuracy GPS (slower but most accurate - 6 seconds)
+                            // Strategy 3: Fall back to high accuracy GPS (slowest - 15 seconds for reliability)
                             position = await new Promise<GeolocationPosition>((resolve, reject) => {
                               navigator.geolocation.getCurrentPosition(
                                 resolve,
                                 reject,
                                 { 
                                   enableHighAccuracy: true,
-                                  timeout: 6000, // Longer timeout for GPS
+                                  timeout: 15000, // Extended for GPS lock in poor conditions
                                   maximumAge: 0
                                 }
                               );
@@ -947,8 +947,8 @@ export const AddRetailer = () => {
                           };
 
                           if (googleApiKey && googleApiKey !== 'your_google_maps_api_key_here') {
-                            // Add timeout for API calls
-                            const fetchWithTimeout = (url: string, timeout = 8000) => {
+                            // Add timeout for API calls - increased for slow networks
+                            const fetchWithTimeout = (url: string, timeout = 15000) => {
                               return Promise.race([
                                 fetch(url),
                                 new Promise<Response>((_, reject) => 
@@ -1065,9 +1065,9 @@ export const AddRetailer = () => {
                             }
                           }
 
-                          // Fallback to OpenStreetMap Nominatim with timeout
+                          // Fallback to OpenStreetMap Nominatim with increased timeout for slow networks
                           const geocodeTimeout = new Promise((_, reject) => {
-                            setTimeout(() => reject(new Error('Geocoding timeout')), 3000);
+                            setTimeout(() => reject(new Error('Geocoding timeout')), 12000);
                           });
                           
                           const geocodePromise = fetch(
@@ -1092,7 +1092,13 @@ export const AddRetailer = () => {
                           toast({ title: '✓ Address Found', description: 'Location fetched successfully', duration: 2000 });
                         } catch (geocodeError) {
                           console.error('Geocoding error:', geocodeError);
-                          toast({ title: 'Address Not Found', description: 'Coordinates saved. Please enter address manually.', variant: 'default', duration: 3000 });
+                          // Coordinates are already saved (lines 911-913), so user can proceed
+                          toast({ 
+                            title: 'Location Saved', 
+                            description: `GPS coordinates (${lat}, ${lon}) saved. Address lookup failed - please enter address manually or retry.`, 
+                            variant: 'default', 
+                            duration: 5000 
+                          });
                         }
                         
                       } catch (error: any) {
