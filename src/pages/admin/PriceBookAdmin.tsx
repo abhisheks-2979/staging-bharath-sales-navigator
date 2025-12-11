@@ -186,7 +186,7 @@ const PriceBookAdmin = () => {
       // Auto-add all products to the price book
       const { data: products } = await supabase
         .from('products')
-        .select('id, rate, product_variants(id, variant_price)')
+        .select('id, rate, product_variants(id, price)')
         .eq('is_active', true);
 
       if (products && products.length > 0) {
@@ -211,9 +211,9 @@ const PriceBookAdmin = () => {
                 price_book_id: newPriceBook.id,
                 product_id: product.id,
                 variant_id: variant.id,
-                list_price: variant.variant_price || product.rate || 0,
+                list_price: variant.price || product.rate || 0,
                 discount_percent: 0,
-                final_price: variant.variant_price || product.rate || 0,
+                final_price: variant.price || product.rate || 0,
                 min_quantity: 1,
               });
             });
