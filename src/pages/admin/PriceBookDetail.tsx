@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Search, Save, Trash2, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PriceBook {
@@ -17,6 +17,7 @@ interface PriceBook {
   name: string;
   description: string | null;
   price_book_type: string;
+  target_type: string;
   currency: string;
   is_standard: boolean;
   is_active: boolean;
@@ -50,6 +51,7 @@ const PriceBookDetail = () => {
   const [entries, setEntries] = useState<PriceBookEntry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -67,6 +69,7 @@ const PriceBookDetail = () => {
   }, [id]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const [priceBookRes, entriesRes, productsRes] = await Promise.all([
         supabase.from('price_books').select('*').eq('id', id).single(),
@@ -90,7 +93,10 @@ const PriceBookDetail = () => {
       if (entriesRes.error) throw entriesRes.error;
       if (productsRes.error) throw productsRes.error;
 
-      setPriceBook(priceBookRes.data);
+      setPriceBook({
+        ...priceBookRes.data,
+        target_type: priceBookRes.data.target_type || 'distributor'
+      });
       setEntries(entriesRes.data || []);
       
       // Map products to match Product interface
@@ -98,7 +104,7 @@ const PriceBookDetail = () => {
         id: p.id,
         name: p.name,
         unit: p.unit,
-        mrp: p.rate, // Use rate as mrp
+        mrp: p.rate,
         product_variants: p.product_variants || []
       }));
       setProducts(mappedProducts);
@@ -111,13 +117,71 @@ const PriceBookDetail = () => {
     }
   };
 
+  const syncAllProducts = async () => {
+    if (!id) return;
+    
+    setSyncing(true);
+    try {
+      // Get existing product/variant combinations
+      const existingKeys = new Set(
+        entries.map(e => `${e.product_id}-${e.variant_id || 'null'}`)
+      );
+
+      const newEntries: any[] = [];
+      
+      products.forEach(product => {
+        // Check base product
+        const baseKey = `${product.id}-null`;
+        if (!existingKeys.has(baseKey)) {
+          newEntries.push({
+            price_book_id: id,
+            product_id: product.id,
+            variant_id: null,
+            list_price: product.mrp || 0,
+            discount_percent: 0,
+            final_price: product.mrp || 0,
+            min_quantity: 1,
+          });
+        }
+
+        // Check variants
+        product.product_variants.forEach(variant => {
+          const variantKey = `${product.id}-${variant.id}`;
+          if (!existingKeys.has(variantKey)) {
+            newEntries.push({
+              price_book_id: id,
+              product_id: product.id,
+              variant_id: variant.id,
+              list_price: variant.variant_price || product.mrp || 0,
+              discount_percent: 0,
+              final_price: variant.variant_price || product.mrp || 0,
+              min_quantity: 1,
+            });
+          }
+        });
+      });
+
+      if (newEntries.length > 0) {
+        const { error } = await supabase.from('price_book_entries').insert(newEntries);
+        if (error) throw error;
+        toast.success(`Added ${newEntries.length} new products`);
+        fetchData();
+      } else {
+        toast.info('All products already in price book');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sync products');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleAddEntry = async () => {
     if (!selectedProduct) {
       toast.error('Please select a product');
       return;
     }
 
-    const product = products.find(p => p.id === selectedProduct);
     const finalPrice = newEntry.list_price * (1 - newEntry.discount_percent / 100);
 
     try {
@@ -221,114 +285,123 @@ const PriceBookDetail = () => {
                 <Badge className={priceBook.is_active ? 'bg-green-100 text-green-800' : 'bg-muted'}>
                   {priceBook.is_active ? 'Active' : 'Inactive'}
                 </Badge>
+                <Badge variant="outline">
+                  {priceBook.target_type === 'retailer' ? 'Retailer' : 'Distributor'}
+                </Badge>
               </div>
               <p className="text-muted-foreground text-sm">
                 {entries.length} products • {priceBook.currency}
               </p>
             </div>
           </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetAddForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add Product to Price Book</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Product *</Label>
-                  <Select value={selectedProduct} onValueChange={(val) => {
-                    setSelectedProduct(val);
-                    setSelectedVariant('');
-                    const prod = products.find(p => p.id === val);
-                    if (prod) {
-                      setNewEntry({ ...newEntry, list_price: prod.mrp || 0 });
-                    }
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map(product => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedProductData?.product_variants?.length > 0 && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={syncAllProducts} disabled={syncing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              Sync All Products
+            </Button>
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetAddForm}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Product to Price Book</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label>Variant (Optional)</Label>
-                    <Select value={selectedVariant} onValueChange={(val) => {
-                      setSelectedVariant(val);
-                      const variantData = selectedProductData.product_variants.find(v => v.id === val);
-                      if (variantData) {
-                        setNewEntry({ ...newEntry, list_price: variantData.variant_price || selectedProductData.mrp || 0 });
+                    <Label>Product *</Label>
+                    <Select value={selectedProduct} onValueChange={(val) => {
+                      setSelectedProduct(val);
+                      setSelectedVariant('');
+                      const prod = products.find(p => p.id === val);
+                      if (prod) {
+                        setNewEntry({ ...newEntry, list_price: prod.mrp || 0 });
                       }
                     }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select variant" />
+                        <SelectValue placeholder="Select product" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No variant (Base product)</SelectItem>
-                        {selectedProductData.product_variants.map(variant => (
-                          <SelectItem key={variant.id} value={variant.id}>
-                            {variant.variant_name}
+                        {products.map(product => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
 
-                <div className="grid grid-cols-2 gap-4">
+                  {selectedProductData?.product_variants?.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Variant (Optional)</Label>
+                      <Select value={selectedVariant} onValueChange={(val) => {
+                        setSelectedVariant(val);
+                        const variantData = selectedProductData.product_variants.find(v => v.id === val);
+                        if (variantData) {
+                          setNewEntry({ ...newEntry, list_price: variantData.variant_price || selectedProductData.mrp || 0 });
+                        }
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select variant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">No variant (Base product)</SelectItem>
+                          {selectedProductData.product_variants.map(variant => (
+                            <SelectItem key={variant.id} value={variant.id}>
+                              {variant.variant_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>List Price</Label>
+                      <Input
+                        type="number"
+                        value={newEntry.list_price}
+                        onChange={(e) => setNewEntry({ ...newEntry, list_price: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Discount %</Label>
+                      <Input
+                        type="number"
+                        value={newEntry.discount_percent}
+                        onChange={(e) => setNewEntry({ ...newEntry, discount_percent: parseFloat(e.target.value) || 0 })}
+                        min={0}
+                        max={100}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label>List Price</Label>
+                    <Label>Min Quantity</Label>
                     <Input
                       type="number"
-                      value={newEntry.list_price}
-                      onChange={(e) => setNewEntry({ ...newEntry, list_price: parseFloat(e.target.value) || 0 })}
+                      value={newEntry.min_quantity}
+                      onChange={(e) => setNewEntry({ ...newEntry, min_quantity: parseInt(e.target.value) || 1 })}
+                      min={1}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Discount %</Label>
-                    <Input
-                      type="number"
-                      value={newEntry.discount_percent}
-                      onChange={(e) => setNewEntry({ ...newEntry, discount_percent: parseFloat(e.target.value) || 0 })}
-                      min={0}
-                      max={100}
-                    />
+
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">Final Price</p>
+                    <p className="text-lg font-bold">
+                      ₹{(newEntry.list_price * (1 - newEntry.discount_percent / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </p>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Min Quantity</Label>
-                  <Input
-                    type="number"
-                    value={newEntry.min_quantity}
-                    onChange={(e) => setNewEntry({ ...newEntry, min_quantity: parseInt(e.target.value) || 1 })}
-                    min={1}
-                  />
+                  <Button onClick={handleAddEntry} className="w-full">Add Product</Button>
                 </div>
-
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Final Price</p>
-                  <p className="text-lg font-bold">
-                    ₹{(newEntry.list_price * (1 - newEntry.discount_percent / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <Button onClick={handleAddEntry} className="w-full">Add Product</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Search */}
@@ -347,7 +420,11 @@ const PriceBookDetail = () => {
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No products in this price book</p>
+              <p className="text-muted-foreground mb-4">No products in this price book</p>
+              <Button onClick={syncAllProducts} disabled={syncing}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                Add All Products
+              </Button>
             </CardContent>
           </Card>
         ) : (
