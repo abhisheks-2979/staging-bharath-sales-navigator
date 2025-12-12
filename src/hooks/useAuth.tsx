@@ -53,10 +53,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Idle timeout: 1 hour = 3600000 ms
-  const IDLE_TIMEOUT = 1 * 60 * 60 * 1000;
-  const LAST_ACTIVITY_KEY = 'last_activity_timestamp';
 
   const fetchUserRole = async (userId: string): Promise<'admin' | 'user' | null> => {
     try {
@@ -120,57 +116,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
     }
   };
-
-  // Auto-logout on idle (1 hour of inactivity) - persists across page refreshes
-  useEffect(() => {
-    if (!user) return;
-
-    let idleCheckInterval: NodeJS.Timeout;
-
-    const updateLastActivity = () => {
-      localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
-    };
-
-    const checkIdleTimeout = () => {
-      const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
-      if (lastActivity) {
-        const timeSinceActivity = Date.now() - parseInt(lastActivity, 10);
-        if (timeSinceActivity >= IDLE_TIMEOUT) {
-          devLog('User idle for 1 hour, logging out...');
-          toast.info('You have been logged out due to 1 hour of inactivity');
-          signOut();
-          return;
-        }
-      }
-    };
-
-    // Activity events to track user interaction
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'mousemove'];
-    
-    const handleActivity = () => {
-      updateLastActivity();
-    };
-
-    events.forEach(event => {
-      window.addEventListener(event, handleActivity, { passive: true });
-    });
-
-    // Initialize last activity on mount
-    updateLastActivity();
-
-    // Check idle timeout every 30 seconds
-    idleCheckInterval = setInterval(checkIdleTimeout, 30000);
-
-    // Also check immediately on mount (handles page refresh scenario)
-    checkIdleTimeout();
-
-    return () => {
-      clearInterval(idleCheckInterval);
-      events.forEach(event => {
-        window.removeEventListener(event, handleActivity);
-      });
-    };
-  }, [user]);
 
   useEffect(() => {
     // Load cached auth state for offline support
