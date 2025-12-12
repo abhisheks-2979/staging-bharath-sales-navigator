@@ -487,9 +487,9 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       console.error('[Online] Failed to cache retailer:', cacheError);
     }
     
-    // Dispatch event to refresh My Visits page
-    console.log('[Online] Dispatching visitDataChanged event to refresh My Visits');
-    window.dispatchEvent(new CustomEvent('visitDataChanged'));
+    // Dispatch event to refresh My Visits page with new retailer ID
+    console.log('[Online] Dispatching visitDataChanged event with newRetailerId:', data.id);
+    window.dispatchEvent(new CustomEvent('visitDataChanged', { detail: { newRetailerId: data.id } }));
     
     // Call parent callback with the new retailer
     onRetailerAdded(data.id, data.name);
@@ -535,9 +535,9 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
         duration: 4000
       });
 
-      // Dispatch event to refresh My Visits page
-      console.log('[Offline] Dispatching visitDataChanged event to refresh My Visits');
-      window.dispatchEvent(new CustomEvent('visitDataChanged'));
+      // Dispatch event to refresh My Visits page with new retailer ID
+      console.log('[Offline] Dispatching visitDataChanged event with newRetailerId:', tempId);
+      window.dispatchEvent(new CustomEvent('visitDataChanged', { detail: { newRetailerId: tempId } }));
       
       // Call parent callback with temporary ID
       onRetailerAdded(tempId, retailerData.name);

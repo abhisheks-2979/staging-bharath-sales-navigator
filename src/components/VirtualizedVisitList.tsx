@@ -46,7 +46,7 @@ MemoizedVisitCard.displayName = 'MemoizedVisitCard';
 
 // Progressive loading constants
 const INITIAL_BATCH_SIZE = 8; // Load first 8 immediately
-const LOAD_MORE_SIZE = 5; // Load 5 more at a time
+const LOAD_MORE_SIZE = 15; // Load 15 more at a time (user requested)
 const LOAD_MORE_THRESHOLD = 200; // Pixels from bottom to trigger load
 
 export const VirtualizedVisitList = ({ 

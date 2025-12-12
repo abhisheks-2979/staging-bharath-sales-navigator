@@ -380,9 +380,10 @@ export const VisitCard = ({
       }
     }
     
-    // Debounce: prevent rapid consecutive refreshes (minimum 500ms between refreshes)
+    // Debounce: prevent rapid consecutive refreshes (minimum 200ms between refreshes)
+    // Reduced from 500ms to 200ms for faster real-time updates
     const now = Date.now();
-    if (now - lastRefreshTimeRef.current < 500) {
+    if (now - lastRefreshTimeRef.current < 200) {
       console.log('⏳ [VisitCard] Debouncing checkStatus - too soon after last refresh');
       return;
     }
@@ -767,17 +768,22 @@ export const VisitCard = ({
         if (event.detail?.status) {
           const newStatus = event.detail.status as "planned" | "in-progress" | "productive" | "unproductive" | "store-closed" | "cancelled";
           
-          // Only update if status actually changed to prevent flicker
-          if (currentStatus !== newStatus) {
-            console.log('📊 [VisitCard] Setting status directly from event:', newStatus);
-            setCurrentStatus(newStatus);
-          }
-          if (!statusLoadedFromDB) {
-            setStatusLoadedFromDB(true);
-          }
+          // Update status immediately - do NOT check if changed, always set to trigger re-render
+          console.log('📊 [VisitCard] Setting status directly from event:', newStatus, 'orderValue:', event.detail?.orderValue);
+          setCurrentStatus(newStatus);
+          setStatusLoadedFromDB(true);
           lastFetchedStatusRef.current = newStatus;
           
-          if (newStatus === 'unproductive' && phase !== 'completed') {
+          // If we have order value from the event, set it immediately
+          if (event.detail?.orderValue && event.detail.orderValue > 0) {
+            console.log('💰 [VisitCard] Setting order value from event:', event.detail.orderValue);
+            setActualOrderValue(event.detail.orderValue);
+            setHasOrderToday(true);
+            setPhase('completed');
+            setIsCheckedOut(true);
+          }
+          
+          if (newStatus === 'unproductive') {
             setIsNoOrderMarked(true);
             setPhase('completed');
             setIsCheckedOut(true);
@@ -800,8 +806,7 @@ export const VisitCard = ({
             );
           }
           
-          // Only 'productive' is truly final - don't fetch from network
-          // 'unproductive' can be overridden by orders placed later
+          // For 'productive' status, don't need to fetch from network - already have all data
           if (newStatus === 'productive') {
             console.log('🛑 [VisitCard] Status is PRODUCTIVE (truly final), skipping network refresh');
             return;
