@@ -626,9 +626,9 @@ export default function VanSalesManagement() {
               <div className="space-y-3">
                 {vanStockSummaries.map((summary) => (
                   <Collapsible
-                    key={`${summary.van_id}-${summary.user_id}`}
-                    open={expandedVans.has(`${summary.van_id}-${summary.user_id}`)}
-                    onOpenChange={() => toggleVanExpanded(`${summary.van_id}-${summary.user_id}`)}
+                    key={summary.id}
+                    open={expandedVans.has(summary.id)}
+                    onOpenChange={() => toggleVanExpanded(summary.id)}
                   >
                     <CollapsibleTrigger asChild>
                       <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
@@ -637,7 +637,12 @@ export default function VanSalesManagement() {
                             <div className="flex items-center gap-3">
                               <Truck className="h-5 w-5 text-primary" />
                               <div>
-                                <p className="font-semibold">{summary.user_name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold">{summary.user_name}</p>
+                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                    {new Date(summary.stock_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  </span>
+                                </div>
                                 <p className="text-sm text-muted-foreground">
                                   Van: {summary.van_registration} ({summary.van_model}) • Beat: {summary.beat_name}
                                 </p>
@@ -647,7 +652,7 @@ export default function VanSalesManagement() {
                               <div className="text-right text-sm">
                                 <p className="text-muted-foreground">Stock: <span className="font-semibold text-foreground">{summary.total_stock}</span></p>
                               </div>
-                              {expandedVans.has(`${summary.van_id}-${summary.user_id}`) ? (
+                              {expandedVans.has(summary.id) ? (
                                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
                               ) : (
                                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
