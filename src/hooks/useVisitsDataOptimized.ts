@@ -986,11 +986,33 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           setRetailers(prev => {
             // Check if retailer already exists
             if (prev.some(r => r.id === newRetailerId)) {
-              return prev;
+              // Move existing retailer to top
+              const existing = prev.find(r => r.id === newRetailerId);
+              const others = prev.filter(r => r.id !== newRetailerId);
+              return [existing, ...others];
             }
             // Add new retailer at the TOP of the list
             return [newRetailerData, ...prev];
           });
+          
+          // CRITICAL: Also update in-memory cache to preserve new retailer at top
+          const cachedData = dateDataCacheRef.current.get(selectedDate);
+          if (cachedData) {
+            const updatedRetailers = cachedData.retailers.some((r: any) => r.id === newRetailerId)
+              ? [cachedData.retailers.find((r: any) => r.id === newRetailerId), ...cachedData.retailers.filter((r: any) => r.id !== newRetailerId)]
+              : [newRetailerData, ...cachedData.retailers];
+            dateDataCacheRef.current.set(selectedDate, {
+              ...cachedData,
+              retailers: updatedRetailers,
+              timestamp: Date.now()
+            });
+            console.log('📌 [CACHE] Updated in-memory cache with new retailer at top');
+          }
+          
+          // Skip network reload when we've already updated the UI with the new retailer
+          // The retailer is already saved to DB/cache by the time this event fires
+          console.log('📌 [IMMEDIATE] Skipping loadData - already updated UI with new retailer');
+          return;
         }
       }
       
