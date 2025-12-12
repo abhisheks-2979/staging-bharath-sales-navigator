@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +81,13 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
     { id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }
   ]);
+  
+  // Use ref to always have access to the latest orderRows for addToCart
+  const orderRowsRef = useRef<OrderRow[]>(orderRows);
+  useEffect(() => {
+    orderRowsRef.current = orderRows;
+  }, [orderRows]);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
@@ -334,7 +341,10 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const addToCart = () => {
     if (isAddingToCart) return;
     
-    const validRows = orderRows.filter(row => row.product && row.quantity > 0);
+    // Use ref to get the latest orderRows to avoid stale state issues
+    // This ensures unit changes are captured even if state hasn't fully propagated
+    const currentRows = orderRowsRef.current;
+    const validRows = currentRows.filter(row => row.product && row.quantity > 0);
     
     if (validRows.length === 0) {
       toast({
