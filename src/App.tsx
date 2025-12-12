@@ -114,6 +114,9 @@ import GoodsReceipt from "./pages/distributor-portal/GoodsReceipt";
 import DistributorClaims from "./pages/distributor-portal/DistributorClaims";
 import DistributorSupport from "./pages/distributor-portal/DistributorSupport";
 import DistributorIdeas from "./pages/distributor-portal/DistributorIdeas";
+import DistributorProfile from "./pages/distributor-portal/DistributorProfile";
+import DistributorContactsPortal from "./pages/distributor-portal/DistributorContacts";
+import DistributorFYPlanPage from "./pages/distributor-portal/DistributorFYPlan";
 
 // Institutional Sales pages
 import InstitutionalSalesDashboard from "./pages/institutional/InstitutionalSalesDashboard";
@@ -335,6 +338,9 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
               <Route path="/distributor-portal/claims" element={<DistributorClaims />} />
               <Route path="/distributor-portal/support" element={<DistributorSupport />} />
               <Route path="/distributor-portal/ideas" element={<DistributorIdeas />} />
+              <Route path="/distributor-portal/profile" element={<DistributorProfile />} />
+              <Route path="/distributor-portal/contacts" element={<DistributorContactsPortal />} />
+              <Route path="/distributor-portal/fy-plan" element={<DistributorFYPlanPage />} />
               
               {/* Recycle Bin Routes */}
               <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />

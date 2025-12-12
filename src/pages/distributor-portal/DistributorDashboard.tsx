@@ -19,7 +19,10 @@ import {
   X,
   FileText,
   Headphones,
-  Lightbulb
+  Lightbulb,
+  Building,
+  Users,
+  Target
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -270,6 +273,18 @@ const DistributorDashboard = () => {
           <Button variant="outline" onClick={() => navigate('/distributor-portal/ideas')}>
             <Lightbulb className="w-4 h-4 mr-2" />
             Ideas
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/profile')}>
+            <Building className="w-4 h-4 mr-2" />
+            Profile
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/contacts')}>
+            <Users className="w-4 h-4 mr-2" />
+            Team
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/distributor-portal/fy-plan')}>
+            <Target className="w-4 h-4 mr-2" />
+            FY Plan
           </Button>
         </div>
 
