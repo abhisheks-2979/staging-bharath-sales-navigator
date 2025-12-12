@@ -33,6 +33,51 @@ interface VanStockViewProps {
   selectedDate: Date;
 }
 
+// Helper function to group products with their variants together
+const groupProductsWithVariants = (items: VanStockItem[]): VanStockItem[] => {
+  // Create a map to group items by product_id
+  const productGroups = new Map<string, VanStockItem[]>();
+  
+  items.forEach(item => {
+    const key = item.product_id;
+    if (!productGroups.has(key)) {
+      productGroups.set(key, []);
+    }
+    productGroups.get(key)!.push(item);
+  });
+  
+  // Sort each group: base product (no variant) first, then variants sorted by name
+  const sortedGroups: VanStockItem[] = [];
+  
+  // Sort product groups by product name
+  const sortedProductIds = Array.from(productGroups.keys()).sort((a, b) => {
+    const aItems = productGroups.get(a)!;
+    const bItems = productGroups.get(b)!;
+    const aName = aItems[0]?.product_name || '';
+    const bName = bItems[0]?.product_name || '';
+    return aName.localeCompare(bName);
+  });
+  
+  sortedProductIds.forEach(productId => {
+    const group = productGroups.get(productId)!;
+    
+    // Sort within group: base product first, then variants alphabetically
+    group.sort((a, b) => {
+      // Base product (no variant) comes first
+      if (!a.variant_id && b.variant_id) return -1;
+      if (a.variant_id && !b.variant_id) return 1;
+      // Both are variants - sort by variant name
+      const aVarName = a.variant_name || '';
+      const bVarName = b.variant_name || '';
+      return aVarName.localeCompare(bVarName);
+    });
+    
+    sortedGroups.push(...group);
+  });
+  
+  return sortedGroups;
+};
+
 export function VanStockView({ selectedDate }: VanStockViewProps) {
   const [stockItems, setStockItems] = useState<VanStockItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,7 +182,9 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
         };
       });
 
-      setStockItems(items);
+      // Group by product_id, then sort: base product first, then its variants
+      const groupedItems = groupProductsWithVariants(items);
+      setStockItems(groupedItems);
     } catch (error: any) {
       console.error('Error loading van stock:', error);
       toast.error('Failed to load van stock');
@@ -204,16 +251,20 @@ export function VanStockView({ selectedDate }: VanStockViewProps) {
     }
   };
 
-  const filteredItems = stockItems.filter(item => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      item.product_name.toLowerCase().includes(query) ||
-      item.sku.toLowerCase().includes(query) ||
-      item.variant_name?.toLowerCase().includes(query) ||
-      item.van_registration.toLowerCase().includes(query)
-    );
-  });
+  const filteredItems = (() => {
+    const filtered = stockItems.filter(item => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        item.product_name.toLowerCase().includes(query) ||
+        item.sku.toLowerCase().includes(query) ||
+        item.variant_name?.toLowerCase().includes(query) ||
+        item.van_registration.toLowerCase().includes(query)
+      );
+    });
+    // Re-apply grouping after filter to maintain product-variant ordering
+    return groupProductsWithVariants(filtered);
+  })();
 
   const handleDownloadPDF = async () => {
     if (filteredItems.length === 0) {
