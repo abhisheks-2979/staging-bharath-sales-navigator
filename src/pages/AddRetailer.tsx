@@ -1418,7 +1418,7 @@ export const AddRetailer = () => {
                       }}
                     >
                       <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select distributor" />
+                        <SelectValue placeholder="Select distributor" className="truncate" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border z-50">
                         {beatMappedDistributors.length > 0 && (
