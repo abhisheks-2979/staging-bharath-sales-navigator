@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { moveToRecycleBin } from '@/utils/recycleBinUtils';
@@ -407,14 +408,26 @@ export default function VanSalesManagement() {
           <Button onClick={() => navigate('/')}>Back to Home</Button>
         </div>
 
-        {/* Van Database - Moved to TOP */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Van Database</CardTitle>
-                <CardDescription>Manage your van fleet</CardDescription>
-              </div>
+        <Tabs defaultValue="van-database" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="van-database" className="flex items-center gap-2">
+              <Truck className="h-4 w-4" />
+              Van Database
+            </TabsTrigger>
+            <TabsTrigger value="van-inventory" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Van Inventory & Stock
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="van-database">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Van Database</CardTitle>
+                    <CardDescription>Manage your van fleet</CardDescription>
+                  </div>
               <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
                 <DialogTrigger asChild>
                   <Button onClick={() => {
@@ -609,147 +622,150 @@ export default function VanSalesManagement() {
               </div>
             )}
           </CardContent>
-        </Card>
+            </Card>
+          </TabsContent>
 
-        {/* Van Inventory & Stock Management - Shows all users' van stock */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Van Inventory & Stock Management</CardTitle>
-            <CardDescription>
-              All users' van stock - Real-time updates from My Visits
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {vanStockSummaries.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No van stock records found</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Users will appear here when they add van stock in My Visits
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {vanStockSummaries.map((summary) => (
-                  <Collapsible
-                    key={summary.id}
-                    open={expandedVans.has(summary.id)}
-                    onOpenChange={() => toggleVanExpanded(summary.id)}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Truck className="h-5 w-5 text-primary" />
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold">{summary.user_name}</p>
-                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                                    {new Date(summary.stock_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  Van: {summary.van_registration} ({summary.van_model}) • Beat: {summary.beat_name}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right text-sm">
-                                <p className="text-muted-foreground">Stock: <span className="font-semibold text-foreground">{summary.total_stock}</span></p>
-                              </div>
-                              {expandedVans.has(summary.id) ? (
-                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                              ) : (
-                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <Card className="mt-2 border-l-4 border-l-primary">
-                        <CardContent className="p-4">
-                          {/* Summary Stats */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                            <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Package className="h-4 w-4 text-blue-600" />
-                                <span className="text-xs text-muted-foreground">Stock in Van</span>
-                              </div>
-                              <p className="text-2xl font-bold text-blue-600">{summary.total_stock}</p>
-                            </div>
-                            <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <ShoppingCart className="h-4 w-4 text-amber-600" />
-                                <span className="text-xs text-muted-foreground">Ordered Qty</span>
-                              </div>
-                              <p className="text-2xl font-bold text-amber-600">{summary.total_ordered}</p>
-                            </div>
-                            <div className="bg-purple-50 dark:bg-purple-950 p-3 rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <RotateCcw className="h-4 w-4 text-purple-600" />
-                                <span className="text-xs text-muted-foreground">Returned Qty</span>
-                              </div>
-                              <p className="text-2xl font-bold text-purple-600">{summary.total_returned}</p>
-                            </div>
-                            <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <TrendingDown className="h-4 w-4 text-green-600" />
-                                <span className="text-xs text-muted-foreground">Left in Van</span>
-                              </div>
-                              <p className="text-2xl font-bold text-green-600">{summary.closing_stock}</p>
-                            </div>
-                          </div>
-
-                          {/* KM Tracking */}
-                          <div className="flex items-center gap-4 text-sm mb-4 p-2 bg-muted/50 rounded">
-                            <span className="text-muted-foreground">Start KM: <span className="font-semibold text-foreground">{summary.start_km}</span></span>
-                            <span className="text-muted-foreground">End KM: <span className="font-semibold text-foreground">{summary.end_km || '-'}</span></span>
-                            <span className="text-muted-foreground">Total KM: <span className="font-semibold text-primary">{summary.end_km > 0 ? summary.end_km - summary.start_km : '-'}</span></span>
-                          </div>
-
-                          {/* Product Details */}
-                          <div className="border-t pt-4">
-                            <h4 className="font-semibold mb-3 flex items-center gap-2">
-                              <Package className="h-4 w-4" /> Product Details
-                            </h4>
-                            {summary.items.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No products in this van stock</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {summary.items.map((item) => (
-                                  <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                                    <div className="flex-1">
-                                      <p className="font-medium">{item.product_name}</p>
-                                      <p className="text-sm text-muted-foreground">
-                                        ₹{item.price_without_gst.toFixed(2)} (excl. GST) • {item.unit}
-                                      </p>
+          <TabsContent value="van-inventory">
+            <Card>
+              <CardHeader>
+                <CardTitle>Van Inventory & Stock Management</CardTitle>
+                <CardDescription>
+                  All users' van stock - Real-time updates from My Visits
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {vanStockSummaries.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">No van stock records found</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Users will appear here when they add van stock in My Visits
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {vanStockSummaries.map((summary) => (
+                      <Collapsible
+                        key={summary.id}
+                        open={expandedVans.has(summary.id)}
+                        onOpenChange={() => toggleVanExpanded(summary.id)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Card className="cursor-pointer hover:bg-accent/50 transition-colors">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <Truck className="h-5 w-5 text-primary" />
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-semibold">{summary.user_name}</p>
+                                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                        {new Date(summary.stock_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </span>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                      <div className="text-right">
-                                        <p className="text-lg font-bold">{item.start_qty}</p>
-                                        <p className="text-xs text-muted-foreground">{item.unit}</p>
-                                      </div>
-                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                      Van: {summary.van_registration} ({summary.van_model}) • Beat: {summary.beat_name}
+                                    </p>
                                   </div>
-                                ))}
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right text-sm">
+                                    <p className="text-muted-foreground">Stock: <span className="font-semibold text-foreground">{summary.total_stock}</span></p>
+                                  </div>
+                                  {expandedVans.has(summary.id) ? (
+                                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <Card className="mt-2 border-l-4 border-l-primary">
+                            <CardContent className="p-4">
+                              {/* Summary Stats */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Package className="h-4 w-4 text-blue-600" />
+                                    <span className="text-xs text-muted-foreground">Stock in Van</span>
+                                  </div>
+                                  <p className="text-2xl font-bold text-blue-600">{summary.total_stock}</p>
+                                </div>
+                                <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <ShoppingCart className="h-4 w-4 text-amber-600" />
+                                    <span className="text-xs text-muted-foreground">Ordered Qty</span>
+                                  </div>
+                                  <p className="text-2xl font-bold text-amber-600">{summary.total_ordered}</p>
+                                </div>
+                                <div className="bg-purple-50 dark:bg-purple-950 p-3 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <RotateCcw className="h-4 w-4 text-purple-600" />
+                                    <span className="text-xs text-muted-foreground">Returned Qty</span>
+                                  </div>
+                                  <p className="text-2xl font-bold text-purple-600">{summary.total_returned}</p>
+                                </div>
+                                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <TrendingDown className="h-4 w-4 text-green-600" />
+                                    <span className="text-xs text-muted-foreground">Left in Van</span>
+                                  </div>
+                                  <p className="text-2xl font-bold text-green-600">{summary.closing_stock}</p>
+                                </div>
+                              </div>
+
+                              {/* KM Tracking */}
+                              <div className="flex items-center gap-4 text-sm mb-4 p-2 bg-muted/50 rounded">
+                                <span className="text-muted-foreground">Start KM: <span className="font-semibold text-foreground">{summary.start_km}</span></span>
+                                <span className="text-muted-foreground">End KM: <span className="font-semibold text-foreground">{summary.end_km || '-'}</span></span>
+                                <span className="text-muted-foreground">Total KM: <span className="font-semibold text-primary">{summary.end_km > 0 ? summary.end_km - summary.start_km : '-'}</span></span>
+                              </div>
+
+                              {/* Product Details */}
+                              <div className="border-t pt-4">
+                                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                  <Package className="h-4 w-4" /> Product Details
+                                </h4>
+                                {summary.items.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">No products in this van stock</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {summary.items.map((item) => (
+                                      <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                                        <div className="flex-1">
+                                          <p className="font-medium">{item.product_name}</p>
+                                          <p className="text-sm text-muted-foreground">
+                                            ₹{item.price_without_gst.toFixed(2)} (excl. GST) • {item.unit}
+                                          </p>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                          <div className="text-right">
+                                            <p className="text-lg font-bold">{item.start_qty}</p>
+                                            <p className="text-xs text-muted-foreground">{item.unit}</p>
+                                          </div>
+                                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
