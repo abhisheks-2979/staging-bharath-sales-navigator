@@ -73,6 +73,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
   const pendingDateRef = useRef<string | null>(null);
   // Cache for date-based data to enable instant switching
   const dateDataCacheRef = useRef<Map<string, { beatPlans: any[], visits: any[], retailers: any[], orders: any[], progressStats: ProgressStats, timestamp: number }>>(new Map());
+  // Track newly added retailer IDs to put them at the top of the list
+  const newlyAddedRetailerIdsRef = useRef<Set<string>>(new Set());
 
   // Helper to check if date is in the past (before today)
   const isOldDate = useCallback((dateStr: string): boolean => {
@@ -317,10 +319,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
           // CRITICAL: Set ALL state together in one batch to avoid partial renders
           setBeatPlans(filteredBeatPlans);
           setVisits(filteredVisits);
-          setRetailers(filteredRetailers);
+          
+          // SORT: Put newly added retailers at the TOP of the list (for cache loading too)
+          let sortedRetailers = filteredRetailers;
+          if (newlyAddedRetailerIdsRef.current.size > 0) {
+            console.log('📌 [CACHE] Sorting retailers, putting new ones at top:', Array.from(newlyAddedRetailerIdsRef.current));
+            sortedRetailers = [...filteredRetailers].sort((a: any, b: any) => {
+              const aIsNew = newlyAddedRetailerIdsRef.current.has(a.id);
+              const bIsNew = newlyAddedRetailerIdsRef.current.has(b.id);
+              if (aIsNew && !bIsNew) return -1;
+              if (!aIsNew && bIsNew) return 1;
+              return 0;
+            });
+            newlyAddedRetailerIdsRef.current.clear();
+          }
+          
+          setRetailers(sortedRetailers);
           setOrders(filteredOrders);
           setProgressStats(cacheStats); // Set progressStats in same batch!
-          loadedRetailersCount = filteredRetailers.length; // Track for network skip check
+          loadedRetailersCount = sortedRetailers.length; // Track for network skip check
           // Trigger recalculation via dataVersion
           setDataVersion(v => v + 1);
           
@@ -702,7 +719,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         
         // CRITICAL FIX: Only overwrite retailers if network returned data
         // Otherwise keep the cached retailers to prevent blank display
-        const finalRetailers = retailersData.length > 0 ? retailersData : (hasLoadedFromCache ? retailers : []);
+        let finalRetailers = retailersData.length > 0 ? retailersData : (hasLoadedFromCache ? retailers : []);
+        
+        // SORT: Put newly added retailers at the TOP of the list
+        if (newlyAddedRetailerIdsRef.current.size > 0) {
+          console.log('📌 [useVisitsDataOptimized] Sorting retailers, putting new ones at top:', Array.from(newlyAddedRetailerIdsRef.current));
+          finalRetailers = [...finalRetailers].sort((a: any, b: any) => {
+            const aIsNew = newlyAddedRetailerIdsRef.current.has(a.id);
+            const bIsNew = newlyAddedRetailerIdsRef.current.has(b.id);
+            if (aIsNew && !bIsNew) return -1;
+            if (!aIsNew && bIsNew) return 1;
+            return 0; // Keep original order for non-new retailers
+          });
+          // Clear the set after sorting (they've been moved to top once)
+          newlyAddedRetailerIdsRef.current.clear();
+        }
+        
         setRetailers(finalRetailers);
         
         // CRITICAL: Also update progressStats directly here to ensure it's in sync with network data
@@ -917,8 +949,15 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
     };
 
     // Listen for visitDataChanged events (e.g., new beat plans added, new retailers)
-    const handleDataChange = async () => {
+    const handleDataChange = async (event: Event) => {
       console.log('🔔 [useVisitsDataOptimized] visitDataChanged event received');
+      
+      // Check if this event contains a newly added retailer ID
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail?.newRetailerId) {
+        console.log('📌 [useVisitsDataOptimized] New retailer added:', customEvent.detail.newRetailerId);
+        newlyAddedRetailerIdsRef.current.add(customEvent.detail.newRetailerId);
+      }
       
       // Clear in-memory cache for today to force fresh load
       const today = new Date().toISOString().split('T')[0];

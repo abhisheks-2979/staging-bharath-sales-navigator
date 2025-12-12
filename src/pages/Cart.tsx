@@ -885,13 +885,14 @@ export const Cart = () => {
 
       // Dispatch events for UI updates - TARGETED refresh only for this retailer
       if (actualVisitId) {
-        console.log('📡 Marking retailer for targeted refresh:', validRetailerId);
+        console.log('📡 Marking retailer for targeted refresh:', validRetailerId, 'orderValue:', totalAmount);
         retailerStatusRegistry.markForRefresh(validRetailerId);
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { 
             visitId: actualVisitId, 
             status: 'productive', 
-            retailerId: validRetailerId 
+            retailerId: validRetailerId,
+            orderValue: totalAmount  // Include order value for immediate UI update
           }
         }));
       }

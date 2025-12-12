@@ -219,9 +219,14 @@ export function useOfflineOrderComplete() {
         });
 
         // Dispatch events AFTER database update completes
-        console.log('✅ Order submitted online, dispatching events...');
+        console.log('✅ Order submitted online, dispatching events with orderValue:', orderData.total_amount);
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-          detail: { visitId: orderData.visit_id, status: 'productive', retailerId: orderData.retailer_id }
+          detail: { 
+            visitId: orderData.visit_id, 
+            status: 'productive', 
+            retailerId: orderData.retailer_id,
+            orderValue: orderData.total_amount  // Include order value for immediate UI update
+          }
         }));
         window.dispatchEvent(new Event('visitDataChanged'));
 
@@ -286,9 +291,14 @@ export function useOfflineOrderComplete() {
         });
 
         // Dispatch events for immediate UI update
-        console.log('✅ Order saved offline, dispatching events...');
+        console.log('✅ Order saved offline, dispatching events with orderValue:', orderData.total_amount);
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-          detail: { visitId: orderData.visit_id, status: 'productive', retailerId: orderData.retailer_id }
+          detail: { 
+            visitId: orderData.visit_id, 
+            status: 'productive', 
+            retailerId: orderData.retailer_id,
+            orderValue: orderData.total_amount  // Include order value for immediate UI update
+          }
         }));
         window.dispatchEvent(new Event('visitDataChanged'));
 
