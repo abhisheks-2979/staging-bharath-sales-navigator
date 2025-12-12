@@ -1633,7 +1633,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
                   {stockItems.length > 0 && (
                     <div className="space-y-1.5">
-                      {stockItems.map((item, index) => {
+                      {/* Sort stock items alphabetically by product name for display */}
+                      {[...stockItems]
+                        .map((item, originalIndex) => ({ item, originalIndex }))
+                        .sort((a, b) => (a.item.product_name || '').localeCompare(b.item.product_name || ''))
+                        .map(({ item, originalIndex: index }) => {
                         const selectedProduct = products.find(p => p.id === item.product_id);
                         const pricePerUnit = selectedProduct?.rate || 0;
                         
