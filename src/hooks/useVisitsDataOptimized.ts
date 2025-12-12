@@ -331,7 +331,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
               if (!aIsNew && bIsNew) return 1;
               return 0;
             });
-            newlyAddedRetailerIdsRef.current.clear();
+            // Don't clear here - network fetch might happen after and needs the IDs
           }
           
           setRetailers(sortedRetailers);
@@ -722,8 +722,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
         let finalRetailers = retailersData.length > 0 ? retailersData : (hasLoadedFromCache ? retailers : []);
         
         // SORT: Put newly added retailers at the TOP of the list
+        // Also preserve newly added retailers that might not be in network data yet (replication lag)
         if (newlyAddedRetailerIdsRef.current.size > 0) {
           console.log('📌 [useVisitsDataOptimized] Sorting retailers, putting new ones at top:', Array.from(newlyAddedRetailerIdsRef.current));
+          
+          // Check if new retailers exist in the fetched data
+          const newRetailerIds = Array.from(newlyAddedRetailerIdsRef.current);
+          const missingNewRetailers = newRetailerIds.filter(id => !finalRetailers.some((r: any) => r.id === id));
+          
+          // If new retailers are missing from network data, get them from current state (added via immediate update)
+          if (missingNewRetailers.length > 0) {
+            const currentRetailersWithNew = retailers.filter((r: any) => missingNewRetailers.includes(r.id));
+            if (currentRetailersWithNew.length > 0) {
+              console.log('📌 [useVisitsDataOptimized] Preserving newly added retailers not yet in network:', currentRetailersWithNew.map((r: any) => r.id));
+              finalRetailers = [...currentRetailersWithNew, ...finalRetailers];
+            }
+          }
+          
           finalRetailers = [...finalRetailers].sort((a: any, b: any) => {
             const aIsNew = newlyAddedRetailerIdsRef.current.has(a.id);
             const bIsNew = newlyAddedRetailerIdsRef.current.has(b.id);
@@ -731,8 +746,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
             if (!aIsNew && bIsNew) return 1;
             return 0; // Keep original order for non-new retailers
           });
-          // Clear the set after sorting (they've been moved to top once)
-          newlyAddedRetailerIdsRef.current.clear();
+          // Don't clear the set immediately - let it persist for a bit to handle multiple re-renders
+          // Clear after 5 seconds to avoid permanent tracking
+          setTimeout(() => {
+            console.log('📌 [useVisitsDataOptimized] Clearing newlyAddedRetailerIds after timeout');
+            newlyAddedRetailerIdsRef.current.clear();
+          }, 5000);
         }
         
         setRetailers(finalRetailers);
@@ -954,9 +973,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate }: UseVisitsDataOp
       
       // Check if this event contains a newly added retailer ID
       const customEvent = event as CustomEvent;
-      if (customEvent.detail?.newRetailerId) {
-        console.log('📌 [useVisitsDataOptimized] New retailer added:', customEvent.detail.newRetailerId);
-        newlyAddedRetailerIdsRef.current.add(customEvent.detail.newRetailerId);
+      const newRetailerId = customEvent.detail?.newRetailerId;
+      const newRetailerData = customEvent.detail?.retailerData;
+      
+      if (newRetailerId) {
+        console.log('📌 [useVisitsDataOptimized] New retailer added:', newRetailerId);
+        newlyAddedRetailerIdsRef.current.add(newRetailerId);
+        
+        // IMMEDIATE UPDATE: If we have retailer data, add to current retailers immediately
+        if (newRetailerData) {
+          console.log('📌 [IMMEDIATE] Adding new retailer to top of list immediately');
+          setRetailers(prev => {
+            // Check if retailer already exists
+            if (prev.some(r => r.id === newRetailerId)) {
+              return prev;
+            }
+            // Add new retailer at the TOP of the list
+            return [newRetailerData, ...prev];
+          });
+        }
       }
       
       // Clear in-memory cache for today to force fresh load
