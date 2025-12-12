@@ -630,8 +630,8 @@ export const AddRetailer = () => {
   };
 
   const handleSaveWithBeat = async () => {
-    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.locationTag) {
-      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address, Location Tag)', variant: 'destructive' });
+    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address)', variant: 'destructive' });
       return;
     }
     if (!selectedBeat || selectedBeat === 'unassigned') {
@@ -660,10 +660,10 @@ export const AddRetailer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.locationTag) {
+    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields (Name, Phone, Address, Location Tag)",
+        description: "Please fill in all required fields (Name, Phone, Address)",
         variant: "destructive"
       });
       return;
@@ -1211,22 +1211,6 @@ export const AddRetailer = () => {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="locationTag">{t('retailer.locationTag')} *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="locationTag"
-                    placeholder="e.g., Near City Hospital, Main Market"
-                    value={retailerData.locationTag}
-                    onChange={(e) => handleInputChange("locationTag", e.target.value)}
-                    className="bg-background"
-                  />
-                  <Button type="button" variant="outline" size="icon">
-                    <Tag size={16} />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">This will be used to verify visit authenticity</p>
-              </div>
 
               {/* Manual Credit Score - Only show when credit management is enabled and mode is manual */}
               {creditConfig?.is_enabled && creditConfig?.scoring_mode === 'manual' && (
