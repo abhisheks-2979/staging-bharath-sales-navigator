@@ -176,39 +176,42 @@ export default function VanSalesManagement() {
 
   const loadVanStockSummaries = async () => {
     try {
-      // Get ALL van_stock records with user info, van info - no date filter for admin view
+      // Get ALL van_stock records - no date filter for admin view
       const { data: stockData, error: stockError } = await supabase
         .from('van_stock')
-        .select(`
-          id,
-          van_id,
-          user_id,
-          stock_date,
-          start_km,
-          end_km,
-          vans (
-            registration_number,
-            make_model
-          ),
-          profiles:user_id (
-            full_name
-          )
-        `)
+        .select('id, van_id, user_id, stock_date, start_km, end_km')
         .order('stock_date', { ascending: false });
 
-      if (stockError) throw stockError;
+      if (stockError) {
+        console.error('Error fetching van_stock:', stockError);
+        toast.error('Failed to load van stock: ' + stockError.message);
+        return;
+      }
       
-      console.log('Loaded van_stock records:', stockData?.length);
+      console.log('Loaded van_stock records:', stockData?.length, stockData);
 
-      // Get products for price lookup
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, rate');
+      if (!stockData || stockData.length === 0) {
+        setVanStockSummaries([]);
+        return;
+      }
+
+      // Fetch vans and profiles separately to avoid join issues
+      const vanIds = [...new Set(stockData.map(s => s.van_id))];
+      const userIds = [...new Set(stockData.map(s => s.user_id))];
+
+      const [{ data: vansData }, { data: profilesData }, { data: products }] = await Promise.all([
+        supabase.from('vans').select('id, registration_number, make_model').in('id', vanIds),
+        supabase.from('profiles').select('id, full_name').in('id', userIds),
+        supabase.from('products').select('id, rate')
+      ]);
+
+      const vansMap: Record<string, any> = {};
+      vansData?.forEach(v => { vansMap[v.id] = v; });
+
+      const profilesMap: Record<string, any> = {};
+      profilesData?.forEach(p => { profilesMap[p.id] = p; });
       
       const productPriceMap: Record<string, number> = {};
-      products?.forEach(p => {
-        productPriceMap[p.id] = p.rate || 0;
-      });
 
       // Get stock items for each van_stock
       const summaries: VanStockSummary[] = [];
@@ -249,12 +252,15 @@ export default function VanSalesManagement() {
         const totalReturned = stockItems.reduce((sum, item) => sum + item.returned_qty, 0);
         const closingStock = stockItems.reduce((sum, item) => sum + item.left_qty, 0);
 
+        const vanInfo = vansMap[stock.van_id];
+        const profileInfo = profilesMap[stock.user_id];
+
         summaries.push({
           id: stock.id,
           van_id: stock.van_id,
-          van_registration: (stock.vans as any)?.registration_number || 'Unknown',
-          van_model: (stock.vans as any)?.make_model || '',
-          user_name: (stock.profiles as any)?.full_name || 'Unknown User',
+          van_registration: vanInfo?.registration_number || 'Unknown',
+          van_model: vanInfo?.make_model || '',
+          user_name: profileInfo?.full_name || 'Unknown User',
           user_id: stock.user_id,
           beat_name: beatPlan?.beat_name || 'No Beat',
           stock_date: stock.stock_date,
