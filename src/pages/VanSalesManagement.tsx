@@ -126,23 +126,38 @@ export default function VanSalesManagement() {
   }, []);
 
   const loadVans = async () => {
-    // Fetch vans with assigned user info
+    // Fetch vans - assigned_user_id may not exist yet if migration pending
     const { data, error } = await supabase
       .from('vans')
-      .select('*, profiles:assigned_user_id(full_name)')
+      .select('*')
       .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Error loading vans:', error);
       toast.error('Failed to load vans');
-    } else {
-      // Map to include assigned user name
-      const vansWithUsers = (data || []).map(van => ({
-        ...van,
-        assigned_user_name: (van.profiles as any)?.full_name || null
-      }));
-      setVans(vansWithUsers);
+      setLoading(false);
+      return;
     }
+    
+    // Get assigned user names if assigned_user_id exists
+    const vansWithUsers = await Promise.all((data || []).map(async (van) => {
+      let assigned_user_name = null;
+      if ((van as any).assigned_user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', (van as any).assigned_user_id)
+          .maybeSingle();
+        assigned_user_name = profile?.full_name || null;
+      }
+      return {
+        ...van,
+        assigned_user_id: (van as any).assigned_user_id || null,
+        assigned_user_name
+      };
+    }));
+    
+    setVans(vansWithUsers);
     setLoading(false);
   };
 
