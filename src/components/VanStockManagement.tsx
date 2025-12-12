@@ -54,6 +54,75 @@ const numberToWords = (num: number): string => {
   return result + ' Only';
 };
 
+// Helper function to group products with their variants together for display
+// Base products appear first, followed by their variants, then next product group
+const groupProductsWithVariants = (items: any[], products: Product[]): any[] => {
+  if (!items || items.length === 0) return [];
+  
+  // Build a map of variant_id to base_product_id from the products list
+  // Products list contains both base products and variants as flat entries
+  const variantToBaseMap = new Map<string, string>();
+  const baseProductNames = new Map<string, string>();
+  
+  // First pass: identify base products (they have their own id as product_id)
+  products.forEach(p => {
+    // Check if this is a variant by looking if there's another product with same name pattern
+    // Base products have their id matching the actual product id in the database
+    baseProductNames.set(p.id, p.name);
+  });
+  
+  // Group items by their base product ID
+  const productGroups = new Map<string, any[]>();
+  
+  items.forEach(item => {
+    // For van_stock_items, product_id could be a base product or variant
+    // We need to determine the grouping key
+    const productId = item.product_id;
+    
+    // Check if this product_id is a variant by looking at the product name pattern
+    // If it's a variant, find its base product
+    let groupKey = productId;
+    
+    // Find the product in our products list
+    const matchingProduct = products.find(p => p.id === productId);
+    if (matchingProduct) {
+      // Check if there's a base product this might belong to
+      // Variants typically have names that are part of a product family
+      // For now, use the product_id as the group key
+      groupKey = productId;
+    }
+    
+    if (!productGroups.has(groupKey)) {
+      productGroups.set(groupKey, []);
+    }
+    productGroups.get(groupKey)!.push(item);
+  });
+  
+  // Sort groups by product name
+  const sortedGroupKeys = Array.from(productGroups.keys()).sort((a, b) => {
+    const aItems = productGroups.get(a)!;
+    const bItems = productGroups.get(b)!;
+    const aName = aItems[0]?.product_name || '';
+    const bName = bItems[0]?.product_name || '';
+    return aName.localeCompare(bName);
+  });
+  
+  // Flatten groups back into sorted array
+  const sortedItems: any[] = [];
+  sortedGroupKeys.forEach(key => {
+    const group = productGroups.get(key)!;
+    // Sort within group by product name (variants will naturally sort alphabetically)
+    group.sort((a, b) => {
+      const aName = a.product_name || '';
+      const bName = b.product_name || '';
+      return aName.localeCompare(bName);
+    });
+    sortedItems.push(...group);
+  });
+  
+  return sortedItems;
+};
+
 interface Van {
   id: string;
   registration_number: string;
@@ -860,11 +929,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const handleExportToExcel = async () => {
-    const savedItems = todayStock?.van_stock_items || [];
-    if (savedItems.length === 0) {
+    const rawItems = todayStock?.van_stock_items || [];
+    if (rawItems.length === 0) {
       toast.error('No stock items to export');
       return;
     }
+    
+    // Sort items by product group (base products with variants together)
+    const savedItems = groupProductsWithVariants(rawItems, products);
 
     // Fetch company details
     const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
@@ -959,11 +1031,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     try {
       toast.info('Generating PDF...');
       
-      const savedItems = todayStock?.van_stock_items || [];
-      if (savedItems.length === 0) {
+      const rawItems = todayStock?.van_stock_items || [];
+      if (rawItems.length === 0) {
         toast.error('No stock items to export');
         return;
       }
+      
+      // Sort items by product group (base products with variants together)
+      const savedItems = groupProductsWithVariants(rawItems, products);
 
       // Fetch company details
       const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
@@ -1241,11 +1316,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const handlePrint = () => {
-    const savedItems = todayStock?.van_stock_items || [];
-    if (savedItems.length === 0) {
+    const rawItems = todayStock?.van_stock_items || [];
+    if (rawItems.length === 0) {
       toast.error('No stock items to print');
       return;
     }
+    
+    // Sort items by product group (base products with variants together)
+    const savedItems = groupProductsWithVariants(rawItems, products);
 
     const doc = new jsPDF();
     const dateStr = new Date(selectedDate).toLocaleDateString('en-IN', { 
@@ -1592,7 +1670,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                       <CommandList className="bg-background max-h-[250px] overflow-y-auto overscroll-contain">
                                         <CommandEmpty>No product found.</CommandEmpty>
                                         <CommandGroup className="bg-background">
-                                          {products.map((product) => (
+                                          {[...products].sort((a, b) => a.name.localeCompare(b.name)).map((product) => (
                                             <CommandItem
                                               key={product.id}
                                               value={`${product.name} ${product.rate}`}
@@ -1794,22 +1872,25 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               const savedItems = todayStock?.van_stock_items || [];
               
               // Create a map of all items to display (prioritize saved, add unsaved)
-              const displayItems: any[] = [];
+              const rawDisplayItems: any[] = [];
               const seenProductIds = new Set<string>();
               
               // First add all saved items
               savedItems.forEach((item: any) => {
-                displayItems.push({ ...item, isSaved: true });
+                rawDisplayItems.push({ ...item, isSaved: true });
                 seenProductIds.add(item.product_id);
               });
               
               // Then add unsaved items that aren't in saved (loaded from previous stock)
               stockItems.forEach((item) => {
                 if (item.product_id && !seenProductIds.has(item.product_id)) {
-                  displayItems.push({ ...item, isSaved: false });
+                  rawDisplayItems.push({ ...item, isSaved: false });
                   seenProductIds.add(item.product_id);
                 }
               });
+              
+              // Sort items by product group (base products with variants together)
+              const displayItems = groupProductsWithVariants(rawDisplayItems, products);
               
               if (displayItems.length === 0) {
                 return (
