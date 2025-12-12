@@ -279,6 +279,28 @@ export const VisitCard = ({
     }
   }, [visit.status, currentStatus, statusLoadedFromDB]);
 
+  // CRITICAL: Sync order data from props when parent updates (e.g., when orders load)
+  // This ensures Order button turns green and shows value when parent has fresh order data
+  useEffect(() => {
+    // Only sync if prop has order data and local state doesn't
+    if (visit.hasOrder && !hasOrderToday) {
+      console.log('💰 [VisitCard] Syncing order data from prop:', {
+        hasOrder: visit.hasOrder,
+        orderValue: visit.orderValue
+      });
+      setHasOrderToday(true);
+      setActualOrderValue(visit.orderValue || 0);
+      setCurrentStatus('productive');
+      setStatusLoadedFromDB(true);
+      setPhase('completed');
+    }
+    // Also sync if order value increased (new order added)
+    if (visit.hasOrder && visit.orderValue && visit.orderValue > actualOrderValue) {
+      console.log('💰 [VisitCard] Order value increased, updating:', visit.orderValue);
+      setActualOrderValue(visit.orderValue);
+    }
+  }, [visit.hasOrder, visit.orderValue, hasOrderToday, actualOrderValue]);
+
   // Check if the selected date is today's date
   const isTodaysVisit = selectedDate === new Date().toISOString().split('T')[0];
 
