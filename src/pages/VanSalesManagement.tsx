@@ -6,11 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { moveToRecycleBin } from '@/utils/recycleBinUtils';
-import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ChevronDown, ChevronRight, ShoppingCart, TrendingDown } from 'lucide-react';
+import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ChevronDown, ChevronRight, ShoppingCart, TrendingDown, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -29,6 +30,13 @@ interface Van {
   driver_phone?: string;
   driver_address?: string;
   is_active: boolean;
+  assigned_user_id?: string;
+  assigned_user_name?: string;
+}
+
+interface UserOption {
+  id: string;
+  full_name: string;
 }
 
 interface VanStockSummary {
@@ -65,6 +73,7 @@ export default function VanSalesManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const [vans, setVans] = useState<Van[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVan, setEditingVan] = useState<Van | null>(null);
@@ -82,6 +91,7 @@ export default function VanSalesManagement() {
     driver_name: '',
     driver_phone: '',
     driver_address: '',
+    assigned_user_id: '',
   });
 
   useEffect(() => {
@@ -90,6 +100,7 @@ export default function VanSalesManagement() {
       return;
     }
     loadVans();
+    loadUsers();
     loadVanStockSummaries();
   }, [userRole, navigate]);
 
@@ -115,18 +126,37 @@ export default function VanSalesManagement() {
   }, []);
 
   const loadVans = async () => {
+    // Fetch vans with assigned user info
     const { data, error } = await supabase
       .from('vans')
-      .select('*')
+      .select('*, profiles:assigned_user_id(full_name)')
       .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Error loading vans:', error);
       toast.error('Failed to load vans');
     } else {
-      setVans(data || []);
+      // Map to include assigned user name
+      const vansWithUsers = (data || []).map(van => ({
+        ...van,
+        assigned_user_name: (van.profiles as any)?.full_name || null
+      }));
+      setVans(vansWithUsers);
     }
     setLoading(false);
+  };
+
+  const loadUsers = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name');
+    
+    if (error) {
+      console.error('Error loading users:', error);
+    } else {
+      setUsers(data || []);
+    }
   };
 
   const loadVanStockSummaries = async () => {
@@ -253,6 +283,7 @@ export default function VanSalesManagement() {
       rc_expiry_date: formData.rc_expiry_date || null,
       insurance_expiry_date: formData.insurance_expiry_date || null,
       pollution_expiry_date: formData.pollution_expiry_date || null,
+      assigned_user_id: formData.assigned_user_id || null,
       is_active: true,
     };
 
@@ -294,6 +325,7 @@ export default function VanSalesManagement() {
       driver_name: '',
       driver_phone: '',
       driver_address: '',
+      assigned_user_id: '',
     });
   };
 
@@ -309,6 +341,7 @@ export default function VanSalesManagement() {
       driver_name: van.driver_name || '',
       driver_phone: van.driver_phone || '',
       driver_address: van.driver_address || '',
+      assigned_user_id: van.assigned_user_id || '',
     });
     setShowAddModal(true);
   };
@@ -375,6 +408,7 @@ export default function VanSalesManagement() {
                       driver_name: '',
                       driver_phone: '',
                       driver_address: '',
+                      assigned_user_id: '',
                     });
                   }}>
                     <Plus className="mr-2 h-4 w-4" /> Add Van
@@ -467,6 +501,28 @@ export default function VanSalesManagement() {
                         rows={3}
                       />
                     </div>
+                    <div>
+                      <Label htmlFor="assigned_user">Assign to User</Label>
+                      <Select
+                        value={formData.assigned_user_id}
+                        onValueChange={(value) => setFormData({ ...formData, assigned_user_id: value === 'none' ? '' : value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select user (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No user assigned</SelectItem>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.full_name || 'Unnamed User'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This van will be pre-selected for the assigned user in Van Stock
+                      </p>
+                    </div>
                     <Button onClick={handleSubmit} className="w-full">
                       {editingVan ? 'Update Van' : 'Add Van'}
                     </Button>
@@ -495,6 +551,13 @@ export default function VanSalesManagement() {
                   </div>
                   <div className="space-y-2 text-sm">
                     <p><span className="text-muted-foreground">Model:</span> {van.make_model}</p>
+                    {van.assigned_user_name && (
+                      <p className="flex items-center gap-1">
+                        <User className="h-3 w-3 text-primary" />
+                        <span className="text-muted-foreground">Assigned to:</span> 
+                        <span className="font-medium text-primary">{van.assigned_user_name}</span>
+                      </p>
+                    )}
                     {van.driver_name && (
                       <p><span className="text-muted-foreground">Driver:</span> {van.driver_name}</p>
                     )}
