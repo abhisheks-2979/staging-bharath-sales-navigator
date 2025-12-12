@@ -6443,6 +6443,7 @@ export type Database = {
           priority: string | null
           productive_visits_3m: number | null
           retail_type: string | null
+          state: string | null
           status: string | null
           territory_id: string | null
           total_visits_3m: number | null
@@ -6482,6 +6483,7 @@ export type Database = {
           priority?: string | null
           productive_visits_3m?: number | null
           retail_type?: string | null
+          state?: string | null
           status?: string | null
           territory_id?: string | null
           total_visits_3m?: number | null
@@ -6521,6 +6523,7 @@ export type Database = {
           priority?: string | null
           productive_visits_3m?: number | null
           retail_type?: string | null
+          state?: string | null
           status?: string | null
           territory_id?: string | null
           total_visits_3m?: number | null

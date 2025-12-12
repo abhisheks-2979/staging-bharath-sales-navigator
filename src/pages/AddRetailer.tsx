@@ -51,7 +51,8 @@ export const AddRetailer = () => {
     latitude: "",
     longitude: "",
     photo_url: "",
-    manual_credit_score: ""
+    manual_credit_score: "",
+    state: ""
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -71,11 +72,24 @@ export const AddRetailer = () => {
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
   const [creditConfig, setCreditConfig] = useState<{is_enabled: boolean, scoring_mode: string} | null>(null);
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+  const [stateComboOpen, setStateComboOpen] = useState(false);
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
   const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour", "Hotel", "Other"];
   const potentials = ["High", "Medium", "Low"];
+  
+  // All Indian states and union territories
+  const indianStates = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
+    "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+    "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal",
+    "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+  ];
   const [customRetailType, setCustomRetailType] = useState("");
 
   // Load all distributors from distributors table
@@ -602,6 +616,7 @@ export const AddRetailer = () => {
       latitude: retailerData.latitude ? parseFloat(retailerData.latitude) : null,
       longitude: retailerData.longitude ? parseFloat(retailerData.longitude) : null,
       manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
+      state: retailerData.state || null,
     };
 
     const result = await createRetailer(payload);
@@ -630,8 +645,8 @@ export const AddRetailer = () => {
   };
 
   const handleSaveWithBeat = async () => {
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
-      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address)', variant: 'destructive' });
+    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.state) {
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields (Name, Phone, Address, State)', variant: 'destructive' });
       return;
     }
     if (!selectedBeat || selectedBeat === 'unassigned') {
@@ -660,10 +675,10 @@ export const AddRetailer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!retailerData.name || !retailerData.phone || !retailerData.address) {
+    if (!retailerData.name || !retailerData.phone || !retailerData.address || !retailerData.state) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields (Name, Phone, Address)",
+        description: "Please fill in all required fields (Name, Phone, Address, State)",
         variant: "destructive"
       });
       return;
@@ -1452,10 +1467,56 @@ export const AddRetailer = () => {
                       placeholder="Enter parent name"
                       value={retailerData.parentName}
                       onChange={(e) => handleInputChange("parentName", e.target.value)}
-                      className="bg-background"
+                      className="bg-background text-sm"
                     />
                   )}
                 </div>
+              </div>
+
+              {/* State Selection with Search */}
+              <div className="space-y-2">
+                <Label className="font-semibold">State *</Label>
+                <Popover open={stateComboOpen} onOpenChange={setStateComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={stateComboOpen}
+                      className="w-full justify-between bg-background text-sm"
+                    >
+                      {retailerData.state || "Select state..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0 bg-background border z-50" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search state..." />
+                      <CommandList>
+                        <CommandEmpty>No state found.</CommandEmpty>
+                        <CommandGroup className="max-h-64 overflow-y-auto">
+                          {indianStates.map((state) => (
+                            <CommandItem
+                              key={state}
+                              value={state}
+                              onSelect={() => {
+                                handleInputChange("state", state);
+                                setStateComboOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  retailerData.state === state ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {state}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </CardContent>
           </Card>
