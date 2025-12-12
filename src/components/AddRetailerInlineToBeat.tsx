@@ -474,22 +474,29 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
     toast({ title: 'Retailer Added', description: `${retailerData.name} added to ${beatName}` });
     
     // Also cache the new retailer for offline access
+    const fullRetailerData = {
+      ...payload,
+      id: data.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
     try {
       await offlineStorage.init();
-      await offlineStorage.save(STORES.RETAILERS, {
-        ...payload,
-        id: data.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      await offlineStorage.save(STORES.RETAILERS, fullRetailerData);
       console.log('[Online] Cached new retailer for offline access:', data.id);
     } catch (cacheError) {
       console.error('[Online] Failed to cache retailer:', cacheError);
     }
     
-    // Dispatch event to refresh My Visits page with new retailer ID
+    // Dispatch event to refresh My Visits page with new retailer ID AND full data for immediate display
     console.log('[Online] Dispatching visitDataChanged event with newRetailerId:', data.id);
-    window.dispatchEvent(new CustomEvent('visitDataChanged', { detail: { newRetailerId: data.id } }));
+    window.dispatchEvent(new CustomEvent('visitDataChanged', { 
+      detail: { 
+        newRetailerId: data.id,
+        retailerData: fullRetailerData
+      } 
+    }));
     
     // Call parent callback with the new retailer
     onRetailerAdded(data.id, data.name);
@@ -535,9 +542,14 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
         duration: 4000
       });
 
-      // Dispatch event to refresh My Visits page with new retailer ID
+      // Dispatch event to refresh My Visits page with new retailer ID AND full data for immediate display
       console.log('[Offline] Dispatching visitDataChanged event with newRetailerId:', tempId);
-      window.dispatchEvent(new CustomEvent('visitDataChanged', { detail: { newRetailerId: tempId } }));
+      window.dispatchEvent(new CustomEvent('visitDataChanged', { 
+        detail: { 
+          newRetailerId: tempId,
+          retailerData: offlineRetailer
+        } 
+      }));
       
       // Call parent callback with temporary ID
       onRetailerAdded(tempId, retailerData.name);
