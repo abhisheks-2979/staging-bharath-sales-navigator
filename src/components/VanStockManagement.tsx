@@ -476,10 +476,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       // Query van_stock for the selected van, most recent date before selectedDate
       const { data: previousStocks, error: stockError } = await supabase
         .from('van_stock')
-        .select('*, van_stock_items(*)')
+        .select('*')
         .eq('van_id', selectedVan)
         .lt('stock_date', selectedDate)
-        .order('stock_date', { ascending: false });
+        .order('stock_date', { ascending: false })
+        .limit(10);
 
       if (stockError) throw stockError;
 
@@ -487,7 +488,18 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       let loadedFromStock = false;
       if (previousStocks && previousStocks.length > 0) {
         for (const stock of previousStocks) {
-          const itemsWithStock = (stock.van_stock_items || []).filter((item: any) => (item.left_qty || 0) > 0);
+          // Fetch items separately since the relationship may not be configured
+          const { data: stockItems, error: itemsError } = await supabase
+            .from('van_stock_items')
+            .select('*')
+            .eq('van_stock_id', stock.id);
+
+          if (itemsError) {
+            console.error('Error fetching stock items:', itemsError);
+            continue;
+          }
+
+          const itemsWithStock = (stockItems || []).filter((item: any) => (item.left_qty || 0) > 0);
           
           if (itemsWithStock.length > 0) {
             console.log('📦 Found van_stock from date:', stock.stock_date, 'items with left_qty:', itemsWithStock.length);
