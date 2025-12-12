@@ -58,6 +58,7 @@ interface Van {
   id: string;
   registration_number: string;
   make_model: string;
+  assigned_user_id?: string;
 }
 
 interface Product {
@@ -206,9 +207,13 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   };
 
   const loadVans = async () => {
+    // Get current user ID
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id;
+    
     const { data, error } = await supabase
       .from('vans')
-      .select('id, registration_number, make_model')
+      .select('id, registration_number, make_model, assigned_user_id')
       .eq('is_active', true);
     
     if (error) {
@@ -216,7 +221,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     } else {
       setVans(data || []);
       if (data && data.length > 0) {
-        setSelectedVan(data[0].id);
+        // Auto-select the van assigned to the current user, or first van if none assigned
+        const assignedVan = data.find(v => v.assigned_user_id === currentUserId);
+        if (assignedVan) {
+          console.log('🚚 Auto-selecting assigned van for user:', assignedVan.registration_number);
+          setSelectedVan(assignedVan.id);
+        } else {
+          setSelectedVan(data[0].id);
+        }
       }
     }
   };

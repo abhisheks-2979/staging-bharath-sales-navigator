@@ -8363,6 +8363,7 @@ export type Database = {
       }
       vans: {
         Row: {
+          assigned_user_id: string | null
           created_at: string
           created_by: string | null
           driver_address: string | null
@@ -8383,6 +8384,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_user_id?: string | null
           created_at?: string
           created_by?: string | null
           driver_address?: string | null
@@ -8403,6 +8405,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_user_id?: string | null
           created_at?: string
           created_by?: string | null
           driver_address?: string | null
