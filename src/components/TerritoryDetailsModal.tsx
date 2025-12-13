@@ -59,8 +59,10 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [retailers, setRetailers] = useState<any[]>([]);
   const [salesSummary, setSalesSummary] = useState({ totalSales: 0, totalOrders: 0, totalRetailers: 0, totalVisits: 0 });
   const [assignmentHistory, setAssignmentHistory] = useState<any[]>([]);
-  const [monthlySales, setMonthlySales] = useState<any[]>([]);
+  const [salesTrendData, setSalesTrendData] = useState<any[]>([]);
   const [salesTrendFilter, setSalesTrendFilter] = useState<string>('6months');
+  const [periodSummary, setPeriodSummary] = useState({ totalSales: 0, totalOrders: 0, totalVisits: 0 });
+  const [allTerritoryOrders, setAllTerritoryOrders] = useState<any[]>([]);
   const [topSKUs, setTopSKUs] = useState<any[]>([]);
   const [bottomSKUs, setBottomSKUs] = useState<any[]>([]);
   const [topRetailers, setTopRetailers] = useState<any[]>([]);
@@ -87,6 +89,107 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   useEffect(() => {
     if (open && territory) loadTerritoryData();
   }, [open, territory]);
+
+  // Calculate sales trend based on filter
+  useEffect(() => {
+    if (!allTerritoryOrders || allTerritoryOrders.length === 0) {
+      setSalesTrendData([]);
+      setPeriodSummary({ totalSales: 0, totalOrders: 0, totalVisits: 0 });
+      return;
+    }
+
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+    let groupBy: 'month' | 'quarter' = 'month';
+
+    switch (salesTrendFilter) {
+      case 'monthly':
+        startDate = subMonths(now, 1);
+        startDate.setDate(1);
+        break;
+      case 'quarterly':
+        startDate = subQuarters(now, 1);
+        groupBy = 'quarter';
+        break;
+      case '6months':
+        startDate = subMonths(now, 6);
+        break;
+      case 'currentyear':
+        startDate = startOfYear(now);
+        endDate = endOfYear(now);
+        break;
+      case 'lastyear':
+        startDate = startOfYear(subYears(now, 1));
+        endDate = endOfYear(subYears(now, 1));
+        break;
+      default:
+        startDate = subMonths(now, 6);
+    }
+
+    const filteredOrders = allTerritoryOrders.filter(o => {
+      const orderDate = new Date(o.created_at);
+      return orderDate >= startDate && orderDate <= endDate;
+    });
+
+    // Group orders by period
+    const periodMap = new Map<string, number>();
+    
+    filteredOrders.forEach(order => {
+      const orderDate = new Date(order.created_at);
+      let periodKey: string;
+      
+      if (groupBy === 'quarter') {
+        const quarter = Math.floor(orderDate.getMonth() / 3) + 1;
+        periodKey = `Q${quarter} ${orderDate.getFullYear()}`;
+      } else {
+        periodKey = format(orderDate, 'MMM yyyy');
+      }
+      
+      const existing = periodMap.get(periodKey) || 0;
+      periodMap.set(periodKey, existing + Number(order.total_amount || 0));
+    });
+
+    // Sort periods chronologically
+    const chartData = Array.from(periodMap.entries())
+      .map(([period, sales]) => ({ period, sales }))
+      .sort((a, b) => {
+        // Parse period to date for sorting
+        if (a.period.startsWith('Q')) {
+          const [qa, ya] = a.period.replace('Q', '').split(' ');
+          const [qb, yb] = b.period.replace('Q', '').split(' ');
+          return parseInt(ya) - parseInt(yb) || parseInt(qa) - parseInt(qb);
+        }
+        return new Date(a.period).getTime() - new Date(b.period).getTime();
+      });
+
+    setSalesTrendData(chartData);
+    
+    // Calculate period summary
+    const totalSales = filteredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    setPeriodSummary({
+      totalSales,
+      totalOrders: filteredOrders.length,
+      totalVisits: 0, // Will fetch visits separately if needed
+    });
+
+    // Fetch visits for the period
+    const fetchVisits = async () => {
+      const retailerIds = retailers.map(r => r.id);
+      if (retailerIds.length === 0) return;
+      
+      const { data: visitsData } = await supabase
+        .from('visits')
+        .select('id')
+        .in('retailer_id', retailerIds)
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString());
+      
+      setPeriodSummary(prev => ({ ...prev, totalVisits: visitsData?.length || 0 }));
+    };
+    fetchVisits();
+
+  }, [salesTrendFilter, allTerritoryOrders, retailers]);
 
   const loadTerritoryData = async () => {
     if (!territory) return;
@@ -174,44 +277,42 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       const matchingRetailers = retailersData || [];
       setRetailers(matchingRetailers);
 
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
       const retailerIds = matchingRetailers.map(r => r.id);
       
-      // Get orders for current month
-      const { data: ordersData } = await supabase.from('orders').select('id, total_amount, retailer_id, created_at, retailers(address, name)').in('retailer_id', retailerIds).gte('created_at', startOfMonth.toISOString());
+      // Get ALL orders for all time (for retailer count and filtering later)
+      const { data: allOrdersData } = await supabase
+        .from('orders')
+        .select('id, total_amount, retailer_id, created_at, retailers(address, name)')
+        .in('retailer_id', retailerIds)
+        .order('created_at', { ascending: false });
       
-      // Get visits count
-      const { data: visitsData } = await supabase.from('visits').select('id').in('retailer_id', retailerIds).gte('created_at', startOfMonth.toISOString());
+      setAllTerritoryOrders(allOrdersData || []);
 
       setSalesSummary({
-        totalSales: ordersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0,
-        totalOrders: ordersData?.length || 0,
+        totalSales: 0, // Will be set by period filter
+        totalOrders: 0,
         totalRetailers: matchingRetailers.length,
-        totalVisits: visitsData?.length || 0,
+        totalVisits: 0,
       });
 
-      // Monthly sales data (last 6 months)
-      const monthlyData: any[] = [];
+      // Calculate performance flag based on last 6 months
+      const sixMonthsAgo = subMonths(new Date(), 6);
+      const recentOrders = allOrdersData?.filter(o => new Date(o.created_at) >= sixMonthsAgo) || [];
+      const monthlyTotals: number[] = [];
       for (let i = 5; i >= 0; i--) {
         const monthStart = subMonths(new Date(), i);
         monthStart.setDate(1);
         const monthEnd = new Date(monthStart);
         monthEnd.setMonth(monthEnd.getMonth() + 1);
-        
-        const { data: monthOrders } = await supabase.from('orders').select('total_amount').in('retailer_id', retailerIds).gte('created_at', monthStart.toISOString()).lt('created_at', monthEnd.toISOString());
-        
-        monthlyData.push({
-          month: format(monthStart, 'MMM'),
-          sales: monthOrders?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0,
-        });
+        const monthTotal = recentOrders
+          .filter(o => new Date(o.created_at) >= monthStart && new Date(o.created_at) < monthEnd)
+          .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        monthlyTotals.push(monthTotal);
       }
-      setMonthlySales(monthlyData);
-
-      // Calculate performance flag
-      if (monthlyData.length >= 3) {
-        const recent = monthlyData.slice(-3).reduce((sum, m) => sum + m.sales, 0) / 3;
-        const previous = monthlyData.slice(0, 3).reduce((sum, m) => sum + m.sales, 0) / 3;
+      
+      if (monthlyTotals.length >= 3) {
+        const recent = monthlyTotals.slice(-3).reduce((sum, m) => sum + m, 0) / 3;
+        const previous = monthlyTotals.slice(0, 3).reduce((sum, m) => sum + m, 0) / 3;
         const growth = ((recent - previous) / (previous || 1)) * 100;
         
         if (growth > 20) setPerformanceFlag('High Growth');
@@ -219,6 +320,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         else if (matchingRetailers.length > 50 && growth < 5) setPerformanceFlag('High Potential');
         else setPerformanceFlag('Stable');
       }
+
+      // Use latest orders for current month summary (for top/bottom SKUs)
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      const ordersData = allOrdersData?.filter(o => new Date(o.created_at) >= startOfMonth) || [];
 
       // Top/Bottom SKUs with product IDs
       const { data: orderItemsData } = await supabase.from('order_items').select('product_id, product_name, quantity, total, order_id').in('order_id', ordersData?.map(o => o.id) || []);
@@ -631,7 +737,45 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </CardContent>
             </Card>
 
-            {/* Performance Snapshot with Growth/Decline */}
+            {/* Sales Trend Chart with Filter */}
+            <Card className="shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <CardTitle className="text-sm sm:text-base">Sales Trend</CardTitle>
+                  <Select value={salesTrendFilter} onValueChange={setSalesTrendFilter}>
+                    <SelectTrigger className="w-full sm:w-[160px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                      <SelectItem value="6months">Last 6 Months</SelectItem>
+                      <SelectItem value="currentyear">Current Year</SelectItem>
+                      <SelectItem value="lastyear">Last Year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent className="p-2 sm:p-4">
+                {salesTrendData.length > 0 ? (
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={200} minWidth={300}>
+                      <LineChart data={salesTrendData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Sales']} />
+                        <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <p className="text-center py-8 text-sm text-muted-foreground">No order data for selected period</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Performance Snapshot - Below Chart, Linked to Period */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               <Card className="shadow-lg bg-gradient-to-br from-green-500/10 to-green-600/5">
                 <CardContent className="p-3 sm:p-4">
@@ -639,7 +783,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
                     <p className="text-xs text-muted-foreground truncate">Total Sales</p>
                   </div>
-                  <p className="text-lg sm:text-2xl font-bold text-green-600 truncate">₹{salesSummary.totalSales.toLocaleString()}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-600 truncate">₹{periodSummary.totalSales.toLocaleString()}</p>
                 </CardContent>
               </Card>
 
@@ -649,7 +793,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
                     <p className="text-xs text-muted-foreground truncate">Orders</p>
                   </div>
-                  <p className="text-lg sm:text-2xl font-bold text-blue-600">{salesSummary.totalOrders}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-blue-600">{periodSummary.totalOrders}</p>
                 </CardContent>
               </Card>
 
@@ -669,46 +813,10 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600 flex-shrink-0" />
                     <p className="text-xs text-muted-foreground truncate">Visits</p>
                   </div>
-                  <p className="text-lg sm:text-2xl font-bold text-orange-600">{salesSummary.totalVisits}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-orange-600">{periodSummary.totalVisits}</p>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Monthly Sales Chart with Filter */}
-            {monthlySales.length > 0 && (
-              <Card className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <CardTitle className="text-sm sm:text-base">Sales Trend</CardTitle>
-                    <Select value={salesTrendFilter} onValueChange={setSalesTrendFilter}>
-                      <SelectTrigger className="w-full sm:w-[160px] h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="quarterly">Quarterly</SelectItem>
-                        <SelectItem value="6months">Last 6 Months</SelectItem>
-                        <SelectItem value="currentyear">Current Year</SelectItem>
-                        <SelectItem value="lastyear">Last Year</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-2 sm:p-4">
-                  <div className="w-full overflow-x-auto">
-                    <ResponsiveContainer width="100%" height={200} minWidth={300}>
-                      <LineChart data={monthlySales}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip contentStyle={{ fontSize: 12 }} />
-                        <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Competition Activity */}
             {competitionData.length > 0 && (
