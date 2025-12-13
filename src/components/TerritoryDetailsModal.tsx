@@ -17,6 +17,32 @@ import TerritorySupportRequestForm from './TerritorySupportRequestForm';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
 
+const SUPPORT_TYPES = [
+  { value: 'marketing_campaign', label: 'Marketing Campaign' },
+  { value: 'branding_material', label: 'Branding Material' },
+  { value: 'additional_manpower', label: 'Additional Manpower' },
+  { value: 'training_program', label: 'Training Program' },
+  { value: 'promotional_scheme', label: 'Promotional Scheme' },
+  { value: 'infrastructure', label: 'Infrastructure Support' },
+  { value: 'inventory_support', label: 'Inventory Support' },
+  { value: 'technology_tools', label: 'Technology/Tools' },
+  { value: 'other', label: 'Other' },
+];
+
+const PRIORITIES = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' },
+];
+
+const STATUSES = [
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
+];
+
 interface TerritoryDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -307,13 +333,33 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     if (!editingSupportRequest) return;
     
     try {
+      // Get parsed data if available
+      const parsedData = editingSupportRequest.parsedData || {};
+      
+      // Rebuild structured description with updated values
+      const structuredDescription = JSON.stringify({
+        support_type: editingSupportRequest.editSupportType || parsedData.support_type || '',
+        priority: editingSupportRequest.editPriority || parsedData.priority || 'medium',
+        estimated_budget: editingSupportRequest.editEstimatedBudget ?? parsedData.estimated_budget ?? null,
+        expected_impact: editingSupportRequest.editExpectedImpact ?? parsedData.expected_impact ?? '',
+        territory_id: parsedData.territory_id || '',
+        territory_name: parsedData.territory_name || '',
+        created_by_name: parsedData.created_by_name || '',
+        description: editingSupportRequest.editDescription ?? parsedData.description ?? '',
+      });
+
+      // Get support type label for subject
+      const supportTypeValue = editingSupportRequest.editSupportType || parsedData.support_type || '';
+      const supportTypeLabel = SUPPORT_TYPES.find(t => t.value === supportTypeValue)?.label || supportTypeValue;
+      const territoryName = parsedData.territory_name || '';
+      const newSubject = supportTypeLabel && territoryName ? `${supportTypeLabel} - ${territoryName}` : editingSupportRequest.subject;
+
       const { error } = await supabase
         .from('support_requests')
         .update({
-          subject: editingSupportRequest.subject,
-          description: editingSupportRequest.description,
-          status: editingSupportRequest.status,
-          priority: editingSupportRequest.priority,
+          subject: newSubject,
+          description: structuredDescription,
+          status: editingSupportRequest.editStatus || editingSupportRequest.status,
           resolution_notes: editingSupportRequest.resolution_notes,
         })
         .eq('id', editingSupportRequest.id);
@@ -429,7 +475,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 </Badge>
               )}
               <div className="flex-1 sm:ml-auto">
-                <TerritorySupportRequestForm territoryId={territory.id} territoryName={territory.name} />
+                <TerritorySupportRequestForm territoryId={territory.id} territoryName={territory.name} onSuccess={loadTerritoryData} />
               </div>
             </div>
 
@@ -651,41 +697,59 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               <CardContent className="p-3 sm:p-4">
                 {supportRequests.length > 0 ? (
                   <div className="space-y-3">
-                    {supportRequests.map((request) => (
-                      <div 
-                        key={request.id} 
-                        className="p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => setEditingSupportRequest(request)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm text-primary">{request.subject}</p>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{request.description}</p>
+                    {supportRequests.map((request) => {
+                      // Parse structured data from description if it's JSON
+                      let parsedData: any = null;
+                      try {
+                        parsedData = JSON.parse(request.description);
+                      } catch {
+                        // Not JSON, use as plain text
+                      }
+                      
+                      const displayTitle = parsedData?.support_type 
+                        ? SUPPORT_TYPES.find(t => t.value === parsedData.support_type)?.label || request.subject
+                        : request.subject;
+                      
+                      const displayPriority = parsedData?.priority || request.priority;
+                      
+                      return (
+                        <div 
+                          key={request.id} 
+                          className="p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setEditingSupportRequest({ ...request, parsedData })}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm text-primary">{displayTitle}</p>
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {parsedData?.description || request.description}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {getStatusBadge(request.status)}
+                              {displayPriority && (
+                                <Badge variant="outline" className={`text-xs ${
+                                  displayPriority === 'high' || displayPriority === 'urgent' ? 'bg-red-500/10 text-red-600' :
+                                  displayPriority === 'medium' ? 'bg-yellow-500/10 text-yellow-600' :
+                                  'bg-gray-500/10 text-gray-600'
+                                }`}>
+                                  {displayPriority}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            {getStatusBadge(request.status)}
-                            {request.priority && (
-                              <Badge variant="outline" className={`text-xs ${
-                                request.priority === 'high' ? 'bg-red-500/10 text-red-600' :
-                                request.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-600' :
-                                'bg-gray-500/10 text-gray-600'
-                              }`}>
-                                {request.priority}
-                              </Badge>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>{format(new Date(request.created_at), 'dd MMM yyyy, hh:mm a')}</span>
+                            {request.resolved_at && (
+                              <span className="text-green-600">Resolved: {format(new Date(request.resolved_at), 'dd MMM yyyy')}</span>
                             )}
+                            <Button variant="ghost" size="sm" className="ml-auto gap-1 text-xs h-6">
+                              <Eye className="h-3 w-3" /> View / Edit
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>{format(new Date(request.created_at), 'dd MMM yyyy')}</span>
-                          {request.resolved_at && (
-                            <span className="text-green-600">Resolved: {format(new Date(request.resolved_at), 'dd MMM yyyy')}</span>
-                          )}
-                          <Button variant="ghost" size="sm" className="ml-auto gap-1 text-xs h-6">
-                            <Eye className="h-3 w-3" /> View / Edit
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No support requests for this territory</p>
@@ -1016,90 +1080,149 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
 
       {/* Support Request Edit/View Dialog */}
       <Dialog open={!!editingSupportRequest} onOpenChange={(open) => !open && setEditingSupportRequest(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <HeartHandshake className="h-5 w-5 text-primary" />
               Support Request Details
             </DialogTitle>
           </DialogHeader>
-          {editingSupportRequest && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Subject</label>
-                <Input 
-                  value={editingSupportRequest.subject}
-                  onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, subject: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Textarea 
-                  value={editingSupportRequest.description}
-                  onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, description: e.target.value })}
-                  rows={4}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Status</label>
-                  <Select 
-                    value={editingSupportRequest.status}
-                    onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, status: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                    </SelectContent>
-                  </Select>
+          {editingSupportRequest && (() => {
+            // Parse structured data
+            const parsedData = editingSupportRequest.parsedData || {};
+            
+            // Initialize edit fields from parsed data or existing values
+            const supportType = editingSupportRequest.editSupportType ?? parsedData.support_type ?? '';
+            const priority = editingSupportRequest.editPriority ?? parsedData.priority ?? 'medium';
+            const status = editingSupportRequest.editStatus ?? editingSupportRequest.status ?? 'open';
+            const description = editingSupportRequest.editDescription ?? parsedData.description ?? editingSupportRequest.description ?? '';
+            const estimatedBudget = editingSupportRequest.editEstimatedBudget ?? parsedData.estimated_budget ?? '';
+            const expectedImpact = editingSupportRequest.editExpectedImpact ?? parsedData.expected_impact ?? '';
+            const createdByName = parsedData.created_by_name || 'Unknown';
+            const territoryName = parsedData.territory_name || '';
+            
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Support Type *</label>
+                    <Select 
+                      value={supportType}
+                      onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, editSupportType: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SUPPORT_TYPES.map(type => (
+                          <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Priority *</label>
+                    <Select 
+                      value={priority}
+                      onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, editPriority: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITIES.map(p => (
+                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Priority</label>
-                  <Select 
-                    value={editingSupportRequest.priority || 'medium'}
-                    onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, priority: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Status *</label>
+                    <Select 
+                      value={status}
+                      onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, editStatus: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Estimated Budget (₹)</label>
+                    <Input 
+                      type="number"
+                      value={estimatedBudget}
+                      onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editEstimatedBudget: e.target.value ? parseFloat(e.target.value) : null })}
+                      placeholder="Enter budget"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Description *</label>
+                  <Textarea 
+                    value={description}
+                    onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editDescription: e.target.value })}
+                    rows={4}
+                    placeholder="Describe the support needed..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Expected Impact</label>
+                  <Textarea 
+                    value={expectedImpact}
+                    onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editExpectedImpact: e.target.value })}
+                    rows={3}
+                    placeholder="Describe the expected impact..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Resolution Notes</label>
+                  <Textarea 
+                    value={editingSupportRequest.resolution_notes || ''}
+                    onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, resolution_notes: e.target.value })}
+                    placeholder="Add notes about the resolution..."
+                    rows={3}
+                  />
+                </div>
+
+                {/* Audit Information */}
+                <div className="bg-muted/30 p-3 rounded-lg space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Audit Information</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <p><span className="font-medium">Created By:</span> {createdByName}</p>
+                    <p><span className="font-medium">Territory:</span> {territoryName}</p>
+                    <p><span className="font-medium">Created:</span> {format(new Date(editingSupportRequest.created_at), 'dd MMM yyyy, hh:mm a')}</p>
+                    <p><span className="font-medium">Last Updated:</span> {format(new Date(editingSupportRequest.updated_at), 'dd MMM yyyy, hh:mm a')}</p>
+                    {editingSupportRequest.resolved_at && (
+                      <p className="text-green-600"><span className="font-medium">Resolved:</span> {format(new Date(editingSupportRequest.resolved_at), 'dd MMM yyyy, hh:mm a')}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setEditingSupportRequest(null)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdateSupportRequest}>
+                    Save Changes
+                  </Button>
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Resolution Notes</label>
-                <Textarea 
-                  value={editingSupportRequest.resolution_notes || ''}
-                  onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, resolution_notes: e.target.value })}
-                  placeholder="Add notes about the resolution..."
-                  rows={3}
-                />
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>Created: {format(new Date(editingSupportRequest.created_at), 'dd MMM yyyy, hh:mm a')}</p>
-                {editingSupportRequest.resolved_at && (
-                  <p>Resolved: {format(new Date(editingSupportRequest.resolved_at), 'dd MMM yyyy, hh:mm a')}</p>
-                )}
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setEditingSupportRequest(null)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateSupportRequest}>
-                  Save Changes
-                </Button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </Dialog>

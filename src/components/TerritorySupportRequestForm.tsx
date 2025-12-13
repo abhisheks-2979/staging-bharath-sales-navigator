@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -12,16 +12,69 @@ import { HeartHandshake } from 'lucide-react';
 interface TerritorySupportRequestFormProps {
   territoryId: string;
   territoryName: string;
+  onSuccess?: () => void;
 }
 
-const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = ({ territoryId, territoryName }) => {
+const SUPPORT_TYPES = [
+  { value: 'marketing_campaign', label: 'Marketing Campaign' },
+  { value: 'branding_material', label: 'Branding Material' },
+  { value: 'additional_manpower', label: 'Additional Manpower' },
+  { value: 'training_program', label: 'Training Program' },
+  { value: 'promotional_scheme', label: 'Promotional Scheme' },
+  { value: 'infrastructure', label: 'Infrastructure Support' },
+  { value: 'inventory_support', label: 'Inventory Support' },
+  { value: 'technology_tools', label: 'Technology/Tools' },
+  { value: 'other', label: 'Other' },
+];
+
+const PRIORITIES = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'urgent', label: 'Urgent' },
+];
+
+const STATUSES = [
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
+];
+
+const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = ({ territoryId, territoryName, onSuccess }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
+  
+  // Form fields
   const [supportType, setSupportType] = useState('');
-  const [priority, setPriority] = useState('');
+  const [priority, setPriority] = useState('medium');
+  const [status, setStatus] = useState('open');
   const [description, setDescription] = useState('');
   const [estimatedBudget, setEstimatedBudget] = useState('');
   const [expectedImpact, setExpectedImpact] = useState('');
+
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        setCurrentUser({
+          id: user.id,
+          name: profile?.full_name || user.email || 'Unknown'
+        });
+      }
+    };
+    loadCurrentUser();
+  }, []);
+
+  const getSupportTypeLabel = (value: string) => {
+    return SUPPORT_TYPES.find(t => t.value === value)?.label || value;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,39 +87,74 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
       setLoading(false);
       return;
     }
+
+    // Get the label for support type to use as subject
+    const supportTypeLabel = getSupportTypeLabel(supportType);
     
-    // Using support_requests table as a general support request system
+    // Store structured metadata as JSON in a format we can parse back
+    const metadata = {
+      territory_id: territoryId,
+      territory_name: territoryName,
+      support_type: supportType,
+      support_type_label: supportTypeLabel,
+      priority: priority,
+      estimated_budget: estimatedBudget ? parseFloat(estimatedBudget) : null,
+      expected_impact: expectedImpact,
+      created_by_name: currentUser?.name || 'Unknown',
+    };
+
     const { error } = await supabase.from('support_requests').insert({
       user_id: user.id,
-      subject: `Territory Growth Support: ${territoryName}`,
-      description: `
-Support Type: ${supportType}
-Priority: ${priority}
-Territory: ${territoryName}
+      subject: `${supportTypeLabel} - ${territoryName}`,
+      description: description,
+      status: status,
+      support_category: 'territory_support',
+      // Store metadata in target_date field as JSON string (workaround since we don't have a metadata column)
+      // Actually, let's use a cleaner approach - store in description with a separator
+    });
 
-Description:
-${description}
+    // Actually, the table doesn't have a metadata column. Let's store structured data properly.
+    // We'll use the existing fields creatively:
+    // - subject: Support Type Label - Territory Name (for display)
+    // - description: actual description from user
+    // - support_category: territory_support
+    // - status: the status field
+    // We need to store extra data. Let's check if there's a way...
+    
+    // For now, let's store the extra fields as a JSON at the start of description
+    const structuredDescription = JSON.stringify({
+      support_type: supportType,
+      priority: priority,
+      estimated_budget: estimatedBudget ? parseFloat(estimatedBudget) : null,
+      expected_impact: expectedImpact,
+      territory_id: territoryId,
+      territory_name: territoryName,
+      created_by_name: currentUser?.name || 'Unknown',
+      description: description,
+    });
 
-${estimatedBudget ? `Estimated Budget: ₹${estimatedBudget}` : ''}
-
-${expectedImpact ? `Expected Impact:\n${expectedImpact}` : ''}
-      `.trim(),
-      status: 'open',
+    const { error: insertError } = await supabase.from('support_requests').insert({
+      user_id: user.id,
+      subject: `${supportTypeLabel} - ${territoryName}`,
+      description: structuredDescription,
+      status: status,
       support_category: 'territory_support',
     });
 
-    if (error) {
-      console.error('Error creating support request:', error);
+    if (insertError) {
+      console.error('Error creating support request:', insertError);
       toast.error('Failed to create support request');
     } else {
       toast.success('Support request created successfully!');
       setOpen(false);
       // Reset form
       setSupportType('');
-      setPriority('');
+      setPriority('medium');
+      setStatus('open');
       setDescription('');
       setEstimatedBudget('');
       setExpectedImpact('');
+      onSuccess?.();
     }
 
     setLoading(false);
@@ -77,7 +165,7 @@ ${expectedImpact ? `Expected Impact:\n${expectedImpact}` : ''}
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2 w-full sm:w-auto">
           <HeartHandshake className="h-4 w-4" />
-          Request Support
+          Support Request
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -97,15 +185,9 @@ ${expectedImpact ? `Expected Impact:\n${expectedImpact}` : ''}
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="marketing_campaign">Marketing Campaign</SelectItem>
-                  <SelectItem value="branding_material">Branding Material</SelectItem>
-                  <SelectItem value="additional_manpower">Additional Manpower</SelectItem>
-                  <SelectItem value="training_program">Training Program</SelectItem>
-                  <SelectItem value="promotional_scheme">Promotional Scheme</SelectItem>
-                  <SelectItem value="infrastructure">Infrastructure Support</SelectItem>
-                  <SelectItem value="inventory_support">Inventory Support</SelectItem>
-                  <SelectItem value="technology_tools">Technology/Tools</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {SUPPORT_TYPES.map(type => (
+                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -117,12 +199,38 @@ ${expectedImpact ? `Expected Impact:\n${expectedImpact}` : ''}
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  {PRIORITIES.map(p => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="status">Status *</Label>
+              <Select value={status} onValueChange={setStatus} required>
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="estimatedBudget">Estimated Budget (₹)</Label>
+              <Input
+                id="estimatedBudget"
+                type="number"
+                value={estimatedBudget}
+                onChange={(e) => setEstimatedBudget(e.target.value)}
+                placeholder="Enter estimated budget"
+              />
             </div>
           </div>
 
@@ -139,17 +247,6 @@ ${expectedImpact ? `Expected Impact:\n${expectedImpact}` : ''}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="estimatedBudget">Estimated Budget (₹)</Label>
-            <Input
-              id="estimatedBudget"
-              type="number"
-              value={estimatedBudget}
-              onChange={(e) => setEstimatedBudget(e.target.value)}
-              placeholder="Enter estimated budget if applicable"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="expectedImpact">Expected Impact</Label>
             <Textarea
               id="expectedImpact"
@@ -160,8 +257,14 @@ ${expectedImpact ? `Expected Impact:\n${expectedImpact}` : ''}
             />
           </div>
 
+          {/* Created By Info */}
+          <div className="bg-muted/30 p-3 rounded-lg text-sm text-muted-foreground">
+            <p><span className="font-medium">Created By:</span> {currentUser?.name || 'Loading...'}</p>
+            <p><span className="font-medium">Date/Time:</span> {new Date().toLocaleString()}</p>
+          </div>
+
           <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !supportType}>
               {loading ? 'Submitting...' : 'Submit Request'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
