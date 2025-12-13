@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,17 @@ const STATUSES = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
+];
+
+const EXPECTED_IMPACTS = [
+  { value: 'high_revenue', label: 'High Revenue Increase (>20%)' },
+  { value: 'moderate_revenue', label: 'Moderate Revenue Increase (10-20%)' },
+  { value: 'low_revenue', label: 'Low Revenue Increase (<10%)' },
+  { value: 'market_share', label: 'Market Share Growth' },
+  { value: 'retailer_coverage', label: 'Improved Retailer Coverage' },
+  { value: 'brand_visibility', label: 'Enhanced Brand Visibility' },
+  { value: 'customer_retention', label: 'Better Customer Retention' },
+  { value: 'operational_efficiency', label: 'Operational Efficiency' },
 ];
 
 interface TerritoryDetailsModalProps {
@@ -591,6 +603,39 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     }
   };
 
+  const handleDeleteSupportRequest = async () => {
+    if (!editingSupportRequest) return;
+    
+    try {
+      // Move to recycle bin
+      const success = await moveToRecycleBin({
+        tableName: 'support_requests',
+        recordId: editingSupportRequest.id,
+        recordData: editingSupportRequest,
+        moduleName: 'Territory Support',
+        recordName: editingSupportRequest.subject || 'Support Request'
+      });
+      
+      if (success) {
+        // Delete from database
+        const { error: deleteError } = await supabase
+          .from('support_requests')
+          .delete()
+          .eq('id', editingSupportRequest.id);
+          
+        if (deleteError) throw deleteError;
+        
+        toast.success('Support request moved to recycle bin');
+        setEditingSupportRequest(null);
+        loadTerritoryData();
+      } else {
+        toast.error('Failed to delete support request');
+      }
+    } catch (error: any) {
+      toast.error('Failed to delete: ' + error.message);
+    }
+  };
+
   const navigateToProduct = (productId: string | undefined) => {
     if (productId) {
       onOpenChange(false);
@@ -691,9 +736,9 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 )}
               </div>
               {performanceFlag && (
-                <Badge className={`${getPerformanceBadgeColor()} px-3 py-2 gap-2 justify-center sm:justify-start flex-1 sm:flex-initial`}>
+                <Badge className={`${getPerformanceBadgeColor()} px-3 py-2 gap-2 justify-center sm:justify-start`}>
                   {getPerformanceIcon()}
-                  <span className="text-xs sm:text-sm font-medium">{performanceFlag}</span>
+                  <span className="text-xs sm:text-sm font-medium">Revenue: {performanceFlag}</span>
                 </Badge>
               )}
               <div className="flex-1 sm:ml-auto">
@@ -749,8 +794,16 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                       <p className="font-medium text-sm">{auditInfo.owner}</p>
                     </div>
                   )}
+                  {performanceFlag && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Revenue Growth Indicator</p>
+                      <Badge className={`text-xs mt-1 ${getPerformanceBadgeColor()}`}>
+                        {performanceFlag}
+                      </Badge>
+                    </div>
+                  )}
                   {growthPotential && (
-                    <div className="col-span-2">
+                    <div>
                       <p className="text-xs text-muted-foreground">Growth Potential</p>
                       <Badge className={`text-xs mt-1 ${
                         growthPotential === 'High growth territory' ? 'bg-green-500/20 text-green-700 border-green-500/30' :
@@ -1346,14 +1399,31 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Estimated Budget (₹)</label>
-                    <Input 
-                      type="number"
-                      value={estimatedBudget}
-                      onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editEstimatedBudget: e.target.value ? parseFloat(e.target.value) : null })}
-                      placeholder="Enter budget"
-                    />
+                    <label className="text-sm font-medium">Expected Impact</label>
+                    <Select 
+                      value={expectedImpact}
+                      onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, editExpectedImpact: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select expected impact" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EXPECTED_IMPACTS.map(impact => (
+                          <SelectItem key={impact.value} value={impact.value}>{impact.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Estimated Budget (₹)</label>
+                  <Input 
+                    type="number"
+                    value={estimatedBudget}
+                    onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editEstimatedBudget: e.target.value ? parseFloat(e.target.value) : null })}
+                    placeholder="Enter budget"
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -1363,16 +1433,6 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editDescription: e.target.value })}
                     rows={4}
                     placeholder="Describe the support needed..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Expected Impact</label>
-                  <Textarea 
-                    value={expectedImpact}
-                    onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, editExpectedImpact: e.target.value })}
-                    rows={3}
-                    placeholder="Describe the expected impact..."
                   />
                 </div>
 
@@ -1400,14 +1460,47 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setEditingSupportRequest(null)}>
-                    Cancel
+                <div className="flex justify-between gap-2 pt-2">
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setEditingSupportRequest({ ...editingSupportRequest, showDeleteConfirm: true })}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
                   </Button>
-                  <Button onClick={handleUpdateSupportRequest}>
-                    Save Changes
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setEditingSupportRequest(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleUpdateSupportRequest}>
+                      Save Changes
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Delete Confirmation */}
+                {editingSupportRequest.showDeleteConfirm && (
+                  <div className="border border-destructive/50 bg-destructive/10 rounded-lg p-4 mt-4">
+                    <p className="text-sm font-medium text-destructive mb-3">Are you sure you want to delete this support request?</p>
+                    <p className="text-xs text-muted-foreground mb-4">This item will be moved to the recycle bin and can be restored later.</p>
+                    <div className="flex gap-2 justify-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setEditingSupportRequest({ ...editingSupportRequest, showDeleteConfirm: false })}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={handleDeleteSupportRequest}
+                      >
+                        Confirm Delete
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}

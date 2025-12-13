@@ -41,6 +41,17 @@ const STATUSES = [
   { value: 'closed', label: 'Closed' },
 ];
 
+const EXPECTED_IMPACTS = [
+  { value: 'high_revenue', label: 'High Revenue Increase (>20%)' },
+  { value: 'moderate_revenue', label: 'Moderate Revenue Increase (10-20%)' },
+  { value: 'low_revenue', label: 'Low Revenue Increase (<10%)' },
+  { value: 'market_share', label: 'Market Share Growth' },
+  { value: 'retailer_coverage', label: 'Improved Retailer Coverage' },
+  { value: 'brand_visibility', label: 'Enhanced Brand Visibility' },
+  { value: 'customer_retention', label: 'Better Customer Retention' },
+  { value: 'operational_efficiency', label: 'Operational Efficiency' },
+];
+
 const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = ({ territoryId, territoryName, onSuccess }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,9 +61,9 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
   const [supportType, setSupportType] = useState('');
   const [priority, setPriority] = useState('medium');
   const [status, setStatus] = useState('open');
+  const [expectedImpact, setExpectedImpact] = useState('');
   const [description, setDescription] = useState('');
   const [estimatedBudget, setEstimatedBudget] = useState('');
-  const [expectedImpact, setExpectedImpact] = useState('');
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -78,6 +89,9 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (loading) return; // Prevent double submission
+    
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -91,37 +105,7 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
     // Get the label for support type to use as subject
     const supportTypeLabel = getSupportTypeLabel(supportType);
     
-    // Store structured metadata as JSON in a format we can parse back
-    const metadata = {
-      territory_id: territoryId,
-      territory_name: territoryName,
-      support_type: supportType,
-      support_type_label: supportTypeLabel,
-      priority: priority,
-      estimated_budget: estimatedBudget ? parseFloat(estimatedBudget) : null,
-      expected_impact: expectedImpact,
-      created_by_name: currentUser?.name || 'Unknown',
-    };
-
-    const { error } = await supabase.from('support_requests').insert({
-      user_id: user.id,
-      subject: `${supportTypeLabel} - ${territoryName}`,
-      description: description,
-      status: status,
-      support_category: 'territory_support',
-      // Store metadata in target_date field as JSON string (workaround since we don't have a metadata column)
-      // Actually, let's use a cleaner approach - store in description with a separator
-    });
-
-    // Actually, the table doesn't have a metadata column. Let's store structured data properly.
-    // We'll use the existing fields creatively:
-    // - subject: Support Type Label - Territory Name (for display)
-    // - description: actual description from user
-    // - support_category: territory_support
-    // - status: the status field
-    // We need to store extra data. Let's check if there's a way...
-    
-    // For now, let's store the extra fields as a JSON at the start of description
+    // Store structured data as JSON in description
     const structuredDescription = JSON.stringify({
       support_type: supportType,
       priority: priority,
@@ -151,9 +135,9 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
       setSupportType('');
       setPriority('medium');
       setStatus('open');
+      setExpectedImpact('');
       setDescription('');
       setEstimatedBudget('');
-      setExpectedImpact('');
       onSuccess?.();
     }
 
@@ -223,15 +207,29 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="estimatedBudget">Estimated Budget (₹)</Label>
-              <Input
-                id="estimatedBudget"
-                type="number"
-                value={estimatedBudget}
-                onChange={(e) => setEstimatedBudget(e.target.value)}
-                placeholder="Enter estimated budget"
-              />
+              <Label htmlFor="expectedImpact">Expected Impact</Label>
+              <Select value={expectedImpact} onValueChange={setExpectedImpact}>
+                <SelectTrigger id="expectedImpact">
+                  <SelectValue placeholder="Select expected impact" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPECTED_IMPACTS.map(impact => (
+                    <SelectItem key={impact.value} value={impact.value}>{impact.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="estimatedBudget">Estimated Budget (₹)</Label>
+            <Input
+              id="estimatedBudget"
+              type="number"
+              value={estimatedBudget}
+              onChange={(e) => setEstimatedBudget(e.target.value)}
+              placeholder="Enter estimated budget"
+            />
           </div>
 
           <div className="space-y-2">
@@ -243,17 +241,6 @@ const TerritorySupportRequestForm: React.FC<TerritorySupportRequestFormProps> = 
               placeholder="Describe the support needed and how it will help grow the territory..."
               rows={4}
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="expectedImpact">Expected Impact</Label>
-            <Textarea
-              id="expectedImpact"
-              value={expectedImpact}
-              onChange={(e) => setExpectedImpact(e.target.value)}
-              placeholder="Describe the expected impact on sales, market share, or other metrics..."
-              rows={3}
             />
           </div>
 

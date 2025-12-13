@@ -270,20 +270,31 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
           {selectedDay && (
             <div className="space-y-4">
               {/* Summary Stats */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-muted/50 rounded-lg text-center">
                   <p className="text-lg font-bold text-primary">{selectedDay.orderCount}</p>
                   <p className="text-xs text-muted-foreground">Orders</p>
                 </div>
                 <div className="p-3 bg-green-500/10 rounded-lg text-center">
-                  <p className="text-lg font-bold text-green-600">₹{selectedDay.totalRevenue.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-green-600">₹{selectedDay.totalRevenue.toLocaleString('en-IN')}</p>
                   <p className="text-xs text-muted-foreground">Revenue</p>
                 </div>
-                <div className="p-3 bg-purple-500/10 rounded-lg text-center">
-                  <p className="text-lg font-bold text-purple-600">{selectedDay.visits?.length || 0}</p>
-                  <p className="text-xs text-muted-foreground">Visits</p>
-                </div>
               </div>
+              
+              {/* Day Summary Button */}
+              {selectedDay.visits && selectedDay.visits.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2"
+                  onClick={() => {
+                    setDayDetailOpen(false);
+                    navigate(`/today-summary?date=${format(selectedDay.date, 'yyyy-MM-dd')}`);
+                  }}
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  View Day Summary
+                </Button>
+              )}
 
               {/* Visits Section */}
               {selectedDay.visits && selectedDay.visits.length > 0 && (
@@ -371,8 +382,7 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
                           {format(new Date(order.created_at), 'hh:mm a')}
                         </span>
                         <span className="flex items-center gap-1 text-green-600 font-medium">
-                          <DollarSign className="h-3 w-3" />
-                          ₹{Number(order.total_amount || 0).toLocaleString()}
+                          ₹{Number(order.total_amount || 0).toLocaleString('en-IN')}
                         </span>
                       </div>
                     </div>
