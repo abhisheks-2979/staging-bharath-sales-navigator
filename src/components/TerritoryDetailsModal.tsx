@@ -346,7 +346,10 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     variant="outline" 
                     size="sm" 
                     className="gap-2"
-                    onClick={() => onEdit(territory)}
+                    onClick={() => {
+                      onOpenChange(false);
+                      setTimeout(() => onEdit(territory), 100);
+                    }}
                   >
                     <Pencil className="h-4 w-4" />
                     Edit
@@ -449,7 +452,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                       <p className="text-xs text-muted-foreground">Assigned Distributors</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {distributors.map((d) => (
-                          <Badge key={d.id} variant="secondary" className="text-xs">
+                          <Badge 
+                            key={d.id} 
+                            variant="secondary" 
+                            className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                            onClick={() => {
+                              onOpenChange(false);
+                              navigate(`/distributor/${d.id}`);
+                            }}
+                          >
                             <Building className="h-3 w-3 mr-1" />
                             {d.name}
                           </Badge>
