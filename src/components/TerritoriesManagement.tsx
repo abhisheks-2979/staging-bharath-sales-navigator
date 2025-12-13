@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3, Pencil, Trash2, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3, Pencil, Trash2, TrendingUp, TrendingDown, Minus, Sparkles, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TerritoryDetailsModal from './TerritoryDetailsModal';
 
@@ -231,16 +231,40 @@ const TerritoriesManagement = () => {
           visits_this_month = visitsCount || 0;
         }
 
-        // Calculate performance status
-        let performance_status = 'Stable';
-        if (previous_month_sales > 0) {
-          const growthRate = ((total_sales - previous_month_sales) / previous_month_sales) * 100;
-          if (growthRate > 20) performance_status = 'High Growth';
-          else if (growthRate > 5) performance_status = 'Growing';
-          else if (growthRate < -10) performance_status = 'Declining';
-          else if (growthRate < 0) performance_status = 'Slow';
-        } else if (total_sales > 0) {
+        // Calculate performance status based on growth rate
+        let performance_status = 'New';
+        let growthRate = 0;
+        let needs_attention = false;
+        let attention_reason = '';
+        
+        if (retailersCount === 0 && total_sales === 0) {
           performance_status = 'New';
+        } else if (previous_month_sales > 0) {
+          growthRate = ((total_sales - previous_month_sales) / previous_month_sales) * 100;
+          if (growthRate > 25) performance_status = 'High Growth';
+          else if (growthRate > 10) performance_status = 'Growth';
+          else if (growthRate >= 5) performance_status = 'Stable';
+          else if (growthRate >= 0) performance_status = 'Stable';
+          else if (growthRate > -25) performance_status = 'Declining';
+          else performance_status = 'Steep Decline';
+        } else if (total_sales > 0) {
+          performance_status = 'Growth'; // Has sales but no previous month to compare
+        }
+        
+        // Determine if territory needs attention
+        const daysSinceLastVisit = last_visit_date 
+          ? Math.floor((new Date().getTime() - new Date(last_visit_date).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        
+        if (daysSinceLastVisit !== null && daysSinceLastVisit > 14 && total_sales > 10000) {
+          needs_attention = true;
+          attention_reason = 'Good performer not visited in ' + daysSinceLastVisit + ' days';
+        } else if (performance_status === 'Declining' || performance_status === 'Steep Decline') {
+          needs_attention = true;
+          attention_reason = 'Revenue declining - needs intervention';
+        } else if (retailersCount > 0 && visits_this_month === 0) {
+          needs_attention = true;
+          attention_reason = 'No visits this month';
         }
 
         return {
@@ -252,6 +276,9 @@ const TerritoriesManagement = () => {
           last_visit_date,
           visits_this_month,
           performance_status,
+          growth_rate: growthRate,
+          needs_attention,
+          attention_reason,
         };
       })
     );
@@ -801,36 +828,44 @@ const TerritoriesManagement = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                {t.performance_status === 'High Growth' && (
-                                  <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
-                                    <TrendingUp className="h-3 w-3" /> High Growth
-                                  </Badge>
-                                )}
-                                {t.performance_status === 'Growing' && (
-                                  <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1">
-                                    <TrendingUp className="h-3 w-3" /> Growing
-                                  </Badge>
-                                )}
-                                {t.performance_status === 'Stable' && (
-                                  <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
-                                    <Minus className="h-3 w-3" /> Stable
-                                  </Badge>
-                                )}
-                                {t.performance_status === 'Slow' && (
-                                  <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1">
-                                    <TrendingDown className="h-3 w-3" /> Slow
-                                  </Badge>
-                                )}
-                                {t.performance_status === 'Declining' && (
-                                  <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1">
-                                    <TrendingDown className="h-3 w-3" /> Declining
-                                  </Badge>
-                                )}
-                                {t.performance_status === 'New' && (
-                                  <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1">
-                                    <Sparkles className="h-3 w-3" /> New
-                                  </Badge>
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  {t.performance_status === 'High Growth' && (
+                                    <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
+                                      <TrendingUp className="h-3 w-3" /> High Growth
+                                    </Badge>
+                                  )}
+                                  {t.performance_status === 'Growth' && (
+                                    <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1">
+                                      <TrendingUp className="h-3 w-3" /> Growth
+                                    </Badge>
+                                  )}
+                                  {t.performance_status === 'Stable' && (
+                                    <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
+                                      <Minus className="h-3 w-3" /> Stable
+                                    </Badge>
+                                  )}
+                                  {t.performance_status === 'Declining' && (
+                                    <Badge className="bg-orange-500/20 text-orange-700 border-orange-500/30 gap-1">
+                                      <TrendingDown className="h-3 w-3" /> Declining
+                                    </Badge>
+                                  )}
+                                  {t.performance_status === 'Steep Decline' && (
+                                    <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1">
+                                      <TrendingDown className="h-3 w-3" /> Steep Decline
+                                    </Badge>
+                                  )}
+                                  {t.performance_status === 'New' && (
+                                    <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1">
+                                      <Sparkles className="h-3 w-3" /> New
+                                    </Badge>
+                                  )}
+                                </div>
+                                {t.needs_attention && (
+                                  <div className="flex items-center gap-1 text-xs text-amber-600" title={t.attention_reason}>
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <span className="truncate max-w-[150px]">{t.attention_reason}</span>
+                                  </div>
                                 )}
                               </div>
                             </TableCell>
@@ -972,37 +1007,45 @@ const TerritoriesManagement = () => {
                           </div>
 
                           {/* Performance Status */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">Performance:</span>
-                            {t.performance_status === 'High Growth' && (
-                              <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1 text-xs">
-                                <TrendingUp className="h-3 w-3" /> High Growth
-                              </Badge>
-                            )}
-                            {t.performance_status === 'Growing' && (
-                              <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1 text-xs">
-                                <TrendingUp className="h-3 w-3" /> Growing
-                              </Badge>
-                            )}
-                            {t.performance_status === 'Stable' && (
-                              <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1 text-xs">
-                                <Minus className="h-3 w-3" /> Stable
-                              </Badge>
-                            )}
-                            {t.performance_status === 'Slow' && (
-                              <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1 text-xs">
-                                <TrendingDown className="h-3 w-3" /> Slow
-                              </Badge>
-                            )}
-                            {t.performance_status === 'Declining' && (
-                              <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1 text-xs">
-                                <TrendingDown className="h-3 w-3" /> Declining
-                              </Badge>
-                            )}
-                            {t.performance_status === 'New' && (
-                              <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1 text-xs">
-                                <Sparkles className="h-3 w-3" /> New
-                              </Badge>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">Performance:</span>
+                              {t.performance_status === 'High Growth' && (
+                                <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1 text-xs">
+                                  <TrendingUp className="h-3 w-3" /> High Growth
+                                </Badge>
+                              )}
+                              {t.performance_status === 'Growth' && (
+                                <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1 text-xs">
+                                  <TrendingUp className="h-3 w-3" /> Growth
+                                </Badge>
+                              )}
+                              {t.performance_status === 'Stable' && (
+                                <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1 text-xs">
+                                  <Minus className="h-3 w-3" /> Stable
+                                </Badge>
+                              )}
+                              {t.performance_status === 'Declining' && (
+                                <Badge className="bg-orange-500/20 text-orange-700 border-orange-500/30 gap-1 text-xs">
+                                  <TrendingDown className="h-3 w-3" /> Declining
+                                </Badge>
+                              )}
+                              {t.performance_status === 'Steep Decline' && (
+                                <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1 text-xs">
+                                  <TrendingDown className="h-3 w-3" /> Steep Decline
+                                </Badge>
+                              )}
+                              {t.performance_status === 'New' && (
+                                <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1 text-xs">
+                                  <Sparkles className="h-3 w-3" /> New
+                                </Badge>
+                              )}
+                            </div>
+                            {t.needs_attention && (
+                              <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded">
+                                <AlertTriangle className="h-3 w-3" />
+                                <span>{t.attention_reason}</span>
+                              </div>
                             )}
                           </div>
 
