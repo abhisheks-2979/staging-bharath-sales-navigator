@@ -148,12 +148,9 @@ const TerritoriesManagement = () => {
     currentMonthStart.setDate(1);
     currentMonthStart.setHours(0, 0, 0, 0);
     
-    const previousMonthStart = new Date();
-    previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
-    previousMonthStart.setDate(1);
-    
-    const previousMonthEnd = new Date(currentMonthStart);
-    previousMonthEnd.setDate(0);
+    // For 6-month calculation (same as detail view)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const territoriesWithStats = await Promise.all(
       data.map(async (territory) => {
@@ -189,29 +186,38 @@ const TerritoriesManagement = () => {
         }
 
         let total_sales = 0;
-        let previous_month_sales = 0;
         let last_visit_date: string | null = null;
         let visits_this_month = 0;
+        let monthlyTotals: number[] = [];
         
         if (territoryRetailerIds.length > 0) {
-          // Current month sales
-          const { data: currentOrdersData } = await supabase
+          // Get all orders from last 6 months for proper growth calculation
+          const { data: allOrdersData } = await supabase
             .from('orders')
-            .select('total_amount')
+            .select('total_amount, created_at')
             .in('retailer_id', territoryRetailerIds)
-            .gte('created_at', currentMonthStart.toISOString());
+            .gte('created_at', sixMonthsAgo.toISOString())
+            .order('created_at', { ascending: false });
 
-          total_sales = currentOrdersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+          // Calculate monthly totals for last 6 months (same logic as detail view)
+          for (let i = 5; i >= 0; i--) {
+            const monthStart = new Date();
+            monthStart.setMonth(monthStart.getMonth() - i);
+            monthStart.setDate(1);
+            monthStart.setHours(0, 0, 0, 0);
+            const monthEnd = new Date(monthStart);
+            monthEnd.setMonth(monthEnd.getMonth() + 1);
+            
+            const monthTotal = allOrdersData?.filter(o => {
+              const orderDate = new Date(o.created_at);
+              return orderDate >= monthStart && orderDate < monthEnd;
+            }).reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+            
+            monthlyTotals.push(monthTotal);
+          }
           
-          // Previous month sales
-          const { data: previousOrdersData } = await supabase
-            .from('orders')
-            .select('total_amount')
-            .in('retailer_id', territoryRetailerIds)
-            .gte('created_at', previousMonthStart.toISOString())
-            .lte('created_at', previousMonthEnd.toISOString());
-
-          previous_month_sales = previousOrdersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+          // Current month sales is the last element
+          total_sales = monthlyTotals[monthlyTotals.length - 1] || 0;
 
           // Get last visit date
           const { data: lastVisit } = await supabase
@@ -234,32 +240,31 @@ const TerritoriesManagement = () => {
           visits_this_month = visitsCount || 0;
         }
 
-        // Calculate Revenue Growth Indicator based on monthly revenue growth
+        // Calculate Revenue Growth Indicator using same logic as detail view
         let performance_status = 'New';
         let growthRate = 0;
         let needs_attention = false;
         let attention_reason = '';
         
-        if (retailersCount === 0 && total_sales === 0) {
-          // New: 0 retailers AND 0 revenue
+        if (retailersCount === 0 && monthlyTotals.every(m => m === 0)) {
+          // New: 0 retailers AND 0 revenue across all months
           performance_status = 'New';
-        } else if (retailersCount > 0 && total_sales === 0 && previous_month_sales === 0) {
+        } else if (retailersCount > 0 && monthlyTotals.every(m => m === 0)) {
           // No Business: has retailers but no revenue at all
           performance_status = 'No Business';
-        } else if (previous_month_sales > 0) {
-          growthRate = ((total_sales - previous_month_sales) / previous_month_sales) * 100;
+        } else if (monthlyTotals.length >= 2) {
+          const currentMonth = monthlyTotals[monthlyTotals.length - 1];
+          const previousMonth = monthlyTotals[monthlyTotals.length - 2];
+          
+          growthRate = previousMonth > 0 
+            ? ((currentMonth - previousMonth) / previousMonth) * 100 
+            : (currentMonth > 0 ? 100 : 0);
+          
           if (growthRate > 25) performance_status = 'High Growth';
           else if (growthRate > 10) performance_status = 'Growth';
-          else if (growthRate >= 0) performance_status = 'Stable'; // 0-10% is Stable
-          else if (growthRate > -25) performance_status = 'Declining'; // 0% to -25%
-          else performance_status = 'Steep Decline'; // < -25%
-        } else if (total_sales > 0 && previous_month_sales === 0) {
-          // Had zero revenue last month but has revenue now - this is growth
-          performance_status = 'High Growth';
-        } else if (total_sales === 0 && previous_month_sales > 0) {
-          // Had revenue last month but zero now - steep decline
-          performance_status = 'Steep Decline';
-          growthRate = -100;
+          else if (growthRate >= 0) performance_status = 'Stable';
+          else if (growthRate > -25) performance_status = 'Declining';
+          else performance_status = 'Steep Decline';
         }
         
         // Determine if territory needs attention
@@ -314,7 +319,6 @@ const TerritoriesManagement = () => {
           owner_name,
           total_retailers: retailersCount,
           total_sales,
-          previous_month_sales,
           last_visit_date,
           visits_this_month,
           performance_status,
@@ -945,10 +949,6 @@ const TerritoriesManagement = () => {
                                   <span className="text-muted-foreground">Retailers:</span>
                                   <span className="font-medium">{t.total_retailers}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground">Revenue:</span>
-                                  <span className="font-medium text-primary">₹{t.total_sales?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</span>
-                                </div>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -1134,21 +1134,17 @@ const TerritoriesManagement = () => {
                           )}
 
                           {/* Metrics */}
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <div className="text-xs text-muted-foreground">Revenue (Month)</div>
-                              <div className="text-lg font-bold text-primary">₹{t.total_sales?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</div>
-                            </div>
+                          <div className="grid grid-cols-1 gap-3">
                             <div className="space-y-1">
                               <div className="text-xs text-muted-foreground">Retailers</div>
                               <div className="text-lg font-bold">{t.total_retailers}</div>
                             </div>
                           </div>
 
-                          {/* Performance Status */}
+                          {/* Revenue Growth Indicator */}
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Performance:</span>
+                              <span className="text-xs text-muted-foreground">Revenue Indicator:</span>
                               {t.performance_status === 'High Growth' && (
                                 <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1 text-xs">
                                   <TrendingUp className="h-3 w-3" /> High Growth
