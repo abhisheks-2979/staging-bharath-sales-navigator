@@ -73,6 +73,7 @@ const TerritoriesManagement = () => {
   const [filterUser, setFilterUser] = useState('all');
   const [filterDistributor, setFilterDistributor] = useState('all');
   const [filterLastVisited, setFilterLastVisited] = useState('all');
+  const [filterRevenueIndicator, setFilterRevenueIndicator] = useState('all');
   const [filterGrowthPotential, setFilterGrowthPotential] = useState('all');
   const [users, setUsers] = useState<any[]>([]);
   const [distributors, setDistributors] = useState<any[]>([]);
@@ -233,24 +234,32 @@ const TerritoriesManagement = () => {
           visits_this_month = visitsCount || 0;
         }
 
-        // Calculate performance status based on growth rate
+        // Calculate Revenue Growth Indicator based on monthly revenue growth
         let performance_status = 'New';
         let growthRate = 0;
         let needs_attention = false;
         let attention_reason = '';
         
         if (retailersCount === 0 && total_sales === 0) {
+          // New: 0 retailers AND 0 revenue
           performance_status = 'New';
+        } else if (retailersCount > 0 && total_sales === 0 && previous_month_sales === 0) {
+          // No Business: has retailers but no revenue at all
+          performance_status = 'No Business';
         } else if (previous_month_sales > 0) {
           growthRate = ((total_sales - previous_month_sales) / previous_month_sales) * 100;
           if (growthRate > 25) performance_status = 'High Growth';
           else if (growthRate > 10) performance_status = 'Growth';
-          else if (growthRate >= 5) performance_status = 'Stable';
-          else if (growthRate >= 0) performance_status = 'Stable';
-          else if (growthRate > -25) performance_status = 'Declining';
-          else performance_status = 'Steep Decline';
-        } else if (total_sales > 0) {
-          performance_status = 'Growth'; // Has sales but no previous month to compare
+          else if (growthRate >= 0) performance_status = 'Stable'; // 0-10% is Stable
+          else if (growthRate > -25) performance_status = 'Declining'; // 0% to -25%
+          else performance_status = 'Steep Decline'; // < -25%
+        } else if (total_sales > 0 && previous_month_sales === 0) {
+          // Had zero revenue last month but has revenue now - this is growth
+          performance_status = 'High Growth';
+        } else if (total_sales === 0 && previous_month_sales > 0) {
+          // Had revenue last month but zero now - steep decline
+          performance_status = 'Steep Decline';
+          growthRate = -100;
         }
         
         // Determine if territory needs attention
@@ -460,7 +469,10 @@ const TerritoriesManagement = () => {
     // Growth potential filter
     const matchesGrowthPotential = filterGrowthPotential === 'all' || t.growth_potential === filterGrowthPotential;
     
-    return matchesSearch && matchesUser && matchesDistributor && matchesLastVisited && matchesGrowthPotential;
+    // Revenue indicator filter
+    const matchesRevenueIndicator = filterRevenueIndicator === 'all' || t.performance_status === filterRevenueIndicator;
+    
+    return matchesSearch && matchesUser && matchesDistributor && matchesLastVisited && matchesGrowthPotential && matchesRevenueIndicator;
   });
 
   const handleDeleteTerritory = async () => {
@@ -807,7 +819,7 @@ const TerritoriesManagement = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
               <div><Label>Search</Label><Input placeholder="Search territory..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
               <div><Label>Filter by User</Label>
                 <Select value={filterUser} onValueChange={setFilterUser}>
@@ -843,6 +855,21 @@ const TerritoriesManagement = () => {
                     <SelectItem value="Average growth territory">Average Growth</SelectItem>
                     <SelectItem value="Low growth territory">Low Growth</SelectItem>
                     <SelectItem value="De-growth territory">De-growth</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Revenue Indicator</Label>
+                <Select value={filterRevenueIndicator} onValueChange={setFilterRevenueIndicator}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="High Growth">High Growth</SelectItem>
+                    <SelectItem value="Growth">Growth</SelectItem>
+                    <SelectItem value="Stable">Stable</SelectItem>
+                    <SelectItem value="Declining">Declining</SelectItem>
+                    <SelectItem value="Steep Decline">Steep Decline</SelectItem>
+                    <SelectItem value="New">New</SelectItem>
+                    <SelectItem value="No Business">No Business</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -972,6 +999,11 @@ const TerritoriesManagement = () => {
                                 {t.performance_status === 'New' && (
                                   <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1">
                                     <Sparkles className="h-3 w-3" /> New
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'No Business' && (
+                                  <Badge className="bg-gray-500/20 text-gray-700 border-gray-500/30 gap-1">
+                                    <Minus className="h-3 w-3" /> No Business
                                   </Badge>
                                 )}
                               </div>
@@ -1145,6 +1177,11 @@ const TerritoriesManagement = () => {
                               {t.performance_status === 'New' && (
                                 <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1 text-xs">
                                   <Sparkles className="h-3 w-3" /> New
+                                </Badge>
+                              )}
+                              {t.performance_status === 'No Business' && (
+                                <Badge className="bg-gray-500/20 text-gray-700 border-gray-500/30 gap-1 text-xs">
+                                  <Minus className="h-3 w-3" /> No Business
                                 </Badge>
                               )}
                             </div>
