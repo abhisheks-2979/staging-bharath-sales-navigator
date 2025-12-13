@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, subMonths, subQuarters, startOfYear, endOfYear, subYears } from 'date-fns';
 import TerritorySupportRequestForm from './TerritorySupportRequestForm';
 import TerritoryPerformanceCalendar from './TerritoryPerformanceCalendar';
+import { RetailerDetailModal } from './RetailerDetailModal';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
 
@@ -78,6 +79,8 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [topRetailersWithIds, setTopRetailersWithIds] = useState<any[]>([]);
   const [bottomRetailersWithIds, setBottomRetailersWithIds] = useState<any[]>([]);
   const [entityFilter, setEntityFilter] = useState<'retailers' | 'distributors'>('retailers');
+  const [selectedRetailerForModal, setSelectedRetailerForModal] = useState<any>(null);
+  const [retailerDetailModalOpen, setRetailerDetailModalOpen] = useState(false);
 
   const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
@@ -163,7 +166,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         .order('created_at', { ascending: false });
       setSupportRequests(supportData || []);
 
-      const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address, phone, last_visit_date, last_order_value, last_order_date').eq('territory_id', territory.id);
+      // Fetch full retailer data for the territory
+      const { data: retailersData } = await supabase
+        .from('retailers')
+        .select('id, name, category, address, phone, last_visit_date, last_order_value, last_order_date, priority, status, beat_id, territory_id, notes, parent_type, parent_name, location_tag, retail_type, potential, competitors, gst_number, latitude, longitude, photo_url, order_value, manual_credit_score')
+        .eq('territory_id', territory.id);
       const matchingRetailers = retailersData || [];
       setRetailers(matchingRetailers);
 
@@ -381,8 +388,12 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
 
   const navigateToRetailer = (retailerId: string | undefined) => {
     if (retailerId) {
-      onOpenChange(false);
-      navigate(`/retailer/${retailerId}`);
+      // Find the full retailer data from our list
+      const retailerData = retailers.find(r => r.id === retailerId);
+      if (retailerData) {
+        setSelectedRetailerForModal(retailerData);
+        setRetailerDetailModalOpen(true);
+      }
     }
   };
 
@@ -514,7 +525,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground"># of Retailers</p>
-                    <p className="font-medium text-sm">{territory.retailer_count || salesSummary.totalRetailers}</p>
+                    <p className="font-medium text-sm">{salesSummary.totalRetailers}</p>
                   </div>
                   {auditInfo.owner && (
                     <div>
@@ -787,7 +798,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                           </TableHeader>
                           <TableBody>
                             {retailers.map(r => (
-                              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/retailer/${r.id}`)}>
+                              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToRetailer(r.id)}>
                                 <TableCell className="text-xs sm:text-sm font-medium text-primary">{r.name}</TableCell>
                                 <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{r.category || '-'}</Badge></TableCell>
                                 <TableCell className="text-xs sm:text-sm">{r.last_order_value ? `₹${Number(r.last_order_value).toLocaleString()}` : '-'}</TableCell>
@@ -1074,6 +1085,20 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Retailer Detail Modal */}
+      <RetailerDetailModal
+        isOpen={retailerDetailModalOpen}
+        onClose={() => {
+          setRetailerDetailModalOpen(false);
+          setSelectedRetailerForModal(null);
+        }}
+        retailer={selectedRetailerForModal}
+        onSuccess={() => {
+          setRetailerDetailModalOpen(false);
+          loadTerritoryData();
+        }}
+      />
     </Dialog>
   );
 };
