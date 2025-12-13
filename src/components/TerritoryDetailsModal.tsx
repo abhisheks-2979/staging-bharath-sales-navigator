@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight } from 'lucide-react';
+import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, subMonths } from 'date-fns';
 import TerritoryPerformanceReport from './TerritoryPerformanceReport';
@@ -18,9 +18,10 @@ interface TerritoryDetailsModalProps {
   onOpenChange: (open: boolean) => void;
   territory: any;
   onEdit?: (territory: any) => void;
+  onDelete?: (territory: any) => void;
 }
 
-const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onOpenChange, territory, onEdit }) => {
+const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onOpenChange, territory, onEdit, onDelete }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [distributors, setDistributors] = useState<any[]>([]);
@@ -60,8 +61,16 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         }
       }
 
-      const { data: distributorsData } = await supabase.from('distributors').select('id, name, contact_person, phone, status, outstanding_amount').eq('territory_id', territory.id);
-      setDistributors(distributorsData || []);
+      // Get distributors from assigned_distributor_ids array
+      let distributorsData: any[] = [];
+      if (territory.assigned_distributor_ids && territory.assigned_distributor_ids.length > 0) {
+        const { data } = await supabase
+          .from('distributors')
+          .select('id, name, contact_person, phone, status, outstanding_amount')
+          .in('id', territory.assigned_distributor_ids);
+        distributorsData = data || [];
+      }
+      setDistributors(distributorsData);
 
       const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address, phone, last_visit_date, last_order_value, last_order_date').eq('territory_id', territory.id);
       const matchingRetailers = retailersData || [];
@@ -259,8 +268,32 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </Card>
             )}
 
-            {/* Performance Flag & Support Request */}
+            {/* Action Buttons & Performance Flag */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+              <div className="flex items-center gap-2">
+                {onEdit && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2"
+                    onClick={() => onEdit(territory)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                )}
+                {onDelete && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => onDelete(territory)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                )}
+              </div>
               {performanceFlag && (
                 <Badge className={`${getPerformanceBadgeColor()} px-3 py-2 gap-2 justify-center sm:justify-start flex-1 sm:flex-initial`}>
                   {getPerformanceIcon()}

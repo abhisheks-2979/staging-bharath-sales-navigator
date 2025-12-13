@@ -9,6 +9,7 @@ import { toast } from "sonner";
 interface Territory {
   id: string;
   name: string;
+  region: string;
   territory_type: string | null;
 }
 
@@ -27,33 +28,19 @@ export function DistributorTerritories({ distributorId }: Props) {
 
   const loadTerritories = async () => {
     try {
-      // Get territories via beats linked to this distributor
-      const { data: beats, error: beatsError } = await supabase
-        .from('beats')
-        .select('territory_id')
-        .eq('distributor_id', distributorId)
-        .not('territory_id', 'is', null);
-
-      if (beatsError) throw beatsError;
-
-      const territoryIds = [...new Set(beats?.map(b => b.territory_id).filter(Boolean))] as string[];
-
-      if (territoryIds.length === 0) {
-        setTerritories([]);
-        setLoading(false);
-        return;
-      }
-
+      // Get territories that have this distributor in their assigned_distributor_ids array
       const { data, error } = await supabase
         .from('territories')
-        .select('id, name, territory_type')
-        .in('id', territoryIds)
+        .select('id, name, region, territory_type')
+        .contains('assigned_distributor_ids', [distributorId])
         .order('name');
 
       if (error) throw error;
       setTerritories(data || []);
     } catch (error: any) {
-      toast.error("Failed to load territories: " + error.message);
+      console.error("Failed to load territories:", error.message);
+      // Don't show error toast, just set empty
+      setTerritories([]);
     } finally {
       setLoading(false);
     }
@@ -76,9 +63,9 @@ export function DistributorTerritories({ distributorId }: Props) {
           </div>
         ) : territories.length === 0 ? (
           <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground">No territories found</p>
+            <p className="text-sm text-muted-foreground">No territories assigned</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Territories are derived from linked beats
+              Assign this distributor to territories in Territory Master
             </p>
           </div>
         ) : (
@@ -90,14 +77,15 @@ export function DistributorTerritories({ distributorId }: Props) {
                 onClick={() => navigate(`/territories-and-distributors`)}
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Map className="h-4 w-4 text-blue-600" />
+                  <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <Map className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-sm">{territory.name}</p>
+                    <p className="font-medium text-sm text-primary hover:underline">{territory.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline" className="text-xs">{territory.region}</Badge>
                       {territory.territory_type && (
-                        <Badge variant="outline" className="text-xs capitalize">
+                        <Badge variant="secondary" className="text-xs capitalize">
                           {territory.territory_type}
                         </Badge>
                       )}
