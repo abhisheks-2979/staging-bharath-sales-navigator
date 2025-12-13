@@ -7,14 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TerritoryDetailsModal from './TerritoryDetailsModal';
-import TerritoryDashboard from './TerritoryDashboard';
+
 import { format } from 'date-fns';
 import {
   AlertDialog,
@@ -52,7 +52,6 @@ const TerritoriesManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedTerritory, setSelectedTerritory] = useState<any>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('list');
   const [editingTerritoryId, setEditingTerritoryId] = useState<string | null>(null);
   
   const [territoryName, setTerritoryName] = useState('');
@@ -142,65 +141,54 @@ const TerritoriesManagement = () => {
       return;
     }
 
+    const currentMonthStart = new Date();
+    currentMonthStart.setDate(1);
+    currentMonthStart.setHours(0, 0, 0, 0);
+    
+    const previousMonthStart = new Date();
+    previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
+    previousMonthStart.setDate(1);
+    
+    const previousMonthEnd = new Date(currentMonthStart);
+    previousMonthEnd.setDate(0);
+
     const territoriesWithStats = await Promise.all(
       data.map(async (territory) => {
-        let assigned_user_name = 'Unassigned';
-        if (territory.assigned_user_id) {
+        // Get owner name
+        let owner_name = 'Unassigned';
+        if (territory.owner_id) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('full_name')
-            .eq('id', territory.assigned_user_id)
+            .eq('id', territory.owner_id)
             .maybeSingle();
-          assigned_user_name = profile?.full_name || 'Unassigned';
+          owner_name = profile?.full_name || 'Unassigned';
         }
 
         // Get retailers that match any of the territory's PIN codes
         let retailersCount = 0;
+        let territoryRetailerIds: string[] = [];
         if (territory.pincode_ranges && territory.pincode_ranges.length > 0) {
           const { data: retailers } = await supabase
             .from('retailers')
             .select('id, address');
           
           if (retailers) {
-            retailersCount = retailers.filter(r => {
+            const matchingRetailers = retailers.filter(r => {
               const address = r.address || '';
               return territory.pincode_ranges.some((pin: string) => 
                 address.includes(pin)
               );
-            }).length;
+            });
+            retailersCount = matchingRetailers.length;
+            territoryRetailerIds = matchingRetailers.map(r => r.id);
           }
-        }
-
-        // Get sales for this month and previous month
-        const currentMonthStart = new Date();
-        currentMonthStart.setDate(1);
-        
-        const previousMonthStart = new Date();
-        previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
-        previousMonthStart.setDate(1);
-        
-        const previousMonthEnd = new Date(currentMonthStart);
-        previousMonthEnd.setDate(0); // Last day of previous month
-        
-        // Get all orders and filter by retailers in this territory
-        const { data: allRetailers } = await supabase
-          .from('retailers')
-          .select('id, address');
-        
-        let territoryRetailerIds: string[] = [];
-        if (allRetailers && territory.pincode_ranges) {
-          territoryRetailerIds = allRetailers
-            .filter(r => {
-              const address = r.address || '';
-              return territory.pincode_ranges.some((pin: string) => 
-                address.includes(pin)
-              );
-            })
-            .map(r => r.id);
         }
 
         let total_sales = 0;
         let previous_month_sales = 0;
+        let last_visit_date: string | null = null;
+        let visits_this_month = 0;
         
         if (territoryRetailerIds.length > 0) {
           // Current month sales
@@ -221,14 +209,36 @@ const TerritoriesManagement = () => {
             .lte('created_at', previousMonthEnd.toISOString());
 
           previous_month_sales = previousOrdersData?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
+
+          // Get last visit date
+          const { data: lastVisit } = await supabase
+            .from('visits')
+            .select('planned_date')
+            .in('retailer_id', territoryRetailerIds)
+            .order('planned_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          last_visit_date = lastVisit?.planned_date || null;
+
+          // Get visits this month
+          const { count: visitsCount } = await supabase
+            .from('visits')
+            .select('id', { count: 'exact', head: true })
+            .in('retailer_id', territoryRetailerIds)
+            .gte('planned_date', currentMonthStart.toISOString().split('T')[0]);
+
+          visits_this_month = visitsCount || 0;
         }
 
         return {
           ...territory,
-          assigned_user_name,
+          owner_name,
           total_retailers: retailersCount,
           total_sales,
           previous_month_sales,
+          last_visit_date,
+          visits_this_month,
         };
       })
     );
@@ -379,7 +389,7 @@ const TerritoriesManagement = () => {
   if (loading) return <div className="flex items-center justify-center p-8">Loading...</div>;
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Territories Management</h2>
         <Button onClick={() => setShowForm(!showForm)} className="gap-2">
@@ -387,12 +397,7 @@ const TerritoriesManagement = () => {
         </Button>
       </div>
 
-      <TabsList className="grid w-full grid-cols-2 max-w-md">
-        <TabsTrigger value="list">Territory List</TabsTrigger>
-        <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="list" className="space-y-6">
+      <div className="space-y-6">
         {showForm && (
           <Card>
             <CardHeader><CardTitle>{editingTerritoryId ? 'Edit Territory' : 'Add New Territory'}</CardTitle></CardHeader>
@@ -723,7 +728,7 @@ const TerritoriesManagement = () => {
                         <TableHead>Territory</TableHead>
                         <TableHead>Hierarchy</TableHead>
                         <TableHead>Metrics</TableHead>
-                        <TableHead>Performance</TableHead>
+                        <TableHead>Visits</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -731,7 +736,6 @@ const TerritoriesManagement = () => {
                       {filteredTerritories.map((t) => {
                         const parentTerritory = territories.find(pt => pt.id === t.parent_id);
                         const grandParentTerritory = parentTerritory ? territories.find(gt => gt.id === parentTerritory.parent_id) : null;
-                        const salesGrowth = t.previous_month_sales ? ((t.total_sales - t.previous_month_sales) / t.previous_month_sales) * 100 : 0;
                         
                         return (
                           <TableRow key={t.id}>
@@ -776,31 +780,25 @@ const TerritoriesManagement = () => {
                                   <span className="text-muted-foreground">Retailers:</span>
                                   <span className="font-medium">{t.total_retailers}</span>
                                 </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {t.pincode_ranges?.slice(0, 2).map((pin, idx) => (
-                                    <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
-                                  ))}
-                                  {t.pincode_ranges?.length > 2 && (
-                                    <Badge variant="outline" className="text-xs">+{t.pincode_ranges.length - 2}</Badge>
-                                  )}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">Revenue:</span>
+                                  <span className="font-medium text-primary">₹{t.total_sales?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</span>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="space-y-2">
-                                <div className="font-medium text-primary">
-                                  ₹{t.total_sales?.toFixed(2) || '0.00'}
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">Owner:</span>
+                                  <span className="font-medium">{t.owner_name || 'Unassigned'}</span>
                                 </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {salesGrowth > 10 && (
-                                    <Badge className="bg-green-500 text-white text-xs">High Growth</Badge>
-                                  )}
-                                  {salesGrowth < -10 && (
-                                    <Badge variant="destructive" className="text-xs">Declining</Badge>
-                                  )}
-                                  {t.target_market_size && t.total_sales && (t.total_sales / t.target_market_size) < 0.3 && (
-                                    <Badge className="bg-blue-500 text-white text-xs">High Potential</Badge>
-                                  )}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">Last Visit:</span>
+                                  <span className="font-medium">{t.last_visit_date ? format(new Date(t.last_visit_date), 'dd MMM yyyy') : '-'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">This Month:</span>
+                                  <Badge variant="secondary" className="text-xs">{t.visits_this_month} visits</Badge>
                                 </div>
                               </div>
                             </TableCell>
@@ -848,7 +846,6 @@ const TerritoriesManagement = () => {
                   {filteredTerritories.map((t) => {
                     const parentTerritory = territories.find(pt => pt.id === t.parent_id);
                     const grandParentTerritory = parentTerritory ? territories.find(gt => gt.id === parentTerritory.parent_id) : null;
-                    const salesGrowth = t.previous_month_sales ? ((t.total_sales - t.previous_month_sales) / t.previous_month_sales) * 100 : 0;
                     
                     return (
                       <Card key={t.id} className="overflow-hidden">
@@ -914,26 +911,11 @@ const TerritoriesManagement = () => {
                             </div>
                           )}
 
-                          {/* Performance Flags */}
-                          {(salesGrowth > 10 || salesGrowth < -10 || (t.target_market_size && t.total_sales && (t.total_sales / t.target_market_size) < 0.3)) && (
-                            <div className="flex flex-wrap gap-1">
-                              {salesGrowth > 10 && (
-                                <Badge className="bg-green-500 text-white text-xs">High Growth</Badge>
-                              )}
-                              {salesGrowth < -10 && (
-                                <Badge variant="destructive" className="text-xs">Declining</Badge>
-                              )}
-                              {t.target_market_size && t.total_sales && (t.total_sales / t.target_market_size) < 0.3 && (
-                                <Badge className="bg-blue-500 text-white text-xs">High Potential</Badge>
-                              )}
-                            </div>
-                          )}
-
                           {/* Metrics */}
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                              <div className="text-xs text-muted-foreground">Sales (Month)</div>
-                              <div className="text-lg font-bold text-primary">₹{t.total_sales?.toFixed(2) || '0.00'}</div>
+                              <div className="text-xs text-muted-foreground">Revenue (Month)</div>
+                              <div className="text-lg font-bold text-primary">₹{t.total_sales?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</div>
                             </div>
                             <div className="space-y-1">
                               <div className="text-xs text-muted-foreground">Retailers</div>
@@ -941,20 +923,24 @@ const TerritoriesManagement = () => {
                             </div>
                           </div>
 
-                          {/* PIN Codes */}
-                          {t.pincode_ranges && t.pincode_ranges.length > 0 && (
-                            <div className="space-y-1">
-                              <div className="text-xs text-muted-foreground">PIN Codes</div>
-                              <div className="flex flex-wrap gap-1">
-                                {t.pincode_ranges.slice(0, 3).map((pin, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
-                                ))}
-                                {t.pincode_ranges.length > 3 && (
-                                  <Badge variant="outline" className="text-xs">+{t.pincode_ranges.length - 3}</Badge>
-                                )}
+                          {/* Visits Info */}
+                          <div className="space-y-2 p-2 bg-muted/50 rounded-lg">
+                            <div className="text-xs font-medium text-muted-foreground">Visits</div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Owner: </span>
+                                <span className="font-medium">{t.owner_name || 'Unassigned'}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">This Month: </span>
+                                <Badge variant="secondary" className="text-xs">{t.visits_this_month}</Badge>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-muted-foreground">Last Visit: </span>
+                                <span className="font-medium">{t.last_visit_date ? format(new Date(t.last_visit_date), 'dd MMM yyyy') : '-'}</span>
                               </div>
                             </div>
-                          )}
+                          </div>
 
                           {/* Sub-territories */}
                           {(t.child_territories_count || 0) > 0 && (
@@ -969,11 +955,9 @@ const TerritoriesManagement = () => {
             )}
           </CardContent>
         </Card>
-      </TabsContent>
+      </div>
 
-      <TabsContent value="dashboard"><TerritoryDashboard /></TabsContent>
-
-      <TerritoryDetailsModal 
+      <TerritoryDetailsModal
         open={detailsModalOpen} 
         onOpenChange={setDetailsModalOpen} 
         territory={selectedTerritory}
@@ -1001,7 +985,7 @@ const TerritoriesManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Tabs>
+    </div>
   );
 };
 
