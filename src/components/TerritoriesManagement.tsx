@@ -11,11 +11,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3 } from 'lucide-react';
+import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TerritoryDetailsModal from './TerritoryDetailsModal';
 import TerritoryDashboard from './TerritoryDashboard';
 import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 
 interface Territory {
   id: string;
@@ -60,10 +71,13 @@ const TerritoriesManagement = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterUser, setFilterUser] = useState('all');
+  const [filterDistributor, setFilterDistributor] = useState('all');
   const [users, setUsers] = useState<any[]>([]);
   const [distributors, setDistributors] = useState<any[]>([]);
   const [userComboOpen, setUserComboOpen] = useState(false);
   const [distributorComboOpen, setDistributorComboOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [territoryToDelete, setTerritoryToDelete] = useState<any>(null);
 
   useEffect(() => {
     loadTerritories();
@@ -319,9 +333,43 @@ const TerritoriesManagement = () => {
 
   const filteredTerritories = territories.filter(t => {
     const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesUser = filterUser === 'all' || t.assigned_user_id === filterUser;
-    return matchesSearch && matchesUser;
+    const matchesUser = filterUser === 'all' || t.assigned_user_id === filterUser || t.assigned_user_ids?.includes(filterUser);
+    const matchesDistributor = filterDistributor === 'all' || t.assigned_distributor_ids?.includes(filterDistributor);
+    return matchesSearch && matchesUser && matchesDistributor;
   });
+
+  const handleDeleteTerritory = async () => {
+    if (!territoryToDelete) return;
+    
+    try {
+      await moveToRecycleBin({
+        tableName: 'territories',
+        recordId: territoryToDelete.id,
+        recordData: territoryToDelete,
+        moduleName: 'Territories',
+        recordName: territoryToDelete.name
+      });
+
+      const { error } = await supabase
+        .from('territories')
+        .delete()
+        .eq('id', territoryToDelete.id);
+
+      if (error) throw error;
+
+      toast.success("Territory moved to recycle bin");
+      setTerritoryToDelete(null);
+      setDeleteConfirmOpen(false);
+      loadTerritories();
+    } catch (error: any) {
+      toast.error("Failed to delete: " + error.message);
+    }
+  };
+
+  const openTerritoryDetails = (territory: any) => {
+    setSelectedTerritory(territory);
+    setDetailsModalOpen(true);
+  };
 
   if (loading) return <div className="flex items-center justify-center p-8">Loading...</div>;
 
@@ -620,12 +668,18 @@ const TerritoriesManagement = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div><Label>Search</Label><Input placeholder="Search territory..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
               <div><Label>Filter by User</Label>
                 <Select value={filterUser} onValueChange={setFilterUser}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="all">All Users</SelectItem>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Filter by Distributor</Label>
+                <Select value={filterDistributor} onValueChange={setFilterDistributor}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="all">All Distributors</SelectItem>{distributors.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
@@ -662,7 +716,7 @@ const TerritoriesManagement = () => {
                               <div className="space-y-1">
                                 <div 
                                   className="font-medium text-primary cursor-pointer hover:underline"
-                                  onClick={() => handleEditTerritory(t)}
+                                  onClick={() => openTerritoryDetails(t)}
                                 >
                                   {t.name}
                                 </div>
@@ -728,17 +782,36 @@ const TerritoriesManagement = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                className="gap-1"
-                                onClick={() => {
-                                  setSelectedTerritory(t);
-                                  setDetailsModalOpen(true);
-                                }}
-                              >
-                                <BarChart3 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  title="View Analytics"
+                                  onClick={() => openTerritoryDetails(t)}
+                                >
+                                  <BarChart3 className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  title="Edit"
+                                  onClick={() => handleEditTerritory(t)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  title="Delete"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    setTerritoryToDelete(t);
+                                    setDeleteConfirmOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -761,7 +834,7 @@ const TerritoriesManagement = () => {
                             <div className="space-y-1 flex-1">
                               <CardTitle 
                                 className="text-lg text-primary cursor-pointer hover:underline"
-                                onClick={() => handleEditTerritory(t)}
+                                onClick={() => openTerritoryDetails(t)}
                               >
                                 {t.name}
                               </CardTitle>
@@ -770,16 +843,33 @@ const TerritoriesManagement = () => {
                                 {t.territory_type && <Badge variant="secondary" className="text-xs">{t.territory_type}</Badge>}
                               </div>
                             </div>
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedTerritory(t);
-                                setDetailsModalOpen(true);
-                              }}
-                            >
-                              <BarChart3 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => openTerritoryDetails(t)}
+                              >
+                                <BarChart3 className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => handleEditTerritory(t)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="text-destructive"
+                                onClick={() => {
+                                  setTerritoryToDelete(t);
+                                  setDeleteConfirmOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
@@ -865,7 +955,29 @@ const TerritoriesManagement = () => {
         onOpenChange={setDetailsModalOpen} 
         territory={selectedTerritory}
         onEdit={handleEditTerritory}
+        onDelete={(territory) => {
+          setTerritoryToDelete(territory);
+          setDeleteConfirmOpen(true);
+        }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Territory?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{territoryToDelete?.name}"? This will move the territory to the recycle bin.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTerritoryToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTerritory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Tabs>
   );
 };
