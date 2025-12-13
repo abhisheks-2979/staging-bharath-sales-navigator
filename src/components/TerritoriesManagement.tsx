@@ -525,12 +525,12 @@ const TerritoriesManagement = () => {
 
                 <div className="space-y-2">
                   <Label>Territory Owner</Label>
-                  <Select value={ownerId} onValueChange={setOwnerId}>
+                  <Select value={ownerId || "none"} onValueChange={(val) => setOwnerId(val === "none" ? "" : val)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select owner..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No owner</SelectItem>
+                      <SelectItem value="none">No owner</SelectItem>
                       {users.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.full_name || user.username}
