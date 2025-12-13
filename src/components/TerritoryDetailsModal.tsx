@@ -364,15 +364,22 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         monthlyTotals.push(monthTotal);
       }
       
-      if (monthlyTotals.length >= 3) {
-        const recent = monthlyTotals.slice(-3).reduce((sum, m) => sum + m, 0) / 3;
-        const previous = monthlyTotals.slice(0, 3).reduce((sum, m) => sum + m, 0) / 3;
-        const growth = ((recent - previous) / (previous || 1)) * 100;
+      // Calculate performance with same logic as list view
+      if (matchingRetailers.length === 0 && monthlyTotals.every(m => m === 0)) {
+        setPerformanceFlag('New');
+      } else if (monthlyTotals.length >= 2) {
+        const currentMonth = monthlyTotals[monthlyTotals.length - 1];
+        const previousMonth = monthlyTotals[monthlyTotals.length - 2];
+        const growth = previousMonth > 0 ? ((currentMonth - previousMonth) / previousMonth) * 100 : (currentMonth > 0 ? 100 : 0);
         
-        if (growth > 20) setPerformanceFlag('High Growth');
-        else if (growth < -10) setPerformanceFlag('Declining');
-        else if (matchingRetailers.length > 50 && growth < 5) setPerformanceFlag('High Potential');
-        else setPerformanceFlag('Stable');
+        if (growth > 25) setPerformanceFlag('High Growth');
+        else if (growth > 10) setPerformanceFlag('Growth');
+        else if (growth >= 5) setPerformanceFlag('Stable');
+        else if (growth >= 0) setPerformanceFlag('Stable');
+        else if (growth > -25) setPerformanceFlag('Declining');
+        else setPerformanceFlag('Steep Decline');
+      } else {
+        setPerformanceFlag('Stable');
       }
 
       // Use latest orders for current month summary (for top/bottom SKUs)
@@ -468,15 +475,18 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
 
   const getPerformanceBadgeColor = () => {
     if (performanceFlag === 'High Growth') return 'bg-green-500/10 text-green-600 border-green-500/20';
-    if (performanceFlag === 'Declining') return 'bg-red-500/10 text-red-600 border-red-500/20';
-    if (performanceFlag === 'High Potential') return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+    if (performanceFlag === 'Growth') return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+    if (performanceFlag === 'Stable') return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+    if (performanceFlag === 'Declining') return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+    if (performanceFlag === 'Steep Decline') return 'bg-red-500/10 text-red-600 border-red-500/20';
+    if (performanceFlag === 'New') return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
     return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
   };
 
   const getPerformanceIcon = () => {
-    if (performanceFlag === 'High Growth') return <TrendingUp className="h-4 w-4" />;
-    if (performanceFlag === 'Declining') return <ArrowDown className="h-4 w-4" />;
-    if (performanceFlag === 'High Potential') return <Target className="h-4 w-4" />;
+    if (performanceFlag === 'High Growth' || performanceFlag === 'Growth') return <TrendingUp className="h-4 w-4" />;
+    if (performanceFlag === 'Declining' || performanceFlag === 'Steep Decline') return <ArrowDown className="h-4 w-4" />;
+    if (performanceFlag === 'New') return <Activity className="h-4 w-4" />;
     return <Activity className="h-4 w-4" />;
   };
 
