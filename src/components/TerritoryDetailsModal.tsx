@@ -9,11 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake, Eye, X } from 'lucide-react';
+import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake, Eye, X, Plus, Store } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { format, subMonths } from 'date-fns';
-import TerritoryPerformanceReport from './TerritoryPerformanceReport';
+import { format, subMonths, subQuarters, startOfYear, endOfYear, subYears } from 'date-fns';
 import TerritorySupportRequestForm from './TerritorySupportRequestForm';
+import TerritoryPerformanceCalendar from './TerritoryPerformanceCalendar';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { toast } from 'sonner';
 
@@ -56,10 +56,10 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [loading, setLoading] = useState(false);
   const [distributors, setDistributors] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
-  const [pincodeSales, setPincodeSales] = useState<any[]>([]);
   const [salesSummary, setSalesSummary] = useState({ totalSales: 0, totalOrders: 0, totalRetailers: 0, totalVisits: 0 });
   const [assignmentHistory, setAssignmentHistory] = useState<any[]>([]);
   const [monthlySales, setMonthlySales] = useState<any[]>([]);
+  const [salesTrendFilter, setSalesTrendFilter] = useState<string>('6months');
   const [topSKUs, setTopSKUs] = useState<any[]>([]);
   const [bottomSKUs, setBottomSKUs] = useState<any[]>([]);
   const [topRetailers, setTopRetailers] = useState<any[]>([]);
@@ -72,13 +72,12 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [assignedUsers, setAssignedUsers] = useState<any[]>([]);
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [supportRequests, setSupportRequests] = useState<any[]>([]);
-  const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
-  const [supportDetailOpen, setSupportDetailOpen] = useState(false);
   const [editingSupportRequest, setEditingSupportRequest] = useState<any>(null);
   const [topSKUsWithIds, setTopSKUsWithIds] = useState<any[]>([]);
   const [bottomSKUsWithIds, setBottomSKUsWithIds] = useState<any[]>([]);
   const [topRetailersWithIds, setTopRetailersWithIds] = useState<any[]>([]);
   const [bottomRetailersWithIds, setBottomRetailersWithIds] = useState<any[]>([]);
+  const [entityFilter, setEntityFilter] = useState<'retailers' | 'distributors'>('retailers');
 
   const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
@@ -288,7 +287,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         });
       });
 
-      setPincodeSales(Array.from(pincodeMap.entries()).map(([pincode, data]) => ({ pincode, ...data })));
+      // Removed setPincodeSales - no longer needed
       
       // Get assignment history
       const { data: historyData } = await supabase.from('territory_assignment_history').select('*, profiles(full_name)').eq('territory_id', territory.id).order('assigned_from', { ascending: false });
@@ -664,11 +663,25 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </Card>
             </div>
 
-            {/* Monthly Sales Chart */}
+            {/* Monthly Sales Chart with Filter */}
             {monthlySales.length > 0 && (
               <Card className="shadow-lg">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base">Monthly Sales Trend</CardTitle>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <CardTitle className="text-sm sm:text-base">Sales Trend</CardTitle>
+                    <Select value={salesTrendFilter} onValueChange={setSalesTrendFilter}>
+                      <SelectTrigger className="w-full sm:w-[160px] h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="6months">Last 6 Months</SelectItem>
+                        <SelectItem value="currentyear">Current Year</SelectItem>
+                        <SelectItem value="lastyear">Last Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-2 sm:p-4">
                   <div className="w-full overflow-x-auto">
@@ -685,191 +698,6 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 </CardContent>
               </Card>
             )}
-
-            {/* SUPPORT REQUESTS SECTION */}
-            <Card className="shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                  <HeartHandshake className="h-4 w-4 text-primary" />
-                  Support Requests ({supportRequests.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 sm:p-4">
-                {supportRequests.length > 0 ? (
-                  <div className="space-y-3">
-                    {supportRequests.map((request) => {
-                      // Parse structured data from description if it's JSON
-                      let parsedData: any = null;
-                      try {
-                        parsedData = JSON.parse(request.description);
-                      } catch {
-                        // Not JSON, use as plain text
-                      }
-                      
-                      const displayTitle = parsedData?.support_type 
-                        ? SUPPORT_TYPES.find(t => t.value === parsedData.support_type)?.label || request.subject
-                        : request.subject;
-                      
-                      const displayPriority = parsedData?.priority || request.priority;
-                      
-                      return (
-                        <div 
-                          key={request.id} 
-                          className="p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => setEditingSupportRequest({ ...request, parsedData })}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm text-primary">{displayTitle}</p>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                {parsedData?.description || request.description}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {getStatusBadge(request.status)}
-                              {displayPriority && (
-                                <Badge variant="outline" className={`text-xs ${
-                                  displayPriority === 'high' || displayPriority === 'urgent' ? 'bg-red-500/10 text-red-600' :
-                                  displayPriority === 'medium' ? 'bg-yellow-500/10 text-yellow-600' :
-                                  'bg-gray-500/10 text-gray-600'
-                                }`}>
-                                  {displayPriority}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                            <span>{format(new Date(request.created_at), 'dd MMM yyyy, hh:mm a')}</span>
-                            {request.resolved_at && (
-                              <span className="text-green-600">Resolved: {format(new Date(request.resolved_at), 'dd MMM yyyy')}</span>
-                            )}
-                            <Button variant="ghost" size="sm" className="ml-auto gap-1 text-xs h-6">
-                              <Eye className="h-3 w-3" /> View / Edit
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No support requests for this territory</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Top & Bottom SKUs */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-              <Card className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Award className="h-4 w-4 text-green-600" />
-                    Top 5 SKUs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  {topSKUsWithIds.length > 0 ? (
-                    <div className="space-y-2">
-                      {topSKUsWithIds.map((sku, idx) => (
-                        <div 
-                          key={idx} 
-                          className={`flex justify-between items-center p-2 bg-green-500/5 rounded border border-green-500/10 ${sku.productId ? 'cursor-pointer hover:bg-green-500/10' : ''}`}
-                          onClick={() => navigateToProduct(sku.productId)}
-                        >
-                          <span className={`text-xs sm:text-sm font-medium truncate flex-1 mr-2 ${sku.productId ? 'text-primary hover:underline' : ''}`}>{sku.name}</span>
-                          <span className="text-xs sm:text-sm text-green-600 font-bold whitespace-nowrap">₹{sku.total.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No SKU data available</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    Bottom 5 SKUs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  {bottomSKUsWithIds.length > 0 ? (
-                    <div className="space-y-2">
-                      {bottomSKUsWithIds.map((sku, idx) => (
-                        <div 
-                          key={idx} 
-                          className={`flex justify-between items-center p-2 bg-red-500/5 rounded border border-red-500/10 ${sku.productId ? 'cursor-pointer hover:bg-red-500/10' : ''}`}
-                          onClick={() => navigateToProduct(sku.productId)}
-                        >
-                          <span className={`text-xs sm:text-sm font-medium truncate flex-1 mr-2 ${sku.productId ? 'text-primary hover:underline' : ''}`}>{sku.name}</span>
-                          <span className="text-xs sm:text-sm text-red-600 font-bold whitespace-nowrap">₹{sku.total.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No SKU data available</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Top & Bottom Retailers */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-              <Card className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-600" />
-                    Top 5 Retailers
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  {topRetailersWithIds.length > 0 ? (
-                    <div className="space-y-2">
-                      {topRetailersWithIds.map((retailer, idx) => (
-                        <div 
-                          key={idx} 
-                          className="flex justify-between items-center p-2 bg-blue-500/5 rounded border border-blue-500/10 cursor-pointer hover:bg-blue-500/10"
-                          onClick={() => navigateToRetailer(retailer.id)}
-                        >
-                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2 text-primary hover:underline">{retailer.name}</span>
-                          <span className="text-xs sm:text-sm text-blue-600 font-bold whitespace-nowrap">₹{retailer.sales.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No retailer data available</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-orange-600" />
-                    Bottom 5 Retailers
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  {bottomRetailersWithIds.length > 0 ? (
-                    <div className="space-y-2">
-                      {bottomRetailersWithIds.map((retailer, idx) => (
-                        <div 
-                          key={idx} 
-                          className="flex justify-between items-center p-2 bg-orange-500/5 rounded border border-orange-500/10 cursor-pointer hover:bg-orange-500/10"
-                          onClick={() => navigateToRetailer(retailer.id)}
-                        >
-                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2 text-primary hover:underline">{retailer.name}</span>
-                          <span className="text-xs sm:text-sm text-orange-600 font-bold whitespace-nowrap">₹{retailer.sales.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No retailer data available</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
 
             {/* Competition Activity */}
             {competitionData.length > 0 && (
@@ -909,169 +737,192 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </Card>
             )}
 
-            {/* Removed Sales by PIN Code section as per user request */}
-
-            {/* Tabs Section */}
-            <Tabs defaultValue="retailers" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1">
-                <TabsTrigger value="retailers" className="text-xs sm:text-sm px-2 py-2">
-                  Retailers <span className="ml-1">({retailers.length})</span>
+            {/* Tabs Section - Restructured */}
+            <Tabs defaultValue="entities" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1 p-1">
+                <TabsTrigger value="entities" className="text-xs sm:text-sm px-2 py-2">
+                  <Store className="h-3 w-3 mr-1 hidden sm:inline" />
+                  Retailers & Distributors
                 </TabsTrigger>
-                <TabsTrigger value="distributors" className="text-xs sm:text-sm px-2 py-2">
-                  Distributors <span className="ml-1">({distributors.length})</span>
+                <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 py-2">
+                  <TrendingUp className="h-3 w-3 mr-1 hidden sm:inline" />
+                  Territory Performance
                 </TabsTrigger>
-                <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-2">History</TabsTrigger>
-                <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 py-2">Advanced</TabsTrigger>
+                <TabsTrigger value="support" className="text-xs sm:text-sm px-2 py-2">
+                  <HeartHandshake className="h-3 w-3 mr-1 hidden sm:inline" />
+                  Support Requests
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-2">
+                  <Clock className="h-3 w-3 mr-1 hidden sm:inline" />
+                  History
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="retailers" className="mt-4">
+              {/* Retailers & Distributors Tab */}
+              <TabsContent value="entities" className="mt-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Select value={entityFilter} onValueChange={(v: 'retailers' | 'distributors') => setEntityFilter(v)}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="retailers">Retailers ({retailers.length})</SelectItem>
+                      <SelectItem value="distributors">Distributors ({distributors.length})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
                 <Card className="shadow-lg">
                   <CardContent className="p-3 sm:p-4">
-                    <div className="overflow-x-auto -mx-3 sm:mx-0">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                            <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
-                            <TableHead className="text-xs sm:text-sm">Last Order</TableHead>
-                            <TableHead className="text-xs sm:text-sm hidden md:table-cell">Last Visit</TableHead>
-                            <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Phone</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {retailers.map(r => (
-                            <TableRow 
-                              key={r.id} 
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => navigate(`/retailer/${r.id}`)}
-                            >
-                              <TableCell className="text-xs sm:text-sm font-medium text-primary hover:underline">{r.name}</TableCell>
-                              <TableCell className="hidden sm:table-cell">
-                                <Badge variant="outline" className="text-xs">{r.category || '-'}</Badge>
-                              </TableCell>
-                              <TableCell className="text-xs sm:text-sm">
-                                {r.last_order_value ? (
-                                  <div className="flex flex-col">
-                                    <span className="font-medium text-green-600">₹{Number(r.last_order_value).toLocaleString()}</span>
-                                    <span className="text-[10px] text-muted-foreground">{r.last_order_date ? format(new Date(r.last_order_date), 'dd MMM') : '-'}</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
-                                {r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM yyyy') : '-'}
-                              </TableCell>
-                              <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">{r.phone || '-'}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="distributors" className="mt-4">
-                <Card className="shadow-lg">
-                  <CardContent className="p-3 sm:p-4">
-                    {distributors.length > 0 ? (
+                    {entityFilter === 'retailers' ? (
                       <div className="overflow-x-auto -mx-3 sm:mx-0">
                         <Table>
                           <TableHeader>
                             <TableRow>
                               <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                              <TableHead className="text-xs sm:text-sm">Contact Person</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Phone</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden md:table-cell">Status</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Outstanding</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
+                              <TableHead className="text-xs sm:text-sm">Last Order</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden md:table-cell">Last Visit</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {distributors.map(d => (
-                              <TableRow 
-                                key={d.id} 
-                                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => {
-                                  onOpenChange(false);
-                                  navigate(`/distributor/${d.id}`);
-                                }}
-                              >
-                                <TableCell className="text-xs sm:text-sm font-medium text-primary hover:underline">{d.name}</TableCell>
-                                <TableCell className="text-xs sm:text-sm">{d.contact_person}</TableCell>
-                                <TableCell className="text-xs sm:text-sm text-muted-foreground hidden sm:table-cell">{d.phone || '-'}</TableCell>
-                                <TableCell className="hidden md:table-cell">
-                                  <Badge variant={d.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                                    {d.status || 'active'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-xs sm:text-sm font-medium text-orange-600 hidden lg:table-cell">
-                                  {d.outstanding_amount ? `₹${Number(d.outstanding_amount).toLocaleString()}` : '-'}
-                                </TableCell>
+                            {retailers.map(r => (
+                              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/retailer/${r.id}`)}>
+                                <TableCell className="text-xs sm:text-sm font-medium text-primary">{r.name}</TableCell>
+                                <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{r.category || '-'}</Badge></TableCell>
+                                <TableCell className="text-xs sm:text-sm">{r.last_order_value ? `₹${Number(r.last_order_value).toLocaleString()}` : '-'}</TableCell>
+                                <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">{r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM') : '-'}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
+                        {retailers.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">No retailers</p>}
                       </div>
                     ) : (
-                      <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No distributors assigned</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="history" className="mt-4">
-                <Card className="shadow-lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm sm:text-base">Territory Assignment History</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 sm:p-4">
-                    {assignmentHistory.length > 0 ? (
                       <div className="overflow-x-auto -mx-3 sm:mx-0">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="text-xs sm:text-sm">Team Member</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">From</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">To</TableHead>
-                              <TableHead className="text-xs sm:text-sm">Duration</TableHead>
+                              <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                              <TableHead className="text-xs sm:text-sm">Contact</TableHead>
+                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Status</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {assignmentHistory.filter(a => a && a.id).map((assignment) => (
-                              <TableRow key={assignment.id}>
-                                <TableCell className="text-xs sm:text-sm font-medium">{assignment.profiles?.full_name || 'Unknown'}</TableCell>
-                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">{format(new Date(assignment.assigned_from), 'MMM dd, yyyy')}</TableCell>
-                                <TableCell className="hidden sm:table-cell">
-                                  {assignment.assigned_to 
-                                    ? <span className="text-xs sm:text-sm">{format(new Date(assignment.assigned_to), 'MMM dd, yyyy')}</span>
-                                    : <Badge variant="secondary" className="text-xs">Current</Badge>
-                                  }
-                                </TableCell>
-                                <TableCell className="text-xs sm:text-sm text-muted-foreground">
-                                  {assignment.assigned_to 
-                                    ? `${Math.ceil((new Date(assignment.assigned_to).getTime() - new Date(assignment.assigned_from).getTime()) / (1000 * 60 * 60 * 24))} days`
-                                    : 'Ongoing'
-                                  }
-                                </TableCell>
+                            {distributors.map(d => (
+                              <TableRow key={d.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { onOpenChange(false); navigate(`/distributor/${d.id}`); }}>
+                                <TableCell className="text-xs sm:text-sm font-medium text-primary">{d.name}</TableCell>
+                                <TableCell className="text-xs sm:text-sm">{d.contact_person}</TableCell>
+                                <TableCell className="hidden sm:table-cell"><Badge variant={d.status === 'active' ? 'default' : 'secondary'} className="text-xs">{d.status || 'active'}</Badge></TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
+                        {distributors.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">No distributors</p>}
                       </div>
-                    ) : (
-                      <p className="text-xs sm:text-sm text-muted-foreground text-center py-8">No assignment history available</p>
                     )}
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="performance" className="mt-4">
-                {territory ? (
-                  <TerritoryPerformanceReport territoryId={territory.id} territoryName={territory.name} />
-                ) : (
-                  <div className="text-center py-8 text-xs sm:text-sm text-muted-foreground">No territory selected</div>
-                )}
+              {/* Territory Performance Tab */}
+              <TabsContent value="performance" className="mt-4 space-y-4">
+                {/* Calendar */}
+                <TerritoryPerformanceCalendar territoryId={territory.id} retailerIds={retailers.map(r => r.id)} />
+                
+                {/* Top/Bottom SKUs */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Award className="h-4 w-4 text-green-600" />Top 5 SKUs</CardTitle></CardHeader>
+                    <CardContent className="p-3">{topSKUsWithIds.length > 0 ? topSKUsWithIds.map((sku, i) => (
+                      <div key={i} className="flex justify-between p-2 bg-green-500/5 rounded mb-1 cursor-pointer hover:bg-green-500/10" onClick={() => navigateToProduct(sku.productId)}>
+                        <span className="text-xs font-medium text-primary truncate">{sku.name}</span><span className="text-xs text-green-600 font-bold">₹{sku.total.toLocaleString()}</span>
+                      </div>
+                    )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
+                  </Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-red-600" />Bottom 5 SKUs</CardTitle></CardHeader>
+                    <CardContent className="p-3">{bottomSKUsWithIds.length > 0 ? bottomSKUsWithIds.map((sku, i) => (
+                      <div key={i} className="flex justify-between p-2 bg-red-500/5 rounded mb-1 cursor-pointer hover:bg-red-500/10" onClick={() => navigateToProduct(sku.productId)}>
+                        <span className="text-xs font-medium text-primary truncate">{sku.name}</span><span className="text-xs text-red-600 font-bold">₹{sku.total.toLocaleString()}</span>
+                      </div>
+                    )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
+                  </Card>
+                </div>
+                
+                {/* Top/Bottom Retailers */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4 text-blue-600" />Top 5 Retailers</CardTitle></CardHeader>
+                    <CardContent className="p-3">{topRetailersWithIds.length > 0 ? topRetailersWithIds.map((r, i) => (
+                      <div key={i} className="flex justify-between p-2 bg-blue-500/5 rounded mb-1 cursor-pointer hover:bg-blue-500/10" onClick={() => navigateToRetailer(r.id)}>
+                        <span className="text-xs font-medium text-primary truncate">{r.name}</span><span className="text-xs text-blue-600 font-bold">₹{r.sales.toLocaleString()}</span>
+                      </div>
+                    )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
+                  </Card>
+                  <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-600" />Bottom 5 Retailers</CardTitle></CardHeader>
+                    <CardContent className="p-3">{bottomRetailersWithIds.length > 0 ? bottomRetailersWithIds.map((r, i) => (
+                      <div key={i} className="flex justify-between p-2 bg-orange-500/5 rounded mb-1 cursor-pointer hover:bg-orange-500/10" onClick={() => navigateToRetailer(r.id)}>
+                        <span className="text-xs font-medium text-primary truncate">{r.name}</span><span className="text-xs text-orange-600 font-bold">₹{r.sales.toLocaleString()}</span>
+                      </div>
+                    )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Support Requests Tab */}
+              <TabsContent value="support" className="mt-4 space-y-4">
+                <div className="flex justify-end">
+                  <TerritorySupportRequestForm territoryId={territory.id} territoryName={territory.name} onSuccess={loadTerritoryData} />
+                </div>
+                <Card className="shadow-lg">
+                  <CardContent className="p-3 sm:p-4">
+                    {supportRequests.length > 0 ? (
+                      <div className="space-y-2">
+                        {supportRequests.map((request) => {
+                          let parsedData: any = null;
+                          try { parsedData = JSON.parse(request.description); } catch {}
+                          const displayTitle = parsedData?.support_type ? SUPPORT_TYPES.find(t => t.value === parsedData.support_type)?.label || request.subject : request.subject;
+                          return (
+                            <div key={request.id} className="p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => setEditingSupportRequest({ ...request, parsedData })}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1"><p className="font-medium text-sm text-primary">{displayTitle}</p><p className="text-xs text-muted-foreground mt-1 line-clamp-1">{parsedData?.description || request.description}</p></div>
+                                <div className="flex flex-col items-end gap-1">{getStatusBadge(request.status)}</div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">{format(new Date(request.created_at), 'dd MMM yyyy')}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No support requests</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              {/* History Tab */}
+              <TabsContent value="history" className="mt-4">
+                <Card className="shadow-lg">
+                  <CardHeader className="pb-3"><CardTitle className="text-sm">Assignment History</CardTitle></CardHeader>
+                  <CardContent className="p-3">
+                    {assignmentHistory.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader><TableRow><TableHead className="text-xs">Team Member</TableHead><TableHead className="text-xs hidden sm:table-cell">From</TableHead><TableHead className="text-xs">Duration</TableHead></TableRow></TableHeader>
+                          <TableBody>
+                            {assignmentHistory.filter(a => a?.id).map(a => (
+                              <TableRow key={a.id}>
+                                <TableCell className="text-xs font-medium">{a.profiles?.full_name || 'Unknown'}</TableCell>
+                                <TableCell className="text-xs hidden sm:table-cell">{format(new Date(a.assigned_from), 'MMM dd, yyyy')}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{a.assigned_to ? `${Math.ceil((new Date(a.assigned_to).getTime() - new Date(a.assigned_from).getTime()) / (1000 * 60 * 60 * 24))} days` : 'Ongoing'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : <p className="text-sm text-muted-foreground text-center py-4">No history</p>}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
               </TabsContent>
             </Tabs>
           </div>
