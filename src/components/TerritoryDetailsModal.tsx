@@ -6,12 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake, Eye, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, subMonths } from 'date-fns';
 import TerritoryPerformanceReport from './TerritoryPerformanceReport';
 import TerritorySupportRequestForm from './TerritorySupportRequestForm';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { toast } from 'sonner';
 
 interface TerritoryDetailsModalProps {
   open: boolean;
@@ -42,6 +46,13 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [assignedUsers, setAssignedUsers] = useState<any[]>([]);
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [supportRequests, setSupportRequests] = useState<any[]>([]);
+  const [selectedSupportRequest, setSelectedSupportRequest] = useState<any>(null);
+  const [supportDetailOpen, setSupportDetailOpen] = useState(false);
+  const [editingSupportRequest, setEditingSupportRequest] = useState<any>(null);
+  const [topSKUsWithIds, setTopSKUsWithIds] = useState<any[]>([]);
+  const [bottomSKUsWithIds, setBottomSKUsWithIds] = useState<any[]>([]);
+  const [topRetailersWithIds, setTopRetailersWithIds] = useState<any[]>([]);
+  const [bottomRetailersWithIds, setBottomRetailersWithIds] = useState<any[]>([]);
 
   const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
@@ -177,33 +188,39 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         else setPerformanceFlag('Stable');
       }
 
-      // Top/Bottom SKUs
-      const { data: orderItemsData } = await supabase.from('order_items').select('product_name, quantity, total, order_id').in('order_id', ordersData?.map(o => o.id) || []);
+      // Top/Bottom SKUs with product IDs
+      const { data: orderItemsData } = await supabase.from('order_items').select('product_id, product_name, quantity, total, order_id').in('order_id', ordersData?.map(o => o.id) || []);
       
       const skuMap = new Map();
       orderItemsData?.forEach(item => {
-        const existing = skuMap.get(item.product_name) || { quantity: 0, total: 0 };
+        const existing = skuMap.get(item.product_name) || { quantity: 0, total: 0, productId: item.product_id };
         skuMap.set(item.product_name, {
           quantity: existing.quantity + item.quantity,
           total: existing.total + item.total,
+          productId: item.product_id || existing.productId,
         });
       });
       
       const skuArray = Array.from(skuMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
       setTopSKUs(skuArray.slice(0, 5));
       setBottomSKUs(skuArray.slice(-5).reverse());
+      setTopSKUsWithIds(skuArray.slice(0, 5));
+      setBottomSKUsWithIds(skuArray.slice(-5).reverse());
 
-      // Top/Bottom Retailers
+      // Top/Bottom Retailers with IDs
       const retailerSalesMap = new Map();
       ordersData?.forEach(order => {
+        const retailerId = order.retailer_id;
         const retailerName = order.retailers?.name || 'Unknown';
-        const existing = retailerSalesMap.get(retailerName) || 0;
-        retailerSalesMap.set(retailerName, existing + Number(order.total_amount || 0));
+        const existing = retailerSalesMap.get(retailerId) || { name: retailerName, sales: 0 };
+        retailerSalesMap.set(retailerId, { name: retailerName, sales: existing.sales + Number(order.total_amount || 0) });
       });
       
-      const retailerArray = Array.from(retailerSalesMap.entries()).map(([name, sales]) => ({ name, sales })).sort((a, b) => b.sales - a.sales);
+      const retailerArray = Array.from(retailerSalesMap.entries()).map(([id, data]) => ({ id, name: data.name, sales: data.sales })).sort((a, b) => b.sales - a.sales);
       setTopRetailers(retailerArray.slice(0, 5));
       setBottomRetailers(retailerArray.slice(-5).reverse());
+      setTopRetailersWithIds(retailerArray.slice(0, 5));
+      setBottomRetailersWithIds(retailerArray.slice(-5).reverse());
 
       // Competition data
       const { data: competitionEntries } = await supabase.from('competition_data').select('id, competitor_id, selling_price, stock_quantity, competition_master(competitor_name)').in('retailer_id', retailerIds).gte('created_at', startOfMonth.toISOString());
@@ -283,6 +300,44 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         return <Badge variant="outline" className="bg-gray-500/10 text-gray-600">Closed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const handleUpdateSupportRequest = async () => {
+    if (!editingSupportRequest) return;
+    
+    try {
+      const { error } = await supabase
+        .from('support_requests')
+        .update({
+          subject: editingSupportRequest.subject,
+          description: editingSupportRequest.description,
+          status: editingSupportRequest.status,
+          priority: editingSupportRequest.priority,
+          resolution_notes: editingSupportRequest.resolution_notes,
+        })
+        .eq('id', editingSupportRequest.id);
+      
+      if (error) throw error;
+      toast.success('Support request updated');
+      setEditingSupportRequest(null);
+      loadTerritoryData();
+    } catch (error: any) {
+      toast.error('Failed to update: ' + error.message);
+    }
+  };
+
+  const navigateToProduct = (productId: string | undefined) => {
+    if (productId) {
+      onOpenChange(false);
+      navigate(`/products?product=${productId}`);
+    }
+  };
+
+  const navigateToRetailer = (retailerId: string | undefined) => {
+    if (retailerId) {
+      onOpenChange(false);
+      navigate(`/retailer/${retailerId}`);
     }
   };
 
@@ -597,19 +652,37 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 {supportRequests.length > 0 ? (
                   <div className="space-y-3">
                     {supportRequests.map((request) => (
-                      <div key={request.id} className="p-3 border rounded-lg bg-muted/30">
+                      <div 
+                        key={request.id} 
+                        className="p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setEditingSupportRequest(request)}
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
-                            <p className="font-medium text-sm">{request.subject}</p>
+                            <p className="font-medium text-sm text-primary">{request.subject}</p>
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{request.description}</p>
                           </div>
-                          {getStatusBadge(request.status)}
+                          <div className="flex flex-col items-end gap-1">
+                            {getStatusBadge(request.status)}
+                            {request.priority && (
+                              <Badge variant="outline" className={`text-xs ${
+                                request.priority === 'high' ? 'bg-red-500/10 text-red-600' :
+                                request.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-600' :
+                                'bg-gray-500/10 text-gray-600'
+                              }`}>
+                                {request.priority}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           <span>{format(new Date(request.created_at), 'dd MMM yyyy')}</span>
                           {request.resolved_at && (
                             <span className="text-green-600">Resolved: {format(new Date(request.resolved_at), 'dd MMM yyyy')}</span>
                           )}
+                          <Button variant="ghost" size="sm" className="ml-auto gap-1 text-xs h-6">
+                            <Eye className="h-3 w-3" /> View / Edit
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -630,11 +703,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4">
-                  {topSKUs.length > 0 ? (
+                  {topSKUsWithIds.length > 0 ? (
                     <div className="space-y-2">
-                      {topSKUs.map((sku, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 bg-green-500/5 rounded border border-green-500/10">
-                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2">{sku.name}</span>
+                      {topSKUsWithIds.map((sku, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`flex justify-between items-center p-2 bg-green-500/5 rounded border border-green-500/10 ${sku.productId ? 'cursor-pointer hover:bg-green-500/10' : ''}`}
+                          onClick={() => navigateToProduct(sku.productId)}
+                        >
+                          <span className={`text-xs sm:text-sm font-medium truncate flex-1 mr-2 ${sku.productId ? 'text-primary hover:underline' : ''}`}>{sku.name}</span>
                           <span className="text-xs sm:text-sm text-green-600 font-bold whitespace-nowrap">₹{sku.total.toLocaleString()}</span>
                         </div>
                       ))}
@@ -653,11 +730,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4">
-                  {bottomSKUs.length > 0 ? (
+                  {bottomSKUsWithIds.length > 0 ? (
                     <div className="space-y-2">
-                      {bottomSKUs.map((sku, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 bg-red-500/5 rounded border border-red-500/10">
-                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2">{sku.name}</span>
+                      {bottomSKUsWithIds.map((sku, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`flex justify-between items-center p-2 bg-red-500/5 rounded border border-red-500/10 ${sku.productId ? 'cursor-pointer hover:bg-red-500/10' : ''}`}
+                          onClick={() => navigateToProduct(sku.productId)}
+                        >
+                          <span className={`text-xs sm:text-sm font-medium truncate flex-1 mr-2 ${sku.productId ? 'text-primary hover:underline' : ''}`}>{sku.name}</span>
                           <span className="text-xs sm:text-sm text-red-600 font-bold whitespace-nowrap">₹{sku.total.toLocaleString()}</span>
                         </div>
                       ))}
@@ -679,11 +760,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4">
-                  {topRetailers.length > 0 ? (
+                  {topRetailersWithIds.length > 0 ? (
                     <div className="space-y-2">
-                      {topRetailers.map((retailer, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 bg-blue-500/5 rounded border border-blue-500/10">
-                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2">{retailer.name}</span>
+                      {topRetailersWithIds.map((retailer, idx) => (
+                        <div 
+                          key={idx} 
+                          className="flex justify-between items-center p-2 bg-blue-500/5 rounded border border-blue-500/10 cursor-pointer hover:bg-blue-500/10"
+                          onClick={() => navigateToRetailer(retailer.id)}
+                        >
+                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2 text-primary hover:underline">{retailer.name}</span>
                           <span className="text-xs sm:text-sm text-blue-600 font-bold whitespace-nowrap">₹{retailer.sales.toLocaleString()}</span>
                         </div>
                       ))}
@@ -702,11 +787,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4">
-                  {bottomRetailers.length > 0 ? (
+                  {bottomRetailersWithIds.length > 0 ? (
                     <div className="space-y-2">
-                      {bottomRetailers.map((retailer, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 bg-orange-500/5 rounded border border-orange-500/10">
-                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2">{retailer.name}</span>
+                      {bottomRetailersWithIds.map((retailer, idx) => (
+                        <div 
+                          key={idx} 
+                          className="flex justify-between items-center p-2 bg-orange-500/5 rounded border border-orange-500/10 cursor-pointer hover:bg-orange-500/10"
+                          onClick={() => navigateToRetailer(retailer.id)}
+                        >
+                          <span className="text-xs sm:text-sm font-medium truncate flex-1 mr-2 text-primary hover:underline">{retailer.name}</span>
                           <span className="text-xs sm:text-sm text-orange-600 font-bold whitespace-nowrap">₹{retailer.sales.toLocaleString()}</span>
                         </div>
                       ))}
@@ -756,40 +845,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </Card>
             )}
 
-            {/* Sales by PIN Code */}
-            {pincodeSales.length > 0 && (
-              <Card className="shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base">Sales by PIN Code & Location</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4">
-                  <div className="overflow-x-auto -mx-3 sm:mx-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs sm:text-sm">PIN Code</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Location</TableHead>
-                          <TableHead className="text-right text-xs sm:text-sm">Sales</TableHead>
-                          <TableHead className="text-right text-xs sm:text-sm hidden sm:table-cell">Orders</TableHead>
-                          <TableHead className="text-right text-xs sm:text-sm hidden sm:table-cell">Retailers</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pincodeSales.map(d => (
-                          <TableRow key={d.pincode}>
-                            <TableCell><Badge className="text-xs">{d.pincode}</Badge></TableCell>
-                            <TableCell className="text-xs sm:text-sm text-muted-foreground truncate max-w-[100px] sm:max-w-none">{d.locationName || '-'}</TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm font-medium whitespace-nowrap">₹{d.sales.toLocaleString()}</TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{d.orders}</TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{d.retailers}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Removed Sales by PIN Code section as per user request */}
 
             {/* Tabs Section */}
             <Tabs defaultValue="retailers" className="w-full">
@@ -869,7 +925,14 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                           </TableHeader>
                           <TableBody>
                             {distributors.map(d => (
-                              <TableRow key={d.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                              <TableRow 
+                                key={d.id} 
+                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => {
+                                  onOpenChange(false);
+                                  navigate(`/distributor/${d.id}`);
+                                }}
+                              >
                                 <TableCell className="text-xs sm:text-sm font-medium text-primary hover:underline">{d.name}</TableCell>
                                 <TableCell className="text-xs sm:text-sm">{d.contact_person}</TableCell>
                                 <TableCell className="text-xs sm:text-sm text-muted-foreground hidden sm:table-cell">{d.phone || '-'}</TableCell>
@@ -950,6 +1013,95 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
           </div>
         )}
       </DialogContent>
+
+      {/* Support Request Edit/View Dialog */}
+      <Dialog open={!!editingSupportRequest} onOpenChange={(open) => !open && setEditingSupportRequest(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HeartHandshake className="h-5 w-5 text-primary" />
+              Support Request Details
+            </DialogTitle>
+          </DialogHeader>
+          {editingSupportRequest && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Subject</label>
+                <Input 
+                  value={editingSupportRequest.subject}
+                  onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, subject: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <Textarea 
+                  value={editingSupportRequest.description}
+                  onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, description: e.target.value })}
+                  rows={4}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <Select 
+                    value={editingSupportRequest.status}
+                    onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Priority</label>
+                  <Select 
+                    value={editingSupportRequest.priority || 'medium'}
+                    onValueChange={(value) => setEditingSupportRequest({ ...editingSupportRequest, priority: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Resolution Notes</label>
+                <Textarea 
+                  value={editingSupportRequest.resolution_notes || ''}
+                  onChange={(e) => setEditingSupportRequest({ ...editingSupportRequest, resolution_notes: e.target.value })}
+                  placeholder="Add notes about the resolution..."
+                  rows={3}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Created: {format(new Date(editingSupportRequest.created_at), 'dd MMM yyyy, hh:mm a')}</p>
+                {editingSupportRequest.resolved_at && (
+                  <p>Resolved: {format(new Date(editingSupportRequest.resolved_at), 'dd MMM yyyy, hh:mm a')}</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditingSupportRequest(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateSupportRequest}>
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
