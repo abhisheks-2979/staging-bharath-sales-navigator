@@ -68,6 +68,7 @@ const TerritoriesManagement = () => {
   const [retailerCount, setRetailerCount] = useState('');
   const [competitorIds, setCompetitorIds] = useState<string[]>([]);
   const [competitors, setCompetitors] = useState<any[]>([]);
+  const [ownerId, setOwnerId] = useState('');
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterUser, setFilterUser] = useState('all');
@@ -261,6 +262,7 @@ const TerritoriesManagement = () => {
         retailer_count: retailerCount ? parseInt(retailerCount) : null,
         competitor_ids: competitorIds.length > 0 ? competitorIds : null,
         description: description || null,
+        owner_id: ownerId || null,
       }).eq('id', editingTerritoryId);
 
       if (error) {
@@ -285,6 +287,7 @@ const TerritoriesManagement = () => {
         retailer_count: retailerCount ? parseInt(retailerCount) : null,
         competitor_ids: competitorIds.length > 0 ? competitorIds : null,
         description: description || null,
+        owner_id: ownerId || null,
       });
 
       if (error) {
@@ -308,6 +311,7 @@ const TerritoriesManagement = () => {
     setTargetMarketSize('');
     setRetailerCount('');
     setCompetitorIds([]);
+    setOwnerId('');
     setEditingTerritoryId(null);
     setShowForm(false);
     loadTerritories();
@@ -327,6 +331,7 @@ const TerritoriesManagement = () => {
     setTargetMarketSize(territory.target_market_size?.toString() || '');
     setRetailerCount(territory.retailer_count?.toString() || '');
     setCompetitorIds(territory.competitor_ids || []);
+    setOwnerId(territory.owner_id || '');
     setShowForm(true);
     setDetailsModalOpen(false);
   };
@@ -517,6 +522,23 @@ const TerritoriesManagement = () => {
                     </div>
                   )}
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Territory Owner</Label>
+                  <Select value={ownerId} onValueChange={setOwnerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select owner..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No owner</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name || user.username}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 
                 <div className="space-y-2">
                   <Label>Assign Users (Multiple)</Label>
@@ -659,6 +681,7 @@ const TerritoriesManagement = () => {
                     setTargetMarketSize('');
                     setRetailerCount('');
                     setCompetitorIds([]);
+                    setOwnerId('');
                   }}>Cancel</Button>
                 </div>
               </form>
