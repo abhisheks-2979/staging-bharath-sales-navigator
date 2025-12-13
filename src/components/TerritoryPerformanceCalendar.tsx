@@ -14,6 +14,7 @@ interface TerritoryOrderDay {
   orders: any[];
   totalRevenue: number;
   orderCount: number;
+  visits: any[];
 }
 
 interface TerritoryPerformanceCalendarProps {
@@ -46,8 +47,18 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
         .lte('created_at', monthEnd.toISOString())
         .order('created_at', { ascending: false });
 
+      // Fetch visits for retailers in this territory
+      const { data: visitsData } = await supabase
+        .from('visits')
+        .select('id, retailer_id, planned_date, status, user_id, check_in_time, check_out_time, retailers(name)')
+        .in('retailer_id', retailerIds)
+        .gte('planned_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('planned_date', format(monthEnd, 'yyyy-MM-dd'))
+        .order('planned_date', { ascending: false });
+
       const dataByDate = new Map<string, TerritoryOrderDay>();
 
+      // Process orders
       ordersData?.forEach(order => {
         const orderDate = new Date(order.created_at);
         const dateKey = format(orderDate, 'yyyy-MM-dd');
@@ -58,6 +69,7 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
             orders: [],
             totalRevenue: 0,
             orderCount: 0,
+            visits: [],
           });
         }
 
@@ -65,6 +77,25 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
         dayData.orders.push(order);
         dayData.orderCount++;
         dayData.totalRevenue += Number(order.total_amount || 0);
+      });
+
+      // Process visits
+      visitsData?.forEach(visit => {
+        const visitDate = new Date(visit.planned_date);
+        const dateKey = format(visitDate, 'yyyy-MM-dd');
+        
+        if (!dataByDate.has(dateKey)) {
+          dataByDate.set(dateKey, {
+            date: visitDate,
+            orders: [],
+            totalRevenue: 0,
+            orderCount: 0,
+            visits: [],
+          });
+        }
+
+        const dayData = dataByDate.get(dateKey)!;
+        dayData.visits.push(visit);
       });
 
       setCalendarData(dataByDate);
@@ -93,12 +124,25 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const getColorClass = (dayData: TerritoryOrderDay | undefined) => {
-    if (!dayData || dayData.orderCount === 0) return 'bg-background';
+    if (!dayData) return 'bg-background';
+    
+    const hasOrders = dayData.orderCount > 0;
+    const hasVisits = dayData.visits && dayData.visits.length > 0;
+    
+    if (!hasOrders && !hasVisits) return 'bg-background';
+    
+    // If only visits, show purple tint
+    if (!hasOrders && hasVisits) return 'bg-purple-500/15 border-purple-500/30';
     
     // Color based on revenue
     if (dayData.totalRevenue >= 5000) return 'bg-green-500/20 border-green-500/40';
     if (dayData.totalRevenue >= 1000) return 'bg-green-500/10 border-green-500/30';
     return 'bg-muted';
+  };
+  
+  const hasActivity = (dayData: TerritoryOrderDay | undefined) => {
+    if (!dayData) return false;
+    return dayData.orderCount > 0 || (dayData.visits && dayData.visits.length > 0);
   };
 
   return (
@@ -144,16 +188,18 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
                     const isCurrentMonth = isSameMonth(day, currentDate);
                     const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                     const hasOrders = dayData && dayData.orderCount > 0;
+                    const hasVisits = dayData && dayData.visits && dayData.visits.length > 0;
+                    const hasAnyActivity = hasActivity(dayData);
 
                     return (
                       <button
                         key={dateKey}
-                        onClick={() => hasOrders && dayData && handleDayClick(dayData)}
-                        disabled={!isCurrentMonth || !hasOrders}
+                        onClick={() => hasAnyActivity && dayData && handleDayClick(dayData)}
+                        disabled={!isCurrentMonth || !hasAnyActivity}
                         className={cn(
                           "min-h-[56px] sm:min-h-[72px] p-1 border rounded transition-all",
                           "disabled:opacity-40 disabled:cursor-not-allowed",
-                          hasOrders && "hover:shadow cursor-pointer active:scale-95",
+                          hasAnyActivity && "hover:shadow cursor-pointer active:scale-95",
                           getColorClass(dayData),
                           isToday && "ring-1.5 ring-primary"
                         )}
@@ -166,11 +212,16 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
                             {format(day, 'd')}
                           </div>
                           
-                          {isCurrentMonth && dayData && dayData.orderCount > 0 && (
+                          {isCurrentMonth && dayData && (hasOrders || hasVisits) && (
                             <div className="text-[9px] sm:text-[10px] space-y-0.5 leading-tight">
                               {dayData.totalRevenue > 0 && (
                                 <div className="text-green-600 font-semibold">
-                                  P ₹{dayData.totalRevenue >= 1000 ? (dayData.totalRevenue / 1000).toFixed(1) + 'k' : dayData.totalRevenue.toFixed(0)}
+                                  ₹{dayData.totalRevenue >= 1000 ? (dayData.totalRevenue / 1000).toFixed(1) + 'k' : dayData.totalRevenue.toFixed(0)}
+                                </div>
+                              )}
+                              {hasVisits && (
+                                <div className="text-purple-600 font-medium">
+                                  {dayData.visits.length} visit{dayData.visits.length > 1 ? 's' : ''}
                                 </div>
                               )}
                             </div>
@@ -198,6 +249,10 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
               <div className="w-3 h-3 rounded bg-muted border"></div>
               <span className="text-muted-foreground">&lt;₹1k</span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-purple-500/15 border border-purple-500/30"></div>
+              <span className="text-muted-foreground">Visits Only</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -215,7 +270,7 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
           {selectedDay && (
             <div className="space-y-4">
               {/* Summary Stats */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 bg-muted/50 rounded-lg text-center">
                   <p className="text-lg font-bold text-primary">{selectedDay.orderCount}</p>
                   <p className="text-xs text-muted-foreground">Orders</p>
@@ -224,58 +279,106 @@ const TerritoryPerformanceCalendar: React.FC<TerritoryPerformanceCalendarProps> 
                   <p className="text-lg font-bold text-green-600">₹{selectedDay.totalRevenue.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">Revenue</p>
                 </div>
+                <div className="p-3 bg-purple-500/10 rounded-lg text-center">
+                  <p className="text-lg font-bold text-purple-600">{selectedDay.visits?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground">Visits</p>
+                </div>
               </div>
 
-              {/* Order List */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Order Details</h4>
-                {selectedDay.orders.map((order, idx) => (
-                  <div 
-                    key={order.id || idx} 
-                    className="p-3 border rounded-lg bg-background hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => {
-                      setDayDetailOpen(false);
-                      navigate(`/retailer/${order.retailer_id}`);
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm text-primary flex items-center gap-1">
-                          <Store className="h-3 w-3" />
-                          {order.retailers?.name || 'Unknown Retailer'}
-                        </p>
-                        {order.retailers?.address && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-3 w-3" />
-                            <span className="line-clamp-1">{order.retailers.address}</span>
+              {/* Visits Section */}
+              {selectedDay.visits && selectedDay.visits.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-purple-600" />
+                    Visit Summary
+                  </h4>
+                  {selectedDay.visits.map((visit, idx) => (
+                    <div 
+                      key={visit.id || idx} 
+                      className="p-3 border rounded-lg bg-purple-500/5 hover:bg-purple-500/10 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setDayDetailOpen(false);
+                        navigate(`/visit/${visit.id}`);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-primary flex items-center gap-1">
+                            <Store className="h-3 w-3" />
+                            {visit.retailers?.name || 'Unknown Retailer'}
                           </p>
-                        )}
+                        </div>
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs shrink-0",
+                            visit.status === 'completed' && "bg-green-500/10 text-green-600 border-green-500/30",
+                            visit.status === 'planned' && "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                          )}
+                        >
+                          {visit.status || 'planned'}
+                        </Badge>
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-xs shrink-0",
-                          order.status === 'confirmed' && "bg-green-500/10 text-green-600 border-green-500/30",
-                          order.status === 'pending' && "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
-                        )}
-                      >
-                        {order.status || 'confirmed'}
-                      </Badge>
+                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                        <span className="text-purple-600 font-medium">View Visit Summary →</span>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(order.created_at), 'hh:mm a')}
-                      </span>
-                      <span className="flex items-center gap-1 text-green-600 font-medium">
-                        <DollarSign className="h-3 w-3" />
-                        ₹{Number(order.total_amount || 0).toLocaleString()}
-                      </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Order List */}
+              {selectedDay.orders && selectedDay.orders.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Order Details</h4>
+                  {selectedDay.orders.map((order, idx) => (
+                    <div 
+                      key={order.id || idx} 
+                      className="p-3 border rounded-lg bg-background hover:bg-muted/30 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setDayDetailOpen(false);
+                        navigate(`/retailer/${order.retailer_id}`);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm text-primary flex items-center gap-1">
+                            <Store className="h-3 w-3" />
+                            {order.retailers?.name || 'Unknown Retailer'}
+                          </p>
+                          {order.retailers?.address && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" />
+                              <span className="line-clamp-1">{order.retailers.address}</span>
+                            </p>
+                          )}
+                        </div>
+                        <Badge 
+                          variant="outline" 
+                          className={cn(
+                            "text-xs shrink-0",
+                            order.status === 'confirmed' && "bg-green-500/10 text-green-600 border-green-500/30",
+                            order.status === 'pending' && "bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+                          )}
+                        >
+                          {order.status || 'confirmed'}
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(order.created_at), 'hh:mm a')}
+                        </span>
+                        <span className="flex items-center gap-1 text-green-600 font-medium">
+                          <DollarSign className="h-3 w-3" />
+                          ₹{Number(order.total_amount || 0).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

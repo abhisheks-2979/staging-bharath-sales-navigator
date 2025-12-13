@@ -86,7 +86,9 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [retailerCategoryFilter, setRetailerCategoryFilter] = useState<string>('all');
   const [retailerLastVisitFilter, setRetailerLastVisitFilter] = useState<string>('all');
   const [productSalesData, setProductSalesData] = useState<any[]>([]);
-  const [retailerOrderStats, setRetailerOrderStats] = useState<Map<string, { last6Months: number; lifetime: number }>>(new Map());
+  const [retailerOrderStats, setRetailerOrderStats] = useState<Map<string, { last6Months: number; lifetime: number; lastOrderValue: number; lastOrderDate: string | null }>>(new Map());
+  const [growthPotential, setGrowthPotential] = useState<string>('');
+  const [growthPotentialDetails, setGrowthPotentialDetails] = useState<string>('');
 
   const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
@@ -328,9 +330,9 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       
       setAllTerritoryOrders(allOrdersData || []);
 
-      // Calculate retailer order stats (last 6 months and lifetime)
+      // Calculate retailer order stats (last 6 months, lifetime, last order)
       const sixMonthsAgo = subMonths(new Date(), 6);
-      const orderStatsMap = new Map<string, { last6Months: number; lifetime: number }>();
+      const orderStatsMap = new Map<string, { last6Months: number; lifetime: number; lastOrderValue: number; lastOrderDate: string | null }>();
       
       matchingRetailers.forEach(retailer => {
         const retailerOrders = allOrdersData?.filter(o => o.retailer_id === retailer.id) || [];
@@ -339,7 +341,12 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
           .filter(o => new Date(o.created_at) >= sixMonthsAgo)
           .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
         
-        orderStatsMap.set(retailer.id, { last6Months, lifetime });
+        // Get last order
+        const lastOrder = retailerOrders.length > 0 ? retailerOrders[0] : null;
+        const lastOrderValue = lastOrder ? Number(lastOrder.total_amount || 0) : 0;
+        const lastOrderDate = lastOrder ? lastOrder.created_at : null;
+        
+        orderStatsMap.set(retailer.id, { last6Months, lifetime, lastOrderValue, lastOrderDate });
       });
       setRetailerOrderStats(orderStatsMap);
 
@@ -365,22 +372,57 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       }
       
       // Calculate performance with same logic as list view
+      let currentPerformanceFlag = 'Stable';
+      let currentGrowthRate = 0;
       if (matchingRetailers.length === 0 && monthlyTotals.every(m => m === 0)) {
-        setPerformanceFlag('New');
+        currentPerformanceFlag = 'New';
       } else if (monthlyTotals.length >= 2) {
         const currentMonth = monthlyTotals[monthlyTotals.length - 1];
         const previousMonth = monthlyTotals[monthlyTotals.length - 2];
-        const growth = previousMonth > 0 ? ((currentMonth - previousMonth) / previousMonth) * 100 : (currentMonth > 0 ? 100 : 0);
+        currentGrowthRate = previousMonth > 0 ? ((currentMonth - previousMonth) / previousMonth) * 100 : (currentMonth > 0 ? 100 : 0);
         
-        if (growth > 25) setPerformanceFlag('High Growth');
-        else if (growth > 10) setPerformanceFlag('Growth');
-        else if (growth >= 5) setPerformanceFlag('Stable');
-        else if (growth >= 0) setPerformanceFlag('Stable');
-        else if (growth > -25) setPerformanceFlag('Declining');
-        else setPerformanceFlag('Steep Decline');
-      } else {
-        setPerformanceFlag('Stable');
+        if (currentGrowthRate > 25) currentPerformanceFlag = 'High Growth';
+        else if (currentGrowthRate > 10) currentPerformanceFlag = 'Growth';
+        else if (currentGrowthRate >= 5) currentPerformanceFlag = 'Stable';
+        else if (currentGrowthRate >= 0) currentPerformanceFlag = 'Stable';
+        else if (currentGrowthRate > -25) currentPerformanceFlag = 'Declining';
+        else currentPerformanceFlag = 'Steep Decline';
       }
+      setPerformanceFlag(currentPerformanceFlag);
+      
+      // Calculate Growth Potential
+      const potentialRetailers = territory.retailer_count || 0;
+      const coveragePercent = potentialRetailers > 0 ? (matchingRetailers.length / potentialRetailers) * 100 : 0;
+      const totalSalesLast6Months = recentOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      
+      let calculatedGrowthPotential = 'Average growth territory';
+      let calculatedGrowthPotentialDetails = '';
+      
+      if (matchingRetailers.length === 0 && potentialRetailers === 0) {
+        calculatedGrowthPotential = 'Low growth territory';
+        calculatedGrowthPotentialDetails = 'No retailer data available. Territory needs basic setup and market research.';
+      } else if (currentGrowthRate > 15 && coveragePercent < 50) {
+        calculatedGrowthPotential = 'High growth territory';
+        calculatedGrowthPotentialDetails = `Strong growth rate of ${currentGrowthRate.toFixed(1)}% with only ${coveragePercent.toFixed(0)}% retailer coverage. Significant room for expansion with ${potentialRetailers - matchingRetailers.length} untapped retailers.`;
+      } else if (currentGrowthRate > 10 || (coveragePercent < 30 && potentialRetailers > 10)) {
+        calculatedGrowthPotential = 'High growth territory';
+        calculatedGrowthPotentialDetails = `Territory shows ${currentGrowthRate.toFixed(1)}% growth. ${coveragePercent.toFixed(0)}% of ${potentialRetailers} potential retailers covered. Population: ${territory.population?.toLocaleString() || 'N/A'}.`;
+      } else if (currentGrowthRate >= 0 && coveragePercent < 70) {
+        calculatedGrowthPotential = 'Average growth territory';
+        calculatedGrowthPotentialDetails = `Stable performance with ${coveragePercent.toFixed(0)}% coverage. Moderate expansion potential with ${potentialRetailers - matchingRetailers.length} retailers to target.`;
+      } else if (currentGrowthRate < 0 && currentGrowthRate > -15) {
+        calculatedGrowthPotential = 'Low growth territory';
+        calculatedGrowthPotentialDetails = `Declining by ${Math.abs(currentGrowthRate).toFixed(1)}%. Focus on retention and service improvement before expansion.`;
+      } else if (currentGrowthRate <= -15) {
+        calculatedGrowthPotential = 'De-growth territory';
+        calculatedGrowthPotentialDetails = `Steep decline of ${Math.abs(currentGrowthRate).toFixed(1)}%. Requires immediate intervention. Analyze competitor activity and retailer feedback.`;
+      } else if (coveragePercent >= 70) {
+        calculatedGrowthPotential = 'Low growth territory';
+        calculatedGrowthPotentialDetails = `High coverage of ${coveragePercent.toFixed(0)}%. Focus on increasing wallet share from existing retailers rather than new acquisition.`;
+      }
+      
+      setGrowthPotential(calculatedGrowthPotential);
+      setGrowthPotentialDetails(calculatedGrowthPotentialDetails);
 
       // Use latest orders for current month summary (for top/bottom SKUs)
       const startOfMonth = new Date();
@@ -694,13 +736,36 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     <p className="font-medium text-sm">{territory.target_market_size ? `₹${territory.target_market_size.toLocaleString()}` : '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground"># of Retailers</p>
+                    <p className="text-xs text-muted-foreground"># of Retailers (Covered)</p>
                     <p className="font-medium text-sm">{salesSummary.totalRetailers}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Potential Retailers</p>
+                    <p className="font-medium text-sm">{territory.retailer_count || '-'}</p>
                   </div>
                   {auditInfo.owner && (
                     <div>
                       <p className="text-xs text-muted-foreground">Owner</p>
                       <p className="font-medium text-sm">{auditInfo.owner}</p>
+                    </div>
+                  )}
+                  {growthPotential && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Growth Potential</p>
+                      <Badge className={`text-xs mt-1 ${
+                        growthPotential === 'High growth territory' ? 'bg-green-500/20 text-green-700 border-green-500/30' :
+                        growthPotential === 'Average growth territory' ? 'bg-blue-500/20 text-blue-700 border-blue-500/30' :
+                        growthPotential === 'Low growth territory' ? 'bg-orange-500/20 text-orange-700 border-orange-500/30' :
+                        'bg-red-500/20 text-red-700 border-red-500/30'
+                      }`}>
+                        {growthPotential}
+                      </Badge>
+                    </div>
+                  )}
+                  {growthPotentialDetails && (
+                    <div className="col-span-full">
+                      <p className="text-xs text-muted-foreground">Growth Potential Details</p>
+                      <p className="text-sm text-muted-foreground mt-1">{growthPotentialDetails}</p>
                     </div>
                   )}
                   <div className="col-span-2">
@@ -1043,21 +1108,26 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                                 <TableRow>
                                   <TableHead className="text-xs sm:text-sm">Name</TableHead>
                                   <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden md:table-cell">Last Order</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden md:table-cell">Last Visit</TableHead>
                                   <TableHead className="text-xs sm:text-sm">Last 6 Months</TableHead>
-                                  <TableHead className="text-xs sm:text-sm hidden md:table-cell">Lifetime Value</TableHead>
-                                  <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Last Visit</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Lifetime Value</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {filteredRetailers.map(r => {
-                                  const stats = retailerOrderStats.get(r.id) || { last6Months: 0, lifetime: 0 };
+                                  const stats = retailerOrderStats.get(r.id) || { last6Months: 0, lifetime: 0, lastOrderValue: 0, lastOrderDate: null };
                                   return (
                                     <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToRetailer(r.id)}>
                                       <TableCell className="text-xs sm:text-sm font-medium text-primary">{r.name}</TableCell>
                                       <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{r.category || '-'}</Badge></TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
+                                        {stats.lastOrderValue > 0 ? `₹${stats.lastOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '-'}
+                                        {stats.lastOrderDate && <span className="block text-[10px]">{format(new Date(stats.lastOrderDate), 'dd MMM')}</span>}
+                                      </TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">{r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM yyyy') : '-'}</TableCell>
                                       <TableCell className="text-xs sm:text-sm font-medium">₹{stats.last6Months.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</TableCell>
-                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">₹{stats.lifetime.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</TableCell>
-                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">{r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM yyyy') : '-'}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">₹{stats.lifetime.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</TableCell>
                                     </TableRow>
                                   );
                                 })}

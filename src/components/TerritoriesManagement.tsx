@@ -72,6 +72,8 @@ const TerritoriesManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterUser, setFilterUser] = useState('all');
   const [filterDistributor, setFilterDistributor] = useState('all');
+  const [filterLastVisited, setFilterLastVisited] = useState('all');
+  const [filterGrowthPotential, setFilterGrowthPotential] = useState('all');
   const [users, setUsers] = useState<any[]>([]);
   const [distributors, setDistributors] = useState<any[]>([]);
   const [userComboOpen, setUserComboOpen] = useState(false);
@@ -267,6 +269,37 @@ const TerritoriesManagement = () => {
           attention_reason = 'No visits this month';
         }
 
+        // Calculate Growth Potential
+        const potentialRetailers = territory.retailer_count || 0;
+        const coveragePercent = potentialRetailers > 0 ? (retailersCount / potentialRetailers) * 100 : 0;
+        const marketPenetration = territory.target_market_size > 0 ? (total_sales / territory.target_market_size) * 100 : 0;
+        
+        let growth_potential = 'Average growth territory';
+        let growth_potential_details = '';
+        
+        if (retailersCount === 0 && potentialRetailers === 0) {
+          growth_potential = 'Low growth territory';
+          growth_potential_details = 'No retailer data available. Territory needs basic setup and market research.';
+        } else if (growthRate > 15 && coveragePercent < 50) {
+          growth_potential = 'High growth territory';
+          growth_potential_details = `Strong growth rate of ${growthRate.toFixed(1)}% with only ${coveragePercent.toFixed(0)}% retailer coverage. Significant room for expansion with ${potentialRetailers - retailersCount} untapped retailers.`;
+        } else if (growthRate > 10 || (coveragePercent < 30 && potentialRetailers > 10)) {
+          growth_potential = 'High growth territory';
+          growth_potential_details = `Territory shows ${growthRate.toFixed(1)}% growth. ${coveragePercent.toFixed(0)}% of ${potentialRetailers} potential retailers covered. Population: ${territory.population?.toLocaleString() || 'N/A'}.`;
+        } else if (growthRate >= 0 && coveragePercent < 70) {
+          growth_potential = 'Average growth territory';
+          growth_potential_details = `Stable performance with ${coveragePercent.toFixed(0)}% coverage. Moderate expansion potential with ${potentialRetailers - retailersCount} retailers to target.`;
+        } else if (growthRate < 0 && growthRate > -15) {
+          growth_potential = 'Low growth territory';
+          growth_potential_details = `Declining by ${Math.abs(growthRate).toFixed(1)}%. Focus on retention and service improvement before expansion.`;
+        } else if (growthRate <= -15) {
+          growth_potential = 'De-growth territory';
+          growth_potential_details = `Steep decline of ${Math.abs(growthRate).toFixed(1)}%. Requires immediate intervention. Analyze competitor activity and retailer feedback.`;
+        } else if (coveragePercent >= 70) {
+          growth_potential = 'Low growth territory';
+          growth_potential_details = `High coverage of ${coveragePercent.toFixed(0)}%. Focus on increasing wallet share from existing retailers rather than new acquisition.`;
+        }
+
         return {
           ...territory,
           owner_name,
@@ -279,6 +312,8 @@ const TerritoriesManagement = () => {
           growth_rate: growthRate,
           needs_attention,
           attention_reason,
+          growth_potential,
+          growth_potential_details,
         };
       })
     );
@@ -390,7 +425,42 @@ const TerritoriesManagement = () => {
     const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesUser = filterUser === 'all' || t.assigned_user_id === filterUser || t.assigned_user_ids?.includes(filterUser);
     const matchesDistributor = filterDistributor === 'all' || t.assigned_distributor_ids?.includes(filterDistributor);
-    return matchesSearch && matchesUser && matchesDistributor;
+    
+    // Last visited filter
+    let matchesLastVisited = true;
+    if (filterLastVisited !== 'all' && t.last_visit_date) {
+      const lastVisit = new Date(t.last_visit_date);
+      const now = new Date();
+      const daysSince = Math.floor((now.getTime() - lastVisit.getTime()) / (1000 * 60 * 60 * 24));
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      const startOfTwoMonthsBack = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const endOfTwoMonthsBack = new Date(now.getFullYear(), now.getMonth() - 1, 0);
+      
+      if (filterLastVisited === 'current_week') {
+        matchesLastVisited = lastVisit >= startOfWeek;
+      } else if (filterLastVisited === 'current_month') {
+        matchesLastVisited = lastVisit >= startOfMonth;
+      } else if (filterLastVisited === 'last_month') {
+        matchesLastVisited = lastVisit >= startOfLastMonth && lastVisit <= endOfLastMonth;
+      } else if (filterLastVisited === 'two_months_back') {
+        matchesLastVisited = lastVisit >= startOfTwoMonthsBack && lastVisit <= endOfTwoMonthsBack;
+      } else if (filterLastVisited === 'more_than_three_months') {
+        matchesLastVisited = daysSince > 90;
+      }
+    } else if (filterLastVisited === 'more_than_three_months' && !t.last_visit_date) {
+      matchesLastVisited = true; // Never visited counts as more than 3 months
+    } else if (filterLastVisited !== 'all' && !t.last_visit_date) {
+      matchesLastVisited = false;
+    }
+    
+    // Growth potential filter
+    const matchesGrowthPotential = filterGrowthPotential === 'all' || t.growth_potential === filterGrowthPotential;
+    
+    return matchesSearch && matchesUser && matchesDistributor && matchesLastVisited && matchesGrowthPotential;
   });
 
   const handleDeleteTerritory = async () => {
@@ -508,13 +578,14 @@ const TerritoriesManagement = () => {
                     />
                   </div>
                   <div>
-                    <Label># of Retailers</Label>
+                    <Label>Potential Retailers</Label>
                     <Input 
                       type="number" 
                       value={retailerCount} 
                       onChange={(e) => setRetailerCount(e.target.value)} 
-                      placeholder="Total retailers"
+                      placeholder="Addressable market"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">Addressable market - total retailers you can target</p>
                   </div>
                 </div>
 
@@ -736,7 +807,7 @@ const TerritoriesManagement = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
               <div><Label>Search</Label><Input placeholder="Search territory..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
               <div><Label>Filter by User</Label>
                 <Select value={filterUser} onValueChange={setFilterUser}>
@@ -748,6 +819,31 @@ const TerritoriesManagement = () => {
                 <Select value={filterDistributor} onValueChange={setFilterDistributor}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="all">All Distributors</SelectItem>{distributors.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Last Visited</Label>
+                <Select value={filterLastVisited} onValueChange={setFilterLastVisited}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="current_week">Current Week</SelectItem>
+                    <SelectItem value="current_month">Current Month</SelectItem>
+                    <SelectItem value="last_month">Last Month</SelectItem>
+                    <SelectItem value="two_months_back">Two Months Back</SelectItem>
+                    <SelectItem value="more_than_three_months">More than 3 Months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Growth Potential</Label>
+                <Select value={filterGrowthPotential} onValueChange={setFilterGrowthPotential}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="High growth territory">High Growth</SelectItem>
+                    <SelectItem value="Average growth territory">Average Growth</SelectItem>
+                    <SelectItem value="Low growth territory">Low Growth</SelectItem>
+                    <SelectItem value="De-growth territory">De-growth</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
             </div>
