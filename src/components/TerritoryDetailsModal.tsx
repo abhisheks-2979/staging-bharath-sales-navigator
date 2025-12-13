@@ -83,6 +83,10 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [entityFilter, setEntityFilter] = useState<'retailers' | 'distributors'>('retailers');
   const [selectedRetailerForModal, setSelectedRetailerForModal] = useState<any>(null);
   const [retailerDetailModalOpen, setRetailerDetailModalOpen] = useState(false);
+  const [retailerCategoryFilter, setRetailerCategoryFilter] = useState<string>('all');
+  const [retailerLastVisitFilter, setRetailerLastVisitFilter] = useState<string>('all');
+  const [productSalesData, setProductSalesData] = useState<any[]>([]);
+  const [retailerOrderStats, setRetailerOrderStats] = useState<Map<string, { last6Months: number; lifetime: number }>>(new Map());
 
   const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
@@ -189,6 +193,42 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     };
     fetchVisits();
 
+    // Calculate product-wise sales for the period
+    const calculateProductSales = async () => {
+      const orderIds = filteredOrders.map(o => o.id);
+      if (orderIds.length === 0) {
+        setProductSalesData([]);
+        return;
+      }
+
+      const { data: orderItemsData } = await supabase
+        .from('order_items')
+        .select('product_name, quantity, total')
+        .in('order_id', orderIds);
+
+      if (!orderItemsData || orderItemsData.length === 0) {
+        setProductSalesData([]);
+        return;
+      }
+
+      const productMap = new Map<string, { name: string; quantity: number; sales: number }>();
+      orderItemsData.forEach(item => {
+        const existing = productMap.get(item.product_name) || { name: item.product_name, quantity: 0, sales: 0 };
+        productMap.set(item.product_name, {
+          name: item.product_name,
+          quantity: existing.quantity + Number(item.quantity || 0),
+          sales: existing.sales + Number(item.total || 0),
+        });
+      });
+
+      const sortedProducts = Array.from(productMap.values())
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 10); // Top 10 products
+
+      setProductSalesData(sortedProducts);
+    };
+    calculateProductSales();
+
   }, [salesTrendFilter, allTerritoryOrders, retailers]);
 
   const loadTerritoryData = async () => {
@@ -288,6 +328,21 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       
       setAllTerritoryOrders(allOrdersData || []);
 
+      // Calculate retailer order stats (last 6 months and lifetime)
+      const sixMonthsAgo = subMonths(new Date(), 6);
+      const orderStatsMap = new Map<string, { last6Months: number; lifetime: number }>();
+      
+      matchingRetailers.forEach(retailer => {
+        const retailerOrders = allOrdersData?.filter(o => o.retailer_id === retailer.id) || [];
+        const lifetime = retailerOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        const last6Months = retailerOrders
+          .filter(o => new Date(o.created_at) >= sixMonthsAgo)
+          .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        
+        orderStatsMap.set(retailer.id, { last6Months, lifetime });
+      });
+      setRetailerOrderStats(orderStatsMap);
+
       setSalesSummary({
         totalSales: 0, // Will be set by period filter
         totalOrders: 0,
@@ -295,8 +350,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         totalVisits: 0,
       });
 
-      // Calculate performance flag based on last 6 months
-      const sixMonthsAgo = subMonths(new Date(), 6);
+      // Calculate performance flag based on last 6 months (reuse sixMonthsAgo)
       const recentOrders = allOrdersData?.filter(o => new Date(o.created_at) >= sixMonthsAgo) || [];
       const monthlyTotals: number[] = [];
       for (let i = 5; i >= 0; i--) {
@@ -775,6 +829,36 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </CardContent>
             </Card>
 
+            {/* Product-wise Sales Chart */}
+            <Card className="shadow-lg">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm sm:text-base flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="h-4 w-4 text-indigo-600" />
+                    <span>Product-wise Sales</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-normal">Based on selected period</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2 sm:p-4">
+                {productSalesData.length > 0 ? (
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={300}>
+                      <BarChart data={productSalesData} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
+                        <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={100} />
+                        <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Sales']} />
+                        <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <p className="text-center py-8 text-sm text-muted-foreground">No product data for selected period</p>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Performance Snapshot - Below Chart, Linked to Period */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               <Card className="shadow-lg bg-gradient-to-br from-green-500/10 to-green-600/5">
@@ -879,7 +963,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
 
               {/* Retailers & Distributors Tab */}
               <TabsContent value="entities" className="mt-4 space-y-4">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Select value={entityFilter} onValueChange={(v: 'retailers' | 'distributors') => setEntityFilter(v)}>
                     <SelectTrigger className="w-[160px] h-9">
                       <SelectValue />
@@ -889,34 +973,90 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                       <SelectItem value="distributors">Distributors ({distributors.length})</SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {entityFilter === 'retailers' && (
+                    <>
+                      <Select value={retailerCategoryFilter} onValueChange={setRetailerCategoryFilter}>
+                        <SelectTrigger className="w-[130px] h-9">
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {[...new Set(retailers.map(r => r.category).filter(Boolean))].map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select value={retailerLastVisitFilter} onValueChange={setRetailerLastVisitFilter}>
+                        <SelectTrigger className="w-[140px] h-9">
+                          <SelectValue placeholder="Last Visit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Visits</SelectItem>
+                          <SelectItem value="7days">Last 7 Days</SelectItem>
+                          <SelectItem value="30days">Last 30 Days</SelectItem>
+                          <SelectItem value="90days">Last 90 Days</SelectItem>
+                          <SelectItem value="never">Never Visited</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </>
+                  )}
                 </div>
                 
                 <Card className="shadow-lg">
                   <CardContent className="p-3 sm:p-4">
                     {entityFilter === 'retailers' ? (
-                      <div className="overflow-x-auto -mx-3 sm:mx-0">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
-                              <TableHead className="text-xs sm:text-sm">Last Order</TableHead>
-                              <TableHead className="text-xs sm:text-sm hidden md:table-cell">Last Visit</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {retailers.map(r => (
-                              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToRetailer(r.id)}>
-                                <TableCell className="text-xs sm:text-sm font-medium text-primary">{r.name}</TableCell>
-                                <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{r.category || '-'}</Badge></TableCell>
-                                <TableCell className="text-xs sm:text-sm">{r.last_order_value ? `₹${Number(r.last_order_value).toLocaleString()}` : '-'}</TableCell>
-                                <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">{r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM') : '-'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        {retailers.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">No retailers</p>}
-                      </div>
+                      (() => {
+                        const filteredRetailers = retailers.filter(r => {
+                          // Category filter
+                          if (retailerCategoryFilter !== 'all' && r.category !== retailerCategoryFilter) return false;
+                          
+                          // Last visit filter
+                          if (retailerLastVisitFilter !== 'all') {
+                            const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : null;
+                            const now = new Date();
+                            
+                            if (retailerLastVisitFilter === 'never' && lastVisit) return false;
+                            if (retailerLastVisitFilter === '7days' && (!lastVisit || (now.getTime() - lastVisit.getTime()) > 7 * 24 * 60 * 60 * 1000)) return false;
+                            if (retailerLastVisitFilter === '30days' && (!lastVisit || (now.getTime() - lastVisit.getTime()) > 30 * 24 * 60 * 60 * 1000)) return false;
+                            if (retailerLastVisitFilter === '90days' && (!lastVisit || (now.getTime() - lastVisit.getTime()) > 90 * 24 * 60 * 60 * 1000)) return false;
+                          }
+                          
+                          return true;
+                        });
+                        
+                        return (
+                          <div className="overflow-x-auto -mx-3 sm:mx-0">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Category</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Last 6 Months</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden md:table-cell">Lifetime Value</TableHead>
+                                  <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Last Visit</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {filteredRetailers.map(r => {
+                                  const stats = retailerOrderStats.get(r.id) || { last6Months: 0, lifetime: 0 };
+                                  return (
+                                    <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigateToRetailer(r.id)}>
+                                      <TableCell className="text-xs sm:text-sm font-medium text-primary">{r.name}</TableCell>
+                                      <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{r.category || '-'}</Badge></TableCell>
+                                      <TableCell className="text-xs sm:text-sm font-medium">₹{stats.last6Months.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">₹{stats.lifetime.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">{r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM yyyy') : '-'}</TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                            {filteredRetailers.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">No retailers match filters</p>}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <div className="overflow-x-auto -mx-3 sm:mx-0">
                         <Table>
