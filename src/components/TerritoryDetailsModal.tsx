@@ -923,8 +923,6 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 </Card>
               </TabsContent>
             </Tabs>
-              </TabsContent>
-            </Tabs>
           </div>
         )}
       </DialogContent>
