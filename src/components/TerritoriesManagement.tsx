@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3, Pencil, Trash2 } from 'lucide-react';
+import { Plus, FileDown, Search, Check, ChevronsUpDown, X, BarChart3, Pencil, Trash2, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TerritoryDetailsModal from './TerritoryDetailsModal';
 
@@ -231,6 +231,18 @@ const TerritoriesManagement = () => {
           visits_this_month = visitsCount || 0;
         }
 
+        // Calculate performance status
+        let performance_status = 'Stable';
+        if (previous_month_sales > 0) {
+          const growthRate = ((total_sales - previous_month_sales) / previous_month_sales) * 100;
+          if (growthRate > 20) performance_status = 'High Growth';
+          else if (growthRate > 5) performance_status = 'Growing';
+          else if (growthRate < -10) performance_status = 'Declining';
+          else if (growthRate < 0) performance_status = 'Slow';
+        } else if (total_sales > 0) {
+          performance_status = 'New';
+        }
+
         return {
           ...territory,
           owner_name,
@@ -239,6 +251,7 @@ const TerritoriesManagement = () => {
           previous_month_sales,
           last_visit_date,
           visits_this_month,
+          performance_status,
         };
       })
     );
@@ -728,6 +741,7 @@ const TerritoriesManagement = () => {
                         <TableHead>Territory</TableHead>
                         <TableHead>Hierarchy</TableHead>
                         <TableHead>Metrics</TableHead>
+                        <TableHead>Performance</TableHead>
                         <TableHead>Visits</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
@@ -784,6 +798,40 @@ const TerritoriesManagement = () => {
                                   <span className="text-muted-foreground">Revenue:</span>
                                   <span className="font-medium text-primary">₹{t.total_sales?.toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '0'}</span>
                                 </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {t.performance_status === 'High Growth' && (
+                                  <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
+                                    <TrendingUp className="h-3 w-3" /> High Growth
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Growing' && (
+                                  <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1">
+                                    <TrendingUp className="h-3 w-3" /> Growing
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Stable' && (
+                                  <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
+                                    <Minus className="h-3 w-3" /> Stable
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Slow' && (
+                                  <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1">
+                                    <TrendingDown className="h-3 w-3" /> Slow
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Declining' && (
+                                  <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1">
+                                    <TrendingDown className="h-3 w-3" /> Declining
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'New' && (
+                                  <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1">
+                                    <Sparkles className="h-3 w-3" /> New
+                                  </Badge>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -921,6 +969,41 @@ const TerritoriesManagement = () => {
                               <div className="text-xs text-muted-foreground">Retailers</div>
                               <div className="text-lg font-bold">{t.total_retailers}</div>
                             </div>
+                          </div>
+
+                          {/* Performance Status */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Performance:</span>
+                            {t.performance_status === 'High Growth' && (
+                              <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1 text-xs">
+                                <TrendingUp className="h-3 w-3" /> High Growth
+                              </Badge>
+                            )}
+                            {t.performance_status === 'Growing' && (
+                              <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1 text-xs">
+                                <TrendingUp className="h-3 w-3" /> Growing
+                              </Badge>
+                            )}
+                            {t.performance_status === 'Stable' && (
+                              <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1 text-xs">
+                                <Minus className="h-3 w-3" /> Stable
+                              </Badge>
+                            )}
+                            {t.performance_status === 'Slow' && (
+                              <Badge className="bg-amber-500/20 text-amber-700 border-amber-500/30 gap-1 text-xs">
+                                <TrendingDown className="h-3 w-3" /> Slow
+                              </Badge>
+                            )}
+                            {t.performance_status === 'Declining' && (
+                              <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1 text-xs">
+                                <TrendingDown className="h-3 w-3" /> Declining
+                              </Badge>
+                            )}
+                            {t.performance_status === 'New' && (
+                              <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1 text-xs">
+                                <Sparkles className="h-3 w-3" /> New
+                              </Badge>
+                            )}
                           </div>
 
                           {/* Visits Info */}
