@@ -38,6 +38,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [performanceFlag, setPerformanceFlag] = useState<string>('');
   const [parentTerritory, setParentTerritory] = useState<any>(null);
   const [grandparentTerritory, setGrandparentTerritory] = useState<any>(null);
+  const [auditInfo, setAuditInfo] = useState<{ owner?: string; createdBy?: string; lastUpdatedBy?: string }>({});
 
   const modalTitle = useMemo(() => territory ? `${territory.name} - Territory Analytics` : 'Territory Analytics', [territory]);
 
@@ -71,6 +72,26 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         distributorsData = data || [];
       }
       setDistributors(distributorsData);
+
+      // Load audit info (owner, created_by, last_updated_by)
+      const userIds = [territory.owner_id, territory.created_by, territory.last_updated_by].filter(Boolean);
+      let auditUsers: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        if (profiles) {
+          profiles.forEach(p => {
+            auditUsers[p.id] = p.full_name || 'Unknown';
+          });
+        }
+      }
+      setAuditInfo({
+        owner: territory.owner_id ? auditUsers[territory.owner_id] : undefined,
+        createdBy: territory.created_by ? auditUsers[territory.created_by] : undefined,
+        lastUpdatedBy: territory.last_updated_by ? auditUsers[territory.last_updated_by] : undefined,
+      });
 
       const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address, phone, last_visit_date, last_order_value, last_order_date').eq('territory_id', territory.id);
       const matchingRetailers = retailersData || [];
@@ -304,6 +325,30 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 <TerritorySupportRequestForm territoryId={territory.id} territoryName={territory.name} />
               </div>
             </div>
+
+            {/* Audit Info & Owner */}
+            <Card className="shadow-lg bg-muted/30">
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs sm:text-sm">
+                  {auditInfo.owner && (
+                    <div>
+                      <p className="text-muted-foreground">Owner</p>
+                      <p className="font-medium">{auditInfo.owner}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground">Created</p>
+                    <p className="font-medium">{territory.created_at ? format(new Date(territory.created_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
+                    {auditInfo.createdBy && <p className="text-xs text-muted-foreground">by {auditInfo.createdBy}</p>}
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Last Updated</p>
+                    <p className="font-medium">{territory.updated_at ? format(new Date(territory.updated_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
+                    {auditInfo.lastUpdatedBy && <p className="text-xs text-muted-foreground">by {auditInfo.lastUpdatedBy}</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Key Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

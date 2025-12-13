@@ -7245,9 +7245,12 @@ export type Database = {
           child_territories_count: number | null
           competitor_ids: string[] | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
+          last_updated_by: string | null
           name: string
+          owner_id: string | null
           parent_id: string | null
           pincode_ranges: string[] | null
           population: number | null
@@ -7265,9 +7268,12 @@ export type Database = {
           child_territories_count?: number | null
           competitor_ids?: string[] | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
+          last_updated_by?: string | null
           name: string
+          owner_id?: string | null
           parent_id?: string | null
           pincode_ranges?: string[] | null
           population?: number | null
@@ -7285,9 +7291,12 @@ export type Database = {
           child_territories_count?: number | null
           competitor_ids?: string[] | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
+          last_updated_by?: string | null
           name?: string
+          owner_id?: string | null
           parent_id?: string | null
           pincode_ranges?: string[] | null
           population?: number | null
