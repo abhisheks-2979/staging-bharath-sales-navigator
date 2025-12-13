@@ -864,7 +864,8 @@ const TerritoriesManagement = () => {
                         <TableHead>Territory</TableHead>
                         <TableHead>Hierarchy</TableHead>
                         <TableHead>Metrics</TableHead>
-                        <TableHead>Performance</TableHead>
+                        <TableHead>Growth Potential</TableHead>
+                        <TableHead>Revenue Indicator</TableHead>
                         <TableHead>Visits</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
@@ -924,44 +925,54 @@ const TerritoriesManagement = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-2">
-                                  {t.performance_status === 'High Growth' && (
-                                    <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
-                                      <TrendingUp className="h-3 w-3" /> High Growth
-                                    </Badge>
-                                  )}
-                                  {t.performance_status === 'Growth' && (
-                                    <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1">
-                                      <TrendingUp className="h-3 w-3" /> Growth
-                                    </Badge>
-                                  )}
-                                  {t.performance_status === 'Stable' && (
-                                    <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
-                                      <Minus className="h-3 w-3" /> Stable
-                                    </Badge>
-                                  )}
-                                  {t.performance_status === 'Declining' && (
-                                    <Badge className="bg-orange-500/20 text-orange-700 border-orange-500/30 gap-1">
-                                      <TrendingDown className="h-3 w-3" /> Declining
-                                    </Badge>
-                                  )}
-                                  {t.performance_status === 'Steep Decline' && (
-                                    <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1">
-                                      <TrendingDown className="h-3 w-3" /> Steep Decline
-                                    </Badge>
-                                  )}
-                                  {t.performance_status === 'New' && (
-                                    <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1">
-                                      <Sparkles className="h-3 w-3" /> New
-                                    </Badge>
-                                  )}
-                                </div>
+                              <div className="flex flex-col gap-1">
+                                <Badge className={`text-xs ${
+                                  t.growth_potential === 'High growth territory' ? 'bg-green-500/20 text-green-700 border-green-500/30' :
+                                  t.growth_potential === 'Average growth territory' ? 'bg-blue-500/20 text-blue-700 border-blue-500/30' :
+                                  t.growth_potential === 'Low growth territory' ? 'bg-orange-500/20 text-orange-700 border-orange-500/30' :
+                                  'bg-red-500/20 text-red-700 border-red-500/30'
+                                }`}>
+                                  {t.growth_potential?.replace(' territory', '') || 'N/A'}
+                                </Badge>
                                 {t.needs_attention && (
                                   <div className="flex items-center gap-1 text-xs text-amber-600" title={t.attention_reason}>
                                     <AlertTriangle className="h-3 w-3" />
-                                    <span className="truncate max-w-[150px]">{t.attention_reason}</span>
+                                    <span className="truncate max-w-[120px]">{t.attention_reason}</span>
                                   </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {t.performance_status === 'High Growth' && (
+                                  <Badge className="bg-green-500/20 text-green-700 border-green-500/30 gap-1">
+                                    <TrendingUp className="h-3 w-3" /> High Growth
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Growth' && (
+                                  <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30 gap-1">
+                                    <TrendingUp className="h-3 w-3" /> Growth
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Stable' && (
+                                  <Badge className="bg-blue-500/20 text-blue-700 border-blue-500/30 gap-1">
+                                    <Minus className="h-3 w-3" /> Stable
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Declining' && (
+                                  <Badge className="bg-orange-500/20 text-orange-700 border-orange-500/30 gap-1">
+                                    <TrendingDown className="h-3 w-3" /> Declining
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'Steep Decline' && (
+                                  <Badge className="bg-red-500/20 text-red-700 border-red-500/30 gap-1">
+                                    <TrendingDown className="h-3 w-3" /> Steep Decline
+                                  </Badge>
+                                )}
+                                {t.performance_status === 'New' && (
+                                  <Badge className="bg-purple-500/20 text-purple-700 border-purple-500/30 gap-1">
+                                    <Sparkles className="h-3 w-3" /> New
+                                  </Badge>
                                 )}
                               </div>
                             </TableCell>
