@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { DollarSign, ShoppingCart, Building, Navigation, TrendingUp, Users, ArrowUp, ArrowDown, AlertTriangle, Target, Calendar, Activity, Award, AlertCircle, ChevronRight, Pencil, Trash2, MapPin, FileText, Clock, User, HeartHandshake } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, subMonths } from 'date-fns';
 import TerritoryPerformanceReport from './TerritoryPerformanceReport';
@@ -39,8 +39,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
   const [parentTerritory, setParentTerritory] = useState<any>(null);
   const [grandparentTerritory, setGrandparentTerritory] = useState<any>(null);
   const [auditInfo, setAuditInfo] = useState<{ owner?: string; createdBy?: string; lastUpdatedBy?: string }>({});
+  const [assignedUsers, setAssignedUsers] = useState<any[]>([]);
+  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [supportRequests, setSupportRequests] = useState<any[]>([]);
 
-  const modalTitle = useMemo(() => territory ? `${territory.name} - Territory Analytics` : 'Territory Analytics', [territory]);
+  const modalTitle = useMemo(() => territory ? `${territory.name}` : 'Territory Details', [territory]);
 
   useEffect(() => {
     if (open && territory) loadTerritoryData();
@@ -73,6 +76,28 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
       }
       setDistributors(distributorsData);
 
+      // Load assigned users
+      let usersData: any[] = [];
+      if (territory.assigned_user_ids && territory.assigned_user_ids.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', territory.assigned_user_ids);
+        usersData = data || [];
+      }
+      setAssignedUsers(usersData);
+
+      // Load competitors
+      let competitorsData: any[] = [];
+      if (territory.competitor_ids && territory.competitor_ids.length > 0) {
+        const { data } = await supabase
+          .from('competition_master')
+          .select('id, competitor_name')
+          .in('id', territory.competitor_ids);
+        competitorsData = data || [];
+      }
+      setCompetitors(competitorsData);
+
       // Load audit info (owner, created_by, last_updated_by)
       const userIds = [territory.owner_id, territory.created_by, territory.last_updated_by].filter(Boolean);
       let auditUsers: Record<string, string> = {};
@@ -92,6 +117,15 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
         createdBy: territory.created_by ? auditUsers[territory.created_by] : undefined,
         lastUpdatedBy: territory.last_updated_by ? auditUsers[territory.last_updated_by] : undefined,
       });
+
+      // Load support requests for this territory
+      const { data: supportData } = await supabase
+        .from('support_requests')
+        .select('*')
+        .ilike('subject', `%${territory.name}%`)
+        .eq('support_category', 'territory_support')
+        .order('created_at', { ascending: false });
+      setSupportRequests(supportData || []);
 
       const { data: retailersData } = await supabase.from('retailers').select('id, name, category, address, phone, last_visit_date, last_order_value, last_order_date').eq('territory_id', territory.id);
       const matchingRetailers = retailersData || [];
@@ -237,6 +271,21 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
     return <Activity className="h-4 w-4" />;
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'open':
+        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600">Open</Badge>;
+      case 'in_progress':
+        return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600">In Progress</Badge>;
+      case 'resolved':
+        return <Badge variant="outline" className="bg-green-500/10 text-green-600">Resolved</Badge>;
+      case 'closed':
+        return <Badge variant="outline" className="bg-gray-500/10 text-gray-600">Closed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   if (!territory) return null;
 
   return (
@@ -256,7 +305,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </svg>
             </Button>
             <DialogTitle className="text-lg sm:text-xl pr-8">{modalTitle}</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">Comprehensive territory analytics and performance insights</DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">View territory details, analytics, and support requests</DialogDescription>
           </DialogHeader>
         </div>
 
@@ -326,31 +375,141 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
               </div>
             </div>
 
-            {/* Audit Info & Owner */}
-            <Card className="shadow-lg bg-muted/30">
+            {/* TERRITORY DETAILS SECTION - Shows all saved fields */}
+            <Card className="shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Territory Details
+                </CardTitle>
+              </CardHeader>
               <CardContent className="p-3 sm:p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs sm:text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Name</p>
+                    <p className="font-medium text-sm">{territory.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Region</p>
+                    <p className="font-medium text-sm">{territory.region || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Territory Type</p>
+                    <p className="font-medium text-sm">{territory.territory_type || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Parent Territory</p>
+                    <p className="font-medium text-sm">{parentTerritory?.name || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Population</p>
+                    <p className="font-medium text-sm">{territory.population?.toLocaleString() || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Target Market Size</p>
+                    <p className="font-medium text-sm">{territory.target_market_size ? `₹${territory.target_market_size.toLocaleString()}` : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground"># of Retailers</p>
+                    <p className="font-medium text-sm">{territory.retailer_count || salesSummary.totalRetailers}</p>
+                  </div>
                   {auditInfo.owner && (
                     <div>
-                      <p className="text-muted-foreground">Owner</p>
-                      <p className="font-medium">{auditInfo.owner}</p>
+                      <p className="text-xs text-muted-foreground">Owner</p>
+                      <p className="font-medium text-sm">{auditInfo.owner}</p>
                     </div>
                   )}
-                  <div>
-                    <p className="text-muted-foreground">Created</p>
-                    <p className="font-medium">{territory.created_at ? format(new Date(territory.created_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
-                    {auditInfo.createdBy && <p className="text-xs text-muted-foreground">by {auditInfo.createdBy}</p>}
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">PIN Codes</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {territory.pincode_ranges?.length > 0 ? (
+                        territory.pincode_ranges.map((pin: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="text-xs">{pin}</Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Last Updated</p>
-                    <p className="font-medium">{territory.updated_at ? format(new Date(territory.updated_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
-                    {auditInfo.lastUpdatedBy && <p className="text-xs text-muted-foreground">by {auditInfo.lastUpdatedBy}</p>}
-                  </div>
+                  {assignedUsers.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Assigned Users</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {assignedUsers.map((user) => (
+                          <Badge key={user.id} variant="secondary" className="text-xs">
+                            <User className="h-3 w-3 mr-1" />
+                            {user.full_name || user.username}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {distributors.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Assigned Distributors</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {distributors.map((d) => (
+                          <Badge key={d.id} variant="secondary" className="text-xs">
+                            <Building className="h-3 w-3 mr-1" />
+                            {d.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {competitors.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Key Competitors</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {competitors.map((c) => (
+                          <Badge key={c.id} variant="outline" className="text-xs bg-red-500/10 text-red-600">
+                            {c.competitor_name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {territory.description && (
+                    <div className="col-span-full">
+                      <p className="text-xs text-muted-foreground">Description</p>
+                      <p className="font-medium text-sm">{territory.description}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Key Metrics */}
+            {/* Audit Info */}
+            <Card className="shadow-lg bg-muted/30">
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
+                  <div>
+                    <p className="text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> Created
+                    </p>
+                    <p className="font-medium">{territory.created_at ? format(new Date(territory.created_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
+                    {auditInfo.createdBy && <p className="text-xs text-muted-foreground">by {auditInfo.createdBy}</p>}
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> Last Updated
+                    </p>
+                    <p className="font-medium">{territory.updated_at ? format(new Date(territory.updated_at), 'dd MMM yyyy, hh:mm a') : '-'}</p>
+                    {auditInfo.lastUpdatedBy && <p className="text-xs text-muted-foreground">by {auditInfo.lastUpdatedBy}</p>}
+                  </div>
+                  {auditInfo.owner && (
+                    <div>
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" /> Owner
+                      </p>
+                      <p className="font-medium">{auditInfo.owner}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Performance Snapshot with Growth/Decline */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               <Card className="shadow-lg bg-gradient-to-br from-green-500/10 to-green-600/5">
                 <CardContent className="p-3 sm:p-4">
@@ -414,6 +573,41 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                 </CardContent>
               </Card>
             )}
+
+            {/* SUPPORT REQUESTS SECTION */}
+            <Card className="shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+                  <HeartHandshake className="h-4 w-4 text-primary" />
+                  Support Requests ({supportRequests.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-4">
+                {supportRequests.length > 0 ? (
+                  <div className="space-y-3">
+                    {supportRequests.map((request) => (
+                      <div key={request.id} className="p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{request.subject}</p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{request.description}</p>
+                          </div>
+                          {getStatusBadge(request.status)}
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span>{format(new Date(request.created_at), 'dd MMM yyyy')}</span>
+                          {request.resolved_at && (
+                            <span className="text-green-600">Resolved: {format(new Date(request.resolved_at), 'dd MMM yyyy')}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">No support requests for this territory</p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Top & Bottom SKUs */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
