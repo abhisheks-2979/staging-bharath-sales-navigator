@@ -368,14 +368,17 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         
           const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
           
+          // Calculate the rate per selected unit (already converted)
+          const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, row.unit);
+          
           // Ensure all required fields are present and valid
           return {
             id: itemId,
             name: baseProduct.name || 'Unknown Product',
             category: baseProduct.category?.name || 'Uncategorized',
-            rate: Number(baseProduct.rate) || 0,
+            rate: ratePerSelectedUnit, // Store converted rate per selected unit
             unit: row.unit || baseProduct.unit || 'piece',
-            base_unit: row.product!.base_unit,
+            base_unit: row.unit, // Set base_unit same as unit since rate is already converted
             quantity: Number(row.quantity) || 0,
             total: Number(row.total) || 0,
             closingStock: Number(row.closingStock) || 0,
