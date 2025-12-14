@@ -160,7 +160,8 @@ const Index = () => {
             </div>
           )}
           
-          {isLoading ? (
+          {/* Always show content - never block on loading when we have any data or are offline */}
+          {isLoading && !todayData.beatPlan && !todayData.attendance && isOnline ? (
             <DashboardSkeleton />
           ) : (
             <>

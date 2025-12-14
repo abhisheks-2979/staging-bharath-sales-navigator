@@ -99,9 +99,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       if (cached) {
         const parsedCache = JSON.parse(cached);
         console.log('[useHomeDashboard] Loaded from localStorage cache, lastUpdated:', parsedCache.lastUpdated);
+        // CRITICAL: Always show cached data immediately, never block with loading
         return { 
           ...parsedCache, 
-          isLoading: navigator.onLine, // Show loading only if online (will refresh)
+          isLoading: false, // Don't show loading when we have cache - show data immediately
           error: null 
         };
       }
@@ -109,9 +110,9 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       console.error('[useHomeDashboard] Error loading cache:', e);
     }
     
-    // If no cache and offline, don't show loading (show empty state)
-    // If online, show loading to indicate fresh data is coming
-    return { ...defaultState, isLoading: navigator.onLine };
+    // If no cache, show loading briefly (will try to load)
+    // But use a short timeout to prevent stuck loading state
+    return { ...defaultState, isLoading: true };
   };
 
   const [data, setData] = useState<HomeDashboardData>(getInitialState);
@@ -135,7 +136,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   }, [userId, CACHE_KEY]);
 
   const loadDashboardData = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setData(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
     
     // Prevent concurrent refreshes using ref (not state to avoid re-renders)
     if (isRefreshingRef.current) return;
@@ -163,24 +167,29 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
           (a: any) => a.user_id === userId && a.date === dateStr
         );
 
-        if (todayBeatPlans.length > 0 || todayVisits.length > 0) {
-          const completed = todayVisits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
-          
-          updateDashboardState({
-            todayBeatPlans,
-            todayVisits,
-            todayAttendance,
-            cachedRetailers,
-            completed
-          });
-          
-          hasLoadedFromCache = true;
-          setData(prev => ({ ...prev, isLoading: false }));
-          setHasInitiallyLoaded(true);
-        }
+        // Always show cached data, even if empty - better than stuck loading
+        const completed = todayVisits.filter((v: any) => v.status === 'completed' || v.status === 'productive').length;
+        
+        updateDashboardState({
+          todayBeatPlans,
+          todayVisits,
+          todayAttendance,
+          cachedRetailers,
+          completed
+        });
+        
+        hasLoadedFromCache = true;
+        setData(prev => ({ ...prev, isLoading: false }));
+        setHasInitiallyLoaded(true);
+      } else {
+        // Not today - immediately stop loading, show empty state
+        setData(prev => ({ ...prev, isLoading: false }));
+        hasLoadedFromCache = true;
       }
     } catch (cacheError) {
       console.log('Cache read error:', cacheError);
+      // On cache error, still stop loading
+      setData(prev => ({ ...prev, isLoading: false }));
     }
 
     // STEP 2: Background sync from network if online
