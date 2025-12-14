@@ -78,10 +78,30 @@ export const Cart = () => {
   const connectivityStatus = useConnectivity();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
 
+  // Fix retailerId validation - don't use "." as a valid retailerId  
+  const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+  const validVisitId = visitId && visitId.length > 1 ? visitId : null;
 
-  // Fetch and cache schemes from database
+  // Use visitId and retailerId from URL params consistently (same as Order Entry)
+  const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
+
+  // Load cart items IMMEDIATELY from localStorage (sync, no async)
+  const getInitialCartItems = (): CartItem[] => {
+    try {
+      const rawData = localStorage.getItem(activeStorageKey);
+      if (rawData && rawData !== 'undefined' && rawData !== 'null') {
+        const parsedItems = JSON.parse(rawData);
+        if (Array.isArray(parsedItems)) return parsedItems;
+      }
+    } catch (e) {
+      console.error('Error loading initial cart:', e);
+    }
+    return [];
+  };
+
+  // Initialize states with immediate values - NO loading state needed
   const [allSchemes, setAllSchemes] = React.useState<any[]>([]);
-  const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = React.useState<CartItem[]>(getInitialCartItems);
   const [userId, setUserId] = React.useState<string | null>(null);
   const [loggedInUserName, setLoggedInUserName] = React.useState<string>("User");
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
@@ -105,44 +125,19 @@ export const Cart = () => {
   const [retailerData, setRetailerData] = React.useState<any>(null);
   const [selectedTemplate, setSelectedTemplate] = React.useState<any>(null);
   const [selectedTemplateItems, setSelectedTemplateItems] = React.useState<any[]>([]);
-
-  // Fix retailerId validation - don't use "." as a valid retailerId  
-  const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-  const validVisitId = visitId && visitId.length > 1 ? visitId : null;
-
-  // Use visitId and retailerId from URL params consistently (same as Order Entry)
-  const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
-  console.log('Cart Storage Debug:', {
-    visitId,
-    retailerId,
-    validVisitId,
-    validRetailerId,
-    activeStorageKey
-  });
+  // Background fetch for schemes and pending amount - non-blocking
   React.useEffect(() => {
-    const fetchSchemes = async () => {
-      const {
-        data
-      } = await supabase.from('product_schemes').select(`
-          *,
-          products(name),
-          product_variants(variant_name)
-        `).eq('is_active', true);
-      if (data) {
-        setAllSchemes(data);
-      }
-    };
-    fetchSchemes();
-
-    // Fetch pending amount for this retailer
-    const fetchPendingAmount = async () => {
-      if (!validRetailerId) return;
-      const {
-        data
-      } = await supabase.from('retailers').select('pending_amount').eq('id', validRetailerId).single();
-      setPendingAmountFromPrevious(Number(data?.pending_amount ?? 0));
-    };
-    fetchPendingAmount();
+    // Only fetch if online
+    if (!navigator.onLine) return;
+    
+    // Fetch schemes and pending amount in parallel, non-blocking
+    Promise.all([
+      supabase.from('product_schemes').select(`*, products(name), product_variants(variant_name)`).eq('is_active', true),
+      validRetailerId ? supabase.from('retailers').select('pending_amount').eq('id', validRetailerId).single() : Promise.resolve({ data: null })
+    ]).then(([schemesRes, pendingRes]) => {
+      if (schemesRes.data) setAllSchemes(schemesRes.data);
+      if (pendingRes.data) setPendingAmountFromPrevious(Number(pendingRes.data.pending_amount ?? 0));
+    }).catch(console.error);
   }, [validRetailerId]);
   const getItemScheme = (item: AnyCartItem) => {
     try {
@@ -224,154 +219,100 @@ export const Cart = () => {
       return 0;
     }
   };
+  // Fetch user data immediately from session cache (sync)
   React.useEffect(() => {
-    const fetchUserData = async () => {
-      // Use getSession() for offline support (reads from localStorage cache)
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      
-      if (user) {
-        setUserId(user.id);
-
-        // Fetch user profile to get the name (only if online)
-        if (navigator.onLine) {
-          const {
-            data: profile
-          } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).single();
-          if (profile) {
-            setLoggedInUserName(profile.full_name || profile.username || user.email?.split('@')[0] || "User");
-          } else {
-            // Fallback to email username if no profile
-            setLoggedInUserName(user.email?.split('@')[0] || "User");
-          }
-        } else {
-          // Offline: Use metadata or email
+    const loadUserData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (user) {
+          setUserId(user.id);
+          // Use cached metadata immediately
           setLoggedInUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || "User");
+          
+          // Background fetch for profile if online
+          if (navigator.onLine) {
+            try {
+              const { data: profile } = await supabase.from('profiles').select('full_name, username').eq('id', user.id).single();
+              if (profile) {
+                setLoggedInUserName(profile.full_name || profile.username || user.email?.split('@')[0] || "User");
+              }
+            } catch (e) { /* ignore */ }
+          }
         }
-      }
+      } catch (e) { /* ignore */ }
     };
-    fetchUserData();
-  }, []);
-
-  // Fetch company QR code
-  React.useEffect(() => {
-    const fetchCompanyQR = async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('qr_code_url')
-        .limit(1)
-        .single();
+    loadUserData();
+    
+    // Background fetch for QR code and visit date - non-blocking
+    const loadBackgroundData = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const { data } = await supabase.from('companies').select('qr_code_url').limit(1).single();
+        if (data?.qr_code_url) setCompanyQrCode(data.qr_code_url);
+      } catch (e) { /* ignore */ }
       
-      if (!error && data?.qr_code_url) {
-        setCompanyQrCode(data.qr_code_url);
+      if (visitId) {
+        try {
+          const { data } = await supabase.from('visits').select('planned_date').eq('id', visitId).single();
+          if (data) setVisitDate(data.planned_date);
+        } catch (e) { /* ignore */ }
       }
     };
-    fetchCompanyQR();
-  }, []);
-
-  // Fetch visit date if visitId is available
-  React.useEffect(() => {
-    if (visitId) {
-      supabase.from('visits').select('planned_date').eq('id', visitId).single().then(({
-        data
-      }) => {
-        if (data) {
-          setVisitDate(data.planned_date);
-        }
-      });
-    }
+    loadBackgroundData();
   }, [visitId]);
 
-  // Fetch company, retailer data, and selected template for invoice preview
+  // Fetch invoice data in background - non-blocking
   React.useEffect(() => {
-    const fetchInvoiceData = async () => {
-      // Fetch company data
-      const { data: company } = await supabase.from("companies").select("*").limit(1).maybeSingle();
-      if (company) setCompanyData(company);
+    if (!navigator.onLine) return;
+    
+    const loadInvoiceData = async () => {
+      try {
+        const { data } = await supabase.from("companies").select("*").limit(1).maybeSingle();
+        if (data) setCompanyData(data);
+      } catch (e) { /* ignore */ }
 
-      // Fetch retailer data
       if (validRetailerId) {
-        const { data: retailer } = await supabase
-          .from("retailers")
-          .select("name, address, phone, gst_number")
-          .eq("id", validRetailerId)
-          .single();
-        if (retailer) setRetailerData(retailer);
+        try {
+          const { data } = await supabase.from("retailers").select("name, address, phone, gst_number").eq("id", validRetailerId).single();
+          if (data) setRetailerData(data);
+        } catch (e) { /* ignore */ }
       }
 
-      // Fetch selected template
       const selectedTemplateId = localStorage.getItem('selected_invoice_template');
       if (selectedTemplateId) {
-        const { data: template } = await supabase
-          .from("invoices")
-          .select(`
-            *,
-            retailers:customer_id(name, address, phone, gst_number),
-            companies(*)
-          `)
-          .eq("id", selectedTemplateId)
-          .single();
-        
-        if (template) {
-          setSelectedTemplate(template);
-          
-          // Fetch template items
-          const { data: items } = await supabase
-            .from("invoice_items")
-            .select("*")
-            .eq("invoice_id", selectedTemplateId);
-          
-          if (items) setSelectedTemplateItems(items);
-        }
+        try {
+          const { data } = await supabase.from("invoices").select(`*, retailers:customer_id(name, address, phone, gst_number), companies(*)`).eq("id", selectedTemplateId).single();
+          if (data) {
+            setSelectedTemplate(data);
+            try {
+              const { data: items } = await supabase.from("invoice_items").select("*").eq("invoice_id", selectedTemplateId);
+              if (items) setSelectedTemplateItems(items);
+            } catch (e) { /* ignore */ }
+          }
+        } catch (e) { /* ignore */ }
       }
     };
-    fetchInvoiceData();
+    loadInvoiceData();
   }, [validRetailerId]);
 
-  // Load cart items from localStorage with proper refresh handling
+  // Listen for storage changes (when updated from OrderEntry) - cart already loaded initially
   React.useEffect(() => {
-    const loadCartItems = () => {
-      console.log('Cart Debug - Loading cart items:', {
-        userId,
-        retailerId,
-        validRetailerId,
-        activeStorageKey
-      });
-      try {
-        const rawData = localStorage.getItem(activeStorageKey);
-        if (rawData && rawData !== 'undefined' && rawData !== 'null') {
-          const parsedItems = JSON.parse(rawData);
-          // Validate parsed items are an array
-          if (Array.isArray(parsedItems)) {
-            console.log('Setting cart items:', parsedItems);
-            setCartItems(parsedItems);
-          } else {
-            console.warn('Cart data is not an array, resetting cart');
-            setCartItems([]);
-          }
-        } else {
-          console.log('No cart data found, cart will be empty');
-          setCartItems([]);
-        }
-      } catch (error) {
-        console.error('Error loading cart items:', error);
-        // Clear corrupted data
-        localStorage.removeItem(activeStorageKey);
-        setCartItems([]);
-      }
-    };
-    loadCartItems();
-
-    // Also listen for storage changes (when updated from OrderEntry)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === activeStorageKey) {
-        loadCartItems();
+        try {
+          const rawData = localStorage.getItem(activeStorageKey);
+          if (rawData && rawData !== 'undefined' && rawData !== 'null') {
+            const parsedItems = JSON.parse(rawData);
+            if (Array.isArray(parsedItems)) setCartItems(parsedItems);
+          }
+        } catch (e) {
+          console.error('Error reloading cart:', e);
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [activeStorageKey]);
   React.useEffect(() => {
     localStorage.setItem(activeStorageKey, JSON.stringify(cartItems));
