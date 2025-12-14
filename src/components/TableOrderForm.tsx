@@ -248,7 +248,54 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   };
 
   const removeRow = (id: string) => {
-    setOrderRows(prev => prev.filter(row => row.id !== id));
+    setOrderRows(prev => {
+      const updatedRows = prev.filter(row => row.id !== id);
+      
+      // Immediately update cart after row deletion
+      setTimeout(() => {
+        const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
+        const cartItems = productRows.map(row => {
+          const baseProduct = {
+            ...row.product!,
+            rate: row.variant ? row.variant.price : row.product!.rate,
+            name: row.variant ? row.variant.variant_name : row.product!.name,
+            sku: row.variant ? row.variant.sku : row.product!.sku,
+            closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
+          };
+          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
+          const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, row.unit);
+          
+          return {
+            id: itemId,
+            name: baseProduct.name || 'Unknown Product',
+            category: baseProduct.category?.name || 'Uncategorized',
+            rate: ratePerSelectedUnit,
+            unit: row.unit || baseProduct.unit || 'piece',
+            base_unit: row.unit,
+            quantity: Number(row.quantity) || 0,
+            total: Number(row.total) || 0,
+            closingStock: Number(row.closingStock) || 0,
+            schemes: baseProduct.schemes || []
+          };
+        });
+        
+        // Update cart and save to localStorage
+        onCartUpdate(cartItems);
+        
+        const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+        const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
+        const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
+          ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
+          : validRetailerIdForStorage 
+            ? `order_cart:temp:${validRetailerIdForStorage}`
+            : 'order_cart:fallback';
+        
+        localStorage.setItem(storageKey, JSON.stringify(cartItems));
+        console.log('Cart updated after deletion, items:', cartItems.length);
+      }, 0);
+      
+      return updatedRows;
+    });
   };
 
   const updateRow = (id: string, field: keyof OrderRow, value: any) => {
@@ -305,9 +352,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         }
         return row;
       });
-      // Auto-update cart whenever rows change
+      // Auto-update cart whenever rows change - use converted rates
       setTimeout(() => {
-        const productRows = updatedRows.filter(row => row.product);
+        const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
         const cartItems = productRows.map(row => {
           const baseProduct = {
             ...row.product!,
@@ -316,21 +363,24 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
             sku: row.variant ? row.variant.sku : row.product!.sku,
             closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
           };
-            const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
-            return {
-              id: itemId,
-              name: baseProduct.name || 'Unknown Product',
-              category: baseProduct.category?.name || 'Uncategorized',
-              rate: Number(baseProduct.rate) || 0,
-              unit: row.unit || baseProduct.unit || 'piece',
-              base_unit: row.product!.base_unit,
-              quantity: Number(row.quantity) || 0,
-              total: Number(row.total) || 0,
-              closingStock: Number(row.closingStock) || 0,
-              schemes: baseProduct.schemes || []
-            };
-          });
-          onCartUpdate(cartItems);
+          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
+          // Use converted rate per selected unit
+          const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, row.unit);
+          
+          return {
+            id: itemId,
+            name: baseProduct.name || 'Unknown Product',
+            category: baseProduct.category?.name || 'Uncategorized',
+            rate: ratePerSelectedUnit, // Converted rate
+            unit: row.unit || baseProduct.unit || 'piece',
+            base_unit: row.unit, // Match unit since rate is converted
+            quantity: Number(row.quantity) || 0,
+            total: Number(row.total) || 0,
+            closingStock: Number(row.closingStock) || 0,
+            schemes: baseProduct.schemes || []
+          };
+        });
+        onCartUpdate(cartItems);
       }, 0);
 
       return updatedRows;
