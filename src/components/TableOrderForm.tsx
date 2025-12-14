@@ -103,19 +103,83 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
       ? `table_form:temp:${validRetailerId}`
       : 'table_form:fallback';
 
-  // Load saved table form data when component mounts
+  // Helper to get cart storage key
+  const getCartStorageKey = () => {
+    const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+    const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
+    return validVisitIdForStorage && validRetailerIdForStorage 
+      ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
+      : validRetailerIdForStorage 
+        ? `order_cart:temp:${validRetailerIdForStorage}`
+        : 'order_cart:fallback';
+  };
+
+  // Helper to sync current rows to cart storage
+  const syncRowsToCart = (rows: OrderRow[]) => {
+    const productRows = rows.filter(row => row.product && row.quantity > 0);
+    const cartItems = productRows.map(row => {
+      const displayName = row.variant ? row.variant.variant_name : row.product!.name;
+      const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
+      const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
+      const selectedUnit = row.unit || 'KG';
+      const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
+      
+      return {
+        id: itemId,
+        name: displayName || 'Unknown Product',
+        category: row.product!.category?.name || 'Uncategorized',
+        rate: ratePerSelectedUnit,
+        unit: selectedUnit,
+        base_unit: selectedUnit,
+        quantity: Number(row.quantity) || 0,
+        total: Number(row.total) || 0,
+        closingStock: Number(stock) || 0,
+        schemes: row.product!.schemes || []
+      };
+    });
+    
+    onCartUpdate(cartItems);
+    localStorage.setItem(getCartStorageKey(), JSON.stringify(cartItems));
+    console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items');
+  };
+
+  // Load saved table form data when component mounts AND re-link products from live array
   useEffect(() => {
+    if (products.length === 0) return; // Wait for products to load
+    
     const savedData = localStorage.getItem(tableFormStorageKey);
     if (savedData) {
       try {
-        const parsedData = JSON.parse(savedData);
+        const parsedData: OrderRow[] = JSON.parse(savedData);
         console.log('Loading saved table form data:', parsedData);
-        setOrderRows(parsedData);
+        
+        // Re-link products from live products array to avoid stale data
+        const relinkedRows = parsedData.map(row => {
+          if (row.product && row.product.id) {
+            const liveProduct = products.find(p => p.id === row.product!.id);
+            if (liveProduct) {
+              let liveVariant = undefined;
+              if (row.variant && row.variant.id) {
+                liveVariant = liveProduct.variants?.find(v => v.id === row.variant.id);
+              }
+              return {
+                ...row,
+                product: liveProduct,
+                variant: liveVariant
+              };
+            }
+          }
+          return row;
+        });
+        
+        setOrderRows(relinkedRows);
+        // Immediately sync to cart storage after loading
+        syncRowsToCart(relinkedRows);
       } catch (error) {
         console.error('Error loading saved table form data:', error);
       }
     }
-  }, [tableFormStorageKey]);
+  }, [tableFormStorageKey, products.length]); // Re-run when products load
 
   // Save table form data whenever orderRows change
   useEffect(() => {
@@ -250,44 +314,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const removeRow = (id: string) => {
     setOrderRows(prev => {
       const updatedRows = prev.filter(row => row.id !== id);
-      
-      // Synchronously update cart after row deletion - no setTimeout
-      const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
-      const cartItems = productRows.map(row => {
-        const displayName = row.variant ? row.variant.variant_name : row.product!.name;
-        const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
-        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
-        const selectedUnit = row.unit || 'KG';
-        const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
-        
-        return {
-          id: itemId,
-          name: displayName || 'Unknown Product',
-          category: row.product!.category?.name || 'Uncategorized',
-          rate: ratePerSelectedUnit,
-          unit: selectedUnit,
-          base_unit: selectedUnit,
-          quantity: Number(row.quantity) || 0,
-          total: Number(row.total) || 0,
-          closingStock: Number(stock) || 0,
-          schemes: row.product!.schemes || []
-        };
-      });
-      
-      // Update cart and save to localStorage
-      onCartUpdate(cartItems);
-      
-      const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-      const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
-      const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
-        ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
-        : validRetailerIdForStorage 
-          ? `order_cart:temp:${validRetailerIdForStorage}`
-          : 'order_cart:fallback';
-      
-      localStorage.setItem(storageKey, JSON.stringify(cartItems));
-      console.log('[removeRow] Cart updated after deletion, items:', cartItems.length);
-      
+      // Use helper to sync cart immediately
+      syncRowsToCart(updatedRows);
+      console.log('[removeRow] Cart synced after deletion');
       return updatedRows;
     });
   };
@@ -346,43 +375,9 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         }
         return row;
       });
-      // Synchronously update cart whenever rows change - no setTimeout to avoid race conditions
-      const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
-      const cartItems = productRows.map(row => {
-        const displayName = row.variant ? row.variant.variant_name : row.product!.name;
-        const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
-        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
-        const selectedUnit = row.unit || 'KG';
-        const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
-        
-        console.log('[updateRow] Syncing cart item:', displayName, 'Unit:', selectedUnit, 'Rate:', ratePerSelectedUnit);
-        
-        return {
-          id: itemId,
-          name: displayName || 'Unknown Product',
-          category: row.product!.category?.name || 'Uncategorized',
-          rate: ratePerSelectedUnit,
-          unit: selectedUnit, // ALWAYS use selected unit
-          base_unit: selectedUnit,
-          quantity: Number(row.quantity) || 0,
-          total: Number(row.total) || 0,
-          closingStock: Number(stock) || 0,
-          schemes: row.product!.schemes || []
-        };
-      });
       
-      onCartUpdate(cartItems);
-      
-      // Persist to localStorage for Cart page
-      const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-      const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
-      const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
-        ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
-        : validRetailerIdForStorage 
-          ? `order_cart:temp:${validRetailerIdForStorage}`
-          : 'order_cart:fallback';
-      localStorage.setItem(storageKey, JSON.stringify(cartItems));
-
+      // Use helper to sync cart immediately
+      syncRowsToCart(updatedRows);
       return updatedRows;
     });
   };
@@ -391,7 +386,6 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     if (isAddingToCart) return;
     
     // ALWAYS use the React state directly (orderRowsRef) as single source of truth
-    // Do NOT read from localStorage as it may have serialization issues with product objects
     const currentRows = orderRowsRef.current;
     
     console.log('[addToCart] Using state rows:', currentRows.map(r => ({ 
@@ -416,60 +410,14 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     setIsAddingToCart(true);
 
     try {
-      const cartItems = validRows.map(row => {
-        // Get the base rate from product or variant
-        const baseRate = row.variant ? Number(row.variant.price) : Number(row.product!.rate);
-        const displayName = row.variant ? row.variant.variant_name : row.product!.name;
-        const displaySku = row.variant ? row.variant.sku : row.product!.sku;
-        const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
-        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
-        
-        // Calculate rate per selected unit using the row's unit
-        const selectedUnit = row.unit || 'KG';
-        const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
-        
-        console.log('[addToCart] Item:', displayName, 'BaseRate:', baseRate, 'SelectedUnit:', selectedUnit, 'ConvertedRate:', ratePerSelectedUnit);
-        
-        return {
-          id: itemId,
-          name: displayName || 'Unknown Product',
-          category: row.product!.category?.name || 'Uncategorized',
-          rate: ratePerSelectedUnit, // Converted rate per selected unit
-          unit: selectedUnit, // ALWAYS use the selected unit from the row
-          base_unit: selectedUnit,
-          quantity: Number(row.quantity) || 0,
-          total: Number(row.total) || 0,
-          closingStock: Number(stock) || 0,
-          schemes: row.product!.schemes || []
-        };
-      });
-
-      console.log('Adding items to cart:', cartItems);
+      // Use syncRowsToCart to ensure consistency
+      syncRowsToCart(currentRows);
       
-      // Update cart through parent component
-      onCartUpdate(cartItems);
+      console.log('[addToCart] Cart synced, navigating to cart page');
       
-      // Calculate storage key matching OrderEntry logic
-      const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-      const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
-      
-      const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
-        ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
-        : validRetailerIdForStorage 
-          ? `order_cart:temp:${validRetailerIdForStorage}`
-          : 'order_cart:fallback';
-      
-      console.log('Saving to localStorage with key:', storageKey, 'Items:', cartItems);
-      
-      // Save directly to localStorage before navigating to ensure data is persisted
-      localStorage.setItem(storageKey, JSON.stringify(cartItems));
-      
-      // Small delay to ensure localStorage write completes
-      setTimeout(() => {
-        // Navigate to cart with current parameters
-        const params = new URLSearchParams(searchParams);
-        navigate(`/cart?${params.toString()}`);
-      }, 100);
+      // Navigate to cart with current parameters
+      const params = new URLSearchParams(searchParams);
+      navigate(`/cart?${params.toString()}`);
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast({

@@ -96,21 +96,40 @@ export const Cart = () => {
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
 
-  // Reload cart items when storage key changes or on mount
+  // Reload cart items when storage key changes, on mount, or when storage updates
   React.useEffect(() => {
-    try {
-      const rawData = localStorage.getItem(activeStorageKey);
-      console.log('[Cart] Loading from storage key:', activeStorageKey, 'Data:', rawData);
-      if (rawData && rawData !== 'undefined' && rawData !== 'null') {
-        const parsedItems = JSON.parse(rawData);
-        if (Array.isArray(parsedItems)) {
-          console.log('[Cart] Loaded items:', parsedItems.map(i => ({ name: i.name, unit: i.unit, rate: i.rate })));
-          setCartItems(parsedItems);
+    const loadCartFromStorage = () => {
+      try {
+        const rawData = localStorage.getItem(activeStorageKey);
+        console.log('[Cart] Loading from storage key:', activeStorageKey, 'Data:', rawData);
+        if (rawData && rawData !== 'undefined' && rawData !== 'null') {
+          const parsedItems = JSON.parse(rawData);
+          if (Array.isArray(parsedItems)) {
+            console.log('[Cart] Loaded items:', parsedItems.map(i => ({ name: i.name, unit: i.unit, rate: i.rate })));
+            setCartItems(parsedItems);
+          }
+        } else {
+          // No data in storage, set empty cart
+          setCartItems([]);
         }
+      } catch (e) {
+        console.error('Error loading cart from storage:', e);
       }
-    } catch (e) {
-      console.error('Error loading cart from storage:', e);
-    }
+    };
+
+    // Load immediately
+    loadCartFromStorage();
+
+    // Listen for storage changes from other components (real-time sync)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === activeStorageKey) {
+        console.log('[Cart] Storage event detected, reloading cart');
+        loadCartFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [activeStorageKey]);
 
   // New payment flow state
