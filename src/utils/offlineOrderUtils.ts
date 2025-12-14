@@ -1,5 +1,6 @@
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
+import { visitStatusCache } from '@/lib/visitStatusCache';
 
 /**
  * Submit an order with offline support
@@ -85,6 +86,39 @@ export async function submitOrderWithOfflineSupport(
     items: offlineItems,
     visitId: orderData.visit_id  // Include visitId for sync event dispatch
   });
+
+  // CRITICAL: Update visit status cache to 'productive' immediately for offline orders
+  // This ensures the VisitCard shows "Productive" right away without waiting for sync
+  if (orderData.retailer_id && orderData.user_id) {
+    const orderDate = offlineOrder.order_date || new Date().toISOString().split('T')[0];
+    const orderValue = orderItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    
+    console.log('💾 [ORDER] Caching productive status for offline order:', {
+      retailerId: orderData.retailer_id,
+      userId: orderData.user_id,
+      date: orderDate,
+      orderValue
+    });
+    
+    await visitStatusCache.set(
+      orderData.visit_id || orderId,
+      orderData.retailer_id,
+      orderData.user_id,
+      orderDate,
+      'productive',
+      orderValue
+    );
+    
+    // Dispatch visitStatusChanged event for immediate UI update
+    window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+      detail: {
+        visitId: orderData.visit_id || orderId,
+        status: 'productive',
+        retailerId: orderData.retailer_id,
+        orderValue
+      }
+    }));
+  }
 
   options.onOffline?.();
   

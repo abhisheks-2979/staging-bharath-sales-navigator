@@ -22,6 +22,7 @@ import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { retailerStatusRegistry } from "@/lib/retailerStatusRegistry";
+import { visitStatusCache } from "@/lib/visitStatusCache";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 interface CartItem {
   id: string;
@@ -857,9 +858,22 @@ export const Cart = () => {
       });
 
       // Dispatch events for UI updates - TARGETED refresh only for this retailer
-      if (actualVisitId) {
+      if (actualVisitId && validRetailerId && currentUserId) {
         console.log('📡 Marking retailer for targeted refresh:', validRetailerId, 'orderValue:', totalAmount);
         retailerStatusRegistry.markForRefresh(validRetailerId);
+        
+        // CRITICAL: Cache the productive status for immediate display
+        const orderDate = new Date().toISOString().split('T')[0];
+        await visitStatusCache.set(
+          actualVisitId,
+          validRetailerId,
+          currentUserId,
+          orderDate,
+          'productive',
+          totalAmount
+        );
+        console.log('💾 [Cart] Cached productive status:', { retailerId: validRetailerId, orderValue: totalAmount });
+        
         window.dispatchEvent(new CustomEvent('visitStatusChanged', {
           detail: { 
             visitId: actualVisitId, 
