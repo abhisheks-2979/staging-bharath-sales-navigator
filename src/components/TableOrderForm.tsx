@@ -251,48 +251,42 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
     setOrderRows(prev => {
       const updatedRows = prev.filter(row => row.id !== id);
       
-      // Immediately update cart after row deletion
-      setTimeout(() => {
-        const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
-        const cartItems = productRows.map(row => {
-          const baseProduct = {
-            ...row.product!,
-            rate: row.variant ? row.variant.price : row.product!.rate,
-            name: row.variant ? row.variant.variant_name : row.product!.name,
-            sku: row.variant ? row.variant.sku : row.product!.sku,
-            closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
-          };
-          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
-          const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, row.unit);
-          
-          return {
-            id: itemId,
-            name: baseProduct.name || 'Unknown Product',
-            category: baseProduct.category?.name || 'Uncategorized',
-            rate: ratePerSelectedUnit,
-            unit: row.unit || baseProduct.unit || 'piece',
-            base_unit: row.unit,
-            quantity: Number(row.quantity) || 0,
-            total: Number(row.total) || 0,
-            closingStock: Number(row.closingStock) || 0,
-            schemes: baseProduct.schemes || []
-          };
-        });
+      // Synchronously update cart after row deletion - no setTimeout
+      const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
+      const cartItems = productRows.map(row => {
+        const displayName = row.variant ? row.variant.variant_name : row.product!.name;
+        const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
+        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
+        const selectedUnit = row.unit || 'KG';
+        const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
         
-        // Update cart and save to localStorage
-        onCartUpdate(cartItems);
-        
-        const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-        const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
-        const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
-          ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
-          : validRetailerIdForStorage 
-            ? `order_cart:temp:${validRetailerIdForStorage}`
-            : 'order_cart:fallback';
-        
-        localStorage.setItem(storageKey, JSON.stringify(cartItems));
-        console.log('Cart updated after deletion, items:', cartItems.length);
-      }, 0);
+        return {
+          id: itemId,
+          name: displayName || 'Unknown Product',
+          category: row.product!.category?.name || 'Uncategorized',
+          rate: ratePerSelectedUnit,
+          unit: selectedUnit,
+          base_unit: selectedUnit,
+          quantity: Number(row.quantity) || 0,
+          total: Number(row.total) || 0,
+          closingStock: Number(stock) || 0,
+          schemes: row.product!.schemes || []
+        };
+      });
+      
+      // Update cart and save to localStorage
+      onCartUpdate(cartItems);
+      
+      const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+      const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
+      const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
+        ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
+        : validRetailerIdForStorage 
+          ? `order_cart:temp:${validRetailerIdForStorage}`
+          : 'order_cart:fallback';
+      
+      localStorage.setItem(storageKey, JSON.stringify(cartItems));
+      console.log('[removeRow] Cart updated after deletion, items:', cartItems.length);
       
       return updatedRows;
     });
@@ -352,46 +346,42 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
         }
         return row;
       });
-      // Auto-update cart whenever rows change - use converted rates
-      setTimeout(() => {
-        const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
-        const cartItems = productRows.map(row => {
-          const baseProduct = {
-            ...row.product!,
-            rate: row.variant ? row.variant.price : row.product!.rate,
-            name: row.variant ? row.variant.variant_name : row.product!.name,
-            sku: row.variant ? row.variant.sku : row.product!.sku,
-            closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
-          };
-          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
-          // Use converted rate per selected unit
-          const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, row.unit);
-          
-          return {
-            id: itemId,
-            name: baseProduct.name || 'Unknown Product',
-            category: baseProduct.category?.name || 'Uncategorized',
-            rate: ratePerSelectedUnit, // Converted rate
-            unit: row.unit || baseProduct.unit || 'piece',
-            base_unit: row.unit, // Match unit since rate is converted
-            quantity: Number(row.quantity) || 0,
-            total: Number(row.total) || 0,
-            closingStock: Number(row.closingStock) || 0,
-            schemes: baseProduct.schemes || []
-          };
-        });
-        onCartUpdate(cartItems);
+      // Synchronously update cart whenever rows change - no setTimeout to avoid race conditions
+      const productRows = updatedRows.filter(row => row.product && row.quantity > 0);
+      const cartItems = productRows.map(row => {
+        const displayName = row.variant ? row.variant.variant_name : row.product!.name;
+        const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
+        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
+        const selectedUnit = row.unit || 'KG';
+        const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
         
-        // Also persist to localStorage so Cart page gets latest data
-        const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
-        const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
-        const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
-          ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
-          : validRetailerIdForStorage 
-            ? `order_cart:temp:${validRetailerIdForStorage}`
-            : 'order_cart:fallback';
-        localStorage.setItem(storageKey, JSON.stringify(cartItems));
-      }, 0);
+        console.log('[updateRow] Syncing cart item:', displayName, 'Unit:', selectedUnit, 'Rate:', ratePerSelectedUnit);
+        
+        return {
+          id: itemId,
+          name: displayName || 'Unknown Product',
+          category: row.product!.category?.name || 'Uncategorized',
+          rate: ratePerSelectedUnit,
+          unit: selectedUnit, // ALWAYS use selected unit
+          base_unit: selectedUnit,
+          quantity: Number(row.quantity) || 0,
+          total: Number(row.total) || 0,
+          closingStock: Number(stock) || 0,
+          schemes: row.product!.schemes || []
+        };
+      });
+      
+      onCartUpdate(cartItems);
+      
+      // Persist to localStorage for Cart page
+      const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
+      const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
+      const storageKey = validVisitIdForStorage && validRetailerIdForStorage 
+        ? `order_cart:${validVisitIdForStorage}:${validRetailerIdForStorage}`
+        : validRetailerIdForStorage 
+          ? `order_cart:temp:${validRetailerIdForStorage}`
+          : 'order_cart:fallback';
+      localStorage.setItem(storageKey, JSON.stringify(cartItems));
 
       return updatedRows;
     });
@@ -400,21 +390,17 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const addToCart = () => {
     if (isAddingToCart) return;
     
-    // Get the most current data from localStorage (which is always up-to-date from the save effect)
-    const savedData = localStorage.getItem(tableFormStorageKey);
-    let currentRows = orderRowsRef.current;
+    // ALWAYS use the React state directly (orderRowsRef) as single source of truth
+    // Do NOT read from localStorage as it may have serialization issues with product objects
+    const currentRows = orderRowsRef.current;
     
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        console.log('Using saved form data for cart:', parsedData);
-        currentRows = parsedData;
-      } catch (error) {
-        console.error('Error parsing saved form data:', error);
-      }
-    }
-    
-    console.log('Current rows for cart:', currentRows.map(r => ({ unit: r.unit, qty: r.quantity, product: r.product?.name })));
+    console.log('[addToCart] Using state rows:', currentRows.map(r => ({ 
+      unit: r.unit, 
+      qty: r.quantity, 
+      product: r.product?.name,
+      rate: r.product?.rate,
+      variantPrice: r.variant?.price
+    })));
     
     const validRows = currentRows.filter(row => row.product && row.quantity > 0);
     
@@ -431,33 +417,32 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
 
     try {
       const cartItems = validRows.map(row => {
-        const baseProduct = {
-          ...row.product!,
-          rate: row.variant ? row.variant.price : row.product!.rate,
-          name: row.variant ? row.variant.variant_name : row.product!.name,
-          sku: row.variant ? row.variant.sku : row.product!.sku,
-          closing_stock: row.variant ? row.variant.stock_quantity : row.product!.closing_stock
-        };
+        // Get the base rate from product or variant
+        const baseRate = row.variant ? Number(row.variant.price) : Number(row.product!.rate);
+        const displayName = row.variant ? row.variant.variant_name : row.product!.name;
+        const displaySku = row.variant ? row.variant.sku : row.product!.sku;
+        const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
+        const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
         
-          const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : (baseProduct.id || 'unknown');
-          
-          // Calculate the rate per selected unit (already converted)
-          const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, row.unit);
-          
-          // Ensure all required fields are present and valid
-          return {
-            id: itemId,
-            name: baseProduct.name || 'Unknown Product',
-            category: baseProduct.category?.name || 'Uncategorized',
-            rate: ratePerSelectedUnit, // Store converted rate per selected unit
-            unit: row.unit || baseProduct.unit || 'piece',
-            base_unit: row.unit, // Set base_unit same as unit since rate is already converted
-            quantity: Number(row.quantity) || 0,
-            total: Number(row.total) || 0,
-            closingStock: Number(row.closingStock) || 0,
-            schemes: baseProduct.schemes || []
-          };
-        });
+        // Calculate rate per selected unit using the row's unit
+        const selectedUnit = row.unit || 'KG';
+        const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
+        
+        console.log('[addToCart] Item:', displayName, 'BaseRate:', baseRate, 'SelectedUnit:', selectedUnit, 'ConvertedRate:', ratePerSelectedUnit);
+        
+        return {
+          id: itemId,
+          name: displayName || 'Unknown Product',
+          category: row.product!.category?.name || 'Uncategorized',
+          rate: ratePerSelectedUnit, // Converted rate per selected unit
+          unit: selectedUnit, // ALWAYS use the selected unit from the row
+          base_unit: selectedUnit,
+          quantity: Number(row.quantity) || 0,
+          total: Number(row.total) || 0,
+          closingStock: Number(stock) || 0,
+          schemes: row.product!.schemes || []
+        };
+      });
 
       console.log('Adding items to cart:', cartItems);
       
