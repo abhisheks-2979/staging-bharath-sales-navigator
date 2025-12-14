@@ -1638,14 +1638,13 @@ export const OrderEntry = () => {
               <div className="flex gap-1.5">
               <Button 
                   variant={orderMode === "grid" ? "default" : "outline"} 
-                  onClick={async () => {
+                  onClick={() => {
                     setOrderMode("grid");
-                    // FIXED: Start tracking FIRST, then record subsequent activity
+                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
-                      await startTracking('order', isPhoneOrder);
-                      setHasTrackedVisit(true);
+                      startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
-                      recordActivity(); // Only record activity if already tracking
+                      recordActivity();
                     }
                   }} 
                   className="flex-1 h-7 text-xs" 
@@ -1656,12 +1655,11 @@ export const OrderEntry = () => {
                 </Button>
                 <Button 
                   variant={orderMode === "table" ? "default" : "outline"} 
-                  onClick={async () => {
+                  onClick={() => {
                     setOrderMode("table");
-                    // FIXED: Start tracking FIRST, then record subsequent activity
+                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
-                      await startTracking('order', isPhoneOrder);
-                      setHasTrackedVisit(true);
+                      startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
                       recordActivity();
                     }
@@ -1674,12 +1672,11 @@ export const OrderEntry = () => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={async () => {
+                  onClick={() => {
                     setShowImageCapture(true);
-                    // FIXED: Start tracking FIRST, then record subsequent activity
+                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
-                      await startTracking('order', isPhoneOrder);
-                      setHasTrackedVisit(true);
+                      startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
                       recordActivity();
                     }
@@ -1697,11 +1694,11 @@ export const OrderEntry = () => {
               <div className="flex gap-1.5">
                 <Button 
                   variant={orderMode === "return-stock" ? "default" : "outline"} 
-                  onClick={async () => {
+                  onClick={() => {
                     setOrderMode("return-stock");
+                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
-                      await startTracking('order', isPhoneOrder);
-                      setHasTrackedVisit(true);
+                      startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
                       recordActivity();
                     }
@@ -1714,11 +1711,11 @@ export const OrderEntry = () => {
                 </Button>
                 <Button 
                   variant={orderMode === "no-order" ? "default" : "outline"} 
-                  onClick={async () => {
+                  onClick={() => {
                     setOrderMode("no-order");
+                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
-                      await startTracking('order', isPhoneOrder);
-                      setHasTrackedVisit(true);
+                      startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
                       recordActivity();
                     }
@@ -1731,11 +1728,11 @@ export const OrderEntry = () => {
                 </Button>
                 <Button 
                   variant={orderMode === "competition" ? "default" : "outline"} 
-                  onClick={async () => {
+                  onClick={() => {
                     setOrderMode("competition");
+                    // Run tracking in background - don't block UI
                     if (!hasTrackedVisit && userId) {
-                      await startTracking('order', isPhoneOrder);
-                      setHasTrackedVisit(true);
+                      startTracking('order', isPhoneOrder).then(() => setHasTrackedVisit(true));
                     } else {
                       recordActivity();
                     }
