@@ -23,17 +23,18 @@ export const Layout = ({ children }: LayoutProps) => {
   }, [isOnline, cacheAllMasterData, processSyncQueue]);
 
   return (
-    <div className="min-h-screen bg-gradient-subtle w-full flex flex-col">
+    <div className="min-h-screen bg-gradient-subtle w-full flex flex-col safe-area-container">
+      {/* Safe area top spacer - for status bar area */}
+      <div className="safe-area-top-spacer" />
+      
       <Navbar />
-      <main 
-        className="flex-1 pb-20" 
-        style={{ 
-          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-          minHeight: 0 // Needed for flex child scrolling
-        }}
-      >
+      <main className="flex-1 safe-area-main">
         {children}
       </main>
+      
+      {/* Safe area bottom spacer for navigation bar */}
+      <div className="safe-area-bottom-spacer" />
+      
       <ChatWidget />
     </div>
   );
