@@ -58,3 +58,5 @@ export const Layout = memo(({ children }: LayoutProps) => {
     </div>
   );
 });
+
+Layout.displayName = 'Layout';
