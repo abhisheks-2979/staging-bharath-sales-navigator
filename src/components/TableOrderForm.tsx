@@ -390,9 +390,22 @@ export const TableOrderForm = ({ onCartUpdate, products, loading, onReloadProduc
   const addToCart = () => {
     if (isAddingToCart) return;
     
-    // Use ref to get the latest orderRows to avoid stale state issues
-    // This ensures unit changes are captured even if state hasn't fully propagated
-    const currentRows = orderRowsRef.current;
+    // Get the most current data from localStorage (which is always up-to-date from the save effect)
+    const savedData = localStorage.getItem(tableFormStorageKey);
+    let currentRows = orderRowsRef.current;
+    
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        console.log('Using saved form data for cart:', parsedData);
+        currentRows = parsedData;
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+    
+    console.log('Current rows for cart:', currentRows.map(r => ({ unit: r.unit, qty: r.quantity, product: r.product?.name })));
+    
     const validRows = currentRows.filter(row => row.product && row.quantity > 0);
     
     if (validRows.length === 0) {
