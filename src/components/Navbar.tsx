@@ -1,6 +1,6 @@
 import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,8 @@ import {
   ShoppingCart,
 } from "lucide-react";
 
-export const Navbar = () => {
+// Memoized Navbar component for better performance
+export const Navbar = memo(() => {
   const { signOut, userProfile, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,9 +98,9 @@ export const Navbar = () => {
   const displayName = userProfile?.full_name || userProfile?.username || 'User';
   const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
 
-  const handleMenuItemClick = () => {
+  const handleMenuItemClick = useCallback(() => {
     setIsMenuOpen(false);
-  };
+  }, []);
 
   return (
     <>
@@ -240,4 +241,4 @@ export const Navbar = () => {
       </Sheet>
     </>
   );
-};
+});

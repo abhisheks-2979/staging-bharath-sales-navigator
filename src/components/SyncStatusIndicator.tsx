@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import { useConnectivity } from "@/hooks/useConnectivity";
@@ -7,28 +7,39 @@ import { toast } from "@/hooks/use-toast";
 import { SyncProgressModal } from "./SyncProgressModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
-export const SyncStatusIndicator = () => {
+export const SyncStatusIndicator = memo(() => {
   const isOnline = useConnectivity() === 'online';
   const { processSyncQueue } = useOfflineSync();
   const [syncQueueCount, setSyncQueueCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncStatus, setLastSyncStatus] = useState<'success' | 'error' | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const mountedRef = useRef(true);
 
-  // Check sync queue periodically
+  // Check sync queue periodically - less frequently when nothing to sync
   useEffect(() => {
+    mountedRef.current = true;
+    
     const checkQueue = async () => {
+      if (!mountedRef.current) return;
       try {
         const queue = await offlineStorage.getSyncQueue();
-        setSyncQueueCount(queue.length);
+        if (mountedRef.current) {
+          setSyncQueueCount(queue.length);
+        }
       } catch (error) {
         console.error('Error checking sync queue:', error);
       }
     };
+    
     checkQueue();
-    const interval = setInterval(checkQueue, 2000); // Check every 2 seconds
+    // Check every 5 seconds instead of 2 - reduces CPU usage
+    const interval = setInterval(checkQueue, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Monitor syncing status when coming online - SILENT mode
@@ -99,4 +110,4 @@ export const SyncStatusIndicator = () => {
   }
   
   return null;
-};
+});

@@ -1,14 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useLocationFeature = () => {
-  const [isLocationEnabled, setIsLocationEnabled] = useState(false); // Default to false to prevent flickering
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['feature-flag', 'location_check_in_enabled'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('feature_flags')
+        .select('is_enabled')
+        .eq('feature_key', 'location_check_in_enabled')
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error loading location feature settings:', error);
+        return false;
+      }
+      return data?.is_enabled ?? false;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
+  // Subscribe to changes in feature flags
   useEffect(() => {
-    loadSettings();
-    
-    // Subscribe to changes in feature flags
     const channel = supabase
       .channel('location-feature-changes')
       .on('postgres_changes', {
@@ -18,7 +37,7 @@ export const useLocationFeature = () => {
         filter: 'feature_key=eq.location_check_in_enabled'
       }, (payload) => {
         if (payload.new && 'is_enabled' in payload.new) {
-          setIsLocationEnabled(payload.new.is_enabled as boolean);
+          queryClient.setQueryData(['feature-flag', 'location_check_in_enabled'], payload.new.is_enabled);
         }
       })
       .subscribe();
@@ -26,22 +45,7 @@ export const useLocationFeature = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
 
-  const loadSettings = async () => {
-    const { data, error } = await supabase
-      .from('feature_flags')
-      .select('is_enabled')
-      .eq('feature_key', 'location_check_in_enabled')
-      .maybeSingle();
-    
-    if (error) {
-      console.error('Error loading location feature settings:', error);
-    } else if (data) {
-      setIsLocationEnabled(data.is_enabled);
-    }
-    setLoading(false);
-  };
-
-  return { isLocationEnabled, loading };
+  return { isLocationEnabled: data ?? false, loading };
 };
